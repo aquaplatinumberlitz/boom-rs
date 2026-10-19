@@ -688,8 +688,66 @@ pub fn load(dir: &Path) -> Result<Bundle, BundleError> {
                 computed: actual,
             });
         }
+        // Kích thước trang trong metadata phải khớp header PNG thật.
+        let (width, height) = png_size(&data)?;
+        if width != page.width || height != page.height {
+            return Err(BundleError::Png(format!(
+                "trang {} có kích thước PNG {width}x{height}, metadata ghi {}x{}",
+                page.file, page.width, page.height
+            )));
+        }
     }
     Ok(bundle)
+}
+
+/// Kích thước ảnh PNG: đọc chunk IHDR đầu tiên (8 byte signature + length + type +
+/// 13 byte dữ liệu + 4 byte CRC).
+///
+/// Chỉ đọc header: reader không giải ảnh, client giải khi nạp texture. CRC của chunk
+/// IHDR được kiểm để header hỏng không lọt qua.
+fn png_size(data: &[u8]) -> Result<(u32, u32), BundleError> {
+    const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    if data.len() < 33 {
+        return Err(BundleError::Png("file atlas quá ngắn để là PNG".to_owned()));
+    }
+    if data[..8] != SIGNATURE {
+        return Err(BundleError::Png(
+            "file atlas không có signature PNG".to_owned(),
+        ));
+    }
+    let length = u32::from_be_bytes([data[8], data[9], data[10], data[11]]);
+    if &data[12..16] != b"IHDR" || length != 13 {
+        return Err(BundleError::Png(
+            "chunk đầu tiên của file atlas không phải IHDR".to_owned(),
+        ));
+    }
+    let expected = u32::from_be_bytes([data[29], data[30], data[31], data[32]]);
+    let computed = crc32_ieee(&data[12..29]);
+    if expected != computed {
+        return Err(BundleError::Png(format!(
+            "CRC chunk IHDR sai: file ghi {expected:#010x}, tính {computed:#010x}"
+        )));
+    }
+    Ok((
+        u32::from_be_bytes([data[16], data[17], data[18], data[19]]),
+        u32::from_be_bytes([data[20], data[21], data[22], data[23]]),
+    ))
+}
+
+/// CRC-32 chuẩn của PNG (đa thức `0xEDB88320`, đảo kết quả).
+fn crc32_ieee(data: &[u8]) -> u32 {
+    let mut crc = 0xFFFF_FFFFu32;
+    for &byte in data {
+        crc ^= u32::from(byte);
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 {
+                (crc >> 1) ^ 0xEDB8_8320
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
 }
 
 /// Lỗi khi đọc hoặc kiểm bundle.
@@ -727,6 +785,8 @@ pub enum BundleError {
         /// Hash tính lại từ file.
         computed: String,
     },
+    /// File atlas không phải PNG hợp lệ, hoặc kích thước không khớp metadata.
+    Png(String),
     /// Tham chiếu trong metadata không nhất quán.
     Reference(String),
 }
@@ -752,6 +812,7 @@ impl fmt::Display for BundleError {
                 f,
                 "file {file} không khớp SHA-256: metadata ghi {recorded}, file tính {computed}"
             ),
+            Self::Png(e) => write!(f, "file atlas không hợp lệ: {e}"),
             Self::Reference(e) => write!(f, "bundle không nhất quán: {e}"),
         }
     }
@@ -1094,5 +1155,91 @@ mod tests {
         let mut bundle = sample_bundle();
         bundle.cells.clear();
         assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// File PNG tối thiểu: signature + chunk IHDR (13 byte dữ liệu + CRC).
+    fn minimal_png(width: u32, height: u32) -> Vec<u8> {
+        let mut data: Vec<u8> = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+        data.extend_from_slice(&13u32.to_be_bytes());
+        data.extend_from_slice(b"IHDR");
+        data.extend_from_slice(&width.to_be_bytes());
+        data.extend_from_slice(&height.to_be_bytes());
+        data.extend_from_slice(&[8, 6, 0, 0, 0]); // bit depth, RGBA, nén, lọc, xen kẽ
+        let crc = crc32_ieee(&data[12..29]);
+        data.extend_from_slice(&crc.to_be_bytes());
+        data
+    }
+
+    /// Thư mục tạm cho test; tự xoá khi test xong.
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("boom-content-bundle-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("tạo thư mục tạm");
+        dir
+    }
+
+    /// Reader nạp lại bundle từ đĩa: file atlas phải tồn tại, khớp hash và khớp kích thước.
+    #[test]
+    fn load_checks_files_hashes_and_png_size() {
+        let dir = temp_dir("load");
+        let atlas_dir = dir.join(ATLAS_DIR);
+        std::fs::create_dir_all(&atlas_dir).expect("tạo thư mục atlas");
+        let png = minimal_png(64, 64);
+        std::fs::write(atlas_dir.join("page-000.png"), &png).expect("ghi PNG");
+
+        let mut bundle = sample_bundle();
+        bundle.atlas[0].sha256 = sha256_hex(&png);
+        bundle.content_hash = bundle.compute_content_hash();
+        std::fs::write(
+            dir.join(METADATA_FILE),
+            bundle.to_toml().expect("xuất TOML"),
+        )
+        .expect("ghi metadata");
+
+        let loaded = load(&dir).expect("nạp lại bundle");
+        assert_eq!(loaded.content_hash, bundle.content_hash);
+
+        // PNG hỏng → báo lỗi, không âm thầm bỏ qua.
+        let mut broken = png.clone();
+        broken[20] ^= 0xFF; // đổi byte trong dữ liệu IHDR → CRC sai
+        std::fs::write(atlas_dir.join("page-000.png"), &broken).expect("ghi PNG hỏng");
+        assert!(matches!(load(&dir), Err(BundleError::FileHash { .. })));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Metadata khai kích thước trang khác kích thước PNG thật thì bị từ chối.
+    #[test]
+    fn load_rejects_page_size_that_does_not_match_the_png() {
+        let dir = temp_dir("size");
+        let atlas_dir = dir.join(ATLAS_DIR);
+        std::fs::create_dir_all(&atlas_dir).expect("tạo thư mục atlas");
+        let png = minimal_png(64, 64);
+        std::fs::write(atlas_dir.join("page-000.png"), &png).expect("ghi PNG");
+
+        let mut bundle = sample_bundle();
+        bundle.atlas[0].sha256 = sha256_hex(&png);
+        bundle.content_hash = bundle.compute_content_hash();
+        std::fs::write(
+            dir.join(METADATA_FILE),
+            bundle.to_toml().expect("xuất TOML"),
+        )
+        .expect("ghi metadata");
+        assert!(load(&dir).is_ok());
+
+        // File PNG nhỏ hơn kích thước khai trong metadata → bị từ chối.
+        let smaller = minimal_png(64, 32);
+        std::fs::write(atlas_dir.join("page-000.png"), &smaller).expect("ghi PNG");
+        bundle.atlas[0].sha256 = sha256_hex(&smaller);
+        bundle.content_hash = bundle.compute_content_hash();
+        std::fs::write(
+            dir.join(METADATA_FILE),
+            bundle.to_toml().expect("xuất TOML"),
+        )
+        .expect("ghi metadata");
+        assert!(matches!(load(&dir), Err(BundleError::Png(_))));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

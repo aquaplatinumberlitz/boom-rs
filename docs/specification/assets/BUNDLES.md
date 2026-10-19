@@ -145,7 +145,10 @@ thứ tự ảnh theo thứ tự blob gốc, và thuật toán đóng gói atlas
    lý do — không ô nào bị bỏ qua âm thầm.
 5. Mọi mục `unknown` đều có lý do; mọi `id` của sprite là duy nhất.
 
-Đây là kiểm tra *siêu hình*; reader **không** giải PNG (client giải khi nạp texture) và
+`load()` kiểm thêm: file atlas tồn tại, SHA-256 khớp `sha256` ghi trong metadata, và
+header PNG (chunk IHDR, có CRC) cho kích thước đúng bằng `width`/`height` của trang.
+
+Đây là kiểm tra *siêu hình*; reader **không** giải ảnh (client giải khi nạp texture) và
 không kiểm ngữ nghĩa field frame (`f2` vẫn chưa chốt, xem [MAPS §3](MAPS.md)).
 
 ## 6. Đo trên pack KR 00967 (2026-10-19)
