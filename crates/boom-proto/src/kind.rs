@@ -71,8 +71,26 @@ pub enum MessageKind {
     RoundEvents = 0x0030,
     /// C→S: lệnh phòng (dành cho task backend; ADR 0009 chưa định nghĩa).
     RoomCommand = 0x0040,
-    /// S→C: trạng thái phòng (dành cho task backend; ADR 0009 chưa định nghĩa).
+    /// S→C: trạng thái phòng (ADR 0009 Addendum B).
     RoomState = 0x0041,
+    /// C→S: xin danh sách phòng sảnh (ADR 0009 Addendum B).
+    LobbyListRequest = 0x0042,
+    /// S→C: danh sách phòng + số người (ADR 0009 Addendum B).
+    LobbyList = 0x0043,
+    /// C→S: chat phòng (ADR 0009 Addendum B).
+    RoomChat = 0x0044,
+    /// S→C: chat phòng đã nhận (ADR 0009 Addendum B).
+    RoomChatMessage = 0x0045,
+    /// C→S: client đã sẵn sàng vào round (ADR 0009 Addendum B).
+    LoadingAck = 0x0046,
+    /// C→S: client đã nhận kết quả (ADR 0009 Addendum B).
+    ResultAck = 0x0047,
+    /// S→C: bắt đầu round, seed/rules/map/roster (ADR 0009 Addendum B).
+    RoundStart = 0x0048,
+    /// S→C: kết quả round (ADR 0009 Addendum B).
+    RoundResult = 0x0049,
+    /// S→C: lệnh phòng bị từ chối (ADR 0009 Addendum B).
+    RoomRejected = 0x004A,
     /// C→S: cây hỏi sức khoẻ runtime qua admin listener loopback (ADR 0011 §8.2.1).
     HealthRequest = 0x0050,
     /// S→C: trả lời sức khoẻ runtime qua admin listener loopback (ADR 0011 §8.2.1).
@@ -99,6 +117,15 @@ impl MessageKind {
             0x0030 => Self::RoundEvents,
             0x0040 => Self::RoomCommand,
             0x0041 => Self::RoomState,
+            0x0042 => Self::LobbyListRequest,
+            0x0043 => Self::LobbyList,
+            0x0044 => Self::RoomChat,
+            0x0045 => Self::RoomChatMessage,
+            0x0046 => Self::LoadingAck,
+            0x0047 => Self::ResultAck,
+            0x0048 => Self::RoundStart,
+            0x0049 => Self::RoundResult,
+            0x004A => Self::RoomRejected,
             0x0050 => Self::HealthRequest,
             0x0051 => Self::HealthResponse,
             _ => return None,
@@ -112,10 +139,27 @@ impl MessageKind {
 
     /// Kind đã có payload định nghĩa ở V1 chưa.
     ///
-    /// `RoomCommand`/`RoomState` có mã trong bảng nhưng ADR 0009 chưa định nghĩa payload; chúng thuộc
-    /// task backend (#13) nên crate này từ chối chứ không đoán.
+    /// Toàn bộ kind room đã được định nghĩa ở Addendum B; kind lạ vẫn bị `from_u16` từ chối.
     pub const fn is_defined(self) -> bool {
-        !matches!(self, Self::RoomCommand | Self::RoomState)
+        true
+    }
+
+    /// Kind thuộc nhóm phòng/sảnh (Addendum B); chỉ hợp lệ sau `AuthOk`.
+    pub const fn is_room(self) -> bool {
+        matches!(
+            self,
+            Self::RoomCommand
+                | Self::RoomState
+                | Self::LobbyListRequest
+                | Self::LobbyList
+                | Self::RoomChat
+                | Self::RoomChatMessage
+                | Self::LoadingAck
+                | Self::ResultAck
+                | Self::RoundStart
+                | Self::RoundResult
+                | Self::RoomRejected
+        )
     }
 
     /// Kênh mà kind này thuộc (ADR 0009 Addendum A §A.1).
@@ -137,6 +181,10 @@ impl MessageKind {
             | Self::InputBatch
             | Self::SnapshotRequest
             | Self::RoomCommand
+            | Self::LobbyListRequest
+            | Self::RoomChat
+            | Self::LoadingAck
+            | Self::ResultAck
             | Self::HealthRequest => Direction::ClientToServer,
             Self::Welcome
             | Self::Reject
@@ -146,6 +194,11 @@ impl MessageKind {
             | Self::Snapshot
             | Self::RoundEvents
             | Self::RoomState
+            | Self::LobbyList
+            | Self::RoomChatMessage
+            | Self::RoundStart
+            | Self::RoundResult
+            | Self::RoomRejected
             | Self::HealthResponse => Direction::ServerToClient,
             Self::Ping | Self::Pong => Direction::Both,
         }
@@ -201,6 +254,15 @@ mod tests {
             MessageKind::RoundEvents,
             MessageKind::RoomCommand,
             MessageKind::RoomState,
+            MessageKind::LobbyListRequest,
+            MessageKind::LobbyList,
+            MessageKind::RoomChat,
+            MessageKind::RoomChatMessage,
+            MessageKind::LoadingAck,
+            MessageKind::ResultAck,
+            MessageKind::RoundStart,
+            MessageKind::RoundResult,
+            MessageKind::RoomRejected,
             MessageKind::HealthRequest,
             MessageKind::HealthResponse,
         ] {
@@ -227,10 +289,25 @@ mod tests {
     }
 
     #[test]
-    fn room_kinds_are_known_but_not_defined() {
-        assert!(!MessageKind::RoomCommand.is_defined());
-        assert!(!MessageKind::RoomState.is_defined());
-        assert!(MessageKind::Snapshot.is_defined());
+    fn room_kinds_are_defined_after_addendum_b() {
+        for kind in [
+            MessageKind::RoomCommand,
+            MessageKind::RoomState,
+            MessageKind::LobbyListRequest,
+            MessageKind::LobbyList,
+            MessageKind::RoomChat,
+            MessageKind::RoomChatMessage,
+            MessageKind::LoadingAck,
+            MessageKind::ResultAck,
+            MessageKind::RoundStart,
+            MessageKind::RoundResult,
+            MessageKind::RoomRejected,
+        ] {
+            assert!(kind.is_defined());
+            assert!(kind.is_room());
+            assert_eq!(kind.channel(), Channel::Game);
+        }
+        assert!(!MessageKind::HealthRequest.is_room());
     }
 
     /// Kênh game không nhận kind health; admin listener chỉ nhận `HealthRequest`.
