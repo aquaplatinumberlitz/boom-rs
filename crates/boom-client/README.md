@@ -13,16 +13,19 @@ cargo run -p boom-client -- --rebind up=W --rebind bomb=J
 ```
 
 Mặc định: mũi tên di chuyển, `Space` đặt bom, `S` đổi 1×/2×, `Esc` thoát. `F2` giả lập mất focus
-để kiểm nhánh nhả phím. Runtime cũng đăng ký subscriber `WindowMinimized` của macroquad để gọi
-`focus_lost` ngay cả khi backend không bắn key-up (macroquad vẫn tự xóa phím đang giữ).
+để kiểm nhánh nhả phím. Runtime dùng `InputAdapter` đăng ký subscriber event của macroquad
+(`key_down_event`/`key_up_event`/`WindowMinimized`) và đưa event theo **đúng thứ tự** vào tracker;
+không suy trạng thái phím từ ảnh chụp cuối frame.
 
 ## Input
 
-- Quy ước V1-033 (design, chưa có claim RULES/SCOPE): hướng = **phím hướng được nhấn gần nhất**
-  trong các phím còn giữ; nhả phím đó thì quay về phím còn giữ gần nhất kế tiếp. Đây là policy
-  input/UI, không phải giá trị luật trong `Rules`; V1-011 còn mở phần ưu tiên và cần chốt claim.
+- Chính sách **R-080** trong [RULES_V1](../../docs/specification/gameplay/RULES_V1.md): hướng =
+  **phím hướng được nhấn gần nhất theo thứ tự event** trong các phím còn giữ; bỏ autorepeat;
+  release rồi press lại giữa hai frame vẫn tạo cạnh bom mới; mất focus xóa toàn bộ phím đang giữ
+  và cạnh chờ. Đây là `design` của dự án, không phải claim `confirmed` KR/VN.
+- Event đi qua `InputAdapter` theo thứ tự backend; test dùng đúng adapter/queue này, không chỉ gọi
+  `key_down`/`key_up` thủ công.
 - Đặt bom là **cạnh nhấn**, không lặp khi giữ phím.
-- Mất focus/backend báo không còn phím down → xóa toàn bộ phím đang giữ, input về neutral.
 - Rebind hoán đổi nếu phím đã thuộc action khác, để không có hai action cùng một phím.
 
 ## Scene offline
@@ -50,12 +53,13 @@ cargo clippy -p boom-client --all-targets -- -D warnings
 cargo fmt -p boom-client -- --check
 ```
 
-Test input không cần cửa sổ: thứ tự ưu tiên, nhả phím, focus-loss, cạnh bom, rebind/hoán đổi.
-Test scene offline dựng `World`/`SimulationState` và chạy tick mà không mở cửa sổ.
+Test input không cần cửa sổ: thứ tự event/adapter, autorepeat, release/repress, focus-loss, cạnh bom,
+rebind/hoán đổi. Test scene offline dựng `World`/`SimulationState` và chạy tick mà không mở cửa sổ.
 
 ## Còn thiếu
 
-- Ưu tiên giữ nhiều phím mới là design; cần claim RULES/SCOPE khi V1-011 chốt.
+- R-080 là `design`; chưa có trace client KR/VN cho thứ tự ưu tiên. Khi có trace, cập nhật claim
+  thay vì tự nhận `confirmed`.
 - Chưa có bundle content: chỉ số/địa hình placeholder, chưa vẽ nhân vật/bom/lửa theo asset.
 - Chưa có mạng, prediction, âm thanh; chưa chạy runtime Windows/macOS (CI chỉ build/check).
 - Focus dựa vào `WindowMinimized`/key-up của macroquad; X11 đã kiểm, Wayland/focus thật trên macOS/Windows

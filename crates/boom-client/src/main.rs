@@ -20,7 +20,7 @@ use macroquad::material::{
 use macroquad::miniquad::{PipelineParams, ShaderSource};
 use macroquad::prelude::*;
 
-use input::{InputAction, InputTracker, Keybinds};
+use input::{InputAction, InputAdapter, InputEvent, InputTracker, Keybinds};
 
 const HUD_HEIGHT: f32 = 40.0;
 const MAP_WIDTH: u16 = 15;
@@ -163,21 +163,6 @@ fn load_copy_material() -> Material {
     .expect("copy material")
 }
 
-#[derive(Default)]
-struct FocusWatcher {
-    lost: bool,
-}
-
-impl macroquad::miniquad::EventHandler for FocusWatcher {
-    fn update(&mut self) {}
-
-    fn draw(&mut self) {}
-
-    fn window_minimized_event(&mut self) {
-        self.lost = true;
-    }
-}
-
 struct Game {
     world: World,
     state: SimulationState,
@@ -258,17 +243,13 @@ async fn run(mut game: Game, opts: Options) {
     let mut accumulator = 0.0;
     let mut last = get_time();
     let mut frame = 0u32;
-    let mut focus = FocusWatcher::default();
-    let focus_subscriber = macroquad::input::utils::register_input_subscriber();
+    let mut input_adapter = InputAdapter::default();
+    let input_subscriber = macroquad::input::utils::register_input_subscriber();
 
     loop {
-        // Macroquad phát WindowMinimized khi cửa sổ mất focus/restore. Đọc subscriber trước khi
-        // đồng bộ phím để nhánh focus-loss không phụ thuộc việc backend có bắn key-up hay không.
-        macroquad::input::utils::repeat_all_miniquad_input(&mut focus, focus_subscriber);
-        if focus.lost {
-            game.input.focus_lost();
-            focus.lost = false;
-        }
+        // Lấy event theo đúng thứ tự macroquad đã nhận từ backend (key-down/up, WindowMinimized).
+        macroquad::input::utils::repeat_all_miniquad_input(&mut input_adapter, input_subscriber);
+        input_adapter.drain_into(&mut game.input);
         let now = get_time();
         let delta = if opts.snapshot.is_some() {
             0.0
@@ -276,8 +257,6 @@ async fn run(mut game: Game, opts: Options) {
             (now - last).min(0.25)
         };
         last = now;
-
-        game.input.sync(is_key_pressed, is_key_down);
 
         if opts.snapshot.is_none() {
             if is_key_pressed(KeyCode::Escape) {
@@ -292,7 +271,7 @@ async fn run(mut game: Game, opts: Options) {
             }
             // Phím debug để kiểm nhánh focus-loss ngay cả khi cửa sổ không mất focus thật.
             if is_key_pressed(KeyCode::F2) {
-                game.input.focus_lost();
+                game.input.apply(InputEvent::FocusLost);
             }
 
             accumulator += delta;
@@ -601,7 +580,6 @@ fn parse_key(value: &str) -> Result<KeyCode, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use macroquad::miniquad::EventHandler;
 
     #[test]
     fn rebind_spec_parses_actions_and_keys() {
@@ -612,16 +590,6 @@ mod tests {
         assert_eq!(parse_key("space").unwrap(), KeyCode::Space);
         assert_eq!(parse_key("arrowleft").unwrap(), KeyCode::Left);
         assert!(parse_key("nope").is_err());
-    }
-
-    #[test]
-    fn focus_watcher_marks_lost_on_window_minimized() {
-        let mut watcher = FocusWatcher::default();
-        watcher.window_minimized_event();
-        assert!(watcher.lost);
-        watcher.lost = false;
-        watcher.window_restored_event();
-        assert!(!watcher.lost);
     }
 
     #[test]

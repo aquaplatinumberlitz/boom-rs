@@ -1,11 +1,11 @@
 //! Input map và bộ theo dõi phím cho client V1 — không phụ thuộc cửa sổ.
 //!
-//! Quy ước thiết kế V1-033: hướng đang dùng là **phím hướng được nhấn gần nhất trong các phím
-//! còn giữ** (last-pressed wins); nhả phím đó thì quay về phím còn giữ gần nhất kế tiếp. Khi mất
-//! focus, toàn bộ phím đang giữ bị xóa nên input về neutral. Đây là policy input/UI, không phải
-//! giá trị luật trong `Rules`; RULES/SCOPE hiện chưa có claim ưu tiên (V1-011 còn mở), nên policy
-//! được ghi thành DESIGN ở đây và phải được chốt khi V1-011 cập nhật.
+//! Policy input V1-033 được chốt ở `RULES_V1` **R-080** (DESIGN, không phải confirmed KR):
+//! hướng = **last-pressed theo thứ tự sự kiện** trong các phím còn giữ; bỏ autorepeat; release rồi
+//! repress giữa hai frame vẫn tạo cạnh bom mới; mất focus xóa toàn bộ phím đang giữ và cạnh chưa
+//! tiêu thụ. Adapter nhận event từ backend theo đúng thứ tự, không suy từ trạng thái cuối frame.
 
+use macroquad::miniquad::{EventHandler, KeyMods};
 use macroquad::prelude::KeyCode;
 
 use boom_core::Dir;
@@ -73,10 +73,6 @@ impl Keybinds {
             .find(|&action| self.key(action) == key)
     }
 
-    pub fn keys(self) -> [KeyCode; 5] {
-        [self.up, self.down, self.left, self.right, self.bomb]
-    }
-
     /// Đổi phím cho một hành động. Nếu phím đã thuộc hành động khác thì hoán đổi phím cũ của
     /// hành động này sang hành động kia, để không có hai hành động cùng một phím.
     pub fn rebind(&mut self, action: InputAction, key: KeyCode) {
@@ -97,6 +93,53 @@ impl Keybinds {
             InputAction::Right => self.right = key,
             InputAction::Bomb => self.bomb = key,
         }
+    }
+}
+
+/// Một sự kiện bàn phím/focus được adapter đưa vào tracker.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InputEvent {
+    KeyDown(KeyCode),
+    KeyUp(KeyCode),
+    FocusLost,
+}
+
+/// Adapter nối event handler của macroquad với [`InputTracker`].
+///
+/// `macroquad::input::utils::repeat_all_miniquad_input` gọi các hàm này theo đúng thứ tự event
+/// trong frame. Adapter bỏ `repeat=true` (autorepeat), nên release rồi press lại vẫn sinh hai
+/// event khác nhau.
+#[derive(Default, Debug)]
+pub struct InputAdapter {
+    events: Vec<InputEvent>,
+}
+
+impl InputAdapter {
+    /// Đẩy toàn bộ event đã nhận vào tracker theo thứ tự, rồi xóa hàng đợi.
+    pub fn drain_into(&mut self, input: &mut InputTracker) {
+        for event in self.events.drain(..) {
+            input.apply(event);
+        }
+    }
+}
+
+impl EventHandler for InputAdapter {
+    fn update(&mut self) {}
+
+    fn draw(&mut self) {}
+
+    fn key_down_event(&mut self, keycode: KeyCode, _keymods: KeyMods, repeat: bool) {
+        if !repeat {
+            self.events.push(InputEvent::KeyDown(keycode));
+        }
+    }
+
+    fn key_up_event(&mut self, keycode: KeyCode, _keymods: KeyMods) {
+        self.events.push(InputEvent::KeyUp(keycode));
+    }
+
+    fn window_minimized_event(&mut self) {
+        self.events.push(InputEvent::FocusLost);
     }
 }
 
@@ -139,41 +182,34 @@ impl InputTracker {
         &self.held
     }
 
-    pub fn key_down(&mut self, key: KeyCode) {
-        if self.held.contains(&key) {
-            return;
-        }
-        self.held.push(key);
-        if key == self.binds.bomb {
-            self.bomb_edge = true;
+    /// Áp một event theo thứ tự backend. Không dựa vào trạng thái cuối frame.
+    pub fn apply(&mut self, event: InputEvent) {
+        match event {
+            InputEvent::KeyDown(key) => {
+                if self.held.contains(&key) {
+                    return;
+                }
+                self.held.push(key);
+                if key == self.binds.bomb {
+                    self.bomb_edge = true;
+                }
+            }
+            InputEvent::KeyUp(key) => self.held.retain(|&held| held != key),
+            InputEvent::FocusLost => self.focus_lost(),
         }
     }
 
-    pub fn key_up(&mut self, key: KeyCode) {
-        self.held.retain(|&held| held != key);
+    #[cfg(test)]
+    pub fn apply_all(&mut self, events: &[InputEvent]) {
+        for &event in events {
+            self.apply(event);
+        }
     }
 
     /// Mất focus: nhả mọi phím và bỏ cạnh bom chưa tiêu thụ.
     pub fn focus_lost(&mut self) {
         self.held.clear();
         self.bomb_edge = false;
-    }
-
-    /// Đọc trạng thái phím từ backend (macroquad) mỗi frame.
-    ///
-    /// `pressed`/`down` là các hàm `is_key_pressed`/`is_key_down`; gọi `focus_lost` không cần thiết
-    /// khi backend đã báo phím nhả, nhưng vẫn giữ API cho test và cho backend khác.
-    pub fn sync(&mut self, pressed: impl Fn(KeyCode) -> bool, down: impl Fn(KeyCode) -> bool) {
-        for key in self.binds.keys() {
-            if pressed(key) {
-                self.key_down(key);
-            }
-        }
-        for key in self.binds.keys() {
-            if !down(key) {
-                self.key_up(key);
-            }
-        }
     }
 
     /// Hướng hiện tại: phím hướng còn giữ được nhấn gần nhất.
@@ -202,6 +238,10 @@ impl InputTracker {
 mod tests {
     use super::*;
 
+    fn key_mods() -> KeyMods {
+        KeyMods::default()
+    }
+
     #[test]
     fn defaults_are_arrows_and_space() {
         let binds = Keybinds::default();
@@ -213,44 +253,95 @@ mod tests {
     }
 
     #[test]
-    fn last_pressed_direction_wins_and_release_falls_back() {
+    fn event_order_wins_across_same_frame_reverse_bindings() {
         let binds = Keybinds::default();
         let mut input = InputTracker::new(binds);
-        input.key_down(binds.up);
+        input.apply_all(&[
+            InputEvent::KeyDown(binds.right),
+            InputEvent::KeyDown(binds.up),
+        ]);
         assert_eq!(input.direction(), Dir::Up);
-        input.key_down(binds.right);
+
+        let mut input = InputTracker::new(binds);
+        input.apply_all(&[
+            InputEvent::KeyDown(binds.up),
+            InputEvent::KeyDown(binds.right),
+        ]);
         assert_eq!(input.direction(), Dir::Right);
-        input.key_down(binds.left);
-        assert_eq!(input.direction(), Dir::Left);
-        input.key_up(binds.left);
-        assert_eq!(input.direction(), Dir::Right);
-        input.key_up(binds.right);
-        assert_eq!(input.direction(), Dir::Up);
-        input.key_up(binds.up);
-        assert_eq!(input.direction(), Dir::None);
     }
 
     #[test]
-    fn opposite_keys_use_last_pressed_not_fixed_priority() {
+    fn release_falls_back_to_previous_held_direction() {
         let binds = Keybinds::default();
         let mut input = InputTracker::new(binds);
-        input.key_down(binds.up);
-        input.key_down(binds.down);
-        assert_eq!(input.direction(), Dir::Down);
-        input.key_up(binds.down);
+        input.apply_all(&[
+            InputEvent::KeyDown(binds.up),
+            InputEvent::KeyDown(binds.right),
+            InputEvent::KeyDown(binds.left),
+        ]);
+        assert_eq!(input.direction(), Dir::Left);
+        input.apply(InputEvent::KeyUp(binds.left));
+        assert_eq!(input.direction(), Dir::Right);
+        input.apply(InputEvent::KeyUp(binds.right));
         assert_eq!(input.direction(), Dir::Up);
+        input.apply(InputEvent::KeyUp(binds.up));
+        assert_eq!(input.direction(), Dir::None);
     }
 
     #[test]
     fn focus_loss_releases_everything_and_bomb_edge() {
         let binds = Keybinds::default();
         let mut input = InputTracker::new(binds);
-        input.key_down(binds.up);
-        input.key_down(binds.bomb);
+        input.apply_all(&[
+            InputEvent::KeyDown(binds.up),
+            InputEvent::KeyDown(binds.bomb),
+        ]);
         assert_eq!(input.direction(), Dir::Up);
         assert!(input.take_bomb());
-        input.key_down(binds.bomb);
-        input.focus_lost();
+        input.apply(InputEvent::KeyDown(binds.bomb)); // vẫn held: không tạo cạnh mới
+        input.apply(InputEvent::FocusLost);
+        assert_eq!(input.direction(), Dir::None);
+        assert!(input.held().is_empty());
+        assert!(!input.take_bomb());
+    }
+
+    #[test]
+    fn adapter_repress_between_frames_keeps_bomb_edge() {
+        let binds = Keybinds::default();
+        let mut input = InputTracker::new(binds);
+        let mut adapter = InputAdapter::default();
+        adapter.key_down_event(binds.bomb, key_mods(), false);
+        adapter.drain_into(&mut input);
+        assert!(input.take_bomb());
+
+        // Giữa hai frame: key-up rồi key-down trước khi frame sau đọc trạng thái.
+        adapter.key_up_event(binds.bomb, key_mods());
+        adapter.key_down_event(binds.bomb, key_mods(), false);
+        adapter.drain_into(&mut input);
+        assert!(input.take_bomb());
+    }
+
+    #[test]
+    fn adapter_ignores_autorepeat() {
+        let binds = Keybinds::default();
+        let mut input = InputTracker::new(binds);
+        let mut adapter = InputAdapter::default();
+        adapter.key_down_event(binds.up, key_mods(), false);
+        adapter.key_down_event(binds.up, key_mods(), true);
+        assert_eq!(adapter.events, vec![InputEvent::KeyDown(binds.up)]);
+        adapter.drain_into(&mut input);
+        assert_eq!(input.direction(), Dir::Up);
+    }
+
+    #[test]
+    fn adapter_focus_event_clears_held_and_pending_bomb() {
+        let binds = Keybinds::default();
+        let mut input = InputTracker::new(binds);
+        let mut adapter = InputAdapter::default();
+        adapter.key_down_event(binds.up, key_mods(), false);
+        adapter.key_down_event(binds.bomb, key_mods(), false);
+        adapter.window_minimized_event();
+        adapter.drain_into(&mut input);
         assert_eq!(input.direction(), Dir::None);
         assert!(input.held().is_empty());
         assert!(!input.take_bomb());
@@ -260,13 +351,13 @@ mod tests {
     fn bomb_is_an_edge_not_a_held_state() {
         let binds = Keybinds::default();
         let mut input = InputTracker::new(binds);
-        input.key_down(binds.bomb);
+        input.apply(InputEvent::KeyDown(binds.bomb));
         assert!(input.take_bomb());
         assert!(!input.take_bomb());
-        input.key_down(binds.bomb); // repeat while held: không tạo cạnh mới
+        input.apply(InputEvent::KeyDown(binds.bomb)); // duplicate/repeat
         assert!(!input.take_bomb());
-        input.key_up(binds.bomb);
-        input.key_down(binds.bomb);
+        input.apply(InputEvent::KeyUp(binds.bomb));
+        input.apply(InputEvent::KeyDown(binds.bomb));
         assert!(input.take_bomb());
     }
 
@@ -282,17 +373,5 @@ mod tests {
         assert_eq!(binds.up, KeyCode::Down);
         assert_eq!(binds.action_for(KeyCode::W), Some(InputAction::Down));
         assert_eq!(binds.action_for(KeyCode::Down), Some(InputAction::Up));
-    }
-
-    #[test]
-    fn sync_releases_when_backend_loses_focus() {
-        let binds = Keybinds::default();
-        let mut input = InputTracker::new(binds);
-        input.sync(|key| key == binds.right, |key| key == binds.right);
-        assert_eq!(input.direction(), Dir::Right);
-        // Focus loss: backend báo không còn phím nào down.
-        input.sync(|_| false, |_| false);
-        assert_eq!(input.direction(), Dir::None);
-        assert!(input.held().is_empty());
     }
 }
