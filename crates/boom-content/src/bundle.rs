@@ -1,9 +1,11 @@
-//! Bundle nội dung: ảnh (atlas) + metadata ô của map + clip animation, đóng gói cho client.
+//! Bundle nội dung: ảnh (atlas) + metadata ô của map + clip animation + bảng UI,
+//! đóng gói cho client.
 //!
 //! Bundle là **output cục bộ** của `boom-assets bundle` (không commit vào repo). Nó gom
 //! ảnh đã giải mã từ pack KR thành các trang atlas PNG, kèm metadata ánh xạ ô của map →
-//! sprite/frame, kích thước, canvas và pivot, **và** clip animation của V1 (schema 2) —
-//! dãi frame, canvas, pivot và thời lượng. Client đọc bundle bằng kiểu ở đây, **không
+//! sprite/frame, kích thước, canvas và pivot, **clip animation** của V1 (schema 2) —
+//! dãi frame, canvas, pivot và thời lượng — và **bảng UI** của luồng V1 (schema 3):
+//! màn hình, vai trò, trạng thái dùng và ảnh. Client đọc bundle bằng kiểu ở đây, **không
 //! cần bộ giải mã pack** (ARCHITECTURE §7).
 //!
 //! ## Phạm vi
@@ -12,10 +14,14 @@
 //!   [`crate::map::MapProfile`] (`data/maps/*.toml`) — một thông tin, một nguồn chuẩn
 //!   (AGENTS §3). Bundle không nhân bản loại ô.
 //! - Clip animation **không mang ảnh riêng**: ảnh của clip nằm trong sprite mà clip trỏ
-//!   tới, nên mỗi entry chỉ có một bản pixel trong atlas.
+//!   tới, nên mỗi entry chỉ có một bản pixel trong atlas. Bảng UI cũng vậy: ảnh của một
+//!   phần tử UI nằm trong sprite mà phần tử đó trỏ tới.
 //! - Thời lượng frame giữ đúng trạng thái bằng chứng: `unknown` không mang số; khi V1
 //!   chốt được nhịp, giá trị `design` đi kèm claim và nằm ở profile rules — không
 //!   hard-code trong bundle lẫn trong code.
+//! - Bảng UI **không có trạng thái "đã duyệt"**: một ảnh có chữ chỉ được hiển thị khi
+//!   người duyệt ảnh ký quyết định (quy trình [IMAGE_REVIEW]); tới lúc đó client vẽ
+//!   text từ catalog. Xem [`UiState`].
 //! - Định dạng bundle là quyết định **design** của dự án (ARCHITECTURE §8 "Định dạng
 //!   bundle content"), không phải định dạng của client gốc. Mô tả ở
 //!   `docs/specification/assets/BUNDLES.md`.
@@ -38,8 +44,15 @@ use serde::{Deserialize, Serialize};
 use crate::animation::{FrameTiming, PresentationState, SpriteLayer, source_name, status_name};
 use crate::rules::{Source, Status};
 
-/// Schema hiện hành của bundle nội dung (có clip animation).
-pub const SCHEMA: u32 = 2;
+/// Schema hiện hành của bundle nội dung (có clip animation và bảng UI).
+pub const SCHEMA: u32 = 3;
+
+/// Schema bundle có clip animation nhưng **không** có bảng UI.
+///
+/// Bundle schema này bị reader từ chối: client V1 cần biết phần tử UI nào dùng được,
+/// phần tử nào phải vẽ thay bằng text — đọc bundle không có bảng UI sẽ im lặng bỏ qua
+/// một phần nội dung. Dựng lại bằng `boom-assets bundle` là đủ.
+pub const SCHEMA_WITH_CLIPS: u32 = 2;
 
 /// Schema bundle chỉ có atlas + ô của map, **không** có clip animation.
 ///
@@ -59,6 +72,9 @@ pub const ROLE_TILE: &str = "tile";
 
 /// Vai trò sprite: vật cản của ô (ID obj trong file map).
 pub const ROLE_OBJECT: &str = "object";
+
+/// Vai trò sprite: ảnh của một phần tử UI của luồng V1.
+pub const ROLE_UI: &str = "ui";
 
 /// Trạng thái bằng chứng của một entry trong bundle (nhãn AGENTS §4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -225,6 +241,143 @@ pub struct Clip {
     pub frames: Vec<Frame>,
 }
 
+/// Màn hình của luồng V1 (đăng nhập → sảnh → phòng → trận → kết quả).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UiScreen {
+    /// Màn đăng nhập.
+    Login,
+    /// Sảnh danh sách phòng.
+    Lobby,
+    /// Phòng chờ.
+    Room,
+    /// Trong trận.
+    Match,
+    /// Màn kết quả.
+    Result,
+}
+
+impl UiScreen {
+    /// Khoá ổn định của màn hình — dùng cho mã hoá chuẩn (bundle `content_hash`).
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Login => "login",
+            Self::Lobby => "lobby",
+            Self::Room => "room",
+            Self::Match => "match",
+            Self::Result => "result",
+        }
+    }
+}
+
+/// Vai trò của một phần tử UI trong luồng V1.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UiRole {
+    /// Nền của màn hình.
+    Background,
+    /// Nút bấm (điều hướng hoặc hành động).
+    Button,
+    /// Hộp thoại.
+    Dialog,
+    /// Hình kết quả lượt (thắng/thua/hòa).
+    ResultArt,
+    /// Nhãn hoặc ô thông tin.
+    Info,
+}
+
+impl UiRole {
+    /// Khoá ổn định của vai trò — dùng cho mã hoá chuẩn (bundle `content_hash`).
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Background => "background",
+            Self::Button => "button",
+            Self::Dialog => "dialog",
+            Self::ResultArt => "result_art",
+            Self::Info => "info",
+        }
+    }
+}
+
+/// Trạng thái dùng của một phần tử UI.
+///
+/// Bundle **không có** trạng thái "đã duyệt": một ảnh có chữ chỉ được hiển thị khi
+/// người duyệt ảnh ký quyết định trong quy trình
+/// [IMAGE_REVIEW](https://github.com/aquaplatinumberlitz/boom-rs/blob/main/docs/specification/localization/IMAGE_REVIEW.md);
+/// tới lúc đó client vẽ text từ catalog theo
+/// [UI_STRINGS_V1](https://github.com/aquaplatinumberlitz/boom-rs/blob/main/docs/specification/localization/UI_STRINGS_V1.md).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UiState {
+    /// Có trong closure V1 và **không có chữ** cần duyệt: hiển thị được ngay.
+    Selected,
+    /// Có trong closure V1 nhưng **có chữ**: chỉ hiển thị khi ảnh được duyệt; chưa duyệt
+    /// thì client vẽ text từ catalog.
+    NeedsReviewText,
+    /// Không dùng asset này: ghi rõ lý do và cách thay thế (vẽ text hoặc màu).
+    Excluded,
+}
+
+impl UiState {
+    /// Khoá ổn định của trạng thái — dùng cho mã hoá chuẩn (bundle `content_hash`).
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Selected => "selected",
+            Self::NeedsReviewText => "needs_review_text",
+            Self::Excluded => "excluded",
+        }
+    }
+}
+
+/// Một phần tử UI của luồng V1 trong bundle: màn hình, vai trò, trạng thái dùng và ảnh.
+///
+/// Phần tử **không mang ảnh riêng**: ảnh nằm trong sprite mà [`UiElement::sprite`] trỏ
+/// tới (bảng `[[sprites]]`), nên mỗi entry chỉ có một bản pixel trong atlas — cùng nguyên
+/// tắc với clip animation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UiElement {
+    /// ID ổn định của phần tử UI, ví dụ `lobby.create`.
+    pub id: String,
+    /// Màn hình của luồng V1 dùng phần tử này.
+    pub screen: UiScreen,
+    /// Vai trò của phần tử.
+    pub role: UiRole,
+    /// Entry pack của asset KR; vắng khi V1 không dùng asset nào cho phần tử này.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry: Option<String>,
+    /// Trạng thái dùng.
+    pub state: UiState,
+    /// Lý do hoặc ghi chú; **bắt buộc** (không rỗng) cho mọi phần tử — mọi quyết định
+    /// dùng phải truy được, và phần tử chưa duyệt ảnh phải ghi rõ client vẽ text thay.
+    pub reason: String,
+    /// ID của sprite trong bảng `[[sprites]]` chứa ảnh; vắng khi `excluded`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sprite: Option<String>,
+    /// Nguồn bằng chứng (AGENTS §4).
+    pub source: Source,
+    /// Trạng thái bằng chứng (AGENTS §4).
+    pub status: EvidenceStatus,
+}
+
+impl UiElement {
+    /// Phần tử này hiển thị được ngay, không cần duyệt ảnh.
+    #[must_use]
+    pub fn is_displayable(&self) -> bool {
+        matches!(self.state, UiState::Selected)
+    }
+
+    /// Phần tử này phải vẽ thay bằng text từ catalog (chưa duyệt ảnh, hoặc không dùng
+    /// asset nào).
+    #[must_use]
+    pub fn needs_text_fallback(&self) -> bool {
+        !self.is_displayable()
+    }
+}
+
 /// Một ô của map: ID tile/obj theo file `.map` nguồn.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -311,6 +464,9 @@ pub struct Bundle {
     /// Các clip animation của V1 (schema 2).
     #[serde(default)]
     pub clips: Vec<Clip>,
+    /// Các phần tử UI của luồng V1 (schema 3).
+    #[serde(default)]
+    pub ui: Vec<UiElement>,
 }
 
 impl Bundle {
@@ -353,7 +509,7 @@ impl Bundle {
     #[must_use]
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Canonical::new();
-        out.bytes(b"boom-bundle-v2\0");
+        out.bytes(b"boom-bundle-v3\0");
         out.u32(self.schema);
         out.str(&self.build);
         out.str(&self.map);
@@ -488,6 +644,18 @@ impl Bundle {
                 out.i32(frame.pivot_y);
             }
         }
+        out.u32(self.ui.len() as u32);
+        for element in &self.ui {
+            out.str(&element.id);
+            out.str(element.screen.key());
+            out.str(element.role.key());
+            out.str(element.state.key());
+            out.opt_str(element.entry.as_deref());
+            out.str(&element.reason);
+            out.opt_str(element.sprite.as_deref());
+            out.str(source_name(element.source));
+            out.str(element.status.as_str());
+        }
         out.finish()
     }
 
@@ -511,6 +679,12 @@ impl Bundle {
     /// tới một sprite có thật, mỗi frame của clip phải trỏ tới ảnh có thật của sprite
     /// đó, rect nằm trong ảnh, canvas không nhỏ hơn hình nguồn, pivot nằm trong canvas,
     /// và thời lượng phải hợp lệ (`unknown` không mang số; `known` phải có claim).
+    ///
+    /// Với bảng UI (schema 3): ID phần tử là duy nhất; phần tử `selected` hoặc
+    /// `needs_review_text` phải có entry và trỏ tới một sprite có thật; phần tử
+    /// `excluded` không được có sprite và **phải** có lý do; phần tử
+    /// `needs_review_text` cũng phải có lý do (vì còn phải vẽ text thay khi ảnh chưa
+    /// được duyệt). Xem [`validate_ui`].
     ///
     /// Phân loại spawn (va chạm với ô, ý nghĩa của vị trí spawn) vẫn thuộc bảng phân
     /// loại map, không nhân bản vào bundle (AGENTS §3 — một thông tin, một nguồn).
@@ -700,6 +874,8 @@ impl Bundle {
 
         self.validate_clips()?;
 
+        self.validate_ui()?;
+
         let mut seen_assets: Vec<&str> = Vec::with_capacity(self.assets.len());
         for asset in &self.assets {
             if asset.entry.is_empty() || asset.reason.is_empty() {
@@ -844,6 +1020,70 @@ impl Bundle {
         Ok(())
     }
 
+    /// Kiểm bảng UI của bundle (schema 3).
+    ///
+    /// Mỗi phần tử phải có ID duy nhất và không rỗng. Phần tử `selected` hoặc
+    /// `needs_review_text` phải có entry và trỏ tới một sprite có thật trong `[[sprites]]`
+    /// (ảnh của phần tử nằm ở đó, không nhân bản). Phần tử `excluded` **không** được có
+    /// sprite và phải có lý do — không có lý do thì client không biết thay bằng gì. Mọi
+    /// phần tử đều phải có lý do: mọi quyết định dùng phải truy được.
+    ///
+    /// # Errors
+    ///
+    /// Trả [`BundleError::Reference`] cho phần tử đầu tiên vi phạm.
+    fn validate_ui(&self) -> Result<(), BundleError> {
+        let mut seen: Vec<&str> = Vec::with_capacity(self.ui.len());
+        for element in &self.ui {
+            if element.id.is_empty() {
+                return Err(BundleError::Reference("phần tử UI thiếu id".to_owned()));
+            }
+            if seen.contains(&element.id.as_str()) {
+                return Err(BundleError::Reference(format!(
+                    "phần tử UI {} bị lặp",
+                    element.id
+                )));
+            }
+            seen.push(element.id.as_str());
+            if element.reason.is_empty() {
+                return Err(BundleError::Reference(format!(
+                    "phần tử UI {} phải có lý do",
+                    element.id
+                )));
+            }
+            match element.state {
+                UiState::Selected | UiState::NeedsReviewText => {
+                    if element.entry.is_none() {
+                        return Err(BundleError::Reference(format!(
+                            "phần tử UI {} phải có entry pack",
+                            element.id
+                        )));
+                    }
+                    let Some(sprite) = element.sprite.as_deref() else {
+                        return Err(BundleError::Reference(format!(
+                            "phần tử UI {} phải trỏ tới sprite chứa ảnh",
+                            element.id
+                        )));
+                    };
+                    if !self.sprites.iter().any(|item| item.id == sprite) {
+                        return Err(BundleError::Reference(format!(
+                            "phần tử UI {} trỏ tới sprite {} không có trong bundle",
+                            element.id, sprite
+                        )));
+                    }
+                }
+                UiState::Excluded => {
+                    if element.sprite.is_some() {
+                        return Err(BundleError::Reference(format!(
+                            "phần tử UI {} bị loại thì không được có sprite trong atlas",
+                            element.id
+                        )));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Clip theo ID.
     #[must_use]
     pub fn clip(&self, id: &str) -> Option<&Clip> {
@@ -856,6 +1096,21 @@ impl Bundle {
         self.clips
             .iter()
             .filter(|clip| clip.state == state)
+            .collect()
+    }
+
+    /// Phần tử UI theo ID.
+    #[must_use]
+    pub fn ui_element(&self, id: &str) -> Option<&UiElement> {
+        self.ui.iter().find(|element| element.id == id)
+    }
+
+    /// Các phần tử UI của một màn hình.
+    #[must_use]
+    pub fn ui_by_screen(&self, screen: UiScreen) -> Vec<&UiElement> {
+        self.ui
+            .iter()
+            .filter(|element| element.screen == screen)
             .collect()
     }
 
@@ -1100,7 +1355,12 @@ impl fmt::Display for BundleError {
             Self::Encode(e) => write!(f, "không xuất được TOML bundle: {e}"),
             Self::Schema { found } => {
                 write!(f, "schema bundle {found} không hỗ trợ (cần {SCHEMA})")?;
-                if *found == SCHEMA_SPRITE_ONLY {
+                if *found == SCHEMA_WITH_CLIPS {
+                    write!(
+                        f,
+                        "; schema {SCHEMA_WITH_CLIPS} không có bảng UI — dựng lại bằng `boom-assets bundle`"
+                    )?;
+                } else if *found == SCHEMA_SPRITE_ONLY {
                     write!(
                         f,
                         "; schema {SCHEMA_SPRITE_ONLY} không có clip animation — dựng lại bằng `boom-assets bundle`"
@@ -1355,6 +1615,7 @@ mod tests {
             }],
             unknown: Vec::new(),
             clips: Vec::new(),
+            ui: Vec::new(),
         }
     }
 
@@ -1924,5 +2185,183 @@ mod tests {
             message.contains("dựng lại"),
             "thông điệp phải hướng dẫn dựng lại bundle: {message}"
         );
+    }
+
+    /// Schema 2 (có clip nhưng chưa có bảng UI) bị từ chối: client V1 cần biết phần
+    /// tử UI nào dùng được, phần tử nào phải vẽ thay bằng text.
+    #[test]
+    fn rejects_the_schema_without_the_ui_table() {
+        let mut bundle = bundle_with_clip();
+        bundle.schema = SCHEMA_WITH_CLIPS;
+        match bundle.validate() {
+            Err(BundleError::Schema { found }) => assert_eq!(found, SCHEMA_WITH_CLIPS),
+            other => panic!("sai lỗi: {other:?}"),
+        }
+        let message = BundleError::Schema {
+            found: SCHEMA_WITH_CLIPS,
+        }
+        .to_string();
+        assert!(
+            message.contains("bảng UI") && message.contains("dựng lại"),
+            "thông điệp phải nói rõ thiếu bảng UI: {message}"
+        );
+    }
+
+    /// Sprite mẫu chứa ảnh của một phần tử UI.
+    fn ui_sprite() -> Sprite {
+        Sprite {
+            id: "FxStage/Game/ResultInfoGood".to_owned(),
+            entry: "FxStage/Game/ResultInfoGood".to_owned(),
+            role: "ui".to_owned(),
+            status: EvidenceStatus::Confirmed,
+            source_sha256: "ab".repeat(32),
+            map_id: None,
+            object_name: None,
+            images: vec![SpriteImage {
+                index: 0,
+                page: Some(0),
+                x: 0,
+                y: 0,
+                width: 40,
+                height: 40,
+                pixel_sha256: "cd".repeat(32),
+            }],
+            frames: Vec::new(),
+        }
+    }
+
+    /// Phần tử UI mẫu: mũi tên kết quả, không có chữ nên hiển thị được ngay.
+    fn sample_ui_element() -> UiElement {
+        UiElement {
+            id: "result.info_good".to_owned(),
+            screen: UiScreen::Result,
+            role: UiRole::Info,
+            entry: Some("FxStage/Game/ResultInfoGood".to_owned()),
+            state: UiState::Selected,
+            reason: "đã đọc trực tiếp PNG giải mã: chỉ có mũi tên, không thấy chữ".to_owned(),
+            sprite: Some("FxStage/Game/ResultInfoGood".to_owned()),
+            source: Source::KrStatic,
+            status: EvidenceStatus::Confirmed,
+        }
+    }
+
+    /// Bundle có bảng UI hợp lệ (không cần pack thật).
+    fn bundle_with_ui() -> Bundle {
+        let mut bundle = sample_bundle();
+        bundle.sprites.push(ui_sprite());
+        bundle.ui.push(sample_ui_element());
+        bundle
+    }
+
+    /// Bảng UI hợp lệ thì bundle hợp lệ, đọc vòng lại được và tra theo ID/màn hình.
+    #[test]
+    fn bundle_with_ui_is_valid_and_round_trips() {
+        let mut bundle = bundle_with_ui();
+        assert!(bundle.validate().is_ok());
+        bundle.content_hash = bundle.compute_content_hash();
+        let text = bundle.to_toml().expect("xuất TOML");
+        assert!(text.contains("[[ui]]"));
+        let parsed = Bundle::from_toml(&text).expect("đọc lại TOML");
+        assert_eq!(parsed, bundle);
+        assert_eq!(parsed.ui.len(), 1);
+        let element = parsed
+            .ui_element("result.info_good")
+            .expect("phần tử theo ID");
+        assert_eq!(element.screen, UiScreen::Result);
+        assert_eq!(element.role, UiRole::Info);
+        assert!(element.is_displayable());
+        assert!(!element.needs_text_fallback());
+        assert_eq!(parsed.ui_by_screen(UiScreen::Result).len(), 1);
+        assert_eq!(parsed.ui_by_screen(UiScreen::Lobby).len(), 0);
+    }
+
+    /// `content_hash` phải bao phủ bảng UI: đổi trạng thái, lý do hay sprite thì hash đổi.
+    #[test]
+    fn content_hash_covers_the_ui_table() {
+        let mut bundle = bundle_with_ui();
+        let first = bundle.compute_content_hash();
+        bundle.ui[0].state = UiState::NeedsReviewText;
+        assert_ne!(bundle.compute_content_hash(), first);
+
+        let mut bundle = bundle_with_ui();
+        let first = bundle.compute_content_hash();
+        bundle.ui[0].reason = "lý do khác".to_owned();
+        assert_ne!(bundle.compute_content_hash(), first);
+
+        let mut bundle = bundle_with_ui();
+        let first = bundle.compute_content_hash();
+        bundle.ui[0].screen = UiScreen::Lobby;
+        assert_ne!(bundle.compute_content_hash(), first);
+
+        let mut bundle = bundle_with_ui();
+        let first = bundle.compute_content_hash();
+        bundle.ui.clear();
+        assert_ne!(bundle.compute_content_hash(), first);
+    }
+
+    /// Phần tử UI trỏ tới sprite không có trong bundle thì bị từ chối.
+    #[test]
+    fn rejects_ui_element_without_its_sprite() {
+        let mut bundle = bundle_with_ui();
+        bundle.ui[0].sprite = Some("FxStage/Game/ResultInfoBar".to_owned());
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Phần tử UI không có sprite thì bị từ chối (ảnh phải nằm trong atlas).
+    #[test]
+    fn rejects_ui_element_without_sprite() {
+        let mut bundle = bundle_with_ui();
+        bundle.ui[0].sprite = None;
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Phần tử UI bị loại thì không được có sprite trong atlas.
+    #[test]
+    fn rejects_excluded_ui_element_with_a_sprite() {
+        let mut bundle = bundle_with_ui();
+        bundle.ui[0].state = UiState::Excluded;
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Phần tử UI bị loại mà không có lý do thì bị từ chối: client không biết thay bằng gì.
+    #[test]
+    fn rejects_excluded_ui_element_without_reason() {
+        let mut bundle = bundle_with_ui();
+        bundle.ui[0].state = UiState::Excluded;
+        bundle.ui[0].sprite = None;
+        bundle.ui[0].reason = String::new();
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Ảnh có chữ mà chưa duyệt thì phải có lý do (client vẽ text từ catalog thay).
+    #[test]
+    fn rejects_ui_needing_review_without_reason() {
+        let mut bundle = bundle_with_ui();
+        bundle.ui[0].state = UiState::NeedsReviewText;
+        bundle.ui[0].reason = String::new();
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// ID phần tử UI phải là duy nhất.
+    #[test]
+    fn rejects_duplicate_ui_id() {
+        let mut bundle = bundle_with_ui();
+        bundle.ui.push(sample_ui_element());
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Trạng thái UI chỉ có ba giá trị và **không** có trạng thái "đã duyệt": ảnh có chữ
+    /// chỉ được hiển thị khi người duyệt ảnh ký quyết định (quy trình IMAGE_REVIEW).
+    #[test]
+    fn ui_states_have_no_approved_value() {
+        let states = [
+            UiState::Selected,
+            UiState::NeedsReviewText,
+            UiState::Excluded,
+        ];
+        let keys: Vec<&str> = states.iter().map(|state| state.key()).collect();
+        assert_eq!(keys, ["selected", "needs_review_text", "excluded"]);
+        assert!(!keys.contains(&"approved"));
+        assert!(!keys.contains(&"translated"));
     }
 }
