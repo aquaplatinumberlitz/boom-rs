@@ -625,8 +625,8 @@ use std::time::{Duration, Instant};
 
 use boom_net::{MemoryConfig, MemoryTransport, Transport};
 use boom_proto::{
-    Hello, InputRejectReason, InputRejected, Message, MessageKind, Reject, RejectReason, Snapshot,
-    Welcome, decode_frame, encode_frame, limits::ProtocolLimits, read_envelope,
+    Hello, InputRejectReason, InputRejected, Message, MessageKind, Ping, Reject, RejectReason,
+    Snapshot, Welcome, decode_frame, encode_frame, limits::ProtocolLimits, read_envelope,
 };
 
 use crate::{HandshakeConfig, Server};
@@ -1140,15 +1140,50 @@ fn slow_writer_does_not_block_tick() {
     for &player in &players {
         server.ack_loading(player, 0).unwrap();
     }
-    // Ghi chậm + không đọc: queue đầy thì session bị ngắt, tick vẫn chạy.
-    for i in 0..40 {
-        server.poll(i * 16, Duration::ZERO).unwrap();
-    }
-    assert_eq!(server.session_count(), 1);
     let start = Instant::now();
     server.poll(200_000, Duration::ZERO).unwrap();
     assert!(start.elapsed() < Duration::from_secs(1));
     assert!(server.last_result().is_some());
+}
+
+#[test]
+fn bounded_outbound_queue_disconnects_slow_client() {
+    let setup = setup();
+    let a = Authority::new(ServerConfig::v1(), setup);
+    let h = handshake_config(&a);
+    let mut server = Server::new(a, h.clone());
+    let (mut client_writer, server_reader) = MemoryTransport::pair(MemoryConfig::default());
+    let (server_writer, _client_reader) = MemoryTransport::pair(MemoryConfig::default());
+    server
+        .accept(
+            PlayerId(1),
+            0,
+            server_reader,
+            SlowWriter {
+                inner: server_writer,
+                delay: Duration::from_secs(1),
+            },
+        )
+        .unwrap();
+    let msg = hello(h.rules_hash);
+    let frame = encode_frame(&msg, &ProtocolLimits::v1()).unwrap();
+    client_writer.send_frame(&frame).unwrap();
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.session_count(), 1);
+    // Writer đang kẹt ở Welcome; 40 Pong vượt queue 32 → session bị ngắt, không chặn poll.
+    for i in 0..40u64 {
+        let frame = encode_frame(&Ping(i), &ProtocolLimits::v1()).unwrap();
+        client_writer.send_frame(&frame).unwrap();
+    }
+    let start = Instant::now();
+    for _ in 0..100 {
+        if server.session_count() == 0 {
+            break;
+        }
+        let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+    }
+    assert!(start.elapsed() < Duration::from_secs(2));
+    assert_eq!(server.session_count(), 0);
 }
 
 #[test]
