@@ -16,7 +16,7 @@
 //!
 //! ## Định danh nội dung
 //!
-//! [`Bundle::content_hash`] là SHA-256 của encoding chuẩn ([`Bundle::canonical_bytes`]):
+//! Trường `content_hash` là SHA-256 của encoding chuẩn ([`Bundle::canonical_bytes`]):
 //! số, chuỗi và danh sách theo thứ tự cố định, **không** phụ thuộc thứ tự key, cách
 //! ghi file hay bộ mã PNG. Hash tính trên **pixel thô** (RGBA) nên đổi bộ mã PNG không
 //! làm đổi `content_hash`; đổi bố cục atlas hoặc đổi ảnh thì có.
