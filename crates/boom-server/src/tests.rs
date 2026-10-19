@@ -762,6 +762,28 @@ fn recv_lobby(c: &mut WireClient) -> LobbyList {
     recv_of(c, MessageKind::LobbyList)
 }
 
+fn recv_room_state_members(c: &mut WireClient, expected: usize) -> RoomState {
+    loop {
+        let state: RoomState = recv_of(c, MessageKind::RoomState);
+        if state.members.len() == expected {
+            return state;
+        }
+    }
+}
+
+fn recv_lobby_member_count(c: &mut WireClient, expected: u8) -> LobbyList {
+    loop {
+        let list: LobbyList = recv_of(c, MessageKind::LobbyList);
+        if list
+            .rooms
+            .first()
+            .is_some_and(|r| r.member_count == expected)
+        {
+            return list;
+        }
+    }
+}
+
 fn recv_snapshot(c: &mut WireClient) -> Snapshot {
     recv_of(c, MessageKind::Snapshot)
 }
@@ -2209,10 +2231,9 @@ fn disconnect_broadcasts_roster_waiting_and_loading() {
             }
         }
         assert_eq!(server.session_count(), 1);
-        let state: RoomState = recv_room_state(&mut clients[0]);
-        assert_eq!(state.members.len(), 1);
+        let state = recv_room_state_members(&mut clients[0], 1);
         assert_eq!(state.members[0].player, players[0].0);
-        let lobby: LobbyList = recv_lobby(&mut clients[0]);
+        let lobby = recv_lobby_member_count(&mut clients[0], 1);
         assert_eq!(lobby.rooms[0].member_count, 1);
         if loading {
             assert_eq!(server.phase(), ServerPhase::Waiting);
