@@ -10,6 +10,7 @@ mod authority;
 mod config;
 pub mod identity;
 mod input;
+mod replay_log;
 mod server;
 #[cfg(test)]
 mod tests;
@@ -18,6 +19,8 @@ pub use authority::{
     Authority, InternalRoundResult, InternalServerEvent, MatchOutcome, MatchSetup, RoomUpdate,
     ServerError, ServerPhase,
 };
-pub use config::{CharacterStatsTable, HandshakeConfig, InputLimits, PolicyConfig, ServerConfig};
+pub use config::{
+    CharacterStatsTable, HandshakeConfig, InputLimits, PolicyConfig, ReplaySetup, ServerConfig,
+};
 pub use input::{InputAck, InputError};
 pub use server::Server;

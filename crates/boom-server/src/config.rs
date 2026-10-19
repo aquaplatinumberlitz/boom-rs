@@ -67,12 +67,14 @@ impl InputLimits {
 }
 
 /// Cấu hình đầy đủ của authority.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerConfig {
     pub policy: PolicyConfig,
     pub input: InputLimits,
     /// Miền DTO phiên V1 (ADR 0009 §4.2), dùng khi decode/check `InputBatch`/`Snapshot`.
     pub protocol_limits: ProtocolLimits,
+    /// Thư mục ghi replay round; `None` tắt ghi (V1-026).
+    pub replay_dir: Option<std::path::PathBuf>,
 }
 
 impl ServerConfig {
@@ -81,6 +83,7 @@ impl ServerConfig {
             policy: PolicyConfig::scope_v1(),
             input: InputLimits::adr_0009(),
             protocol_limits: ProtocolLimits::v1(),
+            replay_dir: None,
         }
     }
 }
@@ -131,4 +134,15 @@ pub struct HandshakeConfig {
     pub content_epoch: u32,
     /// Chu kỳ gửi snapshot, ms (ADR 0009 design).
     pub snapshot_interval_ms: u32,
+}
+
+/// Metadata bất biến cần để ghi replay round thật (V1-026).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReplaySetup {
+    /// Đường dẫn rules profile dùng để `boom-replay` nạp lại.
+    pub rules_path: std::path::PathBuf,
+    /// `RulesProfile.profile_id`; golden replay so khớp id này.
+    pub profile_id: String,
+    /// Các tick cần ghi checkpoint hash.
+    pub checkpoints: Vec<u32>,
 }

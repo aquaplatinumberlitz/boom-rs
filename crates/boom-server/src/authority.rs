@@ -18,7 +18,7 @@ use boom_room::{
 };
 use boom_sync::{SnapshotContext, input_ack, to_snapshot};
 
-use crate::config::{CharacterStatsTable, InputTicks, ServerConfig};
+use crate::config::{CharacterStatsTable, InputTicks, ReplaySetup, ServerConfig};
 use crate::input::{InputAck, InputError, InputTrack};
 
 /// Kết quả trận do server quyết, một lần cho mỗi round.
@@ -204,6 +204,8 @@ impl From<boom_net::NetError> for ServerError {
 pub struct MatchSetup {
     pub world: World,
     pub stats: CharacterStatsTable,
+    /// Metadata để ghi replay; `None` dù `replay_dir` bật thì không ghi.
+    pub replay: Option<ReplaySetup>,
 }
 
 struct Match {
@@ -252,6 +254,7 @@ pub struct Authority {
     internal_room: Option<RoomId>,
     phase: Lifecycle,
     active: Option<Match>,
+    replay: Option<crate::replay_log::ReplayLog>,
     last_result: Option<InternalRoundResult>,
     now_ms: u64,
     next_tick_ms: u64,
@@ -278,6 +281,7 @@ impl Authority {
             internal_room: None,
             phase: Lifecycle::Waiting,
             active: None,
+            replay: None,
             last_result: None,
             now_ms: 0,
             next_tick_ms: 0,
@@ -592,6 +596,23 @@ impl Authority {
             started_ms: now_ms,
             acked: BTreeSet::new(),
         };
+        self.replay = None;
+        if let (Some(dir), Some(replay_setup)) = (&self.config.replay_dir, &self.setup.replay) {
+            match crate::replay_log::ReplayLog::new(
+                dir,
+                round.0,
+                seed,
+                replay_setup,
+                &self.setup,
+                &members,
+                self.setup.world.terrain(),
+            ) {
+                Ok(log) => self.replay = Some(log),
+                Err(err) => {
+                    eprintln!("replay_log: không mở được {}: {err}", dir.display());
+                }
+            }
+        }
         Ok(())
     }
 
@@ -746,6 +767,7 @@ impl Authority {
                             acked: BTreeSet::new(),
                         };
                         self.last_result = Some(result.clone());
+                        self.finish_replay();
                         events.push(InternalServerEvent::RoundFinished { room, result });
                     }
                     self.ticks_elapsed = self.ticks_elapsed.saturating_add(1);
@@ -805,8 +827,15 @@ impl Authority {
             }
             inputs.push(input);
         }
+        let slots: Vec<u8> = active.state.players.iter().map(|p| p.id).collect();
+        if let Some(replay) = &mut self.replay {
+            replay.record_inputs(tick, &inputs, &slots);
+        }
         let mut events = Vec::new();
         active.state.step(&self.setup.world, &inputs, &mut events)?;
+        if let Some(replay) = &mut self.replay {
+            replay.record_checkpoint(active.state.tick, active.state.hash());
+        }
         active.events.extend(events);
         if active.state.phase != CorePhase::Playing {
             let outcome = match active.state.phase {
@@ -831,6 +860,28 @@ impl Authority {
             });
         }
         Ok(())
+    }
+
+    fn finish_replay(&mut self) {
+        let Some(replay) = self.replay.take() else {
+            return;
+        };
+        let Some(active) = self.active.as_ref() else {
+            return;
+        };
+        let Some(result) = active.result.as_ref() else {
+            return;
+        };
+        let outcome = crate::replay_log::outcome_label(result.outcome, &active.members);
+        if let Err(err) = replay.finish(
+            active.state.tick,
+            active.state.hash(),
+            boom_core::event_digest(&active.events),
+            active.events.len(),
+            &outcome,
+        ) {
+            eprintln!("replay_log: không ghi được replay: {err}");
+        }
     }
 
     fn eliminate_disconnected(&mut self, now_ms: u64, out: &mut Vec<InternalServerEvent>) {

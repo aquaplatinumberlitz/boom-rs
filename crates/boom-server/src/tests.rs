@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -9,7 +10,8 @@ use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
 use crate::{
-    Authority, CharacterStatsTable, InputError, MatchOutcome, MatchSetup, ServerConfig, ServerPhase,
+    Authority, CharacterStatsTable, InputError, MatchOutcome, MatchSetup, ReplaySetup,
+    ServerConfig, ServerPhase,
 };
 
 const RULES: &str = include_str!("../../../fixtures/rules/skeleton-test.toml");
@@ -37,11 +39,57 @@ fn setup() -> MatchSetup {
             c00: stats(),
             c01: stats(),
         },
+        replay: None,
     }
 }
 
 fn authority() -> Authority {
     Authority::new(ServerConfig::v1(), setup())
+}
+
+fn setup_for_replay() -> MatchSetup {
+    let mut setup = setup();
+    setup.replay = Some(ReplaySetup {
+        rules_path: std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/rules/skeleton-test.toml"),
+        profile_id: "skeleton-test".to_owned(),
+        checkpoints: vec![1, 16, 32, 64, 128, 256],
+    });
+    setup
+}
+
+fn replay_config(dir: &std::path::Path) -> ServerConfig {
+    let mut config = ServerConfig::v1();
+    config.replay_dir = Some(dir.to_path_buf());
+    config
+}
+
+fn verify_replay_output(path: &std::path::Path) -> std::process::Output {
+    let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| workspace.join("target"));
+    let binary = target.join("debug/boom-replay");
+    if binary.exists() {
+        Command::new(&binary).args(["verify"]).arg(path).output()
+    } else {
+        Command::new("cargo")
+            .current_dir(&workspace)
+            .args(["run", "-q", "-p", "boom-replay", "--", "verify"])
+            .arg(path)
+            .output()
+    }
+    .expect("chạy boom-replay")
+}
+
+fn verify_replay_with_cli(path: &std::path::Path) {
+    let output = verify_replay_output(path);
+    assert!(
+        output.status.success(),
+        "boom-replay verify thất bại: {}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 struct Requests {
@@ -1547,4 +1595,62 @@ fn tcp_reject_reaches_client_before_eof() {
             "sau Reject là EOF"
         );
     }
+}
+
+#[test]
+fn server_writes_round_replay_that_boom_replay_verifies() {
+    for players in [
+        vec![PlayerId(1), PlayerId(2)],
+        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+        let round = create_start(&mut a, &players, 0);
+        let tick = a.tick().unwrap();
+        // Một batch hợp lệ mỗi người, gửi trùng, rồi một batch ngoài cửa sổ.
+        for (slot, &player) in players.iter().enumerate() {
+            let batch = input_batch(&a, player, 1, tick, Dir::Right, false);
+            a.submit_input(player, &batch, 0).unwrap();
+            a.submit_input(player, &batch, 0).unwrap();
+            let mut window =
+                input_batch(&a, player, 2, tick.saturating_add(10_000), Dir::Left, false);
+            window.commands[0].target_tick = tick.saturating_add(10_000);
+            assert!(a.submit_input(player, &window, 0).is_err());
+            let _ = slot;
+        }
+        a.advance_to(200_000).unwrap();
+        assert_eq!(a.phase(), ServerPhase::Results);
+        let replay_path = dir.path().join(format!("round-{}.toml", round.0));
+        assert!(
+            replay_path.exists(),
+            "thiếu replay {}",
+            replay_path.display()
+        );
+        assert!(replay_path.with_extension("golden").exists());
+        verify_replay_with_cli(&replay_path);
+        // Sửa input (giữ envelope TOML) phải làm verify fail.
+        let mutated = std::fs::read_to_string(&replay_path).unwrap().replacen(
+            "dir = \"right\"",
+            "dir = \"left\"",
+            1,
+        );
+        assert!(mutated.contains("dir = \"left\""));
+        let bad_path = dir.path().join("tampered.toml");
+        std::fs::write(&bad_path, mutated).unwrap();
+        std::fs::copy(
+            replay_path.with_extension("golden"),
+            bad_path.with_extension("golden"),
+        )
+        .unwrap();
+        assert!(!verify_replay_output(&bad_path).status.success());
+    }
+}
+
+#[test]
+fn replay_is_not_written_when_dir_is_disabled() {
+    let mut a = Authority::new(ServerConfig::v1(), setup_for_replay());
+    let players = [PlayerId(1), PlayerId(2)];
+    let _ = create_start(&mut a, &players, 0);
+    a.advance_to(200_000).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Results);
 }
