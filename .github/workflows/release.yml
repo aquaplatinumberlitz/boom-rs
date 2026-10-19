@@ -17,6 +17,11 @@ on:
   push:
     tags:
       - "v*"
+  # TẠM (gỡ trước khi merge): trigger hẹp để chạy thử build 3 OS trên nhánh — GitHub chỉ
+  # cho `workflow_dispatch` khi workflow đã có trên nhánh mặc định.
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
 
 permissions:
   contents: read
