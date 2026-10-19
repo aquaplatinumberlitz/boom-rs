@@ -69,18 +69,18 @@ db_path = "data/boom-server.sqlite3"
 expected_db_schema_version = 1
 # Hạn hoàn tất handshake + auth cho kết nối chưa `AuthOk`.
 auth_deadline_ms = 10000
-session_ttl_ms = 3600000
+session_ttl_ms = 86400000
 session_ping_interval_ms = 15000
 session_liveness_timeout_ms = 30000
 
 [auth]
 registration_open = true
 rate_limit_max_failures = 5
-rate_limit_max_buckets = 1000
-rate_limit_window_ms = 60000
 register_rate_limit_max_attempts = 5
+rate_limit_window_ms = 300000
+rate_limit_max_buckets = 4096
 password_min_chars = 8
-password_max_bytes = 128
+password_max_bytes = 256
 argon2_m_cost = 19456
 argon2_t_cost = 2
 argon2_p_cost = 1
@@ -108,8 +108,8 @@ range_max = 9
 ### Chỉ số nhân vật (`[characters]`)
 
 `serve` **bắt buộc** có mục này: thiếu thì báo lỗi rõ và thoát ≠ 0 (không tự đặt giá trị).
-Lệnh `boom-server config` xuất cấu hình hiệu lực **không** có mục `[characters]` (chỉ số là
-giá trị luật, không phải tham số vận hành) — thêm mục này vào file trước khi chạy `serve`.
+Lệnh `boom-server config` xuất cấu hình hiệu lực với mục `[characters]` **rỗng** (chỉ số là giá
+trị luật, không phải tham số vận hành) — điền hai nhân vật trước khi chạy `serve`.
 
 | Trường | Nghĩa | Nguồn |
 |---|---|---|
