@@ -13,8 +13,8 @@ Nhãn nguồn/trạng thái theo [AGENTS §4](../../../AGENTS.md#4-bằng-chứn
 là quyết định **design** của dự án (ARCHITECTURE §8 "Định dạng bundle content"), không
 phải định dạng của client gốc; phần dữ liệu bên trong thì giữ nguồn gốc của pack KR.
 
-**Schema hiện hành: 3** (có `[[clips]]` và `[[ui]]`). Schema 2 (chỉ atlas + ô + clip) và
-schema 1 (chỉ atlas + ô) **bị reader từ chối** — xem §5.
+**Schema hiện hành: 4** (có `[[clips]]`, `[[ui]]` và `[[audio]]`). Bundle schema 3 (không audio)
+vẫn đọc được. Schema 2 (chỉ atlas + ô + clip) và schema 1 (chỉ atlas + ô) **bị reader từ chối** — xem §5.
 
 ## 1. Dựng bundle
 
@@ -50,16 +50,17 @@ không bị nhân bản trong atlas.
 
 ```text
 <bundle>/
-  bundle.toml            # metadata (schema 3)
+  bundle.toml            # metadata (schema 4)
+  audio/<id>.<format>    # payload âm thanh thô (schema 4; không commit asset vào repo)
   atlas/page-000.png     # các trang atlas
   atlas/page-001.png     # (chỉ khi cần hơn một trang)
 ```
 
-## 3. Metadata `bundle.toml` (schema 3)
+## 3. Metadata `bundle.toml` (schema 4)
 
 | Khóa | Kiểu | Ý nghĩa |
 |---|---|---|
-| `schema` | số | Luôn là `3` |
+| `schema` | số | `4` cho bundle có audio; `3` (không audio) vẫn đọc được |
 | `build` | chuỗi | Build của pack nguồn (`kr`) |
 | `map` | chuỗi | Tên map (`Village00`) |
 | `tileset` | chuỗi | Tile set của map; rỗng nếu map dùng nhiều tile set |
@@ -219,12 +220,30 @@ status = "confirmed"                 # trạng thái bằng chứng (AGENTS §4)
   (mới biết entry trỏ tới pack KR, chưa xác nhận được payload).
 
 
+### 3.1 Bảng audio (schema 4)
+
+Mỗi entry là một payload thô trong `audio/`, không decode:
+
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `id` | chuỗi | ID cue theo AUDIO_V1, ví dụ `bgm_loop`, `bomb_exploded` |
+| `entry` | chuỗi | Entry nguồn `FxSound`, ví dụ `MP3/Village` |
+| `kind` | `bgm`/`sfx` | Loại voice |
+| `format` | `ogg`/`wav` | Định dạng macroquad đọc được; builder bỏ qua mp3/unknown có log |
+| `file` | chuỗi | Đường dẫn tương đối `audio/<id>.<format>` |
+| `bytes` | số | Kích thước payload |
+| `sha256` | chuỗi | SHA-256 payload thô, nằm trong `content_hash` |
+| `status` | nhãn | Nhãn bằng chứng của mapping (AUDIO_V1) |
+
+Reader kiểm `id`/`file` duy nhất, `file` nằm trong `audio/`, `bytes`/SHA-256 khớp file thật.
+Schema 3 không được có bảng này.
+
 ## 4. `content_hash`
 
 `content_hash` = SHA-256 của **encoding chuẩn** của metadata, không phải của file TOML:
 
 ```text
-"boom-bundle-v3\0"
+"boom-bundle-v4\0"          # schema 3 dùng "boom-bundle-v3\0"
 u32 schema
 str build, str map, str tileset
 u32 width, u32 height
@@ -258,6 +277,9 @@ u32 n_ui     × (
     str id, str screen, str role, str state,
     opt_str entry, str reason, opt_str sprite,
     str source, str status)
+u32 n_audio  × (
+    str id, str entry, str kind, str format, str file,
+    u32 bytes, str sha256, str status)          # chỉ schema 4
 ```
 
 - Số là little-endian; chuỗi có tiền tố độ dài `u32` rồi byte UTF-8.
@@ -266,7 +288,8 @@ u32 n_ui     × (
   cho encoding khác nhau và khác `None`.
 - `opt_str` cũng dùng cờ hiện diện, theo cùng lý do.
 - Tiền tố encoding đổi theo schema: schema 1 dùng `"boom-bundle-v1\0"`, schema 2 dùng
-  `"boom-bundle-v2\0"`, schema 3 dùng `"boom-bundle-v3\0"`. Hash của hai schema khác nhau
+  `"boom-bundle-v2\0"`, schema 3 dùng `"boom-bundle-v3\0"`, schema 4 dùng `"boom-bundle-v4\0"`.
+  Hash của hai schema khác nhau
   không thể trùng.
 - `content_hash` không nằm trong encoding (vòng lặp), nhưng **SHA-256 của từng file
   atlas thì có**: hash phải ràng buộc đúng byte file mà reader nạp. Nếu bỏ, thay ảnh
@@ -276,7 +299,7 @@ u32 n_ui     × (
   lượng của clip thì `content_hash` phải đổi.
 - **Bảng UI nằm trong encoding**: đổi trạng thái dùng, lý do, ảnh hay màn hình của một
   phần tử UI thì `content_hash` phải đổi.
-- Đánh đổi của thiết kế này: `content_hash` **phụ thuộc byte file atlas**, nên đổi bộ
+- Đánh đổi của thiết kế này: `content_hash` **phụ thuộc hash byte file atlas/audio**, nên đổi bộ
   mã PNG cũng đổi hash. Đổi lại reader ràng buộc được nội dung hiển thị mà không cần
   giải ảnh (xem §5).
 
@@ -289,7 +312,7 @@ thứ tự phần tử UI theo thứ tự bảng UI, và thuật toán đóng g�
 ## 5. Reader và kiểm tra
 
 `boom_content::bundle::load(<thư mục>)` đọc `bundle.toml`, kiểm tham chiếu, kiểm
-`content_hash` và kiểm SHA-256 từng file atlas. `Bundle::validate()` kiểm:
+`content_hash` và kiểm SHA-256 từng file atlas/audio. `Bundle::validate()` kiểm:
 
 1. `schema` đúng; lưới ô đủ `width × height`, không ô nào lặp hoặc nằm ngoài lưới.
 2. Mọi spawn nằm trong lưới và không trùng toạ độ nhau. Phân loại spawn (va chạm với
@@ -309,15 +332,16 @@ thứ tự phần tử UI theo thứ tự bảng UI, và thuật toán đóng g�
 8. **Bảng UI** (schema 3): ID phần tử là duy nhất; `reason` không rỗng; phần tử
    `selected` hoặc `needs_review_text` phải có `entry` và trỏ tới một `sprite` có thật;
    phần tử `excluded` không được có `sprite` (ảnh của nó không nằm trong atlas).
+9. **Bảng audio** (schema 4): ID/file duy nhất; `kind` là `bgm`/`sfx`; `format` là `ogg`/`wav`;
+   `file` nằm trong `audio/`; `bytes` khác 0 và SHA-256 hợp lệ; schema 3 không có audio.
 
-`load()` kiểm thêm: file atlas tồn tại, SHA-256 khớp `sha256` ghi trong metadata, và
-header PNG (chunk IHDR, có CRC) cho kích thước đúng bằng `width`/`height` của trang.
+`load()` kiểm thêm: file atlas tồn tại, SHA-256 khớp `sha256` ghi trong metadata, header PNG
+(chunk IHDR, có CRC) cho kích thước đúng bằng `width`/`height` của trang; file audio tồn tại,
+đúng `bytes` và SHA-256.
 
-**Schema cũ bị từ chối.** Bundle schema 1 không có clip; đọc nó sẽ im lặng bỏ qua phần
-nội dung mà client V1 cần để phát animation. Bundle schema 2 không có bảng UI; đọc nó
-sẽ im lặng bỏ qua phần nội dung quyết định phần tử UI nào dùng được. Reader báo lỗi
-schema kèm hướng dẫn dựng lại bằng `boom-assets bundle` — không có đường đọc tương
-thích.
+**Schema cũ bị từ chối.** Bundle schema 1 không có clip; schema 2 không có bảng UI; reader báo lỗi
+kèm hướng dẫn dựng lại bằng `boom-assets bundle`. Schema 3 (không audio) vẫn đọc được và
+`content_hash` giữ encoding v3; client không phát audio nếu bảng vắng.
 
 Đây là kiểm tra *siêu hình*; reader **không** giải ảnh (client giải khi nạp texture) và
 không kiểm ngữ nghĩa field frame (`f2` vẫn chưa chốt, xem [MAPS §3](MAPS.md)). Ràng buộc
@@ -337,6 +361,7 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Sprite trong bundle | 70 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, vụ nổ, **9 ảnh UI**) |
 | Ảnh | 299 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1430 |
+| Audio V1 | 15 entry (1 BGM + 14 SFX), 496 KiB payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
@@ -474,7 +499,7 @@ Giới hạn đã biết:
 - **Bảng UI là quyết định của dự án.** Nó ghi trạng thái dùng và cách thay thế, không
   phải luật chơi; nhãn nguồn/trạng thái theo AGENTS §4 (`kr_static`/`confirmed` cho
   asset có thật, `design`/`design` cho phần tử không dùng asset nào).
-- **`content_hash` gắn với byte file atlas.** Đổi bộ mã PNG (đổi phiên bản thư viện
+- **`content_hash` gắn với byte file atlas/audio.** Đổi bộ mã PNG (đổi phiên bản thư viện
   `png`) thì hash đổi, dù pixel không đổi. Đánh đổi có chủ ý: reader ràng buộc được
   nội dung hiển thị mà không cần giải ảnh. Nếu sau này cần hash **theo pixel thuần**
   (đổi bộ mã PNG không đổi hash) thì reader phải giải PNG và đối chiếu từng vùng RGBA
