@@ -34,7 +34,7 @@ dựng gameplay/mạng/collision.
 | Audio | feature `audio` → `quad-snd` 0.2.8 | `quad-snd` 0.2.8 (dùng chung để cô lập phần render/text) |
 | Ảnh | `image` 0.25 (PNG) | `image` 0.25 (PNG) |
 | Version | macroquad 0.4.16 | winit 0.30, softbuffer 0.4, fontdue 0.9 |
-| Code game | 591 dòng | 798 dòng |
+| Code game | 691 dòng | 823 dòng |
 
 Lý do chỉ hai phương án:
 
@@ -97,13 +97,13 @@ registry đã warm. Chi tiết + lệnh tái hiện:
 | Chỉ số | macroquad | winit+softbuffer |
 |---|---|---|
 | Build Linux release | **16,95 s** | 33,99 s |
-| Binary Linux release | **2.631.328 B** (2,51 MiB) | 6.216.616 B (5,93 MiB) |
+| Binary Linux release | **2.634.304 B** (2,51 MiB) | 6.216.808 B (5,93 MiB) |
 | Build Windows GNU release | 15,19 s | **13,50 s** |
 | `.exe` Windows | 9.156.705 B | **7.966.962 B** |
 | Crate transitive (Linux) | **53** | 117 |
-| Dòng code game | **591** | 798 |
+| Dòng code game | **691** | 823 |
 
-Thời gian build và số Windows/macOS giữ từ lần đo head `66e91d7`; vòng sửa frame/audio chỉ đo lại
+Thời gian build và số Windows/macOS giữ từ lần đo head `66e91d7`; vòng sửa fixture/copy shader chỉ đo lại
 pixel, audio, binary và LOC Linux ở head hiện tại, không build lại Windows/macOS trên host này.
 
 Ảnh: [`build-size.png`](../../spikes/client-macroquad/measurements/build-size.png).
@@ -118,24 +118,27 @@ Cùng scene, so snapshot 1× và 2× (bỏ HUD):
 
 | Vùng | Pixel | Khác | Tỉ lệ | Max Δ |
 |---|---|---|---|---|
-| Scene 1× (600×520) | 312.000 | 143 | **0,046%** | 17/255 |
-| Scene 2× (1200×1040) | 1.248.000 | 572 | **0,046%** | 17/255 |
-| HUD chữ Việt 1× | 24.000 | 2.611 | 10,9% | 144/255 |
+| Scene 1× (600×520) | 312.000 | 69 | **0,022%** | 1/255 |
+| Scene 2× (1200×1040) | 1.248.000 | 276 | **0,022%** | 1/255 |
+| HUD chữ Việt 1× | 24.000 | 2.560 | 10,7% | 132/255 |
 
-- Toàn bộ 143 pixel khác ở scene 1× nằm trong vùng khói nổ bán trong suốt (bbox x 352–367,
-  y 278–292); nguyên nhân là alpha blend trên GPU (macroquad) so với blit CPU thẳng alpha. Không có
-  pixel khác ở nền, tile, object, nhân vật, bom, hay biên sprite.
-- Scene 2× có 572 pixel khác; **kiểm trực tiếp** `compare.py --check-2x-from` cho cả hai stack cho
-  `mismatch = 0`, tức ảnh 2× là nearest expansion của đúng ảnh 1×. Đây chỉ là kiểm scale, không
-  chứng minh pivot/alpha/z-order đúng.
+- Toàn bộ 69 pixel khác ở scene 1× nằm trong vùng khói nổ bán trong suốt (bbox x 352–367,
+  y 279–292), chỉ lệch 1 LSB do làm tròn blend 8-bit. Không có pixel khác ở nền, tile, object,
+  nhân vật, bom, hay biên sprite.
+- Scene 2× có 276 pixel khác; **kiểm trực tiếp** `compare.py --check-2x-from` cho `mismatch = 0`,
+  tức ảnh 2× là nearest expansion của đúng ảnh 1×. Đây chỉ là kiểm scale, không chứng minh
+  pivot/alpha/z-order; phần đó do fixture tổng hợp ở §4.6 kiểm tra.
 - HUD khác do khử răng cưa/vị trí glyph của GPU so với blit CPU; ảnh so cho thấy đủ dấu
   tiếng Việt, không thiếu glyph/clipping. Đây là khác biệt trình bày, không phải lỗi mapping.
 - Ảnh nhiệt: [`pixel-diff-scene-1x.png`](../../spikes/client-macroquad/measurements/pixel-diff-scene-1x.png).
 
-Kết luận pixel: đây là **so sánh/regression giữa hai implementation**, không phải oracle fidelity KR.
-Hai renderer dùng chung decoder, quy ước anchor/sort và chuyển additive→alpha, nên lỗi chung về
-pivot/layer/blend không bị phát hiện. Chưa có phép so với client gốc hoặc decoder độc lập, nên các
-tiêu chí pivot/alpha/z-order là **chưa kiểm chứng độc lập** (xem §4.5).
+Kết luận pixel scene: đây là **so sánh/regression giữa hai implementation**, không phải oracle
+fidelity KR. Hai renderer dùng chung decoder, quy ước anchor/sort và chuyển additive→alpha, nên
+scene này không tự bắt được lỗi chung; fixture tổng hợp §4.6 là phép kiểm độc lập riêng.
+
+Trong lúc làm fixture, phát hiện macroquad làm tối vùng bán trong suốt khi đưa render target ra
+cửa sổ: alpha của target bị nhân đôi bởi blend mặc định. Spike đã sửa bằng copy shader tắt blend ở
+bước composite cuối (target RGB đã đúng); đây là chi tiết triển khai P6, không phải thay đổi luật.
 
 ### 4.3 Renderer CPU (phương án B)
 
@@ -160,12 +163,12 @@ và mở rộng (blend, effect, animation, UI) cao hơn đáng kể so với fra
 
 | Tiêu chí | Trạng thái | Bằng chứng / phép đo còn thiếu |
 |---|---|---|
-| Sprite RLE alpha | đo trên scene | decode + render; chưa có oracle pixel độc lập |
-| Pivot/canvas (f0/f1) | **chưa kiểm chứng độc lập** | hai renderer dùng chung công thức; cần fixture pivot bất đối xứng + ảnh client gốc/decoded bằng `i16.py` (chỉ so cục bộ, không commit ảnh game) |
-| z-order | **chưa kiểm chứng độc lập** | hai renderer sort cùng key; cần fixture nhiều lớp chồng với expected pixel |
-| Alpha/blend | **chưa kiểm chứng độc lập** | cả hai chuyển additive→alpha giống nhau; cần expected pixel trên fixture alpha |
-| Integer scale 1×/2× | đo | `--check-2x-from` mismatch 0 cho cả hai; chỉ chứng minh scale, không chứng minh pivot |
-| Chữ Việt | đo một phần | HUD 2.611/24.000 pixel khác, đủ glyph; chưa shaping/wrap/fallback |
+| Sprite RLE alpha | đo trên scene + fixture | decode + render; fixture §4.6 kiểm alpha độc lập |
+| Pivot/canvas (f0/f1) | **đạt fixture tổng hợp** | anchor bất đối xứng [12,37]/[50,58]/[88,60]; expected độc lập; macroquad Δ≤1, winit 0; Q-003 với asset KR vẫn candidate |
+| z-order | **đạt fixture tổng hợp** | 3 lớp chồng, thứ tự y; expected độc lập; macroquad Δ≤1, winit 0 |
+| Alpha/blend | **đạt fixture tổng hợp** | alpha 64…255; macroquad lệch ≤1 LSB, winit 0; additive không có per-draw, quy đổi trước |
+| Integer scale 1×/2× | đo | `--check-2x-from` mismatch 0 cho cả hai; fixture 2× so trực tiếp expected |
+| Chữ Việt | đo một phần | HUD 2.560/24.000 pixel khác, đủ glyph; chưa shaping/wrap/fallback |
 | BGM/SFX | load/decode pass | `--audio-smoke` pass cả BGM+SFX; playback/timing chưa đo vì không có soundcard |
 | Input-held/focus | **chưa đo** | code chỉ xử lý cạnh `B/S/R/Esc`; C00 tự đổi hướng theo thời gian; cần test giữ phím/mất focus |
 | Build+run 3 OS | một phần | Linux build+run; Windows chỉ build; macOS chỉ `check`; gate 3 OS chưa đạt |
@@ -173,10 +176,41 @@ và mở rộng (blend, effect, animation, UI) cao hơn đáng kể so với fra
 | GPU thật | **chưa đo** | chỉ llvmpipe/Xvfb; frame time GPU thật chưa có |
 | Frame animation | đã sửa | sắp theo số; 300 ms = explosion `#4`; snapshot/heatmap tái tạo |
 
-Vì ma trận còn nhiều mục **chưa đo/chưa kiểm chứng độc lập**, ADR không tuyên bố đã đạt đầy đủ
-acceptance của ADR 0007. Quyết định chọn macroquad là **có điều kiện**, dựa trên chi phí/độ phức tạp
-và tính nhất quán pixel; integrator/Claude duyệt ngoại lệ, và P6 phải hoàn tất các phép đo trên
-(đặc biệt fixture pivot/alpha/z-order và build+run 3 OS) trước khi coi 0007 đã đóng.
+Vì ma trận còn mục **chưa đo** (input-held/focus, build+run 3 OS, GPU thật), ADR không tuyên bố
+đã đạt đầy đủ acceptance của ADR 0007. Quyết định chọn macroquad là **có điều kiện**, dựa trên chi
+phí/độ phức tạp và tính nhất quán pixel; pivot/alpha/z-order đã có phép kiểm độc lập ở §4.6.
+P6 vẫn phải hoàn tất các phép đo còn lại trước khi coi 0007 đã đóng.
+
+### 4.6 Fixture pixel tổng hợp, expected độc lập
+
+`spikes/client-macroquad/measurements/pixel_fixture.py` sinh sprite **bằng code** (không dùng asset
+game): bốn ảnh 100×80 có pattern màu và alpha 64/96/128/160/200/255; scene 4×4 với ba object chồng
+nhau theo y (z-order) và pivot bất đối xứng:
+
+| sprite | cell | anchor | vị trí 1× |
+|---|---|---|---|
+| `layer_a` | (1,1) | [12,37] | (28,82) |
+| `layer_b` | (2,2) | [50,58] | (30,101) |
+| `layer_c` | (3,3) | [88,60] | (32,139) |
+
+Expected được tính bởi compositor Python riêng, không gọi code renderer/decoder:
+`out = (src·a + dst·(255-a) + 127) // 255`, vị trí
+`x = origin_x + cell_x·tile - anchor_x`, `y = origin_y + cell_y·tile + tile - (anchor_y+1)`.
+Additive: hai spike không có blend additive per-draw; additive được quy đổi sang alpha trước khi
+render, nên fixture chỉ kiểm straight alpha (đã ghi rõ trong script/manifest).
+
+`run-pixel-fixture.sh` của từng spike render fixture rồi so `expected-{1,2}x.png` với output thật:
+
+| Stack | 1× khác | Max Δ | 2× khác | Max Δ |
+|---|---:|---:|---:|---:|
+| macroquad | 3.431/312.000 (1,10%) | 1 | 13.724/1.248.000 (1,10%) | 1 |
+| winit+softbuffer | 0/312.000 | 0 | 0/1.248.000 | 0 |
+
+Ngưỡng chấp nhận: **max Δ ≤ 1** và **số pixel lệch ≤ 2%**. Lý do: compositor dùng làm tròn
+integer `+127/255`, GPU có thể lệch 1 LSB khi blend; Δ≥2 hoặc lệch >2% là lỗi hệ thống (pivot,
+layer, alpha), không phải làm tròn. Macroquad đạt ngưỡng với 1,10% pixel lệch 1 LSB; winit khớp
+tuyệt đối. Đây là kiểm **implementation** trên dữ liệu tổng hợp, không phải oracle fidelity KR
+(asset/map/pivot Q-003 của client gốc vẫn chưa đối chiếu).
 
 ## 5. Quyết định
 
@@ -186,23 +220,23 @@ Phương án B (winit + softbuffer + fontdue) được giữ làm tham chiếu k
 
 Lý do:
 
-1. **Tính nhất quán pixel giữa hai stack** trên scene đục; khác biệt chỉ ở alpha blend và khử răng cưa
-   chữ. Đây là comparison/regression, **không** phải bằng chứng đạt pivot/alpha/z-order (các mục đó
-   chưa có oracle độc lập, §4.5).
+1. **Tính nhất quán pixel giữa hai stack** trên scene; khác biệt còn lại chỉ 69 pixel lệch 1 LSB
+   ở khói nổ và khử răng cưa chữ. Fixture tổng hợp §4.6 kiểm độc lập pivot/alpha/z-order: macroquad
+   lệch ≤1 LSB trên 1,10% pixel, winit khớp tuyệt đối. Đây là bằng chứng implementation, không phải
+   oracle fidelity KR.
 2. **Chi phí thấp hơn rõ rệt**: Linux release nhanh gấp ~2, binary nhỏ hơn ~2,4 lần, ít hơn 64
    crate, ít hơn ~200 dòng code game; text/audio đã tích hợp, không phải tự viết layout/blit.
 3. **Ít rủi ro tích hợp P6**: một dependency framework thay vì tự ghép winit + softbuffer +
    fontdue + layout + blend; vòng render vẫn tách được khỏi tick mô phỏng qua presentation contract.
 4. **Đủ kiểm soát cho V1**: integer scale bằng render target + nearest đã kiểm expansion trực tiếp,
-   PNG decode sẵn; framework có API input/focus nhưng **chưa đo** input-held/focus (§4.5); chưa cần
-   custom shader cho scene V1.
+   PNG decode sẵn; cần **copy shader tối thiểu** cho bước composite render target (đã có trong spike,
+   phát hiện nhờ fixture), không cần shader effect phức tạp. Input/focus có API nhưng **chưa đo**.
 5. **Có đường lùi**: phương án B đã chứng minh scene/pixel có thể dựng bằng CPU; nếu macroquad
    chặn effect/blend hoặc API churn, có thể thay renderer sau presentation contract mà không đổi core.
 
-Quyết định chọn A **không phụ thuộc** vào việc đã đạt đầy đủ acceptance pixel/pivot/z-order hay đã
-build+run 3 OS: các lý do chi phí/dependency/đường lùi vẫn đứng. Đây là quyết định **có điều kiện**;
-integrator/Claude duyệt ngoại lệ, và P6 phải thực hiện các phép đo còn thiếu ở §4.5 trước khi coi
-ADR 0007 đã đóng.
+Quyết định chọn A **không phụ thuộc** vào việc đã build+run 3 OS hay đã đo input-held/focus: các lý do
+chi phí/dependency/đường lùi vẫn đứng. Đây là quyết định **có điều kiện**; P6 phải hoàn tất các phép
+đo còn thiếu ở §4.5 trước khi coi ADR 0007 đã đóng.
 
 Không chọn B vì chi phí tự viết renderer/UI và dependency cao hơn, dù Windows build nhanh hơn
 một chút. Không chọn Bevy/SDL3 trong lượt này vì ngoài hai phương án của 0007 và chưa có bằng chứng
@@ -225,10 +259,10 @@ một chút. Không chọn Bevy/SDL3 trong lượt này vì ngoài hai phương 
   kiểm event identity/dedup theo ADR 0008.
 - `scene.json`/`prepare-assets` là định dạng **spike**, không phải bundle schema P4; không commit
   asset game, không dùng làm nguồn content.
-- Trước khi coi ADR 0007 đã đóng, P6 phải hoàn tất các mục §4.5: fixture pivot/alpha/z-order với
-  expected pixel độc lập (hoặc so ảnh client gốc/decoded `i16.py` cục bộ, không commit ảnh game),
-  test giữ phím/mất focus, build+run 3 OS thật. Nếu sai khác vượt ngưỡng, mở ADR mới thay vì sửa
-  lén spike.
+- Trước khi coi ADR 0007 đã đóng, P6 phải hoàn tất các mục còn **chưa đo** ở §4.5: input-held/focus,
+  build+run 3 OS thật, GPU thật. Fixture §4.6 đã kiểm pivot/alpha/z-order ở mức implementation; nếu
+  muốn đối chiếu KR cần thêm ảnh client gốc/decoded `i16.py` cục bộ (không commit ảnh game). Nếu sai
+  khác vượt ngưỡng, mở ADR mới thay vì sửa lén spike.
 - ADR 0007 được thay; integrator cập nhật index/status. Issue #12 đóng sau review/merge.
 
 ## 7. Điều kiện đảo và rủi ro còn lại
@@ -248,8 +282,10 @@ Rủi ro đã biết:
 - macOS mới `check`; chưa link/chạy. Gate build+run 3 OS **chưa đạt**.
 - Chưa có soundcard: `--audio-smoke` chỉ chứng minh **load/decode** BGM+SFX pass (và fail khi thiếu
   file); playback/timing/âm lượng chưa đo.
-- Pivot/alpha/z-order **chưa kiểm chứng độc lập**: hai renderer dùng chung anchor/sort/additive→alpha;
-  chưa có fixture expected pixel hoặc ảnh client gốc để so.
+- Pivot/alpha/z-order **đạt fixture tổng hợp** (macroquad lệch ≤1 LSB, winit 0), nhưng đây không
+  phải oracle KR: asset/map/pivot Q-003 của client gốc vẫn chưa đối chiếu.
+- Macroquad cần **copy shader tắt blend** khi đưa render target ra cửa sổ; nếu quên, alpha target bị
+  nhân đôi và làm tối vùng bán trong suốt (đã phát hiện và sửa trong spike).
 - Input-held/focus **chưa đo**: spike chỉ xử lý cạnh `B/S/R/Esc`, C00 tự đổi hướng theo thời gian.
 - `f0/f1` (registration/pivot) là candidate Q-003; scene dùng quy ước trình diễn, chưa phải
   cách client KR đặt sprite.
@@ -264,7 +300,10 @@ Rủi ro đã biết:
 - Snapshot/diff: `spikes/client-winit-softbuffer/tools/compare.py`; số đo
   [`metrics.json`](../../spikes/client-macroquad/measurements/metrics.json).
 - Audio smoke: `--audio-smoke` cho cả hai spike (đọc/kiểm Ogg/decode BGM+SFX); ca thiếu SFX phải
-  exit 2; chi tiết tái hiện ở `measurements/README.md`.
+  exit khác 0 (macroquad 2 + `audio smoke FAIL`, winit 1 + tên file/lỗi); chi tiết tái hiện ở
+  `measurements/README.md`.
+- Fixture độc lập: `spikes/client-macroquad/measurements/pixel_fixture.py` sinh sprite/scene/expected;
+  `run-pixel-fixture.sh` của từng spike render + so 1×/2×. Kết quả ở §4.6 và `metrics.json`.
 - Scale: `compare.py --check-2x-from` kiểm nearest expansion trực tiếp (mismatch 0 cho cả hai).
 - Ảnh: [`build-size.png`](../../spikes/client-macroquad/measurements/build-size.png),
   [`pixel-diff-scene-1x.png`](../../spikes/client-macroquad/measurements/pixel-diff-scene-1x.png).

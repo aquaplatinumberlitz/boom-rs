@@ -79,21 +79,26 @@ registry đã warm.
 | Chỉ số | winit+softbuffer | macroquad (tham chiếu) |
 |---|---|---|
 | Build Linux release | 33,99 s | **16,95 s** |
-| Binary Linux release | 6.216.616 B | **2.631.328 B** |
+| Binary Linux release | 6.216.808 B | **2.634.304 B** |
 | Build Windows GNU release | **13,50 s** | 15,19 s |
 | `.exe` Windows | **7.966.962 B** | 9.156.705 B |
 | Crate transitive (Linux) | 117 | **53** |
-| Dòng code game | 798 | **591** |
+| Dòng code game | 823 | **691** |
 | Render CPU 1× (600×560) | 2,782 ms/frame | — (GPU) |
 | Render CPU 2× (1200×1120) | 7,926 ms/frame | — (GPU) |
 
-Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa frame/audio chỉ đo lại
-binary/LOC Linux và pixel/audio.
+Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa fixture/copy shader chỉ đo lại
+binary/LOC Linux, pixel và audio.
 
-So pixel scene với macroquad: 143/312.000 pixel khác ở 1× (0,046%), lớn nhất 17/255,
-toàn bộ ở khói nổ bán trong suốt (explosion `#4`); 2× là 572/1.248.000. `--check-2x-from`
-cho mismatch 0 trên cả hai stack. Đây là comparison/regression, không phải oracle pivot/alpha/z-order.
-HUD chữ Việt: 2.611/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph, max 144/255); không thiếu glyph.
+So pixel scene với macroquad: 69/312.000 pixel khác ở 1× (0,022%), lớn nhất 1/255,
+toàn bộ ở khói nổ bán trong suốt (explosion `#4`); 2× là 276/1.248.000. `--check-2x-from`
+cho mismatch 0 trên cả hai stack. Đây là comparison/regression, không phải oracle fidelity KR.
+HUD chữ Việt: 2.560/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph, max 132/255); không thiếu glyph.
+
+Fixture pixel tổng hợp (`run-pixel-fixture.sh`, sprite sinh bằng code, expected độc lập) kiểm
+pivot/alpha/z-order: winit khớp **0/312.000** ở 1× và **0/1.248.000** ở 2×; macroquad lệch ≤1 LSB
+trên 1,10% pixel. Ngưỡng maxΔ≤1 và lệch≤2%; chi tiết ở
+[`../client-macroquad/measurements/README.md`](../client-macroquad/measurements/README.md) và ADR 0010 §4.6.
 
 Chi tiết/ảnh ở [`../client-macroquad/measurements/`](../client-macroquad/measurements/README.md).
 
@@ -122,7 +127,8 @@ thật để link/chạy. `winit` + `softbuffer` + `quad-snd` đều qua `cargo 
   precomposed vẫn đủ dấu), không có GPU effect/blend mode.
 - Audio dùng chung `quad-snd` với macroquad nên spike này **không** so sánh backend audio;
   nó so chi phí render/text/UI tự dựng. Smoke chỉ chứng minh load/decode; playback/timing chưa đo.
-- Quy ước pivot/anchor là presentation candidate (Q-003); hai renderer dùng chung công thức nên
-  pivot/alpha/z-order **chưa kiểm chứng độc lập**. So pixel chỉ là comparison/regression.
+- Quy ước pivot/anchor là presentation candidate (Q-003); fixture tổng hợp độc lập đã kiểm
+  pivot/alpha/z-order ở mức implementation (winit khớp tuyệt đối), nhưng chưa đối chiếu asset/map/pivot
+  của client gốc. So pixel scene KR vẫn là comparison/regression.
 - Windows mới build, macOS mới `check`; chưa chạy runtime 2 OS.
 - Không có gameplay/mạng/collision; không commit asset game; không merge vào `crates/`.

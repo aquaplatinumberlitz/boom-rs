@@ -92,24 +92,29 @@ registry đã warm.
 | Chỉ số | macroquad | winit+softbuffer (tham chiếu) |
 |---|---|---|
 | Thời gian build Linux release | **16,95 s** | 33,99 s |
-| Kích thước binary Linux release | **2.631.328 B** | 6.216.616 B |
+| Kích thước binary Linux release | **2.634.304 B** | 6.216.808 B |
 | Thời gian build Windows GNU release | **15,19 s** | 13,50 s |
 | Kích thước `.exe` Windows | 9.156.705 B | 7.966.962 B |
 | Số crate transitive (Linux) | **53** | 117 |
-| Dòng code game | **591** | 798 |
+| Dòng code game | **691** | 823 |
 
-Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa frame/audio chỉ đo lại
-binary/LOC Linux và pixel/audio.
+Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa fixture/copy shader chỉ đo lại
+binary/LOC Linux, pixel và audio.
 
 So pixel scene (bỏ HUD 40 px; 600×520 ở 1×, 1200×1040 ở 2×) với snapshot
-winit+softbuffer: 143/312.000 pixel khác (0,046%), sai khác lớn nhất 17/255, toàn bộ nằm ở
+winit+softbuffer: 69/312.000 pixel khác (0,022%), sai khác lớn nhất 1/255, toàn bộ nằm ở
 vùng khói nổ bán trong suốt (explosion `#4`). `--check-2x-from` cho mismatch 0 trên cả hai stack:
-ảnh 2× là nearest expansion trực tiếp của 1×, nhưng đây chỉ là kiểm scale, không chứng minh
-pivot/alpha/z-order. HUD chữ Việt: 2.611/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph,
-max 144/255); không thiếu glyph, nhìn giống nhau.
+ảnh 2× là nearest expansion trực tiếp của 1×, nhưng đây chỉ là kiểm scale. HUD chữ Việt:
+2.560/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph, max 132/255); không thiếu glyph.
 
-So hai stack là **comparison/regression**, không phải oracle fidelity KR; xem ma trận tiêu chí
-ADR 0010 §4.5 và [`measurements/`](measurements/README.md).
+Fixture pixel tổng hợp (`run-pixel-fixture.sh`, sprite sinh bằng code, expected độc lập) kiểm
+pivot/alpha/z-order: macroquad lệch **3.431/312.000 (1,10%) chỉ 1 LSB** ở 1×, **13.724/1.248.000**
+ở 2×; winit khớp tuyệt đối. Ngưỡng maxΔ≤1 và lệch≤2%; chi tiết ở
+[`measurements/README.md`](measurements/README.md) và ADR 0010 §4.6. Fixture cũng phát hiện
+render target alpha bị nhân đôi khi composite; spike sửa bằng copy shader tắt blend ở bước cuối.
+
+So hai stack trên scene KR vẫn là **comparison/regression**, không phải oracle fidelity KR; xem
+ma trận tiêu chí ADR 0010 §4.5 và [`measurements/`](measurements/README.md).
 
 ## Build 3 OS
 
@@ -134,8 +139,11 @@ Windows đã build được nhưng chưa chạy thử trên Windows.
 
 - Scene tĩnh Village00 + một C00 + một bom/nổ + HUD; không có gameplay, mạng, collision,
   animation state machine, hay asset closure đầy đủ.
-- Quy ước pivot/anchor là presentation candidate (Q-003), không phải luật KR đã xác nhận. Hai renderer
-  dùng chung công thức nên pivot/alpha/z-order **chưa kiểm chứng độc lập**.
+- Quy ước pivot/anchor là presentation candidate (Q-003), không phải luật KR đã xác nhận. Fixture
+  tổng hợp độc lập đã kiểm pivot/alpha/z-order ở mức implementation (macroquad lệch ≤1 LSB), nhưng
+  chưa đối chiếu asset/map/pivot của client gốc.
+- Macroquad cần copy shader tắt blend khi composite render target ra cửa sổ; nếu dùng blend mặc định,
+  alpha target bị nhân đôi và làm tối vùng bán trong suốt (đã sửa trong spike).
 - Audio mới kiểm load/decode; playback/timing chưa đo vì không có soundcard. Không đo GPU thật
   (chỉ llvmpipe trong Xvfb).
 - Input-held/focus chưa đo; Windows mới build, macOS mới `check`.

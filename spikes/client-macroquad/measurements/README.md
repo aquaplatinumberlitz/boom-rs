@@ -1,7 +1,7 @@
 # Đo spike client stack (ADR 0010)
 
 Số liệu ngày 2026-10-19, máy AMD Ryzen 5 3600 (6 core/12 thread), Linux, Rust 1.99.
-Vòng sửa #2 (frame animation theo số + audio smoke) đã tái tạo snapshot/heatmap và số pixel;
+Vòng sửa #3 (fixture pixel độc lập + copy shader) đã tái tạo snapshot/heatmap, số pixel và fixture;
 thời gian build, số Windows/macOS giữ từ head `66e91d7` vì host này không build lại hai target đó.
 Nguồn số: [`metrics.json`](metrics.json); ảnh:
 [`build-size.png`](build-size.png), [`pixel-diff-scene-1x.png`](pixel-diff-scene-1x.png).
@@ -33,13 +33,18 @@ python3 spikes/client-winit-softbuffer/tools/compare.py \
   --a local/snap-winit-2x.png --b local/snap-winit-2x.png \
   --hud 80 --check-2x-from local/snap-winit-1x.png
 
+# Fixture tổng hợp: sprite sinh bằng code, expected độc lập, so 1×/2× từng renderer
+# (script tự sinh local/pixel-fixture, render và fail nếu maxΔ>1 hoặc lệch>2%)
+./spikes/client-macroquad/run-pixel-fixture.sh
+./spikes/client-winit-softbuffer/run-pixel-fixture.sh
+
 # Audio smoke: đọc, kiểm header Ogg và decode BGM+SFX; không cần soundcard.
 # Exit 0 chỉ khi cả hai OK; thiếu/hỏng file phải exit khác 0.
 ./spikes/client-macroquad/run-audio-smoke.sh
 ./spikes/client-winit-softbuffer/run-audio-smoke.sh
 
 # Ca âm: bỏ/đổi tên SFX trong một bản copy asset rồi chạy --audio-smoke;
-# log phải ghi rõ "audio smoke FAIL" và process exit 2.
+# macroquad phải exit 2 + "audio smoke FAIL"; winit phải exit 1 + tên file/lỗi.
 
 # Benchmark renderer CPU
 cargo run --release -p spike-winit-softbuffer \
@@ -73,41 +78,62 @@ Sinh lại ảnh: `python3 spikes/client-macroquad/measurements/make_charts.py`
 | Chỉ số | macroquad | winit+softbuffer |
 |---|---|---|
 | Build Linux release | **16,95 s** | 33,99 s |
-| Binary Linux release | **2.631.328 B** (2,51 MiB) | 6.216.616 B (5,93 MiB) |
+| Binary Linux release | **2.634.304 B** (2,51 MiB) | 6.216.808 B (5,93 MiB) |
 | Build Windows GNU release | 15,19 s | **13,50 s** |
 | `.exe` Windows | 9.156.705 B | **7.966.962 B** |
 | Crate transitive (Linux) | **53** | 117 |
-| Dòng code game | **591** | 798 |
+| Dòng code game | **691** | 823 |
 | Render CPU 1× | — (GPU) | 2,782 ms/frame |
 | Render CPU 2× | — (GPU) | 7,926 ms/frame |
 
-Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa frame/audio chỉ đo lại
-binary/LOC Linux và pixel/audio. Không build lại Windows/macOS trên host này.
+Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa fixture/copy shader chỉ đo lại
+binary/LOC Linux, pixel và audio. Không build lại Windows/macOS trên host này.
 
 Pixel (bỏ HUD):
 
 | Vùng | Pixel | Khác | Tỉ lệ | Max Δ |
 |---|---|---|---|---|
-| Scene 1× (600×520) | 312.000 | 143 | 0,046% | 17/255 |
-| Scene 2× (1200×1040) | 1.248.000 | 572 | 0,046% | 17/255 |
-| HUD chữ Việt 1× | 24.000 | 2.611 | 10,9% | 144/255 |
+| Scene 1× (600×520) | 312.000 | 69 | 0,022% | 1/255 |
+| Scene 2× (1200×1040) | 1.248.000 | 276 | 0,022% | 1/255 |
+| HUD chữ Việt 1× | 24.000 | 2.560 | 10,7% | 132/255 |
 
-Toàn bộ 143 pixel khác ở scene 1× nằm trong vùng khói nổ bán trong suốt (bbox x 352–367,
-y 278–292, frame explosion `#4` tại `--time-ms 300`); alpha blend GPU khác blit CPU. `--check-2x-from`
-cho mismatch 0 trên cả hai stack: ảnh 2× là nearest expansion trực tiếp của 1×. Đây chỉ là kiểm scale,
-không chứng minh pivot/alpha/z-order. HUD khác chủ yếu do khử răng cưa/vị trí glyph; ảnh so cho thấy
-đủ glyph tiếng Việt, không clipping/placeholder.
+Toàn bộ 69 pixel khác ở scene 1× nằm trong vùng khói nổ bán trong suốt (bbox x 352–367,
+y 279–292, frame explosion `#4` tại `--time-ms 300`), chỉ lệch 1 LSB. `--check-2x-from`
+cho mismatch 0 trên cả hai stack: ảnh 2× là nearest expansion trực tiếp của 1×. Đây chỉ là kiểm scale;
+pivot/alpha/z-order được kiểm bằng fixture độc lập bên dưới. HUD khác chủ yếu do khử răng cưa/vị trí
+glyph; ảnh so cho thấy đủ glyph tiếng Việt, không clipping/placeholder.
+
+## Fixture pixel tổng hợp (expected độc lập)
+
+`pixel_fixture.py` sinh sprite **bằng code** (không dùng asset game): bốn ảnh 100×80 có pattern màu
+và alpha 64/96/128/160/200/255; scene 4×4 với ba object chồng theo y (z-order) và anchor bất đối
+xứng `[12,37]`, `[50,58]`, `[88,60]`. Expected do compositor Python riêng tính:
+`out = (src·a + dst·(255-a) + 127) // 255`; additive được quy đổi trước nên fixture chỉ kiểm
+straight alpha (hai spike không có blend additive per-draw).
+
+| Stack | 1× khác | Max Δ | 2× khác | Max Δ |
+|---|---:|---:|---:|---:|
+| macroquad | 3.431/312.000 (1,10%) | 1 | 13.724/1.248.000 (1,10%) | 1 |
+| winit+softbuffer | 0/312.000 | 0 | 0/1.248.000 | 0 |
+
+Ngưỡng: **max Δ ≤ 1** và **số pixel lệch ≤ 2%**. Lý do: compositor dùng làm tròn integer
+`+127/255`, GPU có thể lệch 1 LSB khi blend; Δ≥2 hoặc lệch >2% là lỗi hệ thống (pivot/layer/alpha).
+Kiểm bằng `run-pixel-fixture.sh` của từng spike; script fail nếu vượt ngưỡng. Fixture này kiểm
+implementation trên dữ liệu tổng hợp, **không phải** oracle fidelity KR.
 
 Audio smoke: cả macroquad và winit+softbuffer **load/decode PASS** cho BGM (270.601 B) và SFX
-(23.168 B); ca thiếu SFX exit 2 với log `audio smoke FAIL`. Playback/timing/âm lượng **chưa đo** vì
+(23.168 B); ca thiếu SFX: macroquad exit 2 + `audio smoke FAIL`, winit exit 1 + tên file/lỗi.
+Playback/timing/âm lượng **chưa đo** vì
 không có soundcard. Đây là khác biệt với claim cũ "nạp/khởi động không lỗi" suy từ process không lỗi.
 
 ## Giới hạn
 
-- So hai renderer là **comparison/regression**, không phải oracle fidelity KR: hai bên dùng chung
-  decoder, quy ước anchor/sort và chuyển additive→alpha, nên lỗi chung về pivot/layer/blend không bị bắt.
-  Cần fixture expected pixel độc lập hoặc ảnh client gốc/decoded `i16.py` (chỉ so cục bộ, không commit
-  ảnh game) trước khi kết luận đạt pivot/alpha/z-order.
+- So hai renderer trên scene KR là **comparison/regression**, không phải oracle fidelity KR. Fixture
+  tổng hợp đã kiểm độc lập pivot/alpha/z-order ở mức implementation (đạt ngưỡng ở trên), nhưng chưa
+  đối chiếu asset/map/pivot Q-003 của client gốc; cần ảnh client gốc/decoded `i16.py` cục bộ
+  (không commit ảnh game) nếu muốn kết luận fidelity.
+- Macroquad cần copy shader tắt blend khi composite render target ra cửa sổ; nếu dùng blend mặc định,
+  alpha target bị nhân đôi và làm tối vùng bán trong suốt (đã phát hiện qua fixture và sửa trong spike).
 - Không đo GPU thật: macroquad chạy trên Xvfb + Mesa llvmpipe; frame time không đại diện GPU thật.
 - Input-held/focus chưa đo; spike chỉ xử lý cạnh `B/S/R/Esc`.
 - macOS mới `cargo check`; Windows build được nhưng chưa chạy trên Windows; gate build+run 3 OS chưa đạt.

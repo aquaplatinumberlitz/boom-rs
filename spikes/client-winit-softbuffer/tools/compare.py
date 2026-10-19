@@ -28,6 +28,16 @@ def main() -> int:
         type=Path,
         help="ảnh 1×; kiểm ảnh --b là nearest-neighbor expansion trực tiếp của ảnh này",
     )
+    parser.add_argument(
+        "--fail-different-gt",
+        type=int,
+        help="exit 2 nếu số pixel khác trong vùng scene vượt ngưỡng này",
+    )
+    parser.add_argument(
+        "--fail-max-delta-gt",
+        type=int,
+        help="exit 2 nếu max delta kênh trong vùng scene vượt ngưỡng này",
+    )
     args = parser.parse_args()
 
     a = Image.open(args.a).convert("RGB")
@@ -59,6 +69,7 @@ def main() -> int:
         },
     }
 
+    failed = False
     if args.check_2x_from:
         small = Image.open(args.check_2x_from).convert("RGB")
         expected = np.repeat(np.repeat(np.asarray(small), 2, axis=0), 2, axis=1)
@@ -80,8 +91,24 @@ def main() -> int:
                 f"{args.check_2x_from}",
                 file=sys.stderr,
             )
-            return 2
-        print(f"nearest expansion PASS: {args.b} = 2× trực tiếp của {args.check_2x_from}")
+            failed = True
+        else:
+            print(f"nearest expansion PASS: {args.b} = 2× trực tiếp của {args.check_2x_from}")
+
+    if args.fail_different_gt is not None and stats["scene"]["different"] > args.fail_different_gt:
+        print(
+            f"FAIL: {stats['scene']['different']} pixel khác > ngưỡng "
+            f"{args.fail_different_gt}",
+            file=sys.stderr,
+        )
+        failed = True
+    if args.fail_max_delta_gt is not None and stats["scene"]["max_delta"] > args.fail_max_delta_gt:
+        print(
+            f"FAIL: max delta {stats['scene']['max_delta']} > ngưỡng "
+            f"{args.fail_max_delta_gt}",
+            file=sys.stderr,
+        )
+        failed = True
 
     print(json.dumps(stats, indent=2, ensure_ascii=False))
 
@@ -97,7 +124,7 @@ def main() -> int:
         Image.fromarray(heat).save(args.out)
         print(f"heatmap -> {args.out}")
 
-    return 0
+    return 2 if failed else 0
 
 
 if __name__ == "__main__":

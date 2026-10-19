@@ -7,10 +7,80 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use macroquad::audio::{PlaySoundParams, Sound, load_sound_from_bytes, play_sound};
+use macroquad::material::{
+    Material, MaterialParams, gl_use_default_material, gl_use_material, load_material,
+};
+use macroquad::miniquad::{PipelineParams, ShaderSource};
 use macroquad::prelude::*;
 use serde::Deserialize;
 
 const HUD: f32 = 40.0;
+
+// Copy shader tối thiểu cho bước đưa render target ra cửa sổ. Bước này tắt blend vì target đã
+// có RGB đúng; nếu để blend mặc định, alpha của target bị nhân đôi và làm tối vùng bán trong suốt.
+const COPY_VERTEX: &str = r#"#version 100
+attribute vec3 position;
+attribute vec2 texcoord;
+attribute vec4 color0;
+
+varying lowp vec2 uv;
+varying lowp vec4 color;
+
+uniform mat4 Model;
+uniform mat4 Projection;
+
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    color = color0 / 255.0;
+    uv = texcoord;
+}"#;
+
+const COPY_FRAGMENT: &str = r#"#version 100
+varying lowp vec2 uv;
+varying lowp vec4 color;
+
+uniform sampler2D Texture;
+
+void main() {
+    gl_FragColor = color * texture2D(Texture, uv);
+}"#;
+
+const COPY_METAL: &str = r#"#include <metal_stdlib>
+using namespace metal;
+
+struct Uniforms
+{
+    float4x4 Model;
+    float4x4 Projection;
+};
+
+struct Vertex
+{
+    float3 position    [[attribute(0)]];
+    float2 texcoord    [[attribute(1)]];
+    float4 color0      [[attribute(2)]];
+};
+
+struct RasterizerData
+{
+    float4 position [[position]];
+    float4 color [[user(locn0)]];
+    float2 uv [[user(locn1)]];
+};
+
+vertex RasterizerData vertexShader(Vertex v [[stage_in]], constant Uniforms& uniforms [[buffer(0)]])
+{
+    RasterizerData out;
+    out.position = uniforms.Model * uniforms.Projection * float4(v.position, 1);
+    out.color = v.color0 / 255.0;
+    out.uv = v.texcoord;
+    return out;
+}
+
+fragment float4 fragmentShader(RasterizerData in [[stage_in]], texture2d<float> tex [[texture(0)]], sampler texSmplr [[sampler(0)]])
+{
+    return in.color * tex.sample(texSmplr, in.uv);
+}"#;
 
 fn main() {
     let opts = match Options::parse() {
@@ -34,6 +104,31 @@ fn window_conf(opts: &Options) -> macroquad::miniquad::conf::Conf {
         sample_count: 1,
         ..Default::default()
     }
+}
+
+fn load_copy_material() -> Material {
+    let shader = if cfg!(target_vendor = "apple") {
+        ShaderSource::Msl {
+            program: COPY_METAL,
+        }
+    } else {
+        ShaderSource::Glsl {
+            vertex: COPY_VERTEX,
+            fragment: COPY_FRAGMENT,
+        }
+    };
+    load_material(
+        shader,
+        MaterialParams {
+            pipeline_params: PipelineParams {
+                color_blend: None,
+                alpha_blend: None,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .expect("copy material")
 }
 
 async fn run(opts: Options) {
@@ -85,6 +180,7 @@ async fn run(opts: Options) {
     };
     let target = render_target(scene.logic_size[0], scene.logic_size[1]);
     target.texture.set_filter(FilterMode::Nearest);
+    let copy_material = load_copy_material();
     let mut scale = opts.scale;
     let mut explosion_at = if opts.snapshot.is_some() {
         0.0
@@ -132,6 +228,7 @@ async fn run(opts: Options) {
             &textures,
             &font,
             &target,
+            &copy_material,
             scale,
             now,
             explosion_at,
@@ -164,6 +261,7 @@ fn draw_scene(
     textures: &BTreeMap<String, Texture2D>,
     font: &Font,
     target: &RenderTarget,
+    copy_material: &Material,
     scale: u32,
     now: f64,
     explosion_at: f64,
@@ -296,6 +394,7 @@ fn draw_scene(
 
     set_default_camera();
     clear_background(Color::new(0.02, 0.02, 0.03, 1.0));
+    gl_use_material(copy_material);
     draw_texture_ex(
         &target.texture,
         0.0,
@@ -310,6 +409,7 @@ fn draw_scene(
             ..Default::default()
         },
     );
+    gl_use_default_material();
 }
 
 enum DrawKind<'a> {

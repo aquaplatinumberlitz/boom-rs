@@ -804,3 +804,20 @@ impl Scene {
         Ok(scene)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::scale_frame;
+
+    #[test]
+    fn scale_frame_is_nearest_expansion() {
+        let pixels = vec![1, 2, 3, 255, 4, 5, 6, 128, 7, 8, 9, 64, 10, 11, 12, 0];
+        let frame = image::RgbaImage::from_raw(2, 2, pixels).expect("2x2");
+        let scaled = scale_frame(&frame, 2);
+        assert_eq!(scaled.dimensions(), (4, 4));
+        assert_eq!(scaled.get_pixel(0, 0), &image::Rgba([1, 2, 3, 255]));
+        assert_eq!(scaled.get_pixel(1, 1), &image::Rgba([1, 2, 3, 255]));
+        assert_eq!(scaled.get_pixel(2, 0), &image::Rgba([4, 5, 6, 128]));
+        assert_eq!(scaled.get_pixel(3, 3), &image::Rgba([10, 11, 12, 0]));
+    }
+}

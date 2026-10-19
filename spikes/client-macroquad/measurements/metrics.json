@@ -8,7 +8,7 @@
     "rust": "1.99.0"
   },
   "method": {
-    "build": "cargo build --release, target sạch, registry đã warm; thời gian build đo tại head 66e91d7, vòng sửa frame/audio chỉ đo lại binary Linux và LOC (không build lại Windows/macOS trên host này)",
+    "build": "cargo build --release, target sạch, registry đã warm; thời gian build và số Windows/macOS từ head 66e91d7; vòng sửa fixture/copy shader chỉ đo lại binary/LOC Linux, pixel và audio",
     "pixel": "snapshot --time-ms 300 --no-audio; frame animation sắp theo số (explosion #4 tại 300 ms); HUD tách khỏi vùng scene",
     "deps": "cargo tree --prefix none, đếm crate duy nhất trừ package spike",
     "audio": "--audio-smoke: đọc, kiểm header Ogg và decode BGM+SFX; playback/timing chưa đo vì không có soundcard"
@@ -16,15 +16,15 @@
   "linux_release": {
     "macroquad": {
       "build_s": 16.95,
-      "binary_b": 2631328,
+      "binary_b": 2634304,
       "deps": 53,
-      "loc_game": 591
+      "loc_game": 691
     },
     "winit_softbuffer": {
       "build_s": 33.99,
-      "binary_b": 6216616,
+      "binary_b": 6216808,
       "deps": 117,
-      "loc_game": 798
+      "loc_game": 823
     }
   },
   "windows_gnu_release": {
@@ -40,25 +40,25 @@
   "pixel": {
     "scene_1x": {
       "pixels": 312000,
-      "different": 143,
-      "different_gt1": 132,
-      "max_delta": 17,
-      "pct": 0.04583333333333333,
-      "different_gt5": 91
+      "different": 69,
+      "different_gt1": 0,
+      "max_delta": 1,
+      "pct": 0.022115384615384617,
+      "different_gt5": 0
     },
     "scene_2x": {
       "pixels": 1248000,
-      "different": 572,
-      "different_gt1": 528,
-      "max_delta": 17,
-      "pct": 0.04583333333333333,
-      "different_gt5": 364
+      "different": 276,
+      "different_gt1": 0,
+      "max_delta": 1,
+      "pct": 0.022115384615384617,
+      "different_gt5": 0
     },
     "hud_1x": {
       "pixels": 24000,
-      "different": 2611,
-      "different_gt1": 2513,
-      "max_delta": 144
+      "different": 2560,
+      "different_gt1": 2279,
+      "max_delta": 132
     },
     "nearest_expansion_2x": {
       "macroquad": {
@@ -90,7 +90,101 @@
     },
     "negative_missing_sfx": {
       "command": "--audio-smoke với SFX bị thiếu",
-      "exit": "2 (FAIL)"
+      "macroquad": "exit 2 + audio smoke FAIL",
+      "winit_softbuffer": "exit 1 + tên file/lỗi"
+    }
+  },
+  "pixel_fixture": {
+    "fixture": "local/pixel-fixture (sinh bằng measurements/pixel_fixture.py; không dùng asset game)",
+    "expected": "compositor tham chiếu Python: out=(src*a+dst*(255-a)+127)//255; anchor/position theo pivot",
+    "objects": [
+      {
+        "sprite": "layer_a",
+        "cell": [
+          1,
+          1
+        ],
+        "anchor": [
+          12,
+          37
+        ],
+        "position_1x": [
+          28,
+          82
+        ]
+      },
+      {
+        "sprite": "layer_b",
+        "cell": [
+          2,
+          2
+        ],
+        "anchor": [
+          50,
+          58
+        ],
+        "position_1x": [
+          30,
+          101
+        ]
+      },
+      {
+        "sprite": "layer_c",
+        "cell": [
+          3,
+          3
+        ],
+        "anchor": [
+          88,
+          60
+        ],
+        "position_1x": [
+          32,
+          139
+        ]
+      }
+    ],
+    "alpha_values": [
+      64,
+      96,
+      128,
+      160,
+      200,
+      255
+    ],
+    "additive": "không có per-draw; hai spike quy đổi additive→alpha trước render",
+    "threshold": {
+      "max_delta": 1,
+      "different_pct": 2.0,
+      "reason": "±1 LSB do làm tròn 8-bit/GPU; >2% pixel lệch hoặc bất kỳ Δ≥2 là lỗi hệ thống"
+    },
+    "macroquad": {
+      "1x": {
+        "pixels": 312000,
+        "different": 3431,
+        "different_gt1": 0,
+        "max_delta": 1
+      },
+      "2x": {
+        "pixels": 1248000,
+        "different": 13724,
+        "different_gt1": 0,
+        "max_delta": 1
+      }
+    },
+    "winit_softbuffer": {
+      "1x": {
+        "pixels": 312000,
+        "different": 0,
+        "different_gt1": 0,
+        "max_delta": 0
+      },
+      "2x": {
+        "pixels": 1248000,
+        "different": 0,
+        "different_gt1": 0,
+        "max_delta": 0
+      }
     }
   }
 }
