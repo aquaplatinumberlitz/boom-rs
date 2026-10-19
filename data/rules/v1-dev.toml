@@ -11,7 +11,7 @@ unit = "Hz"
 source = "design"
 status = "design"
 claims = ["R-013", "R-071"]
-note = "Đo 30 ms/bước (R-013); 33 Hz là lựa chọn nguyên 1000/30 (design R-071), sai lệch <0,1%"
+note = "Đo 30 ms/bước (R-013); 33 Hz là lựa chọn nguyên 1000/30 (design R-071), sai lệch ≈1%"
 
 [grid.tile_px]
 value = 40
