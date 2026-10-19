@@ -192,6 +192,11 @@ pub enum PresentationState {
     BombFuse,
     /// Lửa trên ô.
     Flame(FlameKind),
+    /// Hiệu ứng nổ của bom.
+    ///
+    /// Clip nổ của pack KR 00967 là **một** clip liên tục, không tách tâm/nhánh/đuôi
+    /// (R-084).
+    Explosion,
     /// Icon item rơi trên nền.
     Item,
 }
@@ -214,6 +219,7 @@ impl PresentationState {
             Self::Flame(FlameKind::MotionBlur(direction)) => {
                 format!("flame_motion_blur_{}", direction.key())
             }
+            Self::Explosion => "explosion".to_owned(),
             Self::Item => "item".to_owned(),
         }
     }

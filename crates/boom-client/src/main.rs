@@ -13,6 +13,7 @@
 //! vẫn hoạt động và được ghi đè lên trên (đổi sau, thắng trước).
 
 mod anim;
+mod audio;
 mod input;
 mod options;
 mod render;
@@ -26,7 +27,7 @@ use boom_content::bundle::Bundle;
 use boom_content::map::{CellKind, MapProfile, Terrain};
 use boom_content::rules::RulesProfile;
 use boom_core::{
-    Cell, CharacterStats, Dir, Life, Phase, Player, PlayerInput, PlayerSetup, Rules,
+    Cell, CharacterStats, Dir, EventKind, Life, Phase, Player, PlayerInput, PlayerSetup, Rules,
     SimulationEvent, SimulationState, Stat, World, mode_by_id,
 };
 use macroquad::material::{
@@ -284,10 +285,16 @@ struct Game {
     bundle: Option<Bundle>,
     /// Nhịp phát frame: thời lượng một frame và tần số tick mô phỏng.
     frame_clock: FrameClock,
+    /// Sổ trình diễn: các vụ nổ core đã báo, để phát clip nổ (R-088).
+    explosions: anim::ExplosionJournal,
     /// Vị trí nhân vật ở tick trước (để biết nhân vật đang đi hay đứng yên).
     previous_positions: BTreeMap<u8, (i32, i32)>,
     /// Kịch bản demo offline (`--demo`); `None` = người chơi điều khiển.
     demo: Option<Demo>,
+    /// Quyết định cue âm thanh thuần (test được); phần phát nằm ở `audio::MacroquadAudio`.
+    audio_state: audio::AudioState,
+    /// Cue tích luỹ giữa các tick trong một frame; `take` sau khi phát.
+    audio_plan: audio::AudioPlan,
 }
 
 impl Game {
@@ -334,9 +341,16 @@ impl Game {
                 // Thiếu clip thì client vẽ ô màu thay thế — báo ngay từ đầu (AGENTS §4).
                 for clip_id in scene::required_clip_ids() {
                     if !loaded.bundle.clips.iter().any(|clip| clip.id == clip_id) {
-                        eprintln!(
-                            "cảnh báo bundle: không có clip {clip_id} — sẽ vẽ ô màu thay thế"
-                        );
+                        if clip_id == anim::EXPLOSION_CLIP {
+                            // Không có clip nổ thì không có gì để phát hiệu ứng nổ.
+                            eprintln!(
+                                "cảnh báo bundle: không có clip {clip_id} — hiệu ứng nổ không phát"
+                            );
+                        } else {
+                            eprintln!(
+                                "cảnh báo bundle: không có clip {clip_id} — sẽ vẽ ô màu thay thế"
+                            );
+                        }
                     }
                 }
                 let terrain = scene::terrain(&loaded.bundle, &map_profile)?;
@@ -384,8 +398,11 @@ impl Game {
             bundle_dir: bundle_dir.map(Path::to_path_buf),
             bundle,
             frame_clock,
+            explosions: anim::ExplosionJournal::default(),
             previous_positions,
             demo: None,
+            audio_state: audio::AudioState::new(0),
+            audio_plan: audio::AudioPlan::default(),
         })
     }
 
@@ -422,9 +439,47 @@ impl Game {
             ],
         };
         self.state.step(&self.world, &input, &mut self.events)?;
-        // Presentation chưa dùng event; xóa để không phình bộ nhớ trong chế độ offline.
+        if let Some(bundle) = &self.bundle {
+            let plan = self.audio_state.plan(bundle, 0, &self.events);
+            self.audio_plan.cues.extend(plan.cues);
+            self.audio_plan.start_bgm |= plan.start_bgm;
+        }
+        // Presentation: đọc event nổ để phát hiệu ứng nổ tại ô bom (R-088).
+        self.absorb_events();
+        // Bỏ hiệu ứng nổ đã hết khoảng clip.
+        self.explosions.prune(
+            self.state.tick,
+            &self.frame_clock,
+            self.explosion_frame_count(),
+        );
+        // Event đã đọc xong: xóa để không phình bộ nhớ trong chế độ offline.
         self.events.clear();
         Ok(())
+    }
+
+    /// Đọc event của tick vừa chạy: vụ nổ của bom → hiệu ứng nổ trong sổ trình diễn.
+    ///
+    /// Chỉ `bomb_exploded` có hiệu ứng: chuỗi chết chưa phát (V1 chưa có presentation
+    /// journal đầy đủ, R-086).
+    fn absorb_events(&mut self) {
+        for event in &self.events {
+            if let EventKind::BombExploded { cell, .. } = &event.kind {
+                self.explosions.record(*cell, event.id.tick);
+            }
+        }
+    }
+
+    /// Số frame của clip nổ trong bundle (0 nếu bundle không có clip nổ).
+    fn explosion_frame_count(&self) -> usize {
+        self.bundle
+            .as_ref()
+            .and_then(|bundle| {
+                bundle
+                    .clips
+                    .iter()
+                    .find(|clip| clip.id == anim::EXPLOSION_CLIP)
+            })
+            .map_or(0, |clip| clip.frames.len())
     }
 
     /// Scene đã đủ để chụp ảnh demo: nhân vật sống, bom đang chờ và lửa.
@@ -436,6 +491,11 @@ impl Game {
 
     fn tile_px(&self) -> f32 {
         self.world.rules().tile.0 as f32 / 1000.0
+    }
+
+    /// Lấy cue tích luỹ để phần phát xử lý; gọi sau mỗi frame.
+    fn take_audio_plan(&mut self) -> audio::AudioPlan {
+        std::mem::take(&mut self.audio_plan)
     }
 }
 
@@ -565,6 +625,13 @@ async fn run(mut game: Game, opts: Options) {
         _ => None,
     };
 
+    let mut audio = match (game.bundle_dir.as_deref(), game.bundle.as_ref()) {
+        (Some(dir), Some(bundle)) if !bundle.audio.is_empty() => {
+            Some(audio::MacroquadAudio::load(dir, bundle).await)
+        }
+        _ => None,
+    };
+
     if let Some(path) = &opts.snapshot {
         if opts.demo {
             // Chế độ demo: chạy tới khi scene đủ nhân vật + bom + lửa (hoặc hết lượt).
@@ -639,6 +706,10 @@ async fn run(mut game: Game, opts: Options) {
             }
         }
 
+        if let Some(audio) = &mut audio {
+            let plan = game.take_audio_plan();
+            audio.apply(&plan, &game.options);
+        }
         draw_scene(&game, atlas.as_ref(), &target, &copy_material, scale);
         frame += 1;
 
@@ -781,6 +852,7 @@ fn draw_map_from_bundle(game: &Game, scene: &Scene, atlas: &Atlas) {
         &game.world,
         &game.frame_clock,
         &game.previous_positions,
+        &game.explosions,
     );
     for item in &plan.ground {
         atlas.draw(item, origin);
@@ -1077,6 +1149,66 @@ mod tests {
         let game = Game::new(3, options, None).expect("scene offline");
         assert_eq!(game.input.binds().up, KeyCode::W);
         assert_eq!(game.input.binds().bomb, KeyCode::Space);
+    }
+
+    /// Vụ nổ của core phải vào sổ trình diễn để client phát clip nổ (R-088).
+    ///
+    /// Chạy `boom-core` thật (không GPU): đặt bom, chờ nổ, rồi kiểm sổ trình diễn có
+    /// vụ nổ đúng ô bom và đúng tick event.
+    #[test]
+    fn bomb_explosion_event_reaches_the_presentation_journal() {
+        let mut game = Game::new(7, ClientOptions::default(), None).expect("scene offline");
+        // Ô đặt bom: ô spawn của người chơi đầu.
+        let bomb_cell = game
+            .world
+            .cell_at(game.state.players[0].x, game.state.players[0].y);
+        let mut events = Vec::new();
+        let inputs = [
+            PlayerInput {
+                dir: Dir::None,
+                place_bomb: true,
+            },
+            PlayerInput::default(),
+        ];
+        // Chờ bom nổ (fuse 2500 ms ở 33 Hz ≈ 83 tick).
+        let mut exploded_at = None;
+        for _ in 0..200 {
+            game.state
+                .step(&game.world, &inputs, &mut events)
+                .expect("tick mô phỏng");
+            if let Some(event) = events
+                .iter()
+                .find(|event| matches!(event.kind, EventKind::BombExploded { .. }))
+            {
+                exploded_at = Some((event.id.tick, event.kind.fields()));
+                break;
+            }
+        }
+        let (tick, fields) = exploded_at.expect("bom phải nổ trong lượt");
+        assert_eq!(fields[0], ("bomb", 1), "ID bom do allocator cấp");
+        assert_eq!(fields[1], ("owner", 0), "bom của người chơi đầu");
+        assert_eq!(fields[2], ("x", i64::from(bomb_cell.x)));
+        assert_eq!(fields[3], ("y", i64::from(bomb_cell.y)));
+        assert_eq!(
+            fields[4],
+            ("chained", 0),
+            "bom đến hạn thì không dây chuyền"
+        );
+        // Client đọc event của tick vừa chạy ⇒ vụ nổ vào sổ trình diễn.
+        game.events = events;
+        game.absorb_events();
+        let active = game.explosions.active(tick + 1, &game.frame_clock, 10);
+        assert_eq!(
+            active,
+            vec![(bomb_cell, 0)],
+            "hiệu ứng nổ ở ô bom, frame đầu tiên"
+        );
+        // Hết khoảng clip thì không còn hiệu ứng.
+        assert!(
+            game.explosions
+                .active(tick + 33, &game.frame_clock, 10)
+                .is_empty()
+        );
     }
 
     #[test]
