@@ -410,6 +410,11 @@ impl Game {
             ],
         };
         self.state.step(&self.world, &input, &mut self.events)?;
+        if let Some(bundle) = &self.bundle {
+            let plan = self.audio_state.plan(bundle, 0, &self.events);
+            self.audio_plan.cues.extend(plan.cues);
+            self.audio_plan.start_bgm |= plan.start_bgm;
+        }
         // Presentation: đọc event nổ để phát hiệu ứng nổ tại ô bom (R-088).
         self.absorb_events();
         // Bỏ hiệu ứng nổ đã hết khoảng clip.
@@ -418,12 +423,6 @@ impl Game {
             &self.frame_clock,
             self.explosion_frame_count(),
         );
-        // Âm thanh: cue đọc từ event của tick vừa chạy (PR #104).
-        if let Some(bundle) = &self.bundle {
-            let plan = self.audio_state.plan(bundle, 0, &self.events);
-            self.audio_plan.cues.extend(plan.cues);
-            self.audio_plan.start_bgm |= plan.start_bgm;
-        }
         // Event đã đọc xong: xóa để không phình bộ nhớ trong chế độ offline.
         self.events.clear();
         Ok(())
