@@ -108,3 +108,14 @@ unit = "weight"
 source = "vn_static"
 status = "confirmed"
 claims = ["R-051"]
+
+# Thời lượng một frame animation của client (presentation, không phải luật chơi).
+# R-079: pack client gốc không mang trường thời gian, nên V1 **chọn** nhịp riêng
+# (design) và đọc từ profile — client không hard-code (BUNDLES §7).
+[presentation.frame_duration_ms]
+value = 100
+unit = "ms"
+source = "design"
+status = "design"
+claims = ["R-085"]
+note = "Nhịp 10 frame/s cho mọi clip V1: 100 ms/frame là lựa chọn design của V1 (R-085); nguồn gốc chưa có (R-079 vẫn unknown)"
