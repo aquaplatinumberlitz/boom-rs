@@ -66,9 +66,14 @@ là một bằng chứng; không tìm thấy phải ghi phạm vi đã tìm, kh�
 
 - Task là GitHub issue (nhãn `task`) có ID, mục tiêu, baseline, owner, reviewer, file được sửa, dependency,
   đầu ra, cách nghiệm thu (quy trình ở [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md) §5–6).
-  Mọi thay đổi vào `main` qua PR có CI ba OS xanh và reviewer khác người làm; chạy `cargo xtask setup` một lần.
 - Một file chỉ có một owner tại một thời điểm. Integrator giữ: `AGENTS.md`, `docs/README.md`,
   `features.json`, `execution.json`, index ADR, `Cargo.toml` gốc, `rust-toolchain.toml`, các `clippy.toml`.
+- Mọi thay đổi vào `main` qua pull request, **kể cả của integrator**; không push thẳng `main`
+  (hook pre-push chặn; bật bằng `cargo xtask setup`). Merge khi CI ba OS xanh và:
+  - code, contract, rules/claim, ADR, AGENTS hoặc quy trình: reviewer khác người làm đã approve;
+  - chỉ sổ tiến độ (`features.json` tracking, `execution.json`, file generated) hoặc sửa link/chính tả
+    không đổi nghĩa: integrator tự merge được, ghi lý do trong PR.
+  Không khóa nhánh trên GitHub (quyết định chủ dự án 2026-10-19); quy tắc này + hook thay thế.
 - Worker code chạy trong worktree/nhánh riêng; integrator merge theo dependency.
 - Không reset/clean/checkout đè thay đổi người khác; không sửa binary, pack hoặc IDA database.
 - Legacy server, tool RE và pack nằm ở `boom-re`, `boom-re-l10n`, `boomkr-re`; tham chiếu bằng đường dẫn,
@@ -90,7 +95,8 @@ là một bằng chứng; không tìm thấy phải ghi phạm vi đã tìm, kh�
 ## 7. Gate trước bàn giao
 
 - Docs/catalog: `python3 tools/docs_check.py`, `python3 tools/kr_catalog.py --check`, `git diff --check`.
-- Code: `cargo xtask ci` (fmt, clippy `-D warnings`, test gồm mọi scenario, replay golden, docs check).
+- Code: `cargo xtask ci` (fmt, clippy `-D warnings`, test gồm mọi scenario, replay golden, docs check,
+  test tool tiến độ `tools/test_kr_tracking.py`).
 - Scenario của feature (`fixtures/scenarios/`) là acceptance: chuyển `pending` → `active` khi feature xong.
 - Sửa JSON nguồn rồi sinh lại export bằng `python3 tools/kr_catalog.py`; không sửa CSV/PROGRESS tay.
 - Đổi đường dẫn phải sửa link/tool; nội dung chuyển/archive phải có bản đồ migration.

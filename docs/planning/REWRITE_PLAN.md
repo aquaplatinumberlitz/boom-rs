@@ -135,7 +135,7 @@ TEAM_WORKFLOW §5–6. Mọi task dưới đây chạy song song được; ràng
 | Issue | Việc | Luồng | Phụ thuộc |
 |---|---|---|---|
 | #1 | Review độc lập chuyển repo, AGENTS, ADR 0002–0008 (đóng P0) | review | — |
-| #2 | Review contracts (r1 trả 3 lỗi, r2 trả 1 lỗi; r3 đã sửa, chờ review lại) | review core+net+QA | — |
+| #2 | Review contracts — **xong**: r1 trả 3 lỗi, r2 trả 1 lỗi, r3 approve | review core+net+QA | — |
 | #3 | V1-011/012 di chuyển: bom chặn, grace | core | contracts-r3 |
 | #4 | V1-013 đặt bom, hạn mức | core | contracts-r3 |
 | #5 | V1-014/015 nổ, lan lửa, dây chuyền | core | contracts-r3 |
@@ -147,7 +147,7 @@ TEAM_WORKFLOW §5–6. Mọi task dưới đây chạy song song được; ràng
 | #11 | START-B đo tick/speed/timer nhốt | RE | — |
 | #12 | Spike client stack (ADR 0007) | client | ảnh decode; #9 giúp dựng scene |
 | #13 | V1-004…008 máy trạng thái phòng (`boom-room`) | backend | — |
-| #14 | V1-024 thiết kế InputCommand/Snapshot/codec | net | #2 |
+| #14 | V1-024 thiết kế InputCommand/Snapshot/codec | net | #2 (đã xong) |
 | #15 | Q-012 tập chuỗi/ảnh UI V1 | l10n | — |
 
 Sau đợt 1 (integrator lập đợt 2): `boom-proto`/`boom-net` theo ADR của #14, server trận (V1-010, V1-022…V1-024),
@@ -158,7 +158,7 @@ client scene theo ADR của #12, animation (V1-031), replay/state hash qua mạn
 - [x] Scope V1 và registry không mâu thuẫn, không dependency vào mục later (`kr_catalog --check`).
 - [ ] Content identity được khóa; phần asset chưa resolve và fixture cần thêm được liệt kê.
 - [x] Mô hình thời gian/số học đã chọn ([ADR 0004](../decisions/0004-time-numeric-model.md)); hiệu chuẩn còn mở.
-- [ ] Crate boundaries và contracts được review (r1, r2 bị trả lỗi; r3 đã sửa; review lại ở #2).
+- [x] Crate boundaries và contracts được review: contracts-r3 approve ở #2.
 - [x] Chiến lược authority/prediction có quyết định mặc định ([ADR 0005](../decisions/0005-authority-and-prediction.md)).
 - [x] Transport có mặc định và điều kiện đảo ([ADR 0006](../decisions/0006-transport-default.md)); persistence còn ở Q-011 (không chặn P5).
 - [x] Legacy oracle: `cargo test` của `boom-re/server` xanh ở `9ac2075` (packet golden); chạy client qua Wine chưa kiểm lại trong lượt này.

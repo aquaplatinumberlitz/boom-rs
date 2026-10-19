@@ -67,7 +67,8 @@ Vòng đời một task:
 4. Chuyển scenario của feature từ `pending` sang `active`, thêm ca biên; scenario là acceptance, reviewer
    đối chiếu nó với RULES_V1/SCOPE_V1.
 5. Mở PR theo mẫu (`.github/pull_request_template.md`), CI ba OS xanh, reviewer khác người làm approve.
-6. Integrator merge theo thứ tự dependency, chạy `cargo xtask ci` trên `main`, cập nhật `features.json`.
+6. Integrator merge PR (`gh pr merge`) theo thứ tự dependency, rồi cập nhật `features.json` bằng một PR
+   sổ tiến độ (tự merge được theo AGENTS §5). Integrator cũng mở PR cho thay đổi của chính mình.
 
 Ranh giới để chạy song song không đụng nhau:
 
@@ -89,8 +90,9 @@ Quy tắc code:
   là regression baseline, ghi rõ như vậy.
 - Đổi hành vi core có chủ đích: `cargo xtask bless` và giải thích trong PR.
 - Fixture cần dữ liệu game không commit; test đọc đường dẫn từ biến môi trường và tự bỏ qua khi thiếu.
-- Không khóa nhánh `main` (quyết định chủ dự án 2026-10-19; repo private gói Free cũng không hỗ trợ).
-  Kỷ luật PR + hook pre-push thay thế: chỉ integrator push thẳng `main`, và chỉ khi `cargo xtask ci` xanh.
+- Không khóa nhánh `main` trên GitHub (quyết định chủ dự án 2026-10-19). Thay bằng quy tắc AGENTS §5:
+  mọi thay đổi, kể cả của integrator, qua PR; hook pre-push từ chối push thẳng `main`. Loại PR integrator
+  được tự merge (sổ tiến độ, file generated, sửa link/chính tả) và loại cần reviewer độc lập ghi ở AGENTS §5.
 
 ## 6. Mẫu task và cách giao cho agent
 

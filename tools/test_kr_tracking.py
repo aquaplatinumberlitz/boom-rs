@@ -89,13 +89,28 @@ class TrackingIntegrityTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not integrated"):
                 check_integration(temp, unintegrated)
 
-    def test_p8_cannot_complete_with_unfinished_features_or_gates(self):
+    def complete_phases_through_p8(self):
+        """Fixture tự dựng mọi pha P0–P8 done hợp lệ, không phụ thuộc trạng thái thật của dự án."""
         for p in self.execution["phases"]:
-            if p["id"] not in ("P0", "P9"):
+            if p["id"] != "P9":
                 p.update(status="done", reviewer="synthetic-reviewer", integration_commit=self.commit,
-                         evidence=["AGENTS.md"], verification="synthetic passed fixture")
+                         evidence=["AGENTS.md"], verification="synthetic passed fixture", blocker="")
+
+    def test_p8_cannot_complete_with_unfinished_features_or_gates(self):
+        self.complete_phases_through_p8()
+        for f in self.features:
+            f["implementation"] = "not_started"
         with self.assertRaisesRegex(ValueError, "P8 completion requires"):
             validate_execution(self.execution, self.registry, ROOT)
+
+    def test_p8_guard_reached_regardless_of_real_phase_status(self):
+        # Review #1: fixture cũ giữ P0 từ execution.json thật nên dừng ở lỗi predecessor.
+        for status in ("not_started", "in_review", "done"):
+            self.setUp()
+            self.execution["phases"][0]["status"] = status
+            self.complete_phases_through_p8()
+            with self.assertRaisesRegex(ValueError, "P8 completion requires"):
+                validate_execution(self.execution, self.registry, ROOT)
 
 
 if __name__ == "__main__":
