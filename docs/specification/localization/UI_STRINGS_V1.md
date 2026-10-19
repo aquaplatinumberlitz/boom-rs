@@ -305,7 +305,7 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
 | Thiếu | Ảnh hưởng | Bước tiếp |
 |---|---|---|
 | 42 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn | Bổ sung `id` catalog hoặc asset đã duyệt ở repo l10n; không tự soạn bản dịch trong task này |
-| 14 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | Reviewer quyết định key/format; giữ text catalog, không viết lại |
+| 15 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | Reviewer quyết định key/format; giữ text catalog, không viết lại |
 | 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 4 asset đã chọn |
 | Chưa có font/license trong repo | V1-035 chưa bundle được font | Chọn version, thêm license/attribution, golden glyph; ngoài phạm vi docs này |
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
