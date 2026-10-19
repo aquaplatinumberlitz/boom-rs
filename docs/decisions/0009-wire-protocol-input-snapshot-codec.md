@@ -123,6 +123,8 @@ nghĩa trong tick đầu tiên lệnh được áp dụng. Không gửi tọa đ
 | `round_id` | `u32` | Round bị từ chối; lệch round không vào scheduler |
 | `reason` | `u8` | 0 `BadSequence`, 1 `OutOfWindow` (chỉ quá tương lai), 2 `GapTooLarge`, 3 `RateLimited` |
 | `applied_seq` | `u32` | Ack hiện tại sau dedup/retire; client bỏ mọi lệnh `seq <=` giá trị này |
+| `first_seq` | `u32` | `seq` đầu tiên của batch bị từ chối; `0` khi batch sai cấu trúc không xác định được |
+| `command_count` | `u8` | Số lệnh của batch bị từ chối (`0` nếu không xác định); dải `first_seq..first_seq+command_count-1` là batch đã bị reject |
 | `server_tick` | `u32` | Tick server lúc từ chối; client dùng để phân loại quá khứ/tương lai và quyết định chờ/bỏ lệnh chắc chắn chưa buffer, không dùng để sửa payload lệnh đã gửi |
 
 `InputRejected` không áp dụng input và không thay đổi state; nó là tín hiệu resync sequence, không phải
@@ -152,9 +154,10 @@ nghĩa trong tick đầu tiên lệnh được áp dụng. Không gửi tọa đ
 - Client được bỏ một lệnh **đã gửi** chỉ khi chắc chắn server chưa buffer nó. Một batch bị
   `InputRejected` bị từ chối trước khi chèn mọi lệnh **mới** trong batch (§3.3 bước 1–3), nên lệnh chỉ
   từng xuất hiện trong đúng batch đó là chắc chắn chưa buffer; client được bỏ nó (không tái sử dụng `seq`)
-  hoặc resend. Nếu lệnh từng nằm trong batch khác, hoặc client không chắc, coi là **có thể đã buffer**:
-  chỉ resend y nguyên tới khi ack. Bỏ một seq tạo lỗ hổng; gap timeout/late retire của server đóng lỗ hổng
-  đó, client không tự nhảy ack.
+  hoặc resend. `InputRejected.first_seq`/`command_count` xác định đúng dải batch bị reject; nếu hai trường
+  là `0` (không xác định), client coi mọi lệnh liên quan là **có thể đã buffer**. Nếu lệnh từng nằm trong
+  batch khác, hoặc client không chắc, coi là **có thể đã buffer**: chỉ resend y nguyên tới khi ack. Bỏ một
+  seq tạo lỗ hổng; gap timeout/late retire của server đóng lỗ hổng đó, client không tự nhảy ack.
 - Lệnh quá tương lai trong batch bị `OutOfWindow` **không được chèn**, nhưng cũng không được kéo theo lệnh
   quá khứ ở đầu hàng: client tách lệnh quá tương lai ra, chờ tới khi nó vào cửa sổ rồi gửi lại y nguyên
   (hoặc bỏ nếu chắc chắn chưa buffer, dùng seq mới cho input thay thế) và gửi phần còn lại để retire/ack
@@ -256,7 +259,8 @@ sau timeout vì như vậy seq 2 bị bỏ dù chưa áp dụng.
 
 **(d) Reject → phục hồi, không retarget lệnh có thể đã buffer.** `applied_seq=8`; client gửi
 `seq=9,target_tick=200` tại tick 130 (`200 > 142`). Server trả
-`InputRejected{reason=OutOfWindow, applied_seq=8, server_tick=130}` và không chèn lệnh mới nào của batch.
+`InputRejected{reason=OutOfWindow, applied_seq=8, first_seq=9, command_count=1, server_tick=130}` và không
+chèn lệnh mới nào của batch. `first_seq`/`command_count` xác định đúng batch bị reject.
 Nếu seq 9 mới chỉ xuất hiện trong đúng batch này, client biết chắc nó chưa buffer: có thể (i) giữ seq 9 và
 resend y nguyên khi server tick tiến đủ để 200 vào cửa sổ, hoặc (ii) bỏ seq 9, dùng seq 10 với
 `target_tick` mới; lỗ hổng seq 9 do gap timeout retire. Nếu seq 9 từng nằm trong batch khác (có thể đã
