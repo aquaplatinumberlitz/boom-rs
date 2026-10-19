@@ -1,6 +1,6 @@
 name = "Đứng trên bom của mình: nổ, bị nhốt, hết giờ nhốt thì chết"
 features = ["V1-013", "V1-014", "V1-020"]
-status = "pending"
+status = "active"
 ticks = 600
 map = [
     "#######",
