@@ -1,7 +1,7 @@
 name = "Nhấn đặt bom tạo một bom ở ô đang đứng, tầm theo chỉ số lúc đặt"
 features = ["V1-013"]
 claims = ["R-032"]
-status = "pending"
+status = "active"
 ticks = 2
 map = [
     "#######",

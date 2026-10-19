@@ -1,6 +1,6 @@
 name = "Không đặt hai bom cùng ô dù còn hạn mức"
 features = ["V1-013"]
-status = "pending"
+status = "active"
 ticks = 3
 map = [
     "#######",

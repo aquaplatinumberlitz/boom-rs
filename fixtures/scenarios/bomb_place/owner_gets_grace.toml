@@ -1,6 +1,6 @@
 name = "Người đặt bom được đi ra khỏi bom vừa đặt"
 features = ["V1-012", "V1-013"]
-status = "pending"
+status = "active"
 ticks = 41
 map = [
     "#######",
