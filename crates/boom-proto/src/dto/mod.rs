@@ -4,13 +4,18 @@
 //! thứ tự/kiểu field là tăng `state_schema` (ADR 0009 §4.1). DTO không chứa luật chơi và không
 //! phụ thuộc `boom-core`: chuyển đổi với `SimulationState` nằm ở crate adapter `boom-sync`.
 
+pub mod auth;
 pub mod events;
 pub mod handshake;
+pub mod health;
 pub mod input;
 pub mod ping;
 pub mod snapshot;
 
-use crate::limits::WIRE_MAX_CAPABILITIES;
+use crate::limits::{
+    WIRE_MAX_CAPABILITIES, WIRE_MAX_LISTEN_ADDRS, WIRE_MAX_PASSWORD_BYTES, WIRE_MAX_PROBLEMS,
+    WIRE_MAX_USERNAME_BYTES,
+};
 
 /// Danh sách capability trong `Hello`, có trần định dạng.
 pub(crate) fn de_capabilities<'de, D>(d: D) -> Result<Vec<String>, D::Error>
@@ -18,6 +23,74 @@ where
     D: serde::Deserializer<'de>,
 {
     crate::bounded::bounded::<D, String, WIRE_MAX_CAPABILITIES>(d)
+}
+
+/// Danh sách `problems` trong `HealthResponse`, có trần định dạng.
+pub(crate) fn de_problems<'de, D>(d: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    crate::bounded::bounded::<D, String, WIRE_MAX_PROBLEMS>(d)
+}
+
+/// Danh sách `listen_addrs` trong `HealthResponse`, có trần định dạng.
+pub(crate) fn de_listen_addrs<'de, D>(d: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    crate::bounded::bounded::<D, String, WIRE_MAX_LISTEN_ADDRS>(d)
+}
+
+/// Decode một chuỗi có trần định dạng: kiểm độ dài **trước khi** cấp phát.
+///
+/// Postcard đọc length prefix rồi đưa `&str` **mượn** từ buffer cho visitor, nên visitor kiểm
+/// độ dài trước rồi mới `to_owned()`: chuỗi quá trần không được cấp phát theo length prefix của
+/// frame (ADR 0009 §5.2).
+pub(crate) fn bounded_str<'de, D, const MAX: usize>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct BoundedStr<const MAX: usize>;
+
+    impl<'de, const MAX: usize> serde::de::Visitor<'de> for BoundedStr<MAX> {
+        type Value = String;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "chuỗi không quá {MAX} byte")
+        }
+
+        fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+            if v.len() > MAX {
+                return Err(E::custom(format!(
+                    "chuỗi {} byte vượt trần định dạng {MAX} byte",
+                    v.len()
+                )));
+            }
+            Ok(v.to_owned())
+        }
+
+        fn visit_borrowed_str<E: serde::de::Error>(self, v: &'de str) -> Result<Self::Value, E> {
+            self.visit_str(v)
+        }
+    }
+
+    deserializer.deserialize_string(BoundedStr::<MAX>)
+}
+
+/// Decode `username` của `Auth` với trần định dạng.
+pub(crate) fn de_username<'de, D>(d: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    bounded_str::<D, WIRE_MAX_USERNAME_BYTES>(d)
+}
+
+/// Decode `password` của `Auth` với trần định dạng.
+pub(crate) fn de_password<'de, D>(d: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    bounded_str::<D, WIRE_MAX_PASSWORD_BYTES>(d)
 }
 
 /// Thuật toán hash của `rules_hash` (`fnv1a64-v0`).
