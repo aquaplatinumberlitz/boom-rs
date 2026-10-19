@@ -440,10 +440,7 @@ fn read_keybinds(value: Option<&toml::Value>, warnings: &mut Vec<String>) -> Key
         };
         wanted.push((action, file_key));
     }
-    let Some(assignment) = resolve_keybinds(&wanted, &defaults) else {
-        warnings.push("bảng `keybinds` không gán được phím: dùng mặc định".to_owned());
-        return defaults;
-    };
+    let assignment = resolve_keybinds(&wanted, &defaults);
     // Hành động bị từ chối: giá trị trong file trùng phím đã dùng nên giữ mặc định.
     for &(action, file_key) in &wanted {
         let Some(file_key) = file_key else { continue };
@@ -470,19 +467,17 @@ fn read_keybinds(value: Option<&toml::Value>, warnings: &mut Vec<String>) -> Key
 /// dòng độc lập.
 ///
 /// Vì vậy dùng quay lui theo thứ tự hành động: thử giá trị trong file trước, rồi mặc định.
-/// Lời giải luôn tồn tại (mọi hành động dùng mặc định) nên hàm không bao giờ thất bại; khi
-/// không gán được thì hành động đó giữ mặc định.
+/// Lời giải **luôn tồn tại** (mọi hành động dùng mặc định, mà 5 phím mặc định khác nhau) nên
+/// hàm không bao giờ thất bại; khi không gán được thì hành động đó giữ mặc định.
 fn resolve_keybinds(
     wanted: &[(InputAction, Option<KeyCode>)],
     defaults: &Keybinds,
-) -> Option<Vec<(InputAction, KeyCode)>> {
+) -> Vec<(InputAction, KeyCode)> {
     let mut assignment: Vec<(InputAction, KeyCode)> = Vec::new();
     let mut used: Vec<KeyCode> = Vec::new();
-    if assign_keys(wanted, defaults, 0, &mut assignment, &mut used) {
-        Some(assignment)
-    } else {
-        None
-    }
+    let solved = assign_keys(wanted, defaults, 0, &mut assignment, &mut used);
+    debug_assert!(solved, "bộ giải quyết keybind phải luôn tìm được lời giải");
+    assignment
 }
 
 fn assign_keys(
@@ -1082,6 +1077,207 @@ mod tests {
             "cảnh báo: {:#?}",
             loaded.warnings
         );
+    }
+
+    /// Tập phím mặc định — dùng để sinh bảng hoán vị trong test thuộc tính.
+    const DEFAULT_KEY_POOL: [KeyCode; 5] = [
+        KeyCode::Up,
+        KeyCode::Down,
+        KeyCode::Left,
+        KeyCode::Right,
+        KeyCode::Space,
+    ];
+
+    /// Tập phím chữ cái — bảng keybind không bắt buộc dùng phím mặc định.
+    const LETTER_KEY_POOL: [KeyCode; 5] =
+        [KeyCode::W, KeyCode::A, KeyCode::S, KeyCode::D, KeyCode::J];
+
+    /// Bảng `keybinds` (dạng `toml::Table`) từ danh sách (hành động, phím).
+    fn keybind_table(entries: &[(InputAction, KeyCode)]) -> toml::Table {
+        let mut table = toml::Table::new();
+        for &(action, key) in entries {
+            table.insert(
+                action.label().to_owned(),
+                toml::Value::String(canonical_key_name(key)),
+            );
+        }
+        table
+    }
+
+    /// Nạp bảng keybind từ `toml::Table` (không đụng đĩa) — trả về keybind + cảnh báo.
+    fn load_keybind_table(table: &toml::Table) -> (Keybinds, Vec<String>) {
+        let mut warnings = Vec::new();
+        let value = toml::Value::Table(table.clone());
+        let binds = read_keybinds(Some(&value), &mut warnings);
+        (binds, warnings)
+    }
+
+    /// Gán danh sách phím (theo thứ tự `InputAction::ALL`) cho các hành động.
+    fn bind_entries(keys: &[KeyCode]) -> Vec<(InputAction, KeyCode)> {
+        InputAction::ALL
+            .iter()
+            .copied()
+            .zip(keys.iter().copied())
+            .collect()
+    }
+
+    /// Mọi hoán vị của một tập phím.
+    fn permutations(items: &[KeyCode]) -> Vec<Vec<KeyCode>> {
+        if items.len() <= 1 {
+            return vec![items.to_vec()];
+        }
+        let mut out = Vec::new();
+        for index in 0..items.len() {
+            let mut rest = items.to_vec();
+            let head = rest.remove(index);
+            for mut tail in permutations(&rest) {
+                tail.insert(0, head);
+                out.push(tail);
+            }
+        }
+        out
+    }
+
+    /// Mọi cách gán 5 hành động vào tập phím (phím được lặp).
+    fn assignments(pool: &[KeyCode]) -> Vec<Vec<KeyCode>> {
+        fn walk(pool: &[KeyCode], current: &mut Vec<KeyCode>, out: &mut Vec<Vec<KeyCode>>) {
+            if current.len() == InputAction::ALL.len() {
+                out.push(current.clone());
+                return;
+            }
+            for &key in pool {
+                current.push(key);
+                walk(pool, current, out);
+                current.pop();
+            }
+        }
+        let mut out = Vec::new();
+        let mut current = Vec::new();
+        walk(pool, &mut current, &mut out);
+        out
+    }
+
+    /// Bảng có phím trùng nhau hay không.
+    fn has_duplicate_key(entries: &[(InputAction, KeyCode)]) -> bool {
+        let mut seen: Vec<KeyCode> = Vec::new();
+        for &(_, key) in entries {
+            if seen.contains(&key) {
+                return true;
+            }
+            seen.push(key);
+        }
+        false
+    }
+
+    #[test]
+    fn every_permutation_of_default_keys_is_preserved() {
+        // Regression review #69: mọi bảng **hoán vị** của 5 phím mặc định đều là ánh xạ 1–1 hợp
+        // lệ — và đúng thứ `--rebind` ghi ra — nên phải được giữ nguyên khi đọc lại.
+        let permutations = permutations(&DEFAULT_KEY_POOL);
+        assert_eq!(permutations.len(), 120, "số hoán vị của 5 phím");
+        for keys in permutations {
+            let entries = bind_entries(&keys);
+            let (binds, warnings) = load_keybind_table(&keybind_table(&entries));
+            assert_eq!(
+                binds,
+                Keybinds::from_entries(&entries),
+                "bảng hoán vị phải giữ nguyên: {entries:?}"
+            );
+            assert!(
+                !warnings.iter().any(|w| w.contains("trùng phím")),
+                "bảng hoán vị hợp lệ không được cảnh báo trùng phím: {entries:?} — {warnings:#?}"
+            );
+        }
+    }
+
+    #[test]
+    fn keybind_resolution_is_one_to_one_and_stable() {
+        // Thuộc tính bộ giải quyết bảng keybind: với **mọi** bảng gán được (kể cả bảng trùng
+        // phím), kết quả phải là ánh mạng 1–1, mỗi hành động chỉ dùng phím trong file hoặc phím
+        // mặc định của nó, và bảng đã giải quyết phải ổn định khi nạp lại (round-trip/restart).
+        for pool in [DEFAULT_KEY_POOL, LETTER_KEY_POOL] {
+            for keys in assignments(&pool) {
+                let entries = bind_entries(&keys);
+                let (binds, warnings) = load_keybind_table(&keybind_table(&entries));
+
+                // Kết quả luôn là ánh xạ 1–1: không hai hành động nào dùng chung phím.
+                let mut used: Vec<KeyCode> = Vec::new();
+                for action in InputAction::ALL {
+                    let key = binds.key(action);
+                    assert!(
+                        !used.contains(&key),
+                        "hai hành động dùng chung phím {key:?}: {entries:?}"
+                    );
+                    used.push(key);
+                }
+
+                // Mỗi hành động dùng phím trong file, hoặc phím mặc định của chính nó.
+                for &(action, file_key) in &entries {
+                    let default = Keybinds::default().key(action);
+                    let assigned = binds.key(action);
+                    assert!(
+                        assigned == file_key || assigned == default,
+                        "hành động `{}` dùng phím {assigned:?} (file {file_key:?}, mặc định {default:?}): {entries:?}",
+                        action.label()
+                    );
+                }
+
+                // Bảng 1–1 trong file thì giữ nguyên tuyệt đối, không cảnh báo.
+                if !has_duplicate_key(&entries) {
+                    assert_eq!(
+                        binds,
+                        Keybinds::from_entries(&entries),
+                        "bảng 1–1 phải giữ nguyên: {entries:?}"
+                    );
+                    assert!(
+                        !warnings.iter().any(|w| w.contains("trùng phím")),
+                        "bảng 1–1 không được cảnh báo trùng phím: {entries:?} — {warnings:#?}"
+                    );
+                }
+
+                // Bảng đã giải quyết phải ổn định: nạp lại cho cùng kết quả.
+                let resolved: Vec<(InputAction, KeyCode)> = InputAction::ALL
+                    .iter()
+                    .map(|&action| (action, binds.key(action)))
+                    .collect();
+                let (again, _) = load_keybind_table(&keybind_table(&resolved));
+                assert_eq!(
+                    again, binds,
+                    "bảng đã giải quyết phải ổn định khi nạp lại: {entries:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn permuted_keybinds_survive_write_then_read() {
+        // Regression review #69 (vòng 2): bảng hoán vị phải sống sót qua ghi→đọc→ghi→đọc.
+        let dir = TempDir::new("permuted-round-trip");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let options = ClientOptions {
+            keybinds: Keybinds {
+                up: KeyCode::Space,
+                down: KeyCode::Up,
+                left: KeyCode::Left,
+                right: KeyCode::Right,
+                bomb: KeyCode::Down,
+            },
+            ..ClientOptions::default()
+        };
+        save(&options, &path).expect("ghi options");
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Loaded);
+        assert!(
+            loaded.warnings.is_empty(),
+            "cảnh báo: {:#?}",
+            loaded.warnings
+        );
+        assert_eq!(loaded.options.keybinds, options.keybinds);
+
+        save(&loaded.options, &path).expect("ghi lại options");
+        let again = load(&path);
+        assert_eq!(again.options.keybinds, options.keybinds);
+        assert!(again.warnings.is_empty(), "cảnh báo: {:#?}", again.warnings);
     }
 
     #[test]
