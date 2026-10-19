@@ -390,7 +390,7 @@ Giới hạn đã biết:
 
 Ngoài quy ước đặt ảnh, client V1 còn phải chọn **clip nào** cho state core nào và
 **frame nào** trong clip đó. Đây là quyết định **design** của V1 (RULES_V1
-[R-085…R-087](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r087)),
+[R-085…R-088](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r088)),
 ghi ở đây để client, reviewer và công cụ đo dùng chung một công thức.
 
 1. **Chọn clip theo state core** (R-086):
@@ -403,6 +403,7 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    | Nhân vật **chết** | `c0x.dead.static` (khung cuối là ảnh 0×0 ⇒ **không vẽ**) | R-077 `confirmed` |
    | Bom đang chờ nổ | `bomb.fuse` | R-077 `confirmed` |
    | Lửa trên ô | `flame.main`, **dải frame lõi 28..=59** | R-078 `candidate` (R-087) |
+   | Vụ nổ (core báo event `bomb_exploded`) | `explosion.main` tại ô bom | R-084 `confirmed` (R-088) |
 
    Nhân vật V1 ghép với `C00`/`C01` theo `id` người chơi vì state core chưa mang trường
    nhân vật. "Đang đi" suy ra từ **vị trí đổi** giữa hai tick: hướng trong state core
@@ -413,10 +414,19 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    **tick mô phỏng**, không theo đồng hồ wall clock (ADR 0004):
    `frame = (tick · 1000 / ticks_per_second) / frame_ms mod số frame`.
 
-3. **Z-order trong cùng ô**: vật cản → lửa → bom → nhân vật. Lửa là hiệu ứng nằm trên
-   nền, bom là vật thể đứng trên nền, nhân vật đứng trên bom khi mới đặt.
+3. **Hiệu ứng nổ** (R-088): core báo event `bomb_exploded` (ô của bom) ⇒ client phát
+   clip `explosion.main` tại ô đó. Hiệu ứng **phát một lần**, dài bằng số frame của
+   clip × `presentation.frame_duration_ms` (10 frame × 100 ms = 1.000 ms với clip
+   `BombExplosion001` của pack KR 00967); frame chọn theo **tick mô phỏng** tính từ
+   tick của event, không theo đồng hồ wall clock. Hết khoảng clip thì ô đó **về lại**
+   `flame.main` (lửa trong state core). Clip nổ **vẽ đè lên lửa** ở cùng ô.
+   Bundle không có clip nổ ⇒ không có gì để phát, client báo cảnh báo lúc khởi động.
 
-4. **Thiếu clip**: bundle không có clip cần cho trạng thái này → client vẽ **ô màu**
+4. **Z-order trong cùng ô**: vật cản → lửa → nổ → bom → nhân vật. Lửa là hiệu ứng nằm trên
+   nền, nổ vẽ đè lên lửa ở cùng ô, bom là vật thể đứng trên nền, nhân vật đứng trên
+   bom khi mới đặt.
+
+5. **Thiếu clip**: bundle không có clip cần cho trạng thái này → client vẽ **ô màu**
    đúng kích thước ô tại ô đó và ghi cảnh báo; không bỏ qua âm thầm (AGENTS §4) và
    không panic.
 
@@ -428,6 +438,9 @@ Giới hạn đã biết:
 - Clip `flame.main` là **một** blob 100 frame gộp thân/đuôi/nhánh theo hướng; state
   core V1 không mang hướng lửa nên V1 chỉ dùng dải frame lõi 28..=59 và **mọi ô lửa
   vẽ cùng một frame** (R-087, Q-003).
+- Thứ tự vẽ **nổ đè lên lửa** và cách client gốc vẽ nổ là `design` của V1 (R-088):
+  chưa có consumer gốc xác nhận (Q-003); test của client chỉ là regression theo quy
+  ước đã chốt.
 - V1 chưa có presentation journal nên **không** phát lại chuỗi chết: nhân vật chết
   dùng khung cuối của clip (ảnh rỗng 0×0) nên **không được vẽ**. Chuỗi chết sẽ phát
   khi có journal (P7).
@@ -449,8 +462,8 @@ Giới hạn đã biết:
   (BUNDLES §7.1, R-087, Q-003).
 - **Clip nổ chỉ có một chuỗi.** `FxDesktop/Bomb/BombExplosion001` (vai trò `explosion_art`)
   là **một** clip 10 frame liên tục: pack không tách tâm/nhánh/đuôi nên không có clip
-  riêng theo phần (R-084). Client V1 **chưa** phát clip nổ (chưa có presentation
-  journal nên không biết lúc nào vụ nổ xảy ra trong lượt); bundle vẫn mang clip đầy đủ.
+  riêng theo phần (R-084). Client V1 phát clip này tại **ô bom** khi core báo
+  `bomb_exploded`, trong khoảng clip, rồi ô đó về lại `flame.main` (R-088).
 - **Lớp `Static`/`Adjust` chỉ ghi lại.** Thứ tự vẽ và cách blend của hai lớp chưa có
   consumer xác nhận (Q-003); bundle chỉ ghi lớp nào là lớp nào.
 - **`f2` chưa chốt.** Ngữ nghĩa field `flag` vẫn chưa biết; bundle giữ nguyên số.

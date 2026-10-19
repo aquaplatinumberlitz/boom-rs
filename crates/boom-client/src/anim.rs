@@ -7,7 +7,7 @@
 //! Nguồn quyết định:
 //!
 //! - [RULES_V1 §8](../../../../docs/specification/gameplay/RULES_V1.md) — claim
-//!   state → animation (R-077…R-079) và quy ước trình diễn của V1 (R-084…R-087).
+//!   state → animation (R-077…R-079) và quy ước trình diễn của V1 (R-084…R-088).
 //! - [BUNDLES §7](../../../../docs/specification/assets/BUNDLES.md) — quy ước đặt ảnh
 //!   của client (design).
 //!
@@ -17,7 +17,7 @@
 
 use std::ops::RangeInclusive;
 
-use boom_core::{Dir, Life};
+use boom_core::{Cell, Dir, Life};
 
 /// Nhân vật V1 (SCOPE_V1 §1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,6 +58,12 @@ pub const BOMB_CLIP: &str = "bomb.fuse";
 
 /// Clip ID của lửa trên ô.
 pub const FLAME_CLIP: &str = "flame.main";
+
+/// Clip ID của hiệu ứng nổ bom.
+///
+/// Pack KR 00967 chỉ có **một** clip nổ (`FxDesktop/Bomb/BombExplosion001`, R-084):
+/// không tách tâm/nhánh/đuôi, nên V1 dùng clip này cho cả vụ nổ.
+pub const EXPLOSION_CLIP: &str = "explosion.main";
 
 /// Dải frame của clip lửa dùng cho **một ô** lửa.
 ///
@@ -101,6 +107,88 @@ impl FrameClock {
         let frame_ms = u64::from(self.frame_ms.max(1));
         let steps = self.elapsed_ms(tick) / frame_ms;
         (steps % frame_count as u64) as usize
+    }
+
+    /// Số mili giây mô phỏng đã trôi qua từ `start` tới `tick`.
+    ///
+    /// Tính từ **tick mô phỏng**, không từ đồng hồ wall clock: cùng khoảng tick cho
+    /// cùng kết quả (ADR 0004).
+    #[must_use]
+    pub fn elapsed_ms_since(&self, start: u32, tick: u32) -> u64 {
+        u64::from(tick.saturating_sub(start)) * 1000 / u64::from(self.ticks_per_second.max(1))
+    }
+
+    /// Chỉ số frame của clip **phát một lần** (không lặp) tại `tick`, tính từ `start`.
+    ///
+    /// Clip phát một lần hết sau `frame_count` frame: trả `None` từ đó trở đi (và
+    /// `None` luôn nếu clip rỗng). Dùng cho hiệu ứng nổ: sau khoảng clip, ô đó về
+    /// lại `flame.main` (R-088).
+    #[must_use]
+    pub fn once_frame(&self, start: u32, tick: u32, frame_count: usize) -> Option<usize> {
+        if frame_count == 0 {
+            return None;
+        }
+        let frame_ms = u64::from(self.frame_ms.max(1));
+        let elapsed = self.elapsed_ms_since(start, tick);
+        let total = u64::try_from(frame_count)
+            .unwrap_or(u64::MAX)
+            .saturating_mul(frame_ms);
+        if elapsed >= total {
+            return None;
+        }
+        Some((elapsed / frame_ms) as usize)
+    }
+}
+
+/// Một vụ nổ đang phát trong trình diễn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Explosion {
+    /// Ô của bom nổ.
+    pub cell: Cell,
+    /// Tick mô phỏng mà core báo vụ nổ (event `bomb_exploded`).
+    pub tick: u32,
+}
+
+/// Sổ trình diễn của client: các vụ nổ đang phát.
+///
+/// V1 mới chỉ giữ **hiệu ứng nổ** trong sổ (chuỗi chết chưa phát — R-086). Sổ ghi
+/// theo **tick mô phỏng** nên cùng tick cho cùng hình (ADR 0004), không theo đồng
+/// hồ wall clock; thời lượng hiệu ứng lấy từ **số frame của clip** trong bundle và
+/// nhịp frame trong rules profile — không có hằng số luật trong module.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExplosionJournal {
+    items: Vec<Explosion>,
+}
+
+impl ExplosionJournal {
+    /// Ghi vụ nổ tại `cell`, bắt đầu ở `tick`.
+    ///
+    /// Vụ nổ mới ở cùng ô **thay** vụ cũ (một ô chỉ có một hiệu ứng nổ đang chạy).
+    pub fn record(&mut self, cell: Cell, tick: u32) {
+        self.items.retain(|item| item.cell != cell);
+        self.items.push(Explosion { cell, tick });
+    }
+
+    /// Bỏ vụ nổ đã hết hiệu ứng (theo số frame của clip và nhịp frame).
+    ///
+    /// `frame_count` = 0 (bundle không có clip nổ) ⇒ bỏ hết: không có clip thì không
+    /// có hiệu ứng để phát.
+    pub fn prune(&mut self, tick: u32, clock: &FrameClock, frame_count: usize) {
+        self.items
+            .retain(|item| clock.once_frame(item.tick, tick, frame_count).is_some());
+    }
+
+    /// Các hiệu ứng nổ đang chạy tại `tick`: (ô, chỉ số frame).
+    #[must_use]
+    pub fn active(&self, tick: u32, clock: &FrameClock, frame_count: usize) -> Vec<(Cell, usize)> {
+        self.items
+            .iter()
+            .filter_map(|item| {
+                clock
+                    .once_frame(item.tick, tick, frame_count)
+                    .map(|frame| (item.cell, frame))
+            })
+            .collect()
     }
 }
 
@@ -303,5 +391,51 @@ mod tests {
         assert_eq!(CLOCK.looping_frame(10, 0), 0);
         assert_eq!(character_frame(Life::Alive, 10, &CLOCK, 0), 0);
         assert_eq!(flame_frame(10, &CLOCK, 0), 0);
+        assert_eq!(CLOCK.once_frame(0, 10, 0), None);
+    }
+
+    /// Hiệu ứng nổ phát **một lần**: frame tiến theo tick rồi hết (không lặp).
+    #[test]
+    fn one_shot_clip_ends_after_its_own_length() {
+        // Clip 10 frame × 100 ms = 1000 ms; ở 33 Hz một frame mỗi ~3,3 tick.
+        assert_eq!(CLOCK.once_frame(0, 0, 10), Some(0));
+        assert_eq!(CLOCK.once_frame(0, 3, 10), Some(0));
+        assert_eq!(CLOCK.once_frame(0, 4, 10), Some(1));
+        assert_eq!(CLOCK.once_frame(0, 32, 10), Some(9));
+        // Hết khoảng clip: không còn frame nào để vẽ (ô đó về lại lửa).
+        assert_eq!(CLOCK.once_frame(0, 33, 10), None);
+        assert_eq!(CLOCK.once_frame(0, 999, 10), None);
+        // Clip rỗng: không có gì để phát.
+        assert_eq!(CLOCK.once_frame(0, 0, 0), None);
+    }
+
+    /// Sổ trình diễn: ghi vụ nổ theo ô, hết khoảng clip thì bỏ.
+    #[test]
+    fn journal_keeps_one_explosion_per_cell_until_the_clip_ends() {
+        let mut journal = ExplosionJournal::default();
+        assert!(journal.active(0, &CLOCK, 10).is_empty());
+        let cell = Cell::new(2, 3);
+        journal.record(cell, 10);
+        // Vụ nổ mới ở cùng ô thay vụ cũ.
+        journal.record(cell, 20);
+        assert_eq!(journal.active(21, &CLOCK, 10), vec![(cell, 0)]);
+        // Ô khác: không có hiệu ứng.
+        assert!(
+            !journal
+                .active(21, &CLOCK, 10)
+                .iter()
+                .any(|(cell, _)| *cell == Cell::new(0, 0))
+        );
+        // Hết khoảng clip (10 frame × 100 ms) ⇒ không còn hiệu ứng ở ô đó.
+        assert!(journal.active(54, &CLOCK, 10).is_empty());
+        // Dọn sổ: vụ nổ đã hết bị bỏ, vụ nổ còn hiệu ưu giữ.
+        journal.prune(54, &CLOCK, 10);
+        assert!(journal.active(54, &CLOCK, 10).is_empty());
+        journal.record(cell, 60);
+        journal.prune(61, &CLOCK, 10);
+        assert_eq!(journal.active(61, &CLOCK, 10), vec![(cell, 0)]);
+        // Bundle không có clip nổ ⇒ không có gì để phát ⇒ sổ bị dọn hết.
+        journal.prune(62, &CLOCK, 0);
+        assert!(journal.active(62, &CLOCK, 0).is_empty());
     }
 }
