@@ -1,6 +1,6 @@
-//! Điểm chạy server V1. Phần 1 (authority thuần) nằm trong thư viện; phần 2 nối
-//! `boom-proto`/`boom-sync`/`boom-net` theo issue #46 khi #44 merge.
+//! Điểm chạy server V1. Lõi authority và vòng IO `boom-net` nằm trong thư viện; binary cần
+//! config/content từ lớp triển khai (issue #46 phần 2) trước khi mở cổng thật.
 
 fn main() {
-    eprintln!("boom-server: lõi authority trong thư viện; IO/DTO là phần 2 của issue #46");
+    eprintln!("boom-server: dùng API Server/Authority trong thư viện; chưa nạp config triển khai");
 }

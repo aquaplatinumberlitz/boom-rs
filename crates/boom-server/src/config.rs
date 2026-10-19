@@ -2,6 +2,7 @@
 //! và các ngưỡng input là tham số giao thức ADR 0009 (design), có tên và nguồn.
 
 use boom_core::{CharacterStats, Rules, Tick, ms_to_ticks};
+use boom_proto::ProtocolLimits;
 use boom_room::RoomPolicy;
 
 /// Policy vòng đời phòng/trận của V1. Giá trị mặc định lấy từ SCOPE_V1 §3; caller có thể
@@ -70,6 +71,8 @@ impl InputLimits {
 pub struct ServerConfig {
     pub policy: PolicyConfig,
     pub input: InputLimits,
+    /// Miền DTO phiên V1 (ADR 0009 §4.2), dùng khi decode/check `InputBatch`/`Snapshot`.
+    pub protocol_limits: ProtocolLimits,
 }
 
 impl ServerConfig {
@@ -77,6 +80,7 @@ impl ServerConfig {
         Self {
             policy: PolicyConfig::scope_v1(),
             input: InputLimits::adr_0009(),
+            protocol_limits: ProtocolLimits::v1(),
         }
     }
 }
@@ -112,4 +116,19 @@ impl InputTicks {
 pub struct CharacterStatsTable {
     pub c00: CharacterStats,
     pub c01: CharacterStats,
+}
+
+/// Định danh server dùng để chấp nhận `Hello` (ADR 0009 §1, V1-002).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HandshakeConfig {
+    /// `rules_profile_id` server đã nạp.
+    pub rules_profile_id: String,
+    /// `rules_hash` (`fnv1a64-v0`) của profile server đã nạp.
+    pub rules_hash: u64,
+    /// SHA-256 manifest content server đã nạp.
+    pub content_sha256: [u8; 32],
+    /// Epoch content của phiên server.
+    pub content_epoch: u32,
+    /// Chu kỳ gửi snapshot, ms (ADR 0009 design).
+    pub snapshot_interval_ms: u32,
 }

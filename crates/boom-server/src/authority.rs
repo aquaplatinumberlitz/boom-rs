@@ -11,13 +11,15 @@ use boom_core::{
     CharacterStats, CoreError, Life, Outcome as CoreOutcome, Phase as CorePhase, PlayerInput,
     PlayerSetup, SimulationEvent, SimulationState, Tick, World,
 };
+use boom_proto::{InputBatch, Snapshot};
 use boom_room::{
     CharacterId, Lobby, Outcome as RoomOutcome, PlayerId, RequestId, RoomAction, RoomCommand,
     RoomError, RoomEvent, RoomId, RoomView, RoundId, RoundMember,
 };
+use boom_sync::{SnapshotContext, input_ack, to_snapshot};
 
 use crate::config::{CharacterStatsTable, InputTicks, ServerConfig};
-use crate::input::{InputAck, InputError, InputTrack, InternalInputBatch};
+use crate::input::{InputAck, InputError, InputTrack};
 
 /// Kết quả trận do server quyết, một lần cho mỗi round.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -114,10 +116,16 @@ pub struct RoomUpdate {
 pub enum ServerError {
     Room(RoomError),
     Core(CoreError),
+    Input(InputError),
     WrongPhase { phase: ServerPhase },
     NoRoom,
     RoomExists { room: RoomId },
     UnknownPlayer(PlayerId),
+    Proto(boom_proto::ProtoError),
+    Sync(boom_sync::SyncError),
+    Net(boom_net::NetError),
+    NoSession(PlayerId),
+    SessionExists(PlayerId),
     TimeWentBackwards { last_ms: u64, received_ms: u64 },
 }
 
@@ -126,6 +134,12 @@ impl fmt::Display for ServerError {
         match self {
             Self::Room(e) => write!(f, "lỗi phòng: {e}"),
             Self::Core(e) => write!(f, "lỗi core: {e}"),
+            Self::Input(e) => write!(f, "lỗi scheduler input: {e}"),
+            Self::Proto(e) => write!(f, "lỗi giao thức: {e}"),
+            Self::Sync(e) => write!(f, "lỗi đồng bộ DTO: {e}"),
+            Self::Net(e) => write!(f, "lỗi transport: {e}"),
+            Self::NoSession(player) => write!(f, "không có session cho {player:?}"),
+            Self::SessionExists(player) => write!(f, "session {player:?} đã tồn tại"),
             Self::WrongPhase { phase } => {
                 write!(f, "lệnh không hợp lệ ở pha {}", phase.label())
             }
@@ -161,6 +175,30 @@ impl From<CoreError> for ServerError {
     }
 }
 
+impl From<InputError> for ServerError {
+    fn from(value: InputError) -> Self {
+        Self::Input(value)
+    }
+}
+
+impl From<boom_proto::ProtoError> for ServerError {
+    fn from(value: boom_proto::ProtoError) -> Self {
+        Self::Proto(value)
+    }
+}
+
+impl From<boom_sync::SyncError> for ServerError {
+    fn from(value: boom_sync::SyncError) -> Self {
+        Self::Sync(value)
+    }
+}
+
+impl From<boom_net::NetError> for ServerError {
+    fn from(value: boom_net::NetError) -> Self {
+        Self::Net(value)
+    }
+}
+
 /// Dữ liệu bất biến để dựng một trận: world (terrain/rules/mode) và chỉ số C00/C01.
 #[derive(Clone, Debug)]
 pub struct MatchSetup {
@@ -179,6 +217,7 @@ struct Match {
     disconnected_at: BTreeMap<PlayerId, u64>,
     eliminated: BTreeSet<PlayerId>,
     events: Vec<SimulationEvent>,
+    event_cursor: usize,
     result: Option<InternalRoundResult>,
 }
 
@@ -293,6 +332,16 @@ impl Authority {
         self.active.as_ref().map(|m| m.state.tick)
     }
 
+    pub fn rules_hash(&self) -> u64 {
+        self.setup.world.rules().profile_hash
+    }
+
+    pub fn current_round_id(&self) -> Option<u32> {
+        self.active
+            .as_ref()
+            .and_then(|m| u32::try_from(m.round.0).ok())
+    }
+
     pub fn state_hash(&self) -> Option<u64> {
         self.active.as_ref().map(|m| m.state.hash())
     }
@@ -330,6 +379,55 @@ impl Authority {
             .iter()
             .find(|p| p.id == slot)
             .map(|p| (p.x.0, p.y.0))
+    }
+
+    /// Sequence input đã áp dụng tới của một người (ack hiện tại).
+    pub fn applied_seq(&self, player: PlayerId) -> Option<u32> {
+        self.active
+            .as_ref()
+            .and_then(|m| m.inputs.get(&player))
+            .map(crate::input::InputTrack::applied_seq)
+    }
+
+    /// Snapshot DTO đầy đủ của state hiện tại; `None` khi không có trận.
+    /// Chuyển đổi nằm ở `boom-sync`, server không tự dựng DTO state.
+    pub fn snapshot(
+        &self,
+        snapshot_seq: u32,
+        content_epoch: u32,
+    ) -> Option<Result<Snapshot, boom_sync::SyncError>> {
+        let active = self.active.as_ref()?;
+        let round_id = u32::try_from(active.round.0).ok()?;
+        let mut acks = Vec::new();
+        for member in &active.members {
+            let Some(track) = active.inputs.get(&member.player) else {
+                continue;
+            };
+            acks.push(input_ack(
+                member.slot.0,
+                track.applied_seq(),
+                active.state.tick,
+            ));
+        }
+        let ctx = SnapshotContext {
+            snapshot_seq,
+            round_id,
+            state_schema: 1,
+            rules_hash: self.setup.world.rules().profile_hash,
+            content_epoch,
+            acks,
+        };
+        Some(to_snapshot(&active.state, &ctx))
+    }
+
+    /// Event mới phát sinh từ lần gọi trước; dùng cho `RoundEvents` DTO.
+    pub fn take_events(&mut self) -> Vec<SimulationEvent> {
+        let Some(active) = self.active.as_mut() else {
+            return Vec::new();
+        };
+        let out = active.events[active.event_cursor..].to_vec();
+        active.event_cursor = active.events.len();
+        out
     }
 
     /// Áp một lệnh phòng đã xác thực danh tính. Chỉ hợp lệ khi đang chờ.
@@ -487,6 +585,7 @@ impl Authority {
             disconnected_at: BTreeMap::new(),
             eliminated: BTreeSet::new(),
             events: Vec::new(),
+            event_cursor: 0,
             result: None,
         });
         self.phase = Lifecycle::Loading {
@@ -543,31 +642,50 @@ impl Authority {
         Ok(events)
     }
 
-    /// Nhận batch input nội bộ trong trận. Dedup/cửa sổ theo ADR 0009.
+    /// Nhận `InputBatch` DTO từ một phiên đã bind. Server bind player theo session, không tin
+    /// trường `player` trên dây; scheduler giữ nguyên ngữ nghĩa ADR 0009.
     pub fn submit_input(
         &mut self,
-        batch: InternalInputBatch,
+        player: PlayerId,
+        batch: &InputBatch,
         now_ms: u64,
     ) -> Result<InputAck, InputError> {
         if !matches!(self.phase, Lifecycle::Playing) {
             return Err(InputError::NotPlaying);
         }
+        batch
+            .check(&self.config.protocol_limits)
+            .map_err(InputError::Proto)?;
         let active = self.active.as_mut().expect("playing có match");
-        if batch.round != active.round {
+        let round = u32::try_from(active.round.0).map_err(|_| InputError::RoundIdOutOfRange {
+            round: active.round,
+        })?;
+        if batch.round_id != round {
             return Err(InputError::WrongRound {
                 expected: active.round,
-                received: batch.round,
+                received: RoundId(u64::from(batch.round_id)),
             });
+        }
+        let Some((&slot, _)) = active
+            .slot_to_player
+            .iter()
+            .find(|(_, bound)| **bound == player)
+        else {
+            return Err(InputError::UnknownPlayer(player));
+        };
+        if batch.player != slot {
+            return Err(InputError::PlayerMismatch {
+                expected: slot,
+                received: batch.player,
+            });
+        }
+        if active.disconnected_at.contains_key(&player) || active.eliminated.contains(&player) {
+            return Err(InputError::UnknownPlayer(player));
         }
         let track = active
             .inputs
-            .get_mut(&batch.player)
-            .ok_or(InputError::UnknownPlayer(batch.player))?;
-        if active.disconnected_at.contains_key(&batch.player)
-            || active.eliminated.contains(&batch.player)
-        {
-            return Err(InputError::UnknownPlayer(batch.player));
-        }
+            .get_mut(&player)
+            .ok_or(InputError::UnknownPlayer(player))?;
         let ack = track.submit(
             &batch.commands,
             active.state.tick,
@@ -676,7 +794,7 @@ impl Authority {
                 .inputs
                 .get_mut(&player_id)
                 .expect("input track")
-                .apply_tick(tick, self.input_limits);
+                .apply_tick(tick, self.input_limits)?;
             for seq in retired {
                 out.push(InternalServerEvent::InputRetired {
                     room: active.room,
