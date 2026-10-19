@@ -7,6 +7,8 @@
 //!   frame của sprite `CDataI16Alpha` v2.
 //! - `sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]`: ghi mỗi ảnh của
 //!   sprite ra PNG để soi bằng mắt.
+//! - `bundle --map <map> --out <dir> [--pack-dir <dir>]`: dựng bundle nội dung (atlas ảnh +
+//!   metadata ô) cho client. Thư mục pack lấy từ `--pack-dir` hoặc biến `BOOM_KR_PACK_DIR`.
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -16,9 +18,13 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use boom_assets::audio;
+use boom_assets::bundle::build_bundle;
 use boom_assets::legacy_map::{Build, parse};
 use boom_assets::pack::{Pack, PackIndex, load_index};
 use boom_assets::sprite::{self, Sprite};
+
+/// Biến môi trường chứa thư mục pack KR, dùng khi lệnh `bundle` không có `--pack-dir`.
+const PACK_DIR_ENV: &str = "BOOM_KR_PACK_DIR";
 
 struct Options {
     positional: Vec<String>,
@@ -26,6 +32,9 @@ struct Options {
     list: bool,
     all: bool,
     extract: Option<PathBuf>,
+    map: Option<String>,
+    out: Option<PathBuf>,
+    pack_dir: Option<PathBuf>,
 }
 
 fn usage() -> ExitCode {
@@ -36,39 +45,61 @@ fn usage() -> ExitCode {
          boom-assets pack-extract <pack-dir> <stem> <entry> <out> [--build kr|vn]\n  \
          boom-assets sprite-info <pack-dir> <stem> <entry> [--build kr|vn]\n  \
          boom-assets sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]\n  \
-         boom-assets audio <pack-dir> --list [--all] [--extract DIR] [--build kr|vn]"
+         boom-assets audio <pack-dir> --list [--all] [--extract DIR] [--build kr|vn]\n  \
+         boom-assets bundle --map <map> --out <dir> [--pack-dir <dir>]"
     );
     ExitCode::from(2)
 }
 
-/// Tách `--build` khỏi tham số vị trí; mặc định KR, giá trị lạ là lỗi dùng lệnh.
+/// Tách cờ `--build`, `--list`, `--all`, `--extract`, `--map`, `--out`, `--pack-dir` khỏi tham số vị trí; mặc định KR.
 fn options(args: &[String]) -> Option<Options> {
     let mut positional = Vec::new();
     let mut build = Build::Kr;
     let mut list = false;
     let mut all = false;
     let mut extract = None;
+    let mut map = None;
+    let mut out = None;
+    let mut pack_dir = None;
     let mut index = 1; // bỏ tên lệnh
     while index < args.len() {
-        if args[index] == "--build" {
-            build = match args.get(index + 1).map(String::as_str) {
-                Some("kr") => Build::Kr,
-                Some("vn") => Build::Vn,
-                _ => return None,
-            };
-            index += 2;
-        } else if args[index] == "--list" {
-            list = true;
-            index += 1;
-        } else if args[index] == "--all" {
-            all = true;
-            index += 1;
-        } else if args[index] == "--extract" {
-            extract = Some(PathBuf::from(args.get(index + 1)?));
-            index += 2;
-        } else {
-            positional.push(args[index].clone());
-            index += 1;
+        match args[index].as_str() {
+            "--build" => {
+                build = match args.get(index + 1).map(String::as_str) {
+                    Some("kr") => Build::Kr,
+                    Some("vn") => Build::Vn,
+                    _ => return None,
+                };
+                index += 2;
+            }
+            "--list" => {
+                list = true;
+                index += 1;
+            }
+            "--all" => {
+                all = true;
+                index += 1;
+            }
+            "--extract" => {
+                extract = Some(PathBuf::from(args.get(index + 1)?));
+                index += 2;
+            }
+            "--map" => {
+                map = Some(args.get(index + 1)?.clone());
+                index += 2;
+            }
+            "--out" => {
+                out = Some(PathBuf::from(args.get(index + 1)?));
+                index += 2;
+            }
+            "--pack-dir" => {
+                pack_dir = Some(PathBuf::from(args.get(index + 1)?));
+                index += 2;
+            }
+            _ => {
+                positional.push(args[index].clone());
+                index += 1;
+            }
         }
     }
     Some(Options {
@@ -77,6 +108,9 @@ fn options(args: &[String]) -> Option<Options> {
         list,
         all,
         extract,
+        map,
+        out,
+        pack_dir,
     })
 }
 
@@ -92,8 +126,62 @@ fn main() -> ExitCode {
         Some("sprite-info") => sprite_info(&opts),
         Some("sprite-png") => sprite_png(&opts),
         Some("audio") => audio(&opts),
+        Some("bundle") => bundle(&opts),
         _ => usage(),
     }
+}
+
+/// `bundle`: dựng bundle nội dung (atlas ảnh + metadata ô) cho client.
+fn bundle(opts: &Options) -> ExitCode {
+    if opts.build != Build::Kr {
+        eprintln!("bundle hiện chỉ hỗ trợ build kr");
+        return ExitCode::FAILURE;
+    }
+    if !opts.positional.is_empty() {
+        return usage();
+    }
+    let Some(out) = opts.out.as_deref() else {
+        return usage();
+    };
+    let map = opts.map.clone().unwrap_or_else(|| "Village00".to_owned());
+    let pack_dir = match opts
+        .pack_dir
+        .clone()
+        .or_else(|| std::env::var_os(PACK_DIR_ENV).map(PathBuf::from))
+    {
+        Some(dir) => dir,
+        None => {
+            eprintln!("cần thư mục pack: --pack-dir <dir> hoặc biến {PACK_DIR_ENV}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let built = match build_bundle(&pack_dir, &map) {
+        Ok(built) => built,
+        Err(e) => {
+            eprintln!("{}: {e}", pack_dir.display());
+            return ExitCode::FAILURE;
+        }
+    };
+    if let Err(e) = built.write(out) {
+        eprintln!("{}: {e}", out.display());
+        return ExitCode::FAILURE;
+    }
+    println!(
+        "bundle {map}: {} sprite, {} ảnh, {} trang atlas, {} ô, {} unknown → {}",
+        built.bundle.sprites.len(),
+        built
+            .bundle
+            .sprites
+            .iter()
+            .map(|sprite| sprite.images.len())
+            .sum::<usize>(),
+        built.bundle.atlas.len(),
+        built.bundle.cells.len(),
+        built.bundle.unknown.len(),
+        out.display()
+    );
+    println!("content_hash {}", built.bundle.content_hash);
+    ExitCode::SUCCESS
 }
 
 fn map_info(opts: &Options) -> ExitCode {

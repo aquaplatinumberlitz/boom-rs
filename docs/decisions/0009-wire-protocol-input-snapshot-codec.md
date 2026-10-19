@@ -573,4 +573,84 @@ và decode ngược, trên ba OS.
 - Q-010/V1-027: ngân sách correction/input latency p95, `INPUT_*`/`SNAPSHOT_INTERVAL` cuối cùng.
 - V1-002/P4: định dạng manifest content và canonical hash (ADR này giả định SHA-256).
 - Contract core: getter RNG state và allocator next (mục 4.4), cần contracts-r4 trước khi `boom-proto` snapshot.
-- Room command/state, auth, TLS, reconnect: ngoài phạm vi ADR này; #13/backend mở task riêng.
+- Room command/state, TLS, reconnect: ngoài phạm vi ADR này; #13/backend mở task riêng. Auth và health:
+  Addendum A.
+
+## Addendum A (2026-10-20) — kind auth, health và ngón tay cấu hình trong `Welcome`
+
+Nguồn: [ADR 0011](0011-identity-persistence-log-v1.md) §6, §8.2.1, §8.3, §15 mục 4. Mọi thay đổi dưới
+đây là **additive**: thêm kind và thêm trường trước khi bản phát hành đầu tiên dùng `Welcome`;
+`wire_schema` vẫn là `1` (Quyết định 1). Giá trị là `design`.
+
+### A.1 Kind mới
+
+| Kind | Tên | Chiều | Kênh | Dùng ở V1 |
+|---:|---|---|---|---|
+| `0x0004` | `Auth` | C→S | game | Đăng ký hoặc đăng nhập sau `Welcome` |
+| `0x0005` | `AuthOk` | S→C | game | Auth thành công, phát token phiên |
+| `0x0006` | `AuthFail` | S→C | game | Auth thất bại, có mã lý do |
+| `0x0007` | `Logout` | C→S | game | Thu hồi phiên rồi server đóng kết nối |
+| `0x0050` | `HealthRequest` | C→S | admin loopback | Chỉ admin listener nhận (ADR 0011 §8.2.1) |
+| `0x0051` | `HealthResponse` | S→C | admin loopback | Chỉ admin listener gửi |
+
+- Kênh game **không** nhận `0x0050`/`0x0051`; admin listener **chỉ** nhận `HealthRequest`. Sai kênh xử lý như
+  kind lạ: đóng kết nối và log, không đoán.
+- Thứ tự trên kênh game, theo trạng thái kết nối:
+
+  | Trạng thái | Server nhận | Kind khác |
+  |---|---|---|
+  | Mới mở, chưa gửi `Welcome` | chỉ `Hello` (Quyết định 1) | đóng/`Reject` như handshake hiện có; `Auth` sớm bị từ chối |
+  | Đã gửi `Welcome`, chưa `AuthOk` | `Auth`, `Ping`, `Pong` | `Reject { reason: SessionRejected }` rồi đóng |
+  | Đã `AuthOk` | kind game V1 + `Logout`; `Auth` lần hai là lỗi giao thức | theo Quyết định 2 |
+
+  Sau `AuthFail` client được gửi lại `Auth` trên cùng kết nối (rate limit theo ADR 0011 §5).
+- `Auth` chỉ hợp lệ một lần thành công mỗi kết nối; `Auth` thứ hai sau `AuthOk` là lỗi giao thức.
+- `Logout`: server thu hồi đúng phiên của kết nối (reason `logout`), không trả message, rồi đóng kết nối.
+
+### A.2 DTO (postcard, theo Quyết định 5)
+
+```text
+Auth { op: AuthOp, username: String, password: String }
+  AuthOp = Login | Register
+AuthOk { account_id: u64, display_name: String, token: String, expires_at_ms: u64 }
+AuthFail { reason: AuthFailReason }
+  AuthFailReason = InvalidCredentials | UsernameUnavailable | InvalidInput
+                 | AccountHasActiveSession | RateLimited | RegistrationClosed | Unavailable
+Logout {}
+HealthRequest {}
+HealthResponse { ...trường ADR 0011 §8.2.1... }
+```
+
+- Giới hạn biên (kiểm sau decode, trước khi đụng DB): `username` ≤ 64 byte, `password` ≤ 256 byte
+  (ADR 0011 §4); quá giới hạn → `AuthFail { InvalidInput }`, không hash.
+- `InvalidCredentials` dùng chung cho sai tên và sai mật khẩu (ADR 0011 §5, không lộ enumeration).
+  `UsernameUnavailable` chỉ trả cho `Register` — đăng ký tự bản chất lộ tên đã có; rate limit theo nguồn bù lại.
+- **Thứ tự xử lý `Login` chống enumeration** (ADR 0011 §5, §9): (1) kiểm biên/rate limit; (2) verify mật khẩu
+  — tên không tồn tại vẫn verify với hash giả; (3) **chỉ khi verify thành công** mới kiểm phiên và có thể trả
+  `AccountHasActiveSession`. Credential sai luôn trả `InvalidCredentials` bất kể tài khoản có tồn tại hay đang
+  có phiên. Bucket rate limit theo username áp dụng giống nhau cho tên không tồn tại (khóa theo `username_key`
+  đã chuẩn hóa, không tra DB trước), để `RateLimited` không thành oracle tồn tại tài khoản.
+- `Unavailable` gom lỗi phía server (OS RNG, DB); chi tiết chỉ vào log (`auth.rng_unavailable`, ...).
+- `token` là bearer credential base64url 43 ký tự (ADR 0011 §6). Phía server bọc `Secret<T>`; DTO
+  `AuthOk` không derive `Debug` in token ra (impl `Debug` tay che giá trị). V1 không có message dùng lại
+  token trên kết nối mới: reconnect phải `Auth` lại (SCOPE_V1 §3); resume bằng token cần ADR mới.
+- `HealthResponse` mang đúng danh sách trường ADR 0011 §8.2.1; số nguyên không dấu, `problems: Vec<String>`
+  có giới hạn số phần tử trong `ProtocolLimits`.
+
+### A.3 `Welcome` thêm ngón tay cấu hình
+
+`Welcome` thêm `server_version: String`, `content_sha256: [u8; 32]` và giữ các trường sẵn có
+(`wire_schema`, `state_schema`, `rules_profile_id`, `rules_hash`, `protocol_limits_version`), đủ bộ ngón tay
+ADR 0011 §8.3. Không thêm đường dẫn file, địa chỉ bind hay cấu hình rate limit.
+
+`Welcome.session_id` là định danh **kết nối** (ADR 0011 gọi là `connection_id`), cấp trước auth; nó **không**
+phải phiên tài khoản (`sessions.session_id`) và không phải token. Implement có thể đổi tên trường thành
+`connection_id` trong cùng task T5.
+
+### A.4 Task
+
+Code thuộc ADR 0011 §11: T1 (`HealthRequest`/`HealthResponse` + admin listener), T5 (auth + `Welcome`).
+Mỗi kind mới có test round-trip, test kind sai kênh, test giới hạn biên. Test thứ tự: `Hello`→`Welcome`→`Auth`
+thành công; `Auth` trước `Hello` bị từ chối; `RoomCommand` trước `AuthOk` bị từ chối. Test enumeration (T3/T7):
+cùng mật khẩu sai cho tên không tồn tại, tài khoản rảnh và tài khoản đang có phiên → cùng `InvalidCredentials`
+và cùng đường xử lý (có verify hash); chỉ mật khẩu đúng + phiên còn sống mới nhận `AccountHasActiveSession`.

@@ -59,7 +59,8 @@ boom-server  → boom-core, boom-content, boom-proto, boom-net, boom-sync, boom-
 không khóa layout bộ nhớ core. Runtime tiêu thụ bundle đã validate, client không mang pack decoder.
 
 Dependency nền hiện có: `serde` (derive) và `toml` trong `boom-content` để đọc profile; `postcard` 1.x trong
-`boom-proto` (ADR 0009); `macroquad` =0.4.16 (feature `audio`) trong `boom-client` (ADR 0010).
+`boom-proto` (ADR 0009); `macroquad` =0.4.16 (feature `audio`) trong `boom-client` (ADR 0010); `rusqlite` (bundled), `argon2`, `getrandom`,
+`fs4`, `serde_json`, `sha2`, `base64` (+ `tempfile` cho test) khai trong workspace cho `boom-server` (ADR 0011 §10).
 Thêm dependency mới ghi lý do trong commit; dependency nền ghi vào đây.
 
 ## 2. Mở rộng tính năng, mode và event
@@ -279,7 +280,7 @@ review. Font Unicode, fallback, wrap, focus là contract UI. Golden bản Việt
 | Quyết định | Trạng thái | Gate |
 |---|---|---|
 | Client stack | **ADR 0010: macroquad, có điều kiện** | Còn: build+run thật 3 OS, input-held/focus, playback audio (P6) |
-| Persistence | **ADR 0011 (Proposed, chờ review)**: SQLite (`rusqlite`) + Argon2id + session token gắn `instance_id`/`connection_id` (giải phóng khi disconnect/timeout/restart, không khóa tài khoản tới TTL); tùy chọn client lưu phía client; health runtime qua admin listener loopback + offline check tách riêng | Còn: addendum ADR 0009 cho message auth + kind health, TLS (ADR 0006), test backend thật ở P7 |
+| Persistence | **ADR 0011 (Accepted)**: SQLite (`rusqlite`) + Argon2id + session token gắn `instance_id`/`connection_id` (giải phóng khi disconnect/timeout/restart, không khóa tài khoản tới TTL); tùy chọn client lưu phía client; health runtime qua admin listener loopback + offline check tách riêng | Message auth/health: ADR 0009 Addendum A. Còn: TLS (ADR 0006), test backend thật ở P7 |
 | Codec giao thức | **ADR 0009** | Triển khai `boom-proto`/`boom-net` ở P7 |
 | Định dạng bundle content | Mở (P4) | Provenance, validation, asset closure, rebuild tái lập |
 | Thứ tự chi tiết trong tick | Mở (START-C, Q-006) | Boundary scenario pickup/lửa/chain/chết cùng tick |
