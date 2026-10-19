@@ -1607,16 +1607,20 @@ fn server_writes_round_replay_that_boom_replay_verifies() {
         let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
         let round = create_start(&mut a, &players, 0);
         let tick = a.tick().unwrap();
-        // Một batch hợp lệ mỗi người, gửi trùng, rồi một batch ngoài cửa sổ.
-        for (slot, &player) in players.iter().enumerate() {
-            let batch = input_batch(&a, player, 1, tick, Dir::Right, false);
+        // Input deterministic theo seed, gửi trùng, rồi một batch ngoài cửa sổ.
+        let mut rng = 0xC0FFEE_u64 ^ players.len() as u64;
+        let dirs = [Dir::Up, Dir::Right, Dir::Down, Dir::Left];
+        for &player in &players {
+            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let dir = dirs[usize::try_from(rng >> 32).unwrap_or(0) % dirs.len()];
+            let bomb = rng & 1 == 0;
+            let batch = input_batch(&a, player, 1, tick, dir, bomb);
             a.submit_input(player, &batch, 0).unwrap();
             a.submit_input(player, &batch, 0).unwrap();
             let mut window =
                 input_batch(&a, player, 2, tick.saturating_add(10_000), Dir::Left, false);
             window.commands[0].target_tick = tick.saturating_add(10_000);
             assert!(a.submit_input(player, &window, 0).is_err());
-            let _ = slot;
         }
         a.advance_to(200_000).unwrap();
         assert_eq!(a.phase(), ServerPhase::Results);
@@ -1629,12 +1633,17 @@ fn server_writes_round_replay_that_boom_replay_verifies() {
         assert!(replay_path.with_extension("golden").exists());
         verify_replay_with_cli(&replay_path);
         // Sửa input (giữ envelope TOML) phải làm verify fail.
-        let mutated = std::fs::read_to_string(&replay_path).unwrap().replacen(
-            "dir = \"right\"",
-            "dir = \"left\"",
-            1,
-        );
-        assert!(mutated.contains("dir = \"left\""));
+        let mut mutated = std::fs::read_to_string(&replay_path).unwrap();
+        let prefix = "dir = \"";
+        let start = mutated.find(prefix).expect("replay phải có input dir") + prefix.len();
+        let end = start + mutated[start..].find('"').expect("dir kết thúc");
+        let replacement = if &mutated[start..end] == "left" {
+            "right"
+        } else {
+            "left"
+        };
+        mutated.replace_range(start..end, replacement);
+        assert!(mutated.contains(&format!("dir = \"{replacement}\"")));
         let bad_path = dir.path().join("tampered.toml");
         std::fs::write(&bad_path, mutated).unwrap();
         std::fs::copy(
