@@ -11,16 +11,21 @@
 //! - `data/maps/village00-kr.toml` — bảng phân loại ô của Village00 KR (PR #25).
 //! - `docs/evidence/inventory/kr_v1_content.json` — vai trò của 103 entry đã fingerprint.
 //! - [VN_LEGACY_SERVER_REFERENCE](../../../../docs/research/findings/VN_LEGACY_SERVER_REFERENCE.md)
-//!   §1 — quy tắc tra theme.
+//!   §1 — quy tắc tra theme (ở đó là `candidate` cho map chưa chạy).
 //!
-//! Quy tắc tra entry (RULES_V1 R-069, R-070):
+//! Quy tắc tra entry (RULES_V1 R-069, R-070, R-071):
 //!
 //! 1. ID tile và ID obj trong file `.map` là **chỉ số entry** của `fx/ObjectTable/ObjectTable`
 //!    của build tương ứng (KR và VN dùng chung quy tắc, chỉ khác số thứ tự).
 //! 2. Tên entry có dạng `<TileSet>_<Lớp>/<Tên>`; sprite của ô nằm ở pack `FxTile`, entry
 //!    `<TileSet>/<Tên>`. Lớp (`Ground`/`Static`/`Box`/`Passable`/`Event`) quyết định va chạm,
 //!    không đổi sprite.
-//! 3. Theme của map là entry `FxMap/Theme/<Theme>`; preview là `FxMap/Etc/<Map>_mm`.
+//! 3. Theme của map là thư mục `Theme/*` dài nhất làm tiền tố tên map; entry theme là
+//!    `FxMap/Theme/<Theme>`, preview là `FxMap/Etc/<Map>_mm`, BGM là `FxSound/MP3/<Theme>`.
+//!    Quy tắc **tổng quát** này là R-071 (`candidate`: mới chỉ có bằng chứng VN legacy server
+//!    và 9 map VN chạy được). Trên pack KR nó khớp 914/1.151 map, nên phần chỉ dùng cho V1 là
+//!    kết quả đã xác nhận ở `Village00` (R-070: theme `Village`, preview `Village00_mm`,
+//!    BGM `Village`).
 //!
 //! Bảng chọn nội dung (nhân vật, item, vai trò) là **dữ liệu content** của V1, không phải
 //! hằng số luật chơi: nó kế thừa vai trò đã fingerprint ở `kr_v1_content.json` và phạm vi
@@ -34,7 +39,7 @@ use std::path::Path;
 use boom_content::rules::Status;
 
 use crate::legacy_map::{Build, LegacyMap, MapError, parse as parse_map};
-use crate::pack::{Pack, PackError, load_index};
+use crate::pack::{Pack, PackError, PackIndex, load_index};
 
 /// Schema hiện hành của manifest closure.
 pub const SCHEMA: u32 = 1;
@@ -151,6 +156,8 @@ pub struct ClosureEntry {
 pub enum UnknownKind {
     /// Ô của map chưa tra được entry.
     MapCell,
+    /// Entry suy ra theo quy tắc nhưng pack không có.
+    MissingEntry,
     /// State trình diễn chưa xác định được sprite nào.
     CharacterState,
 }
@@ -161,6 +168,7 @@ impl UnknownKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::MapCell => "map_cell",
+            Self::MissingEntry => "missing_entry",
             Self::CharacterState => "character_state",
         }
     }
@@ -205,7 +213,7 @@ impl ClosureManifest {
             out,
             "# Manifest closure một trận V1 — map {map} (build {build}).\n\
              # Sinh bởi `cargo run -p boom-assets --bin boom-closure -- <thư mục pack>`.\n\
-             # Quy tắc tra entry: RULES_V1 R-069, R-070.\n\
+             # Quy tắc tra entry: RULES_V1 R-069, R-070, R-071.\n\
              schema = {schema}\n\
              build = \"{build}\"\n\
              map = \"{map}\"\n\
@@ -346,20 +354,58 @@ pub fn resolve_sprite(name: &str) -> Option<(&str, &str)> {
     Some((tileset, object))
 }
 
+/// Tên các theme có trong index pack map (entry `Theme/<Theme>`).
+#[must_use]
+pub fn theme_names(index: &PackIndex) -> Vec<String> {
+    let mut names: Vec<String> = index
+        .entries
+        .iter()
+        .filter_map(|entry| entry.name.strip_prefix("Theme/"))
+        .map(str::to_owned)
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// Theme của một map: thư mục `Theme/*` **dài nhất** làm tiền tố tên map.
+///
+/// Đây là quy tắc **tổng quát** R-071, trạng thái `candidate`: nguồn là server giả lập VN
+/// ([VN_LEGACY_SERVER_REFERENCE](../../../../docs/research/findings/VN_LEGACY_SERVER_REFERENCE.md)
+/// §1, ở đó cũng là `candidate` cho map chưa chạy) và 9 map VN chạy được
+/// ([VN_BATTLE_RUNTIME_REFERENCE](../../../../docs/research/findings/VN_BATTLE_RUNTIME_REFERENCE.md)
+/// VN-B04) — bằng chứng gián tiếp, chưa có trace client nào xác nhận chọn theme.
+///
+/// Đo trên pack KR 00967: `FxMap` có 142 thư mục `Theme/*` và 1.151 map; rule khớp 914 map
+/// (237 map không có thư mục theme nào làm tiền tố, legacy server dùng fallback
+/// `ThemeDefault`), và BGM `FxSound/MP3/<theme>` chỉ tồn tại cho 32/80 theme dùng được — nên
+/// phần BGM theo tên theme chỉ chắc ở `Village`.
+///
+/// Map V1 `Village00` đã được xác nhận riêng (R-070): `Village00` → `Village`.
+/// Tiền tố `NXCL_`/`WS_`/`WinningStreak_` của VN được bỏ trước khi so.
+#[must_use]
+pub fn resolve_theme(map_name: &str, themes: &[String]) -> Option<String> {
+    let base = ["NXCL_", "WS_", "WinningStreak_"]
+        .iter()
+        .find_map(|prefix| map_name.strip_prefix(prefix))
+        .unwrap_or(map_name)
+        .to_lowercase();
+    themes
+        .iter()
+        .filter(|theme| base.starts_with(&theme.to_lowercase()))
+        .max_by_key(|theme| theme.len())
+        .cloned()
+}
+
 /// Entry cần cho một trận V1 ngoài phần ô của map.
 ///
 /// Vai trò lấy từ `docs/evidence/inventory/kr_v1_content.json`; nhân vật và item theo
-/// [SCOPE_V1](../../../../docs/planning/SCOPE_V1.md) §1. `Fire00` (lửa) và `Bubble00`
-/// (bong bóng bị nhốt) chưa có bằng chứng consumer nên để `candidate`.
+/// [SCOPE_V1](../../../../docs/planning/SCOPE_V1.md) §1. Entry theme, preview và BGM không
+/// khai ở đây: chúng suy từ quy tắc tra theme (xem [`resolve_theme`], R-071 `candidate`;
+/// riêng map V1 `Village00` đã xác nhận ở R-070). `Fire00` (lửa) và
+/// `Bubble00` (bong bóng bị nhốt) chưa có bằng chứng consumer nên để `candidate`.
 const REQUIRED_ENTRIES: &[(&str, ClosureRole, Status)] = &[
     ("FxMap/Map/Village00", ClosureRole::Map, Status::Confirmed),
-    ("FxMap/Theme/Village", ClosureRole::Theme, Status::Confirmed),
-    (
-        "FxMap/Etc/Village00_mm",
-        ClosureRole::Preview,
-        Status::Confirmed,
-    ),
-    ("FxSound/MP3/Village", ClosureRole::Music, Status::Confirmed),
     (
         "FxContents/Attr/BomberAttr",
         ClosureRole::CharacterAttr,
@@ -471,14 +517,88 @@ fn character_entries() -> Vec<(String, ClosureRole, Status)> {
 /// Thư mục phải có `<pack>.idx` và `<pack>.idd` của các pack KR (`FxMap`, `FxTile`, `fx`,
 /// `FxCharacter`, `FxContents`, `FxDesktop`, `FxSound`).
 pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, ClosureError> {
-    let map_entry = format!("FxMap/Map/{V1_MAP}");
-    let map = parse_map(&read_pack_entry(pack_dir, &map_entry)?, Build::Kr)?;
+    let map_pack = Pack::open(pack_dir, "FxMap", Build::Kr)?;
+    let map = parse_map(&map_pack.read_named(&format!("Map/{V1_MAP}"))?, Build::Kr)?;
+    let themes = theme_names(map_pack.index());
+    let theme = resolve_theme(V1_MAP, &themes);
+    let theme_in_pack = theme
+        .as_deref()
+        .is_some_and(|name| map_pack.index().find(&format!("Theme/{name}")).is_some());
+    let preview_in_pack = map_pack.index().find(&format!("Etc/{V1_MAP}_mm")).is_some();
+    drop(map_pack);
+
     let table = parse_object_table(&read_pack_entry(pack_dir, OBJECT_TABLE)?)?;
     let tile_index = load_index(pack_dir, TILE_PACK, Build::Kr)?;
+    let sound_index = load_index(pack_dir, "FxSound", Build::Kr)?;
 
     let mut entries: Vec<ClosureEntry> = Vec::new();
     let mut unknown: Vec<ClosureUnknown> = Vec::new();
     let mut tilesets: Vec<String> = Vec::new();
+
+    // Theme, preview và BGM suy từ quy tắc tra theme; entry thiếu thì ghi unknown kèm lý do.
+    match (theme.as_deref(), theme_in_pack) {
+        (Some(theme), true) => {
+            entries.push(ClosureEntry {
+                entry: format!("FxMap/Theme/{theme}"),
+                role: ClosureRole::Theme,
+                status: Status::Confirmed,
+                bytes: 0,
+                sha256: String::new(),
+                map_id: None,
+                object_name: None,
+            });
+            if sound_index.find(&format!("MP3/{theme}")).is_some() {
+                entries.push(ClosureEntry {
+                    entry: format!("FxSound/MP3/{theme}"),
+                    role: ClosureRole::Music,
+                    status: Status::Confirmed,
+                    bytes: 0,
+                    sha256: String::new(),
+                    map_id: None,
+                    object_name: None,
+                });
+            } else {
+                unknown.push(ClosureUnknown {
+                    kind: UnknownKind::MissingEntry,
+                    id: format!("FxSound/MP3/{theme}"),
+                    reason: format!("pack FxSound không có BGM theo tên theme {theme}"),
+                    candidates: Vec::new(),
+                });
+            }
+        }
+        (Some(theme), false) => unknown.push(ClosureUnknown {
+            kind: UnknownKind::MissingEntry,
+            id: format!("FxMap/Theme/{theme}"),
+            reason: format!("pack FxMap không có entry theme {theme} của map {V1_MAP}"),
+            candidates: Vec::new(),
+        }),
+        (None, _) => unknown.push(ClosureUnknown {
+            kind: UnknownKind::MissingEntry,
+            id: format!("FxMap/Theme/{V1_MAP}"),
+            reason: format!(
+                "không tra được theme của map {V1_MAP} theo quy tắc thư mục Theme/* dài nhất"
+            ),
+            candidates: themes,
+        }),
+    }
+    if preview_in_pack {
+        entries.push(ClosureEntry {
+            entry: format!("FxMap/Etc/{V1_MAP}_mm"),
+            role: ClosureRole::Preview,
+            status: Status::Confirmed,
+            bytes: 0,
+            sha256: String::new(),
+            map_id: None,
+            object_name: None,
+        });
+    } else {
+        unknown.push(ClosureUnknown {
+            kind: UnknownKind::MissingEntry,
+            id: format!("FxMap/Etc/{V1_MAP}_mm"),
+            reason: format!("pack FxMap không có preview của map {V1_MAP}"),
+            candidates: Vec::new(),
+        });
+    }
 
     // Ô của map: mỗi ID tile/obj phải có entry, nếu không thì phải nằm trong unknown kèm lý do.
     for (kind, role, ids) in cell_ids(&map) {
@@ -939,6 +1059,25 @@ mod tests {
         // Tên không phải ô của map (script object) không có dạng `<TileSet>_<Lớp>/<Tên>`.
         assert_eq!(resolve_sprite("Game/MonPudadak1"), None);
         assert_eq!(resolve_sprite("Tile00"), None);
+    }
+
+    #[test]
+    fn theme_is_the_longest_matching_theme_folder() {
+        // Kiểm quy tắc R-071 (`candidate`): map V1 `Village00` đã xác nhận riêng ở R-070.
+        let themes: Vec<String> = ["Village", "ExVillage", "Volcano"]
+            .iter()
+            .map(|t| (*t).to_owned())
+            .collect();
+        assert_eq!(
+            resolve_theme("Village00", &themes),
+            Some("Village".to_owned())
+        );
+        // Tiền tố riêng của VN được bỏ trước khi so.
+        assert_eq!(
+            resolve_theme("NXCL_Village03", &themes),
+            Some("Village".to_owned())
+        );
+        assert_eq!(resolve_theme("KhongCoTheme", &themes), None);
     }
 
     #[test]

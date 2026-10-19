@@ -150,7 +150,8 @@ TEAM_WORKFLOW §5–6. Mọi task dưới đây chạy song song được; ràng
 | #15 | Q-012 tập chuỗi/ảnh UI V1 | — | dsh | Codex | B |
 | #12 | Spike client stack (ADR 0007) | ảnh decode; #9 giúp dựng scene | dsh | Codex | B |
 
-Lượt A chạy ngay (mỗi worker 4 agent); task lượt B nhận khi một agent của worker đó rảnh.
+Lượt A chạy trước, lượt B nhận khi có agent rảnh. OpenCode tối đa 4 agent song song. dsh chỉ **2 phiên cố định**
+(dsh-A, dsh-B; TEAM_WORKFLOW §1): các task dsh còn lại xếp hàng, phiên nào rảnh nhận task kế tiếp.
 Phân công và quy tắc review/merge: TEAM_WORKFLOW §1.
 
 Sau đợt 1 (integrator lập đợt 2): `boom-proto`/`boom-net` theo ADR của #14, server trận (V1-010, V1-022…V1-024),
