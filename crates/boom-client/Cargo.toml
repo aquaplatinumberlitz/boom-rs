@@ -13,6 +13,10 @@ boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
 boom-sync = { path = "../boom-sync" }
 macroquad = { version = "=0.4.16", features = ["audio"] }
+# Font client (V1-035): metric TTF thật để đo/wrap chữ không cần GPU.
+ab_glyph = "0.2.32"
+# Cắt chuỗi theo cụm chữ (grapheme cluster) — không cắt giữa dấu tổ hợp.
+unicode-segmentation = "1.13"
 # Tùy chọn client `options.toml` (ADR 0011 §7): đọc/ghi TOML + derive serde.
 serde.workspace = true
 toml.workspace = true
@@ -24,6 +28,8 @@ boom-server = { path = "../boom-server" }
 boom-room = { path = "../boom-room" }
 # Auth thật trong test: SQLite trên file tạm (ADR 0011 §10).
 tempfile.workspace = true
+# Ảnh golden layout (test `#[ignore]`, chạy tay) — không nằm trên đường chạy.
+png = "0.18"
 
 [lints]
 workspace = true
