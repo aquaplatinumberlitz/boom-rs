@@ -109,6 +109,7 @@ dependencies = [
 name = "boom-replay"
 version = "0.0.0"
 dependencies = [
+ "boom-assets",
  "boom-content",
  "boom-core",
  "boom-scenario",
