@@ -10,13 +10,13 @@
 //!
 //! ## Quy ước trình diễn
 //!
-//! Dưới đây là quyết định **presentation** của client, không phải luật chơi: mọi
-//! giá trị luật vẫn lấy từ rules profile (`grid.tile_px`, claim R-001). Nghĩa
-//! `f0..f11` của client gốc còn là câu hỏi mở **Q-003**, nên quy ước này được
-//! ghi rõ để đổi được khi có trace runtime.
+//! Dưới đây là quyết định **presentation** của client (`design`), không phải luật chơi:
+//! mọi giá trị luật vẫn lấy từ rules profile (`grid.tile_px`, claim R-001). Nghĩa
+//! `f0..f11` của client gốc còn là câu hỏi mở **Q-003**, nên quy ước được ghi ở
+//! nguồn chuẩn ([BUNDLES §7](../../../../docs/specification/assets/BUNDLES.md)) để đổi
+//! được khi có trace runtime.
 //!
 //! 1. Ô `(cx, cy)` rộng `T` px: mép trái ở `x = cx·T`, mép dưới ở `y = (cy+1)·T`.
-//!    Mốc này khớp neo hiển thị nhân vật (R-009: `x = cột·40`, `y = hàng·40 + 39`).
 //! 2. **Canvas** của frame (`f8`, `f9`) đặt sao cho *đáy canvas trùng mép dưới ô*
 //!    và *trục X của pivot (`f10`) trùng mép trái ô*:
 //!    `canvas.x = cx·T − pivot_x`, `canvas.y = (cy+1)·T − canvas_h`.
@@ -27,6 +27,9 @@
 //! vật cản không trùng đáy canvas (`FxTile/Tile00/Fountain00` lệch 31 px), nên neo
 //! theo `pivot_y` sẽ đặt vòi nước ~30 px dưới mặt đất. Canh đáy theo canvas đặt
 //! đáy vùng ảnh đúng bằng mép dưới ô cho cả 5 vật cản của Village00.
+//!
+//! `R-009` (neo hiển thị **nhân vật**) là quan sát khác đối tượng, **không** dùng làm
+//! bằng chứng cho neo vật cản.
 //!
 //! ## Z-order
 //!
@@ -40,7 +43,9 @@ use std::fmt;
 use std::path::Path;
 
 use boom_content::bundle::{Bundle, BundleError, Frame, ROLE_OBJECT, ROLE_TILE, Sprite};
-use boom_content::map::{CellIds, MapGrid, MapProfile, MapProfileError, Terrain};
+use boom_content::map::{
+    CellClassifier, CellIds, CellKind, MapGrid, MapProfile, MapProfileError, Terrain,
+};
 
 /// Hình chữ nhật pixel trong không gian logic của client.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +73,9 @@ pub struct DrawItem {
     pub row: u16,
     /// Cột ô.
     pub column: u16,
+    /// Loại ô **ban đầu** theo bảng phân loại ô: vật cản phá được (`Breakable`) biến
+    /// mất khi ô chuyển sang nền, còn vật cản cứng (`Solid`) thì luôn còn.
+    pub kind: CellKind,
 }
 
 /// Thông tin một trang atlas (file và kích thước) để nạp texture.
@@ -192,18 +200,44 @@ pub struct Loaded {
 ///
 /// Lỗi (bundle sai hash, thiếu file atlas, metadata hỏng) trả về rõ ràng — không
 /// panic, không đoán.
-pub fn load(dir: &Path, tile_px: u32) -> Result<Loaded, SceneError> {
+pub fn load(dir: &Path, profile: &MapProfile, tile_px: u32) -> Result<Loaded, SceneError> {
     // `boom_content::bundle::load` kiểm `content_hash` và SHA-256 từng trang atlas.
     let bundle = boom_content::bundle::load(dir)?;
-    let scene = Scene::from_bundle(&bundle, tile_px)?;
+    check_profile(&bundle, profile)?;
+    let classifier = profile.classifier()?;
+    let scene = Scene::from_bundle(&bundle, &classifier, tile_px)?;
     Ok(Loaded { bundle, scene })
+}
+
+/// Vật cản còn được vẽ không.
+///
+/// Ô **gạch phá được** (`Breakable`) chuyển sang nền (`Floor`) sau khi bị nổ
+/// (`boom-core::systems::blocks`) → hình gạch phải biến mất, nếu không người chơi đi
+/// xuyên qua hình. Vật cản cứng (`Solid`) thì luôn còn.
+///
+/// `current` là loại ô **hiện tại** trong state mô phỏng; `None` = ngoài lưới (không
+/// vẽ). Hàm thuần: test được không cần GPU.
+#[must_use]
+pub fn object_visible(initial: CellKind, current: Option<CellKind>) -> bool {
+    if initial != CellKind::Breakable {
+        return true;
+    }
+    !matches!(current, Some(CellKind::Floor))
 }
 
 impl Scene {
     /// Dựng scene từ bundle đã nạp.
     ///
+    /// `classifier` là bảng phân loại ô theo build (một nguồn chuẩn, `data/maps/`):
+    /// scene cần loại ô **ban đầu** để biết vật cản nào là gạch phá được (xem
+    /// [`object_visible`]).
+    ///
     /// `tile_px` là kích thước ô từ rules profile (`grid.tile_px`, claim R-001).
-    pub fn from_bundle(bundle: &Bundle, tile_px: u32) -> Result<Self, SceneError> {
+    pub fn from_bundle(
+        bundle: &Bundle,
+        classifier: &CellClassifier,
+        tile_px: u32,
+    ) -> Result<Self, SceneError> {
         // Index sprite theo (vai trò, ID map) để tra ô nhanh.
         let mut sprites: BTreeMap<(&str, u32), &Sprite> = BTreeMap::new();
         for sprite in &bundle.sprites {
@@ -241,7 +275,15 @@ impl Scene {
                 }
                 if let Some(object) = cell.object {
                     match sprites.get(&(ROLE_OBJECT, object)) {
-                        Some(sprite) => objects.push(draw_item(sprite, x, y, tile_px)?),
+                        Some(sprite) => {
+                            let kind = classifier.classify(CellIds {
+                                tile: cell.tile,
+                                obj: cell.object,
+                            });
+                            let mut item = draw_item(sprite, x, y, tile_px)?;
+                            item.kind = kind;
+                            objects.push(item);
+                        }
                         None if has_unknown(bundle, &format!("obj:{object}")) => unknown_cells += 1,
                         None => {
                             return Err(SceneError::MissingSprite {
@@ -333,6 +375,7 @@ fn draw_item(
         dest: frame_placement(frame, cell_x, cell_y, tile_px),
         row: cell_y,
         column: cell_x,
+        kind: CellKind::Floor,
     })
 }
 
@@ -399,14 +442,20 @@ pub fn map_grid(bundle: &Bundle) -> Result<MapGrid, SceneError> {
 /// Bundle **không** nhân bản phân loại ô (một nguồn chuẩn, AGENTS §3): client nạp
 /// cả hai, và từ chối bundle không khớp bảng phân loại.
 pub fn terrain(bundle: &Bundle, profile: &MapProfile) -> Result<Terrain, SceneError> {
+    check_profile(bundle, profile)?;
+    let grid = map_grid(bundle)?;
+    Ok(profile.classify(&grid)?)
+}
+
+/// Bundle có khớp bảng phân loại ô không (một nguồn chuẩn, AGENTS §3).
+fn check_profile(bundle: &Bundle, profile: &MapProfile) -> Result<(), SceneError> {
     if profile.map != bundle.map || profile.build != bundle.build {
         return Err(SceneError::NoMapProfile {
             map: bundle.map.clone(),
             build: bundle.build.clone(),
         });
     }
-    let grid = map_grid(bundle)?;
-    Ok(profile.classify(&grid)?)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -482,6 +531,17 @@ mod tests {
             clips: Vec::new(),
             unknown: Vec::new(),
         }
+    }
+
+    /// Bảng phân loại ô cho fixture: obj 10 là gạch phá được, obj 11 là vật cản cứng.
+    fn classifier() -> CellClassifier {
+        let mut classifier = CellClassifier {
+            empty: Some(CellKind::Floor),
+            ..Default::default()
+        };
+        classifier.objects.insert(10, CellKind::Breakable);
+        classifier.objects.insert(11, CellKind::Solid);
+        classifier
     }
 
     /// Bundle 2×2: ô (0,0) có vật cản, ô (1,1) có vật cản cao hơn.
@@ -579,7 +639,7 @@ mod tests {
     #[test]
     fn objects_are_ordered_by_row_then_column() {
         let bundle = two_object_bundle();
-        let scene = Scene::from_bundle(&bundle, TILE).expect("dựng scene");
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
         assert_eq!(scene.ground.len(), 4);
         assert_eq!(scene.objects.len(), 2);
         // Hàng 0 trước hàng 1: đối tượng ở hàng dưới (gần hơn) che đúng.
@@ -592,7 +652,7 @@ mod tests {
     #[test]
     fn ground_and_objects_keep_their_cell_anchor() {
         let bundle = two_object_bundle();
-        let scene = Scene::from_bundle(&bundle, TILE).expect("dựng scene");
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
         // Ô (0, 0): nền ở (0, 0).
         assert_eq!(scene.ground[0].dest.x, 0);
         assert_eq!(scene.ground[0].dest.y, 0);
@@ -602,10 +662,33 @@ mod tests {
     }
 
     #[test]
+    fn objects_keep_their_initial_cell_kind() {
+        let bundle = two_object_bundle();
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        // Ô (0, 0) có obj 10 (gạch phá được), ô (1, 1) có obj 11 (vật cản cứng).
+        assert_eq!(scene.objects[0].kind, CellKind::Breakable);
+        assert_eq!(scene.objects[1].kind, CellKind::Solid);
+    }
+
+    #[test]
+    fn broken_block_is_not_drawn_anymore_but_solid_object_stays() {
+        // Gạch phá được: ô còn là gạch thì vẽ; sau khi nổ ô thành nền thì không vẽ.
+        assert!(object_visible(
+            CellKind::Breakable,
+            Some(CellKind::Breakable)
+        ));
+        assert!(!object_visible(CellKind::Breakable, Some(CellKind::Floor)));
+        // Vật cản cứng: luôn vẽ.
+        assert!(object_visible(CellKind::Solid, Some(CellKind::Solid)));
+        assert!(object_visible(CellKind::Solid, Some(CellKind::Floor)));
+    }
+
+    #[test]
     fn missing_object_sprite_is_reported_not_guessed() {
         let mut bundle = two_object_bundle();
         bundle.sprites.retain(|sprite| sprite.role != ROLE_OBJECT);
-        let error = Scene::from_bundle(&bundle, TILE).expect_err("thiếu sprite vật cản");
+        let error =
+            Scene::from_bundle(&bundle, &classifier(), TILE).expect_err("thiếu sprite vật cản");
         assert!(matches!(
             error,
             SceneError::MissingSprite {
@@ -627,7 +710,8 @@ mod tests {
                 candidates: Vec::new(),
             });
         }
-        let scene = Scene::from_bundle(&bundle, TILE).expect("ô unknown không chặn scene");
+        let scene =
+            Scene::from_bundle(&bundle, &classifier(), TILE).expect("ô unknown không chặn scene");
         assert_eq!(scene.unknown_cells, 2);
         assert_eq!(scene.objects.len(), 0);
     }
@@ -677,8 +761,14 @@ mod tests {
     #[test]
     fn loading_a_broken_bundle_reports_an_error_instead_of_panicking() {
         // Thư mục không có bundle.toml → lỗi rõ, không panic.
-        let error = load(Path::new("/khong/ton/tai/boom-client-bundle"), TILE)
-            .expect_err("thư mục không tồn tại");
+        let profile = MapProfile::from_toml(include_str!("../../../data/maps/village00-kr.toml"))
+            .expect("bảng phân loại ô");
+        let error = load(
+            Path::new("/khong/ton/tai/boom-client-bundle"),
+            &profile,
+            TILE,
+        )
+        .expect_err("thư mục không tồn tại");
         assert!(matches!(error, SceneError::Bundle(_)));
         assert!(error.to_string().contains("bundle"));
     }

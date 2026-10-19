@@ -124,9 +124,10 @@ cargo run -p boom-client -- --bundle /tmp/bundle-village00 \
   chuẩn: bundle không nhân bản phân loại ô). Spawn lấy từ bundle.
 - Tile/vật cản vẽ bằng atlas thật; toạ độ vẽ và z-order tính ở module thuần `scene.rs`
   (test được không cần GPU), phần texture ở `render.rs`.
-- **Quy ước trình diễn** (presentation, không phải luật chơi — nghĩa `f0..f11` của client gốc còn là
-  câu hỏi mở Q-003): mép dưới ô là `y = (hàng+1)·40` (khớp neo hiển thị nhân vật R-009); canvas
-  của frame đặt đáy trùng mép dưới ô, trục X của pivot trùng mép trái ô; vùng ảnh thật canh giữa
+- **Quy ước trình diễn** (presentation, **không** phải luật chơi — nghĩa `f0..f11` của client gốc còn là
+  câu hỏi mở Q-003): quy ước đặt ảnh nằm ở nguồn chuẩn
+  [BUNDLES §7](../../docs/specification/assets/BUNDLES.md) (`design`): mép dưới ô là `y = (hàng+1)·40`;
+  canvas của frame đặt đáy trùng mép dưới ô, trục X của pivot trùng mép trái ô; vùng ảnh thật canh giữa
   ngang và canh đáy trong canvas.
 - Z-order: nền vẽ trước; vật cản sort theo hàng rồi cột nên đối tượng ở hàng dưới che đúng đối
   tượng ở hàng trên; nhân vật (placeholder) chen theo hàng ô đang đứng.
@@ -157,8 +158,8 @@ GPU.
   CLI.
 - Chưa có UI đổi tùy chọn trong game; `mute`/volume chưa nối vào audio (client chưa có audio).
 - Chưa có clip animation trong bundle: nhân vật/bom/lửa vẫn là placeholder (V1-031).
-- Quy ước pivot/canvas là quyết định presentation của client; nghĩa `f0..f11` của client gốc
-  (Q-003) chưa đối chiếu, cần trace runtime để chốt.
+- Quy ước đặt ảnh là quyết định `design` của client ([BUNDLES §7](../../docs/specification/assets/BUNDLES.md));
+  nghĩa `f0..f11` của client gốc (Q-003) chưa đối chiếu, cần trace runtime để chốt.
 - Chưa có mạng, prediction, âm thanh; chưa chạy runtime Windows/macOS (CI chỉ build/check).
 - Focus dựa vào `WindowMinimized`/key-up của macroquad; X11 đã kiểm, Wayland/focus thật trên macOS/Windows
   cần runner P6 kiểm lại.

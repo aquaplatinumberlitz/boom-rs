@@ -257,7 +257,10 @@ impl Game {
         // Scene: bundle content nếu có, không thì địa hình placeholder.
         let (terrain, scene) = match bundle_dir {
             Some(dir) => {
-                let loaded = scene::load(dir, tile_px)?;
+                // Phân loại ô nằm ở bảng chuẩn `data/maps/`, không nhân bản trong bundle.
+                let map_profile =
+                    MapProfile::from_toml(include_str!("../../../data/maps/village00-kr.toml"))?;
+                let loaded = scene::load(dir, &map_profile, tile_px)?;
                 // Không bỏ qua phần chưa xác định một cách âm thầm (AGENTS §4).
                 for unknown in &loaded.bundle.unknown {
                     eprintln!(
@@ -271,9 +274,6 @@ impl Game {
                         loaded.scene.unknown_cells
                     );
                 }
-                // Phân loại ô nằm ở bảng chuẩn `data/maps/`, không nhân bản trong bundle.
-                let map_profile =
-                    MapProfile::from_toml(include_str!("../../../data/maps/village00-kr.toml"))?;
                 let terrain = scene::terrain(&loaded.bundle, &map_profile)?;
                 (terrain, Some(loaded.scene))
             }
@@ -547,6 +547,14 @@ fn draw_map_from_bundle(game: &Game, scene: &Scene, atlas: &Atlas) {
     let mut layer: Vec<(u16, u16, LayerItem)> =
         Vec::with_capacity(scene.objects.len() + game.state.players.len());
     for item in &scene.objects {
+        // Gạch đã phá (ô chuyển sang nền) thì không vẽ nữa, còn vật cản cứng thì luôn vẽ.
+        let current = game
+            .state
+            .field
+            .kind(Cell::new(i32::from(item.column), i32::from(item.row)));
+        if !scene::object_visible(item.kind, current) {
+            continue;
+        }
         layer.push((item.row, item.column, LayerItem::Sprite(*item)));
     }
     for player in &game.state.players {
@@ -769,6 +777,7 @@ fn parse_volume(value: &str) -> Result<u8, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use boom_core::Dir;
 
     #[test]
     fn rebind_spec_parses_actions_and_keys() {
@@ -836,6 +845,62 @@ mod tests {
             Err(error) => error,
         };
         assert!(error.to_string().contains("bundle"));
+    }
+
+    /// Gạch phá được phải biến mất khỏi scene sau khi nổ (review #81).
+    ///
+    /// Chạy thật `boom-core` (không GPU): đặt bom cạnh gạch, chờ nổ, rồi kiểm ô gạch
+    /// chuyển từ `Breakable` sang `Floor` và quyết định vẽ của client đổi theo.
+    #[test]
+    fn destroyed_block_is_not_drawn_anymore() {
+        // Bản đồ 3×1: spawn ở (0,0), nền ở (1,0), gạch ở (2,0).
+        let terrain = Terrain::from_ascii(&["0.+"]).expect("bản đồ test");
+        let profile = RulesProfile::from_toml(include_str!("../../../data/rules/v1-dev.toml"))
+            .expect("rules");
+        let rules = Rules::from_profile(&profile).expect("rules");
+        let mode = mode_by_id("battle_ffa").expect("mode");
+        let world = World::new(terrain, rules, mode).expect("world");
+        let roster = [PlayerSetup {
+            id: 0,
+            stats: DEMO_STATS,
+        }];
+        let mut state = SimulationState::new_round(&world, &roster, 7).expect("lượt");
+        let mut events = Vec::new();
+        let block = Cell::new(2, 0);
+
+        // Trước khi nổ: ô là gạch phá được → hình gạch được vẽ.
+        assert_eq!(state.field.kind(block), Some(CellKind::Breakable));
+        assert!(scene::object_visible(
+            CellKind::Breakable,
+            state.field.kind(block)
+        ));
+
+        // Đi tới ô (1,0) rồi đặt bom (tầm 1 → phá gạch ở (2,0)).
+        for _ in 0..300 {
+            let cell = world.cell_at(state.players[0].x, state.players[0].y);
+            let input = PlayerInput {
+                dir: if cell.x < 1 { Dir::Right } else { Dir::None },
+                place_bomb: cell.x == 1 && state.bombs.is_empty(),
+            };
+            state
+                .step(&world, &[input], &mut events)
+                .expect("tick mô phỏng");
+            if state.field.kind(block) == Some(CellKind::Floor) {
+                break;
+            }
+        }
+
+        // Sau khi nổ: ô thành nền → hình gạch không vẽ nữa.
+        assert_eq!(state.field.kind(block), Some(CellKind::Floor));
+        assert!(!scene::object_visible(
+            CellKind::Breakable,
+            state.field.kind(block)
+        ));
+        // Vật cản cứng vẫn còn (loại ô khác `Breakable` thì luôn vẽ).
+        assert!(scene::object_visible(
+            CellKind::Solid,
+            state.field.kind(block)
+        ));
     }
 
     #[test]
