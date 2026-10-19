@@ -1663,3 +1663,93 @@ fn replay_is_not_written_when_dir_is_disabled() {
     a.advance_to(200_000).unwrap();
     assert_eq!(a.phase(), ServerPhase::Results);
 }
+
+#[test]
+fn replay_publish_never_overwrites_existing_round_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let old_replay = dir.path().join("round-1.toml");
+    let old_golden = dir.path().join("round-1.golden");
+    std::fs::write(&old_replay, b"old replay").unwrap();
+    std::fs::write(&old_golden, b"old golden").unwrap();
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+    create_start(&mut a, &players, 0);
+    a.advance_to(200_000).unwrap();
+    assert_eq!(std::fs::read(&old_replay).unwrap(), b"old replay");
+    assert_eq!(std::fs::read(&old_golden).unwrap(), b"old golden");
+    let new_replays: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(|entry| {
+            let path = entry.unwrap().path();
+            let name = path.file_name()?.to_string_lossy().into_owned();
+            (name.starts_with("round-1-") && name.ends_with(".toml")).then_some(path)
+        })
+        .collect();
+    assert_eq!(new_replays.len(), 1);
+    verify_replay_with_cli(&new_replays[0]);
+}
+
+#[test]
+fn replay_is_not_published_for_disconnect_timeout() {
+    for players in [
+        vec![PlayerId(1), PlayerId(2)],
+        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+        let _ = create_start(&mut a, &players, 0);
+        for &player in &players[1..] {
+            a.disconnect(player, 0).unwrap();
+        }
+        a.advance_to(9_000).unwrap();
+        a.advance_to(10_001).unwrap();
+        assert!(
+            !std::fs::read_dir(dir.path()).unwrap().any(|entry| entry
+                .unwrap()
+                .path()
+                .extension()
+                .is_some_and(|e| e == "toml")),
+            "không được publish replay không tái tạo được disconnect"
+        );
+    }
+}
+
+#[test]
+fn replay_is_not_published_when_all_players_disconnect() {
+    for players in [
+        vec![PlayerId(1), PlayerId(2)],
+        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+        let _ = create_start(&mut a, &players, 0);
+        for &player in &players {
+            a.disconnect(player, 0).unwrap();
+        }
+        a.advance_to(9_000).unwrap();
+        a.advance_to(10_001).unwrap();
+        assert!(
+            !std::fs::read_dir(dir.path()).unwrap().any(|entry| entry
+                .unwrap()
+                .path()
+                .extension()
+                .is_some_and(|e| e == "toml")),
+            "không được publish replay khi mọi người disconnect"
+        );
+    }
+}
+
+#[test]
+fn replay_write_error_does_not_break_round_or_touch_existing_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let not_a_dir = dir.path().join("replay-dir-is-file");
+    std::fs::write(&not_a_dir, b"sentinel").unwrap();
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut config = replay_config(&not_a_dir);
+    config.replay_dir = Some(not_a_dir.clone());
+    let mut a = Authority::new(config, setup_for_replay());
+    create_start(&mut a, &players, 0);
+    a.advance_to(200_000).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Results);
+    assert_eq!(std::fs::read(&not_a_dir).unwrap(), b"sentinel");
+}

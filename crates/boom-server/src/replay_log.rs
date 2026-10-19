@@ -8,6 +8,8 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use boom_content::bundle::sha256_hex;
 use boom_content::map::{CellKind, Terrain};
@@ -146,10 +148,12 @@ impl ReplayLog {
         ));
         golden.push_str(&format!("outcome {outcome}\n"));
 
-        let replay_path = self.dir.join(format!("round-{}.toml", self.round));
-        let golden_path = self.dir.join(format!("round-{}.golden", self.round));
-        write_atomic(&replay_path, replay.as_bytes())?;
-        write_atomic(&golden_path, golden.as_bytes())?;
+        let (replay_path, golden_path) = unique_paths(&self.dir, self.round);
+        write_new_atomic(&replay_path, replay.as_bytes())?;
+        if let Err(err) = write_new_atomic(&golden_path, golden.as_bytes()) {
+            let _ = fs::remove_file(&replay_path);
+            return Err(err);
+        }
         Ok(replay_path)
     }
 }
@@ -260,18 +264,39 @@ pub(crate) fn outcome_label(outcome: MatchOutcome, members: &[RoundMember]) -> S
     }
 }
 
-fn write_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
+fn unique_paths(dir: &Path, round: u64) -> (PathBuf, PathBuf) {
+    let direct_toml = dir.join(format!("round-{round}.toml"));
+    let direct_golden = dir.join(format!("round-{round}.golden"));
+    if !direct_toml.exists() && !direct_golden.exists() {
+        return (direct_toml, direct_golden);
+    }
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let nonce = NEXT.fetch_add(1, Ordering::Relaxed);
+    let base = format!("round-{round}-{}-{stamp}-{nonce}", std::process::id());
+    (
+        dir.join(format!("{base}.toml")),
+        dir.join(format!("{base}.golden")),
+    )
+}
+
+fn write_new_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let nonce = NEXT.fetch_add(1, Ordering::Relaxed);
     let tmp = path.with_extension(format!(
-        "{}.tmp",
-        path.extension().and_then(|e| e.to_str()).unwrap_or("")
+        "{}.tmp-{}-{nonce}",
+        path.extension().and_then(|e| e.to_str()).unwrap_or(""),
+        std::process::id()
     ));
     fs::write(&tmp, data)?;
-    #[cfg(not(windows))]
-    fs::rename(&tmp, path)?;
-    #[cfg(windows)]
-    {
-        let _ = fs::remove_file(path);
-        fs::rename(&tmp, path)?;
+    // Đích được chọn chưa tồn tại; `rename` xuất bản atomically trên cả Windows khi đích
+    // chưa có. Không bao giờ xoá file đã publish trước đó.
+    if let Err(err) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(err);
     }
     Ok(())
 }

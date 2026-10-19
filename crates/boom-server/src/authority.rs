@@ -895,6 +895,12 @@ impl Authority {
             .filter(|(p, at)| !active.eliminated.contains(p) && now_ms >= **at + timeout)
             .map(|(p, _)| *p)
             .collect();
+        if !due.is_empty() && self.replay.is_some() {
+            // Replay schema 1 chỉ có input; authority đổi life trực tiếp khi timeout. Không thể
+            // tái tạo các thay đổi đó bằng input, nên không publish một golden biết trước sai.
+            self.replay = None;
+            eprintln!("replay_log: bỏ replay vì có disconnect timeout ngoài input");
+        }
         for player in due {
             active.eliminated.insert(player);
             if let Some(slot) = active
