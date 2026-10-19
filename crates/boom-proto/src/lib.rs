@@ -4,7 +4,7 @@
 //!
 //! - [`envelope`]: envelope 16 byte viết tay (`magic`, `wire_schema`, `kind`, `flags`,
 //!   `payload_len`, `reserved`).
-//! - [`dto`]: DTO của từng message — handshake, input, snapshot, event.
+//! - [`dto`]: DTO của từng message — handshake, input, snapshot, event, phòng/sảnh (Addendum B).
 //! - [`message`]: trait [`Message`] và hàm encode/decode frame.
 //! - [`limits`]: giới hạn giao thức (tham số giao thức, **không** phải luật chơi).
 //!
@@ -29,6 +29,11 @@ pub use dto::events::{EventField, EventId, RoundEvent, RoundEvents};
 pub use dto::handshake::{Hello, Reject, RejectReason, Welcome};
 pub use dto::input::{InputBatch, InputBits, InputCommand, InputRejectReason, InputRejected};
 pub use dto::ping::{Ping, Pong};
+pub use dto::room::{
+    LoadingAck, LobbyList, LobbyListRequest, LobbyRoom, PlayerResult, ResultAck, RoomAction,
+    RoomCharacter, RoomChat, RoomChatMessage, RoomCommand, RoomMember, RoomOutcome, RoomPhase,
+    RoomRejectReason, RoomRejected, RoomState, RoundInfo, RoundMember, RoundResult, RoundStart,
+};
 pub use dto::snapshot::{
     BombState, CellKind, FieldState, FlameState, HiddenItem, InputAck, ItemState, Life, Outcome,
     Phase, PlayerState, Snapshot, SnapshotRequest, Stat,

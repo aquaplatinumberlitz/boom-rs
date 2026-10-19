@@ -1,6 +1,6 @@
 [package]
 name = "boom-sync"
-description = "Adapter giữa state boom-core và DTO boom-proto (snapshot, input), dùng chung cho server và client"
+description = "Adapter giữa state boom-core/boom-room và DTO boom-proto (snapshot, input, phòng), dùng chung cho server và client"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,6 +10,7 @@ publish.workspace = true
 boom-core.workspace = true
 boom-content.workspace = true
 boom-proto = { path = "../boom-proto" }
+boom-room = { path = "../boom-room" }
 
 # Chỉ dùng trong test: dựng trận từ `fixtures/scenarios/` để kiểm round-trip state hash.
 [dev-dependencies]
