@@ -54,6 +54,25 @@ pub const MAX_HIDDEN: usize = 195;
 /// Số ô lưới tối đa của một map trong miền V1 (Village00 15×13 = 195 — ADR 0009 §4.2).
 pub const MAX_CELLS: usize = 195;
 
+/// Trần độ dài `username` trong `Auth` (ADR 0009 Addendum A §A.2).
+///
+/// Đây là **biên giao thức**: server kiểm sau decode, trước khi đụng DB, và trả
+/// `AuthFail { InvalidInput }` khi vượt (không hash). Không phải luật tài khoản của
+/// ADR 0011 §4 (tên 3–24 ký tự): đó là tầng account store, kiểm ở server.
+pub const MAX_USERNAME_BYTES: usize = 64;
+
+/// Trần độ dài `password` trong `Auth` (ADR 0009 Addendum A §A.2).
+///
+/// Biên giao thức, cùng ý với [`MAX_USERNAME_BYTES`]: quá giới hạn → `AuthFail { InvalidInput }`,
+/// không hash.
+pub const MAX_PASSWORD_BYTES: usize = 256;
+
+/// Số mục `problems` tối đa trong `HealthResponse`.
+///
+/// **Design**: ADR 0011 §8.2.1 liệt kê `problems` nhưng không chốt con số; 32 đủ cho mọi kiểm
+/// sức khoẻ hiện biết và chặn danh sách độc hại.
+pub const MAX_PROBLEMS: usize = 32;
+
 // --- Trần định dạng (chặn length prefix độc hại lúc decode) ---------------------------
 
 /// Trần định dạng cho danh sách người chơi.
@@ -76,6 +95,18 @@ pub const WIRE_MAX_HIDDEN: usize = 4_096;
 pub const WIRE_MAX_CAPABILITIES: usize = 64;
 /// Trần định dạng cho byte đóng gói loại ô (2 bit/ô, tối đa 65 536 ô).
 pub const WIRE_MAX_KINDS_BYTES: usize = 16_384;
+/// Trần định dạng cho độ dài `username` trong `Auth`.
+///
+/// **Rộng hơn** biên V1 ([`MAX_USERNAME_BYTES`]) để chuỗi vượt biên vẫn decode được rồi bị
+/// `check` từ chối bằng lỗi có kiểu — server cần phân biệt "vượt biên" để trả
+/// `AuthFail { InvalidInput }` (ADR 0009 Addendum A §A.2). Trần này chỉ chặn length prefix độc hại.
+pub const WIRE_MAX_USERNAME_BYTES: usize = 1_024;
+/// Trần định dạng cho độ dài `password` trong `Auth`; cùng ý với [`WIRE_MAX_USERNAME_BYTES`].
+pub const WIRE_MAX_PASSWORD_BYTES: usize = 4_096;
+/// Trần định dạng cho danh sách `problems` trong `HealthResponse`.
+pub const WIRE_MAX_PROBLEMS: usize = 64;
+/// Trần định dạng cho danh sách `listen_addrs` trong `HealthResponse`.
+pub const WIRE_MAX_LISTEN_ADDRS: usize = 16;
 
 /// Miền giá trị của một phiên V1 (ADR 0009 §2, §4.2).
 ///
@@ -109,6 +140,12 @@ pub struct ProtocolLimits {
     pub max_hidden: usize,
     /// Số ô lưới tối đa.
     pub max_cells: usize,
+    /// Trần độ dài `username` trong `Auth` (ADR 0009 Addendum A §A.2).
+    pub max_username_bytes: usize,
+    /// Trần độ dài `password` trong `Auth` (ADR 0009 Addendum A §A.2).
+    pub max_password_bytes: usize,
+    /// Số mục `problems` tối đa trong `HealthResponse`.
+    pub max_problems: usize,
 }
 
 impl Default for ProtocolLimits {
@@ -120,6 +157,10 @@ impl Default for ProtocolLimits {
 
 impl ProtocolLimits {
     /// Miền V1: `revision = 1`.
+    ///
+    /// Revision giữ nguyên `1` khi thêm giá trị mới theo ADR 0009 Addendum A: đây là thay đổi
+    /// **additive** (ADR 0008), không giá trị cũ nào bị đổi, và bộ giới hạn V1 chưa phát hành.
+    /// Đổi một giá trị đang có thì tăng revision.
     pub const fn v1() -> Self {
         Self {
             revision: 1,
@@ -135,6 +176,9 @@ impl ProtocolLimits {
             max_items: MAX_ITEMS,
             max_hidden: MAX_HIDDEN,
             max_cells: MAX_CELLS,
+            max_username_bytes: MAX_USERNAME_BYTES,
+            max_password_bytes: MAX_PASSWORD_BYTES,
+            max_problems: MAX_PROBLEMS,
         }
     }
 
@@ -169,6 +213,9 @@ mod tests {
         assert_eq!(l.max_items, 195);
         assert_eq!(l.max_hidden, 195);
         assert_eq!(l.max_cells, 195);
+        assert_eq!(l.max_username_bytes, 64);
+        assert_eq!(l.max_password_bytes, 256);
+        assert_eq!(l.max_problems, 32);
     }
 
     #[test]
@@ -197,5 +244,16 @@ mod tests {
         assert!(WIRE_MAX_FLAMES >= l.max_flames);
         assert!(WIRE_MAX_ITEMS >= l.max_items);
         assert!(WIRE_MAX_HIDDEN >= l.max_hidden);
+        assert!(WIRE_MAX_PROBLEMS >= l.max_problems);
+    }
+
+    /// Trần định dạng của chuỗi phải **rộng hơn** biên V1: chuỗi vượt biên vẫn phải decode được
+    /// rồi bị `check` từ chối bằng lỗi có kiểu, để server trả `AuthFail { InvalidInput }`
+    /// (ADR 0009 Addendum A §A.2) thay vì lỗi decode chung chung.
+    #[test]
+    fn string_wire_ceilings_are_wider_than_session_limits() {
+        let l = ProtocolLimits::v1();
+        assert!(WIRE_MAX_USERNAME_BYTES > l.max_username_bytes);
+        assert!(WIRE_MAX_PASSWORD_BYTES > l.max_password_bytes);
     }
 }

@@ -4,8 +4,13 @@
 //! render target + nearest + copy shader, và chạy `boom-core` trực tiếp với tick cố định tách khỏi
 //! render. Địa hình là placeholder vẽ theo `CellKind`; khi có `--bundle <dir>` thì nạp bundle
 //! content đã validate, dựng địa hình Village00 từ bundle và vẽ tile/vật cản bằng atlas thật.
+//!
+//! Tùy chọn người dùng đọc/ghi từ `options.toml` (module [`options`], ADR 0011 §7): volume,
+//! mute và keybind. Keybind trong file **thay** hằng số phím mặc định; `--rebind` của dòng lệnh
+//! vẫn hoạt động và được ghi đè lên trên (đổi sau, thắng trước).
 
 mod input;
+mod options;
 mod render;
 mod scene;
 
@@ -23,7 +28,8 @@ use macroquad::material::{
 use macroquad::miniquad::{PipelineParams, ShaderSource};
 use macroquad::prelude::*;
 
-use input::{InputAction, InputAdapter, InputEvent, InputTracker, Keybinds};
+use input::{InputAction, InputAdapter, InputEvent, InputTracker};
+use options::{ClientOptions, VOLUME_MAX, VOLUME_MIN};
 use render::Atlas;
 use scene::Scene;
 
@@ -117,7 +123,46 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let mut game = match Game::new(opts.seed, opts.bundle.as_deref()) {
+    // Tùy chọn người dùng: đọc `options.toml`; file hỏng/thiếu thì dùng mặc định kèm cảnh báo.
+    let path = options::resolve_path(opts.options_path.as_deref());
+    let mut client_options = match &path {
+        Ok(path) => {
+            let loaded = options::load(path);
+            for warning in &loaded.warnings {
+                eprintln!("cảnh báo options: {warning}");
+            }
+            match loaded.status {
+                options::LoadStatus::Missing => {
+                    eprintln!("cảnh báo options: chưa có file options, dùng mặc định");
+                }
+                options::LoadStatus::Defaults => {
+                    eprintln!("cảnh báo options: file options không dùng được, dùng mặc định");
+                }
+                options::LoadStatus::Loaded => {}
+            }
+            loaded.options
+        }
+        Err(error) => {
+            eprintln!(
+                "cảnh báo options: không xác định được đường dẫn file ({error}); dùng mặc định"
+            );
+            ClientOptions::default()
+        }
+    };
+    // Cờ dòng lệnh đè lên file: đổi sau, thắng trước.
+    if let Some(volume) = opts.master_volume {
+        client_options.master_volume = volume;
+    }
+    if let Some(volume) = opts.bgm_volume {
+        client_options.bgm_volume = volume;
+    }
+    if let Some(volume) = opts.sfx_volume {
+        client_options.sfx_volume = volume;
+    }
+    if let Some(mute) = opts.mute {
+        client_options.mute = mute;
+    }
+    let mut game = match Game::new(opts.seed, client_options, opts.bundle.as_deref()) {
         Ok(game) => game,
         Err(error) => {
             eprintln!("không dựng được scene offline: {error}");
@@ -126,6 +171,23 @@ fn main() {
     };
     for &(action, key) in &opts.rebinds {
         game.input.rebind(action, key);
+    }
+    // Keybind hiệu lực = keybind trong file đã bị cờ dòng lệnh đè lên.
+    game.options.keybinds = *game.input.binds();
+    if opts.save_options {
+        let path = match &path {
+            Ok(path) => path,
+            Err(error) => {
+                eprintln!("không ghi được options: {error}");
+                std::process::exit(2);
+            }
+        };
+        if let Err(error) = options::save(&game.options, path) {
+            eprintln!("không ghi được options: {error}");
+            std::process::exit(2);
+        }
+        println!("đã ghi options: {}", path.display());
+        return;
     }
     let conf = window_conf(&game, &opts);
     macroquad::Window::from_config(conf, run(game, opts));
@@ -173,6 +235,7 @@ struct Game {
     state: SimulationState,
     events: Vec<SimulationEvent>,
     input: InputTracker,
+    options: ClientOptions,
     logic_size: [u32; 2],
     /// Scene dựng từ bundle; `None` = scene placeholder (không có `--bundle`).
     scene: Option<Scene>,
@@ -181,7 +244,11 @@ struct Game {
 }
 
 impl Game {
-    fn new(seed: u64, bundle_dir: Option<&Path>) -> Result<Self, Box<dyn std::error::Error>> {
+    fn new(
+        seed: u64,
+        options: ClientOptions,
+        bundle_dir: Option<&Path>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let profile = RulesProfile::from_toml(include_str!("../../../data/rules/v1-dev.toml"))?;
         let rules = Rules::from_profile(&profile)?;
         let mode = mode_by_id("battle_ffa").ok_or("mode battle_ffa chưa đăng ký")?;
@@ -240,7 +307,8 @@ impl Game {
             world,
             state,
             events: Vec::new(),
-            input: InputTracker::new(Keybinds::default()),
+            input: InputTracker::new(options.keybinds),
+            options,
             logic_size,
             scene,
             bundle_dir: bundle_dir.map(Path::to_path_buf),
@@ -396,13 +464,17 @@ fn draw_scene(
     );
     draw_text(
         format!(
-            "tick {}  {} Hz  {}x  {}  {}={:?}  {}={:?}  held {}  F2 focus",
-            game.state.tick,
-            game.world.rules().ticks_per_second,
-            scale,
+            "boom-client {}  tick {}  {} Hz  {}x  vol {}/{}/{}{}  {}={:?}  {}={:?}  held {}  F2 focus",
             game.scene
                 .as_ref()
                 .map_or_else(|| "placeholder".to_owned(), |scene| scene.map.clone()),
+            game.state.tick,
+            game.world.rules().ticks_per_second,
+            scale,
+            game.options.effective_master(),
+            game.options.effective_bgm(),
+            game.options.effective_sfx(),
+            if game.options.mute { " mute" } else { "" },
             InputAction::Up.label(),
             game.input.binds().up,
             InputAction::Bomb.label(),
@@ -546,6 +618,7 @@ fn placeholder_terrain() -> Terrain {
     }
 }
 
+/// Tham số dòng lệnh (khác với [`ClientOptions`] — tùy chọn người dùng trong `options.toml`).
 #[derive(Clone, Debug)]
 struct Options {
     scale: u32,
@@ -553,6 +626,14 @@ struct Options {
     ticks: u32,
     seed: u64,
     rebinds: Vec<(InputAction, KeyCode)>,
+    /// Đường dẫn file options (đè lên quy ước OS và biến môi trường).
+    options_path: Option<PathBuf>,
+    /// Ghi lại tùy chọn hiện tại vào file rồi thoát.
+    save_options: bool,
+    master_volume: Option<u8>,
+    bgm_volume: Option<u8>,
+    sfx_volume: Option<u8>,
+    mute: Option<bool>,
     /// Thư mục bundle content (`boom-assets bundle`); không có thì scene placeholder.
     bundle: Option<PathBuf>,
 }
@@ -565,6 +646,12 @@ impl Default for Options {
             ticks: DEFAULT_TICKS,
             seed: DEFAULT_SEED,
             rebinds: Vec::new(),
+            options_path: None,
+            save_options: false,
+            master_volume: None,
+            bgm_volume: None,
+            sfx_volume: None,
+            mute: None,
             bundle: None,
         }
     }
@@ -607,12 +694,36 @@ impl Options {
                         .ok_or("--rebind cần ACTION=KEY (vd. up=W)")?;
                     opts.rebinds.push((parse_action(action)?, parse_key(key)?));
                 }
+                "--options" => {
+                    opts.options_path = Some(
+                        args.next()
+                            .ok_or("--options cần đường dẫn file options")?
+                            .into(),
+                    );
+                }
+                "--save-options" => opts.save_options = true,
+                "--volume" => {
+                    let raw = args.next().ok_or("--volume cần số 0-100")?;
+                    opts.master_volume = Some(parse_volume(&raw)?);
+                }
+                "--bgm-volume" => {
+                    let raw = args.next().ok_or("--bgm-volume cần số 0-100")?;
+                    opts.bgm_volume = Some(parse_volume(&raw)?);
+                }
+                "--sfx-volume" => {
+                    let raw = args.next().ok_or("--sfx-volume cần số 0-100")?;
+                    opts.sfx_volume = Some(parse_volume(&raw)?);
+                }
+                "--mute" => opts.mute = Some(true),
+                "--no-mute" => opts.mute = Some(false),
                 "--bundle" => {
                     opts.bundle = Some(args.next().ok_or("--bundle cần thư mục bundle")?.into())
                 }
                 "-h" | "--help" => {
                     println!(
-                        "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY] [--bundle DIR]"
+                        "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
+                         \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
+                         \t  [--bundle DIR]"
                     );
                     std::process::exit(0);
                 }
@@ -637,70 +748,22 @@ fn parse_action(value: &str) -> Result<InputAction, String> {
     }
 }
 
+/// Tên phím cho `--rebind`: dùng chung bảng tên với `options.toml` để hai đường không lệch nhau.
 fn parse_key(value: &str) -> Result<KeyCode, String> {
-    let lower = value.to_ascii_lowercase();
-    let named = match lower.as_str() {
-        "up" | "arrowup" => Some(KeyCode::Up),
-        "down" | "arrowdown" => Some(KeyCode::Down),
-        "left" | "arrowleft" => Some(KeyCode::Left),
-        "right" | "arrowright" => Some(KeyCode::Right),
-        "space" => Some(KeyCode::Space),
-        "enter" | "return" => Some(KeyCode::Enter),
-        "tab" => Some(KeyCode::Tab),
-        "escape" | "esc" => Some(KeyCode::Escape),
-        "shift" | "leftshift" => Some(KeyCode::LeftShift),
-        _ => None,
-    };
-    if let Some(key) = named {
-        return Ok(key);
+    options::parse_key_name(value).ok_or_else(|| format!("tên phím lạ: {value}"))
+}
+
+/// Volume 0–100; miền lấy từ `options` (ADR 0011 §7) để không rải hằng số.
+fn parse_volume(value: &str) -> Result<u8, String> {
+    let raw: i64 = value
+        .parse()
+        .map_err(|_| format!("volume không hợp lệ: {value}"))?;
+    if !(i64::from(VOLUME_MIN)..=i64::from(VOLUME_MAX)).contains(&raw) {
+        return Err(format!(
+            "volume ngoài miền {VOLUME_MIN}-{VOLUME_MAX}: {value}"
+        ));
     }
-    let mut chars = lower.chars();
-    let Some(c) = chars.next() else {
-        return Err("phím rỗng".to_owned());
-    };
-    if chars.next().is_some() {
-        return Err(format!("tên phím lạ: {value}"));
-    }
-    let key = match c {
-        'a' => KeyCode::A,
-        'b' => KeyCode::B,
-        'c' => KeyCode::C,
-        'd' => KeyCode::D,
-        'e' => KeyCode::E,
-        'f' => KeyCode::F,
-        'g' => KeyCode::G,
-        'h' => KeyCode::H,
-        'i' => KeyCode::I,
-        'j' => KeyCode::J,
-        'k' => KeyCode::K,
-        'l' => KeyCode::L,
-        'm' => KeyCode::M,
-        'n' => KeyCode::N,
-        'o' => KeyCode::O,
-        'p' => KeyCode::P,
-        'q' => KeyCode::Q,
-        'r' => KeyCode::R,
-        's' => KeyCode::S,
-        't' => KeyCode::T,
-        'u' => KeyCode::U,
-        'v' => KeyCode::V,
-        'w' => KeyCode::W,
-        'x' => KeyCode::X,
-        'y' => KeyCode::Y,
-        'z' => KeyCode::Z,
-        '0' => KeyCode::Key0,
-        '1' => KeyCode::Key1,
-        '2' => KeyCode::Key2,
-        '3' => KeyCode::Key3,
-        '4' => KeyCode::Key4,
-        '5' => KeyCode::Key5,
-        '6' => KeyCode::Key6,
-        '7' => KeyCode::Key7,
-        '8' => KeyCode::Key8,
-        '9' => KeyCode::Key9,
-        other => return Err(format!("phím lạ: {other}")),
-    };
-    Ok(key)
+    u8::try_from(raw).map_err(|_| format!("volume không hợp lệ: {value}"))
 }
 
 #[cfg(test)]
@@ -719,6 +782,15 @@ mod tests {
     }
 
     #[test]
+    fn volume_flag_rejects_values_outside_domain() {
+        assert_eq!(parse_volume("0").unwrap(), 0);
+        assert_eq!(parse_volume("100").unwrap(), 100);
+        assert!(parse_volume("101").is_err());
+        assert!(parse_volume("-1").is_err());
+        assert!(parse_volume("toi").is_err());
+    }
+
+    #[test]
     fn placeholder_terrain_has_floor_spawns() {
         let terrain = placeholder_terrain();
         assert_eq!((terrain.width, terrain.height), (MAP_WIDTH, MAP_HEIGHT));
@@ -733,7 +805,7 @@ mod tests {
 
     #[test]
     fn offline_tick_advances_core_without_window() {
-        let mut game = Game::new(7, None).expect("scene offline");
+        let mut game = Game::new(7, ClientOptions::default(), None).expect("scene offline");
         assert_eq!(game.state.tick, 0);
         for _ in 0..10 {
             game.tick().expect("tick core");
@@ -745,8 +817,21 @@ mod tests {
     }
 
     #[test]
+    fn game_uses_keybinds_from_options() {
+        let mut options = ClientOptions::default();
+        options.keybinds.up = KeyCode::W;
+        let game = Game::new(3, options, None).expect("scene offline");
+        assert_eq!(game.input.binds().up, KeyCode::W);
+        assert_eq!(game.input.binds().bomb, KeyCode::Space);
+    }
+
+    #[test]
     fn missing_bundle_directory_is_reported_not_panicking() {
-        let error = match Game::new(7, Some(Path::new("/khong/ton/tai/boom-client-bundle"))) {
+        let error = match Game::new(
+            7,
+            ClientOptions::default(),
+            Some(Path::new("/khong/ton/tai/bundle")),
+        ) {
             Ok(_) => panic!("thư mục bundle không tồn tại phải báo lỗi"),
             Err(error) => error,
         };
@@ -759,6 +844,8 @@ mod tests {
         assert_eq!(opts.scale, 2);
         assert_eq!(opts.ticks, DEFAULT_TICKS);
         assert_eq!(opts.seed, DEFAULT_SEED);
+        assert!(opts.options_path.is_none());
+        assert!(!opts.save_options);
         assert!(opts.bundle.is_none());
     }
 }

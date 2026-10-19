@@ -133,6 +133,31 @@ pub struct FlameEntry {
     pub owner: u8,
 }
 
+/// Nguồn map lấy từ pack legacy; loader thật nằm ở `boom-replay` để giữ boundary
+/// `boom-scenario` chỉ phụ thuộc `boom-content`/`boom-core`.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MapPack {
+    /// Tên biến môi trường trỏ thư mục pack, ví dụ `BOOM_KR_PACK`.
+    pub env: String,
+    /// Entry map trong pack, mặc định `Map/Village00`.
+    #[serde(default = "default_map_entry")]
+    pub entry: String,
+    /// Build pack: `kr` hoặc `vn`.
+    #[serde(default = "default_map_build")]
+    pub build: String,
+    /// Bảng phân loại ô, tương đối file replay/scenario.
+    pub profile: PathBuf,
+}
+
+fn default_map_entry() -> String {
+    "Map/Village00".to_owned()
+}
+
+fn default_map_build() -> String {
+    "kr".to_owned()
+}
+
 /// Phần dựng trận chung của file replay/scenario.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Setup {
@@ -142,7 +167,12 @@ pub struct Setup {
     pub profile_hash: Option<String>,
     pub mode: Option<String>,
     pub seed: Option<u64>,
+    /// Map ASCII; bỏ trống khi dùng `map_pack`.
+    #[serde(default)]
     pub map: Vec<String>,
+    /// Nguồn map pack (replay tự nạp và truyền `Terrain` vào [`Match::from_terrain`]).
+    #[serde(default)]
+    pub map_pack: Option<MapPack>,
     pub player: Vec<PlayerEntry>,
     #[serde(default)]
     pub input: Vec<InputEntry>,
@@ -164,6 +194,7 @@ pub const SETUP_KEYS: &[&str] = &[
     "mode",
     "seed",
     "map",
+    "map_pack",
     "player",
     "input",
     "bomb",
@@ -239,11 +270,17 @@ pub struct Match {
 
 impl Match {
     pub fn new(setup: &Setup, base: &Path) -> Result<Self, Error> {
+        let terrain = Terrain::from_ascii(&setup.map)?;
+        Self::from_terrain(setup, base, terrain)
+    }
+
+    /// Dựng trận với địa hình đã nạp sẵn. `boom-replay` dùng hàm này cho map lấy từ pack;
+    /// `boom-scenario` không mang decoder pack.
+    pub fn from_terrain(setup: &Setup, base: &Path, mut terrain: Terrain) -> Result<Self, Error> {
         let profile = load_profile(setup, base)?;
         let rules = Rules::from_profile(&profile)?;
         let mode_id = setup.mode.as_deref().unwrap_or("battle_ffa");
         let mode = mode_by_id(mode_id).ok_or_else(|| format!("mode `{mode_id}` chưa đăng ký"))?;
-        let mut terrain = Terrain::from_ascii(&setup.map)?;
         // Người chơi có `cell` được đặt thẳng vào ô sau khi tạo lượt; bổ sung ô đó vào danh sách
         // spawn khi map không đủ chữ số spawn, để scenario không phải vẽ spawn giả.
         for p in &setup.player {
