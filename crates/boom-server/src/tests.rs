@@ -69,7 +69,7 @@ fn command(player: PlayerId, request: RequestId, action: RoomAction) -> RoomComm
     }
 }
 
-fn create_start(a: &mut Authority, players: &[PlayerId], now: u64) -> RoundId {
+fn start_loading(a: &mut Authority, players: &[PlayerId], now: u64) -> RoundId {
     let mut req = Requests::new(players);
     let host = players[0];
     a.room_command(
@@ -113,7 +113,11 @@ fn create_start(a: &mut Authority, players: &[PlayerId], now: u64) -> RoundId {
     }
     a.room_command(command(host, req.take(host), RoomAction::Start), now)
         .unwrap();
-    let round = a.room_view().unwrap().round.unwrap().id;
+    a.room_view().unwrap().round.unwrap().id
+}
+
+fn create_start(a: &mut Authority, players: &[PlayerId], now: u64) -> RoundId {
+    let round = start_loading(a, players, now);
     for &player in players {
         a.ack_loading(player, now).unwrap();
     }
@@ -465,4 +469,149 @@ fn non_host_start_is_rejected() {
         crate::ServerError::Room(boom_room::RoomError::NotHost { .. })
     ));
     assert_eq!(a.phase(), ServerPhase::Waiting);
+}
+
+#[test]
+fn host_disconnect_does_not_resurrect_host() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut a = authority();
+    let _ = create_start(&mut a, &players, 0);
+    a.disconnect(players[0], 0).unwrap();
+    a.advance_to(10_001).unwrap();
+    assert_eq!(
+        a.last_result().unwrap().outcome,
+        MatchOutcome::Winner(players[1])
+    );
+    a.advance_to(15_001).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Waiting);
+    let view = a.room_view().unwrap();
+    assert_eq!(view.members.len(), 1);
+    assert_eq!(view.host, players[1]);
+    assert!(!view.members[0].ready);
+    // Người còn lại rời → phòng xóa, không giữ slot/host chết.
+    a.disconnect(players[1], 15_001).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Waiting);
+    assert!(a.room_view().is_none());
+    assert!(a.room_id().is_none());
+}
+
+#[test]
+fn all_disconnected_closes_room_after_results() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut a = authority();
+    let _ = create_start(&mut a, &players, 0);
+    a.disconnect(players[0], 0).unwrap();
+    a.disconnect(players[1], 0).unwrap();
+    a.advance_to(10_001).unwrap();
+    a.advance_to(15_001).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Closed);
+    assert!(a.room_view().is_none());
+    assert!(a.room_id().is_none());
+}
+
+#[test]
+fn second_create_is_rejected_until_room_is_deleted() {
+    let host = PlayerId(10);
+    let other = PlayerId(20);
+    let mut a = authority();
+    a.room_command(
+        command(
+            host,
+            RequestId(1),
+            RoomAction::Create {
+                character: CharacterId::C00,
+            },
+        ),
+        0,
+    )
+    .unwrap();
+    let room = a.room_id().unwrap();
+    let err = a
+        .room_command(
+            command(
+                other,
+                RequestId(1),
+                RoomAction::Create {
+                    character: CharacterId::C01,
+                },
+            ),
+            0,
+        )
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        crate::ServerError::RoomExists { room: existing } if existing == room
+    ));
+    assert_eq!(a.room_id(), Some(room));
+    assert_eq!(a.room_view().unwrap().members.len(), 1);
+    // Xóa phòng (người cuối rời) rồi Create lại được.
+    a.room_command(command(host, RequestId(2), RoomAction::Leave), 0)
+        .unwrap();
+    assert!(a.room_view().is_none());
+    a.room_command(
+        command(
+            other,
+            RequestId(2),
+            RoomAction::Create {
+                character: CharacterId::C01,
+            },
+        ),
+        0,
+    )
+    .unwrap();
+    assert_eq!(a.phase(), ServerPhase::Waiting);
+    assert!(a.room_id().is_some());
+}
+
+#[test]
+fn loading_ack_at_or_after_deadline_cancels_instead_of_starting() {
+    let players = [PlayerId(1), PlayerId(2)];
+    for deadline in [15_000, 20_000] {
+        let mut a = authority();
+        let _ = start_loading(&mut a, &players, 0);
+        a.ack_loading(players[0], 0).unwrap();
+        let events = a.ack_loading(players[1], deadline).unwrap();
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, crate::InternalServerEvent::RoundCancelled { .. }))
+        );
+        assert_eq!(a.phase(), ServerPhase::Waiting);
+        assert!(a.room_view().unwrap().members.iter().all(|m| !m.ready));
+        assert!(a.tick().is_none());
+        assert!(a.last_result().is_none());
+    }
+}
+
+#[test]
+fn loading_disconnect_removes_player_from_waiting() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut a = authority();
+    let _ = start_loading(&mut a, &players, 0);
+    a.ack_loading(players[0], 0).unwrap();
+    let events = a.disconnect(players[1], 100).unwrap();
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, crate::InternalServerEvent::RoundCancelled { .. }))
+    );
+    assert_eq!(a.phase(), ServerPhase::Waiting);
+    let view = a.room_view().unwrap();
+    assert_eq!(view.members.len(), 1);
+    assert_eq!(view.host, players[0]);
+}
+
+#[test]
+fn results_disconnect_is_not_readded_to_waiting() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut a = authority();
+    let _ = create_start(&mut a, &players, 0);
+    a.advance_to(200_000).unwrap();
+    a.disconnect(players[1], 200_000).unwrap();
+    a.ack_result(players[0], 200_000).unwrap();
+    a.advance_to(205_000).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Waiting);
+    let view = a.room_view().unwrap();
+    assert_eq!(view.members.len(), 1);
+    assert_eq!(view.host, players[0]);
 }

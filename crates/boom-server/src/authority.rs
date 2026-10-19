@@ -116,6 +116,7 @@ pub enum ServerError {
     Core(CoreError),
     WrongPhase { phase: ServerPhase },
     NoRoom,
+    RoomExists { room: RoomId },
     UnknownPlayer(PlayerId),
     TimeWentBackwards { last_ms: u64, received_ms: u64 },
 }
@@ -129,6 +130,12 @@ impl fmt::Display for ServerError {
                 write!(f, "lệnh không hợp lệ ở pha {}", phase.label())
             }
             Self::NoRoom => write!(f, "chưa có phòng"),
+            Self::RoomExists { room } => {
+                write!(
+                    f,
+                    "authority đã quản lý phòng {room:?}; không tạo phòng thứ hai"
+                )
+            }
             Self::UnknownPlayer(p) => write!(f, "không biết người chơi {p:?}"),
             Self::TimeWentBackwards {
                 last_ms,
@@ -332,7 +339,7 @@ impl Authority {
         now_ms: u64,
     ) -> Result<RoomUpdate, ServerError> {
         self.advance_clock(now_ms)?;
-        if !matches!(self.phase, Lifecycle::Waiting) {
+        if !matches!(self.phase, Lifecycle::Waiting | Lifecycle::Closed) {
             return Err(ServerError::WrongPhase {
                 phase: self.phase(),
             });
@@ -353,6 +360,13 @@ impl Authority {
                     received: command.request,
                 }));
             }
+        }
+
+        // Authority một phòng: không cho Create thứ hai ghi đè active room.
+        if matches!(command.action, RoomAction::Create { .. })
+            && let Some(room) = self.public_room
+        {
+            return Err(ServerError::RoomExists { room });
         }
 
         // Join dùng ID public; lobby dùng ID nội bộ.
@@ -401,6 +415,13 @@ impl Authority {
         if let Some(RoomEvent::RoomCreated { room, .. }) = events.first() {
             self.public_room = Some(*room);
             self.internal_room = Some(*room);
+            self.phase = Lifecycle::Waiting;
+        }
+        // Phòng bị xóa khi người cuối rời: cho phép tạo phòng mới.
+        if self.lobby.rooms().is_empty() {
+            self.public_room = None;
+            self.internal_room = None;
+            self.phase = Lifecycle::Waiting;
         }
 
         if let Some(RoomEvent::RoundStarted { room, members, .. }) = events
@@ -489,7 +510,7 @@ impl Authority {
         now_ms: u64,
     ) -> Result<Vec<InternalServerEvent>, ServerError> {
         self.advance_clock(now_ms)?;
-        let Lifecycle::Loading { acked, .. } = &mut self.phase else {
+        let Lifecycle::Loading { started_ms, acked } = &mut self.phase else {
             return Err(ServerError::WrongPhase {
                 phase: self.phase(),
             });
@@ -497,6 +518,15 @@ impl Authority {
         let active = self.active.as_ref().ok_or(ServerError::NoRoom)?;
         if !active.members.iter().any(|m| m.player == player) {
             return Err(ServerError::UnknownPlayer(player));
+        }
+        let (room, round, members) = (active.room, active.round, active.members.clone());
+        if now_ms.saturating_sub(*started_ms) >= u64::from(self.config.policy.loading_timeout_ms) {
+            // Frame tới trước timer không được vượt loading barrier (SCOPE_V1 §3).
+            self.cancel_round(&members);
+            return Ok(vec![InternalServerEvent::RoundCancelled {
+                room,
+                round: Some(round),
+            }]);
         }
         acked.insert(player);
         let mut events = vec![InternalServerEvent::LoadingAcked {
@@ -766,7 +796,12 @@ impl Authority {
                     return Err(ServerError::UnknownPlayer(player));
                 }
                 let (room, round) = (active.room, active.round);
-                let members = active.members.clone();
+                let members: Vec<RoundMember> = active
+                    .members
+                    .iter()
+                    .filter(|m| m.player != player)
+                    .cloned()
+                    .collect();
                 self.cancel_round(&members);
                 events.push(InternalServerEvent::RoundCancelled {
                     room,
@@ -786,7 +821,16 @@ impl Authority {
                 });
             }
             Lifecycle::Results { .. } => {
-                // Result không cần input; ack muộn sẽ do timeout 5 s xử lý.
+                let active = self.active.as_mut().ok_or(ServerError::NoRoom)?;
+                if !active.members.iter().any(|m| m.player == player) {
+                    return Err(ServerError::UnknownPlayer(player));
+                }
+                active.disconnected_at.entry(player).or_insert(now_ms);
+                events.push(InternalServerEvent::PlayerDisconnected {
+                    room: active.room,
+                    player,
+                    at_ms: now_ms,
+                });
             }
             Lifecycle::Waiting => {
                 // Ở waiting, disconnect tương đương rời phòng để không giữ slot chết.
@@ -819,9 +863,18 @@ impl Authority {
             return;
         };
         let (room, round) = (active.room, active.round);
+        let remaining: Vec<RoundMember> = active
+            .members
+            .iter()
+            .filter(|m| {
+                !active.disconnected_at.contains_key(&m.player)
+                    && !active.eliminated.contains(&m.player)
+            })
+            .cloned()
+            .collect();
         self.phase = Lifecycle::Waiting;
         self.current_public_round = None;
-        self.rebuild_waiting(&active.members);
+        self.rebuild_waiting(&remaining);
         out.push(InternalServerEvent::ReturnedToWaiting { room, round });
     }
 
