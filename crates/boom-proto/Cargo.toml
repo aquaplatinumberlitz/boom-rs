@@ -1,0 +1,16 @@
+[package]
+name = "boom-proto"
+description = "Giao thức mới V1: envelope có revision + DTO InputCommand/Snapshot/RoundEvents, codec postcard (ADR 0009)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+boom-core.workspace = true
+boom-content.workspace = true
+serde.workspace = true
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+
+[lints]
+workspace = true

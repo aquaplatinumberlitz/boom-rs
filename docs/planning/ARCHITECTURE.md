@@ -22,11 +22,11 @@ boom-rs/
     boom-assets/    # [có] đọc định dạng legacy (.map) → schema content; CLI
     boom-replay/    # [có] CLI chạy/kiểm replay, so hash checkpoint
     boom-scenario/  # [có] định dạng dựng trận chung + harness boundary scenario
-    boom-proto/     # [dự kiến P7] envelope + DTO giao thức mới, không chứa luật
-    boom-net/       # [dự kiến P7] trait transport, framing, session (ADR 0006)
+    boom-proto/     # [khung, đợt 2] envelope + DTO giao thức mới (ADR 0009), không chứa luật
+    boom-net/       # [khung, đợt 2] trait transport, framing, session (ADR 0006)
     boom-room/      # [có] máy trạng thái phòng/vòng đời thuần (SCOPE_V1 §3), API ở §5.4
-    boom-client/    # [dự kiến P6] input, prediction, render/audio/UI (ADR 0007)
-    boom-server/    # [dự kiến P7] auth, lobby, authority, persistence
+    boom-client/    # [khung, đợt 2] macroquad (ADR 0010): input, prediction, render/audio/UI; đọc bundle, không đọc pack
+    boom-server/    # [khung, đợt 2] auth, lobby, authority, persistence
   xtask/                                # `cargo xtask ci`, golden replay
   data/rules/                           # rules profile có provenance (TOML)
   data/overlays/, data/items/, data/events/  # [dự kiến] overlay luật, hiệu ứng item, liveops (ADR 0008)
@@ -56,7 +56,8 @@ boom-server  → boom-core, boom-content, boom-proto, boom-net, boom-room
 `boom-proto` không phụ thuộc `SimulationState`: server/client đổi DTO ở adapter để schema mạng
 không khóa layout bộ nhớ core. Runtime tiêu thụ bundle đã validate, client không mang pack decoder.
 
-Dependency nền hiện có: `serde` (derive) và `toml` trong `boom-content` để đọc profile.
+Dependency nền hiện có: `serde` (derive) và `toml` trong `boom-content` để đọc profile; `postcard` 1.x trong
+`boom-proto` (ADR 0009); `macroquad` =0.4.16 (feature `audio`) trong `boom-client` (ADR 0010).
 Thêm dependency mới ghi lý do trong commit; dependency nền ghi vào đây.
 
 ## 2. Mở rộng tính năng, mode và event
@@ -117,9 +118,9 @@ với loại ô đã biết. Đọc `.map` legacy hỗ trợ cả header VN (spa
 Thời gian: fixed step, `sim.ticks_per_second` từ profile; tọa độ `Mpx` (1/1000 px); ms → tick làm tròn lên
 một lần khi nạp (ADR 0004). Hiệu chuẩn tick gốc và speed-level còn mở (Q-004, Q-005).
 
-## 5. Contracts — `contracts-r3`
+## 5. Contracts — `contracts-r4`
 
-Revision **`contracts-r3`**, 2026-10-19, **đã review** (issue #2 approve). Code là nguồn chuẩn của kiểu dữ liệu;
+Revision **`contracts-r4`**, 2026-10-19 (r3 đã review ở #2; r4 chỉ thêm getter cho snapshot, chờ review ở PR đợt 2). Code là nguồn chuẩn của kiểu dữ liệu;
 mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới và báo các task bị ảnh hưởng.
 
 | Revision | Thay đổi | Lý do |
@@ -127,6 +128,7 @@ mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới 
 | r1 | Bản đầu: state theo module, event V1, pipeline FFA, quyền ghi, harness scenario | START-C |
 | r2 | `check_invariants(&World)`: ID duy nhất xuyên bom/item; ô, owner, grace, `ItemKind` đối chiếu World/Rules; người chơi trong lưới. `new_round` từ chối chỉ số vượt trần (`CoreError::InvalidStat`) và kiểm bất biến sau `on_round_start` (`CoreError::Contract`) | Review #2: ba lỗi P2 (ID trùng, tham chiếu sai, lượt dựng với chỉ số sai) |
 | r3 | `check_invariants` kiểm độ dài dữ liệu lưới trước mọi truy cập ô; `Field::kind/hidden` không panic khi lệch; `World::new` từ chối địa hình có số ô khác kích thước, lưới rỗng hoặc spawn ngoài lưới (`CoreError::BadTerrain`). System không bị ảnh hưởng | Review #2 lần 2: lưới khai báo 3 ô chứa 2 ô vẫn Ok, chứa 0 ô thì panic |
+| r4 | `Rng::state()`/`Rng::from_state()`, `IdAllocator::peek_next()`/`IdAllocator::from_next()` để snapshot khôi phục RNG và allocator | ADR 0009 §4.4 |
 
 ### 5.1 Kiểu trong `boom-core`
 

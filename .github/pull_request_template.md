@@ -1,6 +1,6 @@
 <!-- Một PR = một task. Điền đủ; reviewer từ chối PR thiếu mục. Quy tắc: AGENTS.md, TEAM_WORKFLOW.md. -->
 
-**Task:** Closes #<!-- issue (PR xong cả issue); dùng "Refs #" nếu issue còn việc khác --> · **Feature ID:** <!-- V1-0xx hoặc Q-0xx / không có --> · **Contract:** contracts-r3
+**Task:** Closes #<!-- issue (PR xong cả issue); dùng "Refs #" nếu issue còn việc khác --> · **Feature ID:** <!-- V1-0xx hoặc Q-0xx / không có --> · **Contract:** contracts-r4
 
 ## Thay đổi
 <!-- Ngắn gọn: làm gì, vì sao. -->

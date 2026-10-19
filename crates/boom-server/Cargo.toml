@@ -1,0 +1,17 @@
+[package]
+name = "boom-server"
+description = "Server authoritative V1: phòng (boom-room), trận (boom-core), mạng (boom-proto/boom-net)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+boom-core.workspace = true
+boom-content.workspace = true
+boom-room = { path = "../boom-room" }
+boom-proto = { path = "../boom-proto" }
+boom-net = { path = "../boom-net" }
+
+[lints]
+workspace = true

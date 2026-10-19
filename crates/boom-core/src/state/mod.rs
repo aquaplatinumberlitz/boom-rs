@@ -40,6 +40,16 @@ impl Default for IdAllocator {
 }
 
 impl IdAllocator {
+    /// ID sẽ cấp ở lần `next_id()` kế tiếp (contracts-r4, ADR 0009 §4.4).
+    pub fn peek_next(&self) -> u32 {
+        self.next
+    }
+
+    /// Dựng lại allocator từ `peek_next()` đã lưu. `None` khi `next == 0` (ID 0 không bao giờ được cấp).
+    pub fn from_next(next: u32) -> Option<Self> {
+        (next >= 1).then_some(Self { next })
+    }
+
     pub fn next_id(&mut self) -> EntityId {
         let id = EntityId(self.next);
         self.next = self.next.checked_add(1).expect("hết ID entity");

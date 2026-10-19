@@ -20,4 +20,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: rustup show active-toolchain
+      # boom-client (macroquad, ADR 0010) cần thư viện hệ thống khi build trên Linux.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
       - run: cargo xtask ci

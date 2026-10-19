@@ -1,4 +1,4 @@
-//! World (dữ liệu bất biến của lượt), input và vòng `step` (contracts-r3).
+//! World (dữ liệu bất biến của lượt), input và vòng `step` (contracts-r4).
 
 use std::fmt;
 
@@ -43,7 +43,7 @@ impl Dir {
     }
 }
 
-/// Input đã được authority chấp nhận cho một người chơi trong một tick (contracts-r3).
+/// Input đã được authority chấp nhận cho một người chơi trong một tick (contracts-r4).
 /// Authority chuyển `InputCommand` mạng thành giá trị này; input neutral là `default()`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerInput {
@@ -187,7 +187,7 @@ impl World {
 }
 
 impl SimulationState {
-    /// Chốt đầu lượt (contracts-r3):
+    /// Chốt đầu lượt (contracts-r4):
     /// 1. Lưới đổi được lấy từ địa hình gốc.
     /// 2. Hoán vị spawn theo seed, N người lấy N spawn đầu (SCOPE_V1 §3, DESIGN).
     /// 3. `on_round_start` của từng system theo thứ tự mode (vd. giấu item vào khối mềm).
