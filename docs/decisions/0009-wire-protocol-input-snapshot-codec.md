@@ -595,9 +595,15 @@ Nguồn: [ADR 0011](0011-identity-persistence-log-v1.md) §6, §8.2.1, §8.3, §
 
 - Kênh game **không** nhận `0x0050`/`0x0051`; admin listener **chỉ** nhận `HealthRequest`. Sai kênh xử lý như
   kind lạ: đóng kết nối và log, không đoán.
-- Thứ tự trên kênh game: `Hello` → `Welcome` → `Auth` → `AuthOk`/`AuthFail`. Trước `AuthOk` server chỉ
-  nhận `Auth`, `Ping`, `Pong`; kind khác → `Reject { reason: SessionRejected }` rồi đóng. Sau `AuthFail`
-  client được gửi lại `Auth` trên cùng kết nối (rate limit theo ADR 0011 §5).
+- Thứ tự trên kênh game, theo trạng thái kết nối:
+
+  | Trạng thái | Server nhận | Kind khác |
+  |---|---|---|
+  | Mới mở, chưa gửi `Welcome` | chỉ `Hello` (Quyết định 1) | đóng/`Reject` như handshake hiện có; `Auth` sớm bị từ chối |
+  | Đã gửi `Welcome`, chưa `AuthOk` | `Auth`, `Ping`, `Pong` | `Reject { reason: SessionRejected }` rồi đóng |
+  | Đã `AuthOk` | kind game V1 + `Logout`; `Auth` lần hai là lỗi giao thức | theo Quyết định 2 |
+
+  Sau `AuthFail` client được gửi lại `Auth` trên cùng kết nối (rate limit theo ADR 0011 §5).
 - `Auth` chỉ hợp lệ một lần thành công mỗi kết nối; `Auth` thứ hai sau `AuthOk` là lỗi giao thức.
 - `Logout`: server thu hồi đúng phiên của kết nối (reason `logout`), không trả message, rồi đóng kết nối.
 
@@ -619,6 +625,11 @@ HealthResponse { ...trường ADR 0011 §8.2.1... }
   (ADR 0011 §4); quá giới hạn → `AuthFail { InvalidInput }`, không hash.
 - `InvalidCredentials` dùng chung cho sai tên và sai mật khẩu (ADR 0011 §5, không lộ enumeration).
   `UsernameUnavailable` chỉ trả cho `Register` — đăng ký tự bản chất lộ tên đã có; rate limit theo nguồn bù lại.
+- **Thứ tự xử lý `Login` chống enumeration** (ADR 0011 §5, §9): (1) kiểm biên/rate limit; (2) verify mật khẩu
+  — tên không tồn tại vẫn verify với hash giả; (3) **chỉ khi verify thành công** mới kiểm phiên và có thể trả
+  `AccountHasActiveSession`. Credential sai luôn trả `InvalidCredentials` bất kể tài khoản có tồn tại hay đang
+  có phiên. Bucket rate limit theo username áp dụng giống nhau cho tên không tồn tại (khóa theo `username_key`
+  đã chuẩn hóa, không tra DB trước), để `RateLimited` không thành oracle tồn tại tài khoản.
 - `Unavailable` gom lỗi phía server (OS RNG, DB); chi tiết chỉ vào log (`auth.rng_unavailable`, ...).
 - `token` là bearer credential base64url 43 ký tự (ADR 0011 §6). Phía server bọc `Secret<T>`; DTO
   `AuthOk` không derive `Debug` in token ra (impl `Debug` tay che giá trị). V1 không có message dùng lại
@@ -639,4 +650,7 @@ phải phiên tài khoản (`sessions.session_id`) và không phải token. Impl
 ### A.4 Task
 
 Code thuộc ADR 0011 §11: T1 (`HealthRequest`/`HealthResponse` + admin listener), T5 (auth + `Welcome`).
-Mỗi kind mới có test round-trip, test kind sai kênh, test thứ tự trước `AuthOk`, test giới hạn biên.
+Mỗi kind mới có test round-trip, test kind sai kênh, test giới hạn biên. Test thứ tự: `Hello`→`Welcome`→`Auth`
+thành công; `Auth` trước `Hello` bị từ chối; `RoomCommand` trước `AuthOk` bị từ chối. Test enumeration (T3/T7):
+cùng mật khẩu sai cho tên không tồn tại, tài khoản rảnh và tài khoản đang có phiên → cùng `InvalidCredentials`
+và cùng đường xử lý (có verify hash); chỉ mật khẩu đúng + phiên còn sống mới nhận `AccountHasActiveSession`.
