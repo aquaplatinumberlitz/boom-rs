@@ -1,0 +1,143 @@
+# Bảng phân loại ô của theme Village, dùng cho map Village00 bản KR 00967 (V1-030, Q-002).
+#
+# Nguồn dữ liệu (không chép pack vào repo):
+# - `fx/ObjectTable/ObjectTable` của pack KR: obj ID trong file `.map` là chỉ số entry của bảng này.
+#   Tên entry cho biết theme/lớp, ví dụ `Tile00_Static/Tree00` (KR index 1958; VN index 1020).
+# - `fx/TileInfo/TileInfoList` của pack KR: mỗi tile có `Data` 72 byte; word đầu là lớp runtime
+#   0 = Ground, 1 = Static/Event, 2 = Box, 3 = Passable (đã đối chiếu toàn bộ 5.929 entry).
+# - Đối chiếu VN: cùng tên tile/obj, obj ID KR = VN + 937/+938 (RULES_V1 R-004).
+# - Va chạm: client VN runtime không đi được vì ô spawn bị chặn bởi viền/cây/gạch, phải đặt bom
+#   (`/home/admin/boom-re/docs/oc_e-game.md` §5a-3); gạch vỡ do client báo C→S 135 (§5a-5d, R-008).
+#
+# `empty` là loại của ô không có obj (`-1`). Ô chỉ có tile nền Ground/Passable là Floor.
+schema = 1
+profile_id = "kr-village00-map-r1"
+map = "Village00"
+build = "kr"
+width = 15
+height = 13
+source = "kr_static"
+status = "confirmed"
+
+empty = "floor"
+
+[classes]
+# Lớp lấy từ tiền tố `Tile00_<lớp>/<tên>` trong ObjectTable và word đầu của TileInfo.
+ground = "floor"    # CGOTileGround: nền
+passable = "floor"  # CGOTilePassable: trang trí đi qua được
+static = "solid"    # CGOTileStatic/Fixed: vật cản
+box = "breakable"   # CGOTileFixedBox: gạch phá được, chỗ giấu item (R-008)
+event = "solid"     # TileInfo Data[0] = 1 như Static; Village00 không dùng obj Event
+
+# Tile nền đã biết của theme (kiểm để không bỏ qua ID lạ một cách âm thầm).
+[tiles]
+1938 = "Tile00_Ground/Cross00"
+1939 = "Tile00_Ground/Cross01"
+1940 = "Tile00_Ground/Cross02"
+1941 = "Tile00_Ground/Cross03"
+1942 = "Tile00_Ground/Grass00"
+1943 = "Tile00_Ground/Grass01"
+1944 = "Tile00_Ground/Road00"
+1945 = "Tile00_Ground/Road01"
+1946 = "Tile00_Ground/Road02"
+1947 = "Tile00_Ground/Road03"
+1948 = "Tile00_Ground/Road04"
+1949 = "Tile00_Ground/Road05"
+1950 = "Tile00_Ground/Trans"
+
+# obj ID = entry ObjectTable KR; `class` trỏ `[classes]`.
+[objects.1932]
+name = "Tile00_Box/BoxGray"
+class = "box"
+
+[objects.1933]
+name = "Tile00_Box/BoxOrange"
+class = "box"
+
+[objects.1934]
+name = "Tile00_Box/BoxRed"
+class = "box"
+
+[objects.1936]
+name = "Tile00_Event/Windmill_c"
+class = "event"
+
+[objects.1938]
+name = "Tile00_Ground/Cross00"
+class = "ground"
+
+[objects.1939]
+name = "Tile00_Ground/Cross01"
+class = "ground"
+
+[objects.1940]
+name = "Tile00_Ground/Cross02"
+class = "ground"
+
+[objects.1941]
+name = "Tile00_Ground/Cross03"
+class = "ground"
+
+[objects.1942]
+name = "Tile00_Ground/Grass00"
+class = "ground"
+
+[objects.1943]
+name = "Tile00_Ground/Grass01"
+class = "ground"
+
+[objects.1944]
+name = "Tile00_Ground/Road00"
+class = "ground"
+
+[objects.1945]
+name = "Tile00_Ground/Road01"
+class = "ground"
+
+[objects.1946]
+name = "Tile00_Ground/Road02"
+class = "ground"
+
+[objects.1947]
+name = "Tile00_Ground/Road03"
+class = "ground"
+
+[objects.1948]
+name = "Tile00_Ground/Road04"
+class = "ground"
+
+[objects.1949]
+name = "Tile00_Ground/Road05"
+class = "ground"
+
+[objects.1950]
+name = "Tile00_Ground/Trans"
+class = "ground"
+
+[objects.1952]
+name = "Tile00_Passable/Herb00"
+class = "passable"
+
+[objects.1954]
+name = "Tile00_Static/Fountain00"
+class = "static"
+
+[objects.1955]
+name = "Tile00_Static/HouseBlue"
+class = "static"
+
+[objects.1956]
+name = "Tile00_Static/HouseRed"
+class = "static"
+
+[objects.1957]
+name = "Tile00_Static/HouseYellow"
+class = "static"
+
+[objects.1958]
+name = "Tile00_Static/Tree00"
+class = "static"
+
+[objects.1959]
+name = "Tile00_Static/Windmill"
+class = "static"
