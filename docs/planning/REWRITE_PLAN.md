@@ -45,11 +45,11 @@ Trạng thái pha lấy từ [execution.json](execution.json); trạng thái fea
 [features.json](../specification/features.json). Khối bên dưới được sinh tự động, không sửa tay.
 
 <!-- PHASE_STATUS:START -->
-Pha đang hoạt động: **P0 Tổ chức docs/scope, P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự án/interface**.
+Pha đang hoạt động: **P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự án/interface**.
 
 | Pha | Trạng thái | Owner | Đầu ra | Gate hoàn thành |
 |---|---|---|---|---|
-| P0 Tổ chức docs/scope | Chờ review | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
+| P0 Tổ chức docs/scope | Đã nghiệm thu | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
 | P1 Tìm thông tin còn thiếu | Đang làm | research | Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
 | P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0008, contracts-r3 trong code, harness scenario, CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
 | P3 Review sẵn sàng | Chưa làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |

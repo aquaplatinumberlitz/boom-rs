@@ -27,13 +27,13 @@ Không chia điểm cho in_progress/in_review/blocked. Scope đổi phải đổ
 
 ## Planning và gate phát hành — không cộng vào feature %
 
-Pha đang hoạt động: **P0, P1, P2**. Chuẩn bị P0–P3: **0/4 pha hoàn tất**; các pha không có độ lớn bằng nhau.
+Pha đang hoạt động: **P1, P2**. Chuẩn bị P0–P3: **1/4 pha hoàn tất**; các pha không có độ lớn bằng nhau.
 Cổng phát hành: **0/6 passed**. Milestone P8: **Chưa làm**.
 Chỉ release khi feature V1 đã nghiệm thu, tất cả gate passed và P8 done.
 
 | Pha | Trạng thái | Owner | Đầu ra | Gate hoàn thành |
 |---|---|---|---|---|
-| P0 Tổ chức docs/scope | Chờ review | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
+| P0 Tổ chức docs/scope | Đã nghiệm thu | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
 | P1 Tìm thông tin còn thiếu | Đang làm | research | Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
 | P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0008, contracts-r3 trong code, harness scenario, CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
 | P3 Review sẵn sàng | Chưa làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |

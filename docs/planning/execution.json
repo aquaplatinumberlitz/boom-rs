@@ -13,22 +13,23 @@
     {
       "id": "P0",
       "title": "Tổ chức docs/scope",
-      "status": "in_review",
+      "status": "done",
       "owner": "integrator",
       "depends_on": [],
       "deliverable": "Index, rules, registry, scope và migration",
       "exit_gate": "Nguồn chuẩn/link/tool rõ, giữ bằng chứng",
-      "reviewer": "",
-      "integration_commit": "",
+      "reviewer": "Codex (review độc lập issue #1, PR #16)",
+      "integration_commit": "62d19b94e7289627061dd3af6f00b89e318b06ee",
       "evidence": [
         "docs/README.md",
         "docs/decisions/0003-engine-repo-and-docs-home.md",
         "docs/evidence/DOCS_MIGRATION.json",
-        "git:a124eb575220a604077be611db7a27bb4f030014"
+        "git:a124eb575220a604077be611db7a27bb4f030014",
+        "git:62d19b94e7289627061dd3af6f00b89e318b06ee"
       ],
-      "verification": "Đã nghiệm thu ở boom-re-l10n@0bdb02c (reviewer /root/architecture_docs). Sau chuyển repo sang boom-rs và viết lại AGENTS (2026-10-19) cần review lại; docs_check + kr_catalog --check đạt trong boom-rs.",
+      "verification": "Review #1: migration 85/85 file khớp byte với boom-re-l10n@9bde2ce; claim RULES_V1 đối chiếu nguồn; 2 finding P2 (policy PR, test tracking) sửa ở PR #16 và review lại đạt. cargo xtask ci + test_kr_tracking 9/9 + CI ba OS xanh.",
       "blocker": "",
-      "next_action": "Review #1 trả 2 điểm (policy PR, test tracking); sửa ở PR fix/review-1, chờ review lại rồi đặt done."
+      "next_action": ""
     },
     {
       "id": "P1",
