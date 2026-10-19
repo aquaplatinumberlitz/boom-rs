@@ -1,5 +1,8 @@
 # Duyệt ảnh Việt hóa KR–VN
 
+Danh mục chuỗi/ảnh dùng riêng cho luồng V1 (đăng nhập → sảnh → phòng → trận → kết quả) nằm ở
+[UI_STRINGS_V1](UI_STRINGS_V1.md); trang dưới đây dùng để chốt trạng thái từng ảnh trước khi dùng.
+
 ## Mở để xác nhận
 
 Mở bằng Chromium hoặc Firefox:
