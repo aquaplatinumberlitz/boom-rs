@@ -1032,3 +1032,193 @@ fn snapshot_dto_roundtrips_state_hash_via_boom_sync() {
     assert_eq!(Some(restored.hash()), a.state_hash());
     assert_eq!(restored.tick, a.tick().unwrap());
 }
+
+struct SlowWriter {
+    inner: MemoryTransport,
+    delay: Duration,
+}
+
+impl Transport for SlowWriter {
+    fn send_frame(&mut self, frame: &[u8]) -> Result<(), boom_net::NetError> {
+        std::thread::sleep(self.delay);
+        self.inner.send_frame(frame)
+    }
+
+    fn recv_frame(&mut self) -> Result<Option<Vec<u8>>, boom_net::NetError> {
+        self.inner.recv_frame()
+    }
+
+    fn close(&mut self) -> Result<(), boom_net::NetError> {
+        self.inner.close()
+    }
+
+    fn is_closed(&self) -> bool {
+        self.inner.is_closed()
+    }
+}
+
+#[test]
+fn slow_writer_does_not_block_tick() {
+    let setup = setup();
+    let a = Authority::new(ServerConfig::v1(), setup);
+    let h = handshake_config(&a);
+    let mut server = Server::new(a, h.clone());
+
+    let (mut slow_client_writer, slow_server_reader) =
+        MemoryTransport::pair(MemoryConfig::default());
+    let (slow_server_writer, _slow_client_reader) = MemoryTransport::pair(MemoryConfig::default());
+    server
+        .accept(
+            PlayerId(1),
+            0,
+            slow_server_reader,
+            SlowWriter {
+                inner: slow_server_writer,
+                delay: Duration::from_millis(200),
+            },
+        )
+        .unwrap();
+    let mut normal = wire_client(&mut server, PlayerId(2), 1);
+    let msg = hello(h.rules_hash);
+    let frame = encode_frame(&msg, &ProtocolLimits::v1()).unwrap();
+    slow_client_writer.send_frame(&frame).unwrap();
+    let normal_hello = hello(h.rules_hash);
+    send(&mut normal, &normal_hello);
+
+    let start = Instant::now();
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    assert!(start.elapsed() < Duration::from_millis(100));
+    // Reader thread của client thường có thể tới sau lượt poll đầu; một lượt nữa xử lý nốt.
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _: Welcome = recv(&mut normal);
+
+    // Dựng trận trực tiếp (room DTO chưa có), rồi jump thời gian: writer chậm không được giữ tick.
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut req = Requests::new(&players);
+    let host = players[0];
+    server
+        .room_command(
+            command(
+                host,
+                req.take(host),
+                RoomAction::Create {
+                    character: CharacterId::C00,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    let room = server.room_view().unwrap().id;
+    server
+        .room_command(
+            command(
+                players[1],
+                req.take(players[1]),
+                RoomAction::Join {
+                    room,
+                    character: CharacterId::C01,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    for &player in &players {
+        server
+            .room_command(
+                command(
+                    player,
+                    req.take(player),
+                    RoomAction::SetReady { ready: true },
+                ),
+                0,
+            )
+            .unwrap();
+    }
+    server
+        .room_command(command(host, req.take(host), RoomAction::Start), 0)
+        .unwrap();
+    for &player in &players {
+        server.ack_loading(player, 0).unwrap();
+    }
+    // Ghi chậm + không đọc: queue đầy thì session bị ngắt, tick vẫn chạy.
+    for i in 0..40 {
+        server.poll(i * 16, Duration::ZERO).unwrap();
+    }
+    assert_eq!(server.session_count(), 1);
+    let start = Instant::now();
+    server.poll(200_000, Duration::ZERO).unwrap();
+    assert!(start.elapsed() < Duration::from_secs(1));
+    assert!(server.last_result().is_some());
+}
+
+#[test]
+fn malformed_frame_closes_only_that_session() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    let mut req = Requests::new(&players);
+    let host = players[0];
+    server
+        .room_command(
+            command(
+                host,
+                req.take(host),
+                RoomAction::Create {
+                    character: CharacterId::C00,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    let room = server.room_view().unwrap().id;
+    server
+        .room_command(
+            command(
+                players[1],
+                req.take(players[1]),
+                RoomAction::Join {
+                    room,
+                    character: CharacterId::C01,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    for &player in &players {
+        server
+            .room_command(
+                command(
+                    player,
+                    req.take(player),
+                    RoomAction::SetReady { ready: true },
+                ),
+                0,
+            )
+            .unwrap();
+    }
+    server
+        .room_command(command(host, req.take(host), RoomAction::Start), 0)
+        .unwrap();
+    for &player in &players {
+        server.ack_loading(player, 0).unwrap();
+    }
+    let round = round_u32(server.authority());
+    // Client xấu gửi envelope rác; client tốt vẫn gửi input hợp lệ cùng lượt.
+    clients[1].writer.send_frame(b"bad envelope").unwrap();
+    let good = InputBatch {
+        round_id: round,
+        player: 0,
+        ack_snapshot: 0,
+        commands: vec![InputCommand {
+            seq: 1,
+            target_tick: 0,
+            bits: InputBits::new(4, false).unwrap(),
+        }],
+    };
+    send(&mut clients[0], &good);
+    let _events = server.poll(0, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.session_count(), 1);
+    let snapshot: Snapshot = recv_snapshot(&mut clients[0]);
+    assert_eq!(snapshot.round_id, round);
+    assert_eq!(server.authority().tick(), Some(1));
+}

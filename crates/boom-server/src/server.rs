@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::net::TcpListener;
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
 use std::thread;
 use std::time::Duration;
 
@@ -30,21 +30,23 @@ use crate::config::HandshakeConfig;
 enum Inbound {
     Frame { player: PlayerId, frame: Vec<u8> },
     Closed { player: PlayerId },
+    WriteFailed { player: PlayerId },
 }
+
+enum Outbound {
+    Frame(Vec<u8>),
+}
+
+/// Hàng đợi ghi có giới hạn theo kết nối; client không đọc thì bị ngắt thay vì chặn tick.
+const OUTBOUND_QUEUE_FRAMES: usize = 32;
 
 struct Session {
     slot: u8,
     session_id: String,
     handshaken: bool,
-    writer: Box<dyn Transport + Send>,
+    out_tx: SyncSender<Outbound>,
     next_snapshot_ms: u64,
     snapshot_seq: u32,
-}
-
-impl Session {
-    fn close(&mut self) {
-        let _ = self.writer.close();
-    }
 }
 
 /// Server một phòng: authority + các session transport. Test dùng `MemoryTransport`; production
@@ -110,17 +112,33 @@ impl Server {
         }
         let session_id = format!("s{}", self.next_session);
         self.next_session = self.next_session.saturating_add(1);
+        let (out_tx, out_rx) = mpsc::sync_channel(OUTBOUND_QUEUE_FRAMES);
         self.sessions.insert(
             player,
             Session {
                 slot,
                 session_id,
                 handshaken: false,
-                writer: Box::new(writer),
+                out_tx,
                 next_snapshot_ms: 0,
                 snapshot_seq: 0,
             },
         );
+        let outbound_tx = self.tx.clone();
+        thread::spawn(move || {
+            let mut writer = writer;
+            while let Ok(out) = out_rx.recv() {
+                match out {
+                    Outbound::Frame(frame) => {
+                        if writer.send_frame(&frame).is_err() {
+                            let _ = outbound_tx.send(Inbound::WriteFailed { player });
+                            break;
+                        }
+                    }
+                }
+            }
+            let _ = writer.close();
+        });
         let tx = self.tx.clone();
         thread::spawn(move || {
             loop {
@@ -183,7 +201,22 @@ impl Server {
             inbound.push(item);
         }
         for item in inbound {
-            self.handle_inbound(item)?;
+            let player = match &item {
+                Inbound::Frame { player, .. }
+                | Inbound::Closed { player }
+                | Inbound::WriteFailed { player } => *player,
+            };
+            if let Err(err) = self.handle_inbound(item) {
+                // Lỗi protocol/transport của một kết nối không được giết poll/tick.
+                if matches!(
+                    err,
+                    ServerError::Proto(_) | ServerError::Sync(_) | ServerError::Net(_)
+                ) {
+                    self.close_session(player);
+                } else {
+                    return Err(err);
+                }
+            }
         }
         let events = self.authority.advance_to(now_ms)?;
         self.flush_events()?;
@@ -193,7 +226,7 @@ impl Server {
 
     fn handle_inbound(&mut self, inbound: Inbound) -> Result<(), ServerError> {
         match inbound {
-            Inbound::Closed { player } => {
+            Inbound::Closed { player } | Inbound::WriteFailed { player } => {
                 if self.sessions.remove(&player).is_some() {
                     let _ = self.authority.disconnect(player, self.now_ms);
                 }
@@ -334,13 +367,17 @@ impl Server {
     }
 
     fn send_raw(&mut self, player: PlayerId, frame: &[u8]) -> Result<(), ServerError> {
-        let failed = {
-            let Some(session) = self.sessions.get_mut(&player) else {
+        let full = {
+            let Some(session) = self.sessions.get(&player) else {
                 return Ok(());
             };
-            session.writer.send_frame(frame).is_err()
+            match session.out_tx.try_send(Outbound::Frame(frame.to_vec())) {
+                Ok(()) => false,
+                Err(TrySendError::Full(_)) | Err(TrySendError::Disconnected(_)) => true,
+            }
         };
-        if failed {
+        if full {
+            // Slow consumer: đóng theo đường disconnect V1-023, không chặn tick.
             self.close_session(player);
         }
         Ok(())
@@ -411,8 +448,7 @@ impl Server {
     }
 
     fn close_session(&mut self, player: PlayerId) {
-        if let Some(mut session) = self.sessions.remove(&player) {
-            session.close();
+        if self.sessions.remove(&player).is_some() {
             let _ = self.authority.disconnect(player, self.now_ms);
         }
     }
