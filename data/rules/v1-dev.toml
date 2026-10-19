@@ -6,12 +6,12 @@ profile_id = "kr00967-v1-dev"
 release = false
 
 [sim.ticks_per_second]
-value = 60
+value = 33
 unit = "Hz"
-source = "design"
-status = "design"
-claims = ["R-013", "R-014"]
-note = "ADR 0004; tick gốc chưa đo (Q-004)"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-013"]
+note = "Đo native 2026-10-19: 30 ms/bước = 33,3 Hz; profile dùng 33 (làm tròn <1%), xem R-013"
 
 [grid.tile_px]
 value = 40
@@ -28,20 +28,21 @@ status = "confirmed"
 claims = ["R-010"]
 
 [player.speed_px_per_s_per_level]
-value = 24
+value = 33
 unit = "px/s"
-source = "design"
-status = "design"
-claims = ["R-043", "R-044"]
-note = "Lấy số OSS làm design tạm; Q-005 hiệu chuẩn trên client VN"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-043", "R-045"]
+note = "1 cấp = 1 px/tick; 30 ms/tick → 33,3 px/s; đo C00 base 5 px/tick, Roller +1 → 6 px/tick (2026-10-19)"
 
 [player.trap_to_death_ms]
 value = 6300
 unit = "ms"
 source = "vn_runtime"
 status = "confirmed"
-tolerance = 300
+tolerance = 100
 claims = ["R-026"]
+note = "210 tick × 30 ms = 6,30 s; ba lần đo packet 120/11→120/13 = 6,355/6,364/6,358 s (gồm ~2 tick gửi); timer chọn 6,30 s"
 
 [bomb.fuse_ms]
 value = 2500
