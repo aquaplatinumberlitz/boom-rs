@@ -13,6 +13,7 @@ boom-room = { path = "../boom-room" }
 boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
 boom-sync = { path = "../boom-sync" }
+boom-scenario.workspace = true
 serde_json.workspace = true
 # File cấu hình TOML của server (ADR 0011 §5/§8: tham số vận hành nằm trong config).
 serde.workspace = true

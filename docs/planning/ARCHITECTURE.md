@@ -52,7 +52,7 @@ boom-net     → boom-proto
 boom-sync    → boom-core, boom-content, boom-proto
 boom-room    → boom-content
 boom-client  → boom-core, boom-content, boom-proto, boom-net, boom-sync
-boom-server  → boom-core, boom-content, boom-proto, boom-net, boom-sync, boom-room
+boom-server  → boom-core, boom-content, boom-proto, boom-net, boom-sync, boom-room, boom-scenario (định dạng replay + `apply_authority`, #87)
 ```
 
 `boom-proto` không phụ thuộc `SimulationState`: server/client đổi DTO ở adapter để schema mạng

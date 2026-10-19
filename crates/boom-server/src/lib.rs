@@ -17,6 +17,7 @@ mod config;
 pub mod identity;
 mod input;
 mod observability;
+mod replay_log;
 mod server;
 #[cfg(test)]
 mod tests;
@@ -31,7 +32,7 @@ pub use authority::{
 };
 pub use config::{
     CharacterStatsTable, ConfigError, ConfigFingerprint, HandshakeConfig, InputLimits,
-    OperationalConfig, PolicyConfig, ServerConfig,
+    OperationalConfig, PolicyConfig, ReplaySetup, ServerConfig,
 };
 pub use input::{InputAck, InputError};
 pub use observability::{

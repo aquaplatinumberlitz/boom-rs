@@ -201,11 +201,19 @@ fn run(path: &Path) -> Result<RunOutput, Error> {
         m.world.mode().id(),
         actual_content
     );
+    let mut checkpoints = std::collections::BTreeSet::new();
     while m.state.tick < replay.ticks && m.state.phase == Phase::Playing {
         m.step()?;
         if replay.checkpoints.contains(&m.state.tick) {
             out += &format!("tick {} state {:#018x}\n", m.state.tick, m.state.hash());
+            checkpoints.insert(m.state.tick);
         }
+    }
+    // Authority có thể kết thúc round mà không có `step` cuối (tất cả disconnect): áp phần còn lại
+    // tại đúng tick hiện tại, cùng mutation với server.
+    m.apply_authority_for_tick()?;
+    if replay.checkpoints.contains(&m.state.tick) && !checkpoints.contains(&m.state.tick) {
+        out += &format!("tick {} state {:#018x}\n", m.state.tick, m.state.hash());
     }
     if let Some(i) = m.unused_input() {
         return Err(format!("input ở tick {} sau khi replay đã dừng", i.tick).into());
