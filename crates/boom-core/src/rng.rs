@@ -11,6 +11,16 @@ impl Rng {
         Self { state: seed }
     }
 
+    /// Trạng thái 64 bit hiện tại, để snapshot/replay khôi phục RNG đúng chỗ (contracts-r4, ADR 0009 §4.4).
+    pub fn state(&self) -> u64 {
+        self.state
+    }
+
+    /// Dựng lại RNG từ trạng thái đã lưu bằng [`Self::state`]. Mọi giá trị u64 đều hợp lệ.
+    pub fn from_state(state: u64) -> Self {
+        Self { state }
+    }
+
     pub fn next_u64(&mut self) -> u64 {
         self.state = self.state.wrapping_add(0x9e37_79b9_7f4a_7c15);
         let mut z = self.state;

@@ -1,0 +1,13 @@
+[package]
+name = "boom-net"
+description = "Transport sau trait (ADR 0006): TCP + frame độ dài tiền tố, session; transport trong bộ nhớ cho test"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+boom-proto = { path = "../boom-proto" }
+
+[lints]
+workspace = true

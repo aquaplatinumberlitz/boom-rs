@@ -400,3 +400,21 @@ fn same_inputs_same_hash() {
     assert_eq!(ea, eb);
     assert_eq!(a.tick, 300);
 }
+
+#[test]
+fn rng_and_id_allocator_round_trip_for_snapshot() {
+    // contracts-r4 (ADR 0009 §4.4): snapshot phải khôi phục RNG và allocator đúng chỗ.
+    use crate::rng::Rng;
+    use crate::state::IdAllocator;
+    let mut a = Rng::new(42);
+    a.next_u64();
+    let mut b = Rng::from_state(a.state());
+    assert_eq!(a.next_u64(), b.next_u64());
+
+    let mut ids = IdAllocator::default();
+    ids.next_id();
+    ids.next_id();
+    let mut restored = IdAllocator::from_next(ids.peek_next()).unwrap();
+    assert_eq!(restored.next_id(), ids.next_id());
+    assert!(IdAllocator::from_next(0).is_none());
+}
