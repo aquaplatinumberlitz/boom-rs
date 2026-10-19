@@ -1,6 +1,8 @@
+# Nhặt Roller tăng cấp tốc độ theo profile (R-045 là candidate web; giá trị lấy từ rules).
 name = "Nhặt Roller tăng speed một cấp"
 features = ["V1-019", "V1-016"]
-status = "pending"
+claims = ["R-045", "R-056", "R-057"]
+status = "active"
 ticks = 20
 map = [
     "#######",
@@ -22,6 +24,12 @@ kind = "Roller"
 tick = 0
 player = 0
 dir = "right"
+
+[[expect]]
+tick = 10
+event = "item_picked"
+where = { player = 0, kind = 2 }
+count = 1
 
 [[expect]]
 tick = 20

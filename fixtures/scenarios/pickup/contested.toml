@@ -1,6 +1,8 @@
+# Hai người cùng đi tới một item: item chỉ được nhặt một lần, người tới trước nhận (R-056).
 name = "Hai người tới cùng item: chỉ một người nhận"
 features = ["V1-017"]
-status = "pending"
+claims = ["R-056"]
+status = "active"
 ticks = 25
 map = [
     "#######",

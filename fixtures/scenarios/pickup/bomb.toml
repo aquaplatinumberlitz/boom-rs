@@ -1,6 +1,9 @@
+# Nhặt item trên nền: item mất khỏi ô, chỉ số tăng đúng lượng trong profile (R-056, R-057).
+# Giá trị +1 bom theo R-025 (client VN xác nhận hiệu ứng sau gói 158).
 name = "Nhặt Bomb tăng bombs một cấp"
 features = ["V1-017", "V1-016"]
-status = "pending"
+claims = ["R-025", "R-056", "R-057"]
+status = "active"
 ticks = 20
 map = [
     "#######",
@@ -22,6 +25,13 @@ kind = "Bomb"
 tick = 0
 player = 0
 dir = "right"
+
+# Người chơi bước vào ô (2,1) ở tick 10 và nhặt item ngay trong tick đó.
+[[expect]]
+tick = 10
+event = "item_picked"
+where = { player = 0, kind = 0 }
+count = 1
 
 [[expect]]
 tick = 20

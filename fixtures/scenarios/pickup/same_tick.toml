@@ -1,0 +1,62 @@
+# Ca biên: hai người vào cùng ô item trong cùng một tick. Duyệt người chơi theo id tăng dần
+# nên chỉ người id nhỏ nhặn, item biến mất khỏi nền ngay (R-056).
+# Người 0 đi ngang từ (1,1), người 1 đi xuống từ (2,0): cả hai vào ô (2,1) ở tick 10.
+name = "Hai người cùng tick vào ô item: người id nhỏ nhận"
+features = ["V1-017"]
+claims = ["R-056"]
+status = "active"
+ticks = 30
+map = [
+    "##.##",
+    "#0..#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 0]
+
+[[item]]
+cell = [2, 1]
+kind = "Bomb"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 0
+player = 1
+dir = "down"
+
+# Cùng tick, chỉ một event nhặt và người nhận là id nhỏ.
+[[expect]]
+tick = 10
+event = "item_picked"
+where = { player = 0 }
+count = 1
+
+[[expect]]
+tick = 30
+item_count = 0
+
+[[expect]]
+tick = 30
+player = 0
+bombs = 2
+
+[[expect]]
+tick = 30
+player = 1
+bombs = 1

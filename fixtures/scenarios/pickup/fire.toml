@@ -1,6 +1,8 @@
+# Nhặt Fire tăng tầm nổ theo profile (R-025, R-057). Bom đã đặt giữ tầm chụp lúc đặt (R-032).
 name = "Nhặt Fire tăng range một cấp"
 features = ["V1-018", "V1-016"]
-status = "pending"
+claims = ["R-025", "R-056", "R-057"]
+status = "active"
 ticks = 20
 map = [
     "#######",
@@ -22,6 +24,12 @@ kind = "Fire"
 tick = 0
 player = 0
 dir = "right"
+
+[[expect]]
+tick = 10
+event = "item_picked"
+where = { player = 0, kind = 1 }
+count = 1
 
 [[expect]]
 tick = 20
