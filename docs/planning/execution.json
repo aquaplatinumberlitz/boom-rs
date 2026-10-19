@@ -13,21 +13,22 @@
     {
       "id": "P0",
       "title": "Tổ chức docs/scope",
-      "status": "done",
+      "status": "in_review",
       "owner": "integrator",
       "depends_on": [],
       "deliverable": "Index, rules, registry, scope và migration",
       "exit_gate": "Nguồn chuẩn/link/tool rõ, giữ bằng chứng",
-      "reviewer": "/root/architecture_docs",
-      "integration_commit": "0bdb02ca7f97ca96a80ef8f688b9fb01f4a035d5",
+      "reviewer": "",
+      "integration_commit": "",
       "evidence": [
         "docs/README.md",
-        "docs/decisions/0001-project-baseline.md",
-        "git:0bdb02ca7f97ca96a80ef8f688b9fb01f4a035d5"
+        "docs/decisions/0003-engine-repo-and-docs-home.md",
+        "docs/evidence/DOCS_MIGRATION.json",
+        "git:a124eb575220a604077be611db7a27bb4f030014"
       ],
-      "verification": "docs_check.py và kr_catalog.py --check đạt; reviewer độc lập xác nhận cấu trúc docs.",
+      "verification": "Đã nghiệm thu ở boom-re-l10n@0bdb02c (reviewer /root/architecture_docs). Sau chuyển repo sang boom-rs và viết lại AGENTS (2026-10-19) cần review lại; docs_check + kr_catalog --check đạt trong boom-rs.",
       "blocker": "",
-      "next_action": ""
+      "next_action": "Reviewer độc lập kiểm DOCS_MIGRATION, AGENTS mới, ADR 0002–0006; đạt thì đặt done với integration commit của boom-rs."
     },
     {
       "id": "P1",
@@ -37,14 +38,14 @@
       "depends_on": [
         "P0"
       ],
-      "deliverable": "Claim/source/fixture và backlog câu hỏi",
+      "deliverable": "Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật",
       "exit_gate": "Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ",
       "reviewer": "",
       "integration_commit": "",
       "evidence": [],
       "verification": "",
       "blocker": "",
-      "next_action": "Đọc QUESTIONS và nhận task nghiên cứu có scope/owner."
+      "next_action": "START-A (phân loại ô Village00) và START-B (tick/speed/timer nhốt) theo REWRITE_PLAN; hạn 2026-11-02."
     },
     {
       "id": "P2",
@@ -54,14 +55,19 @@
       "depends_on": [
         "P0"
       ],
-      "deliverable": "Architecture và contract draft/ADR",
+      "deliverable": "ARCHITECTURE r1, ADR 0004–0007, walking skeleton + CI",
       "exit_gate": "Boundary/contracts review và giả định quan trọng được ghi nhận",
       "reviewer": "",
       "integration_commit": "",
-      "evidence": [],
+      "evidence": [
+        "docs/planning/ARCHITECTURE.md",
+        "docs/decisions/0004-time-numeric-model.md",
+        "docs/decisions/0005-authority-and-prediction.md",
+        "docs/decisions/0006-transport-default.md"
+      ],
       "verification": "",
       "blocker": "",
-      "next_action": "Review architecture-r0/contracts-r0 và xử lý quyết định còn mở."
+      "next_action": "Review skeleton và ADR 0004–0006; START-C contracts-r1; spike client theo ADR 0007 sau START-A; hạn 2026-11-02."
     },
     {
       "id": "P3",

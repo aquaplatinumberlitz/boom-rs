@@ -7,12 +7,13 @@ implementation/tracking trong JSON nguồn. `done/37` cho V1, `done/112` cho bas
 
 | Chủ đề | Tài liệu | Mức sử dụng |
 |---|---|---|
-| Pack/sprite | [PACKS](assets/PACKS.md) | RE VN tham chiếu; xác nhận lại semantics khi áp KR |
-| Map | [MAPS](assets/MAPS.md) | Chủ yếu VN; probe Village00 KR có ghi chú offset riêng |
-| Item | [ITEMS_VN_REFERENCE](gameplay/ITEMS_VN_REFERENCE.md) | Bảng VN, không tự đổi thành rules KR |
+| Luật trận V1 | [RULES_V1](gameplay/RULES_V1.md) | Claim có nguồn/trạng thái; giá trị ở `data/rules/` |
+| Pack/sprite | [PACKS](assets/PACKS.md) | RE VN, dùng trực tiếp (ADR 0002); khác biệt KR ghi theo build |
+| Map | [MAPS](assets/MAPS.md) | VN + đối chiếu KR (header +4 byte, R-003) |
+| Item | [ITEMS_VN_REFERENCE](gameplay/ITEMS_VN_REFERENCE.md) | Bảng ItemAttr VN; claim dùng cho V1 ở RULES_V1 §5 |
 | Protocol cũ | [LEGACY_VN_PROTOCOL](networking/LEGACY_VN_PROTOCOL.md) | Dùng oracle/tham chiếu, không phải protocol bản Rust mới |
-| Việt hóa | [l10n/README](../../l10n/README.md), [IMAGE_REVIEW](localization/IMAGE_REVIEW.md) | Catalog text/ảnh và quyết định review; giữ 23 text pending |
+| Việt hóa | `/home/admin/boom-re-l10n/l10n/README.md`, [IMAGE_REVIEW](localization/IMAGE_REVIEW.md) | Catalog text/ảnh và quyết định review; giữ 23 text pending |
 
-Chưa có gameplay spec KR hoàn chỉnh hoặc schema mạng v2 đã chốt. Các phần còn thiếu nằm trong
+Chưa có gameplay spec hoàn chỉnh hoặc schema mạng v2 đã chốt. Các phần còn thiếu nằm trong
 [QUESTIONS](../research/QUESTIONS.md); interface dự kiến nằm trong ARCHITECTURE, không giả làm code đã chạy.
 Kết quả đã được xác nhận mới nhập vào spec; lịch sử quá trình thử nghiệm nằm trong archive.

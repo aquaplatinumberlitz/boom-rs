@@ -1,7 +1,34 @@
 # boom-rs — engine Boom KR viết lại bằng Rust
 
-Repo tích hợp của dự án viết lại engine: tài liệu điều hành, catalog/scope và Cargo workspace.
-Bắt đầu ở [AGENTS.md](AGENTS.md) rồi [docs/README.md](docs/README.md).
+Repo tích hợp của dự án: tài liệu điều hành, catalog/scope và Cargo workspace
+([ADR 0003](docs/decisions/0003-engine-repo-and-docs-home.md)).
+Bắt đầu ở [AGENTS.md](AGENTS.md), rồi [docs/README.md](docs/README.md).
 
-Docs được chuyển từ `/home/admin/boom-re-l10n` (nhánh `claude/l10n-kr-vi`,
-commit `9bde2ceacd82cd542f871fcd42f18d29e6e5705d`); lịch sử trước đó tra ở repo nguồn.
+## Lệnh thường dùng
+
+```bash
+cargo xtask ci                      # cổng bàn giao: fmt, clippy, test, replay golden, docs/catalog
+cargo xtask bless                   # ghi lại golden replay sau khi đổi hành vi core có chủ đích
+cargo run -p boom-replay -- run fixtures/replays/walk-two-players.toml
+cargo run -p boom-assets -- map-info <Village00.map> --build kr
+python3 tools/kr_catalog.py         # sinh lại CSV/PROGRESS từ features.json + execution.json
+```
+
+Test đọc map thật cần dữ liệu game ngoài repo: đặt `BOOM_KR_VILLAGE00_MAP` và `BOOM_VN_VILLAGE00_MAP`
+trỏ tới file `.map` đã giải nén; thiếu thì test tự bỏ qua.
+
+## Cấu trúc
+
+| Đường dẫn | Nội dung |
+|---|---|
+| `crates/boom-core` | Mô phỏng thuần, xác định: `Mode`, `System`, `SimulationEvent`, state hash |
+| `crates/boom-content` | Rules profile có provenance + overlay, map runtime |
+| `crates/boom-assets` | Đọc định dạng legacy (`.map` KR/VN) |
+| `crates/boom-replay` | Chạy/kiểm replay so golden |
+| `xtask` | Tác vụ repo |
+| `data/rules` | Rules profile (giá trị luật kèm claim) |
+| `fixtures` | Profile cố định + replay golden |
+| `docs` | Plan, scope, kiến trúc, ADR, catalog, research |
+
+Docs được chuyển từ `/home/admin/boom-re-l10n` (commit `9bde2ceacd82cd542f871fcd42f18d29e6e5705d`);
+lịch sử trước đó tra ở repo nguồn.

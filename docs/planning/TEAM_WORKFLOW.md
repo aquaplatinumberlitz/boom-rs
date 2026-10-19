@@ -1,150 +1,86 @@
 # Workflow viết lại Rust với nhiều người/agent
 
-Ngày: 2026-10-19. Workflow phân công hiện hành; [AGENTS.md](../../AGENTS.md) giữ quy tắc bắt buộc.
-Pha và việc tiếp theo theo [REWRITE_PLAN](REWRITE_PLAN.md), không theo plan cũ trong archive.
+Cập nhật 2026-10-19. [AGENTS.md](../../AGENTS.md) giữ quy tắc bắt buộc; file này giải thích cách chia việc.
+Pha, hạn và việc tiếp theo ở [REWRITE_PLAN](REWRITE_PLAN.md) — không có hệ mốc thứ hai ở đây.
 
-Mục tiêu: phát triển engine KR từ client còn lại; VN hỗ trợ đo; phần server thất lạc được
-khôi phục theo bằng chứng hoặc thiết kế lại có ghi nhận. Không cần RE xong toàn game mới viết code.
-
-Scope baseline đã chốt: [catalog KR](../specification/FEATURE_CATALOG.md) và [Release 1](SCOPE_V1.md).
-46 nhóm bằng chứng được tách thành 114 mục: 37 V1, 75 later, 2 drop legacy. Scope khác với mức xác nhận
-runtime; trạng thái 37 mục V1 và gate lấy từ [PROGRESS](PROGRESS.md), không duy trì con số done thủ công ở workflow.
-
-## 1. Tổ chức nhóm
+## 1. Vai trò
 
 | Vai trò | Sở hữu | Đầu ra bắt buộc |
 |---|---|---|
-| Lead/integrator | baseline, scope, interface, thứ tự merge | backlog, spec được chấp nhận, build tích hợp chơi được |
+| Lead/integrator | baseline, scope, interface, workspace root, thứ tự merge | backlog, spec được chấp nhận, `main` luôn xanh |
 | Research KR/CN/TW | guide, patch note, video, thuật ngữ | claim có nguồn, region/date và giới hạn |
-| RE/oracle | pack/code/runtime, fixture và phép đo | dữ liệu trích, trace, mức tin cậy và sai khác |
-| Assets/client | converter, animation, render/audio/UI | asset manifest và cảnh chạy được |
+| RE/oracle | pack/code/runtime, fixture và phép đo | dữ liệu trích, trace, claim VN/KR |
+| Assets/client | asset pipeline, animation, render/audio/UI | manifest, bundle, scene chạy được |
 | Core/net/server | luật trận, command/state, authority | mô phỏng, server và protocol mới |
 | Reviewer/QA | kiểm nguồn và implementation độc lập | báo cáo tái lập, replay/diff, lỗi còn mở |
 
-Đây là vai trò, không bắt buộc sáu người cố định. Một người có thể kiêm nhiều vai trò;
-với giới hạn ba worker, lead chia thành ba luồng độc lập rồi đổi vai theo milestone.
-Task có ranh giới rõ mới giao agent; quyết định sản phẩm và bằng chứng mâu thuẫn cần lead/designer xử lý.
-Thêm agent không làm nhanh hơn các phần đang chờ cùng một spec/interface.
+Một người có thể kiêm nhiều vai trò. Với tối đa ba worker, lead chia ba luồng độc lập (xem bảng luồng
+theo pha trong REWRITE_PLAN). Thêm agent không làm nhanh phần đang chờ cùng một spec/interface;
+không cho hai agent viết hai phiên bản core/server song song.
 
 ## 2. Một đường đi chung cho mọi tính năng
 
-`Question → Evidence → Spec → Implementation → Independent verification → Integrated demo`
+`Question → Claim → Spec/profile → Implementation → Independent verification → Integrated demo`
 
-1. Lead đặt câu hỏi nhỏ: ví dụ “khiên chặn loại sát thương nào, hết hạn lúc nào?”.
+1. Lead đặt câu hỏi nhỏ, ví dụ "khiên chặn loại sát thương nào, hết hạn lúc nào?".
 2. Research tìm guide/patch theo tên Hàn, giản thể, phồn thể; RE đối chiếu pack/code/trace song song.
-3. Reviewer phân biệt thông tin xác nhận được và thông tin chưa đủ. Lead chấp nhận spec hoặc
-   chọn giá trị tạm, ghi rõ phạm vi. Không lấy số đông agent đồng ý làm bằng chứng.
-4. Worker triển khai theo bản spec/interface đã ghi revision; spec thay đổi phải báo tác động
-   đến core, network, UI và fixtures.
-5. Reviewer kiểm theo nguồn/acceptance scenario; test do người viết code tạo không thay thế
-   nguồn độc lập. Test meaningful: state transition, thứ tự sự kiện, biên va chạm, replay.
-6. Lead merge theo dependency, chạy integration và cập nhật docs trong cùng thay đổi.
-
-Mỗi task chỉ có một owner. Reviewer khác owner khi có thể. Mỗi nhánh/worktree riêng;
-không nhiều agent đồng thời ghi cùng file. File dùng chung như Cargo workspace, schema,
-rules registry và roadmap do integrator sửa hoặc dành lượt sửa rõ ràng.
+3. Kết quả vào [RULES_V1](../specification/gameplay/RULES_V1.md) (hoặc spec đúng chủ đề) dưới dạng claim
+   có nguồn/trạng thái. Lead chọn giá trị: `confirmed`, hoặc `design` có claim dẫn tới; ghi vào `data/rules/`.
+4. Worker triển khai theo spec/contract đã ghi revision; spec đổi phải báo tác động tới core, net, UI, fixture.
+5. Reviewer kiểm theo nguồn và acceptance; test do người viết code tạo không thay thế nguồn độc lập.
+6. Integrator merge theo dependency, chạy integration, cập nhật registry/docs trong cùng thay đổi.
 
 ## 3. Hợp đồng trước khi chạy song song
 
-Chốt bản tối thiểu, có revision, của các interface sau trước khi worker phụ thuộc vào chúng:
+Chốt revision tối thiểu của: asset ID/profile/build và đơn vị tọa độ; `InputCommand`, `SimulationState`,
+`SimulationEvent`, `Snapshot`, replay; quyền quyết định của server; schema rules profile.
+Tên type Rust có thể đổi; mục đích là worker kiểm được đầu vào/đầu ra của nhau.
+Nguồn: [ARCHITECTURE](ARCHITECTURE.md) và ADR 0004–0006.
 
-- Asset ID/profile/build, tọa độ, đơn vị và nguồn metadata.
-- Input command, SimulationState, SimulationEvent, snapshot/replay format.
-- Quyền quyết định của server; dữ liệu client chỉ được gửi như yêu cầu.
-- Quy tắc thời gian/số học: thử nghiệm dựa trên phép đo rồi chốt; không giả vờ đã biết tick gốc.
-- Schema rule/config: ID ổn định, giá trị, đơn vị, profile, nguồn, trạng thái tạm/chính thức.
-- Trình diễn tiêu thụ sự kiện mô phỏng; xác định cách tránh lặp audio/effect khi reconciliation.
+## 4. Claim luật chơi
 
-Tên/type Rust cụ thể còn có thể đổi. Mục đích là worker kiểm được đầu vào/đầu ra của nhau,
-không tự tạo ba mô hình trạng thái khác nhau rồi mới ghép lại.
+Mỗi claim có: ID (`R-xxx`), mô tả, giá trị/đơn vị, tên thuật ngữ gốc, nguồn (nhãn AGENTS §4),
+locator (URL hoặc đường dẫn code/trace + vị trí), region/build, ngày truy cập/xuất bản nếu là web,
+trạng thái và bằng chứng phản bác nếu có. Một giá trị trong profile có thể dẫn nhiều claim.
 
-## 4. Quản lý nguồn luật chơi
+Ưu tiên nguồn: dữ liệu/code client (KR hoặc VN) + phép đo → guide/patch chính thức đúng khu vực/thời kỳ
+→ video có ngữ cảnh → wiki/forum/OSS làm đầu mối. Video không đủ suy tick/subpixel/collision chính xác.
+Nguồn mâu thuẫn: lập bảng khác biệt theo build/region/event, không lấy trung bình.
+Không tìm thấy sau một lượt có giới hạn → RE hoặc `design` có claim, mở câu hỏi kiểm lại; không chặn engine.
 
-Mỗi claim có: `claim_id`, `feature_id`, mô tả, giá trị/đơn vị, tên thuật ngữ gốc,
-`source_url` hoặc đường dẫn code/trace, vị trí đoạn/bảng/timestamp,
-`region`, `published_date`, `accessed_date`, build được nói tới,
-`target_build_match`, mức tin cậy, bằng chứng phản bác và reviewer.
+## 5. Làm việc với code Rust
 
-Tách hai trục: **chất lượng nguồn** và **mức phù hợp với build mục tiêu**.
-Nguồn official CN chính xác về CN vẫn chưa xác nhận KR. Hai bài copy cùng một bài gốc
-không phải hai bằng chứng độc lập. Footer copyright không phải ngày xuất bản.
+- Mỗi worker một worktree: `git -C /home/admin/boom-rs worktree add ../boom-rs-wt/<task-id> -b <task-id>`.
+- Crate có owner theo task; đổi API công khai của crate khác phải qua integrator.
+- `boom-core` giữ quy tắc determinism (ADR 0004): không float, không `HashMap`, không wall clock/IO.
+- Mỗi rule mới trong core lấy giá trị từ profile; không có hằng số luật trong code.
+- Test có ý nghĩa: state transition, thứ tự event, biên va chạm, replay hash. Fixture sinh từ implementation
+  là regression baseline, ghi rõ như vậy.
+- Trước bàn giao: `cargo xtask ci` xanh; đổi hành vi core thì cập nhật golden replay có giải thích trong commit.
+- Fixture cần dữ liệu game không commit; test đọc đường dẫn từ biến môi trường và tự bỏ qua khi thiếu.
 
-Trạng thái claim: `candidate → reviewed → accepted / rejected / unresolved`.
-Luật được dùng trong engine ghi riêng `measured_vn`, `verified_kr`, `archive_other_region`,
-`inferred_kr` hoặc `design_provisional`; một rule có thể liên kết nhiều claim.
-Những nhãn này là đề xuất schema, chưa phải file dữ liệu đã triển khai.
-
-Ưu tiên nguồn: dữ liệu/code đúng build + phép đo → guide/patch chính thức đúng khu vực/thời kỳ
-→ video có ngữ cảnh → wiki/forum làm đầu mối. Video giúp quan sát nhưng chưa đủ suy ra
-tick/subpixel/collision chính xác. Search snippet chỉ là đầu mối nếu chưa đọc được trang.
-Nguồn web hữu ích cho luật, không thay thế protocol/server implementation thất lạc.
-
-Với nguồn mâu thuẫn: lập bảng khác biệt theo build/region/event; không lấy trung bình các con số.
-Không tìm thấy sau một lượt nghiên cứu có giới hạn thì chuyển sang RE hoặc DESIGN có ghi nhận,
-đồng thời mở câu hỏi để kiểm lại; không chặn toàn bộ engine.
-
-## 5. Nguồn web và trạng thái nghiên cứu
-
-Danh sách nguồn chuẩn ở [research/sources](../research/sources/README.md),
-backlog ở [QUESTIONS](../research/QUESTIONS.md). Không duy trì bảng nguồn thứ hai trong workflow.
-Nguồn KR/CN/TW đều có ngày/build/region và giới hạn; đọc được recipe hoặc hướng dẫn
-không đồng nghĩa đã khôi phục luật toàn bộ build KR mục tiêu.
-
-## 6. Milestone và cách chia task
-
-| Mốc | Luồng độc lập có thể chạy cùng lúc | Gate nghiệm thu |
-|---|---|---|
-| M0 — baseline/spec | Kiểm kê KR; research luật Battle; chuẩn bị phép đo VN | Chốt build, một map, tập item, register nguồn và interface tối thiểu |
-| M1 — offline | Asset/render cảnh; core di chuyển/va chạm; RE/QA fixtures | Một nhân vật chạy/rẽ/chạm tường; báo sai khác và độ lặp phép đo |
-| M2 — một trận | Bom/nổ/item; animation/audio; reviewer boundary cases | Trận offline hết vòng đời, replay và state hash ổn định theo hợp đồng đã chốt |
-| M3 — online 2 người | Authority/session; client reconciliation; QA mạng | Hai client chơi hết trận, không lặp side effect; thử delay/jitter/loss/reconnect |
-| M4 — Release 1 | Mở tập map/item đã chốt; lobby/UI; Việt hóa/QA | Luồng phòng đầy đủ, build 3 OS và báo cáo sai khác chấp nhận được |
-| M5 — mở rộng | Nhóm theo mode hoặc subsystem có interface rõ | Mỗi mode có spec, fixtures, integration demo và nguồn/thiết kế được ghi nhận |
-
-Research và RE đi trước worker triển khai một phần backlog. Khi phải chờ đo, worker assets/UI
-vẫn tiến hành trên dữ liệu đã biết. Không cho hai agent tự viết hai phiên bản core/server song song.
-Không cần chuyển hết 51.467 entry trước M1.
-
-## 7. Mẫu task giao người/agent
+## 6. Mẫu task
 
 ```text
 ID / owner / reviewer:
-Baseline commit + branch/worktree:
-Mục tiêu cụ thể và phần ngoài phạm vi:
-Dependency + revision spec/interface:
-Được sửa file/thư mục nào:
-Nguồn/claim IDs + điều chưa biết:
+Baseline commit + worktree/nhánh:
+Feature ID / câu hỏi / claim liên quan:
+Mục tiêu và phần ngoài phạm vi:
+Dependency + revision spec/contract:
+File/thư mục được sửa:
 Deliverables:
 Acceptance scenarios / lệnh kiểm:
-Nếu thiếu bằng chứng: báo unknown; chỉ dùng giá trị tạm theo spec.
-Bàn giao: commit/diff, docs, kết quả kiểm, giới hạn và bước tích hợp.
+Nếu thiếu bằng chứng: ghi unknown hoặc design có claim, không tự đặt hằng số.
+Bàn giao: commit/diff, docs đã cập nhật, kết quả kiểm, giới hạn, bước tích hợp.
 ```
 
-Ví dụ `RULE-SHIELD-001`: research xác định tác dụng/thời lượng theo KR và CN; RE tìm
-Attr/consumer; reviewer xác nhận các nguồn nói cùng loại khiên. Core worker chỉ triển khai
-sau khi spec xác định damage nào bị chặn, thời điểm hết hạn, xử lý bẫy và các trường hợp biên.
-Test cấu hình tạm phải ghi là test thiết kế tạm, không gắn nhãn tương đương nguyên bản.
+Ví dụ `RULE-SHIELD-001`: research xác định tác dụng/thời lượng theo KR và CN; RE tìm Attr/consumer;
+reviewer xác nhận các nguồn nói cùng loại khiên. Core chỉ triển khai sau khi claim xác định damage nào bị chặn,
+thời điểm hết hạn và các trường hợp biên.
 
-## 8. Gate merge và theo dõi tiến độ
+## 7. Theo dõi tiến độ
 
-Theo [PROGRESS](PROGRESS.md), so trực tiếp với [FEATURE_CATALOG](../specification/FEATURE_CATALOG.md).
-Registry `features.json` giữ implementation/tracking; execution.json giữ phase và release gates.
-Integrator là writer của hai nguồn chung: ghi ID/assignee/revision khi nhận task, nhập proof/review
-khi worker bàn giao, rồi chạy `python3 tools/kr_catalog.py` và `--check`.
-Worker không tự sửa report % hoặc đồng thời ghi registry với worker khác.
-
-Done chỉ sau verification+review+integration và dependency done theo AGENTS. In progress/review/blocked
-không có credit phần trăm; planning/research không cộng vào % feature. % là tỷ lệ số mục nghiệm thu,
-không phải thời gian/công sức/fidelity. Hết một task không đồng nghĩa hết phase hoặc hết V1.
-
-- Worker bàn giao thay đổi nhỏ có demo/fixture; integrator merge theo dependency và giữ main chạy được.
-- Dùng test phù hợp: parser với dữ liệu thật/truncated; core với replay và edge case;
-  mạng với authority/convergence; hình ảnh theo RGBA/ROI; Việt hóa với glyph/wrap/placeholder.
-- Nếu fixture mới chỉ được sinh từ chính implementation, phải ghi đây là regression baseline,
-  không phải bằng chứng đúng bản gốc. Người review kiểm nguồn và sự phù hợp build riêng.
-- Đánh giá bằng feature chơi được, rule có nguồn và số sai khác chưa giải quyết;
-  không dùng số agent, số dòng code hay opcode đã phân loại làm phần trăm hoàn thành engine.
-- Sau M2/M3 mới cập nhật lịch từ throughput thật và dependency còn lại.
-
-Đề xuất lượt đầu: giao research Battle/item, asset cho một map và oracle di chuyển chạy song song;
-lead chuẩn hóa spec/interface. Kết quả đủ điều kiện mới mở task triển khai core tương ứng.
+Integrator là người ghi duy nhất của `features.json` và `execution.json`: ghi ID/assignee/revision khi
+nhận task, nhập proof/review khi worker bàn giao, rồi chạy `python3 tools/kr_catalog.py` và `--check`.
+Định nghĩa done và % ở AGENTS §6. Đánh giá bằng feature chơi được, rule có nguồn và số sai khác chưa giải;
+không dùng số agent, số dòng code hay opcode làm phần trăm.

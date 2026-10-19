@@ -19,7 +19,7 @@ Tài liệu:
 | [docs/specification/FEATURE_CATALOG.md](../../specification/FEATURE_CATALOG.md) | Catalog KR: 46 nhóm bằng chứng, 114 mục có quyết định phạm vi |
 | [docs/planning/SCOPE_V1.md](../../planning/SCOPE_V1.md) | Scope V1 đã chốt: 37 mục, Battle cá nhân 2–4 người, nội dung và gate nghiệm thu |
 | [docs/planning/TEAM_WORKFLOW.md](../../planning/TEAM_WORKFLOW.md) | Workflow team/agents, nguồn luật Hàn–Trung và hợp đồng giao task |
-| [l10n/README.md](../../../l10n/README.md) | Việt hóa KR: catalog, thuật ngữ, câu đố dân gian ĐBSCL và 23 mục text còn review |
+| `l10n/README.md` (nay ở `/home/admin/boom-re-l10n`) | Việt hóa KR: catalog, thuật ngữ, câu đố dân gian ĐBSCL và 23 mục text còn review |
 | [docs/specification/localization/IMAGE_REVIEW.md](../../specification/localization/IMAGE_REVIEW.md) | Trang duyệt 3.038 tài nguyên ảnh KR/VN: mở ảnh, xác nhận và lưu kết quả CSV |
 | [docs/research/findings/VN_RUNTIME_REFERENCE.md](../../research/findings/VN_RUNTIME_REFERENCE.md) | Chạy client: thứ tự khởi động, mã lỗi, patch bộ nhớ, mạng WinBoat, Wine, **sửa IAT bản dump** |
 | [docs/archive/re/VN_PROGRESS_LOG.md](VN_PROGRESS_LOG.md) | **Tiến độ + handoff**: đang ở đâu, chạy thử, việc tiếp theo |

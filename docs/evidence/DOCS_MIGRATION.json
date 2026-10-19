@@ -64,5 +64,34 @@
     "docs/planning/ROADMAP.md": "docs/planning/REWRITE_PLAN.md"
   },
   "note": "README cũ và plan đã archive được giữ lịch sử. ROADMAP hiện hành đã đổi tên và mở rộng thành planning/REWRITE_PLAN.md làm kế hoạch tổng; các tài liệu chi tiết giữ nguồn chuẩn riêng.",
-  "canonical_rewrite_plan": "docs/planning/REWRITE_PLAN.md"
+  "canonical_rewrite_plan": "docs/planning/REWRITE_PLAN.md",
+  "repo_moves": [
+    {
+      "date": "2026-10-19",
+      "decision": "docs/decisions/0003-engine-repo-and-docs-home.md",
+      "from": "/home/admin/boom-re-l10n (nhánh claude/l10n-kr-vi)",
+      "source_commit": "9bde2ceacd82cd542f871fcd42f18d29e6e5705d",
+      "to": "/home/admin/boom-rs",
+      "import_commit": "a124eb575220a604077be611db7a27bb4f030014",
+      "moved": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "opencode.json",
+        "docs/ (toàn bộ, cùng đường dẫn tương đối)",
+        "tools/docs_check.py",
+        "tools/kr_catalog.py",
+        "tools/kr_tracking.py",
+        "tools/test_kr_tracking.py"
+      ],
+      "kept_in_source": [
+        "l10n/",
+        "tools/idf.py",
+        "tools/kr_feature_inventory.py",
+        "tools/kr_v1_content.py",
+        "tools/l10n_*",
+        "server/ (snapshot cũ, không dùng)"
+      ],
+      "note": "Đường dẫn docs/... giữ nguyên tương đối trong repo mới; old_to_new ở trên vẫn đúng với gốc boom-rs."
+    }
+  ]
 }

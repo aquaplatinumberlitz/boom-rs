@@ -1,6 +1,8 @@
 # ADR 0001 — Baseline dự án và giai đoạn trước triển khai
 
-Status: **Accepted**, 2026-10-19. Nguồn: người dùng yêu cầu chốt catalog/V1 rồi tổ chức docs,
+Status: **Accepted**, 2026-10-19; **superseded một phần**: chính sách VN bởi [0002](0002-vn-kr-trusted-sources.md),
+vị trí repo/docs bởi [0003](0003-engine-repo-and-docs-home.md), pha "chưa dựng engine" bởi [0004](0004-time-numeric-model.md).
+Nguồn: người dùng yêu cầu chốt catalog/V1 rồi tổ chức docs,
 lên plan, tìm thêm thông tin và thiết kế cấu trúc trước khi viết lại engine; yêu cầu rule chung cho mọi agent.
 
 ## Quyết định

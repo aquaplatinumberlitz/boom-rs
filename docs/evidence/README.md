@@ -17,8 +17,11 @@ Tách dữ liệu nguồn, phân tích và kết luận; fixture sinh từ imple
 Tái tạo từ gốc worktree:
 
 ```bash
-python3 tools/kr_feature_inventory.py /home/admin/boom-re/boomKR --out docs/evidence/inventory --hash-payloads
-python3 tools/kr_v1_content.py /home/admin/boom-re/boomKR docs/evidence/inventory/kr_v1_content.json
+# Tool đọc pack ở repo l10n (ADR 0003); ghi kết quả vào repo này
+cd /home/admin/boom-re-l10n
+python3 tools/kr_feature_inventory.py /home/admin/boom-re/boomKR --out /home/admin/boom-rs/docs/evidence/inventory --hash-payloads
+python3 tools/kr_v1_content.py /home/admin/boom-re/boomKR /home/admin/boom-rs/docs/evidence/inventory/kr_v1_content.json
+cd /home/admin/boom-rs
 python3 tools/kr_catalog.py
 python3 tools/kr_catalog.py --check
 ```

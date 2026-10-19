@@ -124,7 +124,7 @@ build/QA) vẫn nằm trong registry V1 dưới nhãn `design_requirement`.
 ## Quy trình bổ sung bằng chứng
 
 Đọc UI/chuỗi → truy class/handler/consumer → ghi state/input/output → runtime nếu chạy được.
-Ghi riêng nguồn VN, code KR, archive KR/CN/TW và DESIGN; nguồn khác khu vực không tự xác nhận KR.
+Ghi nguồn và trạng thái theo AGENTS §4: VN và KR ngang nhau (ADR 0002); archive CN/TW, web và OSS là candidate.
 Các chức năng chưa tìm ra phải có mục mới với ID ổn định; baseline scope hiện tại không được hiểu
 là chứng minh client không còn chức năng khác. Phát hiện mới cập nhật backlog, không tự mở rộng V1.
 
@@ -134,8 +134,11 @@ map object/collision và dependency rendering. Xem gate có owner trong Release 
 ## Tái tạo và kiểm tra
 
 ```bash
-python3 tools/kr_feature_inventory.py /home/admin/boom-re/boomKR --out docs/evidence/inventory --hash-payloads
-python3 tools/kr_v1_content.py /home/admin/boom-re/boomKR docs/evidence/inventory/kr_v1_content.json
+# Tool đọc pack ở repo l10n (ADR 0003); ghi kết quả vào repo này
+cd /home/admin/boom-re-l10n
+python3 tools/kr_feature_inventory.py /home/admin/boom-re/boomKR --out /home/admin/boom-rs/docs/evidence/inventory --hash-payloads
+python3 tools/kr_v1_content.py /home/admin/boom-re/boomKR /home/admin/boom-rs/docs/evidence/inventory/kr_v1_content.json
+cd /home/admin/boom-rs
 python3 tools/kr_catalog.py
 python3 tools/kr_catalog.py --check
 ```
@@ -148,9 +151,6 @@ Tool cũng sinh trạng thái phase trong REWRITE_PLAN từ execution.json. Khô
 Nó không xác nhận luật KR, nội dung proof hoặc gameplay parity.
 
 Khảo sát lần này dùng parser/file trực tiếp và đối chiếu docs; không chạy client hoặc decompile
-mới. Header map Village00 đọc tọa độ tại offset80; không lấy offset76 trong docs/specification/assets/MAPS.md làm
-định nghĩa map KR đã chốt. `docs/research/findings/VN_FEATURES_REFERENCE.md` vẫn là checklist VN độc lập.
+mới. Header map KR dài hơn VN 4 byte (spawn +80 so với +76), xem RULES_V1 R-003. `docs/research/findings/VN_FEATURES_REFERENCE.md` vẫn là checklist VN độc lập.
 
 Workflow nhóm: [TEAM_WORKFLOW](../planning/TEAM_WORKFLOW.md).
-
-Chính sách nguồn hiện hành: [VN/KR trusted ngang nhau](../decisions/0002-vn-kr-trusted-sources.md). Dùng trực tiếp bằng chứng VN cho luật chung; giữ provenance và xử lý khác biệt cụ thể.

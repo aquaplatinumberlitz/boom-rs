@@ -1,0 +1,3 @@
+# Golden và fixture so theo byte: giữ LF trên mọi OS.
+*.golden text eol=lf
+*.toml text eol=lf

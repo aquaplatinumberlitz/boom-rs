@@ -488,7 +488,7 @@
       ],
       "server_responsibility": "Lập lịch fuse, thứ tự flame và hết hạn.",
       "acceptance": "Nổ ở tick đã đặc tả; ray dừng đúng tường/gạch; thời gian tồn tại vùng nổ có nguồn.",
-      "open_questions": "BLOCKER: fuse/timing/propagation chưa verified KR; 2.5s emu không phải oracle.",
+      "open_questions": "BLOCKER: fuse gốc unknown (RULES_V1 R-021), chọn design ở hạn P1; 2.5s emu chỉ là candidate; propagation/chain cần boundary scenario.",
       "tracking": {
         "assignee": "",
         "reviewer": "",
@@ -1315,7 +1315,7 @@
       ],
       "server_responsibility": "Lưu test build và source provenance.",
       "acceptance": "Có fixture VN/original và golden V1 riêng; báo sai khác theo nguồn; không cam kết pixel100% KR chưa chạy.",
-      "open_questions": "Phân biệt inferred_vn/verified_kr/design; generic 99.5% pixel chưa đủ.",
+      "open_questions": "Báo cáo theo nhãn nguồn/trạng thái AGENTS §4 (confirmed/candidate/design); generic 99.5% pixel chưa đủ.",
       "tracking": {
         "assignee": "",
         "reviewer": "",

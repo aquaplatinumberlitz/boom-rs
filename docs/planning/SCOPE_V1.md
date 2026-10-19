@@ -75,7 +75,7 @@ Round duration, fuse và trapped timeout không được suy từ những timeou
 
 - Trạng thái tối thiểu: spawning/alive/trapped/dead, trạng thái bom/flame/item; xác định hitbox theo state.
 - Đầu vào được server chấp nhận theo tick/sequence; seed, RNG, thứ tự entity/event và làm tròn có spec.
-- BOM đặt chụp power tại lúc đặt theo policy V1; grace chỉ cho người đang đứng trên bom đi ra,
+- BOM đặt chụp power tại lúc đặt (đã xác nhận trên client VN, RULES_V1 R-032); grace chỉ cho người đang đứng trên bom đi ra,
   không cho bước ngược lại. Các điểm này phải ghi là DESIGN nếu chưa có đối chiếu đủ nguồn.
 - Trapped vẫn là người chưa chết; trong FFA, chạm địch hoặc hết trapped timer dẫn tới dead theo rule.
   Không có rescue đồng đội, kim hoặc khiên trong V1.
@@ -158,9 +158,8 @@ reviewer khác owner khi có thể; integrator giữ interface và branch tích 
 | START-B, thuộc G2/G3 | RE / core | C00/C01→Attr và phép đo lặp đi/rẽ/đặt bom trên VN; tách timing client/emu; bảng rule có nguồn và câu hỏi chưa giải |
 | START-C, thuộc V1-024/026 | core+net / QA | Spec revision đầu cho InputCommand/SimulationState/Event/Snapshot/Replay, thứ tự tick/sequence, seed/hash và authority |
 
-Integrator giữ baseline và tạo skeleton workspace tối thiểu sau khi chọn baseline commit tích hợp.
-Trong pha planning hiện tại, START-A chỉ khảo sát dữ liệu/fixture và dùng viewer sẵn có nếu cần;
-chưa dựng renderer Rust mới. Prototype mới mở sau readiness trong REWRITE_PLAN.
-START-B/C là task làm spec/fixture, chưa bị chặn bởi dependency triển khai trong registry;
-chỉ mở coding task phụ thuộc sau khi hợp đồng tương ứng được chốt.
+Walking skeleton (`crates/`, ADR 0004) đã có trong repo `boom-rs`; START-C mở rộng kiểu của nó thành contracts-r1.
+START-A khảo sát dữ liệu/fixture và xuất bảng phân loại ô vào `data/`; chưa dựng renderer (chờ spike ADR 0007).
+START-B ghi claim vào [RULES_V1](../specification/gameplay/RULES_V1.md) và giá trị vào profile.
+Coding task có feature ID chỉ mở sau khi hợp đồng tương ứng được chốt và P3 kết luận.
 Đổi chính sách hoặc content của V1 phải sửa registry và docs trước khi giao tiếp task.

@@ -1,0 +1,116 @@
+# Rules profile phát triển cho V1 (KR 00967, Battle FFA, Village00).
+# Mỗi giá trị trỏ claim trong docs/specification/gameplay/RULES_V1.md; nhãn theo AGENTS §4.
+# release = false: còn giá trị candidate/design chưa review, không dùng cho bản phát hành.
+schema = 1
+profile_id = "kr00967-v1-dev"
+release = false
+
+[sim.ticks_per_second]
+value = 60
+unit = "Hz"
+source = "design"
+status = "design"
+claims = ["R-013", "R-014"]
+note = "ADR 0004; tick gốc chưa đo (Q-004)"
+
+[grid.tile_px]
+value = 40
+unit = "px"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-001"]
+
+[round.duration_ms]
+value = 120000
+unit = "ms"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-010"]
+
+[player.speed_px_per_s_per_level]
+value = 24
+unit = "px/s"
+source = "design"
+status = "design"
+claims = ["R-043", "R-044"]
+note = "Lấy số OSS làm design tạm; Q-005 hiệu chuẩn trên client VN"
+
+[player.trap_to_death_ms]
+value = 6300
+unit = "ms"
+source = "vn_runtime"
+status = "confirmed"
+tolerance = 300
+claims = ["R-026"]
+
+[bomb.fuse_ms]
+value = 2500
+unit = "ms"
+source = "design"
+status = "design"
+claims = ["R-021", "R-022", "R-023", "R-024"]
+note = "Fuse gốc unknown; hai candidate độc lập trùng 2,5 s"
+
+[bomb.flame_ms]
+value = 500
+unit = "ms"
+source = "design"
+status = "design"
+claims = ["R-023"]
+
+[bomb.initial_range]
+value = 1
+unit = "cell"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-025"]
+
+[item.fire_range_delta]
+value = 1
+unit = "cell"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-025"]
+
+[item.bomb_capacity_delta]
+value = 1
+unit = "bomb"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-025"]
+
+[item.roller_speed_delta]
+value = 1
+unit = "level"
+source = "web"
+status = "candidate"
+claims = ["R-045"]
+
+[drop.brick_item_chance]
+value = 350
+unit = "permille"
+source = "design"
+status = "design"
+claims = ["R-053"]
+note = "Chỉ có số OSS 0,35; Q-007"
+
+[drop.weight_bomb]
+value = 3650
+unit = "weight"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051"]
+
+[drop.weight_fire]
+value = 2800
+unit = "weight"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051"]
+
+[drop.weight_roller]
+value = 2000
+unit = "weight"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051"]

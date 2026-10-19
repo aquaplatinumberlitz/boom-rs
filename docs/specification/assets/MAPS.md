@@ -15,10 +15,10 @@ Tổng số: 965 file `assets/fx/Map/*.map` + 54 file `*.i16` trong cùng thư m
 thực chất cũng là map (parse cùng parser, EOF-exact). Version chỉ có 2 loại:
 `1000` (651 file) và `1001` (314 file).
 
-> **Đối chiếu KR 2026-10-19:** probe `FxMap/Map/Village00` thấy count4 tại +20 và bốn tọa độ
-> hợp lệ bắt đầu **+80**, khác +76 trong bảng VN dưới đây. Chưa sửa loader spec VN từ một probe KR;
-> không áp dụng offset +76 máy móc cho KR. Payload hash và metadata ở
-> [kr_v1_content.json](../../evidence/inventory/kr_v1_content.json); scope ở [KR_RELEASE1.md](../../planning/SCOPE_V1.md).
+> **Đối chiếu KR 2026-10-19:** header KR dài hơn VN 4 byte — thêm một dword `0` trước cặp
+> `60000, 22000` (vị trí chính xác trong dãy số 0 chưa xác định); count spawn vẫn ở +20, tọa độ spawn bắt đầu **+80** (VN +76). Phần sau spawn
+> (rect, lưới, bảng rơi, placement) cùng bố cục. Đã kiểm trên Village00 KR và VN; xem
+> [RULES_V1](../gameplay/RULES_V1.md) R-002…R-004. `boom-assets` đọc cả hai theo build.
 
 ### 1.1. Thứ tự field (offset tuyệt đối từ đầu file, tất cả `i32` LE)
 

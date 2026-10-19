@@ -38,9 +38,9 @@ Chất lượng official và mức phù hợp build là hai trục riêng. Khôn
 
 - Ghi source ID, URL, title/locator, access date, publication date nếu biết, region/build/event,
   claim hỗ trợ và giới hạn. Link source từ findings/spec; không chép một bảng luật sang nhiều plan.
-- Claim có ID riêng, feature ID, giá trị/đơn vị, thuật ngữ gốc, reviewer, phản chứng và trạng thái
-  candidate/reviewed/accepted/rejected/unresolved. Theo quy tắc [AGENTS](../../../AGENTS.md).
-- Nguồn official khác region chỉ là `archive_other_region`; chứng minh tương ứng build là task riêng.
+- Claim luật V1 ghi ở [RULES_V1](../../specification/gameplay/RULES_V1.md) với nguồn/trạng thái theo
+  [AGENTS §4](../../../AGENTS.md#4-bằng-chứng); nguồn web là `web`, trạng thái `candidate` tới khi đối chiếu.
+- Nguồn official khác region (CN/TW) vẫn là `web`/`candidate` cho build KR/VN; chứng minh tương ứng build là task riêng.
   Nguồn trùng nội dung không tính độc lập; search snippet chưa đọc chỉ là đầu mối.
 - Một số deep link Nexon từng redirect Home/lỗi tải; không kết luận website mất hết dữ liệu.
   Khi lỗi, ghi URL/thời điểm/phạm vi truy cập, tìm archive hoặc nguồn khác có xuất xứ.

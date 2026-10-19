@@ -1,10 +1,9 @@
 # Kế hoạch tổng viết lại engine Boom KR bằng Rust
 
-Cập nhật: 2026-10-19. **Đây là kế hoạch tổng hiện hành**, thay thế vai trò điều hành của
+Cập nhật: 2026-10-19. **Kế hoạch tổng hiện hành**, thay vai trò điều hành của
 [REWRITE_PLAN_2026-10-19 cũ](../archive/plans/REWRITE_PLAN_2026-10-19.md).
-File này được mở rộng từ ROADMAP trước đây, không tạo thêm một kế hoạch song song.
-Nguồn chuẩn về lộ trình toàn dự án, pha, dependency và công việc tiếp theo.
-Scope: [SCOPE_V1](SCOPE_V1.md). Quy tắc: [AGENTS.md](../../AGENTS.md).
+Nguồn chuẩn về lộ trình, pha, hạn, dependency và việc tiếp theo.
+Scope: [SCOPE_V1](SCOPE_V1.md). Quy tắc: [AGENTS.md](../../AGENTS.md). Repo: `boom-rs` ([ADR 0003](../decisions/0003-engine-repo-and-docs-home.md)).
 
 ## Mục tiêu và các quyết định đã có
 
@@ -16,35 +15,43 @@ làm công cụ tham chiếu. Nền tảng desktop Windows/Linux/macOS; profile 
 V1 là lát cắt chơi được; mục tiêu dài hạn vẫn là mở rộng catalog KR. Không lấy V1 thu hẹp để tuyên bố
 đã port đủ client gốc. Không dùng 520 opcode VN làm mẫu số tiến độ KR.
 
+| Quyết định | Nguồn |
+|---|---|
+| Scope V1, policy phòng/vòng đời | [SCOPE_V1](SCOPE_V1.md), [ADR 0001](../decisions/0001-project-baseline.md) |
+| VN và KR là nguồn tin cậy ngang nhau | [ADR 0002](../decisions/0002-vn-kr-trusted-sources.md) |
+| Repo `boom-rs` chứa engine + docs | [ADR 0003](../decisions/0003-engine-repo-and-docs-home.md) |
+| Fixed step, số nguyên, RNG/hash riêng trong core | [ADR 0004](../decisions/0004-time-numeric-model.md) |
+| Server quyết kết quả; client chỉ dự đoán di chuyển của mình | [ADR 0005](../decisions/0005-authority-and-prediction.md) |
+| Transport mặc định TCP sau trait | [ADR 0006](../decisions/0006-transport-default.md) |
+| Client stack chọn bằng spike | [ADR 0007](../decisions/0007-client-stack-spike.md) — Proposed |
+| Mở rộng qua Mode/System/Event, overlay luật, dữ liệu item/liveops | [ADR 0008](../decisions/0008-extensibility-model.md) |
+
 ### Nguồn chi tiết và trạng thái
 
 | Cần biết | Nguồn chuẩn | Hiện trạng |
 |---|---|---|
-| V1 làm gì và policy | [SCOPE_V1](SCOPE_V1.md) | Spec định nghĩa scope/policy; trạng thái G1–G6 xem PROGRESS |
-| Chức năng và dependency | [Catalog](../specification/FEATURE_CATALOG.md), [registry](../specification/features.json) | 114 mục:37V1,75later,2drop; trạng thái/proof theo PROGRESS |
-| Tiến độ thực tế so với catalog | [PROGRESS](PROGRESS.md), [execution.json](execution.json) | Báo cáo generated: done/tổng V1 và catalog, trạng thái từng mục, phase và release gates |
-| Biết/chưa biết, nguồn luật | [QUESTIONS](../research/QUESTIONS.md), [sources](../research/sources/README.md) | Câu hỏi có ưu tiên/owner/status; web khác region/build không tự xác nhận KR |
-| Crate/module và contracts | [ARCHITECTURE](ARCHITECTURE.md) | Revision và trạng thái quyết định nằm trong architecture/ADR; không suy từ % feature |
-| Định danh client/asset | [Evidence](../evidence/README.md) | 13 pack/51.467 entry; 103 tài nguyên V1 fingerprint; dependency closure còn thiếu |
-| Giao task và review | [TEAM_WORKFLOW](TEAM_WORKFLOW.md), [AGENTS](../../AGENTS.md) | Một owner mỗi task, contract revision và reviewer; không sinh plan riêng theo agent |
-
-Không sao chép toàn bộ scope, schema hoặc backlog vào file này; agent đi theo các link trên để lấy
-chi tiết hiện hành. Bản kế hoạch tổng giữ thứ tự, dependency, gate và mục tiêu dài hạn.
+| V1 làm gì và policy | [SCOPE_V1](SCOPE_V1.md) | Đã chốt; trạng thái G1–G6 xem PROGRESS |
+| Chức năng và dependency | [Catalog](../specification/FEATURE_CATALOG.md), [registry](../specification/features.json) | 114 mục: 37 V1, 75 later, 2 drop |
+| Tiến độ so với catalog | [PROGRESS](PROGRESS.md), [execution.json](execution.json) | Generated |
+| Luật chơi V1: claim và giá trị | [RULES_V1](../specification/gameplay/RULES_V1.md), `data/rules/v1-dev.toml` | Claim có nguồn/trạng thái; profile dev chạy được, chưa đủ phát hành |
+| Câu hỏi mở | [QUESTIONS](../research/QUESTIONS.md), [sources](../research/sources/README.md) | Owner/ưu tiên/điều kiện đóng |
+| Crate và contracts | [ARCHITECTURE](ARCHITECTURE.md) | `architecture-r1`; walking skeleton đã có trong `crates/` |
+| Định danh client/asset | [Evidence](../evidence/README.md) | 13 pack/51.467 entry; 103 tài nguyên V1 fingerprint; closure còn thiếu |
+| Giao task và review | [TEAM_WORKFLOW](TEAM_WORKFLOW.md) | Một owner mỗi task, reviewer khác owner |
 
 ## Pha hiện tại
 
-Trạng thái pha lấy từ [execution.json](execution.json); trạng thái từng feature lấy từ
-[features.json](../specification/features.json). Xem [PROGRESS](PROGRESS.md) để biết done/chưa done
-và tỷ lệ nghiệm thu so với FEATURE_CATALOG. Khối bên dưới được sinh tự động, không sửa tay.
+Trạng thái pha lấy từ [execution.json](execution.json); trạng thái feature lấy từ
+[features.json](../specification/features.json). Khối bên dưới được sinh tự động, không sửa tay.
 
 <!-- PHASE_STATUS:START -->
-Pha đang hoạt động: **P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự án/interface**.
+Pha đang hoạt động: **P0 Tổ chức docs/scope, P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự án/interface**.
 
 | Pha | Trạng thái | Owner | Đầu ra | Gate hoàn thành |
 |---|---|---|---|---|
-| P0 Tổ chức docs/scope | Đã nghiệm thu | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
-| P1 Tìm thông tin còn thiếu | Đang làm | research | Claim/source/fixture và backlog câu hỏi | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
-| P2 Cấu trúc dự án/interface | Đang làm | architecture | Architecture và contract draft/ADR | Boundary/contracts review và giả định quan trọng được ghi nhận |
+| P0 Tổ chức docs/scope | Chờ review | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
+| P1 Tìm thông tin còn thiếu | Đang làm | research | Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
+| P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0007, walking skeleton + CI | Boundary/contracts review và giả định quan trọng được ghi nhận |
 | P3 Review sẵn sàng | Chưa làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |
 | P4 Nền móng/asset/oracle | Chưa làm | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
 | P5 Core/offline | Chưa làm | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
@@ -54,14 +61,19 @@ Pha đang hoạt động: **P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự
 | P9 Mở rộng full feature | Chưa làm | integrator | Các đợt W1–W4 theo registry | Toàn bộ112mục trong baseline hiện hành done; scope mới phải revision riêng |
 <!-- PHASE_STATUS:END -->
 
-Đây là trình tự và điều kiện, chưa phải cam kết thời gian. Các ước lượng cũ trong archive không còn là lịch V1.
+### Hạn của pha chuẩn bị
 
-### Dependency và song song khi đã mở triển khai
+P1 và P2 có **hạn 2026-11-02**. Tới hạn, câu hỏi P1 còn mở được xử lý một trong ba cách:
+chọn `design` có claim dẫn tới (ghi vào RULES_V1 + profile), chuyển thành thí nghiệm gắn task prototype,
+hoặc ghi rõ là không chặn V1. Không gia hạn chỉ vì còn câu hỏi; gia hạn phải ghi lý do ở đây.
+P3 (readiness) kết luận ngay sau hạn. Ngày này là đề xuất mặc định, người dùng có thể đổi.
+
+### Dependency và song song
 
 ```mermaid
 flowchart LR
   P0["P0 Docs/scope"] --> P1["P1 Research"]
-  P0 --> P2["P2 Architecture"]
+  P0 --> P2["P2 Kiến trúc + skeleton"]
   P1 --> P3["P3 Readiness"]
   P2 --> P3
   P3 --> P4["P4 Nền móng"]
@@ -72,161 +84,144 @@ flowchart LR
   P7 --> P8["P8 V1"] --> P9["P9 Full feature"]
 ```
 
-P1 không kết thúc toàn bộ RE trước P4: các câu hỏi tiếp tục được xử lý ngay trước task phụ thuộc.
-P6 dùng state/animation fixture trước khi P5 hoàn chỉnh. Thiết kế và phần auth/lobby P7 có thể chạy
-song song P5/P6 sau khi contract đã chốt; gate P7 tích hợp vẫn cần core và client chạy chung.
-Owner/reviewer theo luồng: assets/RE cho P4, core/QA cho P5, client/QA cho P6,
-net/backend + core/QA cho P7, integrator/QA cho P8. Đây chưa phải phân công người cụ thể.
+P1 không phải RE xong mọi thứ trước P4: câu hỏi tiếp tục được xử lý ngay trước task phụ thuộc.
+P2 gồm walking skeleton (`boom-core`, `boom-content`, `boom-assets`, `boom-replay`, `xtask`) để chứng minh
+boundary, nạp profile, replay hash và CI ba OS; skeleton không làm feature nào thành done.
+P6 dùng state/animation fixture trước khi P5 hoàn chỉnh. Auth/lobby của P7 chạy song song P5/P6 sau khi
+contract chốt; gate P7 cần core và client chạy chung.
+
+Luồng song song theo pha (vai trò, chưa phải người cụ thể):
+
+| Pha | Luồng chạy cùng lúc | Owner / reviewer |
+|---|---|---|
+| P1–P2 | START-A content closure; START-B luật/hiệu chuẩn; START-C contracts; skeleton | assets/RE, RE/core, core+net, integrator / QA |
+| P4 | Asset pipeline Rust (pack → bundle); oracle fixture; profile dev đầy đủ | assets/RE / QA |
+| P5 | Movement/collision; bom/lửa/chain; item; trapped/kết quả; replay | core / QA |
+| P6 | Spike client stack (ADR 0007) → scene, animation, audio, input, Việt hóa | client / QA |
+| P7 | Auth/session; phòng; authority + prediction; fixture mạng | net/backend + core / QA |
+| P8 | Tích hợp end-to-end, build ba OS, báo cáo sai khác | integrator / QA |
 
 ## Nguyên tắc fidelity và đo nguồn
 
-Mục tiêu giữ cảm giác và tài nguyên nguyên bản ở phần có nguồn xác nhận. Tách ba kết quả:
-**verified KR**, **đối chiếu VN/nguồn khác build** và **DESIGN V1**; không cam kết ~100% KR
-chỉ vì replay giống VN. Profile drop Village00 V1 và Việt hóa là khác biệt có chủ ý, theo SCOPE_V1.
+Mục tiêu giữ cảm giác và tài nguyên nguyên bản ở phần có nguồn xác nhận. Mỗi luật thuộc một trong:
+**confirmed** (KR hoặc VN, ADR 0002), **candidate** (web, OSS, giá trị emu tự đặt), **design** (dự án chọn,
+có claim dẫn tới) hoặc **unknown**. Profile drop Village00 V1 và Việt hóa là khác biệt có chủ ý, theo SCOPE_V1.
 
 Trước khi dùng trace làm oracle, đo độ lặp của chính client nguồn; lưu build/patch/config emu,
-initial state, input thực nhận, clock/seed khi lấy được và giới hạn của debugger. Log emu hẹn fuse
-không đo được fuse server gốc. Script xdotool/sleep chưa tự bảo đảm input cùng tick.
+trạng thái đầu, input thực nhận, clock/seed khi lấy được và giới hạn của debugger. Log emu hẹn fuse
+không đo được fuse server gốc. Script xdotool/sleep chưa bảo đảm input cùng tick.
 
 Nghiệm thu riêng: state/event theo rule và sai số đã đặc tả; pixel RGBA/ROI cho sprite/scene;
-timing/side effects audio; input latency/focus; state hội tụ và correction trong fixture mạng;
-playtest tình huống chuẩn. Không dùng `snapdiff.py` làm image diff: nó so snapshot bộ nhớ VM.
-Test do implementation sinh chỉ là regression baseline, không là bằng chứng fidelity độc lập.
-Các con số ngưỡng chính xác phải gắn fixture/nguồn hoặc quyết định DESIGN; không sao chép
-ngưỡng 0 px/99,5% của plan cũ sang mọi profile khi chưa kiểm điều kiện đo.
+timing/side effect audio; input latency/focus; hội tụ và correction trong fixture mạng;
+playtest tình huống chuẩn. `snapdiff.py` so snapshot bộ nhớ VM, không phải image diff.
+Ngưỡng chính xác gắn fixture/nguồn hoặc quyết định DESIGN; không chép ngưỡng 0 px/99,5% của plan cũ.
 
-Tham chiếu phương pháp/fixture và rule còn thiếu: Q-004–009 trong QUESTIONS;
-schema/runtime boundaries nằm trong ARCHITECTURE. Quyết timing/số học và thư viện qua ADR/thí nghiệm,
-không khóa fixed tick/không float hoặc renderer chỉ vì kế hoạch cũ đã ghi.
+## Server thiếu nguồn: khôi phục hoặc thiết kế lại
 
-## Server thiếu nguồn: cách khôi phục hoặc thiết kế lại
-
-Theo từng hành vi: dữ liệu/code client đúng build → đo runtime nguồn → guide/patch/video có
-build-region → DESIGN phần còn thiếu. Không mặc định mọi công thức/rate đều ở server hoặc đều ở pack.
-Phân biệt client tự quyết với quyết định emu đã cung cấp; khi có server mới, authority thuộc server.
+Theo từng hành vi: dữ liệu/code client → đo runtime → guide/patch/video có build-region → DESIGN.
+Legacy là mô hình lai: server quyết fuse, item ẩn và xác nhận nhặt; client quyết di chuyển, vỡ gạch,
+nhốt và chết ([ADR 0005](../decisions/0005-authority-and-prediction.md)). Server mới quyết tất cả;
+phần client gốc tự quyết là nơi cần đo feel kỹ nhất.
 
 V1 chỉ cần identity, session, room/match, validation và trạng thái trận theo scope.
-Economy/ledger/inventory/guild/liveops giữ trong backlog sau V1. Không khôi phục wire protocol cũ
-hoặc chép server giả lập thành backend production để đạt chỉ tiêu tiến độ.
-Khi mở economy, phải có transaction/idempotency, ownership và nguồn balance; lựa chọn DB/transport
-không được coi là đã chốt bởi tài liệu lịch sử. Xem ARCHITECTURE và Q-010/011/013.
+Economy/ledger/inventory/guild/liveops giữ trong backlog sau V1. Không chép server giả lập thành backend.
+Khi mở economy phải có transaction/idempotency, ownership và nguồn balance (Q-011).
 
-## Việc tiếp theo và owner theo luồng
+## Việc tiếp theo
 
-| Ưu tiên | Việc | Owner / reviewer | Đầu ra cập nhật vào |
+| Ưu tiên | Việc | Owner / reviewer | Đầu ra |
 |---|---|---|---|
-| 1 | Phân loại source đúng build/region; xử lý kết luận web và emu đang lẫn nhau | research / RE | QUESTIONS + source register + findings |
-| 1 | Map Village00→tile/object/collision; bốn spawn có dùng được không | assets/RE / core | QUESTIONS và spec assets; fixture/metadata vào evidence |
-| 1 | C00/C01→Attr; time model, speed, hitbox, fuse/chain/trap còn thiếu | RE / core | QUESTIONS; spec rule khi đã có nguồn, chưa hardcode giả |
-| 1 | Chốt boundary core/assets/render/net/backend và hợp đồng input/state/event | architecture / net+QA | ARCHITECTURE + ADR |
-| 2 | Quyết transport, persistence tối thiểu, strategy prediction/reconciliation | net/backend / integrator | ADR với phương án và gate kiểm chứng |
-| 2 | Chốt UI/content/Việt hóa V1 và đường dẫn nguồn chuẩn | client/l10n / QA | QUESTIONS + spec localization |
-| 3 | Lập task prototype và chọn baseline commit để tích hợp main/worktree | integrator / reviewer | P3 readiness + task trong workflow |
+| 1 | START-A: đọc bảng thuộc tính tile/obj của theme Village (KR, đối chiếu VN qua độ lệch R-004) → phân loại ô Village00 | assets/RE / core | RULES_V1 R-006/R-007 thành confirmed; bảng phân loại trong `data/` |
+| 1 | START-B: hiệu chuẩn tick và speed-level → px/s trên client VN; tìm hằng số timer nhốt trong code | RE / core | RULES_V1 R-013, R-026, R-043; cập nhật profile |
+| 1 | START-C: contracts-r1 (InputCommand/State/Event/Snapshot/Replay) dựa trên skeleton | core+net / QA | ARCHITECTURE §5 + kiểu Rust trong `boom-core` |
+| 1 | Review độc lập repo move, AGENTS mới và ADR 0003–0006 | reviewer / integrator | execution.json P0/P2 |
+| 2 | Tìm consumer bảng rơi R-051/R-052 và xác suất gạch có item | RE / core | RULES_V1 §5 |
+| 2 | Chốt UI/content/Việt hóa V1 (Q-012) | client/l10n / QA | Spec localization |
+| 3 | Kết luận P3 readiness, lập task P4/P5 có feature ID | integrator / reviewer | execution.json + features.json |
 
-Owner là vai trò, chưa phải người/agent được gán cố định. Mỗi task thực tế phải ghi người nhận,
-baseline/worktree, file được sửa, dependency, đầu ra và cách kiểm theo TEAM_WORKFLOW.
+Mỗi task thực tế ghi người nhận, baseline, file được sửa, dependency, đầu ra và cách kiểm theo TEAM_WORKFLOW.
 
-## Readiness trước khi mở triển khai
+## Readiness trước khi mở task feature
 
 - [ ] Scope V1 và registry không mâu thuẫn, không dependency vào mục later.
-- [ ] Client/pack/content identity được khóa; biết rõ phần asset chưa resolve và fixture nguồn cần thêm.
-- [ ] Timing/số học/collision có hướng kiểm chứng; unknown không bị gắn nhãn verified KR.
-- [ ] Workspace/crate boundaries và contracts revision đầu đã được review.
-- [ ] Net authority/command/snapshot/replay và event side effects được mô tả đủ để chia task độc lập.
-- [ ] Quyết định transport/persistence có phương án, lý do và thí nghiệm cần làm; chưa cần backend production.
-- [ ] Baseline tích hợp đã chọn, legacy oracle vẫn chạy theo đường dẫn/command đã kiểm.
-- [ ] Có task prototype nhỏ, acceptance, owner và reviewer; cập nhật pha trước khi bắt đầu.
+- [ ] Content identity được khóa; phần asset chưa resolve và fixture cần thêm được liệt kê.
+- [x] Mô hình thời gian/số học đã chọn ([ADR 0004](../decisions/0004-time-numeric-model.md)); hiệu chuẩn còn mở.
+- [ ] Crate boundaries và contracts-r1 được review (skeleton đã có, chưa review).
+- [x] Chiến lược authority/prediction có quyết định mặc định ([ADR 0005](../decisions/0005-authority-and-prediction.md)).
+- [x] Transport có mặc định và điều kiện đảo ([ADR 0006](../decisions/0006-transport-default.md)); persistence còn ở Q-011 (không chặn P5).
+- [ ] Legacy oracle chạy theo đường dẫn/command đã kiểm từ `boom-re` main.
+- [ ] Task P4/P5 đầu tiên có feature ID, owner, reviewer, acceptance.
 
-Các gate sản phẩm G1–G6 trong SCOPE_V1 áp dụng dần khi triển khai/phát hành; không cần tất cả xanh
-mới bắt đầu prototype. Readiness yêu cầu kiểm soát giả định và biết phần nào prototype sẽ giải quyết.
-Yêu cầu mới của người dùng có thể mở rộng task/pha; không yêu cầu xác nhận lại các quyền đã có.
+Các gate G1–G6 trong SCOPE_V1 áp dụng dần khi triển khai/phát hành; không cần tất cả xanh để mở P4.
 
 ## Sau V1: mở rộng catalog theo đợt
 
-Đây là định hướng P9, không phải lệnh mở 75 mục later ngay trong pha planning.
-Mỗi đợt chốt feature IDs và revision scope riêng từ registry, nghiên cứu đủ phần phụ thuộc rồi mới giao code.
+Định hướng P9; mỗi đợt chốt feature IDs và revision scope riêng từ registry.
 
 | Đợt | Nội dung dự kiến | Dependency/gate |
 |---|---|---|
-| W1 Battle mở rộng và xã hội | Đội/rescue, thêm người/map/item đã xác minh; bạn bè, whisper và tương tác phòng ngoài V1 | V1 ổn; mode/roster/permission contract và rule mới có nguồn; không vô tình đổi replay V1 |
-| W2 Tiến trình và kinh tế | Inventory/equip/cosmetic, shop/trade, level/EXP, ownership và wallet | Auth/storage ổn, transaction/ledger/idempotency và balance có provenance; chưa cash thật |
-| W3 Mode và nội dung | Các nhóm HiddenCatch, AI/Baseball/Monster/RPG và các ứng viên mode khác trong catalog | Xác định mode có thật/đúng build, asset/script/AI closure; spec và oracle hoặc DESIGN cho từng mode |
-| W4 Hệ thống dài hạn | Guild, quest/pass, event/season/reward/gacha, admin/moderation và nội dung tùy biến | Quyền, lịch/reset, delivery idempotent, economy và dữ liệu vận hành theo feature; không tự coi asset name là chức năng đầy đủ |
+| W1 Battle mở rộng và xã hội | Đội/rescue, thêm người/map/item; bạn bè, whisper, tương tác phòng | V1 ổn; mode/roster contract; không đổi replay V1 |
+| W2 Tiến trình và kinh tế | Inventory/equip/cosmetic, shop/trade, level/EXP, wallet | Auth/storage ổn, transaction/ledger/idempotency; chưa cash thật |
+| W3 Mode và nội dung | HiddenCatch, AI/Baseball/Monster/RPG và ứng viên mode khác | Mode có thật/đúng build, asset/script/AI closure; spec + oracle hoặc DESIGN |
+| W4 Hệ thống dài hạn | Guild, quest/pass, event/season/reward/gacha, admin/moderation | Quyền, lịch/reset, delivery idempotent, economy |
 
-W2 và W3 có thể song song khi interface và ownership đã ổn, nhưng không dùng song song để bỏ dependency.
-Một số tính năng như Magic Market phụ thuộc cả economy và content/UI; integrator xếp theo dependency,
-không chỉ theo tên đợt. Các nhóm còn mơ hồ như SandBox/Partners/DIYBomb giữ mức candidate cho tới khi
-xác định luồng/hành vi. Cash/thanh toán thật là workstream riêng ngoài baseline này.
+Magic Market phụ thuộc cả economy và content/UI; SandBox/Partners/DIYBomb giữ mức candidate tới khi rõ hành vi.
+Cash/thanh toán thật là workstream riêng ngoài baseline này.
 
 ### Playbook cho mỗi feature
 
-1. Nhận ID trong catalog và câu hỏi/nguồn liên quan; ghi revision và scope.
-2. Truy UI/asset/chuỗi/code/consumer; khi chạy được thì mở màn/luồng trên client nguồn để đối chiếu.
-3. Viết spec hành vi, state, dữ liệu server và acceptance; đánh dấu PORT/REDESIGN/DROP nếu cần,
-   tách quyết định sản phẩm khỏi mức bằng chứng và release scope.
-4. Thiết kế command/backend/UI/core adapters theo contract đã chốt; resolve dữ liệu và unknown.
-5. Triển khai thay đổi nhỏ; reviewer kiểm nguồn và logic độc lập; chạy fixture/integration phù hợp.
-6. Cập nhật implementation status trong registry và bàn giao demo/giới hạn. Không sinh plan riêng cho feature.
+1. Nhận ID trong catalog và câu hỏi/claim liên quan; ghi revision và scope.
+2. Truy UI/asset/chuỗi/code/consumer; khi chạy được, mở luồng trên client nguồn để đối chiếu.
+3. Viết spec hành vi, state, dữ liệu server và acceptance; tách quyết định sản phẩm khỏi mức bằng chứng.
+4. Thiết kế command/backend/UI/core theo contract đã chốt; giá trị luật vào profile kèm claim.
+5. Triển khai nhỏ; reviewer kiểm nguồn và logic độc lập; chạy fixture/integration.
+6. Cập nhật registry và bàn giao demo/giới hạn. Không sinh plan riêng cho feature.
 
-Chỉ gọi một release/full-feature milestone xong khi toàn bộ mục của catalog revision đã chọn có disposition,
-mọi mục cần triển khai đã qua acceptance và mọi sai khác có chủ ý được ghi nhận.
-Điều đó không chứng minh đã tìm ra mọi nhánh ẩn của executable. Đếm opcode VN, số asset hoặc số agent
-không thay thế tiến độ feature chơi được, rule có nguồn và unknown đã xử lý.
+## Rủi ro
 
-## Rủi ro, lịch và đo tiến độ
-
-| Rủi ro chính | Cách quản lý/nguồn tiếp theo |
+| Rủi ro | Cách quản lý |
 |---|---|
-| VN khác KR, archive khác build/event | Claim matrix Q-001; giữ provenance/profile riêng, không nâng confidence bằng suy đoán |
-| Phép đo bị timing/emu/debugger làm sai | Q-004/Q-009: repeatability và fixture identity, tách client/emu events |
-| Map/frame/script chưa hiểu đủ dù ảnh decode được | Q-002/Q-003; dependency closure và consumer semantics trước task phụ thuộc |
-| Luật server và cân bằng mất nguồn | Q-006/Q-007/Q-011; RE/source hoặc DESIGN có revision, không giấu default |
-| Net authority làm lệch feel hoặc lặp side effects | Q-008/Q-010; replay/snapshot completeness, convergence và presentation journal |
-| Chuyển workspace làm hỏng oracle hoặc chép nhầm snapshot cũ | Q-013; baseline/migration/test command rõ trước đổi layout |
-| Scope và docs tiếp tục phình | Registry scope, nguồn chuẩn và rule AGENTS; phát hiện mới vào backlog, không tự thêm V1 |
+| Khác biệt cụ thể VN/KR (offset, ID, map, mode) | Profile theo build; ví dụ R-003/R-004; web/OSS khác build vẫn là candidate |
+| Phép đo bị timing/emu/debugger làm sai | Q-004/Q-009: đo độ lặp, tách event client/emu |
+| Map/frame/script chưa hiểu đủ dù decode được | Q-002/Q-003: closure và consumer trước task phụ thuộc |
+| Luật server mất nguồn | RULES_V1: candidate → design có review; không giấu default |
+| Feel đổi do chuyển quyền quyết định sang server | ADR 0005; fixture lag + playtest sớm trong P5/P7 |
+| Chuyển repo làm agent đọc docs cũ | ADR 0003; stub/banner ở repo cũ; router `/home/admin/AGENTS.md` |
+| Research kéo dài vô hạn | Hạn P1/P2; câu hỏi còn mở phải có quyết định tạm |
+| Docs phình | Một nguồn chuẩn; phát hiện mới vào backlog, không tự thêm V1 |
 
-Chưa chốt số người thực tế hoặc lịch. Vai trò và cách chạy song song ở TEAM_WORKFLOW;
-ước lượng lại sau khi có phép đo lặp và prototype nhỏ. Lập critical path theo task, nguồn dữ liệu,
-người phụ trách và throughput thật. Không dùng lại cam kết 6–8 tháng/1,5–2 năm của plan lịch sử.
+Chưa chốt số người hoặc lịch sau P3; ước lượng lại từ throughput thật của P4/P5.
+Không dùng lại cam kết 6–8 tháng/1,5–2 năm của plan lịch sử.
 
-## Đối chiếu nội dung kế hoạch cũ
+## Đối chiếu kế hoạch cũ
 
-Bảng này để agent từ file archive biết phải tới đâu; không dùng archive làm lệnh triển khai.
-
-| Phần trong REWRITE_PLAN_2026-10-19 | Nguồn hiện hành/thay đổi sau audit |
+| Phần trong REWRITE_PLAN_2026-10-19 | Nguồn hiện hành |
 |---|---|
-| §0–1 Bối cảnh/khả thi | Mục tiêu, trạng thái và nguồn của file này; SCOPE_V1 chốt quyết định sản phẩm |
-| §2 Fidelity | Mục fidelity/đo nguồn ở đây, Q-004–009 và acceptance G1–G6; bỏ cam kết KR100% chưa đủ nguồn |
-| §3 Biết/chưa biết | QUESTIONS + evidence + spec tham chiếu; không chép bảng VN thành bảng KR |
-| §4 Oracle | P1/P4, Q-004/Q-009 và contract replay; chưa có golden độc lập chỉ vì emu chạy đúng |
-| §5 Kiến trúc | ARCHITECTURE + ADR; layout7package là draft, không chốt mọi lựa chọn cũ |
-| §6 R0–R7 | P0–P8 ở đây; tách planning/readiness khỏi implementation và cập nhật scope37mục |
-| §7 Rủi ro | Bảng rủi ro ở đây và QUESTIONS có owner/method/done criterion |
-| §8 Việc làm ngay | Bảng ưu tiên/owner ở đây, QUESTIONS và task template trong TEAM_WORKFLOW |
-| §9 Full feature/backend | P9/W1–W4 và playbook ở đây; registry là nguồn feature IDs, không dùng 520 opcode VN |
-| §10 KR profile | SCOPE_V1 + evidence + ARCHITECTURE: rules/content identity, VN/KR là trusted source ngang nhau |
+| §0–1 Bối cảnh/khả thi | Mục tiêu ở đây; SCOPE_V1 |
+| §2 Fidelity | Mục fidelity ở đây, RULES_V1, gate G1–G6 |
+| §3 Biết/chưa biết | RULES_V1 + QUESTIONS + evidence |
+| §4 Oracle | P1/P4, Q-004/Q-009, replay contract |
+| §5 Kiến trúc | ARCHITECTURE + ADR 0004–0007 |
+| §6 R0–R7 | P0–P9 ở đây |
+| §7 Rủi ro | Bảng rủi ro ở đây và QUESTIONS |
+| §8 Việc làm ngay | Việc tiếp theo ở đây |
+| §9 Full feature/backend | P9/W1–W4 ở đây; registry là nguồn feature IDs |
+| §10 KR profile | SCOPE_V1 + RULES_V1 + ADR 0002 |
 
-Audit lịch sử vẫn ở [REWRITE_PLAN_AUDIT](../archive/reports/REWRITE_PLAN_AUDIT_2026-10-19.md).
-Việc điều chỉnh kế hoạch sau audit không đồng nghĩa đã giải xong các unknown kỹ thuật hoặc triển khai feature.
+Audit lịch sử: [REWRITE_PLAN_AUDIT](../archive/reports/REWRITE_PLAN_AUDIT_2026-10-19.md).
+Nhóm mốc M0–M5 của TEAM_WORKFLOW cũ đã gộp vào P0–P9 ở trên.
 
-## Baseline và worktree
+## Baseline và repo
 
-- Mục tiêu: KR `00967`, scope `KR-00967-V1-scope-1`.
-- Docs/catalog đang làm ở `/home/admin/boom-re-l10n`, nhánh `claude/l10n-kr-vi`;
-  nền trước các thay đổi planning là `231ac01`; xem `git log -1`/`git status` để biết revision hiện hành.
-- Main `/home/admin/boom-re` tại `4ccc890` có server tham chiếu mới hơn snapshot l10n.
-  Không tạo workspace từ bản server cũ trong worktree chỉ vì docs hiện nằm ở đó.
-- `/home/admin/boomkr-re` giữ nghiên cứu/binary/metadata KR; không sao chép engine code sang repo này.
-- Bản đồ đổi đường dẫn ở [DOCS_MIGRATION](../evidence/DOCS_MIGRATION.json). Không coi đường dẫn mới
-  trong docs là đã tồn tại ở main cho tới khi tích hợp; dùng worktree hiện hành để chạy lệnh docs.
+- Target KR `00967`, scope `KR-00967-V1-scope-1`.
+- Repo tích hợp: `/home/admin/boom-rs`, nhánh `main`. Docs import từ
+  `boom-re-l10n@9bde2ce` ([DOCS_MIGRATION](../evidence/DOCS_MIGRATION.json)).
+- Legacy oracle: `/home/admin/boom-re` main (`4ccc890` khi import) — server giả lập VN, RE notebook, tool đo.
+- `/home/admin/boom-re-l10n`: Việt hóa và tool đọc pack (`kr_feature_inventory.py`, `kr_v1_content.py`).
+- `/home/admin/boomkr-re`: nghiên cứu/binary/metadata KR.
 
 ## Khi kết thúc một phiên
 
-Cập nhật trạng thái đúng ở đây hoặc QUESTIONS/ADR tương ứng, giữ việc tiếp theo rõ ràng.
-Không tạo một plan mới, không chuyển implementation thành done vì đã viết docs, không lấy số agent
-hoặc số opcode làm phần trăm hoàn thành engine.
-Task feature cập nhật `implementation` và `tracking` trong registry; task planning/research cập nhật
-phase/gates ở execution.json cùng QUESTIONS. Chạy `python3 tools/kr_catalog.py` rồi `--check` để sinh
-PROGRESS, CSV và phase table của plan. Chỉ reviewer nghiệm thu mới cho done; chưa qua gate thì chưa release.
-
-Chính sách nguồn hiện hành: [VN/KR trusted ngang nhau](../decisions/0002-vn-kr-trusted-sources.md). Dùng trực tiếp bằng chứng VN cho luật chung; giữ provenance và xử lý khác biệt cụ thể.
+Cập nhật nguồn chuẩn (registry, execution.json, QUESTIONS, RULES_V1, ADR); chạy
+`python3 tools/kr_catalog.py` rồi `--check`, và `cargo xtask ci` nếu có đổi code.
+Không tạo plan mới; chỉ reviewer nghiệm thu mới cho done.

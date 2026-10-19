@@ -87,7 +87,7 @@ Nếu cố ý chuẩn hóa khác gốc, ghi thành thay đổi sản phẩm và 
 ### A05 — P2: Công cụ so ảnh được viện dẫn sai; thước đo chưa đủ bắt lỗi quan trọng
 
 **Bằng chứng:** R3 và §9.3 dùng `tools/snapdiff.py` cho golden ảnh.
-Nhưng [script này](../../../tools/snapdiff.py) đọc `pre.snap`/`post.snap`, so thanh ghi, stack và vùng nhớ VM.
+Nhưng script này (`tools/snapdiff.py` ở repo `boom-re`/`boom-re-l10n`) đọc `pre.snap`/`post.snap`, so thanh ghi, stack và vùng nhớ VM.
 Nó không chụp hoặc so PNG. R0 còn yêu cầu hash file PNG khớp Python, trong khi cùng pixel có thể
 được mã hóa thành file PNG khác nhau.
 
