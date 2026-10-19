@@ -1246,7 +1246,7 @@
           "result": "Comment APPROVE trên PR #36, #38, #39, #55, #81, #91"
         },
         "blocker": "",
-        "next_action": "Closure + bundle + client vẽ Village00 đã tích hợp (#36, #38, #39, #55, #81, #91). Còn acceptance: bundle còn 4 mục `unknown` (không được skip) và chưa có test kiểm 4 spawn không trùng/không bị chặn/có đường thoát — issue tiếp theo (Claude mở), owner opencode-4."
+        "next_action": "Closure + bundle + client vẽ Village00 đã tích hợp (#36, #38, #39, #55, #81, #91). Còn acceptance: 4 mục `unknown` của bundle và test 4 spawn không trùng/không bị chặn/có đường thoát — issue #121."
       }
     },
     {
