@@ -45,7 +45,7 @@ Cột **Trạng thái nguồn**:
 
 | Nhãn | Nghĩa |
 |---|---|
-| `catalog-translated` | Có `id` catalog status `translated`; dùng `catalog.vi` nguyên văn (chỉ cắt khoảng trắng/xuống dòng). |
+| `catalog-translated` | Có `id` catalog status `translated`; dùng `catalog.vi` nguyên văn; khi render chỉ bỏ khoảng trắng/xuống dòng thừa ở biên, không đổi chữ. |
 | `catalog-reused` | Có `id` catalog status `reused`; dùng `catalog.vi` nguyên văn, đọc lại ngữ cảnh. |
 | `review` | Có `id` catalog nhưng ngữ cảnh/format cần reviewer chọn; **không** viết lại text, chỉ chọn key hoặc đánh dấu chưa dùng. |
 | `image-pending` | Chữ nằm trong ảnh; ảnh đang `pending` trong `images_review.csv`, chưa được dùng làm bản dịch. |
@@ -147,7 +147,7 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `room.loading` | Loading barrier | `catalog:Loading` | `catalog-reused` | Lấy `catalog.vi`; nhắc 15 giây theo SCOPE_V1 §3 nếu hiển thị đếm ngược. |
 | `room.kick` | Nút mời ra | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.kick`; chưa render. |
 | `room.kick_confirm` | Xác nhận mời ra | `catalog:SureToBan` | `catalog-translated` | Giữ `%s`; lấy `catalog.vi`. |
-| `room.kicked` | Bị chủ phòng mời ra | `catalog:BannedByLeader` | `catalog-translated` | Lấy `catalog.vi`; cắt khoảng trắng đầu. |
+| `room.kicked` | Bị chủ phòng mời ra | `catalog:BannedByLeader` | `catalog-translated` | Lấy `catalog.vi`; bỏ khoảng trắng đầu khi render, không đổi chữ. |
 | `room.non_host_denied` | Non-host start/kick | `catalog:RoomLeaderOnly` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.name_changed` | Đổi tên phòng | `catalog:RoomNameChanged` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.host_changed` | Chuyển chủ phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host_changed`; chưa render. |
@@ -231,7 +231,7 @@ hiện là `pending`; muốn dùng phải import `images_review.csv` qua quy tr�
 | `FxMap:Prepare/PRE_Bt_Start` | 193×342 | Có (`start`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
 | `FxMap:Prepare/PRE_Bt_Roominfo` | 100×110 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Nghĩa Hàn là "đổi thông tin phòng", VN là "thông tin"; chọn nhãn nào phải chốt |
 | `FxMap:Prepare/Dlg_PRE-NMRoominfo` | 414×455 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Như trên; dialog V1 có thể chỉ để xem, không đổi tên |
-| `FxStage:Lobby/LB_Bt_T_ShowAllRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt rút gọn | `diff_bytes` | VN rút gọn mất nghĩa "xem mọi phòng"; V1 có thể không cần filter |
+| `FxStage:Lobby/LB_Bt_T_ShowAllRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt ngắn hơn | `diff_bytes` | VN ngắn hơn nên có thể mất nghĩa "xem mọi phòng"; V1 có thể không cần filter |
 | `FxStage:Lobby/LB_Bt_T_WaitRoomRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt là danh từ | `diff_bytes` | VN không phải hành động "xem phòng chờ" |
 | `FxStage:Lobby/ReadyBox` | 127×176 | — | Có chữ Hàn; VN: chữ Việt khác nghĩa | `diff_bytes` | **Sai nghĩa**: không dùng làm indicator ready; cần asset/key khác ở boom-re-l10n |
 | `FxStage:Game/Win` | 243×59 (nhiều frame) | — | Nhiều frame; KR có chữ; VN cần kiểm đủ chữ | `diff_bytes` | Ảnh động nhiều frame; duyệt cả chuỗi frame và xác nhận đủ chữ, không chỉ frame 0 |
@@ -282,15 +282,19 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
 ### 5.2 Wrap, kích thước và placeholder
 
 - Xuống dòng theo **ranh giới từ** (khoảng trắng); không bẻ giữa một âm tiết/tổ hợp dấu; không hyphenation.
-- Nhãn nút/label ưu tiên 1 dòng; hộp thoại/tooltip tối đa 2–3 dòng; nếu vượt thì tăng chiều cao hoặc
-  rút chữ, **không cắt chữ**. Đây là yêu cầu hiển thị, phải kiểm bằng golden.
+- Nhãn nút/label ưu tiên 1 dòng; hộp thoại/tooltip tối đa 2–3 dòng. Nếu text vượt khung, **chỉ điều chỉnh
+  hiển thị**: tăng chiều cao/chiều rộng, xuống dòng theo từ, hoặc giảm cỡ font đến ngưỡng tối thiểu đọc được
+  (chốt bằng golden, không nhỏ hơn cỡ chữ phụ của profile). **Không rút, cắt, viết lại hay thay đổi nội dung
+  catalog.** Nếu text vẫn không vừa sau các điều chỉnh hiển thị, ghi **“cần sửa ở boom-re-l10n”** kèm
+  `catalog:<id>` và không render bản tự sửa.
 - Chiều cao dòng ≥ 1,4× cỡ chữ để dấu chồng không chạm dòng trên/dưới; kiểm bằng ảnh.
 - Giữ nguyên mọi placeholder: `%s`, `%d`, `%u`, `%.1f%%`, `%02d`, `{ComponentType|N}`, `<font …>`, `\r\n`,
   `|`. Không dịch/xóa placeholder; lệch phải hiện cảnh báo ở test.
 - Chat: dùng giới hạn `150CharLimit` (`[150자 이내]`) làm nguồn; V1 đếm **150 ký tự Unicode theo grapheme
   cluster** (không cắt dấu), chốt ở spec auth/chat.
 - Tên người chơi: chưa chốt độ dài. Phải hiển thị được trong danh sách phòng, slot phòng, HUD và kết quả;
-  nếu vượt khung thì ellipsis + tooltip, không làm vỡ layout. `unknown` cho tới khi có validation.
+  nếu vượt khung thì tăng chiều rộng/xuống dòng hoặc ghi **“cần sửa ở boom-re-l10n”** cho giới hạn tên; không
+  ellipsis/cắt tên và không làm vỡ layout. `unknown` cho tới khi có validation.
 - Số (thời gian, số người, thứ hạng) dùng chữ số tabular/không cắt số 0.
 - Scale: asset gốc 800×600. V1 phải chạy cửa sổ/toàn màn hình; golden tối thiểu 800×600, 1280×720,
   1920×1080 ở 100%/150%/200% UI scale (nếu có), không clipping.
@@ -305,9 +309,12 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
    `catalog.vi`. Spec này không lưu bản dịch riêng và không yêu cầu sửa bản dịch đã có.
 3. Ảnh dùng trong luồng có quyết định `translated`/`no_text` trong `images_review.csv` (không còn
    `pending`), hoặc client render text từ key catalog đã chốt.
-4. Golden font/wrap: tối thiểu các cặp dấu `ắ ộ ữ ợ ỹ`, tên người chơi dài, chat 150 ký tự, tooltip 3 dòng,
+4. Text không vừa: chỉ tăng chiều cao/chiều rộng, wrap hoặc giảm cỡ font (có ngưỡng tối thiểu đọc được);
+   không rút/cắt/ellipsis/viết lại text. Nếu vẫn không vừa, phải có dòng **“cần sửa ở boom-re-l10n”** kèm
+   `catalog:<id>`.
+5. Golden font/wrap: tối thiểu các cặp dấu `ắ ộ ữ ợ ỹ`, tên người chơi dài, chat 150 ký tự, tooltip 3 dòng,
    800×600 và 1920×1080; không clipping.
-5. `cargo xtask ci` xanh; `python3 tools/docs_check.py` xanh.
+6. `cargo xtask ci` xanh; `python3 tools/docs_check.py` xanh.
 
 ## 6. Còn thiếu và bước tiếp
 
