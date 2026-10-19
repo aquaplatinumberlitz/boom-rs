@@ -287,6 +287,16 @@ impl Server {
         self.auth_deadline_ms = deadline_ms.max(1);
     }
 
+    /// Thu hồi **mọi phiên của instance này** trong store (ADR 0011 §6.1).
+    ///
+    /// Dùng khi server dừng có trật tự (Ctrl-C/SIGTERM): phiên bị đánh dấu thu hồi nên
+    /// người chơi đăng nhập lại được, còn `Server::drop` gọi lại hàm này (thao tác idempotent).
+    pub fn shutdown_sessions(&mut self, now_ms: u64) {
+        if let Some(auth) = self.auth.as_mut() {
+            auth.shutdown_all(i64::try_from(now_ms).unwrap_or(i64::MAX));
+        }
+    }
+
     pub fn authority(&self) -> &Authority {
         &self.authority
     }
@@ -1357,8 +1367,7 @@ impl Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
-        if let Some(auth) = self.auth.as_mut() {
-            auth.shutdown_all(i64::try_from(self.now_ms).unwrap_or(i64::MAX));
-        }
+        let now_ms = self.now_ms;
+        self.shutdown_sessions(now_ms);
     }
 }
