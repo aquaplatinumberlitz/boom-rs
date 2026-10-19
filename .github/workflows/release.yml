@@ -26,6 +26,11 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_TERM_COLOR: always
+  # Python đọc/ghi UTF-8 trên mọi OS (Windows mặc định cp1252).
+  PYTHONUTF8: "1"
+
 defaults:
   run:
     shell: bash
@@ -141,9 +146,12 @@ jobs:
           export PKG="dist/${NAME}"
           python - <<'PY'
           import json, os, pathlib, subprocess
-          meta = json.loads(subprocess.run(
+          # Đọc byte rồi tự giải mã UTF-8: `text=True` trên Windows dùng cp1252 và hỏng
+          # khi metadata có ký tự ngoài ASCII.
+          raw = subprocess.run(
               ["cargo", "metadata", "--format-version", "1"],
-              capture_output=True, text=True, check=True).stdout)
+              capture_output=True, check=True).stdout
+          meta = json.loads(raw.decode("utf-8"))
           rows = sorted({
               "{} {} — {} — {}".format(
                   p["name"], p["version"], p.get("license") or "không khai",
@@ -184,6 +192,7 @@ jobs:
             --rules "${PKG}/data/rules/v1-dev.toml" \
             --l10n "${PKG}/data/l10n/vi-v1.toml"
           # Thiếu file phải báo lỗi rõ (đường dẫn + cách sửa) và exit khác 0.
+          # `grep` theo mảng byte ASCII để không phụ thuộc encoding console Windows.
           set +e
           OUT="$("${PKG}/bin/boom-server${EXT}" content --rules "${PKG}/data/rules/khong-co.toml" 2>&1)"
           CODE=$?
@@ -192,7 +201,7 @@ jobs:
             echo "LỖI: thiếu file rules mà vẫn exit 0"
             exit 1
           fi
-          echo "$OUT" | grep -q "không đọc được file rules" || {
+          echo "$OUT" | grep -q "file rules" || {
             echo "LỖI: thông điệp không nêu file rules"
             echo "$OUT"
             exit 1
@@ -205,7 +214,7 @@ jobs:
             echo "LỖI: thiếu file rules mà client vẫn exit 0"
             exit 1
           fi
-          echo "$OUT" | grep -q "không đọc được file rules" || {
+          echo "$OUT" | grep -q "file rules" || {
             echo "LỖI: client không nêu file rules"
             echo "$OUT"
             exit 1
