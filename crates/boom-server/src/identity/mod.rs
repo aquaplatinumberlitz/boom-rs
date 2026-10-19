@@ -4,17 +4,19 @@
 //!
 //! | Module | Nội dung |
 //! |---|---|
-//! | `identity/mod.rs` (đây) | trait [`AccountStore`] + kiểu dữ liệu domain; không rò SQL ra ngoài |
+//! | `identity/mod.rs` (đây) | trait [`AccountStore`] + [`SessionStore`] + kiểu dữ liệu domain; không rò SQL ra ngoài |
 //! | `identity/sqlite.rs` | hiện thực `rusqlite`: schema v1, migration runner, backup, `integrity_check`, khóa instance |
 //! | `identity/secret.rs` | [`Secret<T>`] (Debug ẩn) cho token phiên và PHC string |
+//! | `identity/session.rs` | vòng đời phiên: phát token, bind `instance_id`/`connection_id`, revoke, quét TTL, cleanup lúc boot (ADR 0011 §6, §6.1) |
 //!
 //! **Phạm vi task #61 (T2 theo ADR 0011 §11)**: schema v1 + migration runner + trait
 //! [`AccountStore`] + backup + `integrity_check` + khóa instance `fs4`.
 //!
-//! **Chưa làm (task khác)**: hash mật khẩu Argon2id và đăng ký/đăng nhập (T3, `auth.rs`);
-//! vòng đời phiên — phát token, TTL, giải phóng theo liveness — (T4, `identity/session.rs`).
-//! Vì vậy [`SqliteAccountStore::insert_session`] chỉ mở *khoảng lưu phiên* để ràng buộc
-//! "một tài khoản một phiên hiệu lực" chạy được ở tầng DB; nó không phải API vòng đời phiên.
+//! **Phạm vi task #76 (T3+T4 theo ADR 0011 §11)**: trait [`SessionStore`] (vòng đời phiên ở
+//! tầng lưu trữ) + module `identity/session.rs` (logic vòng đời: phát token 256 bit, bind
+//! instance/connection, revoke theo `session_id`, quét TTL, cleanup lúc boot theo
+//! `instance_id`) + `auth.rs` (đăng ký/đăng nhập Argon2id, PHC, rate limit, thông báo lỗi
+//! thống nhất).
 //!
 //! Identity/persistence **không phải luật chơi**: ADR 0011 §1 nói rõ ADR đó không sinh mã
 //! claim `R-xxx` trong RULES_V1. Mọi ràng buộc ở đây là **design** của dự án, không phải
@@ -26,10 +28,17 @@
 //! bảo vệ dựa vào ACL của thư mục dữ liệu.
 
 mod secret;
+mod session;
 mod sqlite;
 
 pub use secret::Secret;
-pub use sqlite::{LOCK_FILE_NAME, SqliteAccountStore, SqliteOptions};
+pub use session::{
+    IssuedSession, OsRandomSource, RandomSource, RevokeReason, RngError, SessionError,
+    SessionService, SessionStore, TOKEN_BYTES, issue_token, token_hash,
+};
+pub use sqlite::{
+    DbInspection, LOCK_FILE_NAME, SqliteAccountStore, SqliteOptions, inspect_read_only,
+};
 
 /// Định danh tài khoản (khóa chính `accounts.id`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -143,6 +152,17 @@ pub trait AccountStore {
         &mut self,
         id: AccountId,
         disabled: bool,
+        now_ms: i64,
+    ) -> Result<bool, StoreError>;
+
+    /// Ghi lại PHC string của tài khoản (rehash khi tham số Argon2 đổi, ADR 0011 §5).
+    ///
+    /// Trả `false` nếu không có tài khoản tương ứng. `password_hash` là **PHC string đã băm**;
+    /// tầng lưu trữ không hiểu thuật toán.
+    fn update_password_hash(
+        &mut self,
+        id: AccountId,
+        password_hash: &str,
         now_ms: i64,
     ) -> Result<bool, StoreError>;
 }
