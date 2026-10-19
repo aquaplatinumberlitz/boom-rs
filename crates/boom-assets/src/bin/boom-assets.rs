@@ -17,6 +17,7 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use boom_assets::audio;
 use boom_assets::bundle::build_bundle;
 use boom_assets::legacy_map::{Build, parse};
 use boom_assets::pack::{Pack, PackIndex, load_index};
@@ -28,6 +29,9 @@ const PACK_DIR_ENV: &str = "BOOM_KR_PACK_DIR";
 struct Options {
     positional: Vec<String>,
     build: Build,
+    list: bool,
+    all: bool,
+    extract: Option<PathBuf>,
     map: Option<String>,
     out: Option<PathBuf>,
     pack_dir: Option<PathBuf>,
@@ -41,15 +45,19 @@ fn usage() -> ExitCode {
          boom-assets pack-extract <pack-dir> <stem> <entry> <out> [--build kr|vn]\n  \
          boom-assets sprite-info <pack-dir> <stem> <entry> [--build kr|vn]\n  \
          boom-assets sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]\n  \
+         boom-assets audio <pack-dir> --list [--all] [--extract DIR] [--build kr|vn]\n  \
          boom-assets bundle --map <map> --out <dir> [--pack-dir <dir>]"
     );
     ExitCode::from(2)
 }
 
-/// Tách cờ `--build`, `--map`, `--out`, `--pack-dir` khỏi tham số vị trí; mặc định KR.
+/// Tách cờ `--build`, `--list`, `--all`, `--extract`, `--map`, `--out`, `--pack-dir` khỏi tham số vị trí; mặc định KR.
 fn options(args: &[String]) -> Option<Options> {
     let mut positional = Vec::new();
     let mut build = Build::Kr;
+    let mut list = false;
+    let mut all = false;
+    let mut extract = None;
     let mut map = None;
     let mut out = None;
     let mut pack_dir = None;
@@ -62,6 +70,18 @@ fn options(args: &[String]) -> Option<Options> {
                     Some("vn") => Build::Vn,
                     _ => return None,
                 };
+                index += 2;
+            }
+            "--list" => {
+                list = true;
+                index += 1;
+            }
+            "--all" => {
+                all = true;
+                index += 1;
+            }
+            "--extract" => {
+                extract = Some(PathBuf::from(args.get(index + 1)?));
                 index += 2;
             }
             "--map" => {
@@ -85,6 +105,9 @@ fn options(args: &[String]) -> Option<Options> {
     Some(Options {
         positional,
         build,
+        list,
+        all,
+        extract,
         map,
         out,
         pack_dir,
@@ -102,6 +125,7 @@ fn main() -> ExitCode {
         Some("pack-extract") => pack_extract(&opts),
         Some("sprite-info") => sprite_info(&opts),
         Some("sprite-png") => sprite_png(&opts),
+        Some("audio") => audio(&opts),
         Some("bundle") => bundle(&opts),
         _ => usage(),
     }
@@ -294,6 +318,75 @@ fn pack_extract(opts: &Options) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn audio_build_error(build: Build) -> Option<&'static str> {
+    (build == Build::Vn)
+        .then_some("audio hiện chỉ hỗ trợ pack KR (FxSound); --build vn chưa có stem/khóa VN")
+}
+
+fn audio(opts: &Options) -> ExitCode {
+    let [dir] = opts.positional.as_slice() else {
+        return usage();
+    };
+    if !opts.list && opts.extract.is_none() {
+        return usage();
+    }
+    if let Some(message) = audio_build_error(opts.build) {
+        eprintln!("{message}");
+        return ExitCode::from(2);
+    }
+    let pack = match Pack::open(Path::new(dir), "FxSound", opts.build) {
+        Ok(pack) => pack,
+        Err(e) => {
+            eprintln!("FxSound: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let infos = if opts.all {
+        audio::all_entries(&pack)
+    } else {
+        audio::v1_entries(&pack)
+    };
+    let infos = match infos {
+        Ok(infos) => infos,
+        Err(e) => {
+            eprintln!("FxSound: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    if opts.list {
+        if !opts.all {
+            println!("event\tentry\tstatus");
+            for usage in audio::V1_AUDIO_USES {
+                println!("{}\t{}\t{}", usage.event, usage.entry, usage.status);
+            }
+            println!();
+        }
+        println!("entry\tkind\tformat\tbytes\tsha256");
+        for info in &infos {
+            println!(
+                "{}\t{}\t{}\t{}\t{}",
+                info.entry,
+                info.kind.label(),
+                info.format.label(),
+                info.bytes,
+                info.sha256
+            );
+        }
+    }
+
+    if let Some(root) = &opts.extract {
+        if let Err(e) = audio::extract(&pack, &infos, root) {
+            eprintln!("{}: {e}", root.display());
+            return ExitCode::FAILURE;
+        }
+        for info in &infos {
+            println!("{} -> {}", info.entry, root.join(&info.entry).display());
+        }
+    }
+    ExitCode::SUCCESS
+}
+
 fn describe(index: &PackIndex) -> String {
     let version = index
         .version
@@ -453,4 +546,19 @@ fn pack_stems(dir: &Path) -> std::io::Result<Vec<String>> {
     }
     stems.sort();
     Ok(stems)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn audio_rejects_vn_build_clearly() {
+        assert!(audio_build_error(Build::Kr).is_none());
+        assert!(
+            audio_build_error(Build::Vn)
+                .unwrap()
+                .contains("chỉ hỗ trợ pack KR")
+        );
+    }
 }
