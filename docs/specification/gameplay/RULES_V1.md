@@ -189,3 +189,21 @@ R-080 là **DESIGN của dự án**, không phải claim `confirmed` từ client
 cho thứ tự ưu tiên khi giữ nhiều phím. Claim chỉ chốt policy input của V1-033 để code/test có nguồn
 chuẩn; nếu sau này có trace, cập nhật giá trị/trạng thái theo trace thay vì suy diễn. R-080 giữ riêng
 cho task #47; không thay đổi R-047 và không sửa các claim khác.
+
+## 10. Âm thanh
+
+Nguồn dữ liệu: pack KR 00967 `FxSound` (797 entry: 157 `MP3/` + 640 `Wave/`) đọc bằng
+`boom-assets`; đối chiếu file đã giải nén của VN trong `/home/admin/boom-re/assets/fx` (124 MP3 +
+492 Wave). Đây là **mapping trình diễn của V1**, không phải luật mô phỏng; asset tồn tại không
+chứng minh consumer gốc dùng entry cho event nào.
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-081 | BGM V1 của map Village là entry `FxSound/MP3/Village` (270.601 B, SHA-256 `7a34054f23a66a1f19cd1cd47b70705bda0c774b6d2afd094c4bd5b6d709038f`), phát loop một bản; mapping map/theme theo R-070 | — | `kr_static` + `vn_static` / confirmed | R-070; [AUDIO_V1](../assets/AUDIO_V1.md) §2; `crates/boom-assets/src/audio.rs`; `boom-assets audio <pack> --list` |
+| R-082 | Mapping event→entry V1: `bomb_placed`→`Wave/Cha_BombIgnite`, `bomb_exploded`→`Wave/BombExplosion001`, `item_revealed`→`Wave/Itm_ItemPop`, `item_picked` (Bomb/Fire/Roller)→`Wave/Itm_ItemEaten`, `player_trapped`→`Wave/Itm_UseTrap`, `player_died`→`Wave/Cha_Die`, `round_ended` thắng/thua/hòa→`Wave/Ntc_Win`/`Ntc_Lose`/`Ntc_Draw`, đếm ngược 3/2/1→`Wave/Ntc_Count3`/`Count2`/`Count1`, start→`Wave/Ntc_GameStart`, `ui_click`→`Wave/Bt_p_Default`; mapping là lựa chọn V1 vì chưa có trace consumer gốc, nhưng **cả 15 entry tồn tại trong KR và VN với cùng SHA-256** | — | `kr_static` + `vn_static` / design (entry có thật; mapping chưa xác nhận) | Issue #64; [AUDIO_V1](../assets/AUDIO_V1.md) §2–3; `crates/boom-assets/src/audio.rs` (`V1_AUDIO_USES`); Q-015 |
+| R-083 | Policy chồng tiếng V1: tối đa **8 voice SFX + 1 BGM**; BGM loop không tính voice và không restart khi reconcile. Cùng một entry phát nhiều lần trong **cùng một tick** gộp thành một lần; event được dedup theo `(round_id, EventId)`, không phát lại khi replay/reconcile. Ưu tiên khi thiếu voice: round-end/start > explosion > trapped/died > bomb/item > UI; hết voice thì bỏ mục ưu tiên thấp nhất, hòa giữ `EventId` nhỏ hơn (cũ hơn). Qua tick vẫn được phát lại | — | `design` / design | Issue #64; [AUDIO_V1](../assets/AUDIO_V1.md) §4; Q-015; ADR 0008 (EventId/dedup); R-082 |
+
+R-081 đã xác nhận BGM từ manifest R-070 và hash trùng ở hai build. R-082/R-083 là **DESIGN của dự
+án**, không phải claim `confirmed` KR/VN: chưa tìm thấy trace consumer phát SFX trong client gốc
+(A10 của `features.md` vẫn là "chưa điều tra") và chưa có consumer audio V1. Q-015 theo dõi việc
+đóng hai claim này; khi có trace, sửa bảng/giá trị thay vì tự nhận confirmed.

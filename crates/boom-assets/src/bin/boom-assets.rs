@@ -12,9 +12,10 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::BufWriter;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use boom_assets::audio;
 use boom_assets::legacy_map::{Build, parse};
 use boom_assets::pack::{Pack, PackIndex, load_index};
 use boom_assets::sprite::{self, Sprite};
@@ -22,6 +23,9 @@ use boom_assets::sprite::{self, Sprite};
 struct Options {
     positional: Vec<String>,
     build: Build,
+    list: bool,
+    all: bool,
+    extract: Option<PathBuf>,
 }
 
 fn usage() -> ExitCode {
@@ -31,7 +35,8 @@ fn usage() -> ExitCode {
          boom-assets pack-list <pack-dir> [stem] [--build kr|vn]\n  \
          boom-assets pack-extract <pack-dir> <stem> <entry> <out> [--build kr|vn]\n  \
          boom-assets sprite-info <pack-dir> <stem> <entry> [--build kr|vn]\n  \
-         boom-assets sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]"
+         boom-assets sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]\n  \
+         boom-assets audio <pack-dir> --list [--all] [--extract DIR] [--build kr|vn]"
     );
     ExitCode::from(2)
 }
@@ -40,6 +45,9 @@ fn usage() -> ExitCode {
 fn options(args: &[String]) -> Option<Options> {
     let mut positional = Vec::new();
     let mut build = Build::Kr;
+    let mut list = false;
+    let mut all = false;
+    let mut extract = None;
     let mut index = 1; // bỏ tên lệnh
     while index < args.len() {
         if args[index] == "--build" {
@@ -49,12 +57,27 @@ fn options(args: &[String]) -> Option<Options> {
                 _ => return None,
             };
             index += 2;
+        } else if args[index] == "--list" {
+            list = true;
+            index += 1;
+        } else if args[index] == "--all" {
+            all = true;
+            index += 1;
+        } else if args[index] == "--extract" {
+            extract = Some(PathBuf::from(args.get(index + 1)?));
+            index += 2;
         } else {
             positional.push(args[index].clone());
             index += 1;
         }
     }
-    Some(Options { positional, build })
+    Some(Options {
+        positional,
+        build,
+        list,
+        all,
+        extract,
+    })
 }
 
 fn main() -> ExitCode {
@@ -68,6 +91,7 @@ fn main() -> ExitCode {
         Some("pack-extract") => pack_extract(&opts),
         Some("sprite-info") => sprite_info(&opts),
         Some("sprite-png") => sprite_png(&opts),
+        Some("audio") => audio(&opts),
         _ => usage(),
     }
 }
@@ -203,6 +227,66 @@ fn pack_extract(opts: &Options) -> ExitCode {
         return ExitCode::FAILURE;
     }
     println!("{name} -> {out} ({} B)", data.len());
+    ExitCode::SUCCESS
+}
+
+fn audio(opts: &Options) -> ExitCode {
+    let [dir] = opts.positional.as_slice() else {
+        return usage();
+    };
+    if !opts.list && opts.extract.is_none() {
+        return usage();
+    }
+    let pack = match Pack::open(Path::new(dir), "FxSound", opts.build) {
+        Ok(pack) => pack,
+        Err(e) => {
+            eprintln!("FxSound: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let infos = if opts.all {
+        audio::all_entries(&pack)
+    } else {
+        audio::v1_entries(&pack)
+    };
+    let infos = match infos {
+        Ok(infos) => infos,
+        Err(e) => {
+            eprintln!("FxSound: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    if opts.list {
+        if !opts.all {
+            println!("event\tentry\tstatus");
+            for usage in audio::V1_AUDIO_USES {
+                println!("{}\t{}\t{}", usage.event, usage.entry, usage.status);
+            }
+            println!();
+        }
+        println!("entry\tkind\tformat\tbytes\tsha256");
+        for info in &infos {
+            println!(
+                "{}\t{}\t{}\t{}\t{}",
+                info.entry,
+                info.kind.label(),
+                info.format.label(),
+                info.bytes,
+                info.sha256
+            );
+        }
+    }
+
+    if let Some(root) = &opts.extract {
+        if let Err(e) = audio::extract(&pack, &infos, root) {
+            eprintln!("{}: {e}", root.display());
+            return ExitCode::FAILURE;
+        }
+        for info in &infos {
+            println!("{} -> {}", info.entry, root.join(&info.entry).display());
+        }
+    }
     ExitCode::SUCCESS
 }
 
