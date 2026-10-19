@@ -1,0 +1,41 @@
+# Bản sao log probe (nguyên dạng), mỗi dòng: t giây, steps = ctx+0x1DF190
+
+## sample1.txt
+S 0.000 stage=0x13d52b48 ctx=0x14f50020 steps=137 clk=0x1512f07c T2=1 base=375253364
+S 0.500 stage=0x13d52b48 ctx=0x14f50020 steps=153 clk=0x1512f07c T2=1 base=375253364 d=16
+S 1.000 stage=0x13d52b48 ctx=0x14f50020 steps=171 clk=0x1512f07c T2=1 base=375253364 d=18
+S 1.501 stage=0x13d52b48 ctx=0x14f50020 steps=187 clk=0x1512f07c T2=1 base=375253364 d=16
+S 2.001 stage=0x13d52b48 ctx=0x14f50020 steps=204 clk=0x1512f07c T2=1 base=375253364 d=17
+S 2.501 stage=0x13d52b48 ctx=0x14f50020 steps=220 clk=0x1512f07c T2=1 base=375253364 d=16
+S 3.001 stage=0x13d52b48 ctx=0x14f50020 steps=237 clk=0x1512f07c T2=1 base=375253364 d=17
+S 3.502 stage=0x13d52b48 ctx=0x14f50020 steps=254 clk=0x1512f07c T2=1 base=375253364 d=17
+S 4.002 stage=0x13d52b48 ctx=0x14f50020 steps=270 clk=0x1512f07c T2=1 base=375253364 d=16
+S 4.502 stage=0x13d52b48 ctx=0x14f50020 steps=287 clk=0x1512f07c T2=1 base=375253364 d=17
+S 5.002 stage=0x13d52b48 ctx=0x14f50020 steps=304 clk=0x1512f07c T2=1 base=375253364 d=17
+S 5.503 stage=0x13d52b48 ctx=0x14f50020 steps=320 clk=0x1512f07c T2=1 base=375253364 d=16
+S 6.003 stage=0x13d52b48 ctx=0x14f50020 steps=337 clk=0x1512f07c T2=1 base=375253364 d=17
+S 6.503 stage=0x13d52b48 ctx=0x14f50020 steps=354 clk=0x1512f07c T2=1 base=375253364 d=17
+S 7.003 stage=0x13d52b48 ctx=0x14f50020 steps=370 clk=0x1512f07c T2=1 base=375253364 d=16
+S 7.504 stage=0x13d52b48 ctx=0x14f50020 steps=387 clk=0x1512f07c T2=1 base=375253364 d=17
+S 8.004 stage=0x13d52b48 ctx=0x14f50020 steps=403 clk=0x1512f07c T2=1 base=375253364 d=16
+S 8.504 stage=0x13d52b48 ctx=0x14f50020 steps=420 clk=0x1512f07c T2=1 base=375253364 d=17
+S 9.004 stage=0x13d52b48 ctx=0x14f50020 steps=437 clk=0x1512f07c T2=1 base=375253364 d=17
+S 9.504 stage=0x13d52b48 ctx=0x14f50020 steps=454 clk=0x1512f07c T2=1 base=375253364 d=17
+S 10.005 stage=0x13d52b48 ctx=0x14f50020 steps=470 clk=0x1512f07c T2=1 base=375253364 d=16
+S 10.505 stage=0x13d52b48 ctx=0x14f50020 steps=487 clk=0x1512f07c T2=1 base=375253364 d=17
+S 11.005 stage=0x13d52b48 ctx=0x14f50020 steps=504 clk=0x1512f07c T2=1 base=375253364 d=17
+S 11.505 stage=0x13d52b48 ctx=0x14f50020 steps=521 clk=0x1512f07c T2=1 base=375253364 d=17
+
+## sample2.txt
+S 0.000 stage=0x13d52b48 ctx=0x14f50020 steps=668 clk=0x1512f07c T2=1 base=375253364
+S 0.500 stage=0x13d52b48 ctx=0x14f50020 steps=684 clk=0x1512f07c T2=1 base=375253364 d=16
+S 1.001 stage=0x13d52b48 ctx=0x14f50020 steps=701 clk=0x1512f07c T2=1 base=375253364 d=17
+S 1.501 stage=0x13d52b48 ctx=0x14f50020 steps=718 clk=0x1512f07c T2=1 base=375253364 d=17
+S 2.001 stage=0x13d52b48 ctx=0x14f50020 steps=735 clk=0x1512f07c T2=1 base=375253364 d=17
+S 2.501 stage=0x13d52b48 ctx=0x14f50020 steps=752 clk=0x1512f07c T2=1 base=375253364 d=17
+S 3.002 stage=0x13d52b48 ctx=0x14f50020 steps=768 clk=0x1512f07c T2=1 base=375253364 d=16
+S 3.502 stage=0x13d52b48 ctx=0x14f50020 steps=785 clk=0x1512f07c T2=1 base=375253364 d=17
+S 4.002 stage=0x13d52b48 ctx=0x14f50020 steps=801 clk=0x1512f07c T2=1 base=375253364 d=16
+S 4.503 stage=0x13d52b48 ctx=0x14f50020 steps=818 clk=0x1512f07c T2=1 base=375253364 d=17
+S 5.003 stage=0x13d52b48 ctx=0x14f50020 steps=835 clk=0x1512f07c T2=1 base=375253364 d=17
+S 5.503 stage=0x13d52b48 ctx=0x14f50020 steps=852 clk=0x1512f07c T2=1 base=375253364 d=17

@@ -1,0 +1,9 @@
+run,samples,xok_true,yok_true,changes_5px_per_tick,changes_6px_per_tick,other_plausible,x_plausible_min,x_plausible_max,checksum_valid,notes
+all/c00,254,0,0,6,0,2,520,560,no,""
+all/c01,249,0,0,4,0,0,520,560,no,"C01 raw only, not compared with KR Attr"
+fast/c00,556,0,0,3,0,0,520,560,no,""
+fast/c01,556,0,0,3,0,1,520,560,no,"C01 raw only, not compared with KR Attr"
+item/c00,804,0,0,8,0,2,520,560,no,""
+item2/c00,949,0,0,14,0,0,520,560,no,""
+item3/c00,947,0,0,8,6,1,520,560,no,"Roller picked at 22:31:20 (server 117/158); one run at 6 px/tick"
+trapt/c00,1164,0,0,0,0,0,560,560,no,"trap run; no movement sampled"

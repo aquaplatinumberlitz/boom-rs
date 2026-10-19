@@ -8,6 +8,7 @@
 | [kr_scope_groups.csv](inventory/kr_scope_groups.csv) | Export disposition của 46 nhóm từ registry nguồn |
 | [kr_v1_content.json](inventory/kr_v1_content.json) | 103 payload được fingerprint và probe Village00; chưa đóng đủ dependency |
 | `images/vn/` | Ảnh client VN được chuyển nguyên file từ docs root |
+| [measurements/vn-timing-2026-10-19/README.md](measurements/vn-timing-2026-10-19/README.md) | Hồ sơ đo tick/tốc độ/timer nhốt client VN; log trích + script phân tích, không có asset game |
 | [DOCS_MIGRATION.json](DOCS_MIGRATION.json) | Bản đồ đường dẫn cũ→mới, không phải bằng chứng luật chơi |
 
 Không commit client/pack/binary/database hoặc cache ảnh lớn vào repo chỉ để tạo evidence.

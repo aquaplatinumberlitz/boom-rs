@@ -1,0 +1,4 @@
+run,raw_log,line_120_11,line_120_13,t_subtype_11,t_subtype_13,interval_s,raw_log_retained,notes
+run3-native,/home/admin/boom-team/logs/dsh-2-issue-11.run2159.log,84,84,21:03:32.227,21:03:38.582,6.355000,no,raw server.log not retained; interval derived in worker log
+run4-trap,trap/server.log,225,241,22:34:13.192432,22:34:19.556305,6.363873,yes,line references are to raw server.log
+run5-trapt,trapt/c00/server.log,228,240,22:37:30.972421,22:37:37.330015,6.357594,yes,line references are to raw server.log

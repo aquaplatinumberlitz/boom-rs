@@ -1,0 +1,8 @@
+# Trích trap/gdb.txt: chỉ có DEATH_PKT_120_13; không có TRAP_ARG/BUBBLE_MAX.
+# Vì vậy không chứng minh được 210 tick / duration nội bộ.
+
+Reading symbols from /home/admin/boom-rs-dsh/issue-11/.tmp-game/ca_fixed_patched.exe...
+Wine-gdb> Wine-gdb> Wine-gdb> Breakpoint 1 at 0x446430
+Wine-gdb> >>>>Wine-gdb> Breakpoint 2 at 0x574802
+Wine-gdb> >>>>Wine-gdb> Breakpoint 3 at 0x7172e7
+DEATH_PKT_120_13
