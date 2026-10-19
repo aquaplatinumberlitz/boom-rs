@@ -1,0 +1,33 @@
+# So sánh engine V1 với quan sát VN: client VN đi 5 px/tick ở nhịp ~30 ms/tick
+# (R-043, vn_runtime/candidate; Q-005), tức ~166,7 px/s.
+# Profile test dùng speed_px_per_s_per_level = 24 px/s (fixtures/rules/skeleton-test.toml);
+# player speed=5 ⇒ 120 px/s ở engine, tức ~122 px sau 61 tick, không phải ~170 px theo VN.
+# PENDING: kỳ vọng theo VN, không phải luật engine hiện tại; không sửa engine trong task này.
+name = "VN: 5 px mỗi tick 30 ms — engine profile test khác"
+features = ["V1-037"]
+claims = ["R-043", "R-045", "R-075"]
+status = "pending"
+ticks = 61
+map = [
+    "##########",
+    "#0.......#",
+    "#........#",
+    "##########",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+# Bắt đầu ở tâm ô (1,1) = 60 px; 60 tick VN ~ 166,7 px → ~226,7 px = 226700 mpx.
+[[expect]]
+tick = 61
+player = 0
+pos_mpx = [226700, 60000]
