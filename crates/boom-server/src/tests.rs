@@ -1222,3 +1222,87 @@ fn malformed_frame_closes_only_that_session() {
     assert_eq!(snapshot.round_id, round);
     assert_eq!(server.authority().tick(), Some(1));
 }
+
+#[test]
+fn malformed_payload_closes_only_that_session() {
+    let players = [PlayerId(1), PlayerId(2), PlayerId(3)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    let mut req = Requests::new(&players);
+    let host = players[0];
+    server
+        .room_command(
+            command(
+                host,
+                req.take(host),
+                RoomAction::Create {
+                    character: CharacterId::C00,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    let room = server.room_view().unwrap().id;
+    server
+        .room_command(
+            command(
+                players[2],
+                req.take(players[2]),
+                RoomAction::Join {
+                    room,
+                    character: CharacterId::C01,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    for player in [players[0], players[2]] {
+        server
+            .room_command(
+                command(
+                    player,
+                    req.take(player),
+                    RoomAction::SetReady { ready: true },
+                ),
+                0,
+            )
+            .unwrap();
+    }
+    server
+        .room_command(command(host, req.take(host), RoomAction::Start), 0)
+        .unwrap();
+    for player in [players[0], players[2]] {
+        server.ack_loading(player, 0).unwrap();
+    }
+    let round = round_u32(server.authority());
+    // Envelope hợp lệ nhưng payload bị cắt: lỗi chỉ thuộc session 2.
+    let bad = InputBatch {
+        round_id: round,
+        player: 1,
+        ack_snapshot: 0,
+        commands: vec![InputCommand {
+            seq: 1,
+            target_tick: 0,
+            bits: InputBits::new(4, false).unwrap(),
+        }],
+    };
+    let mut frame = encode_frame(&bad, &ProtocolLimits::v1()).unwrap();
+    frame.pop();
+    clients[1].writer.send_frame(&frame).unwrap();
+    let good = InputBatch {
+        round_id: round,
+        player: 0,
+        ack_snapshot: 0,
+        commands: vec![InputCommand {
+            seq: 1,
+            target_tick: 0,
+            bits: InputBits::new(4, false).unwrap(),
+        }],
+    };
+    send(&mut clients[0], &good);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.session_count(), 2);
+    let snapshot: Snapshot = recv_snapshot(&mut clients[0]);
+    assert_eq!(snapshot.round_id, round);
+    assert_eq!(server.authority().tick(), Some(1));
+}
