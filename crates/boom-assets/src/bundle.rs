@@ -749,6 +749,16 @@ mod tests {
                 .any(|s| s.role == "object" && s.map_id.is_some()),
             "bundle phải có sprite vật cản"
         );
+        // SHA-256 file map trong bundle khớp giá trị đã ghi ở SCOPE_V1 §2.
+        let map_asset = loaded
+            .assets
+            .iter()
+            .find(|asset| asset.entry == "FxMap/Map/Village00")
+            .expect("bundle phải giữ entry file map");
+        assert_eq!(
+            map_asset.source_sha256,
+            "bd34c418ecc33f126f2fee4c21549e78cdc5c31d7805a2af82bff0e635b67a07"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
