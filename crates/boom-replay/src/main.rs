@@ -311,8 +311,7 @@ mod tests {
         let rules = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../fixtures/rules/skeleton-test.toml")
             .display()
-            .to_string()
-            .replace('\\', "\\\\");
+            .to_string();
         format!(
             r######"
 schema = 1
@@ -320,7 +319,7 @@ hash_algo = "fnv1a64-v0"
 content_sha256 = "{}"
 ticks = 1
 checkpoints = [1]
-rules = "{rules}"
+rules = '{rules}'
 profile_hash = "0x3faa77e6b1c76c15"
 seed = 1
 map = ["#####", "#0..#", "#####"]
