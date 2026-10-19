@@ -19,6 +19,7 @@ mod options;
 mod render;
 mod scene;
 mod text;
+mod ui;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -41,6 +42,7 @@ use input::{InputAction, InputAdapter, InputEvent, InputTracker};
 use options::{ClientOptions, VOLUME_MAX, VOLUME_MIN};
 use render::Atlas;
 use scene::Scene;
+use ui::ShotScreen;
 
 const HUD_HEIGHT: f32 = 40.0;
 const MAP_WIDTH: u16 = 15;
@@ -132,6 +134,33 @@ fn main() {
             std::process::exit(2);
         }
     };
+    // Chế độ demo UI (V1-032): chạy trọn luồng màn hình V1 — đăng nhập → sảnh →
+    // phòng chờ → trận → kết quả → phòng — với nguồn dữ liệu giả lập, không cần
+    // server. Bản mạng nối vào sau khi #89/#99 merge (task riêng).
+    if opts.ui_demo || opts.ui_shot.is_some() {
+        let model = ui::UiModel::new(ui::DemoBackend::new(), ui::Texts::embedded());
+        let conf = macroquad::miniquad::conf::Conf {
+            window_title: "boom-rs client — UI demo".to_owned(),
+            window_width: i32::try_from(ui::WIDTH).unwrap_or(800),
+            window_height: i32::try_from(ui::HEIGHT).unwrap_or(600),
+            window_resizable: false,
+            high_dpi: false,
+            sample_count: 1,
+            ..Default::default()
+        };
+        macroquad::Window::from_config(
+            conf,
+            ui::run_demo(
+                model,
+                ui::UiOptions {
+                    bundle: opts.bundle.clone(),
+                    snapshot: opts.snapshot.clone(),
+                    shot: opts.ui_shot,
+                },
+            ),
+        );
+        return;
+    }
     // Tùy chọn người dùng: đọc `options.toml`; file hỏng/thiếu thì dùng mặc định kèm cảnh báo.
     let path = options::resolve_path(opts.options_path.as_deref());
     let mut client_options = match &path {
@@ -904,6 +933,10 @@ struct Options {
     bundle: Option<PathBuf>,
     /// Chạy kịch bản demo offline (đặt bom, đi ra xa, đặt bom thứ hai) để chụp ảnh.
     demo: bool,
+    /// Chạy chế độ demo UI V1 (đăng nhập → sảnh → phòng → trận → kết quả), không cần server.
+    ui_demo: bool,
+    /// Nhảy thẳng tới một màn UI rồi chụp ảnh (dùng cho QA ảnh local).
+    ui_shot: Option<ShotScreen>,
 }
 
 impl Default for Options {
@@ -922,6 +955,8 @@ impl Default for Options {
             mute: None,
             bundle: None,
             demo: false,
+            ui_demo: false,
+            ui_shot: None,
         }
     }
 }
@@ -989,11 +1024,18 @@ impl Options {
                     opts.bundle = Some(args.next().ok_or("--bundle cần thư mục bundle")?.into())
                 }
                 "--demo" => opts.demo = true,
+                "--ui-demo" => opts.ui_demo = true,
+                "--ui-shot" => {
+                    let screen = args
+                        .next()
+                        .ok_or("--ui-shot cần tên màn (login|lobby|room|match|result)")?;
+                    opts.ui_shot = Some(parse_shot_screen(&screen)?);
+                }
                 "-h" | "--help" => {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
-                         \t  [--bundle DIR] [--demo]"
+                         \t  [--bundle DIR] [--demo] [--ui-demo] [--ui-shot SCREEN]"
                     );
                     std::process::exit(0);
                 }
@@ -1021,6 +1063,20 @@ fn parse_action(value: &str) -> Result<InputAction, String> {
 /// Tên phím cho `--rebind`: dùng chung bảng tên với `options.toml` để hai đường không lệch nhau.
 fn parse_key(value: &str) -> Result<KeyCode, String> {
     options::parse_key_name(value).ok_or_else(|| format!("tên phím lạ: {value}"))
+}
+
+/// Tên màn cho `--ui-shot` (chụp ảnh QA một màn UI cụ thể).
+fn parse_shot_screen(value: &str) -> Result<ShotScreen, String> {
+    match value.to_ascii_lowercase().as_str() {
+        "login" => Ok(ShotScreen::Login),
+        "lobby" => Ok(ShotScreen::Lobby),
+        "room" => Ok(ShotScreen::Room),
+        "match" => Ok(ShotScreen::Match),
+        "result" => Ok(ShotScreen::Result),
+        other => Err(format!(
+            "màn UI lạ: {other} (login|lobby|room|match|result)"
+        )),
+    }
 }
 
 /// Volume 0–100; miền lấy từ `options` (ADR 0011 §7) để không rải hằng số.
