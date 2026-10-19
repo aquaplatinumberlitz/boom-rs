@@ -13,6 +13,7 @@ boom-room = { path = "../boom-room" }
 boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
 boom-sync = { path = "../boom-sync" }
+serde_json.workspace = true
 
 [lints]
 workspace = true
