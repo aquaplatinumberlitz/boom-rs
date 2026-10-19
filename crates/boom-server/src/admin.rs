@@ -21,7 +21,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 use crate::config::OperationalConfig;
-use crate::identity::{SqliteAccountStore, SqliteOptions};
+use crate::identity::inspect_read_only;
 use crate::observability::{LogFields, Logger, hex, now_ms};
 
 /// Số liệu DB mà health phản ánh; T1 chưa có identity nên mặc định `configured = false`.
@@ -649,31 +649,26 @@ pub fn probe_database(config: &OperationalConfig) -> DbHealth {
         integrity_check: "not_checked".to_owned(),
         problems: Vec::new(),
     };
-    match SqliteAccountStore::open(&config.db_path, SqliteOptions::default()) {
-        Ok(store) => {
-            match store.schema_version() {
-                Ok(version) if version >= 0 => db.schema_version = version as u32,
-                Ok(_) | Err(_) => db.problems.push("schema_version_unreadable".to_owned()),
-            }
-            match store.integrity_check() {
-                Ok(()) => {
-                    db.integrity_check = "ok".to_owned();
-                    if db.schema_version == config.expected_db_schema_version {
-                        db.ok = true;
-                    } else {
-                        db.problems.push(format!(
-                            "schema_version_mismatch:{}!={}",
-                            db.schema_version, config.expected_db_schema_version
-                        ));
-                    }
-                }
-                Err(err) => {
-                    db.integrity_check = err.to_string();
-                    db.problems.push("integrity_check_failed".to_owned());
-                }
+    match inspect_read_only(&config.db_path) {
+        Ok(inspection) => {
+            db.schema_version = u32::try_from(inspection.schema_version).unwrap_or(0);
+            db.integrity_check = if inspection.integrity_ok {
+                "ok".to_owned()
+            } else {
+                "failed".to_owned()
+            };
+            if inspection.schema_version == i64::from(config.expected_db_schema_version)
+                && inspection.integrity_ok
+            {
+                db.ok = true;
+            } else if inspection.schema_version != i64::from(config.expected_db_schema_version) {
+                db.problems.push(format!(
+                    "schema_version_mismatch:{}!={}",
+                    inspection.schema_version, config.expected_db_schema_version
+                ));
             }
         }
-        Err(err) => db.problems.push(format!("db_open_failed: {err}")),
+        Err(err) => db.problems.push(format!("db_inspect_failed: {err}")),
     }
     db
 }
@@ -1043,6 +1038,49 @@ mod tests {
         assert_eq!(outcome.body["schema_version"], 1);
         assert_eq!(outcome.body["integrity_check"], "ok");
         assert_eq!(outcome.body["status"], "healthy");
+        let _ = std::fs::remove_dir_all(&config.data_dir);
+    }
+
+    #[test]
+    fn offline_inspection_does_not_migrate_or_create_artifacts() {
+        let config = config("offline-old-schema");
+        let conn = rusqlite::Connection::open(&config.db_path).unwrap();
+        conn.execute_batch("CREATE TABLE sentinel (id INTEGER); PRAGMA user_version = 0;")
+            .unwrap();
+        drop(conn);
+        let before = std::fs::read(&config.db_path).unwrap();
+        let before_files: Vec<String> = std::fs::read_dir(&config.data_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        let outcome = run_health_cli(&config, true);
+        assert_eq!(outcome.code, 1);
+        assert_eq!(outcome.body["schema_version"], 0);
+        assert_eq!(outcome.body["expected_schema_version"], 1);
+        assert_eq!(outcome.body["db_ok"], false);
+        let after = std::fs::read(&config.db_path).unwrap();
+        assert_eq!(before, after, "offline không được sửa byte DB");
+        let after_files: Vec<String> = std::fs::read_dir(&config.data_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            before_files, after_files,
+            "offline không được tạo backup/lock/WAL"
+        );
+        let _ = std::fs::remove_dir_all(&config.data_dir);
+    }
+
+    #[test]
+    fn offline_inspection_reads_db_while_instance_lock_is_held() {
+        let config = config("offline-locked");
+        let store = SqliteAccountStore::open(&config.db_path, SqliteOptions::default()).unwrap();
+        let outcome = run_health_cli(&config, true);
+        assert_eq!(outcome.code, 0, "{:?}", outcome.body);
+        assert_eq!(outcome.body["db"], "configured");
+        assert_eq!(outcome.body["schema_version"], 1);
+        assert_eq!(outcome.body["integrity_check"], "ok");
+        drop(store);
         let _ = std::fs::remove_dir_all(&config.data_dir);
     }
 

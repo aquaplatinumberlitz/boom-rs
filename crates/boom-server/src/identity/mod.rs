@@ -29,7 +29,9 @@ mod secret;
 mod sqlite;
 
 pub use secret::Secret;
-pub use sqlite::{LOCK_FILE_NAME, SqliteAccountStore, SqliteOptions};
+pub use sqlite::{
+    DbInspection, LOCK_FILE_NAME, SqliteAccountStore, SqliteOptions, inspect_read_only,
+};
 
 /// Định danh tài khoản (khóa chính `accounts.id`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
