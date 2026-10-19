@@ -179,7 +179,7 @@ mở sau khi ADR accepted. Khi có code, kiểu DTO là nguồn chuẩn; mục n
 |---|---|---|
 | Envelope | 16 byte: magic `BOOM`, `wire_schema=1`, `kind`, `flags`, `payload_len`, reserved; payload postcard | Từ chối magic/schema/kind/flags/len sai trước khi decode; frame tối đa 64 KiB; message lạ không được đoán |
 | Handshake (V1-002) | `wire_schema`, `state_schema`, `rules_profile_id`, `rules_hash`, `content_sha256`, capability | Khớp chính xác ở V1; server so với profile/bundle của mình, không dùng hash client để chọn nội dung; lệch bị từ chối trước sảnh |
-| `InputCommand` / batch | `round_id`, player do server bind, `ack_snapshot`, tối đa 8 lệnh `{seq, target_tick, dir|bomb}` | Seq tăng liên tục; dedup/duplicate idempotent; cửa sổ trễ 100 ms/trước 200 ms; gap timeout 100 ms; rate limit; authority đổi thành `PlayerInput` |
+| `InputCommand` / batch | `round_id`, player do server bind, `ack_snapshot`, tối đa 8 lệnh `{seq, target_tick, dir|bomb}` | Seq tăng liên tục; **dedup trước kiểm cửa sổ**, lệnh `seq <= applied_seq` bỏ qua dù `target_tick` cũ; lệnh quá khứ ở đầu hàng được retire + ack (không áp dụng); cửa sổ trễ 100 ms/trước 200 ms; gap timeout 100 ms chỉ retire sequence thiếu, không bỏ lệnh pending; `InputRejected` mang `applied_seq`/`server_tick` để resync; rate limit; authority đổi thành `PlayerInput` |
 | `Snapshot` | `snapshot_seq`, round/tick, `state_schema`, `rules_hash`, `content_epoch`, phase, RNG/allocator, ack input, players/field/bombs/flames/items | **Đầy đủ**, khôi phục được `SimulationState`; client dựng lại và gọi `check_invariants`; bỏ snapshot cũ/khác round; chưa có delta |
 | `ReplayHeader` | schema, profile ID + hash, mode, map, seed, roster/spawn, `hash_algo` | Từ chối revision/profile không khớp. Bản file hiện tại: `boom-replay` schema 1 |
 | `ReplayRecord` | tick, `PlayerInput` **sau scheduler** (kể cả neutral/expired), checkpoint hash | Ghi input thực được áp dụng; không ghi raw batch/`target_tick`; không dựa wall clock |
@@ -189,9 +189,16 @@ Quy tắc kèm theo:
 
 - Input mạng chỉ là **đề nghị**; server chuyển thành `PlayerInput` sau khi kiểm round, sequence, cửa sổ và
   rate limit. Client không gửi tọa độ/máu/item/kết quả. Lệnh trùng/đến muộn/ngoài cửa sổ không được làm đổi
-  state; lệnh hết hạn/gap được ghi nhận là neutral trong replay.
-- `Snapshot` V1 là full state, không delta. Kích thước Village00 4 người ước tính ≈0,7 KiB điển hình và
-  ≈4,9 KiB trần cấu trúc, dưới `MAX_SNAPSHOT_BYTES=16 KiB` (ADR 0009); đây là design, chưa đo runtime.
+  state; lệnh hết hạn/gap được ghi nhận là neutral trong replay. `applied_seq` là sequence đã **giải quyết**
+  (áp dụng hoặc retire), không phải "đã áp dụng input"; ack dùng giá trị này.
+- **Liveness:** dedup trước kiểm cửa sổ; lệnh quá khứ ở đầu hàng được retire ngay + ack; gap timeout chỉ
+  retire sequence thiếu rồi xử lý lệnh pending; `OutOfWindow` chỉ dành cho `target_tick` quá tương lai và
+  `InputRejected` mang `applied_seq`/`server_tick` để client bỏ lệnh cũ, tính lại `target_tick` và resend.
+  Không nhánh nào giữ lệnh quá hạn ở đầu hàng mà không tiến ack.
+- `Snapshot` V1 là full state, không delta. Kích thước Village00 4 người ước tính **813 B** điển hình và
+  **5 676 B** trần theo miền V1 được enforce, dưới `MAX_SNAPSHOT_BYTES=16 KiB` (ADR 0009 §4.2); đây là
+  design, chưa đo runtime. Trần dùng varint postcard đúng (u32 5 B, u64 10 B, cell 2 B, Vec prefix) và
+  miền `15×13`/count được enforce; nếu bỏ enforce, cận kiểu lớn hơn.
 - `snapshot_seq`/`round_id`/`content_epoch`/`rules_hash` phải khớp phiên; `content_sha256` đầy đủ chỉ ở
   handshake. Client bỏ snapshot cũ/trùng và xin `SnapshotRequest` khi cần resync.
 - Client dự đoán di chuyển của mình từ snapshot confirmed, replay lệnh chưa ack; bom chỉ là bóng chờ, còn
