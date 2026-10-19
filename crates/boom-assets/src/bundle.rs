@@ -22,7 +22,7 @@
 //! - Thứ tự clip theo thứ tự bảng [`crate::animation::v1_clip_sources`].
 //! - Đóng gói atlas dùng thuật toán kệ (shelf) với thứ tự ảnh cố định
 //!   (chiều cao giảm dần, rồi chiều rộng, rồi thứ tự ban đầu).
-//! - `content_hash` băm **toàn bộ bundle**: metadata **và** SHA-256 của từng file atlas,
+//! - `content_hash` băm **toàn bộ bundle**: metadata, SHA-256 của từng file atlas **và** payload audio,
 //!   nên thay ảnh trong atlas thì hash đổi (đổi bộ mã PNG cũng đổi hash).
 
 use std::fmt;
@@ -31,12 +31,13 @@ use std::path::{Path, PathBuf};
 
 use boom_content::animation::{AnimationClip, PresentationState};
 use boom_content::bundle::{
-    AtlasPage, Bundle, BundleError, Cell, Clip, EvidenceStatus, Frame, NonImageAsset,
+    AtlasPage, AudioAsset, Bundle, BundleError, Cell, Clip, EvidenceStatus, Frame, NonImageAsset,
     Sprite as BundleSprite, SpriteImage, UiElement, UiState, Unknown, sha256_hex,
 };
 use boom_content::rules::{Source, Status};
 
 use crate::animation::{extract_clips, v1_clip_sources};
+use crate::audio;
 use crate::closure::{self, ClosureRole, UnknownKind, V1_MAP};
 use crate::legacy_map::{Build, MapError, parse as parse_map};
 use crate::pack::{Pack, PackError};
@@ -125,6 +126,8 @@ pub struct BuiltBundle {
     pub bundle: Bundle,
     /// Byte PNG của từng trang atlas, theo thứ tình trang.
     pages: Vec<Vec<u8>>,
+    /// Payload âm thanh thô, cùng thứ tự `bundle.audio`.
+    audio: Vec<Vec<u8>>,
 }
 
 impl BuiltBundle {
@@ -154,6 +157,34 @@ impl BuiltBundle {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().into_owned();
                 if name.starts_with("page-") && name.ends_with(".png") && !written.contains(&name) {
+                    let _ = fs::remove_file(entry.path());
+                }
+            }
+        }
+
+        let audio_dir = out_dir.join(boom_content::bundle::AUDIO_DIR);
+        fs::create_dir_all(&audio_dir).map_err(|e| BundleBuildError::Io {
+            path: audio_dir.clone(),
+            message: e.to_string(),
+        })?;
+        let mut written_audio: Vec<String> = Vec::new();
+        for (asset, bytes) in self.bundle.audio.iter().zip(&self.audio) {
+            let name = asset
+                .file
+                .strip_prefix("audio/")
+                .unwrap_or(&asset.file)
+                .to_owned();
+            let path = audio_dir.join(&name);
+            fs::write(&path, bytes).map_err(|e| BundleBuildError::Io {
+                path: path.clone(),
+                message: e.to_string(),
+            })?;
+            written_audio.push(name);
+        }
+        if let Ok(entries) = fs::read_dir(&audio_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if !written_audio.contains(&name) {
                     let _ = fs::remove_file(entry.path());
                 }
             }
@@ -317,7 +348,8 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
     }
 
     // Entry có ảnh trong closure nhưng chưa có clip nào dùng tới: ghi rõ lý do thay vì
-    // bỏ qua âm thầm (hiệu ứng nổ chưa có claim state → animation).
+    // bỏ qua âm thầm. Hiệu ứng nổ đã có clip (R-084) nên nhánh này chỉ là lưới an toàn
+    // cho entry ảnh mới chưa có clip.
     for entry in &manifest.entries {
         if entry.role != ClosureRole::ExplosionArt {
             continue;
@@ -333,8 +365,7 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
             "animation_clip",
             &entry.entry,
             "entry có ảnh trong atlas nhưng bảng clip animation của V1 chưa có clip nào dùng \
-             tới; chưa có claim state → animation cho hiệu ứng nổ (RULES_V1 R-077/R-078 chỉ \
-             nêu đi, chết, bom, item, idle, start, trapped và lửa)",
+             tới; chưa có claim state → animation cho entry này (RULES_V1 R-077/R-078/R-084)",
             &[],
         );
     }
@@ -497,6 +528,54 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
         }
     }
 
+    // Audio V1: payload thô + hash, cùng quy tắc entry/mapping AUDIO_V1. Chỉ nhận định dạng
+    // macroquad đọc được; mp3/unknown bị bỏ qua có log thay vì đưa file không phát được.
+    let sound_pack = Pack::open(pack_dir, "FxSound", Build::Kr)?;
+    let infos = audio::v1_entries(&sound_pack)?;
+    let info_by_entry: std::collections::BTreeMap<&str, &audio::AudioInfo> = infos
+        .iter()
+        .map(|info| (info.entry.as_str(), info))
+        .collect();
+    let mut audio_assets = Vec::new();
+    let mut audio_files = Vec::new();
+    for usage in audio::V1_AUDIO_USES {
+        let Some(info) = info_by_entry.get(usage.entry) else {
+            eprintln!(
+                "audio: thiếu entry {} — bỏ qua cue {}",
+                usage.entry, usage.event
+            );
+            continue;
+        };
+        let format = info.format.label();
+        if !matches!(
+            info.format,
+            audio::AudioFormat::Ogg | audio::AudioFormat::Wav
+        ) {
+            eprintln!(
+                "audio: bỏ qua {} ({format}) — macroquad không phát được định dạng này",
+                usage.entry
+            );
+            continue;
+        }
+        let bytes = sound_pack.read_named(usage.entry)?;
+        let file = format!(
+            "{}/{}.{format}",
+            boom_content::bundle::AUDIO_DIR,
+            usage.event
+        );
+        audio_assets.push(AudioAsset {
+            id: usage.event.to_owned(),
+            entry: usage.entry.to_owned(),
+            kind: info.kind.label().to_owned(),
+            format: format.to_owned(),
+            file,
+            bytes: u32::try_from(bytes.len()).expect("audio vừa u32"),
+            sha256: info.sha256.clone(),
+            status: EvidenceStatus::Design,
+        });
+        audio_files.push(bytes);
+    }
+
     let mut bundle = Bundle {
         schema: boom_content::bundle::SCHEMA,
         build: manifest.build.clone(),
@@ -513,6 +592,7 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
         unknown,
         clips,
         ui,
+        audio: audio_assets,
     };
     bundle.content_hash = bundle.compute_content_hash();
     bundle.validate().map_err(BundleBuildError::Bundle)?;
@@ -520,6 +600,7 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
     Ok(BuiltBundle {
         bundle,
         pages: page_bytes,
+        audio: audio_files,
     })
 }
 
@@ -845,6 +926,8 @@ pub enum BundleBuildError {
     Sprite(SpriteError),
     /// Lỗi trích clip animation.
     Animation(crate::animation::ExtractError),
+    /// Lỗi đọc âm thanh.
+    Audio(crate::audio::AudioError),
     /// Bundle không nhất quán (tham chiếu hỏng, hash lệch).
     Bundle(BundleError),
     /// Map chưa hỗ trợ.
@@ -875,6 +958,7 @@ impl fmt::Display for BundleBuildError {
             Self::Map(e) => write!(f, "lỗi map: {e}"),
             Self::Sprite(e) => write!(f, "lỗi sprite: {e}"),
             Self::Animation(e) => write!(f, "lỗi trích clip animation: {e}"),
+            Self::Audio(e) => write!(f, "lỗi âm thanh: {e}"),
             Self::Bundle(e) => write!(f, "lỗi bundle: {e}"),
             Self::UnsupportedMap(name) => {
                 write!(f, "chưa hỗ trợ dựng bundle cho map {name:?}")
@@ -912,6 +996,12 @@ impl From<MapError> for BundleBuildError {
 impl From<SpriteError> for BundleBuildError {
     fn from(value: SpriteError) -> Self {
         Self::Sprite(value)
+    }
+}
+
+impl From<crate::audio::AudioError> for BundleBuildError {
+    fn from(value: crate::audio::AudioError) -> Self {
+        Self::Audio(value)
     }
 }
 
@@ -1020,6 +1110,16 @@ mod tests {
         assert_eq!(loaded.cells.len(), 15 * 13, "lưới Village00 là 15x13");
         assert_eq!(loaded.clips.len(), first.bundle.clips.len());
         assert!(!loaded.clips.is_empty(), "bundle phải có clip animation");
+        assert_eq!(
+            loaded.audio.len(),
+            first.bundle.audio.len(),
+            "bundle phải nạp lại bảng audio"
+        );
+        assert_eq!(loaded.audio.len(), 15, "AUDIO_V1 có 15 entry V1");
+        assert!(
+            loaded.audio.iter().any(|audio| audio.id == "bgm_loop"),
+            "phải có BGM Village"
+        );
 
         // Mọi ô có sprite nền, hoặc nằm trong unknown kèm lý do.
         for cell in &loaded.cells {
@@ -1203,7 +1303,7 @@ mod tests {
                 .unwrap_or_else(|| panic!("thiếu clip {}", source.id));
             assert_eq!(clip.claims, source.claims, "clip {}", clip.id);
             let expected_status = match source.claims.first().map(String::as_str) {
-                Some("R-077") => "confirmed",
+                Some("R-077") | Some("R-084") => "confirmed",
                 Some("R-078") => "candidate",
                 other => panic!("claim không lạ trong bảng clip: {other:?}"),
             };
@@ -1274,23 +1374,30 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    /// Entry có ảnh nhưng chưa có clip nào dùng tới thì phải được ghi trong `unknown`
-    /// kèm lý do — không bỏ qua âm thầm.
+    /// Entry ảnh **đã có** clip thì không được ghi trong `unknown`: `unknown` chỉ dành
+    /// cho phần chưa xác định, có lý do (R-084: hiệu ứng nổ đã có clip nổ).
     #[test]
-    fn art_without_a_clip_is_reported_as_unknown() {
+    fn art_with_a_clip_is_not_reported_as_unknown() {
         let Some(root) = pack_root() else {
             eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
             return;
         };
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        // Hiệu ứng nổ đã có clip (R-084) nên không còn nằm trong `unknown`.
         let explosion = built
             .bundle
-            .unknown
-            .iter()
-            .find(|unknown| unknown.kind == "animation_clip")
-            .expect("hiệu ứng nổ chưa có clip thì phải nằm trong unknown");
-        assert_eq!(explosion.id, "FxDesktop/Bomb/BombExplosion001");
-        assert!(!explosion.reason.is_empty());
+            .clip("explosion.main")
+            .expect("bundle phải có clip nổ");
+        assert_eq!(explosion.entry, "Bomb/BombExplosion001");
+        assert!(!explosion.frames.is_empty(), "clip nổ phải có frame");
+        assert!(
+            !built
+                .bundle
+                .unknown
+                .iter()
+                .any(|unknown| unknown.kind == "animation_clip"),
+            "entry ảnh đã có clip thì không được ghi trong unknown"
+        );
     }
 
     /// PNG trong suốt cùng kích thước — dùng để mô phỏng "thay toàn bộ atlas".
