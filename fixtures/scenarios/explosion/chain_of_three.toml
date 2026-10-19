@@ -1,0 +1,70 @@
+# Bom id 1 nổ tick 11; lửa chạm lần lượt bom id 2 rồi id 3. Cả ba nổ trong cùng tick,
+# theo id tăng dần, mỗi bom đúng một lần. Sang tick 12 không còn bom/event.
+name = "Chuỗi ba bom nổ trong cùng tick theo thứ tự id"
+features = ["V1-015"]
+claims = ["R-030", "R-033"]
+status = "active"
+ticks = 12
+map = [
+    "#########",
+    "#.......#",
+    "#.......#",
+    "#########",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [7, 2]
+
+[[bomb]]
+cell = [1, 1]
+owner = 0
+range = 1
+fuse = 10
+
+[[bomb]]
+cell = [2, 1]
+owner = 0
+range = 1
+fuse = 1000
+
+[[bomb]]
+cell = [3, 1]
+owner = 0
+range = 1
+fuse = 1000
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+count = 3
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 1, y = 1, chained = 0 }
+count = 1
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 2, y = 1, chained = 1 }
+count = 1
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 3, y = 1, chained = 1 }
+count = 1
+
+[[expect]]
+tick = 11
+bomb_count = 0
+
+[[expect]]
+tick = 12
+event = "bomb_exploded"
+count = 0
