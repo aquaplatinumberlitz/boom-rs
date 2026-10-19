@@ -43,7 +43,7 @@
           "result": "Comment APPROVE trên PR #57, #66, #85, #97"
         },
         "blocker": "",
-        "next_action": "Logic auth/phiên xong; auth trên wire ở PR #107 (#99) đang sửa review."
+        "next_action": "Logic auth/phiên (#85, #97) và auth trên wire (#107) đã tích hợp. Còn: client gửi Auth (PR #89 / #80) và chạy trong `serve` thật (#108 / PR #117)."
       }
     },
     {
@@ -84,7 +84,7 @@
           "result": "Comment APPROVE trên PR #56, #60"
         },
         "blocker": "",
-        "next_action": "Handshake đạt; Welcome fingerprint ở PR #107."
+        "next_action": "Handshake + Welcome fingerprint đã tích hợp (#60, #107). Còn: client kiểm fingerprint/hiện lỗi cập nhật (PR #89) và `serve` nạp content thật (PR #117)."
       }
     },
     {
@@ -126,7 +126,7 @@
           "result": "Comment APPROVE trên PR #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire (Addendum B) đạt; còn UI client (#103) và auth wire (#107)."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -169,7 +169,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire (Addendum B) đạt; còn UI client (#103) và auth wire (#107)."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -212,7 +212,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire (Addendum B) đạt; còn UI client (#103) và auth wire (#107)."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -255,7 +255,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire (Addendum B) đạt; còn UI client (#103) và auth wire (#107)."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -298,7 +298,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire (Addendum B) đạt; còn UI client (#103) và auth wire (#107)."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -341,7 +341,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire (Addendum B) đạt; còn UI client (#103) và auth wire (#107)."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -383,7 +383,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire (Addendum B) đạt; còn UI client (#103) và auth wire (#107)."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -1210,7 +1210,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "assets",
       "depends_on": [],
       "server_responsibility": "Dùng allowlist content manifest.",
@@ -1246,7 +1246,7 @@
           "result": "Comment APPROVE trên PR #36, #38, #39, #55, #81, #91"
         },
         "blocker": "",
-        "next_action": "Closure + bundle + client vẽ Village00 đạt; done khi chốt."
+        "next_action": "Closure + bundle + client vẽ Village00 đã tích hợp (#36, #38, #39, #55, #81, #91). Còn acceptance: bundle còn 4 mục `unknown` (không được skip) và chưa có test kiểm 4 spawn không trùng/không bị chặn/có đường thoát — issue tiếp theo (Claude mở), owner opencode-4."
       }
     },
     {
@@ -1328,7 +1328,7 @@
           "result": "Comment APPROVE trên PR #91"
         },
         "blocker": "",
-        "next_action": "Asset UI trong bundle; màn UI client ở #103."
+        "next_action": "Asset UI trong bundle (#91) + màn UI offline (#115) đã tích hợp. Còn: nối UiBackend mạng (#114) và thay text UI bằng API font #116 (task sau)."
       }
     },
     {
