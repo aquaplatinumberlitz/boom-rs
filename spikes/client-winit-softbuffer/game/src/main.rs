@@ -261,10 +261,18 @@ struct Audio {
 
 impl Audio {
     fn new(scene: &Scene, root: &Path, play_bgm: bool) -> Result<Self, Box<dyn std::error::Error>> {
-        let bgm_bytes = read_ogg("BGM", &root.join(&scene.audio.bgm))?;
-        let sfx_bytes = read_ogg("SFX", &root.join(&scene.audio.sfx))?;
+        let bgm_path = root.join(&scene.audio.bgm);
+        let sfx_path = root.join(&scene.audio.sfx);
+        let bgm_bytes = read_ogg("BGM", &bgm_path)?;
+        let sfx_bytes = read_ogg("SFX", &sfx_path)?;
         let ctx = AudioContext::new();
+        // Sound::load giải mã thật; chỉ log OK sau khi nó trả về.
         let bgm = Sound::load(&ctx, &bgm_bytes);
+        println!(
+            "audio BGM: load/decode OK ({} byte, {})",
+            bgm_bytes.len(),
+            bgm_path.display()
+        );
         if play_bgm {
             bgm.play(
                 &ctx,
@@ -275,6 +283,11 @@ impl Audio {
             );
         }
         let sfx = Sound::load(&ctx, &sfx_bytes);
+        println!(
+            "audio SFX: load/decode OK ({} byte, {})",
+            sfx_bytes.len(),
+            sfx_path.display()
+        );
         Ok(Self {
             ctx,
             _bgm: bgm,
@@ -299,11 +312,6 @@ fn read_ogg(label: &str, path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Err
     if !bytes.starts_with(b"OggS") {
         return Err(format!("{label} {}: không phải Ogg", path.display()).into());
     }
-    println!(
-        "audio {label}: load/decode OK ({} byte, {})",
-        bytes.len(),
-        path.display()
-    );
     Ok(bytes)
 }
 
