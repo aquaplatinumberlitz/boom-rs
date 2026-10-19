@@ -3,8 +3,8 @@
 //!
 //! Bundle là **output cục bộ** của `boom-assets bundle` (không commit vào repo). Nó gom
 //! ảnh đã giải mã từ pack KR thành các trang atlas PNG, kèm metadata ánh xạ ô của map →
-//! sprite/frame, kích thước, canvas và pivot, **clip animation** của V1 (schema 2) —
-//! dãi frame, canvas, pivot và thời lượng — và **bảng UI** của luồng V1 (schema 3):
+//! sprite/frame, kích thước, canvas và pivot, **clip animation** của V1 (schema 2),
+//! **bảng UI** của luồng V1 (schema 3) và **audio thô** (schema 4):
 //! màn hình, vai trò, trạng thái dùng và ảnh. Client đọc bundle bằng kiểu ở đây, **không
 //! cần bộ giải mã pack** (ARCHITECTURE §7).
 //!
@@ -44,8 +44,11 @@ use serde::{Deserialize, Serialize};
 use crate::animation::{FrameTiming, PresentationState, SpriteLayer, source_name, status_name};
 use crate::rules::{Source, Status};
 
-/// Schema hiện hành của bundle nội dung (có clip animation và bảng UI).
-pub const SCHEMA: u32 = 3;
+/// Schema hiện hành của bundle nội dung (có clip animation, bảng UI và audio V1).
+pub const SCHEMA: u32 = 4;
+
+/// Schema bundle có clip animation và bảng UI nhưng **không** có audio.
+pub const SCHEMA_WITH_UI: u32 = 3;
 
 /// Schema bundle có clip animation nhưng **không** có bảng UI.
 ///
@@ -66,6 +69,8 @@ pub const METADATA_FILE: &str = "bundle.toml";
 
 /// Thư mục con chứa các trang atlas PNG, tính từ thư mục bundle.
 pub const ATLAS_DIR: &str = "atlas";
+/// Thư mục con chứa payload âm thanh thô (ogg/wav).
+pub const AUDIO_DIR: &str = "audio";
 
 /// Vai trò sprite: nền của ô (ID tile trong file map).
 pub const ROLE_TILE: &str = "tile";
@@ -430,6 +435,28 @@ pub struct Unknown {
     pub candidates: Vec<String>,
 }
 
+/// Một entry âm thanh V1 trong bundle (payload thô, không decode).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioAsset {
+    /// ID cue ổn định theo `AUDIO_V1` (ví dụ `bgm_loop`, `bomb_exploded`).
+    pub id: String,
+    /// Entry nguồn trong pack `FxSound`.
+    pub entry: String,
+    /// `bgm` hoặc `sfx`.
+    pub kind: String,
+    /// Định dạng payload thô: `ogg`/`wav`; `mp3`/`unknown` bị builder bỏ qua có log.
+    pub format: String,
+    /// Đường dẫn tương đối trong bundle, ví dụ `audio/bomb_exploded.ogg`.
+    pub file: String,
+    /// Kích thước payload.
+    pub bytes: u32,
+    /// SHA-256 payload thô; nằm trong `content_hash`.
+    pub sha256: String,
+    /// Nhãn bằng chứng của mapping (không phải định dạng payload).
+    pub status: EvidenceStatus,
+}
+
 /// Bundle nội dung của một map: ảnh + metadata ô.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -449,7 +476,7 @@ pub struct Bundle {
     /// Spawn của map, theo thứ tự file nguồn.
     pub spawns: Vec<(u16, u16)>,
     /// Định danh toàn bộ bundle: SHA-256 của [`Bundle::canonical_bytes`] (hex) — gồm
-    /// metadata **và** byte file atlas.
+    /// metadata, SHA-256 file atlas và SHA-256 payload audio.
     pub content_hash: String,
     /// Các trang atlas.
     pub atlas: Vec<AtlasPage>,
@@ -467,6 +494,9 @@ pub struct Bundle {
     /// Các phần tử UI của luồng V1 (schema 3).
     #[serde(default)]
     pub ui: Vec<UiElement>,
+    /// Các entry âm thanh V1 (schema 4).
+    #[serde(default)]
+    pub audio: Vec<AudioAsset>,
 }
 
 impl Bundle {
@@ -509,7 +539,11 @@ impl Bundle {
     #[must_use]
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Canonical::new();
-        out.bytes(b"boom-bundle-v3\0");
+        out.bytes(if self.schema >= SCHEMA {
+            b"boom-bundle-v4\0"
+        } else {
+            b"boom-bundle-v3\0"
+        });
         out.u32(self.schema);
         out.str(&self.build);
         out.str(&self.map);
@@ -656,10 +690,23 @@ impl Bundle {
             out.str(source_name(element.source));
             out.str(element.status.as_str());
         }
+        if self.schema >= SCHEMA {
+            out.u32(self.audio.len() as u32);
+            for audio in &self.audio {
+                out.str(&audio.id);
+                out.str(&audio.entry);
+                out.str(&audio.kind);
+                out.str(&audio.format);
+                out.str(&audio.file);
+                out.u32(audio.bytes);
+                out.str(&audio.sha256);
+                out.str(audio.status.as_str());
+            }
+        }
         out.finish()
     }
 
-    /// `content_hash` tính từ nội dung hiện tại: metadata **và** byte file atlas.
+    /// `content_hash` tính từ nội dung hiện tại: metadata, hash file atlas và hash payload audio.
     ///
     /// Đổi bất kỳ phần nào của bundle — kể cả pixel trong atlas — thì hash phải đổi.
     #[must_use]
@@ -689,8 +736,13 @@ impl Bundle {
     /// Phân loại spawn (va chạm với ô, ý nghĩa của vị trí spawn) vẫn thuộc bảng phân
     /// loại map, không nhân bản vào bundle (AGENTS §3 — một thông tin, một nguồn).
     pub fn validate(&self) -> Result<(), BundleError> {
-        if self.schema != SCHEMA {
+        if !matches!(self.schema, SCHEMA_WITH_UI | SCHEMA) {
             return Err(BundleError::Schema { found: self.schema });
+        }
+        if self.schema == SCHEMA_WITH_UI && !self.audio.is_empty() {
+            return Err(BundleError::Reference(
+                "schema 3 không được có bảng audio".to_owned(),
+            ));
         }
         if self.build.is_empty() || self.map.is_empty() {
             return Err(BundleError::Reference(
@@ -875,6 +927,7 @@ impl Bundle {
         self.validate_clips()?;
 
         self.validate_ui()?;
+        self.validate_audio()?;
 
         let mut seen_assets: Vec<&str> = Vec::with_capacity(self.assets.len());
         for asset in &self.assets {
@@ -1020,6 +1073,65 @@ impl Bundle {
         Ok(())
     }
 
+    /// Kiểm bảng audio schema 4: ID/file duy nhất, hash/định dạng hợp lệ và file nằm trong
+    /// `audio/`; schema 3 phải không có bảng này.
+    fn validate_audio(&self) -> Result<(), BundleError> {
+        if self.schema < SCHEMA && !self.audio.is_empty() {
+            return Err(BundleError::Reference(
+                "schema cũ không được có bảng audio".to_owned(),
+            ));
+        }
+        let mut seen_ids: Vec<&str> = Vec::with_capacity(self.audio.len());
+        let mut seen_files: Vec<&str> = Vec::with_capacity(self.audio.len());
+        for audio in &self.audio {
+            if audio.id.is_empty() || audio.entry.is_empty() {
+                return Err(BundleError::Reference("audio thiếu id/entry".to_owned()));
+            }
+            if seen_ids.contains(&audio.id.as_str()) {
+                return Err(BundleError::Reference(format!(
+                    "audio id {} bị lặp",
+                    audio.id
+                )));
+            }
+            seen_ids.push(&audio.id);
+            if !matches!(audio.kind.as_str(), "bgm" | "sfx") {
+                return Err(BundleError::Reference(format!(
+                    "audio {} có kind {} không hỗ trợ",
+                    audio.id, audio.kind
+                )));
+            }
+            if !matches!(audio.format.as_str(), "ogg" | "wav") {
+                return Err(BundleError::Reference(format!(
+                    "audio {} có format {} không hỗ trợ",
+                    audio.id, audio.format
+                )));
+            }
+            if !audio.file.starts_with("audio/")
+                || audio.file.contains("..")
+                || audio.file.contains('\\')
+            {
+                return Err(BundleError::Reference(format!(
+                    "audio {} có file {} ngoài thư mục audio",
+                    audio.id, audio.file
+                )));
+            }
+            if seen_files.contains(&audio.file.as_str()) {
+                return Err(BundleError::Reference(format!(
+                    "audio file {} bị lặp",
+                    audio.file
+                )));
+            }
+            seen_files.push(&audio.file);
+            if audio.bytes == 0 || !is_sha256_hex(&audio.sha256) {
+                return Err(BundleError::Reference(format!(
+                    "audio {} thiếu bytes/hash hợp lệ",
+                    audio.id
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Kiểm bảng UI của bundle (schema 3).
     ///
     /// Mỗi phần tử phải có ID duy nhất và không rỗng. Phần tử `selected` hoặc
@@ -1082,6 +1194,12 @@ impl Bundle {
             }
         }
         Ok(())
+    }
+
+    /// Audio cue theo ID event.
+    #[must_use]
+    pub fn audio_by_id(&self, id: &str) -> Option<&AudioAsset> {
+        self.audio.iter().find(|audio| audio.id == id)
     }
 
     /// Clip theo ID.
@@ -1206,7 +1324,7 @@ impl Canonical {
 
 /// Nạp bundle từ thư mục: đọc metadata, kiểm tham chiếu, kiểm hash và file atlas.
 ///
-/// `content_hash` gồm SHA-256 của từng file atlas, nên thay ảnh trong atlas — kể cả
+/// `content_hash` gồm SHA-256 của từng file atlas/audio, nên thay file — kể cả
 /// khi người dựng cập nhật luôn `sha256` của file — vẫn bị từ chối vì hash cũ không
 /// còn khớp nội dung.
 ///
@@ -1214,6 +1332,10 @@ impl Canonical {
 ///
 /// Trả lỗi nếu thiếu file, metadata sai schema, tham chiếu hỏng, `content_hash` không
 /// khớp, hoặc file atlas không khớp SHA-256 đã ghi.
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 pub fn load(dir: &Path) -> Result<Bundle, BundleError> {
     let meta_path = dir.join(METADATA_FILE);
     let text = std::fs::read_to_string(&meta_path).map_err(|e| BundleError::Io {
@@ -1251,6 +1373,28 @@ pub fn load(dir: &Path) -> Result<Bundle, BundleError> {
                 "trang {} có kích thước PNG {width}x{height}, metadata ghi {}x{}",
                 page.file, page.width, page.height
             )));
+        }
+    }
+    for audio in &bundle.audio {
+        let path = dir.join(&audio.file);
+        let data = std::fs::read(&path).map_err(|e| BundleError::Io {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+        if data.len() != usize::try_from(audio.bytes).unwrap_or(usize::MAX) {
+            return Err(BundleError::FileHash {
+                file: audio.file.clone(),
+                recorded: audio.sha256.clone(),
+                computed: format!("{} byte", data.len()),
+            });
+        }
+        let actual = sha256_hex(&data);
+        if actual != audio.sha256 {
+            return Err(BundleError::FileHash {
+                file: audio.file.clone(),
+                recorded: audio.sha256.clone(),
+                computed: actual,
+            });
         }
     }
     Ok(bundle)
@@ -1616,6 +1760,7 @@ mod tests {
             unknown: Vec::new(),
             clips: Vec::new(),
             ui: Vec::new(),
+            audio: Vec::new(),
         }
     }
 
@@ -2251,6 +2396,53 @@ mod tests {
         bundle.sprites.push(ui_sprite());
         bundle.ui.push(sample_ui_element());
         bundle
+    }
+
+    /// Bundle schema 4 có bảng audio hợp lệ, round-trip TOML và tra theo ID.
+    #[test]
+    fn bundle_with_audio_is_valid_and_round_trips() {
+        let mut bundle = sample_bundle();
+        bundle.audio.push(AudioAsset {
+            id: "bgm_loop".to_owned(),
+            entry: "MP3/Village".to_owned(),
+            kind: "bgm".to_owned(),
+            format: "ogg".to_owned(),
+            file: "audio/bgm_loop.ogg".to_owned(),
+            bytes: 270601,
+            sha256: "aa".repeat(32),
+            status: EvidenceStatus::Design,
+        });
+        assert!(bundle.validate().is_ok());
+        bundle.content_hash = bundle.compute_content_hash();
+        let text = bundle.to_toml().expect("xuất TOML");
+        assert!(text.contains("[[audio]]"));
+        let parsed = Bundle::from_toml(&text).expect("đọc lại TOML");
+        assert_eq!(parsed, bundle);
+        assert_eq!(parsed.audio_by_id("bgm_loop").unwrap().bytes, 270601);
+    }
+
+    #[test]
+    fn schema_three_without_audio_still_validates() {
+        let mut bundle = sample_bundle();
+        bundle.schema = SCHEMA_WITH_UI;
+        assert!(bundle.validate().is_ok());
+    }
+
+    #[test]
+    fn schema_three_cannot_carry_audio() {
+        let mut bundle = sample_bundle();
+        bundle.schema = SCHEMA_WITH_UI;
+        bundle.audio.push(AudioAsset {
+            id: "x".to_owned(),
+            entry: "Wave/x".to_owned(),
+            kind: "sfx".to_owned(),
+            format: "ogg".to_owned(),
+            file: "audio/x.ogg".to_owned(),
+            bytes: 1,
+            sha256: "aa".repeat(32),
+            status: EvidenceStatus::Design,
+        });
+        assert!(bundle.validate().is_err());
     }
 
     /// Bảng UI hợp lệ thì bundle hợp lệ, đọc vòng lại được và tra theo ID/màn hình.
