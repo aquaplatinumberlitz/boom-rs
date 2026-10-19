@@ -1,6 +1,6 @@
 # 0011 — Identity, persistence và log/vận hành V1 (Q-011)
 
-Status: **Proposed (chờ review)**, 2026-10-19. Trả lời phần còn mở của Q-011 và làm đầu ra cho
+Status: **Accepted (mặc định có thể đảo)**, 2026-10-19; review #57 (Codex), addendum ADR 0009 A. Trả lời phần còn mở của Q-011 và làm đầu ra cho
 V1-001, V1-028, V1-029. **Task:** GitHub issue #54, nhánh `issue-54`, baseline `main @ 2af995d`.
 Owner: backend. Reviewer: integrator (Claude) + QA. **Không viết code trong task này**; ADR chỉ chốt
 quyết định, vị trí code và thứ tự task.
