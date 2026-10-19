@@ -4,23 +4,29 @@
 //! render target + nearest + copy shader, và chạy `boom-core` trực tiếp với tick cố định tách khỏi
 //! render. Địa hình là placeholder vẽ theo `CellKind`; khi có `--bundle <dir>` thì nạp bundle
 //! content đã validate, dựng địa hình Village00 từ bundle và vẽ tile/vật cản bằng atlas thật.
+//! Nhân vật, bom và lửa vẽ bằng **clip animation** trong bundle: chọn clip theo state core và
+//! frame theo tick mô phỏng (module [`anim`], quy ước ở
+//! `docs/specification/assets/BUNDLES.md` §7).
 //!
 //! Tùy chọn người dùng đọc/ghi từ `options.toml` (module [`options`], ADR 0011 §7): volume,
 //! mute và keybind. Keybind trong file **thay** hằng số phím mặc định; `--rebind` của dòng lệnh
 //! vẫn hoạt động và được ghi đè lên trên (đổi sau, thắng trước).
 
+mod anim;
 mod input;
 mod options;
 mod render;
 mod scene;
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use boom_content::bundle::Bundle;
 use boom_content::map::{CellKind, MapProfile, Terrain};
 use boom_content::rules::RulesProfile;
 use boom_core::{
-    Cell, CharacterStats, Life, Phase, Player, PlayerInput, PlayerSetup, Rules, SimulationEvent,
-    SimulationState, Stat, World, mode_by_id,
+    Cell, CharacterStats, Dir, Life, Phase, Player, PlayerInput, PlayerSetup, Rules,
+    SimulationEvent, SimulationState, Stat, World, mode_by_id,
 };
 use macroquad::material::{
     Material, MaterialParams, gl_use_default_material, gl_use_material, load_material,
@@ -28,6 +34,7 @@ use macroquad::material::{
 use macroquad::miniquad::{PipelineParams, ShaderSource};
 use macroquad::prelude::*;
 
+use anim::FrameClock;
 use input::{InputAction, InputAdapter, InputEvent, InputTracker};
 use options::{ClientOptions, VOLUME_MAX, VOLUME_MIN};
 use render::Atlas;
@@ -169,6 +176,9 @@ fn main() {
             std::process::exit(2);
         }
     };
+    if opts.demo {
+        game.enable_demo();
+    }
     for &(action, key) in &opts.rebinds {
         game.input.rebind(action, key);
     }
@@ -241,6 +251,14 @@ struct Game {
     scene: Option<Scene>,
     /// Thư mục bundle, để nạp trang atlas khi đã có cửa sổ.
     bundle_dir: Option<PathBuf>,
+    /// Bundle đã nạp: chứa clip animation để vẽ nhân vật, bom và lửa.
+    bundle: Option<Bundle>,
+    /// Nhịp phát frame: thời lượng một frame và tần số tick mô phỏng.
+    frame_clock: FrameClock,
+    /// Vị trí nhân vật ở tick trước (để biết nhân vật đang đi hay đứng yên).
+    previous_positions: BTreeMap<u8, (i32, i32)>,
+    /// Kịch bản demo offline (`--demo`); `None` = người chơi điều khiển.
+    demo: Option<Demo>,
 }
 
 impl Game {
@@ -253,9 +271,19 @@ impl Game {
         let rules = Rules::from_profile(&profile)?;
         let mode = mode_by_id("battle_ffa").ok_or("mode battle_ffa chưa đăng ký")?;
         let tile_px = u32::try_from(rules.tile.0 / 1000)?;
+        // Nhịp phát frame: thời lượng frame lấy từ profile (không hard-code trong code).
+        let frame_clock = FrameClock {
+            frame_ms: u32::try_from(profile.int_in(
+                "presentation.frame_duration_ms",
+                "ms",
+                1,
+                10_000,
+            )?)?,
+            ticks_per_second: rules.ticks_per_second,
+        };
 
         // Scene: bundle content nếu có, không thì địa hình placeholder.
-        let (terrain, scene) = match bundle_dir {
+        let (terrain, scene, bundle) = match bundle_dir {
             Some(dir) => {
                 // Phân loại ô nằm ở bảng chuẩn `data/maps/`, không nhân bản trong bundle.
                 let map_profile =
@@ -274,10 +302,18 @@ impl Game {
                         loaded.scene.unknown_cells
                     );
                 }
+                // Thiếu clip thì client vẽ ô màu thay thế — báo ngay từ đầu (AGENTS §4).
+                for clip_id in scene::required_clip_ids() {
+                    if !loaded.bundle.clips.iter().any(|clip| clip.id == clip_id) {
+                        eprintln!(
+                            "cảnh báo bundle: không có clip {clip_id} — sẽ vẽ ô màu thay thế"
+                        );
+                    }
+                }
                 let terrain = scene::terrain(&loaded.bundle, &map_profile)?;
-                (terrain, Some(loaded.scene))
+                (terrain, Some(loaded.scene), Some(loaded.bundle))
             }
-            None => (placeholder_terrain(), None),
+            None => (placeholder_terrain(), None, None),
         };
         let world = World::new(terrain, rules, mode)?;
 
@@ -303,6 +339,11 @@ impl Game {
             Scene::map_size,
         );
         let logic_size = [map_size[0], map_size[1] + HUD_HEIGHT as u32];
+        let previous_positions = state
+            .players
+            .iter()
+            .map(|player| (player.id, (player.x.0, player.y.0)))
+            .collect();
         Ok(Self {
             world,
             state,
@@ -312,27 +353,169 @@ impl Game {
             logic_size,
             scene,
             bundle_dir: bundle_dir.map(Path::to_path_buf),
+            bundle,
+            frame_clock,
+            previous_positions,
+            demo: None,
         })
+    }
+
+    /// Bật kịch bản demo offline (chỉ đẩy input, không sửa state).
+    fn enable_demo(&mut self) {
+        self.demo = Some(Demo::new(&self.world, &self.state));
     }
 
     fn tick(&mut self) -> Result<(), boom_core::CoreError> {
         if self.state.phase != Phase::Playing {
             return Ok(());
         }
-        let input = PlayerInput {
-            dir: self.input.direction(),
-            place_bomb: self.input.take_bomb(),
+        // Lưu vị trí trước bước: state core không có cờ "đang đi" nên client tự so
+        // vị trí giữa hai tick (module `anim`).
+        self.previous_positions = self
+            .state
+            .players
+            .iter()
+            .map(|player| (player.id, (player.x.0, player.y.0)))
+            .collect();
+        let input = match &mut self.demo {
+            Some(demo) => {
+                let ids: Vec<u8> = self.state.players.iter().map(|player| player.id).collect();
+                ids.iter()
+                    .map(|id| demo.input_for(*id, &self.state, &self.world))
+                    .collect::<Vec<_>>()
+            }
+            None => vec![
+                PlayerInput {
+                    dir: self.input.direction(),
+                    place_bomb: self.input.take_bomb(),
+                },
+                PlayerInput::default(),
+            ],
         };
-        let inputs = [input, PlayerInput::default()];
-        self.state.step(&self.world, &inputs, &mut self.events)?;
+        self.state.step(&self.world, &input, &mut self.events)?;
         // Presentation chưa dùng event; xóa để không phình bộ nhớ trong chế độ offline.
         self.events.clear();
         Ok(())
     }
 
+    /// Scene đã đủ để chụp ảnh demo: nhân vật sống, bom đang chờ và lửa.
+    fn demo_ready(&self) -> bool {
+        self.demo
+            .as_ref()
+            .is_some_and(|demo| demo.ready(&self.state, &self.world))
+    }
+
     fn tile_px(&self) -> f32 {
         self.world.rules().tile.0 as f32 / 1000.0
     }
+}
+
+/// Kịch bản demo offline: mỗi người chơi đặt một bom rồi đi ra xa.
+///
+/// Kịch bản **chỉ đẩy input** vào core như người chơi, không sửa state: mọi thứ trong
+/// ảnh đều là kết quả mô phỏng thật. Dùng để chụp ảnh có nhân vật + bom + lửa.
+///
+/// V1 giới hạn mỗi người chơi có **một** bom cùng lúc, nên cần **hai** người và hai
+/// bom đặt lệch nhau: bom của người thứ nhất nổ tạo lửa, bom của người thứ hai còn
+/// chờ nên ảnh có cả bom lẫn lửa. Người chơi đi ra xa ít nhất hai ô nên không bị lửa
+/// của bom mình chạm tới.
+struct Demo {
+    /// Hướng đi của từng người chơi (chọn theo địa hình: có ô trống phía trước).
+    dirs: BTreeMap<u8, Dir>,
+    /// Ô đặt bom của từng người chơi.
+    bomb_cells: BTreeMap<u8, Cell>,
+    /// Ô của từng người chơi ở lần gọi trước (để biết vừa bước sang ô mới).
+    last_cells: BTreeMap<u8, Cell>,
+    /// Người chơi đặt bom ngay (bom của họ nổ sớm, tạo lửa).
+    place_now: BTreeSet<u8>,
+}
+
+impl Demo {
+    /// Chọn hướng đi cho từng người chơi.
+    ///
+    /// Người chơi đầu tiên đặt bom ngay; người chơi sau đặt bom khi vừa bước sang ô
+    /// mới, nên bom của họ nổ muộn hơn và còn chờ được khi ảnh được chụp.
+    fn new(world: &World, state: &SimulationState) -> Self {
+        let mut dirs = BTreeMap::new();
+        let mut place_now = BTreeSet::new();
+        for (index, player) in state.players.iter().enumerate() {
+            let cell = world.cell_at(player.x, player.y);
+            dirs.insert(player.id, choose_demo_direction(world, cell));
+            if index == 0 {
+                place_now.insert(player.id);
+            }
+        }
+        Self {
+            dirs,
+            bomb_cells: BTreeMap::new(),
+            last_cells: BTreeMap::new(),
+            place_now,
+        }
+    }
+
+    /// Input của demo cho người chơi `id`.
+    ///
+    /// Bom đặt một lần: người đặt ngay thì đặt ở tick đầu, người còn lại đặt khi vừa
+    /// bước sang ô mới. Sau đó người chơi chỉ đi theo hướng đã chọn.
+    fn input_for(&mut self, id: u8, state: &SimulationState, world: &World) -> PlayerInput {
+        let Some(player) = state.player(id) else {
+            return PlayerInput::default();
+        };
+        let dir = self.dirs.get(&id).copied().unwrap_or(Dir::Right);
+        let cell = world.cell_at(player.x, player.y);
+        let moved = self
+            .last_cells
+            .insert(id, cell)
+            .is_some_and(|last| last != cell);
+        let place_bomb = if self.bomb_cells.contains_key(&id) {
+            false
+        } else if self.place_now.contains(&id) {
+            true
+        } else {
+            moved
+        };
+        if place_bomb {
+            self.bomb_cells.insert(id, cell);
+        }
+        PlayerInput { dir, place_bomb }
+    }
+
+    /// Scene đã đủ để chụp: nhân vật sống, bom đang chờ và lửa; không nhân vật nào đứng
+    /// chồng lên ô bom (để ảnh không bị che).
+    fn ready(&self, state: &SimulationState, world: &World) -> bool {
+        if state.flames.is_empty() || state.bombs.is_empty() {
+            return false;
+        }
+        state.players.iter().all(|player| {
+            player.life == Life::Alive
+                && !state
+                    .bombs
+                    .iter()
+                    .any(|bomb| bomb.cell == world.cell_at(player.x, player.y))
+        })
+    }
+}
+
+/// Hướng demo: thứ tự cố định để kịch bản tái lập được.
+const DEMO_DIRECTIONS: [Dir; 4] = [Dir::Right, Dir::Down, Dir::Left, Dir::Up];
+
+/// Chọn hướng đi cho demo: ưu tiên hướng có ít nhất hai ô nền phía trước.
+fn choose_demo_direction(world: &World, cell: Cell) -> Dir {
+    for step in [2, 1] {
+        for dir in DEMO_DIRECTIONS {
+            if (1..=step).all(|offset| demo_cell_free(world, cell, dir, offset)) {
+                return dir;
+            }
+        }
+    }
+    Dir::Right
+}
+
+/// Ô `step` ô về hướng `dir` từ `cell` còn là nền đi được không.
+fn demo_cell_free(world: &World, cell: Cell, dir: Dir, step: i32) -> bool {
+    let (dx, dy) = dir.delta();
+    let target = Cell::new(cell.x + dx * step, cell.y + dy * step);
+    world.terrain().kind(target.x, target.y) == Some(CellKind::Floor)
 }
 
 async fn run(mut game: Game, opts: Options) {
@@ -354,10 +537,27 @@ async fn run(mut game: Game, opts: Options) {
     };
 
     if let Some(path) = &opts.snapshot {
-        for _ in 0..opts.ticks {
-            if let Err(error) = game.tick() {
-                eprintln!("snapshot: không chạy được tick: {error}");
-                std::process::exit(2);
+        if opts.demo {
+            // Chế độ demo: chạy tới khi scene đủ nhân vật + bom + lửa (hoặc hết lượt).
+            let limit = game.world.rules().round_ticks;
+            while !game.demo_ready()
+                && game.state.tick < limit
+                && game.state.phase == Phase::Playing
+            {
+                if let Err(error) = game.tick() {
+                    eprintln!("demo: không chạy được tick: {error}");
+                    std::process::exit(2);
+                }
+            }
+            if !game.demo_ready() {
+                eprintln!("demo: hết lượt mà scene vẫn chưa đủ (nhân vật + bom + lửa)");
+            }
+        } else {
+            for _ in 0..opts.ticks {
+                if let Err(error) = game.tick() {
+                    eprintln!("snapshot: không chạy được tick: {error}");
+                    std::process::exit(2);
+                }
             }
         }
         let _ = path;
@@ -536,55 +736,40 @@ fn draw_placeholder_map(game: &Game) {
     }
 }
 
-/// Scene từ bundle: nền vẽ trước, vật cản và nhân vật theo z-order hàng.
+/// Scene từ bundle: nền vẽ trước, vật cản/nhân vật/bom/lửa theo z-order hàng.
+///
+/// Nhân vật, bom và lửa vẽ bằng clip animation trong bundle; clip thiếu thì vẽ ô màu
+/// thay thế (không panic, không bỏ qua âm thầm — AGENTS §4).
 fn draw_map_from_bundle(game: &Game, scene: &Scene, atlas: &Atlas) {
     let origin = (0.0, HUD_HEIGHT);
-    for item in &scene.ground {
+    let Some(bundle) = game.bundle.as_ref() else {
+        return;
+    };
+    let plan = scene::presentation_plan(
+        bundle,
+        scene,
+        &game.state,
+        &game.world,
+        &game.frame_clock,
+        &game.previous_positions,
+    );
+    for item in &plan.ground {
         atlas.draw(item, origin);
     }
-
-    // Vật cản và nhân vật cùng một thứ tự z-order: hàng lớn hơn vẽ sau.
-    let mut layer: Vec<(u16, u16, LayerItem)> =
-        Vec::with_capacity(scene.objects.len() + game.state.players.len());
-    for item in &scene.objects {
-        // Gạch đã phá (ô chuyển sang nền) thì không vẽ nữa, còn vật cản cứng thì luôn vẽ.
-        let current = game
-            .state
-            .field
-            .kind(Cell::new(i32::from(item.column), i32::from(item.row)));
-        if !scene::object_visible(item.kind, current) {
-            continue;
-        }
-        layer.push((item.row, item.column, LayerItem::Sprite(*item)));
-    }
-    for player in &game.state.players {
-        let cell = game.world.cell_at(player.x, player.y);
-        layer.push((
-            u16::try_from(cell.y).unwrap_or(u16::MAX),
-            u16::try_from(cell.x).unwrap_or(u16::MAX),
-            LayerItem::Player {
-                x: player.x.0 as f32 / 1000.0,
-                y: player.y.0 as f32 / 1000.0,
-                color: player_color(player),
-            },
-        ));
-    }
-    layer.sort_by_key(|(row, column, _)| (*row, *column));
-
-    for (_, _, item) in layer {
+    for item in &plan.items {
         match item {
-            LayerItem::Sprite(item) => atlas.draw(&item, origin),
-            LayerItem::Player { x, y, color } => {
-                draw_rectangle(origin.0 + x - 12.0, origin.1 + y - 12.0, 24.0, 24.0, color);
+            scene::PlanItem::Object(item) | scene::PlanItem::Sprite { item, .. } => {
+                atlas.draw(item, origin)
             }
+            scene::PlanItem::Fallback { rect, .. } => draw_rectangle(
+                origin.0 + rect.x as f32,
+                origin.1 + rect.y as f32,
+                rect.width as f32,
+                rect.height as f32,
+                Color::from_rgba(180, 30, 150, 255),
+            ),
         }
     }
-}
-
-/// Một lớp vẽ: sprite từ atlas hoặc nhân vật placeholder.
-enum LayerItem {
-    Sprite(scene::DrawItem),
-    Player { x: f32, y: f32, color: Color },
 }
 
 /// Màu placeholder của nhân vật (chưa có sprite nhân vật trong bundle).
@@ -644,6 +829,8 @@ struct Options {
     mute: Option<bool>,
     /// Thư mục bundle content (`boom-assets bundle`); không có thì scene placeholder.
     bundle: Option<PathBuf>,
+    /// Chạy kịch bản demo offline (đặt bom, đi ra xa, đặt bom thứ hai) để chụp ảnh.
+    demo: bool,
 }
 
 impl Default for Options {
@@ -661,6 +848,7 @@ impl Default for Options {
             sfx_volume: None,
             mute: None,
             bundle: None,
+            demo: false,
         }
     }
 }
@@ -727,11 +915,12 @@ impl Options {
                 "--bundle" => {
                     opts.bundle = Some(args.next().ok_or("--bundle cần thư mục bundle")?.into())
                 }
+                "--demo" => opts.demo = true,
                 "-h" | "--help" => {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
-                         \t  [--bundle DIR]"
+                         \t  [--bundle DIR] [--demo]"
                     );
                     std::process::exit(0);
                 }

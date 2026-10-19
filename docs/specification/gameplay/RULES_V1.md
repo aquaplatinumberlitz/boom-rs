@@ -161,6 +161,10 @@ không phải luật chơi; giá trị luật của V1 vẫn nằm ở `data/rul
 | R-077 | V1 có entry animation **đã xác nhận** cho: đi 4 hướng `FxCharacter/Character/C0x-Walk{Up,Down,Left,Right}_ALayer{Static,Adjust}` (5 frame), chết `C0x-DieLayer{Static,Adjust}` (14 frame), bom đếm fuse `FxDesktop/Bomb/Bomb00` (4 frame), item rơi `fx/Item/{Bomb,Fire,Roller}` (1 frame); mọi frame đọc được có chỉ số ảnh trong miền và rect nằm trong ảnh | — | `kr_static` / confirmed | `crates/boom-assets/src/animation.rs` (`v1_clip_sources`, `extract_clips`); pack KR 00967 (`FxCharacter`, `FxDesktop`, `fx`); test `every_v1_state_has_entry_and_valid_frames` |
 | R-078 | Ứng viên state → animation (**chưa có consumer xác nhận**): idle `C0x-Blink_ALayer{…}`/`C0x-BlinkSmall_ALayer{…}` (3 frame), start `C0x-Start_ALayer{…}` (10 frame), trapped `C0x-FaintLayer{…}` (3 frame) + bong bóng `FxDesktop/Bomb/Bubble00` (9 frame), lửa `FxDesktop/Bomb/Fire00` (100 frame — **một** blob gộp nhiều phần, cách chia tâm/thân/đuôi và thứ tự hướng chưa rõ) và lửa nhạt theo hướng `fx/MotionBlur/Blur_Fire01_{Up,Down,Left,Right}` (10 frame) | — | `kr_static` / candidate | Cùng nguồn R-077; cùng mức với manifest closure (issue #34); Q-003 |
 | R-079 | Thời lượng frame: pack client gốc **không** mang trường thời gian (blob `CDataI16Alpha` v2 chỉ có 12 số mỗi frame; `f8`–`f11` là canvas/pivot) và consumer phía client chưa định vị được ⇒ V1 **chưa chốt** thời lượng frame, ghi `unknown` chứ không tự đặt | — | `kr_static` / unknown | MAPS §3 (đo trên 474.120 frame của 4 pack KR); `boom-content::animation::FrameTiming`; Q-003 |
+| R-084 | Clip nổ của pack KR 00967: `FxDesktop/Bomb/BombExplosion001` là **một** clip 10 frame / 8 ảnh, canvas 84×103, pivot (20,95); pack **không** tách tâm/nhánh/đuôi (dãi frame liên tục, có frame dùng chung ảnh) ⇒ hiệu ứng nổ **không** có clip riêng theo từng phần | — | `kr_static` / confirmed | `boom-assets sprite-info FxDesktop Bomb/BombExplosion001 --build kr`; pack KR 00967 (`FxDesktop`); bundle `FxDesktop/Bomb/BombExplosion001` (vai trò `explosion_art`) |
+| R-085 | Nhịp phát frame của V1: **100 ms** cho mọi clip (10 frame/s). Nguồn gốc vẫn `unknown` (R-079) nên đây là **lựa chọn** của dự án; client đọc giá trị từ rules profile (`presentation.frame_duration_ms`) và **không** hard-code trong code | 100 ms | `design` / design | Issue #92; `data/rules/v1-dev.toml` (`presentation.frame_duration_ms`); `crates/boom-client/src/anim.rs` (`FrameClock`); BUNDLES §7 |
+| R-086 | Chọn clip theo state core (quyết định trình diễn của V1): nhân vật **đang đi** (vị trí đổi so với tick trước) → clip `walk` theo hướng đang quay; **đứng yên** → clip `idle`; **bị nhốt** → clip `trapped`; **chết** → clip `dead`; bom đang chờ → clip `bomb.fuse`; lửa trên ô → clip `flame.main`. Clip `idle`/`trapped` là R-078 **candidate** (chưa có consumer gốc xác nhận), còn `walk`/`dead`/`bomb.fuse` là R-077 `confirmed`. State core V1 chưa mang trường nhân vật nên V1 ghép `id` người chơi với `C00`/`C01` theo thứ tự | — | `design` / design | Issue #92; `crates/boom-client/src/anim.rs` (`character_clip`, `is_moving`); `crates/boom-client/src/scene.rs` (`presentation_plan`); BUNDLES §7 |
+| R-087 | Hình lửa trên một ô: V1 dùng **dải frame lõi** của clip `flame.main` (index 28..=59 trên pack KR 00967 — 32 frame ảnh đơn 40×40, hình lửa đứng giữa ô). Phần thân/đuôi/nhánh theo hướng **không** dùng: state core V1 không mang hướng lửa (`Flame` chỉ có ô và hạn), nên mọi ô lửa vẽ cùng một frame của dải này | — | `design` / design (quan sát dải frame: `kr_static`) | Issue #92; `crates/boom-client/src/anim.rs` (`FLAME_FRAMES`); BUNDLES §7; Q-003 |
 
 R-079 là `unknown` nên **không** mang giá trị (AGENTS §4). Schema
 `boom-content::animation::FrameTiming` đã có sẵn hai nhánh: `Known` (giá trị + nguồn +
@@ -178,6 +182,31 @@ thời lượng tự đặt không truy được quyết định.
 Lớp sprite `Static`/`Adjust` của nhân vật được ghi lại theo entry, nhưng **thứ tự vẽ và
 cách blend chưa xác nhận** (Q-003); quyết định của V1 cho phần này thuộc task client P6
 và cần claim riêng — chưa có ở đây.
+
+### 8.1 Quyết định trình diễn của client V1 (R-085…R-087)
+
+Ba claim cuối §8 là quyết định **design** của dự án cho client V1, không phải luật
+chơi và không phải suy ra từ client gốc:
+
+- **Nhịp (R-085)**: 100 ms mỗi frame cho mọi clip. Frame tiến theo **tick mô phỏng**
+  (`frame = (tick · 1000 / ticks_per_second) / 100 ms mod số frame`), không theo đồng
+  hồ wall clock (ADR 0004) ⇒ cùng tick cho cùng frame. Giá trị nằm ở profile rules
+  (`presentation.frame_duration_ms`) để đổi được mà không sửa code.
+- **Chọn clip (R-086)**: state core → clip như bảng trên. Hai điểm cần nói rõ vì
+  state core chưa có:
+  - *Đang đi* được suy ra từ việc **vị trí đổi** giữa hai tick, vì hướng trong state
+    core được giữ qua lệnh `Dir::None` (movement bỏ qua người chơi không giữ phím nên
+    `facing` không về `None`).
+  - *Chết*: khung cuối của clip chết là ảnh rỗng 0×0 (dữ liệu thật của client gốc).
+    V1 chưa có presentation journal nên **không** phát lại chuỗi chết; dùng khung cuối
+    ⇒ nhân vật chết **không được vẽ**. Chuỗi chết sẽ phát khi có journal (P7).
+- **Hình lửa (R-087)**: clip `flame.main` là một blob 100 frame gộp thân/đuôi/nhánh
+  (R-078) và state core không mang hướng lửa, nên V1 chỉ dùng dải frame lõi
+  (28..=59) cho mọi ô lửa. Đây là **giới hạn đã biết**, ghi ở
+  [BUNDLES §8](../assets/BUNDLES.md); Q-003 theo dõi việc đóng.
+
+Cả ba giá trị đều nằm ở nguồn chuẩn: quy ước đặt ảnh và chọn frame ở
+[BUNDLES §7](../assets/BUNDLES.md), giá trị nhịp ở `data/rules/v1-dev.toml`.
 
 ## 9. Input
 
