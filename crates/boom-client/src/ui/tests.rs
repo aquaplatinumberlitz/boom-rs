@@ -277,6 +277,7 @@ fn ui_bundle() -> Bundle {
                 status: EvidenceStatus::Confirmed,
             },
         ],
+        audio: Vec::new(),
     }
 }
 
