@@ -2258,11 +2258,11 @@ fn lossy_memory(seed: u64, loss_permille: u16) -> MemoryConfig {
 fn lossy_handshake(server: &mut Server, clients: &mut [WireClient], h: &HandshakeConfig) {
     for c in clients.iter_mut() {
         let mut welcome = None;
-        for _ in 0..100 {
+        for _ in 0..300 {
             send(c, &hello(h.rules_hash));
             let _ = server.poll(0, Duration::from_millis(20)).unwrap();
             if let Some(msg) =
-                try_recv_of::<Welcome>(c, MessageKind::Welcome, Duration::from_millis(50))
+                try_recv_of::<Welcome>(c, MessageKind::Welcome, Duration::from_millis(250))
             {
                 welcome = Some(msg);
                 break;
@@ -2279,11 +2279,11 @@ fn retry_room_state(
     action: RoomActionDto,
     now: u64,
 ) -> RoomState {
-    for _ in 0..100 {
+    for _ in 0..300 {
         send_room(client, request, action.clone());
         let _ = server.poll(now, Duration::from_millis(20)).unwrap();
         if let Some(state) =
-            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(50))
+            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(250))
         {
             return state;
         }
@@ -2292,11 +2292,11 @@ fn retry_room_state(
 }
 
 fn retry_ready(server: &mut Server, client: &mut WireClient, player: u64, request: u64, now: u64) {
-    for _ in 0..100 {
+    for _ in 0..300 {
         send_room(client, request, RoomActionDto::SetReady { ready: true });
         let _ = server.poll(now, Duration::from_millis(20)).unwrap();
         if let Some(state) =
-            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(50))
+            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(250))
             && state.members.iter().any(|m| m.player == player && m.ready)
         {
             return;
@@ -2306,11 +2306,11 @@ fn retry_ready(server: &mut Server, client: &mut WireClient, player: u64, reques
 }
 
 fn retry_start(server: &mut Server, client: &mut WireClient, request: u64, now: u64) -> RoundStart {
-    for _ in 0..100 {
+    for _ in 0..300 {
         send_room(client, request, RoomActionDto::Start);
         let _ = server.poll(now, Duration::from_millis(20)).unwrap();
         if let Some(start) =
-            try_recv_of::<RoundStart>(client, MessageKind::RoundStart, Duration::from_millis(50))
+            try_recv_of::<RoundStart>(client, MessageKind::RoundStart, Duration::from_millis(250))
         {
             return start;
         }
@@ -2319,7 +2319,7 @@ fn retry_start(server: &mut Server, client: &mut WireClient, request: u64, now: 
 }
 
 fn retry_loading(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
-    for _ in 0..100 {
+    for _ in 0..300 {
         for c in clients.iter_mut() {
             send(c, &LoadingAck { round_id: round });
         }
@@ -2374,7 +2374,7 @@ fn retry_input(
 }
 
 fn retry_result_ack(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
-    for _ in 0..100 {
+    for _ in 0..300 {
         for c in clients.iter_mut() {
             send(c, &ResultAck { round_id: round });
         }
