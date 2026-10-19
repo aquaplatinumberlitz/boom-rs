@@ -126,6 +126,14 @@ cách, **không** chứng minh client gốc tiêu thụ `f0..f11` hay luồng al
 này không có trace runtime nào của client KR/VN cho sprite. Nghĩa field `f0..f11` vẫn ở mức
 bằng chứng của [MAPS §3](MAPS.md).
 
+## Bundle nội dung
+
+`crates/boom-assets/src/bundle.rs` dựng **bundle** cho client từ pack: ảnh đã giải mã
+đóng gói thành trang atlas PNG, kèm metadata ô của map (ID tile/obj → sprite/frame, kích
+thước, canvas, pivot) và `content_hash` ổn định. Kiểu đọc nằm ở
+`crates/boom-content/src/bundle.rs` để client dùng được mà không cần bộ giải mã pack.
+Định dạng và cách đo: [BUNDLES](BUNDLES.md).
+
 ## Kết quả giải nén (`assets/`)
 
 | Loại | Số lượng |
