@@ -28,7 +28,7 @@
       ],
       "verification": "Đã nghiệm thu ở boom-re-l10n@0bdb02c (reviewer /root/architecture_docs). Sau chuyển repo sang boom-rs và viết lại AGENTS (2026-10-19) cần review lại; docs_check + kr_catalog --check đạt trong boom-rs.",
       "blocker": "",
-      "next_action": "Reviewer độc lập kiểm DOCS_MIGRATION, AGENTS mới, ADR 0002–0006; đạt thì đặt done với integration commit của boom-rs."
+      "next_action": "Review độc lập ở issue #1; đạt thì đặt done với integration commit của boom-rs."
     },
     {
       "id": "P1",
@@ -45,7 +45,7 @@
       "evidence": [],
       "verification": "",
       "blocker": "",
-      "next_action": "START-A (phân loại ô Village00) và START-B (tick/speed/timer nhốt) theo REWRITE_PLAN; hạn 2026-11-02."
+      "next_action": "Issue #9 (START-A), #11 (START-B), #15 (Q-012); hạn 2026-11-02."
     },
     {
       "id": "P2",
@@ -55,7 +55,7 @@
       "depends_on": [
         "P0"
       ],
-      "deliverable": "ARCHITECTURE r1, ADR 0004–0007, walking skeleton + CI",
+      "deliverable": "ARCHITECTURE r1, ADR 0004–0008, contracts-r1 trong code, harness scenario, CI ba OS",
       "exit_gate": "Boundary/contracts review và giả định quan trọng được ghi nhận",
       "reviewer": "",
       "integration_commit": "",
@@ -63,11 +63,14 @@
         "docs/planning/ARCHITECTURE.md",
         "docs/decisions/0004-time-numeric-model.md",
         "docs/decisions/0005-authority-and-prediction.md",
-        "docs/decisions/0006-transport-default.md"
+        "docs/decisions/0006-transport-default.md",
+        "docs/decisions/0008-extensibility-model.md",
+        "crates/boom-core/src/systems/mod.rs",
+        "crates/boom-scenario/src/scenario.rs"
       ],
       "verification": "",
       "blocker": "",
-      "next_action": "Review skeleton và ADR 0004–0006; START-C contracts-r1; spike client theo ADR 0007 sau START-A; hạn 2026-11-02."
+      "next_action": "Review contracts-r1 ở issue #2; NET-DESIGN #14 sau khi #2 approve; spike client #12; hạn 2026-11-02."
     },
     {
       "id": "P3",

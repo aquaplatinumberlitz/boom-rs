@@ -35,7 +35,7 @@ Chỉ release khi feature V1 đã nghiệm thu, tất cả gate passed và P8 do
 |---|---|---|---|---|
 | P0 Tổ chức docs/scope | Chờ review | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
 | P1 Tìm thông tin còn thiếu | Đang làm | research | Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
-| P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0007, walking skeleton + CI | Boundary/contracts review và giả định quan trọng được ghi nhận |
+| P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0008, contracts-r1 trong code, harness scenario, CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
 | P3 Review sẵn sàng | Chưa làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |
 | P4 Nền móng/asset/oracle | Chưa làm | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
 | P5 Core/offline | Chưa làm | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
@@ -61,40 +61,40 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | ID | Feature | Trạng thái | Owner / assignee | Reviewer | Bước tiếp / blocker | Bằng chứng |
 |---|---|---|---|---|---|---|
 | V1-001 | Auth tài khoản dự án | Chưa làm | backend / chưa giao | — | — | — |
-| V1-002 | Handshake phiên bản/rules/content | Chưa làm | net / chưa giao | — | — | — |
+| V1-002 | Handshake phiên bản/rules/content | Chưa làm | net / chưa giao | — | Issue #14 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-003 | Một kênh và sảnh danh sách phòng | Chưa làm | backend / chưa giao | — | — | — |
-| V1-004 | Tạo phòng công khai | Chưa làm | backend / chưa giao | — | — | — |
-| V1-005 | Vào/rời phòng | Chưa làm | backend / chưa giao | — | — | — |
-| V1-006 | Chủ phòng và kick | Chưa làm | backend / chưa giao | — | — | — |
-| V1-007 | Chọn C00/C01 | Chưa làm | client / chưa giao | — | — | — |
-| V1-008 | Ready/cancel/start | Chưa làm | backend / chưa giao | — | — | — |
+| V1-004 | Tạo phòng công khai | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-005 | Vào/rời phòng | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-006 | Chủ phòng và kick | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-007 | Chọn C00/C01 | Chưa làm | client / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-008 | Ready/cancel/start | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-009 | Chat trong phòng chờ | Chưa làm | backend / chưa giao | — | — | — |
 | V1-010 | Start barrier và spawn | Chưa làm | net / chưa giao | — | — | — |
-| V1-011 | Di chuyển và ưu tiên input | Chưa làm | core / chưa giao | — | — | — |
-| V1-012 | Va chạm tường/gạch/bom | Chưa làm | core / chưa giao | — | — | — |
-| V1-013 | Đặt bom và hạn mức | Chưa làm | core / chưa giao | — | — | — |
-| V1-014 | Fuse/nổ/lan/chặn | Chưa làm | core / chưa giao | — | — | — |
-| V1-015 | Nổ dây chuyền | Chưa làm | core / chưa giao | — | — | — |
-| V1-016 | Phá gạch và drop giới hạn | Chưa làm | core / chưa giao | — | — | — |
-| V1-017 | Item Bomb tăng capacity | Chưa làm | core / chưa giao | — | — | — |
-| V1-018 | Item Fire tăng tầm | Chưa làm | core / chưa giao | — | — | — |
-| V1-019 | Item Roller tăng tốc | Chưa làm | core / chưa giao | — | — | — |
-| V1-020 | Bẫy/bong bóng/chết | Chưa làm | core / chưa giao | — | — | — |
-| V1-021 | Thắng/hòa/hết giờ | Chưa làm | core / chưa giao | — | — | — |
+| V1-011 | Di chuyển và ưu tiên input | Chưa làm | core / chưa giao | — | Issue #3 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-012 | Va chạm tường/gạch/bom | Chưa làm | core / chưa giao | — | Issue #3 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-013 | Đặt bom và hạn mức | Chưa làm | core / chưa giao | — | Issue #4 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-014 | Fuse/nổ/lan/chặn | Chưa làm | core / chưa giao | — | Issue #5 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-015 | Nổ dây chuyền | Chưa làm | core / chưa giao | — | Issue #5 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-016 | Phá gạch và drop giới hạn | Chưa làm | core / chưa giao | — | Issue #6 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-017 | Item Bomb tăng capacity | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-018 | Item Fire tăng tầm | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-019 | Item Roller tăng tốc | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-020 | Bẫy/bong bóng/chết | Chưa làm | core / chưa giao | — | Issue #8 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-021 | Thắng/hòa/hết giờ | Chưa làm | core / chưa giao | — | Issue #8 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-022 | Kết quả và chơi vòng tiếp | Chưa làm | backend / chưa giao | — | — | — |
 | V1-023 | Disconnect/timeout | Chưa làm | net / chưa giao | — | — | — |
-| V1-024 | Input/snapshot authoritative | Chưa làm | net / chưa giao | — | — | — |
+| V1-024 | Input/snapshot authoritative | Chưa làm | net / chưa giao | — | Issue #14 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-025 | Prediction/reconciliation | Chưa làm | net / chưa giao | — | — | — |
 | V1-026 | Replay và state hash | Chưa làm | core / chưa giao | — | — | — |
 | V1-027 | QA mạng 4 client | Chưa làm | qa / chưa giao | — | — | — |
 | V1-028 | Lưu tài khoản và tùy chọn | Chưa làm | backend / chưa giao | — | — | — |
 | V1-029 | Log/health và vận hành test | Chưa làm | backend / chưa giao | — | — | — |
-| V1-030 | Map Village00 + dependency closure | Chưa làm | assets / chưa giao | — | — | — |
+| V1-030 | Map Village00 + dependency closure | Chưa làm | assets / chưa giao | — | Issue #9 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-031 | Animation C00/C01 và bomb | Chưa làm | client / chưa giao | — | — | — |
-| V1-032 | UI luồng V1 bằng asset KR | Chưa làm | client / chưa giao | — | — | — |
+| V1-032 | UI luồng V1 bằng asset KR | Chưa làm | client / chưa giao | — | Issue #15 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-033 | Input/scale/focus | Chưa làm | client / chưa giao | — | — | — |
 | V1-034 | Audio/volume | Chưa làm | client / chưa giao | — | — | — |
-| V1-035 | Việt hóa UI V1 | Chưa làm | client / chưa giao | — | — | — |
+| V1-035 | Việt hóa UI V1 | Chưa làm | client / chưa giao | — | Issue #15 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-036 | Build Windows/Linux/macOS | Chưa làm | release / chưa giao | — | — | — |
 | V1-037 | Đối chiếu và báo sai khác | Chưa làm | qa / chưa giao | — | — | — |
 

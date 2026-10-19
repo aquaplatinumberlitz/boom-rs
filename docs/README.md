@@ -3,6 +3,8 @@
 **Bắt đầu ở đây.** Quy tắc bắt buộc: [AGENTS.md](../AGENTS.md). Repo `boom-rs` chứa cả docs và Cargo workspace
 ([ADR 0003](decisions/0003-engine-repo-and-docs-home.md)). Pha hiện tại: research + kiến trúc có hạn,
 kèm walking skeleton; xem [REWRITE_PLAN](planning/REWRITE_PLAN.md) và tiến độ ở [PROGRESS](planning/PROGRESS.md).
+Bảng việc: GitHub issues của `aquaplatinumberlitz/boom-rs` (nhãn `task`); cách nhận/bàn giao ở
+[TEAM_WORKFLOW](planning/TEAM_WORKFLOW.md) §5–6.
 
 ## Tài liệu điều hành
 

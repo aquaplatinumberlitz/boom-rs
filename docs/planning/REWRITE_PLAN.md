@@ -51,7 +51,7 @@ Pha đang hoạt động: **P0 Tổ chức docs/scope, P1 Tìm thông tin còn t
 |---|---|---|---|---|
 | P0 Tổ chức docs/scope | Chờ review | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
 | P1 Tìm thông tin còn thiếu | Đang làm | research | Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
-| P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0007, walking skeleton + CI | Boundary/contracts review và giả định quan trọng được ghi nhận |
+| P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0008, contracts-r1 trong code, harness scenario, CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
 | P3 Review sẵn sàng | Chưa làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |
 | P4 Nền móng/asset/oracle | Chưa làm | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
 | P5 Core/offline | Chưa làm | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
@@ -127,30 +127,42 @@ V1 chỉ cần identity, session, room/match, validation và trạng thái trậ
 Economy/ledger/inventory/guild/liveops giữ trong backlog sau V1. Không chép server giả lập thành backend.
 Khi mở economy phải có transaction/idempotency, ownership và nguồn balance (Q-011).
 
-## Việc tiếp theo
+## Việc tiếp theo — đợt 1 (GitHub issues)
 
-| Ưu tiên | Việc | Owner / reviewer | Đầu ra |
+Bảng việc là issue của `aquaplatinumberlitz/boom-rs` (nhãn `wave:1`); quy trình nhận/bàn giao ở
+TEAM_WORKFLOW §5–6. Mọi task dưới đây chạy song song được; ràng buộc ghi trong từng issue.
+
+| Issue | Việc | Luồng | Phụ thuộc |
 |---|---|---|---|
-| 1 | START-A: đọc bảng thuộc tính tile/obj của theme Village (KR, đối chiếu VN qua độ lệch R-004) → phân loại ô Village00 | assets/RE / core | RULES_V1 R-006/R-007 thành confirmed; bảng phân loại trong `data/` |
-| 1 | START-B: hiệu chuẩn tick và speed-level → px/s trên client VN; tìm hằng số timer nhốt trong code | RE / core | RULES_V1 R-013, R-026, R-043; cập nhật profile |
-| 1 | START-C: contracts-r1 (InputCommand/State/Event/Snapshot/Replay) dựa trên skeleton | core+net / QA | ARCHITECTURE §5 + kiểu Rust trong `boom-core` |
-| 1 | Review độc lập repo move, AGENTS mới và ADR 0003–0006 | reviewer / integrator | execution.json P0/P2 |
-| 2 | Tìm consumer bảng rơi R-051/R-052 và xác suất gạch có item | RE / core | RULES_V1 §5 |
-| 2 | Chốt UI/content/Việt hóa V1 (Q-012) | client/l10n / QA | Spec localization |
-| 3 | Kết luận P3 readiness, lập task P4/P5 có feature ID | integrator / reviewer | execution.json + features.json |
+| #1 | Review độc lập chuyển repo, AGENTS, ADR 0002–0008 (đóng P0) | review | — |
+| #2 | Review contracts-r1 | review core+net+QA | — |
+| #3 | V1-011/012 di chuyển: bom chặn, grace | core | contracts-r1 |
+| #4 | V1-013 đặt bom, hạn mức | core | contracts-r1 |
+| #5 | V1-014/015 nổ, lan lửa, dây chuyền | core | contracts-r1 |
+| #6 | V1-016 giấu item, phá khối, lộ item | core | contracts-r1 |
+| #7 | V1-017…019 nhặt item | core | contracts-r1 |
+| #8 | V1-020 nhốt/chết | core | contracts-r1 |
+| #9 | START-A / V1-030 phân loại ô Village, World từ Village00 KR | assets/RE | — |
+| #10 | P4 đọc pack trong `boom-assets` | assets | — |
+| #11 | START-B đo tick/speed/timer nhốt | RE | — |
+| #12 | Spike client stack (ADR 0007) | client | ảnh decode; #9 giúp dựng scene |
+| #13 | V1-004…008 máy trạng thái phòng (`boom-room`) | backend | — |
+| #14 | V1-024 thiết kế InputCommand/Snapshot/codec | net | #2 |
+| #15 | Q-012 tập chuỗi/ảnh UI V1 | l10n | — |
 
-Mỗi task thực tế ghi người nhận, baseline, file được sửa, dependency, đầu ra và cách kiểm theo TEAM_WORKFLOW.
+Sau đợt 1 (integrator lập đợt 2): `boom-proto`/`boom-net` theo ADR của #14, server trận (V1-010, V1-022…V1-024),
+client scene theo ADR của #12, animation (V1-031), replay/state hash qua mạng (V1-026).
 
 ## Readiness trước khi mở task feature
 
-- [ ] Scope V1 và registry không mâu thuẫn, không dependency vào mục later.
+- [x] Scope V1 và registry không mâu thuẫn, không dependency vào mục later (`kr_catalog --check`).
 - [ ] Content identity được khóa; phần asset chưa resolve và fixture cần thêm được liệt kê.
 - [x] Mô hình thời gian/số học đã chọn ([ADR 0004](../decisions/0004-time-numeric-model.md)); hiệu chuẩn còn mở.
-- [ ] Crate boundaries và contracts-r1 được review (skeleton đã có, chưa review).
+- [ ] Crate boundaries và contracts-r1 được review (code + scenario đã có; review ở #2).
 - [x] Chiến lược authority/prediction có quyết định mặc định ([ADR 0005](../decisions/0005-authority-and-prediction.md)).
 - [x] Transport có mặc định và điều kiện đảo ([ADR 0006](../decisions/0006-transport-default.md)); persistence còn ở Q-011 (không chặn P5).
-- [ ] Legacy oracle chạy theo đường dẫn/command đã kiểm từ `boom-re` main.
-- [ ] Task P4/P5 đầu tiên có feature ID, owner, reviewer, acceptance.
+- [x] Legacy oracle: `cargo test` của `boom-re/server` xanh ở `9ac2075` (packet golden); chạy client qua Wine chưa kiểm lại trong lượt này.
+- [x] Task đợt 1 có feature ID, phạm vi file, acceptance (issue #1–#15); assignee ghi khi có người nhận.
 
 Các gate G1–G6 trong SCOPE_V1 áp dụng dần khi triển khai/phát hành; không cần tất cả xanh để mở P4.
 

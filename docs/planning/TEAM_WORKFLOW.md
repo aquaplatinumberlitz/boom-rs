@@ -50,16 +50,47 @@ Không tìm thấy sau một lượt có giới hạn → RE hoặc `design` có
 
 ## 5. Làm việc với code Rust
 
-- Mỗi worker một worktree: `git -C /home/admin/boom-rs worktree add ../boom-rs-wt/<task-id> -b <task-id>`.
-- Crate có owner theo task; đổi API công khai của crate khác phải qua integrator.
+**Bảng việc** là GitHub issues của repo `aquaplatinumberlitz/boom-rs` (nhãn `task`, `review`, `wave:N`,
+`stream:*`). Mỗi issue theo mẫu §6: feature ID, file được sửa, dependency, acceptance.
+
+Vòng đời một task:
+
+1. Worker comment "nhận" trên issue; integrator ghi assignee/baseline vào `features.json` (`in_progress`).
+2. Worker tạo worktree riêng: `git -C /home/admin/boom-rs worktree add ../boom-rs-wt/<task> -b <task>`,
+   chạy `cargo xtask setup` một lần (hook pre-push chạy `cargo xtask ci`).
+3. Chỉ sửa file trong phạm vi issue. Cần đổi file dùng chung (`state/`, `event.rs`, `rules.rs`, `mode.rs`,
+   `sim.rs`, `Cargo.toml` gốc, `features.json`, `execution.json`) → hỏi integrator trong issue.
+4. Chuyển scenario của feature từ `pending` sang `active`, thêm ca biên; scenario là acceptance, reviewer
+   đối chiếu nó với RULES_V1/SCOPE_V1.
+5. Mở PR theo mẫu (`.github/pull_request_template.md`), CI ba OS xanh, reviewer khác người làm approve.
+6. Integrator merge theo thứ tự dependency, chạy `cargo xtask ci` trên `main`, cập nhật `features.json`.
+
+Ranh giới để chạy song song không đụng nhau:
+
+| Vùng | Owner | Ghi chú |
+|---|---|---|
+| `crates/boom-core/src/systems/<system>.rs` + `fixtures/scenarios/<system>/` | worker của system đó | Ma trận quyền ghi ở `systems/mod.rs` |
+| `crates/boom-core/src/{state/,event.rs,rules.rs,mode.rs,sim.rs}` | integrator | Contract; đổi = contracts-rN |
+| `crates/boom-assets`, `data/maps/` | assets | |
+| `crates/boom-room` | backend | Thuần, không socket |
+| `spikes/` | client | Ngoài workspace, không merge vào `crates/` |
+| `docs/specification/gameplay/RULES_V1.md` | RE + worker liên quan | Mỗi PR chỉ thêm/sửa claim thuộc feature của mình |
+| `features.json`, `execution.json`, `AGENTS.md`, ADR index, `.github/` | integrator | Người ghi duy nhất |
+
+Quy tắc code:
+
 - `boom-core` giữ quy tắc determinism (ADR 0004): không float, không `HashMap`, không wall clock/IO.
-- Mỗi rule mới trong core lấy giá trị từ profile; không có hằng số luật trong code.
+- Mỗi giá trị luật lấy từ `Rules`; không có hằng số luật trong code.
 - Test có ý nghĩa: state transition, thứ tự event, biên va chạm, replay hash. Fixture sinh từ implementation
   là regression baseline, ghi rõ như vậy.
-- Trước bàn giao: `cargo xtask ci` xanh; đổi hành vi core thì cập nhật golden replay có giải thích trong commit.
+- Đổi hành vi core có chủ đích: `cargo xtask bless` và giải thích trong PR.
 - Fixture cần dữ liệu game không commit; test đọc đường dẫn từ biến môi trường và tự bỏ qua khi thiếu.
+- Repo private trên gói Free không bật được branch protection; kỷ luật PR + hook pre-push thay thế.
+  Muốn khóa cứng `main` (bắt buộc CI + review) thì chuyển repo public hoặc nâng GitHub Pro.
 
-## 6. Mẫu task
+## 6. Mẫu task và cách giao cho agent
+
+Mẫu issue: `.github/ISSUE_TEMPLATE/task.yml`. Nội dung tối thiểu:
 
 ```text
 ID / owner / reviewer:
@@ -74,6 +105,17 @@ Nếu thiếu bằng chứng: ghi unknown hoặc design có claim, không tự �
 Bàn giao: commit/diff, docs đã cập nhật, kết quả kiểm, giới hạn, bước tích hợp.
 ```
 
+Lời giao việc cho một agent (dán nguyên, thay số issue):
+
+```text
+Làm task GitHub issue #N của repo /home/admin/boom-rs (gh issue view N).
+Trước khi làm: đọc AGENTS.md, docs/README.md, docs/planning/REWRITE_PLAN.md, docs/planning/SCOPE_V1.md
+và tài liệu issue chỉ định. Tạo worktree ../boom-rs-wt/<task> từ main, chạy cargo xtask setup.
+Chỉ sửa file trong phạm vi issue; cần sửa file khác thì dừng và hỏi trong issue.
+Xong: cargo xtask ci xanh, scenario liên quan active, PR theo mẫu, báo lại link PR và điều còn thiếu.
+Không push lên main, không merge.
+```
+
 Ví dụ `RULE-SHIELD-001`: research xác định tác dụng/thời lượng theo KR và CN; RE tìm Attr/consumer;
 reviewer xác nhận các nguồn nói cùng loại khiên. Core chỉ triển khai sau khi claim xác định damage nào bị chặn,
 thời điểm hết hạn và các trường hợp biên.
@@ -81,6 +123,11 @@ thời điểm hết hạn và các trường hợp biên.
 ## 7. Theo dõi tiến độ
 
 Integrator là người ghi duy nhất của `features.json` và `execution.json`: ghi ID/assignee/revision khi
-nhận task, nhập proof/review khi worker bàn giao, rồi chạy `python3 tools/kr_catalog.py` và `--check`.
+nhận task, nhập proof/review khi worker bàn giao (PR đã merge, commit tích hợp, lệnh kiểm), rồi chạy
+`python3 tools/kr_catalog.py` và `--check`. `tracking.next_action` của feature trỏ số issue đang giữ việc.
+
+Thứ tự merge đợt 1 khi nhiều PR cùng sẵn sàng: contract review (#2) → bomb_place, explosion → blocks,
+pickup, life → movement (phần grace cần bomb_place) → các scenario liên hệ chéo (`own_bomb_full_cycle`,
+`destroy_and_reveal`) chuyển active. Các luồng assets/RE/backend/client/l10n merge độc lập.
 Định nghĩa done và % ở AGENTS §6. Đánh giá bằng feature chơi được, rule có nguồn và số sai khác chưa giải;
 không dùng số agent, số dòng code hay opcode làm phần trăm.

@@ -64,8 +64,9 @@ là một bằng chứng; không tìm thấy phải ghi phạm vi đã tìm, kh�
 
 ## 5. Làm việc nhiều người/agent
 
-- Task có ID, mục tiêu, baseline commit, owner, reviewer, file được sửa, dependency, đầu ra, cách nghiệm thu
-  (mẫu ở [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md)).
+- Task là GitHub issue (nhãn `task`) có ID, mục tiêu, baseline, owner, reviewer, file được sửa, dependency,
+  đầu ra, cách nghiệm thu (quy trình ở [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md) §5–6).
+  Mọi thay đổi vào `main` qua PR có CI ba OS xanh và reviewer khác người làm; chạy `cargo xtask setup` một lần.
 - Một file chỉ có một owner tại một thời điểm. Integrator giữ: `AGENTS.md`, `docs/README.md`,
   `features.json`, `execution.json`, index ADR, `Cargo.toml` gốc, `rust-toolchain.toml`, các `clippy.toml`.
 - Worker code chạy trong worktree/nhánh riêng; integrator merge theo dependency.
@@ -89,7 +90,8 @@ là một bằng chứng; không tìm thấy phải ghi phạm vi đã tìm, kh�
 ## 7. Gate trước bàn giao
 
 - Docs/catalog: `python3 tools/docs_check.py`, `python3 tools/kr_catalog.py --check`, `git diff --check`.
-- Code: `cargo xtask ci` (fmt, clippy `-D warnings`, test, replay golden, docs check).
+- Code: `cargo xtask ci` (fmt, clippy `-D warnings`, test gồm mọi scenario, replay golden, docs check).
+- Scenario của feature (`fixtures/scenarios/`) là acceptance: chuyển `pending` → `active` khi feature xong.
 - Sửa JSON nguồn rồi sinh lại export bằng `python3 tools/kr_catalog.py`; không sửa CSV/PROGRESS tay.
 - Đổi đường dẫn phải sửa link/tool; nội dung chuyển/archive phải có bản đồ migration.
 - Thêm dependency Rust phải ghi lý do trong commit; dependency nền ghi vào ARCHITECTURE.
