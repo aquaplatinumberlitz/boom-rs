@@ -35,7 +35,8 @@ pub struct Hello {
 /// `Welcome` (S→C): server chấp nhận định danh nào và cấp phiên.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Welcome {
-    /// ID phiên do server cấp.
+    /// ID **kết nối** do server cấp trước auth (ADR 0011 §6.1 gọi là `connection_id`).
+    /// Không phải phiên tài khoản và không phải token.
     pub session_id: String,
     /// ID người chơi trong phiên.
     pub player_id: u8,
@@ -43,10 +44,14 @@ pub struct Welcome {
     pub wire_schema: u16,
     /// `state_schema` server chấp nhận.
     pub state_schema: u16,
+    /// Build id của server (fingerprint ADR 0011 §8.3).
+    pub server_version: String,
     /// Profile rules server dùng.
     pub rules_profile_id: String,
     /// Hash định danh profile rules server dùng.
     pub rules_hash: u64,
+    /// SHA-256 manifest content server đã nạp (fingerprint ADR 0011 §8.3).
+    pub content_sha256: [u8; 32],
     /// Số content epoch của lần nạp content; chỉ có nghĩa trong phiên.
     pub content_epoch: u32,
     /// Chu kỳ gửi snapshot, ms.
@@ -107,10 +112,21 @@ impl Message for Hello {
 impl Message for Welcome {
     const KIND: MessageKind = MessageKind::Welcome;
 
-    fn check(&self, _limits: &ProtocolLimits) -> Result<(), ProtoError> {
+    fn check(&self, limits: &ProtocolLimits) -> Result<(), ProtoError> {
         // Server chỉ được chấp nhận đúng schema của V1 (ADR 0009 §1).
         check_schema("wire_schema", self.wire_schema)?;
-        check_schema("state_schema", self.state_schema)
+        check_schema("state_schema", self.state_schema)?;
+        if self.server_version.len() > limits.max_name_bytes {
+            return Err(ProtoError::Invalid {
+                field: "server_version",
+                detail: format!(
+                    "{} byte vượt trần {} byte",
+                    self.server_version.len(),
+                    limits.max_name_bytes
+                ),
+            });
+        }
+        Ok(())
     }
 }
 

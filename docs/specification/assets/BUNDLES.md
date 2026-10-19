@@ -13,8 +13,8 @@ Nhãn nguồn/trạng thái theo [AGENTS §4](../../../AGENTS.md#4-bằng-chứn
 là quyết định **design** của dự án (ARCHITECTURE §8 "Định dạng bundle content"), không
 phải định dạng của client gốc; phần dữ liệu bên trong thì giữ nguồn gốc của pack KR.
 
-**Schema hiện hành: 3** (có `[[clips]]` và `[[ui]]`). Schema 2 (chỉ atlas + ô + clip) và
-schema 1 (chỉ atlas + ô) **bị reader từ chối** — xem §5.
+**Schema hiện hành: 4** (có `[[clips]]`, `[[ui]]` và `[[audio]]`). Bundle schema 3 (không audio)
+vẫn đọc được. Schema 2 (chỉ atlas + ô + clip) và schema 1 (chỉ atlas + ô) **bị reader từ chối** — xem §5.
 
 ## 1. Dựng bundle
 
@@ -50,16 +50,17 @@ không bị nhân bản trong atlas.
 
 ```text
 <bundle>/
-  bundle.toml            # metadata (schema 3)
+  bundle.toml            # metadata (schema 4)
+  audio/<id>.<format>    # payload âm thanh thô (schema 4; không commit asset vào repo)
   atlas/page-000.png     # các trang atlas
   atlas/page-001.png     # (chỉ khi cần hơn một trang)
 ```
 
-## 3. Metadata `bundle.toml` (schema 3)
+## 3. Metadata `bundle.toml` (schema 4)
 
 | Khóa | Kiểu | Ý nghĩa |
 |---|---|---|
-| `schema` | số | Luôn là `3` |
+| `schema` | số | `4` cho bundle có audio; `3` (không audio) vẫn đọc được |
 | `build` | chuỗi | Build của pack nguồn (`kr`) |
 | `map` | chuỗi | Tên map (`Village00`) |
 | `tileset` | chuỗi | Tile set của map; rỗng nếu map dùng nhiều tile set |
@@ -170,7 +171,7 @@ pivot_y = 66                      # f11
   pixel trong atlas, nên clip và sprite dùng chung ảnh.
 - **`state`** là state trình diễn: `walk` (kèm hướng `up`/`down`/`left`/`right`), `idle`,
   `start`, `trapped`, `dead`, `bomb_fuse`, `flame` (`main` hoặc `motion_blur` kèm hướng),
-  `item`.
+  `explosion`, `item`.
 - **`timing`** giữ đúng trạng thái bằng chứng của R-079:
   - `[clips.timing.unknown]` + `reason`: **không** mang số. V1 chưa chốt thời lượng
     frame nên bundle không tự đặt.
@@ -219,12 +220,30 @@ status = "confirmed"                 # trạng thái bằng chứng (AGENTS §4)
   (mới biết entry trỏ tới pack KR, chưa xác nhận được payload).
 
 
+### 3.1 Bảng audio (schema 4)
+
+Mỗi entry là một payload thô trong `audio/`, không decode:
+
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `id` | chuỗi | ID cue theo AUDIO_V1, ví dụ `bgm_loop`, `bomb_exploded` |
+| `entry` | chuỗi | Entry nguồn `FxSound`, ví dụ `MP3/Village` |
+| `kind` | `bgm`/`sfx` | Loại voice |
+| `format` | `ogg`/`wav` | Định dạng macroquad đọc được; builder bỏ qua mp3/unknown có log |
+| `file` | chuỗi | Đường dẫn tương đối `audio/<id>.<format>` |
+| `bytes` | số | Kích thước payload |
+| `sha256` | chuỗi | SHA-256 payload thô, nằm trong `content_hash` |
+| `status` | nhãn | Nhãn bằng chứng của mapping (AUDIO_V1) |
+
+Reader kiểm `id`/`file` duy nhất, `file` nằm trong `audio/`, `bytes`/SHA-256 khớp file thật.
+Schema 3 không được có bảng này.
+
 ## 4. `content_hash`
 
 `content_hash` = SHA-256 của **encoding chuẩn** của metadata, không phải của file TOML:
 
 ```text
-"boom-bundle-v3\0"
+"boom-bundle-v4\0"          # schema 3 dùng "boom-bundle-v3\0"
 u32 schema
 str build, str map, str tileset
 u32 width, u32 height
@@ -258,6 +277,9 @@ u32 n_ui     × (
     str id, str screen, str role, str state,
     opt_str entry, str reason, opt_str sprite,
     str source, str status)
+u32 n_audio  × (
+    str id, str entry, str kind, str format, str file,
+    u32 bytes, str sha256, str status)          # chỉ schema 4
 ```
 
 - Số là little-endian; chuỗi có tiền tố độ dài `u32` rồi byte UTF-8.
@@ -266,7 +288,8 @@ u32 n_ui     × (
   cho encoding khác nhau và khác `None`.
 - `opt_str` cũng dùng cờ hiện diện, theo cùng lý do.
 - Tiền tố encoding đổi theo schema: schema 1 dùng `"boom-bundle-v1\0"`, schema 2 dùng
-  `"boom-bundle-v2\0"`, schema 3 dùng `"boom-bundle-v3\0"`. Hash của hai schema khác nhau
+  `"boom-bundle-v2\0"`, schema 3 dùng `"boom-bundle-v3\0"`, schema 4 dùng `"boom-bundle-v4\0"`.
+  Hash của hai schema khác nhau
   không thể trùng.
 - `content_hash` không nằm trong encoding (vòng lặp), nhưng **SHA-256 của từng file
   atlas thì có**: hash phải ràng buộc đúng byte file mà reader nạp. Nếu bỏ, thay ảnh
@@ -276,7 +299,7 @@ u32 n_ui     × (
   lượng của clip thì `content_hash` phải đổi.
 - **Bảng UI nằm trong encoding**: đổi trạng thái dùng, lý do, ảnh hay màn hình của một
   phần tử UI thì `content_hash` phải đổi.
-- Đánh đổi của thiết kế này: `content_hash` **phụ thuộc byte file atlas**, nên đổi bộ
+- Đánh đổi của thiết kế này: `content_hash` **phụ thuộc hash byte file atlas/audio**, nên đổi bộ
   mã PNG cũng đổi hash. Đổi lại reader ràng buộc được nội dung hiển thị mà không cần
   giải ảnh (xem §5).
 
@@ -289,7 +312,7 @@ thứ tự phần tử UI theo thứ tự bảng UI, và thuật toán đóng g�
 ## 5. Reader và kiểm tra
 
 `boom_content::bundle::load(<thư mục>)` đọc `bundle.toml`, kiểm tham chiếu, kiểm
-`content_hash` và kiểm SHA-256 từng file atlas. `Bundle::validate()` kiểm:
+`content_hash` và kiểm SHA-256 từng file atlas/audio. `Bundle::validate()` kiểm:
 
 1. `schema` đúng; lưới ô đủ `width × height`, không ô nào lặp hoặc nằm ngoài lưới.
 2. Mọi spawn nằm trong lưới và không trùng toạ độ nhau. Phân loại spawn (va chạm với
@@ -309,15 +332,16 @@ thứ tự phần tử UI theo thứ tự bảng UI, và thuật toán đóng g�
 8. **Bảng UI** (schema 3): ID phần tử là duy nhất; `reason` không rỗng; phần tử
    `selected` hoặc `needs_review_text` phải có `entry` và trỏ tới một `sprite` có thật;
    phần tử `excluded` không được có `sprite` (ảnh của nó không nằm trong atlas).
+9. **Bảng audio** (schema 4): ID/file duy nhất; `kind` là `bgm`/`sfx`; `format` là `ogg`/`wav`;
+   `file` nằm trong `audio/`; `bytes` khác 0 và SHA-256 hợp lệ; schema 3 không có audio.
 
-`load()` kiểm thêm: file atlas tồn tại, SHA-256 khớp `sha256` ghi trong metadata, và
-header PNG (chunk IHDR, có CRC) cho kích thước đúng bằng `width`/`height` của trang.
+`load()` kiểm thêm: file atlas tồn tại, SHA-256 khớp `sha256` ghi trong metadata, header PNG
+(chunk IHDR, có CRC) cho kích thước đúng bằng `width`/`height` của trang; file audio tồn tại,
+đúng `bytes` và SHA-256.
 
-**Schema cũ bị từ chối.** Bundle schema 1 không có clip; đọc nó sẽ im lặng bỏ qua phần
-nội dung mà client V1 cần để phát animation. Bundle schema 2 không có bảng UI; đọc nó
-sẽ im lặng bỏ qua phần nội dung quyết định phần tử UI nào dùng được. Reader báo lỗi
-schema kèm hướng dẫn dựng lại bằng `boom-assets bundle` — không có đường đọc tương
-thích.
+**Schema cũ bị từ chối.** Bundle schema 1 không có clip; schema 2 không có bảng UI; reader báo lỗi
+kèm hướng dẫn dựng lại bằng `boom-assets bundle`. Schema 3 (không audio) vẫn đọc được và
+`content_hash` giữ encoding v3; client không phát audio nếu bảng vắng.
 
 Đây là kiểm tra *siêu hình*; reader **không** giải ảnh (client giải khi nạp texture) và
 không kiểm ngữ nghĩa field frame (`f2` vẫn chưa chốt, xem [MAPS §3](MAPS.md)). Ràng buộc
@@ -337,12 +361,13 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Sprite trong bundle | 70 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, vụ nổ, **9 ảnh UI**) |
 | Ảnh | 299 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1430 |
+| Audio V1 | 15 entry (1 BGM + 14 SFX), 496 KiB payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
-| Clip | 46 (24 clip R-077 `confirmed`, 22 clip R-078 `candidate`), 368 frame |
-| Thời lượng frame | 46/46 clip là `unknown` (R-079): không mang số |
+| Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
+| Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
-| `unknown` | 5 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) + 1 `animation_clip` (vụ nổ có ảnh nhưng chưa có clip) |
-| `content_hash` | `6938079e9c417fc241b76bc0f6cfc39a0a1c4b2b3aa68e9e3e2720c9da4e12bf` |
+| `unknown` | 4 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) |
+| `content_hash` | `27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2` |
 
 Cách kiểm lại:
 
@@ -390,7 +415,7 @@ Giới hạn đã biết:
 
 Ngoài quy ước đặt ảnh, client V1 còn phải chọn **clip nào** cho state core nào và
 **frame nào** trong clip đó. Đây là quyết định **design** của V1 (RULES_V1
-[R-085…R-087](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r087)),
+[R-085…R-088](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r088)),
 ghi ở đây để client, reviewer và công cụ đo dùng chung một công thức.
 
 1. **Chọn clip theo state core** (R-086):
@@ -403,6 +428,7 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    | Nhân vật **chết** | `c0x.dead.static` (khung cuối là ảnh 0×0 ⇒ **không vẽ**) | R-077 `confirmed` |
    | Bom đang chờ nổ | `bomb.fuse` | R-077 `confirmed` |
    | Lửa trên ô | `flame.main`, **dải frame lõi 28..=59** | R-078 `candidate` (R-087) |
+   | Vụ nổ (core báo event `bomb_exploded`) | `explosion.main` tại ô bom | R-084 `confirmed` (R-088) |
 
    Nhân vật V1 ghép với `C00`/`C01` theo `id` người chơi vì state core chưa mang trường
    nhân vật. "Đang đi" suy ra từ **vị trí đổi** giữa hai tick: hướng trong state core
@@ -413,10 +439,19 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    **tick mô phỏng**, không theo đồng hồ wall clock (ADR 0004):
    `frame = (tick · 1000 / ticks_per_second) / frame_ms mod số frame`.
 
-3. **Z-order trong cùng ô**: vật cản → lửa → bom → nhân vật. Lửa là hiệu ứng nằm trên
-   nền, bom là vật thể đứng trên nền, nhân vật đứng trên bom khi mới đặt.
+3. **Hiệu ứng nổ** (R-088): core báo event `bomb_exploded` (ô của bom) ⇒ client phát
+   clip `explosion.main` tại ô đó. Hiệu ứng **phát một lần**, dài bằng số frame của
+   clip × `presentation.frame_duration_ms` (10 frame × 100 ms = 1.000 ms với clip
+   `BombExplosion001` của pack KR 00967); frame chọn theo **tick mô phỏng** tính từ
+   tick của event, không theo đồng hồ wall clock. Hết khoảng clip thì ô đó **về lại**
+   `flame.main` (lửa trong state core). Clip nổ **vẽ đè lên lửa** ở cùng ô.
+   Bundle không có clip nổ ⇒ không có gì để phát, client báo cảnh báo lúc khởi động.
 
-4. **Thiếu clip**: bundle không có clip cần cho trạng thái này → client vẽ **ô màu**
+4. **Z-order trong cùng ô**: vật cản → lửa → nổ → bom → nhân vật. Lửa là hiệu ứng nằm trên
+   nền, nổ vẽ đè lên lửa ở cùng ô, bom là vật thể đứng trên nền, nhân vật đứng trên
+   bom khi mới đặt.
+
+5. **Thiếu clip**: bundle không có clip cần cho trạng thái này → client vẽ **ô màu**
    đúng kích thước ô tại ô đó và ghi cảnh báo; không bỏ qua âm thầm (AGENTS §4) và
    không panic.
 
@@ -428,6 +463,9 @@ Giới hạn đã biết:
 - Clip `flame.main` là **một** blob 100 frame gộp thân/đuôi/nhánh theo hướng; state
   core V1 không mang hướng lửa nên V1 chỉ dùng dải frame lõi 28..=59 và **mọi ô lửa
   vẽ cùng một frame** (R-087, Q-003).
+- Thứ tự vẽ **nổ đè lên lửa** và cách client gốc vẽ nổ là `design` của V1 (R-088):
+  chưa có consumer gốc xác nhận (Q-003); test của client chỉ là regression theo quy
+  ước đã chốt.
 - V1 chưa có presentation journal nên **không** phát lại chuỗi chết: nhân vật chết
   dùng khung cuối của clip (ảnh rỗng 0×0) nên **không được vẽ**. Chuỗi chết sẽ phát
   khi có journal (P7).
@@ -447,10 +485,10 @@ Giới hạn đã biết:
 - **Lửa không có hướng trong state.** Clip `flame.main` gộp thân/đuôi/nhánh; state core
   V1 không mang hướng lửa nên V1 chỉ dùng dải frame lõi 28..=59 cho mọi ô lửa
   (BUNDLES §7.1, R-087, Q-003).
-- **Vụ nổ chưa có clip.** `FxDesktop/Bomb/BombExplosion001` có ảnh trong atlas (vai trò
-  `explosion_art`) nhưng bảng clip animation của V1 chưa có clip nào dùng tới: chưa có
-  claim state → animation cho hiệu ứng nổ. Bundle ghi rõ ở `[[unknown]]` (kind
-  `animation_clip`) thay vì bỏ qua âm thầm.
+- **Clip nổ chỉ có một chuỗi.** `FxDesktop/Bomb/BombExplosion001` (vai trò `explosion_art`)
+  là **một** clip 10 frame liên tục: pack không tách tâm/nhánh/đuôi nên không có clip
+  riêng theo phần (R-084). Client V1 phát clip này tại **ô bom** khi core báo
+  `bomb_exploded`, trong khoảng clip, rồi ô đó về lại `flame.main` (R-088).
 - **Lớp `Static`/`Adjust` chỉ ghi lại.** Thứ tự vẽ và cách blend của hai lớp chưa có
   consumer xác nhận (Q-003); bundle chỉ ghi lớp nào là lớp nào.
 - **`f2` chưa chốt.** Ngữ nghĩa field `flag` vẫn chưa biết; bundle giữ nguyên số.
@@ -474,7 +512,7 @@ Giới hạn đã biết:
 - **Bảng UI là quyết định của dự án.** Nó ghi trạng thái dùng và cách thay thế, không
   phải luật chơi; nhãn nguồn/trạng thái theo AGENTS §4 (`kr_static`/`confirmed` cho
   asset có thật, `design`/`design` cho phần tử không dùng asset nào).
-- **`content_hash` gắn với byte file atlas.** Đổi bộ mã PNG (đổi phiên bản thư viện
+- **`content_hash` gắn với byte file atlas/audio.** Đổi bộ mã PNG (đổi phiên bản thư viện
   `png`) thì hash đổi, dù pixel không đổi. Đánh đổi có chủ ý: reader ràng buộc được
   nội dung hiển thị mà không cần giải ảnh. Nếu sau này cần hash **theo pixel thuần**
   (đổi bộ mã PNG không đổi hash) thì reader phải giải PNG và đối chiếu từng vùng RGBA

@@ -123,13 +123,13 @@ impl ClipDecl {
 
 /// Bảng entry animation cần có cho state trình diễn của V1.
 ///
-/// Bảng này là **dữ liệu content** (RULES_V1 R-077/R-078), không phải luật chơi: state
+/// Bảng này là **dữ liệu content** (RULES_V1 R-077/R-078/R-084), không phải luật chơi: state
 /// nào dùng clip nào là quyết định chọn nội dung của V1, còn frame/pivot đọc từ pack.
 ///
 /// Trạng thái bằng chứng theo từng nhóm:
 ///
-/// - `walk` (4 hướng), `dead`, bom đếm fuse và icon item: `confirmed` — tên entry khớp
-///   state và dãi frame đọc được trong pack KR 00967.
+/// - `walk` (4 hướng), `dead`, bom đếm fuse, icon item và hiệu ứng nổ: `confirmed` —
+///   tên entry khớp state và dãi frame đọc được trong pack KR 00967.
 /// - `idle` (`Blink`/`BlinkSmall`), `start`, `trapped` (`FaintLayer` + bong bóng) và
 ///   lửa: `candidate` — entry có trong pack nhưng **chưa có consumer nào xác nhận**
 ///   state nào dùng nó (Q-003); cùng mức với manifest closure (issue #34).
@@ -297,6 +297,20 @@ pub fn v1_clip_sources() -> Vec<ClipSource> {
             .build(),
         );
     }
+    out.push(
+        ClipDecl {
+            id: "explosion.main".to_owned(),
+            pack: BOMB_PACK,
+            entry: "Bomb/BombExplosion001".to_owned(),
+            layer: None,
+            state: PresentationState::Explosion,
+            status: Status::Confirmed,
+            claim: CLAIM_CONFIRMED,
+            note: "hiệu ứng nổ: **một** clip 10 frame liên tục, pack không tách tâm/nhánh/đuôi \
+                   nên không có clip riêng theo phần (R-084)",
+        }
+        .build(),
+    );
     for item in ITEMS {
         out.push(
             ClipDecl {
@@ -532,6 +546,7 @@ mod tests {
             "item.bomb",
             "item.fire",
             "item.roller",
+            "explosion.main",
         ] {
             assert!(
                 sources.iter().any(|source| source.id == id),
@@ -583,6 +598,7 @@ mod tests {
             "MotionBlur/Blur_Fire01_Left"
         );
         assert_eq!(entry_of("item.roller"), "Item/Roller");
+        assert_eq!(entry_of("explosion.main"), "Bomb/BombExplosion001");
     }
 
     /// Không clip nào được mang thời lượng đoán mò: chưa có nguồn thì là `unknown`.
@@ -652,6 +668,7 @@ mod tests {
         assert_eq!(frames_of("item.bomb"), 1);
         assert_eq!(frames_of("item.fire"), 1);
         assert_eq!(frames_of("item.roller"), 1);
+        assert_eq!(frames_of("explosion.main"), 10);
     }
 
     /// Clip chết có khung cuối trỏ ảnh 0×0: dữ liệu thật, không phải lỗi.

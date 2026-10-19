@@ -345,6 +345,9 @@ impl Scene {
 /// nhân vật (đứng trên bom khi mới đặt). BUNDLES §7.
 const ORDER_OBJECT: u8 = 0;
 /// Thứ tự vẽ: lửa.
+///
+/// Hiệu ứng nổ dùng **cùng** bậc này: nó được đẩy **sau** lửa nên vẽ đè lên lửa ở
+/// cùng ô (BUNDLES §7.1, R-088).
 const ORDER_FLAME: u8 = 1;
 /// Thứ tự vẽ: bom.
 const ORDER_BOMB: u8 = 2;
@@ -400,6 +403,10 @@ pub struct Plan {
 /// `clock` là nhịp phát frame: frame tiến theo **tick mô phỏng**, không theo đồng hồ
 /// wall clock (ADR 0004).
 ///
+/// `explosions` là sổ trình diễn: các vụ nổ core đã báo (`bomb_exploded`). Trong khoảng
+/// clip, ô của bom vẽ clip nổ `explosion.main` đè lên lửa; hết khoảng clip thì ô đó
+/// về lại `flame.main` (BUNDLES §7.1, R-088).
+///
 /// # Panics
 ///
 /// Không panic: bundle thiếu clip hoặc frame không có ảnh thì đối tượng tương ứng
@@ -412,6 +419,7 @@ pub fn presentation_plan(
     world: &World,
     clock: &FrameClock,
     previous: &BTreeMap<u8, (i32, i32)>,
+    explosions: &anim::ExplosionJournal,
 ) -> Plan {
     let tile_px = scene.tile_px;
     let tick = state.tick;
@@ -497,6 +505,33 @@ pub fn presentation_plan(
             ORDER_CHARACTER,
             clip_plan_item(bundle, &clip_id, frame, column, row, tile_px, &mut missing),
         ));
+    }
+
+    // Hiệu ứng nổ: phát tại ô bom khi core báo nổ (`bomb_exploded`), trong khoảng
+    // clip; hết khoảng clip thì ô đó về lại lửa. Đẩy **sau** lửa nên vẽ đè lên lửa
+    // ở cùng ô (BUNDLES §7.1, R-088).
+    if let Some(clip) = bundle
+        .clips
+        .iter()
+        .find(|clip| clip.id == anim::EXPLOSION_CLIP)
+    {
+        for (cell, frame) in explosions.active(tick, clock, clip.frames.len()) {
+            let (column, row) = cell_u16(cell.x, cell.y);
+            items.push((
+                row,
+                column,
+                ORDER_FLAME,
+                clip_plan_item(
+                    bundle,
+                    anim::EXPLOSION_CLIP,
+                    Some(frame),
+                    column,
+                    row,
+                    tile_px,
+                    &mut missing,
+                ),
+            ));
+        }
     }
 
     // Z-order: hàng lớn hơn vẽ sau (gần người xem hơn), cùng hàng thì cột lớn hơn
@@ -618,7 +653,7 @@ fn cell_u16(x: i32, y: i32) -> (u16, u16) {
 /// Clip V1 mà client cần; bundle thiếu thì client vẽ ô màu thay thế.
 ///
 /// Danh sách lấy từ bảng clip của V1 (R-077/R-078) cho hai nhân vật C00/C01, cộng
-/// clip bom và clip lửa.
+/// clip bom, clip lửa và clip nổ.
 #[must_use]
 pub fn required_clip_ids() -> Vec<String> {
     let mut ids = Vec::new();
@@ -633,6 +668,7 @@ pub fn required_clip_ids() -> Vec<String> {
     }
     ids.push(anim::BOMB_CLIP.to_owned());
     ids.push(anim::FLAME_CLIP.to_owned());
+    ids.push(anim::EXPLOSION_CLIP.to_owned());
     ids
 }
 
@@ -846,6 +882,7 @@ mod tests {
             cells,
             clips: Vec::new(),
             ui: Vec::new(),
+            audio: Vec::new(),
             unknown: Vec::new(),
         }
     }
@@ -1134,12 +1171,13 @@ mod tests {
         }
     }
 
-    /// Bundle test có clip của V1: nhân vật (đi/đứng/chết), bom và lửa.
+    /// Bundle test có clip của V1: nhân vật (đi/đứng/chết), bom, lửa và nổ.
     fn clip_bundle() -> Bundle {
         let mut bundle = two_object_bundle();
         bundle.sprites.push(clip_sprite("c00"));
         bundle.sprites.push(clip_sprite("bomb"));
         bundle.sprites.push(clip_sprite("flame"));
+        bundle.sprites.push(clip_sprite("explosion"));
         bundle.clips = vec![
             clip(
                 "c00.walk.down.static",
@@ -1155,6 +1193,12 @@ mod tests {
                 PresentationState::Flame(FlameKind::Main),
                 "flame",
                 100,
+            ),
+            clip(
+                "explosion.main",
+                PresentationState::Explosion,
+                "explosion",
+                10,
             ),
         ];
         bundle
@@ -1185,6 +1229,11 @@ mod tests {
         SimulationState::new_round(world, &roster, 7).expect("lượt")
     }
 
+    /// Sổ trình diễn rỗng: chưa có vụ nổ nào.
+    fn empty_journal() -> anim::ExplosionJournal {
+        anim::ExplosionJournal::default()
+    }
+
     /// Nghiệm thu V1-031 (không GPU): state core → clip/frame đúng cho đi, đứng,
     /// chết, bom và lửa.
     #[test]
@@ -1197,7 +1246,15 @@ mod tests {
         let mut previous = BTreeMap::new();
         previous.insert(0, (state.players[0].x.0 - 1000, state.players[0].y.0));
 
-        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &previous);
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &CLOCK,
+            &previous,
+            &empty_journal(),
+        );
         let clip_of = |item: &PlanItem| match item {
             PlanItem::Sprite { clip, frame, .. } => (clip.clone(), *frame),
             PlanItem::Fallback { clip, .. } => (clip.clone(), usize::MAX),
@@ -1212,7 +1269,15 @@ mod tests {
         assert_eq!(character.0, "c00.walk.down.static");
 
         // Đứng yên (vị trí không đổi) → clip đứng.
-        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &BTreeMap::new());
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &CLOCK,
+            &BTreeMap::new(),
+            &empty_journal(),
+        );
         let character = plan
             .items
             .iter()
@@ -1236,7 +1301,15 @@ mod tests {
             source: EntityId(1),
             owner: 0,
         });
-        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &previous);
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &CLOCK,
+            &previous,
+            &empty_journal(),
+        );
         let clips: Vec<&str> = plan
             .items
             .iter()
@@ -1260,6 +1333,138 @@ mod tests {
         assert!((28..=59).contains(&flame_frame));
     }
 
+    /// Nghiệm thu V1-031 (không GPU): clip nổ phát đúng ô bom theo event core, phát
+    /// trong khoảng clip rồi ô đó về lại lửa.
+    #[test]
+    fn plan_plays_the_explosion_clip_at_the_bomb_cell() {
+        let bundle = clip_bundle();
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        // Lửa ở ô bom (0, 1) — ô đặt bom luôn có lửa sau khi nổ.
+        let bomb_cell = boom_core::Cell::new(0, 1);
+        state.flames.push(Flame {
+            cell: bomb_cell,
+            until: 100,
+            source: EntityId(1),
+            owner: 0,
+        });
+        // Core báo nổ ở tick 10 ⇒ hiệu ứng nổ bắt đầu từ tick đó.
+        let mut journal = empty_journal();
+        journal.record(bomb_cell, 10);
+
+        // Tick ngay sau event: ô đó vẽ clip nổ (đè lên lửa) và vẫn vẽ lửa.
+        state.tick = 11;
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &CLOCK,
+            &BTreeMap::new(),
+            &journal,
+        );
+        let clips: Vec<&str> = plan
+            .items
+            .iter()
+            .map(|item| match item {
+                PlanItem::Sprite { clip, .. } => clip.as_str(),
+                PlanItem::Fallback { clip, .. } => clip.as_str(),
+                PlanItem::Object(_) => "",
+            })
+            .collect();
+        assert!(
+            clips.contains(&"explosion.main"),
+            "thiếu clip nổ: {clips:?}"
+        );
+        assert!(clips.contains(&"flame.main"), "thiếu clip lửa: {clips:?}");
+
+        // Frame nổ tính từ tick event, không theo đồng hồ wall clock.
+        let explosion_frame = plan
+            .items
+            .iter()
+            .find_map(|item| match item {
+                PlanItem::Sprite { clip, frame, .. } if clip == "explosion.main" => Some(*frame),
+                _ => None,
+            })
+            .expect("hiệu ứng nổ phải có frame");
+        assert_eq!(explosion_frame, 0);
+        // Lửa vẽ trước, nổ vẽ sau (nổ đè lên lửa ở cùng ô).
+        let order = |clip: &str| {
+            plan.items
+                .iter()
+                .position(|item| matches!(item, PlanItem::Sprite { clip: c, .. } if c == clip))
+        };
+        assert!(order("flame.main") < order("explosion.main"));
+
+        // Hết khoảng clip (10 frame × 100 ms): ô đó về lại lửa, không còn clip nổ.
+        state.tick = 10 + 33;
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &CLOCK,
+            &BTreeMap::new(),
+            &journal,
+        );
+        let clips: Vec<&str> = plan
+            .items
+            .iter()
+            .map(|item| match item {
+                PlanItem::Sprite { clip, .. } => clip.as_str(),
+                PlanItem::Fallback { clip, .. } => clip.as_str(),
+                PlanItem::Object(_) => "",
+            })
+            .collect();
+        assert!(clips.contains(&"flame.main"), "thiếu clip lửa: {clips:?}");
+        assert!(
+            !clips.contains(&"explosion.main"),
+            "hết khoảng clip thì không còn nổ: {clips:?}"
+        );
+    }
+
+    /// Bundle không có clip nổ ⇒ không có hiệu ứng nổ để vẽ, không panic.
+    #[test]
+    fn missing_explosion_clip_draws_nothing_extra() {
+        let mut bundle = clip_bundle();
+        bundle.clips.retain(|clip| clip.id != "explosion.main");
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        let bomb_cell = boom_core::Cell::new(0, 1);
+        state.flames.push(Flame {
+            cell: bomb_cell,
+            until: 100,
+            source: EntityId(1),
+            owner: 0,
+        });
+        let mut journal = empty_journal();
+        journal.record(bomb_cell, 10);
+        state.tick = 11;
+
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &CLOCK,
+            &BTreeMap::new(),
+            &journal,
+        );
+        let clips: Vec<&str> = plan
+            .items
+            .iter()
+            .map(|item| match item {
+                PlanItem::Sprite { clip, .. } => clip.as_str(),
+                PlanItem::Fallback { clip, .. } => clip.as_str(),
+                PlanItem::Object(_) => "",
+            })
+            .collect();
+        assert!(clips.contains(&"flame.main"), "thiếu clip lửa: {clips:?}");
+        assert!(!clips.contains(&"explosion.main"), "{clips:?}");
+    }
+
     /// Clip thiếu trong bundle → ô màu thay thế + ghi tên clip thiếu, không panic.
     #[test]
     fn missing_clip_falls_back_to_a_color_box() {
@@ -1275,7 +1480,15 @@ mod tests {
             owner: 0,
         });
 
-        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &BTreeMap::new());
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &CLOCK,
+            &BTreeMap::new(),
+            &empty_journal(),
+        );
         assert_eq!(plan.missing_clips, vec!["flame.main".to_owned()]);
         let fallback = plan
             .items
