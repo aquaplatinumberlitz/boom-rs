@@ -21,7 +21,7 @@ Pha, hạn và việc tiếp theo ở [REWRITE_PLAN](REWRITE_PLAN.md) — không
 | Claude (Claude Code) | Integrator chính | Điều phối + review luồng core (#3–#8); **người ghi duy nhất** sổ tiến độ (`features.json`, `execution.json`); giữ contract core, AGENTS, `.github/`; merge, push, commit trên repo |
 | Codex | Co-integrator | Điều phối + review các luồng còn lại (#9–#15); merge PR đã review của luồng mình; review mọi PR do Claude viết |
 | OpenCode | Worker, 2–4 agent | Mặc định nhận luồng core; mỗi agent đặt tên `opencode-N` |
-| dsh | Worker, 2–4 agent | Mặc định nhận assets/RE/research/backend/net/l10n; mỗi agent đặt tên `dsh-N` |
+| dsh | Worker, 2 phiên cố định `dsh-A`, `dsh-B` | Mặc định nhận assets/RE/research/backend/net/l10n; xem quy tắc dsh dưới bảng |
 
 Quy tắc review và merge:
 
@@ -31,10 +31,16 @@ Quy tắc review và merge:
 - **Approval:** mọi agent dùng chung tài khoản GitHub `aquaplatinumberlitz`, nên GitHub không cho bấm Approve.
   Approval là comment review trên PR, của người không phải tác giả, ghi head SHA đã review và dòng kết luận
   `APPROVE` (hoặc `CHANGES REQUESTED` kèm finding). Merge chỉ khi có comment đó ứng với head hiện tại và CI xanh.
-- Sau merge, người merge báo Claude (comment trên issue) để cập nhật sổ tiến độ; Claude mở PR sổ tiến độ.
+- Sau merge, người merge **đóng issue khi mọi acceptance của issue đã đạt** trên `main` (kiểm theo danh sách acceptance trong issue,
+  không chỉ vì không còn PR mở). PR chỉ ghi `Closes #N` khi một mình nó đạt hết acceptance; còn lại ghi `Refs #N`. Rồi báo Claude
+  (comment trên issue) để cập nhật sổ tiến độ; Claude mở PR sổ tiến độ.
 - Worker không merge, không push `main`, không sửa sổ tiến độ.
-- Một issue = một agent = một worktree = một PR. Agent comment `nhận (opencode-2)` trên issue trước khi làm.
+- Một issue = một agent = một thư mục làm việc = một PR tại một thời điểm. OpenCode dùng worktree riêng mỗi issue; dsh dùng clone
+  cố định của phiên và đổi nhánh theo issue. Agent comment `nhận (<tên>)` trên issue trước khi làm.
 - Task đo trên client VN dùng Wine/Xvfb dùng chung máy: tại một thời điểm chỉ một agent chạy (ghi trong issue).
+- dsh chạy **2 phiên cố định** (dsh-A, dsh-B; quyết định chủ dự án 2026-10-19 để tận dụng cache context): mỗi phiên một clone riêng
+  (`.git` nằm trong thư mục làm việc, vì sandbox dsh không ghi được `.git/worktrees` của repo chính), làm tuần tự các task trong
+  hàng đợi của nó, đổi nhánh theo task. Không mở thêm agent dsh song song ngoài hai phiên này.
 
 Một người có thể kiêm nhiều vai trò. Số agent chạy cùng lúc bị giới hạn bởi năng lực review của hai integrator
 (xem bảng luồng theo pha trong REWRITE_PLAN). Thêm agent không làm nhanh phần đang chờ cùng một spec/interface;
@@ -78,7 +84,8 @@ Không tìm thấy sau một lượt có giới hạn → RE hoặc `design` có
 Vòng đời một task:
 
 1. Worker comment "nhận" trên issue; integrator ghi assignee/baseline vào `features.json` (`in_progress`).
-2. Worker tạo worktree riêng: `git -C /home/admin/boom-rs worktree add ../boom-rs-wt/<task> -b <task>`,
+2. Thư mục làm việc do integrator chuẩn bị khi giao: OpenCode nhận worktree `../boom-rs-wt/<task>`
+   (`git -C /home/admin/boom-rs worktree add ../boom-rs-wt/<task> -b <task>`); dsh làm trong clone cố định của phiên, đổi nhánh `<task>`,
    chạy `cargo xtask setup` một lần (hook pre-push chạy `cargo xtask ci`).
 3. Chỉ sửa file trong phạm vi issue. Cần đổi file dùng chung (`state/`, `event.rs`, `rules.rs`, `mode.rs`,
    `sim.rs`, `Cargo.toml` gốc, `features.json`, `execution.json`) → hỏi integrator trong issue.
@@ -134,7 +141,8 @@ Lời giao việc cho một agent (dán nguyên, thay số issue):
 ```text
 Làm task GitHub issue #N của repo /home/admin/boom-rs (gh issue view N).
 Trước khi làm: đọc AGENTS.md, docs/README.md, docs/planning/REWRITE_PLAN.md, docs/planning/SCOPE_V1.md
-và tài liệu issue chỉ định. Tạo worktree ../boom-rs-wt/<task> từ main, chạy cargo xtask setup.
+và tài liệu issue chỉ định. Làm trong thư mục integrator đã chuẩn bị (worktree ../boom-rs-wt/<task>, hoặc clone cố định của
+phiên dsh và nhánh <task>), chạy cargo xtask setup nếu chưa bật hook.
 Chỉ sửa file trong phạm vi issue; cần sửa file khác thì dừng và hỏi trong issue.
 Xong: cargo xtask ci xanh, scenario liên quan active, PR theo mẫu, báo lại link PR và điều còn thiếu.
 Không push lên main, không merge.
