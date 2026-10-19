@@ -4,6 +4,7 @@
 //! [`Authority::advance_to`]. Test gọi hàm trực tiếp. Phần 2 sẽ nối DTO `boom-proto`/`boom-sync`
 //! và IO `boom-net`; các kiểu `Internal*` ở đây được đặt tên rõ là nội bộ để thay thế.
 
+pub mod auth;
 mod authority;
 mod config;
 pub mod identity;

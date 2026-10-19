@@ -27,8 +27,8 @@ use fs4::{FileExt, TryLockError};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
-    Account, AccountId, AccountStore, NewAccount, NewSession, Session, SessionId, StoreError,
-    username_key,
+    Account, AccountId, AccountStore, NewAccount, NewSession, RevokeReason, Session, SessionId,
+    SessionStore, StoreError, username_key,
 };
 
 /// Tên file khóa instance trong thư mục dữ liệu (ADR 0011 §4).
@@ -96,21 +96,70 @@ FROM accounts WHERE id = ?1";
 const UPDATE_ACCOUNT_DISABLED: &str = "\
 UPDATE accounts SET disabled = ?2, updated_at_ms = ?3 WHERE id = ?1";
 
+const UPDATE_PASSWORD_HASH: &str = "\
+UPDATE accounts SET password_hash = ?2, updated_at_ms = ?3 WHERE id = ?1";
+
 const INSERT_SESSION: &str = "\
 INSERT INTO sessions (
     account_id, token_hash, instance_id, connection_id,
     created_at_ms, expires_at_ms, last_seen_at_ms, revoked_at_ms, revoke_reason
 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, NULL)";
 
+/// Dọn phiên đã hết TTL **của một tài khoản** (ADR 0011 §6.1 bước 2a).
+///
+/// Chạy trong **cùng** transaction với `INSERT` phiên mới ⇒ không có cửa sổ mà phiên cũ
+/// chặn phiên mới, và không có cửa sổ mà cleanup của phiên cũ chạm phiên vừa tạo.
+const REVOKE_EXPIRED_FOR_ACCOUNT: &str = "\
+UPDATE sessions SET revoked_at_ms = ?2, revoke_reason = ?3, connection_id = NULL
+WHERE account_id = ?1 AND revoked_at_ms IS NULL AND expires_at_ms <= ?2";
+
 const SELECT_SESSION_BY_ID: &str = "\
 SELECT id, account_id, instance_id, connection_id,
        created_at_ms, expires_at_ms, last_seen_at_ms, revoked_at_ms, revoke_reason
 FROM sessions WHERE id = ?1";
 
+const SELECT_SESSION_BY_TOKEN_HASH: &str = "\
+SELECT id, account_id, instance_id, connection_id,
+       created_at_ms, expires_at_ms, last_seen_at_ms, revoked_at_ms, revoke_reason
+FROM sessions WHERE token_hash = ?1 AND revoked_at_ms IS NULL";
+
 const SELECT_ACTIVE_SESSION: &str = "\
 SELECT id, account_id, instance_id, connection_id,
        created_at_ms, expires_at_ms, last_seen_at_ms, revoked_at_ms, revoke_reason
 FROM sessions WHERE account_id = ?1 AND revoked_at_ms IS NULL";
+
+/// Thu hồi đúng `session_id` còn giữ chỗ (ADR 0011 §6.1 bước 1).
+///
+/// `revoked_at_ms IS NULL` làm thao tác idempotent và **không** chạm phiên mới (id khác) —
+/// đây là hàng chống race "connection cũ chết sau khi connection mới đã đăng nhập" (`T4-A5`).
+const REVOKE_SESSION: &str = "\
+UPDATE sessions SET revoked_at_ms = ?2, revoke_reason = ?3, connection_id = NULL
+WHERE id = ?1 AND revoked_at_ms IS NULL";
+
+const REVOKE_ACCOUNT_SESSIONS: &str = "\
+UPDATE sessions SET revoked_at_ms = ?2, revoke_reason = ?3, connection_id = NULL
+WHERE account_id = ?1 AND revoked_at_ms IS NULL";
+
+/// Cleanup lúc boot: lọc theo `instance_id`, **không** lọc theo `account_id`
+/// (ADR 0011 §6.1 bước 3).
+const REVOKE_OTHER_INSTANCE_SESSIONS: &str = "\
+UPDATE sessions SET revoked_at_ms = ?2, revoke_reason = ?3, connection_id = NULL
+WHERE revoked_at_ms IS NULL AND instance_id <> ?1";
+
+const REVOKE_INSTANCE_SESSIONS: &str = "\
+UPDATE sessions SET revoked_at_ms = ?2, revoke_reason = ?3, connection_id = NULL
+WHERE revoked_at_ms IS NULL AND instance_id = ?1";
+
+const SWEEP_EXPIRED_SESSIONS: &str = "\
+UPDATE sessions SET revoked_at_ms = ?1, revoke_reason = ?2, connection_id = NULL
+WHERE revoked_at_ms IS NULL AND expires_at_ms <= ?1";
+
+const SWEEP_STALE_SESSIONS: &str = "\
+UPDATE sessions SET revoked_at_ms = ?2, revoke_reason = ?3, connection_id = NULL
+WHERE revoked_at_ms IS NULL AND instance_id = ?1 AND last_seen_at_ms <= ?4";
+
+const TOUCH_SESSION: &str = "\
+UPDATE sessions SET last_seen_at_ms = ?2 WHERE id = ?1 AND revoked_at_ms IS NULL";
 
 /// Tuỳ chọn mở DB.
 ///
@@ -223,30 +272,65 @@ impl SqliteAccountStore {
         integrity_check(&self.conn)
     }
 
-    /// Chèn hàng `sessions` — **khoảng lưu phiên**.
+    /// Số phiên đang **giữ chỗ** (`revoked_at_ms IS NULL`) của tài khoản.
     ///
-    /// Ràng buộc "một tài khoản một phiên hiệu lực" do unique partial index
-    /// `sessions_one_active_per_account` thực thi ở tầng DB: lần hai cho cùng tài khoản
-    /// trả [`StoreError::AccountHasActiveSession`] (ADR 0011 §4, SCOPE_V1 §3).
-    ///
-    /// **Không phải API vòng đời phiên**: phát token, TTL và giải phóng theo liveness là T4
-    /// (`identity/session.rs`).
-    pub fn insert_session(&mut self, session: NewSession) -> Result<Session, StoreError> {
-        self.conn
-            .execute(
-                INSERT_SESSION,
-                params![
-                    session.account_id.0,
-                    session.token_hash,
-                    session.instance_id,
-                    session.connection_id,
-                    session.created_at_ms,
-                    session.expires_at_ms,
-                    session.last_seen_at_ms,
-                ],
+    /// Unique partial index `sessions_one_active_per_account` đảm bảo giá trị này **≤ 1**
+    /// (ADR 0011 §4); hàm tồn tại để kiểm chứng và chẩn đoán, không phải để dựa vào nó cho
+    /// policy.
+    pub fn active_session_count(&self, account_id: AccountId) -> Result<usize, StoreError> {
+        let count: i64 = self
+            .conn
+            .query_row(
+                "SELECT count(*) FROM sessions WHERE account_id = ?1 AND revoked_at_ms IS NULL",
+                [account_id.0],
+                |row| row.get(0),
             )
-            .map_err(map_constraint)?;
-        let id = self.conn.last_insert_rowid();
+            .map_err(sqlite_err)?;
+        Ok(count as usize)
+    }
+}
+
+impl SessionStore for SqliteAccountStore {
+    /// Tạo phiên mới trong **một** transaction (ADR 0011 §6.1 bước 2).
+    ///
+    /// Transaction gồm: (a) revoke các phiên đã hết TTL **của tài khoản đó** (reason
+    /// `expired`), (b) `INSERT` phiên mới kèm `instance_id`/`connection_id`. Vì (a) và (b)
+    /// cùng transaction, không có cửa sổ mà phiên cũ chặn phiên mới, và không có cửa sổ mà
+    /// cleanup của phiên cũ chạm phiên vừa tạo.
+    ///
+    /// `BEGIN IMMEDIATE` lấy khóa ghi ngay ⇒ hai lần đăng nhập đồng thời bị tuần tự hóa: một
+    /// thắng, một còn lại vi phạm unique partial index ⇒ rollback ⇒
+    /// [`StoreError::AccountHasActiveSession`] (ADR 0011 §9 dòng 8, ca `T4-A4`).
+    fn create_session(&mut self, session: NewSession) -> Result<Session, StoreError> {
+        let now_ms = session.created_at_ms;
+        let tx = self
+            .conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(sqlite_err)?;
+
+        tx.execute(
+            REVOKE_EXPIRED_FOR_ACCOUNT,
+            params![session.account_id.0, now_ms, RevokeReason::Expired.as_str()],
+        )
+        .map_err(sqlite_err)?;
+
+        tx.execute(
+            INSERT_SESSION,
+            params![
+                session.account_id.0,
+                session.token_hash,
+                session.instance_id,
+                session.connection_id,
+                session.created_at_ms,
+                session.expires_at_ms,
+                session.last_seen_at_ms,
+            ],
+        )
+        .map_err(map_constraint)?;
+
+        let id = tx.last_insert_rowid();
+        tx.commit().map_err(sqlite_err)?;
+
         Ok(Session {
             id: SessionId(id),
             account_id: session.account_id,
@@ -260,8 +344,30 @@ impl SqliteAccountStore {
         })
     }
 
+    /// Đọc phiên theo định danh.
+    fn session_by_id(&self, id: SessionId) -> Result<Option<Session>, StoreError> {
+        let mut stmt = self
+            .conn
+            .prepare_cached(SELECT_SESSION_BY_ID)
+            .map_err(sqlite_err)?;
+        stmt.query_row([id.0], session_from_row)
+            .optional()
+            .map_err(sqlite_err)
+    }
+
+    /// Đọc phiên theo SHA-256(token thô).
+    fn session_by_token_hash(&self, token_hash: &[u8]) -> Result<Option<Session>, StoreError> {
+        let mut stmt = self
+            .conn
+            .prepare_cached(SELECT_SESSION_BY_TOKEN_HASH)
+            .map_err(sqlite_err)?;
+        stmt.query_row([token_hash], session_from_row)
+            .optional()
+            .map_err(sqlite_err)
+    }
+
     /// Phiên đang **giữ chỗ** (`revoked_at_ms IS NULL`) của tài khoản.
-    pub fn active_session(&self, account_id: AccountId) -> Result<Option<Session>, StoreError> {
+    fn active_session(&self, account_id: AccountId) -> Result<Option<Session>, StoreError> {
         let mut stmt = self
             .conn
             .prepare_cached(SELECT_ACTIVE_SESSION)
@@ -271,15 +377,113 @@ impl SqliteAccountStore {
             .map_err(sqlite_err)
     }
 
-    /// Đọc phiên theo định danh.
-    pub fn session_by_id(&self, id: SessionId) -> Result<Option<Session>, StoreError> {
-        let mut stmt = self
+    /// Thu hồi đúng `session_id` còn giữ chỗ (ADR 0011 §6.1 bước 1).
+    fn revoke_session(
+        &mut self,
+        id: SessionId,
+        reason: RevokeReason,
+        now_ms: i64,
+    ) -> Result<bool, StoreError> {
+        let changed = self
             .conn
-            .prepare_cached(SELECT_SESSION_BY_ID)
+            .execute(REVOKE_SESSION, params![id.0, now_ms, reason.as_str()])
             .map_err(sqlite_err)?;
-        stmt.query_row([id.0], session_from_row)
-            .optional()
-            .map_err(sqlite_err)
+        Ok(changed > 0)
+    }
+
+    /// Thu hồi mọi phiên đang giữ chỗ của tài khoản (đường admin, ADR 0011 §6).
+    fn revoke_account_sessions(
+        &mut self,
+        account_id: AccountId,
+        reason: RevokeReason,
+        now_ms: i64,
+    ) -> Result<usize, StoreError> {
+        let changed = self
+            .conn
+            .execute(
+                REVOKE_ACCOUNT_SESSIONS,
+                params![account_id.0, now_ms, reason.as_str()],
+            )
+            .map_err(sqlite_err)?;
+        Ok(changed)
+    }
+
+    /// Thu hồi phiên của **instance khác** (cleanup lúc boot, ADR 0011 §6.1 bước 3).
+    fn revoke_other_instance_sessions(
+        &mut self,
+        current_instance_id: &str,
+        reason: RevokeReason,
+        now_ms: i64,
+    ) -> Result<usize, StoreError> {
+        let changed = self
+            .conn
+            .execute(
+                REVOKE_OTHER_INSTANCE_SESSIONS,
+                params![current_instance_id, now_ms, reason.as_str()],
+            )
+            .map_err(sqlite_err)?;
+        Ok(changed)
+    }
+
+    /// Thu hồi phiên của **instance này** (server tắt có trật tự, ADR 0011 §6.1).
+    fn revoke_instance_sessions(
+        &mut self,
+        instance_id: &str,
+        reason: RevokeReason,
+        now_ms: i64,
+    ) -> Result<usize, StoreError> {
+        let changed = self
+            .conn
+            .execute(
+                REVOKE_INSTANCE_SESSIONS,
+                params![instance_id, now_ms, reason.as_str()],
+            )
+            .map_err(sqlite_err)?;
+        Ok(changed)
+    }
+
+    /// Quét và thu hồi phiên đã hết TTL (ADR 0011 §6.1 bước 4).
+    fn sweep_expired_sessions(&mut self, now_ms: i64) -> Result<usize, StoreError> {
+        let changed = self
+            .conn
+            .execute(
+                SWEEP_EXPIRED_SESSIONS,
+                params![now_ms, RevokeReason::Expired.as_str()],
+            )
+            .map_err(sqlite_err)?;
+        Ok(changed)
+    }
+
+    /// Quét và thu hồi phiên quá hạn liveness của `instance_id` (ADR 0011 §6.1).
+    fn sweep_stale_sessions(
+        &mut self,
+        instance_id: &str,
+        liveness_timeout_ms: i64,
+        now_ms: i64,
+    ) -> Result<usize, StoreError> {
+        let threshold = now_ms.saturating_sub(liveness_timeout_ms);
+        let changed = self
+            .conn
+            .execute(
+                SWEEP_STALE_SESSIONS,
+                params![
+                    instance_id,
+                    now_ms,
+                    RevokeReason::TimeoutNoInput.as_str(),
+                    threshold
+                ],
+            )
+            .map_err(sqlite_err)?;
+        Ok(changed)
+    }
+
+    /// Cập nhật `last_seen_at_ms`.
+    fn touch_session(&mut self, id: SessionId, now_ms: i64) -> Result<bool, StoreError> {
+        let changed = self
+            .conn
+            .execute(TOUCH_SESSION, params![id.0, now_ms])
+            .map_err(sqlite_err)?;
+        Ok(changed > 0)
     }
 }
 
@@ -354,6 +558,20 @@ impl AccountStore for SqliteAccountStore {
                 UPDATE_ACCOUNT_DISABLED,
                 params![id.0, i64::from(disabled), now_ms],
             )
+            .map_err(sqlite_err)?;
+        Ok(changed > 0)
+    }
+
+    /// Ghi lại PHC string (rehash khi tham số Argon2 đổi, ADR 0011 §5).
+    fn update_password_hash(
+        &mut self,
+        id: AccountId,
+        password_hash: &str,
+        now_ms: i64,
+    ) -> Result<bool, StoreError> {
+        let changed = self
+            .conn
+            .execute(UPDATE_PASSWORD_HASH, params![id.0, password_hash, now_ms])
             .map_err(sqlite_err)?;
         Ok(changed > 0)
     }
@@ -633,7 +851,9 @@ mod tests {
     use super::{
         AccountStore, MIGRATIONS, SUPPORTED_SCHEMA_VERSION, SqliteAccountStore, SqliteOptions,
     };
-    use crate::identity::{AccountId, NewAccount, NewSession, Secret, StoreError, username_key};
+    use crate::identity::{
+        AccountId, NewAccount, NewSession, Secret, SessionStore, StoreError, username_key,
+    };
     use rusqlite::params;
     use tempfile::TempDir;
 
@@ -874,11 +1094,11 @@ mod tests {
         let account = store.create_account(new_account("bomber")).unwrap();
 
         store
-            .insert_session(new_session(account.id, b"token-1"))
+            .create_session(new_session(account.id, b"token-1"))
             .unwrap();
         assert_eq!(
             store
-                .insert_session(new_session(account.id, b"token-2"))
+                .create_session(new_session(account.id, b"token-2"))
                 .unwrap_err(),
             StoreError::AccountHasActiveSession
         );
@@ -892,7 +1112,7 @@ mod tests {
             )
             .unwrap();
         store
-            .insert_session(new_session(account.id, b"token-2"))
+            .create_session(new_session(account.id, b"token-2"))
             .unwrap();
         assert!(store.active_session(account.id).unwrap().is_some());
     }
@@ -1109,5 +1329,52 @@ mod tests {
     #[test]
     fn username_key_helper_is_shared_with_store() {
         assert_eq!(username_key(" BoMber ").unwrap(), "bomber");
+    }
+
+    /// DB **chỉ** lưu SHA-256(token thô), không lưu token thô (ADR 0011 §6, threat §9 dòng 3).
+    #[test]
+    fn db_stores_only_token_hash_not_raw_token() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let account = store.create_account(new_account("bomber")).unwrap();
+
+        // Token thô giả, đúng dạng base64url 43 ký tự.
+        let raw_token = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let hash = crate::identity::token_hash(raw_token);
+        assert_eq!(hash.len(), 32);
+
+        store
+            .create_session(NewSession {
+                account_id: account.id,
+                token_hash: hash.clone(),
+                instance_id: String::from("instance-1"),
+                connection_id: Some(String::from("conn-1")),
+                created_at_ms: 1_700_000_000_000,
+                expires_at_ms: 1_700_000_000_000 + 86_400_000,
+                last_seen_at_ms: 1_700_000_000_000,
+            })
+            .unwrap();
+
+        // Tra theo hash thì ra phiên; tra theo token thô thì không ra.
+        let found = store.session_by_token_hash(&hash).unwrap();
+        assert!(found.is_some());
+        assert!(
+            store
+                .session_by_token_hash(raw_token.as_bytes())
+                .unwrap()
+                .is_none()
+        );
+
+        // Cột `token_hash` trong DB không chứa token thô.
+        let stored: Vec<u8> = store
+            .conn
+            .query_row("SELECT token_hash FROM sessions", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(stored, hash);
+        assert!(
+            !stored
+                .windows(raw_token.len())
+                .any(|w| w == raw_token.as_bytes())
+        );
     }
 }
