@@ -21,12 +21,73 @@
 //! Clip nào ứng với state nào là **dữ liệu content của V1** (RULES_V1), không phải
 //! luật chơi; bảng ánh xạ nằm ở `boom-assets::animation`.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::rules::{Source, Status};
 
+/// `rules::Source` và `rules::Status` chỉ có `Deserialize`.
+///
+/// Bundle animation (schema 2) phải **ghi** nguồn và trạng thái ra TOML, nên hai kiểu
+/// này được serialize thủ công ở đây — `rules.rs` ngoài phạm vi sửa của task bundle
+/// animation. Tên ghi ra phải khớp `rename_all = "snake_case"` để nạp lại được.
+///
+/// Nếu `rules.rs` sau này thêm `#[derive(Serialize)]`, phải **xoá** hai impl thủ công
+/// dưới đây (không thể có cả hai cùng lúc).
+impl Serialize for Source {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            Self::KrStatic => "kr_static",
+            Self::KrRuntime => "kr_runtime",
+            Self::VnStatic => "vn_static",
+            Self::VnRuntime => "vn_runtime",
+            Self::Web => "web",
+            Self::Oss => "oss",
+            Self::EmuChoice => "emu_choice",
+            Self::Design => "design",
+        })
+    }
+}
+
+/// Serialize thủ công cho [`Status`] — xem [`Source`] để biết lý do.
+impl Serialize for Status {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(match self {
+            Self::Confirmed => "confirmed",
+            Self::Candidate => "candidate",
+            Self::Design => "design",
+            Self::Unknown => "unknown",
+        })
+    }
+}
+
+/// Tên nguồn bằng chứng (AGENTS §4) — khớp `Deserialize`/`Serialize` của `rules::Source`.
+#[must_use]
+pub fn source_name(source: Source) -> &'static str {
+    match source {
+        Source::KrStatic => "kr_static",
+        Source::KrRuntime => "kr_runtime",
+        Source::VnStatic => "vn_static",
+        Source::VnRuntime => "vn_runtime",
+        Source::Web => "web",
+        Source::Oss => "oss",
+        Source::EmuChoice => "emu_choice",
+        Source::Design => "design",
+    }
+}
+
+/// Tên trạng thái bằng chứng (AGENTS §4) — khớp `Deserialize`/`Serialize` của `rules::Status`.
+#[must_use]
+pub fn status_name(status: Status) -> &'static str {
+    match status {
+        Status::Confirmed => "confirmed",
+        Status::Candidate => "candidate",
+        Status::Design => "design",
+        Status::Unknown => "unknown",
+    }
+}
+
 /// Hướng trong V1: hướng đi của nhân vật và hướng lửa.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Direction {
     /// Lên trên.
@@ -50,6 +111,18 @@ impl Direction {
             Self::Right => "Right",
         }
     }
+
+    /// Khoá hướng dạng `snake_case` — dùng cho mã hoá chuẩn (khác [`Self::as_str`]
+    /// là tên entry trong pack của client gốc).
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Up => "up",
+            Self::Down => "down",
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
 }
 
 /// Lớp sprite của nhân vật: lớp nền (`Static`) và lớp ngoại hình điều chỉnh
@@ -57,7 +130,7 @@ impl Direction {
 ///
 /// Client gốc vẽ hai lớp này chồng nhau; **thứ tự và cách blend chưa có consumer
 /// đã xác nhận** (Q-003), nên schema chỉ ghi lớp nào là lớp nào.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpriteLayer {
     /// Lớp nền.
@@ -75,10 +148,20 @@ impl SpriteLayer {
             Self::Adjust => "Adjust",
         }
     }
+
+    /// Khoá lớp dạng `snake_case` — dùng cho mã hoá chuẩn (khác [`Self::as_str`]
+    /// là tên entry trong pack của client gốc).
+    #[must_use]
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Static => "static",
+            Self::Adjust => "adjust",
+        }
+    }
 }
 
 /// Dạng hình lửa trong V1.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FlameKind {
     /// Lửa chính của ô: entry `FxDesktop/Bomb/Fire00`.
@@ -92,7 +175,7 @@ pub enum FlameKind {
 }
 
 /// State trình diễn của V1 mà một clip phục vụ.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PresentationState {
     /// Nhân vật đi theo hướng.
@@ -113,6 +196,29 @@ pub enum PresentationState {
     Item,
 }
 
+impl PresentationState {
+    /// Khoá ổn định của state — dùng cho mã hoá chuẩn (bundle `content_hash`).
+    ///
+    /// Khoá là chuỗi `snake_case`; state có tham số (hướng, dạng lửa) thì thêm
+    /// tham số sau dấu gạch dưới, ví dụ `walk_up`, `flame_motion_blur_left`.
+    #[must_use]
+    pub fn key(self) -> String {
+        match self {
+            Self::Walk(direction) => format!("walk_{}", direction.key()),
+            Self::Idle => "idle".to_owned(),
+            Self::Start => "start".to_owned(),
+            Self::Trapped => "trapped".to_owned(),
+            Self::Dead => "dead".to_owned(),
+            Self::BombFuse => "bomb_fuse".to_owned(),
+            Self::Flame(FlameKind::Main) => "flame_main".to_owned(),
+            Self::Flame(FlameKind::MotionBlur(direction)) => {
+                format!("flame_motion_blur_{}", direction.key())
+            }
+            Self::Item => "item".to_owned(),
+        }
+    }
+}
+
 /// Thời lượng một frame của clip.
 ///
 /// Blob `CDataI16Alpha` v2 không có trường thời gian (MAPS §3), nên thời lượng chỉ
@@ -122,7 +228,7 @@ pub enum PresentationState {
 /// Nhánh [`FrameTiming::Known`] bắt buộc có ít nhất một claim, **kể cả khi nguồn là
 /// `design`**: ngoại lệ `design` thuần của rule profile không áp cho thời lượng
 /// frame.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameTiming {
     /// Có giá trị kèm nguồn và claim rõ ràng.
