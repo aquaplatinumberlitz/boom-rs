@@ -170,7 +170,7 @@ pivot_y = 66                      # f11
   pixel trong atlas, nên clip và sprite dùng chung ảnh.
 - **`state`** là state trình diễn: `walk` (kèm hướng `up`/`down`/`left`/`right`), `idle`,
   `start`, `trapped`, `dead`, `bomb_fuse`, `flame` (`main` hoặc `motion_blur` kèm hướng),
-  `item`.
+  `explosion`, `item`.
 - **`timing`** giữ đúng trạng thái bằng chứng của R-079:
   - `[clips.timing.unknown]` + `reason`: **không** mang số. V1 chưa chốt thời lượng
     frame nên bundle không tự đặt.
@@ -338,11 +338,11 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Ảnh | 299 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1430 |
 | Ô | 195, mọi ô có sprite nền |
-| Clip | 46 (24 clip R-077 `confirmed`, 22 clip R-078 `candidate`), 368 frame |
-| Thời lượng frame | 46/46 clip là `unknown` (R-079): không mang số |
+| Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
+| Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
-| `unknown` | 5 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) + 1 `animation_clip` (vụ nổ có ảnh nhưng chưa có clip) |
-| `content_hash` | `6938079e9c417fc241b76bc0f6cfc39a0a1c4b2b3aa68e9e3e2720c9da4e12bf` |
+| `unknown` | 4 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) |
+| `content_hash` | `27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2` |
 
 Cách kiểm lại:
 
@@ -447,10 +447,10 @@ Giới hạn đã biết:
 - **Lửa không có hướng trong state.** Clip `flame.main` gộp thân/đuôi/nhánh; state core
   V1 không mang hướng lửa nên V1 chỉ dùng dải frame lõi 28..=59 cho mọi ô lửa
   (BUNDLES §7.1, R-087, Q-003).
-- **Vụ nổ chưa có clip.** `FxDesktop/Bomb/BombExplosion001` có ảnh trong atlas (vai trò
-  `explosion_art`) nhưng bảng clip animation của V1 chưa có clip nào dùng tới: chưa có
-  claim state → animation cho hiệu ứng nổ. Bundle ghi rõ ở `[[unknown]]` (kind
-  `animation_clip`) thay vì bỏ qua âm thầm.
+- **Clip nổ chỉ có một chuỗi.** `FxDesktop/Bomb/BombExplosion001` (vai trò `explosion_art`)
+  là **một** clip 10 frame liên tục: pack không tách tâm/nhánh/đuôi nên không có clip
+  riêng theo phần (R-084). Client V1 **chưa** phát clip nổ (chưa có presentation
+  journal nên không biết lúc nào vụ nổ xảy ra trong lượt); bundle vẫn mang clip đầy đủ.
 - **Lớp `Static`/`Adjust` chỉ ghi lại.** Thứ tự vẽ và cách blend của hai lớp chưa có
   consumer xác nhận (Q-003); bundle chỉ ghi lớp nào là lớp nào.
 - **`f2` chưa chốt.** Ngữ nghĩa field `flag` vẫn chưa biết; bundle giữ nguyên số.
