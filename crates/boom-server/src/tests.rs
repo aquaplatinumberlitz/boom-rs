@@ -1512,3 +1512,39 @@ fn malformed_payload_closes_only_that_session() {
     assert_eq!(snapshot.round_id, round);
     assert!(snapshot.tick >= target_tick);
 }
+
+#[test]
+fn tcp_reject_reaches_client_before_eof() {
+    // Regression review #60 vòng 3: đóng session sau `Reject` phải để writer gửi xong frame, không
+    // shutdown socket ngay (trước đây client TCP thường chỉ thấy EOF, mất lý do từ chối).
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let a = Authority::new(ServerConfig::v1(), setup());
+    let h = handshake_config(&a);
+    let mut server = Server::new(a, h.clone());
+    for round in 0..20u64 {
+        let player = PlayerId(100 + round);
+        let mut client = boom_net::TcpTransport::connect(addr).unwrap();
+        server.accept_tcp(&listener, player, 0).unwrap();
+        let frame = encode_frame(&hello(h.rules_hash ^ 1), &ProtocolLimits::v1()).unwrap();
+        client.send_frame(&frame).unwrap();
+        let start = Instant::now();
+        while server.session_count() > 0 {
+            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+            assert!(
+                start.elapsed() < Duration::from_secs(2),
+                "server không xử lý Hello"
+            );
+        }
+        let frame = client
+            .recv_frame()
+            .unwrap()
+            .expect("client phải nhận Reject trước EOF");
+        let reject: Reject = decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
+        assert_eq!(reject.reason, RejectReason::RulesMismatch);
+        assert!(
+            matches!(client.recv_frame(), Ok(None) | Err(_)),
+            "sau Reject là EOF"
+        );
+    }
+}

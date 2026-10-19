@@ -40,12 +40,18 @@ enum Outbound {
 /// Hàng đợi ghi có giới hạn theo kết nối; client không đọc thì bị ngắt thay vì chặn tick.
 const OUTBOUND_QUEUE_FRAMES: usize = 32;
 
+/// Hạn chờ writer gửi nốt frame đã xếp (vd. `Reject`) trước khi đóng cưỡng bức socket. Giá trị
+/// vận hành (design), không phải luật chơi; không chặn tick vì chờ ở luồng riêng.
+const GRACEFUL_CLOSE_MS: u64 = 2_000;
+
 struct Session {
     slot: u8,
     session_id: String,
     handshaken: bool,
     out_tx: SyncSender<Outbound>,
     shutdown: Option<Box<dyn FnOnce() + Send>>,
+    /// Writer báo đã gửi hết queue và đóng nửa ghi (dùng khi đóng có flush).
+    writer_done: Receiver<()>,
     next_snapshot_ms: u64,
     snapshot_seq: u32,
 }
@@ -140,6 +146,7 @@ impl Server {
         let session_id = format!("s{}", self.next_session);
         self.next_session = self.next_session.saturating_add(1);
         let (out_tx, out_rx) = mpsc::sync_channel(OUTBOUND_QUEUE_FRAMES);
+        let (done_tx, writer_done) = mpsc::channel();
         self.sessions.insert(
             player,
             Session {
@@ -148,6 +155,7 @@ impl Server {
                 handshaken: false,
                 out_tx,
                 shutdown: Some(Box::new(shutdown)),
+                writer_done,
                 next_snapshot_ms: 0,
                 snapshot_seq: 0,
             },
@@ -166,6 +174,7 @@ impl Server {
                 }
             }
             let _ = writer.close();
+            let _ = done_tx.send(());
         });
         let tx = self.tx.clone();
         thread::spawn(move || {
@@ -319,7 +328,7 @@ impl Server {
                     detail: format!("handshake bị từ chối: {reason:?}"),
                 },
             )?;
-            self.close_session(player);
+            self.close_session_after_flush(player);
             return Ok(());
         }
         let Some(session) = self.sessions.get(&player) else {
@@ -481,6 +490,27 @@ impl Server {
         if self.sessions.remove(&player).is_some() {
             let _ = self.authority.disconnect(player, self.now_ms);
         }
+    }
+
+    /// Đóng session nhưng để writer gửi nốt frame đã xếp (vd. `Reject` handshake, ADR 0009 §1).
+    /// Bỏ `out_tx` làm writer thoát sau khi rút hết queue; một luồng canh gọi shutdown khi writer
+    /// xong hoặc quá `GRACEFUL_CLOSE_MS`, nên writer kẹt vẫn bị thu hồi và tick không phải chờ.
+    fn close_session_after_flush(&mut self, player: PlayerId) {
+        let Some(mut session) = self.sessions.remove(&player) else {
+            return;
+        };
+        let _ = self.authority.disconnect(player, self.now_ms);
+        let shutdown = session.shutdown.take();
+        let (dummy_tx, dummy_rx) = mpsc::channel();
+        drop(dummy_tx);
+        let writer_done = std::mem::replace(&mut session.writer_done, dummy_rx);
+        drop(session);
+        thread::spawn(move || {
+            let _ = writer_done.recv_timeout(Duration::from_millis(GRACEFUL_CLOSE_MS));
+            if let Some(shutdown) = shutdown {
+                shutdown();
+            }
+        });
     }
 
     // --- Điều khiển authority cho test/lớp backend khi chưa có DTO room/loading/result. ---
