@@ -1,0 +1,627 @@
+# Chuỗi UI V1 đã Việt hóa — sinh bằng `python3 tools/l10n_export.py`.
+# Nguồn: UI_STRINGS_V1 §2 (khóa, trạng thái) + catalog Việt hóa của boom-re-l10n (text).
+# Sửa file này bằng tool, không sửa tay; text lấy nguyên văn `catalog.vi`.
+schema = 1
+locale = "vi-VN"
+generated_by = "tools/l10n_export.py"
+catalog_source = "/home/admin/boom-re-l10n/l10n/catalog.csv"
+catalog_sha256 = "79a704b991f749ee46e66fdcafda8dd62ccbe5f6a4c9152e8de3d20e1fe59513"
+spec_source = "docs/specification/localization/UI_STRINGS_V1.md"
+
+[strings."app.auth_failed"]
+catalog_id = "ErrLoginNotRegistered"
+status = "review"
+reason = "needs-review"
+note = "Catalog gắn luồng Nexon; reviewer chọn key phù hợp, không tự soạn. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."app.connecting"]
+catalog_id = "ConnectingToSvr"
+status = "review"
+reason = "needs-review"
+note = "Catalog là câu chờ chung; reviewer chọn key/ngữ cảnh, không tự soạn bản mới. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."app.content_mismatch"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.content_mismatch`; chưa render."
+
+[strings."app.invalid_map"]
+catalog_id = "InvalidMapReturnToLobby"
+status = "catalog-translated"
+text = "Bản đồ không hợp lệ. Quay về sảnh."
+note = "Lấy `catalog.vi`."
+
+[strings."app.loading"]
+catalog_id = "Loading"
+status = "catalog-reused"
+text = "Đang tải..."
+note = "Lấy `catalog.vi`; giữ dấu `...`."
+
+[strings."app.network_error"]
+catalog_id = "NetworkError"
+status = "catalog-translated"
+text = "Do lỗi mạng nên không thể tiếp tục chơi game."
+note = "Lấy `catalog.vi`; wrap tối đa 3 dòng."
+
+[strings."app.quit_confirm"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; chưa render."
+
+[strings."app.session_replaced"]
+catalog_id = "szConnCloseMsg"
+status = "catalog-translated"
+text = "Có máy khác yêu cầu kết nối nên bạn bị đăng xuất."
+note = "Lấy `catalog.vi`; tối đa 2 dòng."
+
+[strings."app.version_mismatch"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.version_mismatch`; chưa render."
+
+[strings."common.cancel"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `common.cancel`; chưa render."
+
+[strings."common.close"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `common.close`; chưa render."
+
+[strings."common.confirm"]
+catalog_id = "OptionDlgYes"
+status = "review"
+reason = "needs-review"
+note = "Catalog là 'Có' trong hộp thoại tùy chọn; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."lobby.back"]
+catalog_id = "BackButton"
+status = "catalog-reused"
+text = "Quay lại"
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.channel"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.channel`; chưa render."
+
+[strings."lobby.channel_desc"]
+catalog_id = "ChannelExplain1"
+status = "catalog-translated"
+text = "Kênh tự do. Ai cũng vào được."
+note = "Lấy `catalog.vi`; tooltip."
+
+[strings."lobby.chat_hint"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.chat_hint`; chưa render."
+
+[strings."lobby.chat_send"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.chat_send`; chưa render."
+
+[strings."lobby.chat_tab_all"]
+catalog_id = "LobbySquare_ChatTab_All"
+status = "catalog-reused"
+text = "Tất cả"
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.chat_tab_notice"]
+catalog_id = "LobbySquare_ChatTab_Notice"
+status = "catalog-reused"
+text = "Thông báo"
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.chat_too_long"]
+catalog_id = "150CharLimit"
+status = "catalog-translated"
+text = "[Tối đa 150 ký tự]"
+note = "Dùng giới hạn 150; đếm grapheme cluster, giữ `%`/`[...]` nếu có."
+
+[strings."lobby.create"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxStage:Lobby/LB_Bt_T_Create-NM"
+note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog được chốt."
+
+[strings."lobby.empty"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.empty`; chưa render."
+
+[strings."lobby.exit"]
+catalog_id = "GBExit"
+status = "catalog-reused"
+text = "Thoát game"
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.help"]
+catalog_id = "GBHelp"
+status = "catalog-reused"
+text = "Trợ giúp"
+note = "Lấy `catalog.vi`; có thể ẩn nếu chưa có nội dung."
+
+[strings."lobby.join"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.join`; chưa render."
+
+[strings."lobby.join_failed"]
+catalog_id = "CantJoinRoom"
+status = "catalog-translated"
+text = "Không thể vào phòng."
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.join_session"]
+catalog_id = "JoinSession"
+status = "catalog-translated"
+text = "%s đã tham gia."
+note = "Giữ `%s`; lấy `catalog.vi`."
+
+[strings."lobby.leave_session"]
+catalog_id = "LeaveSession"
+status = "catalog-translated"
+text = "%s đã rời đi."
+note = "Giữ `%s`; lấy `catalog.vi`."
+
+[strings."lobby.options"]
+catalog_id = "GBOption"
+status = "catalog-reused"
+text = "Tùy chọn"
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.refresh"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.refresh`; chưa render."
+
+[strings."lobby.room_count"]
+catalog_id = "BigBattle_Lobby_Desc_UserCount"
+status = "review"
+reason = "needs-review"
+note = "Catalog là format BigBattle; reviewer chọn format, giữ `%d`. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."lobby.room_full"]
+catalog_id = "InvalidMaxUser"
+status = "review"
+reason = "needs-review"
+note = "Catalog nói số người không hợp lệ; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."lobby.room_host"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.room_host`; chưa render."
+
+[strings."lobby.room_info_changed"]
+catalog_id = "RoomInfoChanged"
+status = "catalog-translated"
+text = "Thông tin phòng đã được thay đổi."
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.room_name"]
+catalog_id = "CreateDlgTitle"
+status = "catalog-reused"
+text = "Tên phòng"
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.room_removed"]
+catalog_id = "RoomDestroyed"
+status = "catalog-translated"
+text = "Phòng đã không còn nữa."
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.room_status"]
+catalog_id = "RoomInfoDlgStatus"
+status = "catalog-translated"
+text = "Trạng thái"
+note = "Lấy `catalog.vi`."
+
+[strings."lobby.state_playing"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.state_playing`; chưa render."
+
+[strings."lobby.state_waiting"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.state_waiting`; chưa render."
+
+[strings."lobby.title"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.title`; chưa render."
+
+[strings."login.account"]
+catalog_id = "NewUserDlgID"
+status = "review"
+reason = "needs-review"
+note = "Catalog chỉ là nhãn ID; reviewer chọn key, không tự soạn. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."login.account_rule"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.account_rule`; chưa render."
+
+[strings."login.empty"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.empty`; chưa render."
+
+[strings."login.failed"]
+catalog_id = "ErrLoginNotRegistered"
+status = "review"
+reason = "needs-review"
+note = "Catalog gắn Nexon; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."login.password"]
+catalog_id = "Password"
+status = "catalog-translated"
+text = "Mật khẩu"
+note = "Lấy `catalog.vi`."
+
+[strings."login.register"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.register`; chưa render."
+
+[strings."login.submit"]
+catalog_id = "DailyMission_Mission_Login"
+status = "review"
+reason = "needs-review"
+note = "Catalog gắn nhiệm vụ ngày; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."login.title"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.title`; chưa render."
+
+[strings."match.disconnect_eliminated"]
+catalog_id = "ErrDisconnectByServer"
+status = "review"
+reason = "needs-review"
+note = "Catalog là thông báo ngắt kết nối chung; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."match.disconnect_warning"]
+catalog_id = "ErrNetworkError"
+status = "review"
+reason = "needs-review"
+note = "Catalog là thông báo mất mạng chung, không có đếm ngược; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."match.eliminated"]
+catalog_id = "BlueMonSay_event4_01"
+status = "review"
+reason = "needs-review"
+note = "Catalog gắn sự kiện quái; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."match.go"]
+catalog_id = "TutorialClickStartBackStress1"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn tutorial 'Nút Bắt đầu'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."match.item_bomb"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_bomb`; chưa render."
+
+[strings."match.item_fire"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_fire`; chưa render."
+
+[strings."match.item_roller"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_roller`; chưa render."
+
+[strings."match.pickup"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.pickup`; chưa render."
+
+[strings."match.result_pending"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.result_pending`; chưa render."
+
+[strings."match.timer"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer`; chưa render."
+
+[strings."match.timer_format"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer_format`; chưa render."
+
+[strings."match.trapped"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.trapped`; chưa render."
+
+[strings."options.apply"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `options.apply`; chưa render."
+
+[strings."options.fullscreen"]
+catalog_id = "OptionDlgFullScreen"
+status = "catalog-translated"
+text = "Toàn màn hình"
+note = "Lấy `catalog.vi`."
+
+[strings."options.music"]
+catalog_id = "OptionDlgBGM"
+status = "catalog-translated"
+text = "Nhạc nền"
+note = "Lấy `catalog.vi`."
+
+[strings."options.sfx"]
+catalog_id = "OptionDlgEffect"
+status = "catalog-translated"
+text = "Hiệu ứng âm thanh"
+note = "Lấy `catalog.vi`."
+
+[strings."options.volume"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `options.volume`; chưa render."
+
+[strings."options.windowed"]
+catalog_id = "OptionDlgWindowMode"
+status = "catalog-translated"
+text = "Chế độ cửa sổ"
+note = "Lấy `catalog.vi`."
+
+[strings."result.auto_return"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.auto_return`; chưa render."
+
+[strings."result.continue"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.continue`; chưa render."
+
+[strings."result.draw"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxStage:Game/Draw"
+note = "Duyệt ảnh; nếu chưa duyệt thì dùng key catalog được chốt."
+
+[strings."result.draw_all"]
+catalog_id = "TournamentNoWinner"
+status = "catalog-translated"
+text = "Không có người thắng"
+note = "Lấy `catalog.vi`; reviewer chốt ngữ cảnh giải đấu."
+
+[strings."result.lose"]
+catalog_id = "StateLose"
+status = "catalog-translated"
+text = "Thua"
+note = "Lấy `catalog.vi`; ảnh `Lose` cần duyệt nếu dùng."
+
+[strings."result.player"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.player`; chưa render."
+
+[strings."result.rank"]
+catalog_id = "Olympic_TitleRank"
+status = "catalog-translated"
+text = "Thứ hạng"
+note = "Lấy `catalog.vi`."
+
+[strings."result.title"]
+catalog_id = "Olympic_TitleResult"
+status = "catalog-translated"
+text = "Kết quả"
+note = "Lấy `catalog.vi`."
+
+[strings."result.waiting"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.waiting`; chưa render."
+
+[strings."result.win"]
+catalog_id = "StateWin"
+status = "catalog-translated"
+text = "Thắng"
+note = "Lấy `catalog.vi`; ảnh `Win` cần duyệt nếu dùng."
+
+[strings."result.winner"]
+catalog_id = "BigBattle_Ingame_Winner_Line1"
+status = "review"
+reason = "needs-review"
+note = "Catalog là câu BigBattle, không có `%s`; reviewer chọn key/format. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."room.all_ready"]
+catalog_id = "AllMustReady"
+status = "catalog-translated"
+text = "Mọi người chơi phải ở trạng thái sẵn sàng."
+note = "Lấy `catalog.vi`."
+
+[strings."room.character"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxMap:Prepare/CAStage"
+note = "Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt."
+
+[strings."room.character_c00"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c00`; chưa render."
+
+[strings."room.character_c01"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c01`; chưa render."
+
+[strings."room.chat_to_all"]
+catalog_id = "ChatToAll"
+status = "catalog-translated"
+text = "<Mọi người>"
+note = "Lấy `catalog.vi`; V1 FFA không có `<Đồng đội>`."
+
+[strings."room.create_submit"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.create_submit`; chưa render."
+
+[strings."room.create_title"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxStage:Lobby/Dlg_LB-NMCreate"
+note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog được chốt."
+
+[strings."room.host"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host`; chưa render."
+
+[strings."room.host_changed"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host_changed`; chưa render."
+
+[strings."room.id"]
+catalog_id = "RoomInfoDlgID"
+status = "catalog-translated"
+text = "ID"
+note = "Lấy `catalog.vi`."
+
+[strings."room.info_title"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxMap:Prepare/PRE_Bt_Roominfo`, `ảnh FxMap:Prepare/Dlg_PRE-NMRoominfo"
+note = "Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt."
+
+[strings."room.kick"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.kick`; chưa render."
+
+[strings."room.kick_confirm"]
+catalog_id = "SureToBan"
+status = "catalog-translated"
+text = "Mời '%s' ra khỏi phòng?"
+note = "Giữ `%s`; lấy `catalog.vi`."
+
+[strings."room.kicked"]
+catalog_id = "BannedByLeader"
+status = "catalog-translated"
+text = "Bạn đã bị chủ phòng mời ra. Hãy tham gia phòng khác."
+note = "Lấy `catalog.vi`; bỏ khoảng trắng đầu khi render, không đổi chữ."
+
+[strings."room.leave"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.leave`; chưa render."
+
+[strings."room.leave_ready_confirm"]
+catalog_id = "WannaExitToLobby"
+status = "catalog-translated"
+text = "Nếu thoát cửa sổ khi đang sẵn sàng\r\nsẽ bị đưa ra khỏi phòng chờ.\r\nBạn có muốn di chuyển hông?"
+note = "Lấy `catalog.vi`; reviewer chốt ngữ cảnh V1."
+
+[strings."room.loading"]
+catalog_id = "Loading"
+status = "catalog-reused"
+text = "Đang tải..."
+note = "Lấy `catalog.vi`; nhắc 15 giây theo SCOPE_V1 §3 nếu hiển thị đếm ngược."
+
+[strings."room.map"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxMap:Prepare/CAStage"
+note = "Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt."
+
+[strings."room.map_name"]
+catalog_id = "map:Village00"
+status = "catalog-translated"
+text = "Làng 00"
+note = "Lấy `catalog.vi`; muốn dùng tên khác phải ghi **cần sửa ở boom-re-l10n** kèm id."
+
+[strings."room.min_players"]
+catalog_id = "SmallPlayerNo"
+status = "catalog-translated"
+text = "Số người chơi quá ít nên không thể bắt đầu trận."
+note = "Lấy `catalog.vi`."
+
+[strings."room.name_changed"]
+catalog_id = "RoomNameChanged"
+status = "catalog-translated"
+text = "Tên phòng đã được thay đổi."
+note = "Lấy `catalog.vi`."
+
+[strings."room.non_host_denied"]
+catalog_id = "RoomLeaderOnly"
+status = "catalog-translated"
+text = "Đây là lệnh chỉ chủ phòng mới dùng được."
+note = "Lấy `catalog.vi`."
+
+[strings."room.players"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.players`; chưa render."
+
+[strings."room.ready"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxMap:Prepare/PRE_Bt_Ready"
+note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog."
+
+[strings."room.ready_cancel"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxMap:Prepare/PRE_Bt_Ready"
+note = "Cùng nút ready; duyệt ảnh hoặc render text từ key catalog."
+
+[strings."room.slot_empty"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.slot_empty`; chưa render."
+
+[strings."room.start"]
+status = "image-pending"
+reason = "image-pending-review"
+image = "FxMap:Prepare/PRE_Bt_Start"
+note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog."
+
+[strings."room.stats_bomb"]
+catalog_id = "PREEA"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn chung '개수'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."room.stats_fire"]
+catalog_id = "PREPOW"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn '물줄기'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+
+[strings."room.stats_speed"]
+catalog_id = "PRESPD"
+status = "catalog-reused"
+text = "Tốc độ"
+note = "Lấy `catalog.vi`."
+
+[strings."room.status"]
+catalog_id = "RoomInfoDlgStatus"
+status = "catalog-translated"
+text = "Trạng thái"
+note = "Lấy `catalog.vi`."
+
+[strings."room.title_label"]
+catalog_id = "CreateDlgTitle"
+status = "catalog-reused"
+text = "Tên phòng"
+note = "Lấy `catalog.vi`."
+
+[strings."room.waiting_players"]
+catalog_id = "BigBattle_Lobby_Desc_Line0"
+status = "catalog-translated"
+text = "Đang chờ người chơi khác."
+note = "Lấy `catalog.vi`."
