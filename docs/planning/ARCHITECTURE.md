@@ -24,7 +24,7 @@ boom-rs/
     boom-scenario/  # [có] định dạng dựng trận chung + harness boundary scenario
     boom-proto/     # [dự kiến P7] envelope + DTO giao thức mới, không chứa luật
     boom-net/       # [dự kiến P7] trait transport, framing, session (ADR 0006)
-    boom-room/      # [có, rỗng] máy trạng thái phòng/vòng đời thuần (SCOPE_V1 §3), chờ task backend
+    boom-room/      # [có] máy trạng thái phòng/vòng đời thuần (SCOPE_V1 §3), API ở §5.4
     boom-client/    # [dự kiến P6] input, prediction, render/audio/UI (ADR 0007)
     boom-server/    # [dự kiến P7] auth, lobby, authority, persistence
   xtask/                                # `cargo xtask ci`, golden replay
@@ -181,6 +181,23 @@ Cần ghi field của system khác → mở issue cho integrator, không sửa t
 
 Lệnh phòng tin cậy (`ready/start/leave`) tách khỏi input trận tần suất cao; cả hai có identity/dedup,
 chính sách hết hạn khác nhau. Policy phòng/start/disconnect lấy từ SCOPE_V1.
+
+#### API `boom-room` (đề xuất task #13, integrator duyệt)
+
+`boom-room` là state machine thuần, không socket/đồng hồ/lưu trữ. Entry point là `Lobby::apply(RoomCommand)`:
+
+- Server bind `PlayerId` và `RequestId` vào lệnh. Cùng request thành công gần nhất trả
+  `Outcome::Duplicate` (không đổi state, không phát event); request cũ hơn trả `StaleRequest`.
+  Lệnh lỗi không đổi state nên không ghi request ID, có thể thử lại cùng ID sau khi sửa điều kiện.
+- `RoomPolicy { max_players, min_players_to_start }` do server truyền vào, không có giá trị mặc định
+  trong crate; task này chưa thêm khóa `room.*` vào `data/rules` vì ngoài phạm vi file. P7 phải nối
+  policy từ rules profile/SCOPE_V1 §3 trước khi dùng thật.
+- `Lobby` bảo đảm một người chỉ ở một phòng, cấp `RoomId`/`RoundId` tăng dần; join chiếm slot thấp nhất;
+  host kế nhiệm là người vào sớm nhất còn lại.
+- Pha `Waiting`/`Started`; start chốt `RoundMember { player, slot, character }` đúng một lần.
+  `Loading`/`Playing`/`Results`, loading barrier, disconnect, chat chờ và spawn thuộc V1-009/010/022/023.
+- Roster hoặc nhân vật đổi khi `Waiting` phát `ReadyReset` và hủy toàn bộ ready; host cũng phải ready
+  (khác client gốc có chủ ý, RULES_V1 R-063). Lệnh start lặp không tạo lượt thứ hai.
 
 ### 5.5 Boundary scenario
 
