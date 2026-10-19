@@ -66,7 +66,10 @@ fn replay(cmd: &str) -> bool {
 
 fn python() -> Command {
     let name = if cfg!(windows) { "python" } else { "python3" };
-    Command::new(name)
+    let mut cmd = Command::new(name);
+    // Tool docs đọc/ghi file không ghi rõ encoding; Windows mặc định cp1252 sẽ vỡ tiếng Việt.
+    cmd.env("PYTHONUTF8", "1");
+    cmd
 }
 
 fn ci() -> bool {
