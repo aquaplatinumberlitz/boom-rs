@@ -7,26 +7,11 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use boom_core::{Dir, PlayerInput, Tick};
+use boom_proto::{InputCommand, ProtoError};
 use boom_room::{PlayerId, RoundId};
+use boom_sync::SyncError;
 
 use crate::config::InputTicks;
-
-/// Lệnh input nội bộ đã qua kiểm cấu trúc. Chưa phải DTO wire.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct InternalInputCommand {
-    pub seq: u32,
-    pub target_tick: u32,
-    pub dir: Dir,
-    pub place_bomb: bool,
-}
-
-/// Batch input nội bộ cho một người, một round. Phần 2 map từ `InputBatch` DTO.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct InternalInputBatch {
-    pub player: PlayerId,
-    pub round: RoundId,
-    pub commands: Vec<InternalInputCommand>,
-}
 
 /// Ack scheduler sau khi xử lý batch/tick.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,6 +25,8 @@ pub struct InputAck {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InputError {
     NotPlaying,
+    Proto(ProtoError),
+    Sync(SyncError),
     WrongRound {
         expected: RoundId,
         received: RoundId,
@@ -74,14 +61,32 @@ pub enum InputError {
     RateLimited {
         max_per_second: u32,
     },
+    RoundIdOutOfRange {
+        round: RoundId,
+    },
+    PlayerMismatch {
+        expected: u8,
+        received: u8,
+    },
 }
 
 impl fmt::Display for InputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotPlaying => write!(f, "không ở pha chơi"),
+            Self::Proto(e) => write!(f, "batch input sai DTO: {e}"),
+            Self::Sync(e) => write!(f, "batch input không đổi được sang PlayerInput: {e}"),
             Self::WrongRound { expected, received } => {
                 write!(f, "sai round: cần {expected:?}, nhận {received:?}")
+            }
+            Self::RoundIdOutOfRange { round } => {
+                write!(f, "round {round:?} vượt miền u32 của DTO")
+            }
+            Self::PlayerMismatch { expected, received } => {
+                write!(
+                    f,
+                    "batch khai player {received}, session là slot {expected}"
+                )
             }
             Self::UnknownPlayer(player) => write!(f, "không có người chơi {player:?} trong trận"),
             Self::EmptyBatch => write!(f, "batch rỗng"),
@@ -119,13 +124,32 @@ impl fmt::Display for InputError {
     }
 }
 
-impl std::error::Error for InputError {}
+impl From<SyncError> for InputError {
+    fn from(value: SyncError) -> Self {
+        Self::Sync(value)
+    }
+}
+
+impl From<ProtoError> for InputError {
+    fn from(value: ProtoError) -> Self {
+        Self::Proto(value)
+    }
+}
+
+impl std::error::Error for InputError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Proto(e) => Some(e),
+            Self::Sync(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Pending {
     target_tick: u32,
-    dir: Dir,
-    place_bomb: bool,
+    command: InputCommand,
 }
 
 /// Trạng thái scheduler của một `(round, player)`.
@@ -141,6 +165,10 @@ pub(crate) struct InputTrack {
 }
 
 impl InputTrack {
+    pub(crate) fn applied_seq(&self) -> u32 {
+        self.applied_seq
+    }
+
     pub(crate) fn new() -> Self {
         Self {
             applied_seq: 0,
@@ -156,7 +184,7 @@ impl InputTrack {
     /// Xử lý batch; trả lỗi thì không đổi state (atomic với lệnh mới).
     pub(crate) fn submit(
         &mut self,
-        commands: &[InternalInputCommand],
+        commands: &[InputCommand],
         server_tick: Tick,
         now_ms: u64,
         limits: InputTicks,
@@ -194,16 +222,13 @@ impl InputTrack {
         }
 
         // Bước 2: dedup theo seq TRƯỚC khi kiểm cửa sổ.
-        let mut fresh: Vec<InternalInputCommand> = Vec::new();
+        let mut fresh: Vec<InputCommand> = Vec::new();
         for command in commands {
             if command.seq <= self.applied_seq {
                 continue;
             }
             if let Some(existing) = self.pending.get(&command.seq) {
-                if existing.target_tick != command.target_tick
-                    || existing.dir != command.dir
-                    || existing.place_bomb != command.place_bomb
-                {
+                if existing.command != *command {
                     return Err(InputError::BadSequence { seq: command.seq });
                 }
                 continue;
@@ -236,8 +261,7 @@ impl InputTrack {
                 command.seq,
                 Pending {
                     target_tick: command.target_tick,
-                    dir: command.dir,
-                    place_bomb: command.place_bomb,
+                    command,
                 },
             );
         }
@@ -258,7 +282,7 @@ impl InputTrack {
         &mut self,
         server_tick: Tick,
         limits: InputTicks,
-    ) -> (PlayerInput, Vec<u32>) {
+    ) -> Result<(PlayerInput, Vec<u32>), InputError> {
         let mut retired = Vec::new();
 
         // Bước 6: gap timeout chỉ retire sequence thiếu.
@@ -278,9 +302,7 @@ impl InputTrack {
         // Bước 5/7: retire lệnh quá hạn ở đầu hàng, rồi gộp các lệnh đã chín.
         retired.extend(self.retire_late(server_tick, limits.late));
 
-        let mut latest_dir: Option<Dir> = None;
-        let mut any_bomb = false;
-        let mut applied_any = false;
+        let mut applied_commands: Vec<InputCommand> = Vec::new();
         loop {
             let next = self.applied_seq.saturating_add(1);
             let Some(command) = self.pending.get(&next).copied() else {
@@ -297,30 +319,29 @@ impl InputTrack {
             }
             self.pending.remove(&next);
             self.applied_seq = next;
-            latest_dir = Some(command.dir);
-            any_bomb |= command.place_bomb;
-            applied_any = true;
+            applied_commands.push(command.command);
         }
         self.mark_gap(server_tick);
 
-        let dir = if let Some(dir) = latest_dir {
-            self.last_held_dir = dir;
-            self.last_input_tick = Some(server_tick);
-            dir
-        } else if self
-            .last_input_tick
-            .is_some_and(|tick| server_tick.saturating_sub(tick) < limits.stale)
-        {
-            self.last_held_dir
+        let mut merged = if applied_commands.is_empty() {
+            PlayerInput::default()
         } else {
-            self.last_held_dir = Dir::None;
-            Dir::None
+            boom_sync::merge_commands(&applied_commands)?
         };
-        let input = PlayerInput {
-            dir,
-            place_bomb: any_bomb && applied_any,
-        };
-        (input, retired)
+        if applied_commands.is_empty() {
+            if self
+                .last_input_tick
+                .is_some_and(|tick| server_tick.saturating_sub(tick) < limits.stale)
+            {
+                merged.dir = self.last_held_dir;
+            } else {
+                self.last_held_dir = Dir::None;
+            }
+        } else {
+            self.last_input_tick = Some(server_tick);
+            self.last_held_dir = merged.dir;
+        }
+        Ok((merged, retired))
     }
 
     fn mark_gap(&mut self, server_tick: Tick) {
