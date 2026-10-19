@@ -476,6 +476,9 @@ impl ScheduledHarness {
                     c00: stats(),
                     c01: stats(),
                 },
+                // Tên map cho client dựng bản đồ; test không ghi replay.
+                map: "skeleton-test".to_owned(),
+                replay: None,
             },
         );
         let mut clients = Vec::new();

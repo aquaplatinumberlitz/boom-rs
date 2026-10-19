@@ -30,12 +30,25 @@
 //! Bảng chọn nội dung (nhân vật, item, vai trò) là **dữ liệu content** của V1, không phải
 //! hằng số luật chơi: nó kế thừa vai trò đã fingerprint ở `kr_v1_content.json` và phạm vi
 //! V1 ở [SCOPE_V1](../../../../docs/planning/SCOPE_V1.md) §1.
+//!
+//! Phần **UI** của closure V1 nằm ở bảng [`UI_ASSETS`]: mỗi dòng là một phần tử UI của
+//! luồng đăng nhập → sảnh → phòng → trận → kết quả, kèm trạng thái dùng. Bảng này là nguồn
+//! chuẩn cho mục `[[ui]]` của bundle (schema 3) và cho cột "Trạng thái dùng" ở
+//! [UI_STRINGS_V1 §3](../../../../docs/specification/localization/UI_STRINGS_V1.md).
+//!
+//! Bảng UI **tách khỏi manifest closure** (`build_village00_manifest`) vì hai thứ khác
+//! nhau: manifest là closure *nội dung trận* (ô map, sprite, nhân vật, item) — mỗi dòng
+//! là một entry pack có SHA-256; còn bảng UI là closure *luồng hiển thị* — mỗi dòng là
+//! một **phần tử** có màn hình, vai trò, trạng thái duyệt ảnh và lý do thay thế, kèm
+//! entry pack khi V1 dùng ảnh. `[[ui]]` của bundle trỏ tới `[[sprites]]` nên ảnh của
+//! phần tử không bị nhân bản trong atlas.
 
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Write as _;
 use std::path::Path;
 
+use boom_content::bundle::{UiRole, UiScreen, UiState};
 use boom_content::rules::Status;
 
 use crate::legacy_map::{Build, LegacyMap, MapError, parse as parse_map};
@@ -130,6 +143,273 @@ fn status_str(status: Status) -> &'static str {
         Status::Design => "design",
         Status::Unknown => "unknown",
     }
+}
+
+/// Một phần tử UI của luồng V1 trong closure: màn hình, vai trò, entry pack và trạng
+/// thái dùng.
+///
+/// `entry` là `None` khi V1 **không dùng** asset nào cho phần tử này: phần tử vẫn được
+/// ghi lại kèm lý do để client biết phải vẽ gì thay, thay vì im lặng thiếu ảnh.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UiAsset {
+    /// ID ổn định của phần tử UI, ví dụ `lobby.create`.
+    pub id: &'static str,
+    /// Màn hình của luồng V1 dùng phần tử này.
+    pub screen: UiScreen,
+    /// Vai trò của phần tử.
+    pub role: UiRole,
+    /// Entry pack của asset KR; `None` khi V1 không dùng asset nào cho phần tử này.
+    pub entry: Option<&'static str>,
+    /// Trạng thái dùng (xem [`UiState`]).
+    pub state: UiState,
+    /// Lý do hoặc ghi chú; **bắt buộc** (không rỗng) cho mọi phần tử — mọi quyết định
+    /// dùng phải truy được, và phần tử chưa duyệt ảnh phải ghi rõ client vẽ text thay.
+    pub reason: &'static str,
+}
+
+/// Bảng asset UI của luồng V1 (V1-032).
+///
+/// Mỗi dòng là **một phần tử UI** của luồng đăng nhập → sảnh → phòng → trận → kết quả.
+/// Ba trạng thái dùng (AGENTS §4 cho nhãn bằng chứng; phần duyệt ảnh theo
+/// [IMAGE_REVIEW](../../../../docs/specification/localization/IMAGE_REVIEW.md)):
+///
+/// | Trạng thái | Nghĩa | Ảnh trong atlas? | Hiển thị được? |
+/// |---|---|---|---|
+/// | `selected` | Có trong closure V1 và **không có chữ** cần duyệt | có | có |
+/// | `needs_review_text` | Có trong closure V1 nhưng **có chữ** | có | chỉ khi ảnh được duyệt; chưa duyệt thì client vẽ text từ catalog |
+/// | `excluded` | Không dùng asset này | không | thay bằng text/màu theo `reason` |
+///
+/// **Chưa ảnh nào ở trạng thái "đã duyệt"**: quy trình duyệt ảnh chưa sinh ra
+/// `l10n/images_review.csv`, nên mọi ảnh có chữ đều là `needs_review_text`.
+///
+/// Nguồn: [UI_STRINGS_V1 §3](../../../../docs/specification/localization/UI_STRINGS_V1.md)
+/// (danh mục ảnh có chữ của luồng V1) và ảnh giải mã đọc trực tiếp từ pack KR 00967
+/// ngày 2026-10-20 — bản PNG giải mã nằm ở cache review ảnh của `boom-re-l10n`
+/// (`l10n/.cache/image-review/`), cùng bộ ảnh mà `UI_STRINGS_V1 §3` mô tả. Nội dung chữ
+/// trong ảnh là **bằng chứng mô tả**, không phải bản dịch.
+const UI_ASSETS: &[UiAsset] = &[
+    // Màn đăng nhập.
+    UiAsset {
+        id: "login.background",
+        screen: UiScreen::Login,
+        role: UiRole::Background,
+        entry: Some("FxDesktop/LoginStage/CAStage"),
+        state: UiState::Excluded,
+        reason: "nền là JPEG 800×600: bộ giải mã bundle chỉ đọc sprite I16; ảnh còn có lời \
+                 thoại tiếng Hàn, huy hiệu Nexon (ô 'N' góc trên) và bản VN có dòng bản quyền \
+                 'Copyright (C) 2001 Nexon'; V1 dựng nền bằng màu, chữ lấy từ catalog",
+    },
+    UiAsset {
+        id: "login.submit",
+        screen: UiScreen::Login,
+        role: UiRole::Button,
+        entry: None,
+        state: UiState::Excluded,
+        reason: "chưa có asset nút đăng nhập trong closure; UI_STRINGS_V1 §2.2 đã chốt \
+                 `login.submit` lấy key catalog nên V1 vẽ nút bằng text",
+    },
+    // Màn sảnh.
+    UiAsset {
+        id: "lobby.background",
+        screen: UiScreen::Lobby,
+        role: UiRole::Background,
+        entry: Some("FxStage/Lobby/CAStage"),
+        state: UiState::Excluded,
+        reason: "nền là JPEG 800×600 có nhãn tiếng Hàn trong ảnh: hai tab chế độ '대결 모드' \
+                 (bản VN: 'ĐẠI CHIẾN') và '상이 모드' (bản VN: 'NHIỆM VỤ') cùng nhãn '레벨'; \
+                 V1 dựng nền bằng màu, chữ lấy từ catalog",
+    },
+    UiAsset {
+        id: "lobby.create",
+        screen: UiScreen::Lobby,
+        role: UiRole::Button,
+        entry: Some("FxStage/Lobby/LB_Bt_T_Create-NM"),
+        state: UiState::NeedsReviewText,
+        reason: "ảnh nút 9 frame có chữ Hàn (방만들기); chưa có quyết định duyệt ảnh nên V1 \
+                 vẽ nút bằng text từ catalog",
+    },
+    UiAsset {
+        id: "lobby.create_dialog",
+        screen: UiScreen::Lobby,
+        role: UiRole::Dialog,
+        entry: Some("FxStage/Lobby/Dlg_LB-NMCreate"),
+        state: UiState::NeedsReviewText,
+        reason: "tiêu đề dialog nằm trong ảnh (방만들기); thân dialog là ô trống, nhãn do \
+                 client vẽ; chưa duyệt ảnh thì V1 vẽ tiêu đề bằng text từ catalog",
+    },
+    UiAsset {
+        id: "lobby.show_all",
+        screen: UiScreen::Lobby,
+        role: UiRole::Button,
+        entry: Some("FxStage/Lobby/LB_Bt_T_ShowAllRenew"),
+        state: UiState::Excluded,
+        reason: "bản VN ngắn hơn nên mất nghĩa 'xem mọi phòng'; V1 không cần bộ lọc phòng, \
+                 vẽ nút bằng text từ catalog",
+    },
+    UiAsset {
+        id: "lobby.wait_room",
+        screen: UiScreen::Lobby,
+        role: UiRole::Button,
+        entry: Some("FxStage/Lobby/LB_Bt_T_WaitRoomRenew"),
+        state: UiState::Excluded,
+        reason: "bản VN là danh từ, không phải hành động 'xem phòng chờ'; V1 vẽ nút bằng \
+                 text từ catalog",
+    },
+    // Màn phòng chờ.
+    UiAsset {
+        id: "room.background",
+        screen: UiScreen::Room,
+        role: UiRole::Background,
+        entry: Some("FxMap/Prepare/CAStage"),
+        state: UiState::Excluded,
+        reason: "nền là JPEG 800×600 có nhãn tiếng Hàn '방' (phòng), '던전' (dungeon), \
+                 '게임디테일' (game detail) và nút '자동 준비' (auto-ready) — auto-ready ngoài \
+                 scope FFA V1; V1 dựng nền bằng màu, chữ lấy từ catalog",
+    },
+    UiAsset {
+        id: "room.ready",
+        screen: UiScreen::Room,
+        role: UiRole::Button,
+        entry: Some("FxMap/Prepare/PRE_Bt_Ready"),
+        state: UiState::NeedsReviewText,
+        reason: "ảnh nút 6 frame có chữ Hàn (준비); chưa có quyết định duyệt ảnh nên V1 vẽ \
+                 nút bằng text từ catalog",
+    },
+    UiAsset {
+        id: "room.start",
+        screen: UiScreen::Room,
+        role: UiRole::Button,
+        entry: Some("FxMap/Prepare/PRE_Bt_Start"),
+        state: UiState::NeedsReviewText,
+        reason: "ảnh nút 6 frame có chữ Hàn (시작); chưa có quyết định duyệt ảnh nên V1 vẽ nút \
+                 bằng text từ catalog",
+    },
+    UiAsset {
+        id: "room.info_dialog",
+        screen: UiScreen::Room,
+        role: UiRole::Dialog,
+        entry: Some("FxMap/Prepare/Dlg_PRE-NMRoominfo"),
+        state: UiState::NeedsReviewText,
+        reason: "tiêu đề KR là '방정보변경' (đổi thông tin phòng) còn bản VN là 'THÔNG TIN' \
+                 (thông tin) — khác nghĩa; nếu dùng thì nhãn lấy từ catalog, không tự chọn hay \
+                 sửa nhãn trong ảnh",
+    },
+    UiAsset {
+        id: "room.info_label",
+        screen: UiScreen::Room,
+        role: UiRole::Info,
+        entry: Some("FxMap/Prepare/PRE_Bt_Roominfo"),
+        state: UiState::Excluded,
+        reason: "ảnh KR ghi '방정보변경' (đổi thông tin phòng) còn bản VN ghi 'THÔNG TIN' \
+                 (thông tin) — khác nghĩa; V1 vẽ nhãn bằng text từ catalog",
+    },
+    UiAsset {
+        id: "room.ready_indicator",
+        screen: UiScreen::Room,
+        role: UiRole::Info,
+        entry: Some("FxStage/Lobby/ReadyBox"),
+        state: UiState::Excluded,
+        reason: "KR ghi '준비중' (đang chuẩn bị) còn bản VN ghi 'ĐẠI CHIẾN' — khác nghĩa hoàn \
+                 toàn nên không dùng làm indicator ready; V1 vẽ trạng thái ready bằng text và màu",
+    },
+    // Màn trận.
+    UiAsset {
+        id: "match.background",
+        screen: UiScreen::Match,
+        role: UiRole::Background,
+        entry: None,
+        state: UiState::Excluded,
+        reason: "nền trận là bản đồ V1: lưới ô và sprite nền đã nằm trong closure (role \
+                 map/tile) nên V1 không dùng ảnh nền riêng cho màn trận",
+    },
+    UiAsset {
+        id: "match.hud",
+        screen: UiScreen::Match,
+        role: UiRole::Info,
+        entry: None,
+        state: UiState::Excluded,
+        reason: "HUD trận (đồng hồ, trạng thái nhốt/chết, tên item) chưa có asset trong \
+                 closure và UI_STRINGS_V1 §2.5 ghi `unknown`; V1 vẽ bằng text từ catalog",
+    },
+    UiAsset {
+        id: "match.navigation",
+        screen: UiScreen::Match,
+        role: UiRole::Button,
+        entry: None,
+        state: UiState::Excluded,
+        reason: "trong trận không có nút điều hướng: đường về phòng mở ở màn kết quả; V1 \
+                 không vẽ nút trong trận",
+    },
+    // Màn kết quả.
+    UiAsset {
+        id: "result.background",
+        screen: UiScreen::Result,
+        role: UiRole::Background,
+        entry: None,
+        state: UiState::Excluded,
+        reason: "chưa có asset nền riêng cho màn kết quả trong closure; V1 dùng nền màu, \
+                 chữ lấy từ catalog",
+    },
+    UiAsset {
+        id: "result.continue",
+        screen: UiScreen::Result,
+        role: UiRole::Button,
+        entry: None,
+        state: UiState::Excluded,
+        reason: "chưa có asset nút tiếp tục trong closure và UI_STRINGS_V1 §2.6 ghi \
+                 `unknown`; V1 vẽ nút bằng text từ catalog",
+    },
+    UiAsset {
+        id: "result.win",
+        screen: UiScreen::Result,
+        role: UiRole::ResultArt,
+        entry: Some("FxStage/Game/Win"),
+        state: UiState::NeedsReviewText,
+        reason: "ảnh 4 frame ghép chữ Latin 'WIN!!'; phải duyệt cả chuỗi frame mới dùng, \
+                 không chỉ frame 0",
+    },
+    UiAsset {
+        id: "result.lose",
+        screen: UiScreen::Result,
+        role: UiRole::ResultArt,
+        entry: Some("FxStage/Game/Lose"),
+        state: UiState::NeedsReviewText,
+        reason: "ảnh 5 frame ghép chữ Latin 'LOSE!!'; chuỗi frame chưa được người duyệt xem \
+                 đủ nên V1 vẽ nhãn bằng text từ catalog",
+    },
+    UiAsset {
+        id: "result.draw",
+        screen: UiScreen::Result,
+        role: UiRole::ResultArt,
+        entry: Some("FxStage/Game/Draw"),
+        state: UiState::NeedsReviewText,
+        reason: "ảnh 5 frame ghép chữ Latin 'DRAW!!'; dấu có thể nằm ở frame khác nên phải \
+                 duyệt cả chuỗi frame",
+    },
+    UiAsset {
+        id: "result.info_bar",
+        screen: UiScreen::Result,
+        role: UiRole::Info,
+        entry: Some("FxStage/Game/ResultInfoBar"),
+        state: UiState::Excluded,
+        reason: "spritesheet trộn nhãn KR/EN và có cột EXP/LUCCI (V1 không có tiền/EXP); V1 \
+                 chỉ cần cột Hạng/Người chơi/Kết quả nên vẽ bằng text từ catalog",
+    },
+    UiAsset {
+        id: "result.info_good",
+        screen: UiScreen::Result,
+        role: UiRole::Info,
+        entry: Some("FxStage/Game/ResultInfoGood"),
+        state: UiState::Selected,
+        reason: "đã đọc trực tiếp PNG giải mã từ pack KR 00967 ngày 2026-10-20: chỉ có icon \
+                 bàn tay (ngón cái) 4 frame, không thấy chữ nên không cần duyệt text",
+    },
+];
+
+/// Bảng asset UI của luồng V1.
+#[must_use]
+pub fn ui_assets() -> &'static [UiAsset] {
+    UI_ASSETS
 }
 
 /// Một entry trong closure: đường dẫn đầy đủ trong pack, vai trò, kích thước và SHA-256.
@@ -1110,5 +1390,115 @@ mod tests {
         assert!(toml.contains("map_id = 1958"));
         assert!(toml.contains("[[unknown]]"));
         assert!(toml.contains("id = \"C00:idle\""));
+    }
+
+    /// Bảng UI của closure phải nhất quán: ID duy nhất, mọi quyết định đều có lý do,
+    /// và mọi màn hình của luồng V1 đều có **nền** lẫn **nút điều hướng** — hoặc ghi rõ
+    /// thay bằng gì (vẽ text/màu) khi V1 không dùng asset.
+    #[test]
+    fn ui_table_is_consistent_and_covers_every_v1_screen() {
+        let table = ui_assets();
+        assert!(!table.is_empty());
+
+        let mut ids: Vec<&str> = Vec::with_capacity(table.len());
+        for asset in table {
+            assert!(!asset.id.is_empty(), "phần tử UI thiếu id");
+            assert!(!ids.contains(&asset.id), "phần tử UI {} bị lặp", asset.id);
+            ids.push(asset.id);
+            // Mọi quyết định dùng phải truy được: không có lý do thì không biết thay
+            // bằng gì.
+            assert!(
+                !asset.reason.is_empty(),
+                "phần tử UI {} không có lý do",
+                asset.id
+            );
+        }
+
+        for screen in [
+            UiScreen::Login,
+            UiScreen::Lobby,
+            UiScreen::Room,
+            UiScreen::Match,
+            UiScreen::Result,
+        ] {
+            let of_screen: Vec<&UiAsset> = table
+                .iter()
+                .filter(|asset| asset.screen == screen)
+                .collect();
+            assert!(!of_screen.is_empty(), "màn {screen:?} chưa có phần tử UI");
+            assert!(
+                of_screen
+                    .iter()
+                    .any(|asset| asset.role == UiRole::Background),
+                "màn {screen:?} chưa có phần tử nền"
+            );
+            assert!(
+                of_screen.iter().any(|asset| asset.role == UiRole::Button),
+                "màn {screen:?} chưa có nút điều hướng"
+            );
+        }
+    }
+
+    /// Ảnh **có chữ** chưa được duyệt thì không được ở trạng thái hiển thị được; bảng
+    /// closure chỉ dùng ba trạng thái nên không có trạng thái "đã duyệt".
+    #[test]
+    fn ui_table_never_marks_an_image_with_text_as_displayable() {
+        /// Ảnh có chữ, đọc trực tiếp từ PNG giải mã của pack KR 00967 ngày 2026-10-20.
+        const TEXT_BEARING: &[&str] = &[
+            "lobby.create",
+            "lobby.create_dialog",
+            "room.ready",
+            "room.start",
+            "room.info_dialog",
+            "result.win",
+            "result.lose",
+            "result.draw",
+        ];
+        let table = ui_assets();
+        // Cả ba trạng thái đều phải có mặt trong bảng: `selected` (dùng được ngay),
+        // `needs_review_text` (có chữ, chờ duyệt) và `excluded` (không dùng asset).
+        assert!(table.iter().any(|asset| asset.state == UiState::Selected));
+        assert!(
+            table
+                .iter()
+                .any(|asset| asset.state == UiState::NeedsReviewText)
+        );
+        assert!(table.iter().any(|asset| asset.state == UiState::Excluded));
+        for asset in table {
+            if TEXT_BEARING.contains(&asset.id) {
+                assert_ne!(
+                    asset.state,
+                    UiState::Selected,
+                    "ảnh có chữ {} không được ở trạng thái hiển thị được",
+                    asset.id
+                );
+            }
+        }
+    }
+
+    /// Mọi entry UI có trong closure phải tồn tại thật trong pack KR, và ảnh của nó
+    /// phải giải được bằng bộ đọc sprite I16 (nền JPEG đã bị loại nên không vào đây).
+    #[test]
+    fn ui_entries_in_the_closure_exist_in_the_pack() {
+        let Some(root) = std::env::var_os("BOOM_KR_PACK_DIR") else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let root = Path::new(&root);
+        for asset in ui_assets() {
+            if asset.state == UiState::Excluded {
+                continue;
+            }
+            let Some(entry) = asset.entry else {
+                continue;
+            };
+            let (pack, path) = entry.split_once('/').expect("entry có phần pack");
+            let handle = crate::pack::Pack::open(root, pack, crate::legacy_map::Build::Kr)
+                .unwrap_or_else(|e| panic!("mở pack {pack}: {e}"));
+            let blob = handle
+                .read_named(path)
+                .unwrap_or_else(|e| panic!("đọc entry {entry}: {e}"));
+            crate::sprite::parse(&blob).unwrap_or_else(|e| panic!("giải sprite {entry}: {e}"));
+        }
     }
 }

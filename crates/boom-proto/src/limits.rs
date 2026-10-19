@@ -73,6 +73,18 @@ pub const MAX_PASSWORD_BYTES: usize = 256;
 /// sức khoẻ hiện biết và chặn danh sách độc hại.
 pub const MAX_PROBLEMS: usize = 32;
 
+/// Số phòng tối đa trong `LobbyList` (Addendum B, design).
+pub const MAX_LOBBY_ROOMS: usize = 64;
+
+/// Trần độ dài tên phòng/tên hiển thị trên wire (Addendum B, design).
+pub const MAX_NAME_BYTES: usize = 64;
+
+/// Trần độ dài một tin chat (Addendum B, design; chưa phải luật client gốc).
+pub const MAX_CHAT_BYTES: usize = 512;
+
+/// Số tin chat tối đa mỗi giây (Addendum B, design; server rate-limit, không phải luật chơi).
+pub const MAX_CHAT_PER_S: u32 = 5;
+
 // --- Trần định dạng (chặn length prefix độc hại lúc decode) ---------------------------
 
 /// Trần định dạng cho danh sách người chơi.
@@ -107,6 +119,16 @@ pub const WIRE_MAX_PASSWORD_BYTES: usize = 4_096;
 pub const WIRE_MAX_PROBLEMS: usize = 64;
 /// Trần định dạng cho danh sách `listen_addrs` trong `HealthResponse`.
 pub const WIRE_MAX_LISTEN_ADDRS: usize = 16;
+/// Trần định dạng cho danh sách phòng sảnh.
+pub const WIRE_MAX_LOBBY_ROOMS: usize = 256;
+/// Trần định dạng cho tên phòng/hiển thị.
+pub const WIRE_MAX_NAME_BYTES: usize = 1_024;
+/// Trần định dạng cho một tin chat.
+pub const WIRE_MAX_CHAT_BYTES: usize = 4_096;
+/// Trần định dạng cho roster round.
+pub const WIRE_MAX_ROUND_MEMBERS: usize = u8::MAX as usize;
+/// Trần định dạng cho kết quả round.
+pub const WIRE_MAX_ROUND_RESULTS: usize = u8::MAX as usize;
 
 /// Miền giá trị của một phiên V1 (ADR 0009 §2, §4.2).
 ///
@@ -146,6 +168,14 @@ pub struct ProtocolLimits {
     pub max_password_bytes: usize,
     /// Số mục `problems` tối đa trong `HealthResponse`.
     pub max_problems: usize,
+    /// Số phòng tối đa trong `LobbyList` (Addendum B).
+    pub max_lobby_rooms: usize,
+    /// Trần tên phòng/tên hiển thị (Addendum B).
+    pub max_name_bytes: usize,
+    /// Trần một tin chat (Addendum B).
+    pub max_chat_bytes: usize,
+    /// Số tin chat tối đa mỗi giây (Addendum B; server rate-limit).
+    pub max_chat_per_s: u32,
 }
 
 impl Default for ProtocolLimits {
@@ -158,7 +188,7 @@ impl Default for ProtocolLimits {
 impl ProtocolLimits {
     /// Miền V1: `revision = 1`.
     ///
-    /// Revision giữ nguyên `1` khi thêm giá trị mới theo ADR 0009 Addendum A: đây là thay đổi
+    /// Revision giữ nguyên `1` khi thêm giá trị mới theo ADR 0009 Addendum A/B: đây là thay đổi
     /// **additive** (ADR 0008), không giá trị cũ nào bị đổi, và bộ giới hạn V1 chưa phát hành.
     /// Đổi một giá trị đang có thì tăng revision.
     pub const fn v1() -> Self {
@@ -179,6 +209,10 @@ impl ProtocolLimits {
             max_username_bytes: MAX_USERNAME_BYTES,
             max_password_bytes: MAX_PASSWORD_BYTES,
             max_problems: MAX_PROBLEMS,
+            max_lobby_rooms: MAX_LOBBY_ROOMS,
+            max_name_bytes: MAX_NAME_BYTES,
+            max_chat_bytes: MAX_CHAT_BYTES,
+            max_chat_per_s: MAX_CHAT_PER_S,
         }
     }
 
@@ -216,6 +250,10 @@ mod tests {
         assert_eq!(l.max_username_bytes, 64);
         assert_eq!(l.max_password_bytes, 256);
         assert_eq!(l.max_problems, 32);
+        assert_eq!(l.max_lobby_rooms, 64);
+        assert_eq!(l.max_name_bytes, 64);
+        assert_eq!(l.max_chat_bytes, 512);
+        assert_eq!(l.max_chat_per_s, 5);
     }
 
     #[test]
@@ -245,6 +283,11 @@ mod tests {
         assert!(WIRE_MAX_ITEMS >= l.max_items);
         assert!(WIRE_MAX_HIDDEN >= l.max_hidden);
         assert!(WIRE_MAX_PROBLEMS >= l.max_problems);
+        assert!(WIRE_MAX_LOBBY_ROOMS >= l.max_lobby_rooms);
+        assert!(WIRE_MAX_NAME_BYTES > l.max_name_bytes);
+        assert!(WIRE_MAX_CHAT_BYTES > l.max_chat_bytes);
+        assert!(WIRE_MAX_ROUND_MEMBERS >= l.max_players);
+        assert!(WIRE_MAX_ROUND_RESULTS >= l.max_players);
     }
 
     /// Trần định dạng của chuỗi phải **rộng hơn** biên V1: chuỗi vượt biên vẫn phải decode được

@@ -34,8 +34,8 @@ use std::path::{Path, PathBuf};
 use boom_content::map::{CellKind, Terrain};
 use boom_content::rules::{RulesOverlay, RulesProfile};
 use boom_core::{
-    Bomb, Cell, CharacterStats, Dir, EntityId, Flame, FloorItem, ItemKind, Life, PlayerInput,
-    PlayerSetup, Rules, SimulationEvent, SimulationState, Stat, World, mode_by_id,
+    Bomb, Cell, CharacterStats, Dir, EntityId, Flame, FloorItem, ItemKind, Life, Outcome, Phase,
+    PlayerInput, PlayerSetup, Rules, SimulationEvent, SimulationState, Stat, World, mode_by_id,
 };
 use serde::Deserialize;
 
@@ -104,6 +104,23 @@ pub struct InputEntry {
     pub dir: Option<DirName>,
     #[serde(default)]
     pub bomb: bool,
+}
+
+/// Hành động authority ngoài input được replay áp lại đúng tick (additive schema 1).
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityAction {
+    /// Loại người chơi (disconnect timeout, V1-023).
+    Eliminate,
+}
+
+/// Một thay đổi authority tại tick; replay và server dùng chung `apply_authority`.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorityEntry {
+    pub tick: u32,
+    pub player: u8,
+    pub action: AuthorityAction,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -176,6 +193,9 @@ pub struct Setup {
     pub player: Vec<PlayerEntry>,
     #[serde(default)]
     pub input: Vec<InputEntry>,
+    /// Thay đổi authority ngoài input (disconnect timeout).
+    #[serde(default)]
+    pub authority: Vec<AuthorityEntry>,
     #[serde(default)]
     pub bomb: Vec<BombEntry>,
     #[serde(default)]
@@ -197,6 +217,7 @@ pub const SETUP_KEYS: &[&str] = &[
     "map_pack",
     "player",
     "input",
+    "authority",
     "bomb",
     "item",
     "flame",
@@ -264,6 +285,8 @@ pub struct Match {
     pub state: SimulationState,
     pub events: Vec<SimulationEvent>,
     inputs: Vec<InputEntry>,
+    authority: Vec<AuthorityEntry>,
+    next_authority: usize,
     next_input: usize,
     held: Vec<PlayerInput>,
 }
@@ -314,12 +337,16 @@ impl Match {
             .map_err(|e| format!("state dựng sẵn sai contract: {e}"))?;
         let mut inputs = setup.input.clone();
         inputs.sort_by_key(|i| i.tick);
+        let mut authority = setup.authority.clone();
+        authority.sort_by_key(|a| a.tick);
         let held = vec![PlayerInput::default(); state.players.len()];
         Ok(Self {
             world,
             state,
             events: Vec::new(),
             inputs,
+            authority,
+            next_authority: 0,
             next_input: 0,
             held,
         })
@@ -392,6 +419,7 @@ impl Match {
     /// Chạy một tick với input của file; kiểm bất biến contract sau tick.
     pub fn step(&mut self) -> Result<(), Error> {
         let tick = self.state.tick;
+        self.apply_authority_for_tick()?;
         for h in &mut self.held {
             h.place_bomb = false;
         }
@@ -418,8 +446,49 @@ impl Match {
         Ok(())
     }
 
+    /// Áp các `[[authority]]` tại tick hiện tại; server gọi cùng hàm trước `step`.
+    pub fn apply_authority_for_tick(&mut self) -> Result<(), Error> {
+        while let Some(entry) = self.authority.get(self.next_authority) {
+            if entry.tick > self.state.tick {
+                break;
+            }
+            if entry.tick < self.state.tick {
+                return Err(format!(
+                    "authority cho tick {} nằm sau tick hiện tại {}",
+                    entry.tick, self.state.tick
+                )
+                .into());
+            }
+            apply_authority(&mut self.state, entry)?;
+            self.next_authority += 1;
+        }
+        Ok(())
+    }
+
     /// Input chưa dùng (vd. ghi cho tick sau khi lượt đã kết thúc).
     pub fn unused_input(&self) -> Option<&InputEntry> {
         self.inputs.get(self.next_input)
+    }
+}
+
+/// Mutation authority dùng chung giữa server và replay (V1-023).
+pub fn apply_authority(state: &mut SimulationState, entry: &AuthorityEntry) -> Result<(), Error> {
+    match entry.action {
+        AuthorityAction::Eliminate => {
+            let Some(player) = state.players.iter_mut().find(|p| p.id == entry.player) else {
+                return Err(format!(
+                    "authority eliminate cho slot {} không tồn tại",
+                    entry.player
+                )
+                .into());
+            };
+            if player.life != Life::Dead {
+                player.life = Life::Dead;
+            }
+            if state.players.iter().all(|p| p.life == Life::Dead) {
+                state.phase = Phase::Ended(Outcome::Draw);
+            }
+            Ok(())
+        }
     }
 }

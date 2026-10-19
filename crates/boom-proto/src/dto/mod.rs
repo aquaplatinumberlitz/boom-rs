@@ -10,6 +10,7 @@ pub mod handshake;
 pub mod health;
 pub mod input;
 pub mod ping;
+pub mod room;
 pub mod snapshot;
 
 use crate::limits::{

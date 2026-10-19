@@ -1,0 +1,34 @@
+# So sánh timer nhốt→chết: đo packet VN 120/11→120/13 = 6.359 s (R-026, vn_runtime/confirmed),
+# profile engine chọn 6.300 s (R-076, design; fixtures/rules/skeleton-test.toml).
+# Ở 60 Hz: VN ~381,5 tick; engine 378 tick. Kỳ vọng dưới đây theo VN, nên PENDING.
+name = "VN: nhốt→chết 6,359 s — engine profile 6,300 s"
+features = ["V1-037"]
+claims = ["R-026", "R-076"]
+status = "pending"
+ticks = 383
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[flame]]
+cell = [1, 1]
+ticks = 5
+owner = 0
+
+[[expect]]
+tick = 381
+player = 0
+life = "trapped"
+
+[[expect]]
+tick = 382
+player = 0
+life = "dead"

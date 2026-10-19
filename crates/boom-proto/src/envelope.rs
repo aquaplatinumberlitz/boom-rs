@@ -182,13 +182,11 @@ mod tests {
     }
 
     #[test]
-    fn kind_without_payload_is_rejected() {
+    fn room_kind_is_accepted_after_addendum_b() {
         let mut bytes = sample();
         bytes[6..8].copy_from_slice(&0x0040u16.to_le_bytes());
-        assert!(matches!(
-            read_envelope(&bytes),
-            Err(ProtoError::KindNotDefined(MessageKind::RoomCommand))
-        ));
+        let envelope = read_envelope(&bytes).expect("kind room đã định nghĩa");
+        assert_eq!(envelope.0.kind, MessageKind::RoomCommand);
     }
 
     #[test]

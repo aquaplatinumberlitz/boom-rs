@@ -1,11 +1,13 @@
-//! Dựng bundle nội dung cho client: atlas ảnh + metadata ô của map.
+//! Dựng bundle nội dung cho client: atlas ảnh + metadata ô của map + clip animation.
 //!
-//! Bundle là **output cục bộ** (không commit vào repo). Nó được dựng từ hai nguồn đã có
+//! Bundle là **output cục bộ** (không commit vào repo). Nó được dựng từ ba nguồn đã có
 //! trong crate này:
 //!
 //! - [`crate::closure`] — manifest closure của một trận V1: entry pack nào cần có, vai trò,
 //!   SHA-256, và danh sách phần chưa xác định kèm lý do (task #34).
 //! - [`crate::sprite`] — bộ giải mã `CDataI16Alpha` v2: ảnh RGBA + frame 48 byte (task #33).
+//! - [`crate::animation`] — bảng clip animation V1 và bộ trích clip từ pack (task #52,
+//!   RULES_V1 R-077…R-079).
 //!
 //! Kiểu đọc bundle nằm ở [`boom_content::bundle`] để client dùng được mà **không cần bộ giải
 //! mã pack** (ARCHITECTURE §7). Định dạng bundle là quyết định `design` của dự án, mô tả ở
@@ -15,7 +17,9 @@
 //!
 //! Cùng pack ⇒ cùng `content_hash`:
 //!
-//! - Thứ tự sprite theo thứ tự manifest closure; thứ tự ảnh theo thứ tự blob gốc.
+//! - Thứ tự sprite theo thứ tự manifest closure, rồi entry chỉ có trong bảng clip; thứ tự
+//!   ảnh theo thứ tự blob gốc.
+//! - Thứ tự clip theo thứ tự bảng [`crate::animation::v1_clip_sources`].
 //! - Đóng gói atlas dùng thuật toán kệ (shelf) với thứ tự ảnh cố định
 //!   (chiều cao giảm dần, rồi chiều rộng, rồi thứ tự ban đầu).
 //! - `content_hash` băm **toàn bộ bundle**: metadata **và** SHA-256 của từng file atlas,
@@ -25,13 +29,15 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use boom_content::animation::{AnimationClip, PresentationState};
 use boom_content::bundle::{
-    AtlasPage, Bundle, BundleError, Cell, EvidenceStatus, Frame, NonImageAsset,
-    Sprite as BundleSprite, SpriteImage, Unknown, sha256_hex,
+    AtlasPage, Bundle, BundleError, Cell, Clip, EvidenceStatus, Frame, NonImageAsset,
+    Sprite as BundleSprite, SpriteImage, UiElement, UiState, Unknown, sha256_hex,
 };
-use boom_content::rules::Status;
+use boom_content::rules::{Source, Status};
 
-use crate::closure::{self, ClosureEntry, ClosureRole, UnknownKind, V1_MAP};
+use crate::animation::{extract_clips, v1_clip_sources};
+use crate::closure::{self, ClosureRole, UnknownKind, V1_MAP};
 use crate::legacy_map::{Build, MapError, parse as parse_map};
 use crate::pack::{Pack, PackError};
 use crate::sprite::{self, SpriteError};
@@ -204,6 +210,8 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
     let mut raw_images: Vec<RawImage> = Vec::new();
     // Ảnh nào thuộc sprite nào: (sprite index, chỉ số ảnh trong sprite).
     let mut image_owner: Vec<(usize, u32)> = Vec::new();
+    // Clip animation của V1, theo thứ tự bảng `v1_clip_sources`.
+    let mut clips: Vec<Clip> = Vec::new();
 
     for entry in &manifest.entries {
         if !is_image_role(entry.role) {
@@ -217,49 +225,190 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
             });
             continue;
         }
-        match decode_entry_sprite(pack_dir, entry) {
-            Ok((blob, images)) => {
-                let sprite_index = sprites.len();
-                let mut sprite_images: Vec<SpriteImage> = Vec::with_capacity(images.len());
-                for (image_index, image) in images.iter().enumerate() {
-                    let empty = image.width == 0 || image.height == 0;
-                    if !empty {
-                        image_owner.push((sprite_index, image_index as u32));
-                        raw_images.push(RawImage {
-                            width: image.width,
-                            height: image.height,
-                            rgba: image.rgba.clone(),
-                        });
-                    }
-                    sprite_images.push(SpriteImage {
-                        index: image_index as u32,
-                        // Ảnh rỗng không đặt trong atlas; ảnh có pixel sẽ được ghi vị trí
-                        // sau khi đóng gói.
-                        page: if empty { None } else { Some(0) },
-                        x: 0,
-                        y: 0,
-                        width: image.width,
-                        height: image.height,
-                        pixel_sha256: sha256_hex(&image.rgba),
-                    });
-                }
-                sprites.push(BundleSprite {
-                    id: entry.entry.clone(),
-                    entry: entry.entry.clone(),
-                    role: entry.role.as_str().to_owned(),
-                    status: EvidenceStatus::from(entry.status),
-                    source_sha256: entry.sha256.clone(),
-                    map_id: entry.map_id,
-                    object_name: entry.object_name.clone(),
-                    images: sprite_images,
-                    frames: blob,
-                });
+        let (pack, path) = match entry.entry.split_once('/') {
+            Some((pack, path)) => (pack, path),
+            None => {
+                push_unknown(
+                    &mut unknown,
+                    "sprite",
+                    &entry.entry,
+                    "entry thiếu phần pack",
+                    &[],
+                );
+                continue;
+            }
+        };
+        match decode_sprite(pack_dir, pack, path) {
+            Ok(decoded) => {
+                push_sprite(
+                    &mut sprites,
+                    &mut raw_images,
+                    &mut image_owner,
+                    BundleSprite {
+                        id: entry.entry.clone(),
+                        entry: entry.entry.clone(),
+                        role: entry.role.as_str().to_owned(),
+                        status: EvidenceStatus::from(entry.status),
+                        source_sha256: entry.sha256.clone(),
+                        map_id: entry.map_id,
+                        object_name: entry.object_name.clone(),
+                        images: Vec::new(),
+                        frames: decoded.frames,
+                    },
+                    &decoded.images,
+                );
             }
             Err(reason) => {
                 // Ảnh không giải được thì ghi rõ lý do, không bỏ qua âm thầm.
                 push_unknown(&mut unknown, "sprite", &entry.entry, &reason, &[]);
             }
         }
+    }
+
+    // Clip animation V1: bảng entry ở `boom_assets::animation` (RULES_V1 R-077…R-079).
+    //
+    // Ảnh của clip nằm trong sprite tương ứng: nếu entry đã có trong closure thì dùng
+    // lại (một bản pixel trong atlas), nếu chỉ có trong bảng clip thì thêm vào bundle
+    // kèm vai trò riêng.
+    let clip_set = extract_clips(pack_dir, Build::Kr, &v1_clip_sources())?;
+    for clip in &clip_set.clips {
+        let sprite_id = format!("{}/{}", clip.pack, clip.entry);
+        if !sprites.iter().any(|sprite| sprite.id == sprite_id) {
+            let Some(role) = clip_only_role(clip.state) else {
+                push_unknown(
+                    &mut unknown,
+                    "animation_clip",
+                    &clip.id,
+                    &format!(
+                        "entry {sprite_id} chỉ có trong bảng clip animation mà chưa có vai trò \
+                         trong bundle (cần claim state → animation, xem RULES_V1 §8)"
+                    ),
+                    &[],
+                );
+                continue;
+            };
+            match decode_sprite(pack_dir, &clip.pack, &clip.entry) {
+                Ok(decoded) => {
+                    push_sprite(
+                        &mut sprites,
+                        &mut raw_images,
+                        &mut image_owner,
+                        BundleSprite {
+                            id: sprite_id.clone(),
+                            entry: sprite_id.clone(),
+                            role: role.to_owned(),
+                            status: EvidenceStatus::from(clip.status),
+                            source_sha256: decoded.sha256.clone(),
+                            map_id: None,
+                            object_name: None,
+                            images: Vec::new(),
+                            frames: decoded.frames,
+                        },
+                        &decoded.images,
+                    );
+                }
+                Err(reason) => {
+                    push_unknown(&mut unknown, "animation_clip", &clip.id, &reason, &[]);
+                    continue;
+                }
+            }
+        }
+        clips.push(clip_to_bundle(clip, &sprite_id));
+    }
+
+    // Entry có ảnh trong closure nhưng chưa có clip nào dùng tới: ghi rõ lý do thay vì
+    // bỏ qua âm thầm (hiệu ứng nổ chưa có claim state → animation).
+    for entry in &manifest.entries {
+        if entry.role != ClosureRole::ExplosionArt {
+            continue;
+        }
+        if clips
+            .iter()
+            .any(|clip| clip.sprite == entry.entry || clip.entry == entry.entry)
+        {
+            continue;
+        }
+        push_unknown(
+            &mut unknown,
+            "animation_clip",
+            &entry.entry,
+            "entry có ảnh trong atlas nhưng bảng clip animation của V1 chưa có clip nào dùng \
+             tới; chưa có claim state → animation cho hiệu ứng nổ (RULES_V1 R-077/R-078 chỉ \
+             nêu đi, chết, bom, item, idle, start, trapped và lửa)",
+            &[],
+        );
+    }
+
+    // Asset UI của luồng V1 (V1-032): ảnh của phần tử nằm trong atlas như sprite thường,
+    // còn trạng thái dùng (có chữ chờ duyệt / không dùng asset) nằm ở mục `[[ui]]`.
+    let mut ui: Vec<UiElement> = Vec::with_capacity(closure::ui_assets().len());
+    for asset in closure::ui_assets() {
+        let mut sprite = None;
+        let mut decode_error = None;
+        // Phần tử bị loại thì không đọc ảnh: asset đó không thuộc closure V1.
+        if asset.state != UiState::Excluded
+            && let Some(entry) = asset.entry
+        {
+            match decode_ui_sprite(pack_dir, entry) {
+                Ok((sprite_id, decoded)) => {
+                    push_sprite(
+                        &mut sprites,
+                        &mut raw_images,
+                        &mut image_owner,
+                        BundleSprite {
+                            id: sprite_id.clone(),
+                            entry: sprite_id.clone(),
+                            role: boom_content::bundle::ROLE_UI.to_owned(),
+                            status: EvidenceStatus::from(Status::Confirmed),
+                            source_sha256: decoded.sha256.clone(),
+                            map_id: None,
+                            object_name: None,
+                            images: Vec::new(),
+                            frames: decoded.frames,
+                        },
+                        &decoded.images,
+                    );
+                    sprite = Some(sprite_id);
+                }
+                Err(why) => {
+                    // Ảnh không giải được thì ghi rõ lý do, không bỏ qua âm thầm.
+                    push_unknown(
+                        &mut unknown,
+                        "ui",
+                        asset.id,
+                        &format!("{entry}: {why}"),
+                        &[],
+                    );
+                    decode_error = Some(why);
+                }
+            }
+        }
+        let (state, reason) = ui_state_and_reason(asset, decode_error.as_deref());
+        // Phần tử không có asset: quyết định của dự án (vẽ text/màu), không phải bằng
+        // chứng từ pack.
+        let has_asset = asset.entry.is_some();
+        ui.push(UiElement {
+            id: asset.id.to_owned(),
+            screen: asset.screen,
+            role: asset.role,
+            entry: asset.entry.map(str::to_owned),
+            state,
+            reason,
+            sprite,
+            source: if has_asset {
+                Source::KrStatic
+            } else {
+                Source::Design
+            },
+            // Ảnh đọc được thì payload đã xác nhận; ảnh **không** đọc được thì chỉ
+            // mới biết entry trỏ tới pack KR — chưa xác nhận được payload, nên
+            // `candidate` (không suy diễn quá bằng chứng, AGENTS §4).
+            status: match (has_asset, decode_error.is_some()) {
+                (true, false) => EvidenceStatus::Confirmed,
+                (true, true) => EvidenceStatus::Candidate,
+                (false, _) => EvidenceStatus::Design,
+            },
+        });
     }
 
     // Đóng gói atlas: thứ tự ảnh cố định nên cùng pack cho cùng bố cục.
@@ -362,6 +511,8 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
         assets,
         cells,
         unknown,
+        clips,
+        ui,
     };
     bundle.content_hash = bundle.compute_content_hash();
     bundle.validate().map_err(BundleBuildError::Bundle)?;
@@ -372,24 +523,28 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
     })
 }
 
+/// Sprite đã giải mã từ pack, sẵn sàng đưa ảnh vào atlas.
+struct DecodedSprite {
+    /// Frame của blob, theo thứ tự gốc.
+    frames: Vec<Frame>,
+    /// Ảnh của blob, theo thứ tự gốc (ảnh 0×0 là ảnh giữ chỗ, không có pixel).
+    images: Vec<RawImage>,
+    /// SHA-256 của payload gốc trong pack.
+    sha256: String,
+}
+
 /// Đọc entry pack và giải thành sprite + ảnh RGBA.
 ///
 /// Trả lỗi (dạng lý do) nếu blob không phải sprite, có ảnh rỗng, hoặc frame trỏ tới ảnh
 /// không có.
-fn decode_entry_sprite(
-    pack_dir: &Path,
-    entry: &ClosureEntry,
-) -> Result<(Vec<Frame>, Vec<RawImage>), String> {
-    let (stem, path) = entry
-        .entry
-        .split_once('/')
-        .ok_or_else(|| format!("entry {} thiếu phần pack", entry.entry))?;
-    let pack = Pack::open(pack_dir, stem, Build::Kr).map_err(|e| e.to_string())?;
-    let blob = pack
+fn decode_sprite(pack_dir: &Path, pack: &str, path: &str) -> Result<DecodedSprite, String> {
+    let handle = Pack::open(pack_dir, pack, Build::Kr).map_err(|e| e.to_string())?;
+    let blob = handle
         .read_named(path)
         .map_err(|e| format!("đọc entry thất bại: {e}"))?;
-    drop(pack);
+    drop(handle);
 
+    let sha256 = sha256_hex(&blob);
     let parsed = sprite::parse(&blob).map_err(|e| format!("không parse được sprite: {e}"))?;
     let mut images: Vec<RawImage> = Vec::with_capacity(parsed.images.len());
     for (index, image) in parsed.images.iter().enumerate() {
@@ -437,7 +592,137 @@ fn decode_entry_sprite(
             pivot_y: frame.pivot.y,
         });
     }
-    Ok((frames, images))
+    Ok(DecodedSprite {
+        frames,
+        images,
+        sha256,
+    })
+}
+
+/// Đọc entry pack của một phần tử UI và giải thành sprite + ảnh RGBA.
+///
+/// ID của sprite trong bundle là chính entry pack (`<pack>/<entry>`), nên `[[ui]]` trỏ
+/// tới `[[sprites]]` bằng đúng đường dẫn đó.
+fn decode_ui_sprite(pack_dir: &Path, entry: &str) -> Result<(String, DecodedSprite), String> {
+    let (pack, path) = entry
+        .split_once('/')
+        .ok_or_else(|| format!("entry {entry} thiếu phần pack"))?;
+    let decoded = decode_sprite(pack_dir, pack, path)?;
+    Ok((entry.to_owned(), decoded))
+}
+
+/// Trạng thái dùng và lý do của phần tử UI sau khi thử đọc ảnh từ pack.
+///
+/// Ảnh đọc được → giữ nguyên trạng thái của bảng closure. Ảnh **không giải được** →
+/// hạ xuống `excluded` kèm lý do kỹ thuật: phần tử đó không có ảnh trong atlas nên
+/// client vẽ text thay, còn bundle vẫn dựng được — cùng cách xử lý sprite và clip
+/// không giải được.
+fn ui_state_and_reason(asset: &closure::UiAsset, decode_error: Option<&str>) -> (UiState, String) {
+    match decode_error {
+        None => (asset.state, asset.reason.to_owned()),
+        Some(why) => (
+            UiState::Excluded,
+            format!("{}; ảnh không giải được: {why}", asset.reason),
+        ),
+    }
+}
+
+/// Đưa một sprite đã giải mã vào bundle: ảnh có pixel vào atlas, metadata vào `[[sprites]]`.
+///
+/// `sprite.images` được điền ở đây; vị trí trong trang atlas ghi sau khi đóng gói.
+fn push_sprite(
+    sprites: &mut Vec<BundleSprite>,
+    raw_images: &mut Vec<RawImage>,
+    image_owner: &mut Vec<(usize, u32)>,
+    mut sprite: BundleSprite,
+    images: &[RawImage],
+) {
+    let sprite_index = sprites.len();
+    let mut sprite_images: Vec<SpriteImage> = Vec::with_capacity(images.len());
+    for (image_index, image) in images.iter().enumerate() {
+        let empty = image.width == 0 || image.height == 0;
+        if !empty {
+            image_owner.push((sprite_index, image_index as u32));
+            raw_images.push(RawImage {
+                width: image.width,
+                height: image.height,
+                rgba: image.rgba.clone(),
+            });
+        }
+        sprite_images.push(SpriteImage {
+            index: image_index as u32,
+            // Ảnh rỗng không đặt trong atlas; ảnh có pixel sẽ được ghi vị trí
+            // sau khi đóng gói.
+            page: if empty { None } else { Some(0) },
+            x: 0,
+            y: 0,
+            width: image.width,
+            height: image.height,
+            pixel_sha256: sha256_hex(&image.rgba),
+        });
+    }
+    sprite.images = sprite_images;
+    sprites.push(sprite);
+}
+
+/// Vai trò của sprite **bổ sung**: entry chỉ có trong bảng clip animation, chưa có trong
+/// closure manifest (closure chỉ liệt kê entry đã fingerprint cho một trận V1).
+///
+/// `closure::ClosureRole` không có vai trò cho hai trường hợp này và `closure.rs` ngoài
+/// phạm vi sửa của task này, nên bundle ghi vai trò riêng (xem BUNDLES.md §3).
+pub const ROLE_CLIP_START: &str = "character_start";
+
+/// Vai trò của sprite **bổ sung**: lửa nhạt (motion blur) theo hướng.
+pub const ROLE_CLIP_MOTION_BLUR: &str = "flame_motion_blur";
+
+/// Vai trò cho entry chỉ có trong bảng clip animation; `None` nếu chưa có vai trò nào.
+fn clip_only_role(state: PresentationState) -> Option<&'static str> {
+    match state {
+        PresentationState::Start => Some(ROLE_CLIP_START),
+        PresentationState::Flame(boom_content::animation::FlameKind::MotionBlur(_)) => {
+            Some(ROLE_CLIP_MOTION_BLUR)
+        }
+        _ => None,
+    }
+}
+
+/// Đổi clip của bộ trích sang clip trong bundle.
+///
+/// Frame của clip dùng **cùng** kiểu với frame của sprite: chỉ số ảnh trỏ vào ảnh của
+/// sprite `sprite_id` trong bảng `[[sprites]]`.
+fn clip_to_bundle(clip: &AnimationClip, sprite_id: &str) -> Clip {
+    Clip {
+        id: clip.id.clone(),
+        state: clip.state,
+        pack: clip.pack.clone(),
+        entry: clip.entry.clone(),
+        layer: clip.layer,
+        sprite_unk: clip.sprite_unk,
+        sprite: sprite_id.to_owned(),
+        source: clip.source,
+        status: EvidenceStatus::from(clip.status),
+        claims: clip.claims.clone(),
+        note: clip.note.clone(),
+        timing: clip.timing.clone(),
+        frames: clip
+            .frames
+            .iter()
+            .map(|frame| Frame {
+                image: frame.image_index,
+                offset_x: frame.offset_x,
+                offset_y: frame.offset_y,
+                flag: frame.flag,
+                x0: frame.source.x0,
+                y0: frame.source.y0,
+                x1: frame.source.x1,
+                y1: frame.source.y1,
+                canvas_width: frame.canvas.width,
+                canvas_height: frame.canvas.height,
+                pivot_x: frame.pivot.x,
+                pivot_y: frame.pivot.y,
+            })
+            .collect(),
+    }
 }
 
 /// Đóng gói ảnh vào các trang atlas (thuật toán kệ).
@@ -558,6 +843,8 @@ pub enum BundleBuildError {
     Map(MapError),
     /// Lỗi giải sprite.
     Sprite(SpriteError),
+    /// Lỗi trích clip animation.
+    Animation(crate::animation::ExtractError),
     /// Bundle không nhất quán (tham chiếu hỏng, hash lệch).
     Bundle(BundleError),
     /// Map chưa hỗ trợ.
@@ -587,6 +874,7 @@ impl fmt::Display for BundleBuildError {
             Self::Pack(e) => write!(f, "lỗi pack: {e}"),
             Self::Map(e) => write!(f, "lỗi map: {e}"),
             Self::Sprite(e) => write!(f, "lỗi sprite: {e}"),
+            Self::Animation(e) => write!(f, "lỗi trích clip animation: {e}"),
             Self::Bundle(e) => write!(f, "lỗi bundle: {e}"),
             Self::UnsupportedMap(name) => {
                 write!(f, "chưa hỗ trợ dựng bundle cho map {name:?}")
@@ -627,6 +915,12 @@ impl From<SpriteError> for BundleBuildError {
     }
 }
 
+impl From<crate::animation::ExtractError> for BundleBuildError {
+    fn from(value: crate::animation::ExtractError) -> Self {
+        Self::Animation(value)
+    }
+}
+
 impl From<BundleError> for BundleBuildError {
     fn from(value: BundleError) -> Self {
         Self::Bundle(value)
@@ -642,6 +936,7 @@ pub fn status_label(status: Status) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use boom_content::bundle::UiScreen;
 
     /// Thư mục pack KR thật; test bỏ qua khi chưa đặt `BOOM_KR_PACK_DIR`.
     fn pack_root() -> Option<PathBuf> {
@@ -723,6 +1018,8 @@ mod tests {
         assert_eq!(loaded.content_hash, first.bundle.content_hash);
         assert_eq!(loaded.sprites.len(), first.bundle.sprites.len());
         assert_eq!(loaded.cells.len(), 15 * 13, "lưới Village00 là 15x13");
+        assert_eq!(loaded.clips.len(), first.bundle.clips.len());
+        assert!(!loaded.clips.is_empty(), "bundle phải có clip animation");
 
         // Mọi ô có sprite nền, hoặc nằm trong unknown kèm lý do.
         for cell in &loaded.cells {
@@ -763,6 +1060,117 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    /// Nghiệm thu V1-032: bundle phải mang bảng UI của luồng V1 kèm trạng thái dùng, và
+    /// ảnh của phần tử nằm trong atlas.
+    ///
+    /// Mọi phần tử có asset đều phải trỏ tới một sprite có thật; phần tử bị loại thì
+    /// không có ảnh trong atlas. Không phần tử nào ở trạng thái "đã duyệt": ảnh có chữ
+    /// chờ quyết định duyệt ảnh.
+    #[test]
+    fn bundle_carries_the_v1_ui_flow_with_its_review_state() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let ui = &built.bundle.ui;
+        assert!(!ui.is_empty(), "bundle phải có bảng UI");
+
+        // Mọi màn hình của luồng V1 đều phải có mặt.
+        for screen in [
+            UiScreen::Login,
+            UiScreen::Lobby,
+            UiScreen::Room,
+            UiScreen::Match,
+            UiScreen::Result,
+        ] {
+            assert!(
+                !built.bundle.ui_by_screen(screen).is_empty(),
+                "màn {screen:?} chưa có phần tử UI"
+            );
+        }
+
+        for element in ui {
+            assert!(!element.id.is_empty());
+            assert!(
+                !element.reason.is_empty(),
+                "phần tử {} thiếu lý do",
+                element.id
+            );
+            match element.state {
+                UiState::Selected | UiState::NeedsReviewText => {
+                    assert!(
+                        element.entry.is_some(),
+                        "phần tử {} phải có entry",
+                        element.id
+                    );
+                    let sprite = element
+                        .sprite
+                        .as_deref()
+                        .unwrap_or_else(|| panic!("phần tử {} thiếu sprite", element.id));
+                    assert!(
+                        built.bundle.sprites.iter().any(|item| item.id == sprite),
+                        "phần tử {} trỏ sprite không có trong bundle",
+                        element.id
+                    );
+                }
+                UiState::Excluded => {
+                    assert!(
+                        element.sprite.is_none(),
+                        "phần tử {} bị loại thì không được có ảnh trong atlas",
+                        element.id
+                    );
+                }
+            }
+        }
+
+        // Ảnh có chữ không bao giờ ở trạng thái "đã duyệt": bảng chỉ có ba trạng thái.
+        assert!(
+            ui.iter()
+                .any(|element| element.state == UiState::NeedsReviewText)
+        );
+        assert!(ui.iter().any(|element| element.state == UiState::Selected));
+
+        // Reader của boom-content nạp lại được bundle có bảng UI.
+        let dir = temp_dir("ui");
+        built.write(&dir).expect("ghi bundle");
+        let loaded = boom_content::bundle::load(&dir).expect("nạp lại bundle");
+        assert_eq!(loaded.ui.len(), ui.len());
+        assert_eq!(
+            loaded.ui_element("lobby.create").map(|item| item.state),
+            Some(UiState::NeedsReviewText)
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Ảnh của phần tử UI **không giải được** thì phần tử hạ xuống `excluded` kèm lý do
+    /// kỹ thuật: không có ảnh trong atlas thì client vẽ text thay, còn bundle vẫn dựng
+    /// được (cùng cách xử lý sprite và clip không giải được).
+    #[test]
+    fn ui_element_with_an_undecodable_image_falls_back_to_excluded() {
+        let asset = closure::UiAsset {
+            id: "lobby.create",
+            screen: UiScreen::Lobby,
+            role: boom_content::bundle::UiRole::Button,
+            entry: Some("FxStage/Lobby/LB_Bt_T_Create-NM"),
+            state: UiState::NeedsReviewText,
+            reason: "ảnh nút có chữ Hàn",
+        };
+
+        // Ảnh đọc được: giữ nguyên trạng thái của bảng closure.
+        let (state, reason) = ui_state_and_reason(&asset, None);
+        assert_eq!(state, UiState::NeedsReviewText);
+        assert_eq!(reason, asset.reason);
+
+        // Ảnh không giải được: hạ xuống `excluded` và ghi rõ lý do.
+        let (state, reason) = ui_state_and_reason(&asset, Some("blob không đúng phiên bản"));
+        assert_eq!(state, UiState::Excluded);
+        assert!(
+            reason.contains("blob không đúng phiên bản") && reason.contains("ảnh nút có chữ Hàn"),
+            "lý do phải giữ cả ghi chú closure lẫn lỗi kỹ thuật: {reason}"
+        );
+    }
+
     /// Bundle của map khác chưa hỗ trợ thì báo lỗi rõ ràng.
     #[test]
     fn unsupported_map_is_reported() {
@@ -771,6 +1179,118 @@ mod tests {
             Err(other) => panic!("lỗi sai: {other}"),
             Ok(_) => panic!("map khác phải bị từ chối"),
         }
+    }
+
+    /// Nghiệm thu V1-031: bundle phải mang **mọi** clip của bảng animation V1, với nhãn
+    /// bằng chứng đúng: clip R-077 là `confirmed`, clip R-078 là `candidate`.
+    ///
+    /// Thời lượng chưa có nguồn (R-079) thì mọi clip phải là `unknown` và **không** mang
+    /// số — bundle không tự đặt nhịp.
+    #[test]
+    fn bundle_carries_every_v1_clip_with_its_evidence_label() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let sources = crate::animation::v1_clip_sources();
+        assert_eq!(built.bundle.clips.len(), sources.len());
+
+        for source in &sources {
+            let clip = built
+                .bundle
+                .clip(&source.id)
+                .unwrap_or_else(|| panic!("thiếu clip {}", source.id));
+            assert_eq!(clip.claims, source.claims, "clip {}", clip.id);
+            let expected_status = match source.claims.first().map(String::as_str) {
+                Some("R-077") => "confirmed",
+                Some("R-078") => "candidate",
+                other => panic!("claim không lạ trong bảng clip: {other:?}"),
+            };
+            assert_eq!(
+                clip.status.as_str(),
+                expected_status,
+                "nhãn bằng chứng của clip {} sai",
+                clip.id
+            );
+            assert!(!clip.frames.is_empty(), "clip {} không có frame", clip.id);
+            assert_eq!(
+                clip.timing.ms(),
+                None,
+                "clip {} không được mang thời lượng đoán mò",
+                clip.id
+            );
+        }
+    }
+
+    /// Nghiệm thu V1-031: mọi clip phải tham chiếu ảnh có thật, rect nằm trong ảnh và
+    /// pivot nằm trong canvas; reader phải nạp lại được bundle đó.
+    #[test]
+    fn every_clip_references_an_existing_image_and_pivot_inside_the_canvas() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        for clip in &built.bundle.clips {
+            let sprite = built
+                .bundle
+                .sprites
+                .iter()
+                .find(|sprite| sprite.id == clip.sprite)
+                .unwrap_or_else(|| panic!("clip {} trỏ sprite không có", clip.id));
+            for frame in &clip.frames {
+                let image = sprite
+                    .images
+                    .get(frame.image as usize)
+                    .unwrap_or_else(|| panic!("clip {} trỏ ảnh không có", clip.id));
+                assert!(
+                    frame.x1 - frame.x0 <= image.width as i32
+                        && frame.y1 - frame.y0 <= image.height as i32,
+                    "clip {}: rect frame không nằm trong ảnh",
+                    clip.id
+                );
+                assert!(
+                    frame.canvas_width >= frame.x1 - frame.x0
+                        && frame.canvas_height >= frame.y1 - frame.y0,
+                    "clip {}: canvas nhỏ hơn hình nguồn",
+                    clip.id
+                );
+                assert!(
+                    frame.pivot_x >= 0
+                        && frame.pivot_x <= frame.canvas_width
+                        && frame.pivot_y >= 0
+                        && frame.pivot_y <= frame.canvas_height,
+                    "clip {}: pivot nằm ngoài canvas",
+                    clip.id
+                );
+            }
+        }
+
+        let dir = temp_dir("clips");
+        built.write(&dir).expect("ghi bundle");
+        let loaded = boom_content::bundle::load(&dir).expect("nạp lại bundle");
+        assert_eq!(loaded.clips.len(), built.bundle.clips.len());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Entry có ảnh nhưng chưa có clip nào dùng tới thì phải được ghi trong `unknown`
+    /// kèm lý do — không bỏ qua âm thầm.
+    #[test]
+    fn art_without_a_clip_is_reported_as_unknown() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let explosion = built
+            .bundle
+            .unknown
+            .iter()
+            .find(|unknown| unknown.kind == "animation_clip")
+            .expect("hiệu ứng nổ chưa có clip thì phải nằm trong unknown");
+        assert_eq!(explosion.id, "FxDesktop/Bomb/BombExplosion001");
+        assert!(!explosion.reason.is_empty());
     }
 
     /// PNG trong suốt cùng kích thước — dùng để mô phỏng "thay toàn bộ atlas".

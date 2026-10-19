@@ -114,6 +114,9 @@ impl Harness {
                     c00: stats(),
                     c01: stats(),
                 },
+                // Tên map cho client dựng bản đồ; test không ghi replay.
+                map: "skeleton-test".to_owned(),
+                replay: None,
             },
         );
         let handshake = HandshakeConfig {
@@ -482,6 +485,9 @@ fn client_nhan_reject_khi_rules_lech() {
                 c00: stats(),
                 c01: stats(),
             },
+            // Tên map cho client dựng bản đồ; test không ghi replay.
+            map: "skeleton-test".to_owned(),
+            replay: None,
         },
     );
     let handshake = HandshakeConfig {
