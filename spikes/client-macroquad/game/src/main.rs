@@ -44,6 +44,20 @@ async fn run(opts: Options) {
             std::process::exit(2);
         }
     };
+    if opts.audio_smoke {
+        match load_audio(&scene, &opts.assets).await {
+            Ok(_) => {
+                println!(
+                    "audio smoke PASS: BGM+SFX load/decode OK; playback/timing chưa đo (không có soundcard)"
+                );
+                std::process::exit(0);
+            }
+            Err(error) => {
+                eprintln!("audio smoke FAIL: {error}");
+                std::process::exit(2);
+            }
+        }
+    }
     let textures = match load_textures(&scene, &opts.assets) {
         Ok(textures) => textures,
         Err(error) => {
@@ -61,7 +75,13 @@ async fn run(opts: Options) {
     let mut audio = if opts.no_audio {
         None
     } else {
-        Some(load_audio(&scene, &opts.assets).await)
+        match load_audio(&scene, &opts.assets).await {
+            Ok(audio) => Some(audio),
+            Err(error) => {
+                eprintln!("không nạp được audio: {error}");
+                std::process::exit(2);
+            }
+        }
     };
     let target = render_target(scene.logic_size[0], scene.logic_size[1]);
     target.texture.set_filter(FilterMode::Nearest);
@@ -376,50 +396,57 @@ fn load_font() -> Result<Font, Box<dyn std::error::Error>> {
 }
 
 struct Audio {
-    bgm: Option<Sound>,
-    sfx: Option<Sound>,
+    bgm: Sound,
+    sfx: Sound,
     started: bool,
 }
 
 impl Audio {
     fn start(&self) {
-        if let Some(bgm) = &self.bgm {
-            play_sound(
-                bgm,
-                PlaySoundParams {
-                    looped: true,
-                    volume: 0.25,
-                },
-            );
-        }
+        play_sound(
+            &self.bgm,
+            PlaySoundParams {
+                looped: true,
+                volume: 0.25,
+            },
+        );
     }
     fn sfx(&self) {
-        if let Some(sfx) = &self.sfx {
-            play_sound(
-                sfx,
-                PlaySoundParams {
-                    looped: false,
-                    volume: 0.7,
-                },
-            );
-        }
+        play_sound(
+            &self.sfx,
+            PlaySoundParams {
+                looped: false,
+                volume: 0.7,
+            },
+        );
     }
 }
 
-async fn load_audio(scene: &Scene, root: &Path) -> Audio {
-    let bgm = match std::fs::read(root.join(&scene.audio.bgm)) {
-        Ok(bytes) => load_sound_from_bytes(&bytes).await.ok(),
-        Err(_) => None,
-    };
-    let sfx = match std::fs::read(root.join(&scene.audio.sfx)) {
-        Ok(bytes) => load_sound_from_bytes(&bytes).await.ok(),
-        Err(_) => None,
-    };
-    Audio {
+async fn load_audio(scene: &Scene, root: &Path) -> Result<Audio, Box<dyn std::error::Error>> {
+    let bgm = load_ogg("BGM", &root.join(&scene.audio.bgm)).await?;
+    let sfx = load_ogg("SFX", &root.join(&scene.audio.sfx)).await?;
+    Ok(Audio {
         bgm,
         sfx,
         started: false,
+    })
+}
+
+async fn load_ogg(label: &str, path: &Path) -> Result<Sound, Box<dyn std::error::Error>> {
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("{label} {}: đọc lỗi: {error}", path.display()))?;
+    if !bytes.starts_with(b"OggS") {
+        return Err(format!("{label} {}: không phải Ogg", path.display()).into());
     }
+    let sound = load_sound_from_bytes(&bytes)
+        .await
+        .map_err(|error| format!("{label} {}: decode lỗi: {error}", path.display()))?;
+    println!(
+        "audio {label}: load/decode OK ({} byte, {})",
+        bytes.len(),
+        path.display()
+    );
+    Ok(sound)
 }
 
 #[derive(Default)]
@@ -430,6 +457,7 @@ struct Options {
     time_ms: f64,
     dir: Option<String>,
     no_audio: bool,
+    audio_smoke: bool,
 }
 
 impl Options {
@@ -462,9 +490,10 @@ impl Options {
                 }
                 "--dir" => opts.dir = Some(args.next().ok_or("--dir cần down/left/right/up")?),
                 "--no-audio" => opts.no_audio = true,
+                "--audio-smoke" => opts.audio_smoke = true,
                 "-h" | "--help" => {
                     println!(
-                        "dùng: spike-macroquad [--assets DIR] [--scale 1|2] [--snapshot PNG] [--time-ms N] [--dir DIR] [--no-audio]"
+                        "dùng: spike-macroquad [--assets DIR] [--scale 1|2] [--snapshot PNG] [--time-ms N] [--dir DIR] [--no-audio] [--audio-smoke]"
                     );
                     std::process::exit(0);
                 }
@@ -478,6 +507,9 @@ impl Options {
             && !matches!(dir.as_str(), "down" | "left" | "right" | "up")
         {
             return Err("--dir chỉ nhận down/left/right/up".to_owned());
+        }
+        if opts.audio_smoke && opts.no_audio {
+            return Err("--audio-smoke và --no-audio không dùng cùng nhau".to_owned());
         }
         Ok(opts)
     }

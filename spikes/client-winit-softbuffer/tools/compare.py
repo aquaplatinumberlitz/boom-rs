@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,11 @@ def main() -> int:
     parser.add_argument("--hud", type=int, default=40, help="chiều cao HUD cần bỏ qua (px)")
     parser.add_argument("--out", type=Path, help="ghi heatmap PNG")
     parser.add_argument("--json", type=Path, help="ghi thống kê JSON")
+    parser.add_argument(
+        "--check-2x-from",
+        type=Path,
+        help="ảnh 1×; kiểm ảnh --b là nearest-neighbor expansion trực tiếp của ảnh này",
+    )
     args = parser.parse_args()
 
     a = Image.open(args.a).convert("RGB")
@@ -52,6 +58,31 @@ def main() -> int:
             "max_delta": int(diff[:hud].max()) if hud else 0,
         },
     }
+
+    if args.check_2x_from:
+        small = Image.open(args.check_2x_from).convert("RGB")
+        expected = np.repeat(np.repeat(np.asarray(small), 2, axis=0), 2, axis=1)
+        actual = np.asarray(b)
+        if actual.shape != expected.shape:
+            raise SystemExit(
+                f"kích thước expansion sai: {actual.shape} vs {expected.shape} "
+                f"(1× {small.size})"
+            )
+        mismatch = int((actual != expected).any(axis=2).sum())
+        stats["nearest_expansion_2x"] = {
+            "source_1x": str(args.check_2x_from),
+            "pixels": int(expected.shape[0] * expected.shape[1]),
+            "mismatch": mismatch,
+        }
+        if mismatch:
+            print(
+                f"nearest expansion FAIL: {mismatch} pixel khác bản mở rộng 2× của "
+                f"{args.check_2x_from}",
+                file=sys.stderr,
+            )
+            return 2
+        print(f"nearest expansion PASS: {args.b} = 2× trực tiếp của {args.check_2x_from}")
+
     print(json.dumps(stats, indent=2, ensure_ascii=False))
 
     if args.json:

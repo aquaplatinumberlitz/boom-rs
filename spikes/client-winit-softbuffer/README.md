@@ -39,7 +39,9 @@ cargo run --release -p spike-winit-softbuffer \
 ```
 
 Phím: `S` đổi 1×/2×, `B` kích hoạt nổ + SFX, `R` reset, `Esc` thoát.
-Font: `BOOM_FONT` hoặc font hệ thống. Audio im lặng nếu không có thiết bị.
+Font: `BOOM_FONT` hoặc font hệ thống. Khi audio bật, lỗi đọc/giải mã làm process exit khác 0;
+smoke test load/decode: `./spikes/client-winit-softbuffer/run-audio-smoke.sh`
+(pass ở head này; playback/timing chưa đo vì không có soundcard).
 
 ## Snapshot và đo
 
@@ -54,6 +56,11 @@ Snapshot chạy hoàn toàn offscreen (không cần X/Wayland). So hai snapshot:
 python3 spikes/client-winit-softbuffer/tools/compare.py \
   --a local/snap-macroquad-1x.png --b local/snap-winit-1x.png \
   --hud 40 --out local/diff-1x.png
+
+# Kiểm 2× là nearest expansion trực tiếp của 1× (không suy từ 4× diện tích)
+python3 spikes/client-winit-softbuffer/tools/compare.py \
+  --a local/snap-winit-2x.png --b local/snap-winit-2x.png \
+  --hud 80 --check-2x-from local/snap-winit-1x.png
 ```
 
 Benchmark renderer (release, cùng scene, không tính cửa sổ):
@@ -72,17 +79,21 @@ registry đã warm.
 | Chỉ số | winit+softbuffer | macroquad (tham chiếu) |
 |---|---|---|
 | Build Linux release | 33,99 s | **16,95 s** |
-| Binary Linux release | 6.221.152 B | **2.631.744 B** |
+| Binary Linux release | 6.216.616 B | **2.631.328 B** |
 | Build Windows GNU release | **13,50 s** | 15,19 s |
 | `.exe` Windows | **7.966.962 B** | 9.156.705 B |
 | Crate transitive (Linux) | 117 | **53** |
-| Dòng code game | 764 | **559** |
-| Render CPU 1× (600×560) | 3,32 ms/frame | — (GPU) |
-| Render CPU 2× (1200×1120) | 8,85 ms/frame | — (GPU) |
+| Dòng code game | 798 | **591** |
+| Render CPU 1× (600×560) | 2,782 ms/frame | — (GPU) |
+| Render CPU 2× (1200×1120) | 7,926 ms/frame | — (GPU) |
 
-So pixel scene với macroquad: 127/312.000 pixel khác ở 1× (0,041%), lớn nhất 17/255,
-toàn bộ ở khói nổ bán trong suốt; 2× là 508/1.248.000. HUD chữ Việt: 2.611/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph, max 144/255);
-không thiếu glyph.
+Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa frame/audio chỉ đo lại
+binary/LOC Linux và pixel/audio.
+
+So pixel scene với macroquad: 143/312.000 pixel khác ở 1× (0,046%), lớn nhất 17/255,
+toàn bộ ở khói nổ bán trong suốt (explosion `#4`); 2× là 572/1.248.000. `--check-2x-from`
+cho mismatch 0 trên cả hai stack. Đây là comparison/regression, không phải oracle pivot/alpha/z-order.
+HUD chữ Việt: 2.611/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph, max 144/255); không thiếu glyph.
 
 Chi tiết/ảnh ở [`../client-macroquad/measurements/`](../client-macroquad/measurements/README.md).
 
@@ -110,6 +121,8 @@ thật để link/chạy. `winit` + `softbuffer` + `quad-snd` đều qua `cargo 
 - Renderer CPU tự viết: blit RGBA straight-alpha, text layout không shaping/ligature (tiếng Việt
   precomposed vẫn đủ dấu), không có GPU effect/blend mode.
 - Audio dùng chung `quad-snd` với macroquad nên spike này **không** so sánh backend audio;
-  nó so chi phí render/text/UI tự dựng.
-- Quy ước pivot/anchor là presentation candidate (Q-003), không phải luật KR.
+  nó so chi phí render/text/UI tự dựng. Smoke chỉ chứng minh load/decode; playback/timing chưa đo.
+- Quy ước pivot/anchor là presentation candidate (Q-003); hai renderer dùng chung công thức nên
+  pivot/alpha/z-order **chưa kiểm chứng độc lập**. So pixel chỉ là comparison/regression.
+- Windows mới build, macOS mới `check`; chưa chạy runtime 2 OS.
 - Không có gameplay/mạng/collision; không commit asset game; không merge vào `crates/`.

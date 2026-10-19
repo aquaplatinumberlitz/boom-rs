@@ -8,22 +8,23 @@
     "rust": "1.99.0"
   },
   "method": {
-    "build": "cargo build --release, target sạch, registry đã warm",
-    "pixel": "snapshot --time-ms 300 --no-audio; HUD tách khỏi vùng scene",
-    "deps": "cargo tree --prefix none, đếm crate duy nhất trừ package spike"
+    "build": "cargo build --release, target sạch, registry đã warm; thời gian build đo tại head 66e91d7, vòng sửa frame/audio chỉ đo lại binary Linux và LOC (không build lại Windows/macOS trên host này)",
+    "pixel": "snapshot --time-ms 300 --no-audio; frame animation sắp theo số (explosion #4 tại 300 ms); HUD tách khỏi vùng scene",
+    "deps": "cargo tree --prefix none, đếm crate duy nhất trừ package spike",
+    "audio": "--audio-smoke: đọc, kiểm header Ogg và decode BGM+SFX; playback/timing chưa đo vì không có soundcard"
   },
   "linux_release": {
     "macroquad": {
       "build_s": 16.95,
-      "binary_b": 2631744,
+      "binary_b": 2631328,
       "deps": 53,
-      "loc_game": 559
+      "loc_game": 591
     },
     "winit_softbuffer": {
       "build_s": 33.99,
-      "binary_b": 6221152,
+      "binary_b": 6216616,
       "deps": 117,
-      "loc_game": 764
+      "loc_game": 798
     }
   },
   "windows_gnu_release": {
@@ -32,34 +33,64 @@
       "binary_b": 9156705
     },
     "winit_softbuffer": {
-      "build_s": 13.50,
+      "build_s": 13.5,
       "binary_b": 7966962
     }
   },
   "pixel": {
     "scene_1x": {
       "pixels": 312000,
-      "different": 127,
-      "different_gt1": 108,
+      "different": 143,
+      "different_gt1": 132,
       "max_delta": 17,
-      "pct": 0.040705128205128206
+      "pct": 0.04583333333333333,
+      "different_gt5": 91
     },
     "scene_2x": {
       "pixels": 1248000,
-      "different": 508,
-      "different_gt1": 432,
+      "different": 572,
+      "different_gt1": 528,
       "max_delta": 17,
-      "pct": 0.040705128205128206
+      "pct": 0.04583333333333333,
+      "different_gt5": 364
     },
     "hud_1x": {
       "pixels": 24000,
       "different": 2611,
       "different_gt1": 2513,
       "max_delta": 144
+    },
+    "nearest_expansion_2x": {
+      "macroquad": {
+        "source_1x": "local/snap-macroquad-1x.png",
+        "pixels": 1248000,
+        "mismatch": 0
+      },
+      "winit_softbuffer": {
+        "source_1x": "local/snap-winit-1x.png",
+        "pixels": 1248000,
+        "mismatch": 0
+      }
     }
   },
   "cpu_render_ms": {
-    "1x": 3.107,
-    "2x": 8.563
+    "1x": 2.782,
+    "2x": 7.926
+  },
+  "audio_smoke": {
+    "macroquad": {
+      "bgm": "load/decode OK",
+      "sfx": "load/decode OK",
+      "playback": "chưa đo (không có soundcard)"
+    },
+    "winit_softbuffer": {
+      "bgm": "load/decode OK",
+      "sfx": "load/decode OK",
+      "playback": "chưa đo (không có soundcard)"
+    },
+    "negative_missing_sfx": {
+      "command": "--audio-smoke với SFX bị thiếu",
+      "exit": "2 (FAIL)"
+    }
   }
 }

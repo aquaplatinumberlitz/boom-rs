@@ -327,12 +327,20 @@ impl Catalog {
     }
 
     fn keys_matching(&self, prefix: &str) -> Vec<String> {
-        self.sprites
+        let mut keys: Vec<String> = self
+            .sprites
             .keys()
             .filter(|key| key.starts_with(prefix))
             .cloned()
-            .collect()
+            .collect();
+        // BTreeMap sắp theo chuỗi sẽ cho #0,#1,#10,#11,#2,...; frame animation phải theo số.
+        keys.sort_by_key(|key| frame_index(key).unwrap_or(usize::MAX));
+        keys
     }
+}
+
+fn frame_index(key: &str) -> Option<usize> {
+    key.rsplit_once('#')?.1.parse().ok()
 }
 
 fn additive_to_alpha(rgba: &mut [u8]) {
@@ -602,4 +610,16 @@ fn write_png(path: &Path, width: u32, height: u32, rgba: &[u8]) -> Result<()> {
     let mut writer = encoder.write_header()?;
     writer.write_image_data(rgba)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::frame_index;
+
+    #[test]
+    fn frame_keys_sort_numerically() {
+        let mut keys = vec!["e#10", "e#2", "e#0", "e#1"];
+        keys.sort_by_key(|key| frame_index(key).unwrap_or(usize::MAX));
+        assert_eq!(keys, vec!["e#0", "e#1", "e#2", "e#10"]);
+    }
 }

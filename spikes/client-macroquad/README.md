@@ -41,6 +41,8 @@ Ghi chú kỹ thuật:
 - Sheet `BombExplosion004` gốc có nền đen đục và dùng additive. Tool chuyển sang alpha theo độ sáng
   (`alpha = max(r,g,b)`) vì macroquad không có blend per-draw đa nền tảng; đây là xử lý **trình diễn**
   của spike, không phải luật game.
+- Frame animation được sắp theo **số** (`#0,#1,…,#10,…`), không theo thứ tự chuỗi; 300 ms chọn
+  explosion `#4`. Snapshot/heatmap trong `measurements/` đã tái tạo sau khi sửa (xem PR #37 vòng 2).
 - Không có asset dự phòng: thiếu pack/entry thì tool báo lỗi và dừng.
 
 ## Chạy
@@ -52,7 +54,15 @@ cargo run --release -p spike-macroquad \
 
 Phím: `S` đổi 1×/2×, `B` kích hoạt nổ + SFX, `R` reset, `Esc` thoát.
 Font: đặt `BOOM_FONT` hoặc dùng font hệ thống (DejaVu Sans / Noto Sans / Segoe UI / Arial).
-Audio: BGM `Village` lặp + SFX `BombExplosion001`; máy không có thiết bị âm thanh thì im lặng.
+Audio: BGM `Village` lặp + SFX `BombExplosion001`. Khi audio bật, lỗi đọc/giải mã làm process
+exit khác 0 (không còn nuốt thành `None`); chạy smoke test:
+
+```sh
+./spikes/client-macroquad/run-audio-smoke.sh
+```
+
+Script chỉ kiểm **load/decode** BGM+SFX (pass ở head này, log từng file); playback/timing/âm lượng
+chưa đo vì không có soundcard.
 
 ## Snapshot xác định
 
@@ -82,19 +92,24 @@ registry đã warm.
 | Chỉ số | macroquad | winit+softbuffer (tham chiếu) |
 |---|---|---|
 | Thời gian build Linux release | **16,95 s** | 33,99 s |
-| Kích thước binary Linux release | **2.631.744 B** | 6.221.152 B |
+| Kích thước binary Linux release | **2.631.328 B** | 6.216.616 B |
 | Thời gian build Windows GNU release | **15,19 s** | 13,50 s |
 | Kích thước `.exe` Windows | 9.156.705 B | 7.966.962 B |
 | Số crate transitive (Linux) | **53** | 117 |
-| Dòng code game | **559** | 764 |
+| Dòng code game | **591** | 798 |
+
+Thời gian build và số Windows/macOS đo tại head `66e91d7`; vòng sửa frame/audio chỉ đo lại
+binary/LOC Linux và pixel/audio.
 
 So pixel scene (bỏ HUD 40 px; 600×520 ở 1×, 1200×1040 ở 2×) với snapshot
-winit+softbuffer: 127/312.000 pixel khác (0,041%), sai khác lớn nhất 17/255, toàn bộ nằm ở
-vùng khói nổ bán trong suốt; 2× là 508/1.248.000 (đúng 4× diện tích), chứng minh scale nguyên
-1×/2× không làm lệch pixel. HUD chữ Việt: 2.611/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph, max 144/255);
-không thiếu glyph, nhìn giống nhau.
+winit+softbuffer: 143/312.000 pixel khác (0,046%), sai khác lớn nhất 17/255, toàn bộ nằm ở
+vùng khói nổ bán trong suốt (explosion `#4`). `--check-2x-from` cho mismatch 0 trên cả hai stack:
+ảnh 2× là nearest expansion trực tiếp của 1×, nhưng đây chỉ là kiểm scale, không chứng minh
+pivot/alpha/z-order. HUD chữ Việt: 2.611/24.000 pixel khác (chủ yếu khử răng cưa/vị trí glyph,
+max 144/255); không thiếu glyph, nhìn giống nhau.
 
-Chi tiết và ảnh đo ở [`measurements/`](measurements/README.md).
+So hai stack là **comparison/regression**, không phải oracle fidelity KR; xem ma trận tiêu chí
+ADR 0010 §4.5 và [`measurements/`](measurements/README.md).
 
 ## Build 3 OS
 
@@ -119,8 +134,10 @@ Windows đã build được nhưng chưa chạy thử trên Windows.
 
 - Scene tĩnh Village00 + một C00 + một bom/nổ + HUD; không có gameplay, mạng, collision,
   animation state machine, hay asset closure đầy đủ.
-- Quy ước pivot/anchor là presentation candidate (Q-003), không phải luật KR đã xác nhận.
-- Không đo chất lượng âm thanh (máy không có soundcard) và không đo GPU thật
+- Quy ước pivot/anchor là presentation candidate (Q-003), không phải luật KR đã xác nhận. Hai renderer
+  dùng chung công thức nên pivot/alpha/z-order **chưa kiểm chứng độc lập**.
+- Audio mới kiểm load/decode; playback/timing chưa đo vì không có soundcard. Không đo GPU thật
   (chỉ llvmpipe trong Xvfb).
+- Input-held/focus chưa đo; Windows mới build, macOS mới `check`.
 - Không có asset game trong repo; mọi ảnh/âm thanh sinh từ pack vào `local/`.
 - Không merge code spike vào `crates/`; quyết định stack ở ADR 0010.

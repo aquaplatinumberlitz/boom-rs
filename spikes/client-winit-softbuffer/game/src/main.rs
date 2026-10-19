@@ -41,6 +41,13 @@ fn main() -> ExitCode {
 
 fn run(opts: Options) -> Result<(), Box<dyn std::error::Error>> {
     let scene = Scene::load(&opts.assets)?;
+    if opts.audio_smoke {
+        Audio::new(&scene, &opts.assets, false)?;
+        println!(
+            "audio smoke PASS: BGM+SFX load/decode OK; playback/timing chưa đo (không có soundcard)"
+        );
+        return Ok(());
+    }
     let sprites = load_sprites(&scene, &opts.assets)?;
     let font_bytes = load_font_bytes()?;
     let font = Font::from_bytes(font_bytes, fontdue::FontSettings::default())
@@ -148,7 +155,13 @@ impl ApplicationHandler for App {
             }
         };
         if !self.opts.no_audio {
-            self.audio = Audio::new(&self.scene, &self.opts.assets);
+            match Audio::new(&self.scene, &self.opts.assets, true) {
+                Ok(audio) => self.audio = Some(audio),
+                Err(error) => {
+                    eprintln!("không nạp được audio: {error}");
+                    std::process::exit(2);
+                }
+            }
         }
         self.context = Some(context);
         self.surface = Some(surface);
@@ -247,20 +260,22 @@ struct Audio {
 }
 
 impl Audio {
-    fn new(scene: &Scene, root: &Path) -> Option<Self> {
-        let bgm_bytes = std::fs::read(root.join(&scene.audio.bgm)).ok()?;
-        let sfx_bytes = std::fs::read(root.join(&scene.audio.sfx)).ok()?;
+    fn new(scene: &Scene, root: &Path, play_bgm: bool) -> Result<Self, Box<dyn std::error::Error>> {
+        let bgm_bytes = read_ogg("BGM", &root.join(&scene.audio.bgm))?;
+        let sfx_bytes = read_ogg("SFX", &root.join(&scene.audio.sfx))?;
         let ctx = AudioContext::new();
         let bgm = Sound::load(&ctx, &bgm_bytes);
-        bgm.play(
-            &ctx,
-            PlaySoundParams {
-                looped: true,
-                volume: 0.25,
-            },
-        );
+        if play_bgm {
+            bgm.play(
+                &ctx,
+                PlaySoundParams {
+                    looped: true,
+                    volume: 0.25,
+                },
+            );
+        }
         let sfx = Sound::load(&ctx, &sfx_bytes);
-        Some(Self {
+        Ok(Self {
             ctx,
             _bgm: bgm,
             sfx,
@@ -276,6 +291,20 @@ impl Audio {
             },
         );
     }
+}
+
+fn read_ogg(label: &str, path: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("{label} {}: đọc lỗi: {error}", path.display()))?;
+    if !bytes.starts_with(b"OggS") {
+        return Err(format!("{label} {}: không phải Ogg", path.display()).into());
+    }
+    println!(
+        "audio {label}: load/decode OK ({} byte, {})",
+        bytes.len(),
+        path.display()
+    );
+    Ok(bytes)
 }
 
 fn render_scene(
@@ -626,6 +655,7 @@ struct Options {
     time_ms: f64,
     dir: Option<String>,
     no_audio: bool,
+    audio_smoke: bool,
     bench: Option<u32>,
 }
 
@@ -659,6 +689,7 @@ impl Options {
                 }
                 "--dir" => opts.dir = Some(args.next().ok_or("--dir cần down/left/right/up")?),
                 "--no-audio" => opts.no_audio = true,
+                "--audio-smoke" => opts.audio_smoke = true,
                 "--bench" => {
                     opts.bench = Some(
                         args.next()
@@ -669,7 +700,7 @@ impl Options {
                 }
                 "-h" | "--help" => {
                     println!(
-                        "dùng: spike-winit-softbuffer [--assets DIR] [--scale 1|2] [--snapshot PNG] [--time-ms N] [--dir DIR] [--no-audio] [--bench N]"
+                        "dùng: spike-winit-softbuffer [--assets DIR] [--scale 1|2] [--snapshot PNG] [--time-ms N] [--dir DIR] [--no-audio] [--audio-smoke] [--bench N]"
                     );
                     std::process::exit(0);
                 }
@@ -683,6 +714,9 @@ impl Options {
             && !matches!(dir.as_str(), "down" | "left" | "right" | "up")
         {
             return Err("--dir chỉ nhận down/left/right/up".to_owned());
+        }
+        if opts.audio_smoke && opts.no_audio {
+            return Err("--audio-smoke và --no-audio không dùng cùng nhau".to_owned());
         }
         Ok(opts)
     }
