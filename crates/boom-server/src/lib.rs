@@ -36,6 +36,6 @@ pub use config::{
 };
 pub use input::{InputAck, InputError};
 pub use observability::{
-    LogFields, LogLevel, Logger, SharedLogBuffer, new_instance_id, now_ms, rfc3339_utc_ms,
+    LogFields, LogLevel, Logger, SharedLogBuffer, events, new_instance_id, now_ms, rfc3339_utc_ms,
 };
 pub use server::Server;
