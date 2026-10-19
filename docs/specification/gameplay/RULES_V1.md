@@ -89,6 +89,8 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 | R-057 | V1: ItemBomb +1 số bom, ItemFire +1 tầm nổ, ItemRoller +1 cấp tốc độ; lượng lấy từ profile (`item.*_delta`), kẹp theo trần chỉ số; bom đã đặt giữ tầm chụp lúc đặt | — | `design` (từ R-025, R-032, R-045) | Task #7, `systems/pickup.rs`; R-025; R-032; R-045 |
 | R-058 | V1: chỉ số đã ở trần thì không nhặt — item vẫn nằm trên nền, không áp hiệu ứng, không phát event; nhặt là atomic (item chỉ mất khi hiệu ứng áp được) | — | `design` | Task #7; R-054 (item mất sau khi server xác nhận); SCOPE_V1 §4; Q-007 |
 | R-059 | V1: người bị nhốt (`Trapped`) hoặc đã chết không nhặt item; người bị nhốt đứng yên nên cũng không tới ô item | — | `design` | Task #7; R-036 (đứng yên), R-028 |
+| R-067 | V1 giấu item khi bắt đầu lượt: duyệt khối mềm theo hàng rồi cột, mỗi khối rút một số phần nghìn so với `drop.brick_item_chance`; trúng thì chọn loại theo trọng số `Rules::items` (bảng trọng số cộng dồn, lấy mẫu không lệch bằng `Rng::below`) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-050, R-051, R-053 |
+| R-068 | V1: lửa **không** phá item đang nằm trên nền; item chỉ rời nền khi người chơi nhặt (R-054) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-030, R-054 |
 
 Bốn claim `design` R-056…R-059 là quyết định V1 cho luồng nhặt, chưa có bằng chứng client KR/VN cho
 các ca biên: thứ tự khi hai người cùng tick (Q-007), và nhặt khi chỉ số đã ở trần (Q-007, `cap`).
@@ -96,6 +98,12 @@ Luồng chung đã có bằng chứng: client xin nhặt (117), server xác nh�
 (R-054), nên V1 cho server quyết cả trường hợp "đã chạm trần" — giữ item trên nền thay vì xóa
 đi. Khi có trace, thay các claim này bằng `confirmed` hoặc mở câu hỏi ở
 [QUESTIONS](../../research/QUESTIONS.md).
+
+Hai claim `design` R-067/R-068 định nghĩa cách V1 giấu item và cách lửa đối xử với item trên nền;
+chưa có bằng chứng client KR/VN cho hai điểm này. R-068 chọn "lửa không phá item" vì item lộ ra
+nằm đúng ô mà lửa vừa phá khối: nếu lửa phá item trên nền thì item vừa lộ ra sẽ mất ngay, và
+protocol cũ không có gói thu hồi item ngoài xác nhận nhặt (R-054). Khi có trace, thay bằng claim
+`confirmed` hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 
 ## 6. Giá trị được chọn cho profile dev
 

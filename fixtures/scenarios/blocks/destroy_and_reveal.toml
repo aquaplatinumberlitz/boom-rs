@@ -1,7 +1,7 @@
 name = "Lửa dừng ở khối mềm, phá nó một lần và lộ item giấu"
 features = ["V1-014", "V1-016"]
-claims = ["R-050"]
-status = "pending"
+claims = ["R-030", "R-050", "R-067"]
+status = "active"
 ticks = 41
 map = [
     "#######",
