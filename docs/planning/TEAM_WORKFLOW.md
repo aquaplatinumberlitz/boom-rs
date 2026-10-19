@@ -31,10 +31,14 @@ Quy tắc review và merge:
 - **Approval:** mọi agent dùng chung tài khoản GitHub `aquaplatinumberlitz`, nên GitHub không cho bấm Approve.
   Approval là comment review trên PR, của người không phải tác giả, ghi head SHA đã review và dòng kết luận
   `APPROVE` (hoặc `CHANGES REQUESTED` kèm finding). Merge chỉ khi có comment đó ứng với head hiện tại và CI xanh.
-- Sau merge, người merge báo Claude (comment trên issue) để cập nhật sổ tiến độ; Claude mở PR sổ tiến độ.
+- Sau merge, người merge **đóng issue** nếu không còn PR mở cho nó (PR ghi `Closes #N` thì GitHub tự đóng), rồi báo Claude
+  (comment trên issue) để cập nhật sổ tiến độ; Claude mở PR sổ tiến độ.
 - Worker không merge, không push `main`, không sửa sổ tiến độ.
 - Một issue = một agent = một worktree = một PR. Agent comment `nhận (opencode-2)` trên issue trước khi làm.
 - Task đo trên client VN dùng Wine/Xvfb dùng chung máy: tại một thời điểm chỉ một agent chạy (ghi trong issue).
+- dsh chạy **2 phiên cố định** (dsh-A, dsh-B; quyết định chủ dự án 2026-10-19 để tận dụng cache context): mỗi phiên một clone riêng
+  (`.git` nằm trong thư mục làm việc, vì sandbox dsh không ghi được `.git/worktrees` của repo chính), làm tuần tự các task trong
+  hàng đợi của nó, đổi nhánh theo task. Không mở thêm agent dsh song song ngoài hai phiên này.
 
 Một người có thể kiêm nhiều vai trò. Số agent chạy cùng lúc bị giới hạn bởi năng lực review của hai integrator
 (xem bảng luồng theo pha trong REWRITE_PLAN). Thêm agent không làm nhanh phần đang chờ cùng một spec/interface;
