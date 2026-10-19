@@ -1252,7 +1252,9 @@ mod tests {
     /// vụ nổ đúng ô bom và đúng tick event.
     #[test]
     fn bomb_explosion_event_reaches_the_presentation_journal() {
-        let mut game = Game::new(7, ClientOptions::default(), None).expect("scene offline");
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
         // Ô đặt bom: ô spawn của người chơi đầu.
         let bomb_cell = game
             .world
