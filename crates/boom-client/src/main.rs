@@ -18,6 +18,7 @@ mod input;
 mod options;
 mod render;
 mod scene;
+mod text;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
