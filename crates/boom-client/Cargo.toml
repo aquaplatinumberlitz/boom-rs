@@ -11,6 +11,7 @@ boom-core.workspace = true
 boom-content.workspace = true
 boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
+boom-sync = { path = "../boom-sync" }
 macroquad = { version = "=0.4.16", features = ["audio"] }
 
 [lints]

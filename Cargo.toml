@@ -7,6 +7,7 @@ members = [
     "crates/boom-replay",
     "crates/boom-proto",
     "crates/boom-net",
+    "crates/boom-sync",
     "crates/boom-server",
     "crates/boom-client",
     "crates/boom-room",

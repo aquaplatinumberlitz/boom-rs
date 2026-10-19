@@ -12,6 +12,7 @@ boom-content.workspace = true
 boom-room = { path = "../boom-room" }
 boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
+boom-sync = { path = "../boom-sync" }
 
 [lints]
 workspace = true

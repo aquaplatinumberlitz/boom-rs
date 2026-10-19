@@ -68,6 +68,7 @@ dependencies = [
  "boom-core",
  "boom-net",
  "boom-proto",
+ "boom-sync",
  "macroquad",
 ]
 
@@ -98,7 +99,6 @@ name = "boom-proto"
 version = "0.0.0"
 dependencies = [
  "boom-content",
- "boom-core",
  "postcard",
  "serde",
 ]
@@ -136,6 +136,16 @@ dependencies = [
  "boom-net",
  "boom-proto",
  "boom-room",
+ "boom-sync",
+]
+
+[[package]]
+name = "boom-sync"
+version = "0.0.0"
+dependencies = [
+ "boom-content",
+ "boom-core",
+ "boom-proto",
 ]
 
 [[package]]

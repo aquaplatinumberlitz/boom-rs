@@ -24,6 +24,7 @@ boom-rs/
     boom-scenario/  # [có] định dạng dựng trận chung + harness boundary scenario
     boom-proto/     # [khung, đợt 2] envelope + DTO giao thức mới (ADR 0009), không chứa luật
     boom-net/       # [khung, đợt 2] trait transport, framing, session (ADR 0006)
+    boom-sync/      # [khung, đợt 2] adapter SimulationState ↔ DTO wire, dùng chung server/client
     boom-room/      # [có] máy trạng thái phòng/vòng đời thuần (SCOPE_V1 §3), API ở §5.4
     boom-client/    # [khung, đợt 2] macroquad (ADR 0010): input, prediction, render/audio/UI; đọc bundle, không đọc pack
     boom-server/    # [khung, đợt 2] auth, lobby, authority, persistence
@@ -48,9 +49,10 @@ boom-scenario → boom-core, boom-content
 boom-replay  → boom-core, boom-content, boom-scenario
 boom-proto   → boom-content (ID/schema identity)
 boom-net     → boom-proto
+boom-sync    → boom-core, boom-content, boom-proto
 boom-room    → boom-content
-boom-client  → boom-core, boom-content, boom-proto, boom-net
-boom-server  → boom-core, boom-content, boom-proto, boom-net, boom-room
+boom-client  → boom-core, boom-content, boom-proto, boom-net, boom-sync
+boom-server  → boom-core, boom-content, boom-proto, boom-net, boom-sync, boom-room
 ```
 
 `boom-proto` không phụ thuộc `SimulationState`: server/client đổi DTO ở adapter để schema mạng
