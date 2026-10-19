@@ -30,6 +30,17 @@ fn run(desc: &str, cmd: &mut Command) -> bool {
     }
 }
 
+/// Lệnh git chạy trên repo của workspace này, không theo GIT_DIR/GIT_WORK_TREE thừa hưởng.
+fn git() -> Command {
+    let mut cmd = Command::new("git");
+    for (key, _) in std::env::vars_os() {
+        if key.to_string_lossy().starts_with("GIT_") {
+            cmd.env_remove(key);
+        }
+    }
+    cmd
+}
+
 fn cargo() -> Command {
     Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()))
 }
@@ -106,7 +117,7 @@ fn main() -> ExitCode {
         Some("bless") => replay("bless"),
         Some("setup") => run(
             "git config core.hooksPath .githooks",
-            Command::new("git").args(["config", "core.hooksPath", ".githooks"]),
+            git().args(["config", "core.hooksPath", ".githooks"]),
         ),
         _ => {
             eprintln!("dùng: cargo xtask ci|bless|setup");

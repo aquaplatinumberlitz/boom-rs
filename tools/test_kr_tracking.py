@@ -24,7 +24,7 @@ class TrackingIntegrityTests(unittest.TestCase):
         self.execution = json.loads((ROOT / "docs/planning/execution.json").read_text())
         self.features = self.registry["features"]
         self.baseline = self.registry["baseline"]
-        self.commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+        self.commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True, env=CLEAN_ENV,
                                      capture_output=True, text=True).stdout.strip()
 
     def complete_record(self, feature):
