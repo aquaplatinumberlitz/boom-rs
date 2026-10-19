@@ -165,6 +165,7 @@ không phải luật chơi; giá trị luật của V1 vẫn nằm ở `data/rul
 | R-085 | Nhịp phát frame của V1: **100 ms** cho mọi clip (10 frame/s). Nguồn gốc vẫn `unknown` (R-079) nên đây là **lựa chọn** của dự án; client đọc giá trị từ rules profile (`presentation.frame_duration_ms`) và **không** hard-code trong code | 100 ms | `design` / design | Issue #92; `data/rules/v1-dev.toml` (`presentation.frame_duration_ms`); `crates/boom-client/src/anim.rs` (`FrameClock`); BUNDLES §7 |
 | R-086 | Chọn clip theo state core (quyết định trình diễn của V1): nhân vật **đang đi** (vị trí đổi so với tick trước) → clip `walk` theo hướng đang quay; **đứng yên** → clip `idle`; **bị nhốt** → clip `trapped`; **chết** → clip `dead`; bom đang chờ → clip `bomb.fuse`; lửa trên ô → clip `flame.main`. Clip `idle`/`trapped` là R-078 **candidate** (chưa có consumer gốc xác nhận), còn `walk`/`dead`/`bomb.fuse` là R-077 `confirmed`. State core V1 chưa mang trường nhân vật nên V1 ghép `id` người chơi với `C00`/`C01` theo thứ tự | — | `design` / design | Issue #92; `crates/boom-client/src/anim.rs` (`character_clip`, `is_moving`); `crates/boom-client/src/scene.rs` (`presentation_plan`); BUNDLES §7 |
 | R-087 | Hình lửa trên một ô: V1 dùng **dải frame lõi** của clip `flame.main` (index 28..=59 trên pack KR 00967 — 32 frame ảnh đơn 40×40, hình lửa đứng giữa ô). Phần thân/đuôi/nhánh theo hướng **không** dùng: state core V1 không mang hướng lửa (`Flame` chỉ có ô và hạn), nên mọi ô lửa vẽ cùng một frame của dải này | — | `design` / design (quan sát dải frame: `kr_static`) | Issue #92; `crates/boom-client/src/anim.rs` (`FLAME_FRAMES`); BUNDLES §7; Q-003 |
+| R-088 | Hiệu ứng nổ của client V1: khi core báo event `bomb_exploded` (ô của bom) thì client phát clip `explosion.main` tại **ô bom** — pack chỉ có **một** clip nổ (R-084) nên không có clip riêng theo tâm/nhánh/đuôi. Hiệu ứng **phát một lần**: dài bằng số frame của clip × `presentation.frame_duration_ms` (R-085), frame chọn theo **tick mô phỏng** tính từ tick của event (không theo đồng hồ wall clock, ADR 0004); hết khoảng clip thì ô đó **về lại** `flame.main` (lửa trong state core). Clip nổ **vẽ đè lên lửa** ở cùng ô (z-order: vật cản → lửa → nổ → bom → nhân vật) | — | `design` / design (quyết định trình diễn của V1; chưa có consumer gốc xác nhận thứ tự vẽ nổ với lửa — Q-003) | Issue #101; `crates/boom-client/src/anim.rs` (`ExplosionJournal`, `FrameClock::once_frame`); `crates/boom-client/src/scene.rs` (`presentation_plan`); `crates/boom-client/src/main.rs` (`absorb_events`); BUNDLES §7.1; R-084 |
 
 R-079 là `unknown` nên **không** mang giá trị (AGENTS §4). Schema
 `boom-content::animation::FrameTiming` đã có sẵn hai nhánh: `Known` (giá trị + nguồn +
@@ -183,9 +184,9 @@ Lớp sprite `Static`/`Adjust` của nhân vật được ghi lại theo entry, 
 cách blend chưa xác nhận** (Q-003); quyết định của V1 cho phần này thuộc task client P6
 và cần claim riêng — chưa có ở đây.
 
-### 8.1 Quyết định trình diễn của client V1 (R-085…R-087)
+### 8.1 Quyết định trình diễn của client V1 (R-085…R-088)
 
-Ba claim cuối §8 là quyết định **design** của dự án cho client V1, không phải luật
+Bốn claim cuối §8 là quyết định **design** của dự án cho client V1, không phải luật
 chơi và không phải suy ra từ client gốc:
 
 - **Nhịp (R-085)**: 100 ms mỗi frame cho mọi clip. Frame tiến theo **tick mô phỏng**
@@ -204,8 +205,13 @@ chơi và không phải suy ra từ client gốc:
   (R-078) và state core không mang hướng lửa, nên V1 chỉ dùng dải frame lõi
   (28..=59) cho mọi ô lửa. Đây là **giới hạn đã biết**, ghi ở
   [BUNDLES §8](../assets/BUNDLES.md); Q-003 theo dõi việc đóng.
+- **Hiệu ứng nổ (R-088)**: client phát clip `explosion.main` tại ô bom khi core báo
+  `bomb_exploded`; hiệu ứng phát **một lần** trong khoảng clip (số frame của clip ×
+  `presentation.frame_duration_ms`), frame chọn theo tick mô phỏng tính từ tick của
+  event, rồi ô đó **về lại** `flame.main`. Clip nổ vẽ **đè lên lửa** ở cùng ô; thứ tự
+  vẽ này là quyết định của V1, chưa có consumer gốc xác nhận (Q-003).
 
-Cả ba giá trị đều nằm ở nguồn chuẩn: quy ước đặt ảnh và chọn frame ở
+Cả bốn giá trị đều nằm ở nguồn chuẩn: quy ước đặt ảnh và chọn frame ở
 [BUNDLES §7](../assets/BUNDLES.md), giá trị nhịp ở `data/rules/v1-dev.toml`.
 
 ## 9. Input
