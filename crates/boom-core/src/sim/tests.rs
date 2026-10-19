@@ -318,10 +318,10 @@ fn invariants_check_references_against_world() {
 
 #[test]
 fn invariants_check_field_shape_before_cell_access() {
-    // Review contracts-r2 (#2): lưới 3 ô chứa 2 ô từng trả Ok; chứa 0 ô thì panic.
+    // Review contracts-r2 (#2): lưới 3 ô chứa 2 ô từng trả Ok, chứa 0 ô thì panic; thêm ca thừa ô.
     let w = world(&["0.."]);
     let mut s = solo(&w);
-    for kinds in [vec![CellKind::Floor; 2], vec![]] {
+    for kinds in [vec![CellKind::Floor; 2], vec![], vec![CellKind::Floor; 4]] {
         let bad = Terrain {
             width: 3,
             height: 1,
@@ -342,7 +342,12 @@ fn world_rejects_inconsistent_terrain() {
         kinds: vec![CellKind::Floor; kinds],
         spawns,
     };
-    for t in [make(2, vec![]), make(0, vec![]), make(3, vec![(3, 0)])] {
+    for t in [
+        make(2, vec![]),
+        make(0, vec![]),
+        make(4, vec![]),
+        make(3, vec![(3, 0)]),
+    ] {
         assert!(matches!(
             World::new(t, rules(), ffa),
             Err(CoreError::BadTerrain(_))
