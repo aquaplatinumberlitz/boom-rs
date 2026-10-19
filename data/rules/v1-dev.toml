@@ -8,10 +8,10 @@ release = false
 [sim.ticks_per_second]
 value = 33
 unit = "Hz"
-source = "vn_runtime"
-status = "confirmed"
-claims = ["R-013"]
-note = "Đo native 2026-10-19: 30 ms/bước = 33,3 Hz; profile dùng 33 (làm tròn <1%), xem R-013"
+source = "design"
+status = "design"
+claims = ["R-013", "R-071"]
+note = "Đo 30 ms/bước (R-013); 33 Hz là lựa chọn nguyên 1000/30 (design R-071), sai lệch <0,1%"
 
 [grid.tile_px]
 value = 40
@@ -30,19 +30,19 @@ claims = ["R-010"]
 [player.speed_px_per_s_per_level]
 value = 33
 unit = "px/s"
-source = "vn_runtime"
-status = "confirmed"
-claims = ["R-043", "R-045"]
-note = "1 cấp = 1 px/tick; 30 ms/tick → 33,3 px/s; đo C00 base 5 px/tick, Roller +1 → 6 px/tick (2026-10-19)"
+source = "design"
+status = "design"
+claims = ["R-043", "R-045", "R-072"]
+note = "Quan sát thô 5 px/tick base, 6 px/tick sau Roller (R-043/R-045 candidate, checksum chưa xác thực); 33 px/s là lựa chọn nguyên 1000/30 (design R-072)"
 
 [player.trap_to_death_ms]
 value = 6300
 unit = "ms"
-source = "vn_runtime"
-status = "confirmed"
+source = "design"
+status = "design"
 tolerance = 100
-claims = ["R-026"]
-note = "210 tick × 30 ms = 6,30 s; ba lần đo packet 120/11→120/13 = 6,355/6,364/6,358 s (gồm ~2 tick gửi); timer chọn 6,30 s"
+claims = ["R-026", "R-073"]
+note = "Ba lần đo packet 120/11→120/13 = 6,355/6,364/6,358 s (R-026); 6,30 s/210 tick là lựa chọn design (R-073), timer nội bộ/literal chưa xác định"
 
 [bomb.fuse_ms]
 value = 2500

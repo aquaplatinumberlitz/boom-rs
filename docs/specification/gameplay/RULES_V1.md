@@ -33,8 +33,9 @@ Locator viết tắt: `oc_e` = `/home/admin/boom-re/docs/oc_e-game.md` (main `4c
 | R-010 | Giới hạn thời gian mặc định của client: 120 s, đếm từ lúc bắt đầu lượt | 120 000 ms | `vn_static` + `vn_runtime` / confirmed | oc_e "Hết giờ" (`ctx+490518`) |
 | R-011 | Map có cờ thì byte thời gian từ server ghi đè R-010 | — | `vn_static` / confirmed | oc_e "Hết giờ" (`sub_71A9EC`) |
 | R-012 | Header map có cặp `60000, 22000` (ms?) ở 574 file VN và ở Village00 KR | — | `vn_static` + `kr_static` / unknown | MAPS §1.1; nghĩa chưa rõ |
-| R-013 | Tần số bước mô phỏng gốc: **30 ms/bước** (≈33,3 bước/s) | 30 ms | `vn_runtime` / confirmed | `CGameStage::vf159` 0x71BF9A (gọi từ `vf46` 0x70572A); bộ đếm `ctx+0x1DF190` tăng tại 0x6ED316; cùng quantum 30 ms ở `idiv 30` 0x44641E. Đo native 2026-10-19 (không debugger): 4 cửa sổ 12,9–16,0 s = 33,33/33,38/33,40/33,44 bước/s; Q-004 |
+| R-013 | Tần số bước mô phỏng gốc: **30 ms/bước** (đo 33,377/33,436 bước/s, tức 29,96/29,91 ms/bước) | 30 ms (±0,1 ms) | `vn_runtime` / confirmed | Bộ đếm `ctx+0x1DF190` tăng tại 0x6ED316, `ctx = *(stage+0x547C)`; 2 run, 24+12 mẫu, cửa sổ 11,505/5,503 s; [tick-runs.csv](../../evidence/measurements/vn-timing-2026-10-19/tick-runs.csv); cửa sổ 2,5 s 32,98–34,00 do lượng tử mẫu 0,5 s; Q-004 |
 | R-014 | Tick server remake: 30 Hz | 30 Hz | `oss` / candidate | OSS §2 |
+| R-071 | V1 chọn `sim.ticks_per_second = 33` (xấp xỉ nguyên 1000/30 ≈ 33,3 Hz) cho profile dev | 33 Hz | `design` / design | R-013; sai lệch <0,1%; Q-004; `data/rules/v1-dev.toml` |
 
 ## 3. Bom, lửa, nhốt, chết
 
@@ -46,7 +47,8 @@ Locator viết tắt: `oc_e` = `/home/admin/boom-re/docs/oc_e-game.md` (main `4c
 | R-023 | Remake dùng fuse 2,5 s, lửa 0,5 s | 2 500 / 500 ms | `oss` / candidate | OSS §2 |
 | R-024 | Bom bị ném/đá nổ sau 3 s | 3 000 ms | `web` / candidate | `boomkr-re/docs/game-spec-web.md` §2 |
 | R-025 | Tầm nổ khởi đầu 1; mỗi ItemFire +1 tầm; mỗi ItemBomb +1 số bom đặt cùng lúc | — | `vn_runtime` / confirmed | oc_e §5a-5d (hiệu ứng bị động) |
-| R-026 | Bị nước trúng → bị nhốt; tự chết sau **210 tick = 6,30 s** nếu không được cứu | 6 300 ms (210 tick × 30 ms) | `vn_runtime` / confirmed | oc_e §5a-5c (120/11 → 120/13); đo 2026-10-19 ba lần: 21:03:32.227→38.582 = 6,355 s, 22:34:13.192→19.556 = 6,364 s, 22:37:30.972→37.330 = 6,358 s (gồm ~2 tick xử lý/gửi); nhánh chết trong tick 0x716F9E so timestamp; literal 6300 chưa thấy, Q-006 |
+| R-026 | Bị nước trúng → bị nhốt; khoảng packet `120/11 → 120/13` là **6,359 s** (ba lần: 6,355/6,364/6,358; biên độ 9 ms) | 6 359 ms ± 5 ms (biên độ) | `vn_runtime` / confirmed | [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv), [trap-packets.txt](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.txt); run3 chỉ còn log worker, run4/5 còn raw `server.log`; đây là khoảng packet gồm xử lý/gửi, chưa phải timer nội bộ; `210 tick`/literal 6300 chưa chứng minh, Q-006 |
+| R-073 | V1 chọn `player.trap_to_death_ms = 6300` từ khoảng packet đo được; `210 tick` chỉ là giả thuyết, không phải hằng số đã đọc | 6 300 ms | `design` / design | R-026; Q-006; [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv); `data/rules/v1-dev.toml` |
 | R-027 | Remake: nhốt 4 s rồi chết | 4 000 ms | `oss` / candidate | OSS §2; mâu thuẫn R-026, R-026 thắng |
 | R-028 | Địch chạm người bị nhốt → người bị nhốt chết | — | `vn_runtime` / confirmed | VN-B01 |
 | R-029 | Bị nhốt: không đặt bom, đi rất chậm | — | `web` / candidate | NAMU §2.1 |
@@ -68,10 +70,11 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 |---|---|---|---|---|
 | R-040 | BomberAttr KR C00: f2–f7 = `5,7,1,10,1,7` | — | `kr_static` / confirmed | `boomkr-re/data/kr/bomber_attr.json` |
 | R-041 | BomberAttr KR C01: f2–f7 = `4,8,2,7,1,9` | — | `kr_static` / confirmed | Như trên |
-| R-042 | f2–f3 = speed min/max, f4–f5 = số bom min/max, f6–f7 = tầm min/max (cấp) | — | `kr_static` + `web` / candidate | `boomkr-re/docs/kr-data.md` §23; OSS §4 khớp 5/6 giá trị; đo VN: C00 base 5 px/tick khớp cấp 5 (R-040), Roller +1 → 6 (R-043/R-045) |
-| R-043 | Quy đổi 1 cấp tốc độ → px/s | **33,3 px/s** (1 px/tick; 30 ms/tick) | `vn_runtime` / confirmed | `sampler2` native 2026-10-19: C00 base 5 px/tick (166,7 px/s), nhặt Roller (C→S 117 → S→C 158) rồi 6 px/tick (200 px/s); tick 30 ms (R-013); log `.tmp-measure/item3`, Q-005 |
-| R-044 | Remake: 1 cấp tốc độ = 24 px/s | 24 px/s | `oss` / candidate | OSS §3; **không khớp** đo VN 33,3 px/s/cấp (R-043) — giữ candidate, không dùng cho profile |
-| R-045 | Roller: +1 cấp tốc độ | +1 cấp (đo: 5→6 px/tick) | `web` + `vn_runtime` / confirmed | NAMU §1; item3 2026-10-19 (C→S 117 → S→C 158, 6 px/tick) |
+| R-042 | f2–f3 = speed min/max, f4–f5 = số bom min/max, f6–f7 = tầm min/max (cấp) | — | `kr_static` + `web` / candidate | `boomkr-re/docs/kr-data.md` §23; OSS §4 khớp 5/6 giá trị; chưa đối chiếu VN vì R-043 còn candidate |
+| R-043 | Quan sát thô tốc độ C00: 5 px/tick base; sau Roller 6 px/tick (một run, checksum x/y chưa xác thực) | 5 → 6 px/tick (raw) | `vn_runtime` / candidate | [speed-observations.csv](../../evidence/measurements/vn-timing-2026-10-19/speed-observations.csv); item3 117/158 22:31:20; `xok/yok=false`, decoder cần xác minh; Q-005 |
+| R-044 | Remake: 1 cấp tốc độ = 24 px/s | 24 px/s | `oss` / candidate | OSS §3; chưa đối chiếu được VN vì R-043 còn candidate |
+| R-045 | Roller: +1 cấp tốc độ | +1 cấp (raw 5→6 px/tick, một run) | `web` + `vn_runtime` / candidate | NAMU §1; [speed-item3-changes.txt](../../evidence/measurements/vn-timing-2026-10-19/speed-item3-changes.txt); một run, checksum chưa xác thực; Q-005 |
+| R-072 | V1 chọn `player.speed_px_per_s_per_level = 33` (xấp xỉ nguyên 1000/30 ≈ 33,3 px/s) cho profile dev | 33 px/s | `design` / design | R-043/R-045 (candidate); sai lệch <0,1%; Q-005; `data/rules/v1-dev.toml` |
 | R-046 | Bám góc khi rẽ trong 12 px | 12 px | `oss` / candidate | OSS §5 |
 | R-047 | Di chuyển không có gói C→S; client tự mô phỏng | — | `vn_static` / confirmed | oc_e §5a |
 | R-048 | Bom đang tồn tại chặn mọi người đi vào ô của nó | — | `design` / design | SCOPE_V1 §4 ("bom chặn/đi ra"); chưa đối chiếu collision client gốc |
@@ -114,12 +117,12 @@ Profile [`v1-dev`](../../../data/rules/v1-dev.toml) không dùng được cho ph
 
 | Rule | Chọn | Vì sao |
 |---|---|---|
-| Tick | 30 ms/bước (≈33,3 Hz; profile dùng 33 Hz) (`confirmed`, R-013) | Đo native 2026-10-19; Q-004 |
+| Tick | 30 ms/bước (`confirmed`, R-013); profile 33 Hz (`design`, R-071) | Đo 2 run + chọn nguyên 33 Hz |
 | Thời gian lượt | 120 s (`confirmed`, R-010) | Client VN |
 | Fuse | 2,5 s (`design`, R-021…R-024) | Hai candidate độc lập trùng nhau; gốc unknown |
 | Lửa tồn tại | 0,5 s (`design`, R-023) | Chỉ có OSS |
-| Nhốt → chết | 6,30 s = 210 tick (`confirmed`, R-026) | Đo client VN + code chia 30 ms |
-| Tốc độ | 33,3 px/s mỗi cấp = 1 px/tick (`confirmed`, R-043) | Đo C00 base + Roller +1; OSS 24 px/s không khớp (R-044 candidate) |
+| Nhốt → chết | Packet 6,359 s (`confirmed`, R-026); profile 6,30 s (`design`, R-073) | 3 run, biên độ 9 ms; timer nội bộ unknown |
+| Tốc độ | Raw 5→6 px/tick (`candidate`, R-043/R-045); profile 33 px/s (`design`, R-072) | Checksum chưa xác thực; một run cấp 6 |
 | Trọng số rơi | 3650 : 2800 : 2000 (`confirmed`, R-051) | Dữ liệu client; vai trò bảng còn unknown |
 | Xác suất gạch có item | 35% (`design`, R-053) | Chỉ có OSS |
 | Căn trục khi rẽ | Căn về tâm hàng/cột, tối đa bằng tốc độ mỗi tick (`design`) | Thay thế tạm cho R-046 tới khi Q-005 xong |

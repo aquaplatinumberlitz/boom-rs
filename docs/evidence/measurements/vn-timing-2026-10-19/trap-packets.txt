@@ -1,0 +1,15 @@
+# Bằng chứng packet 120/11 (trap) → 120/13 (death)
+# run3: chỉ còn log worker; raw server.log không còn trong artifact.
+# run3: dsh-2-issue-11.run2159.log dòng 84 ghi 21:03:32.227 → 21:03:38.582 = 6.355 s
+
+## run4-trap — trap/server.log
+225: 22:34:13.192432 [4848] bomber event 120 subtype 11
+240: 22:34:19.556274 [4848] C->S opcode 120 body a511575aa759a54e96ca5c8b96ca539e96ca558d693553955a965a
+241: 22:34:19.556305 [4848] bomber event 120 subtype 13
+# interval = 6.363873 s
+
+## run5-trapt — trapt/c00/server.log
+228: 22:37:30.972421 [4848] bomber event 120 subtype 11
+239: 22:37:37.329964 [4848] C->S opcode 120 body a511575aa759a54e96ca5cdc96ca539e96ca558d693553955a965a
+240: 22:37:37.330015 [4848] bomber event 120 subtype 13
+# interval = 6.357594 s

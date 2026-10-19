@@ -1,0 +1,20 @@
+Build và môi trường đo (2026-10-19)
+===================================
+
+Client: ca_fixed_patched.exe
+  size    : 18.904.064 byte
+  sha256  : bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1
+  path đo : /home/admin/boom-rs-dsh/issue-11/.tmp-game/ca_fixed_patched.exe
+  bản sao : /home/admin/boom-rs-wt/issue-11/.tmp-game/ca_fixed_patched.exe (cùng hash)
+  nguồn   : /home/admin/boom-re/ca_fixed_patched.exe (cùng hash)
+
+Wine: wine-10.0-20260425 (CachyOS)
+GDB : GNU gdb 18.1
+Xvfb: 1024x768x24, LLVMpipe/software GL
+Input: xdotool (chuột bàn phím), không đọc input từ game
+Server giả lập: /home/admin/boom-re/tools/fakeserver.py, env:
+  AUTO_START=5 TURN_START=10 TURN_MODE=1 GO_START=3 PLAY_START=4 POST_PLAY_START=2
+  (run trap thêm BOMB_PLACE=1 BOMB_ECHO=2.5 BOMB_IDS=4)
+
+Ghi chú: tick/speed KHÔNG dùng gdb; gdb chỉ dùng cho run trap để bắt packet chết
+120/13. Không có ảnh/asset game trong thư mục evidence này.
