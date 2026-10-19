@@ -171,16 +171,40 @@ Cần ghi field của system khác → mở issue cho integrator, không sửa t
 
 ### 5.4 Contract mạng và replay (chưa có code)
 
+Revision **`proto-r1`**, 2026-10-19, **Proposed** theo
+[ADR 0009](../decisions/0009-wire-protocol-input-snapshot-codec.md). `boom-proto` chưa được tạo; crate chỉ
+mở sau khi ADR accepted. Khi có code, kiểu DTO là nguồn chuẩn; mục này giữ quy tắc và bất biến review.
+
 | Contract | Nội dung tối thiểu | Bất biến cần review |
 |---|---|---|
-| `InputCommand` | round ID, player ID do server bind, sequence, tick dự định, hướng giữ, cạnh nhấn bom, ack snapshot | Không gửi tọa độ/kết quả; dedup theo sequence; cửa sổ input hữu hạn (ADR 0006). Authority đổi thành `PlayerInput` |
-| `Snapshot` | schema revision, rules/content hash, round/tick, state DTO, input ack | Bản đầy đủ khôi phục được `SimulationState`; delta chỉ thêm sau khi có baseline/resync |
+| Envelope | 16 byte: magic `BOOM`, `wire_schema=1`, `kind`, `flags`, `payload_len`, reserved; payload postcard | Từ chối magic/schema/kind/flags/len sai trước khi decode; frame tối đa 64 KiB; message lạ không được đoán |
+| Handshake (V1-002) | `wire_schema`, `state_schema`, `rules_profile_id`, `rules_hash`, `content_sha256`, capability | Khớp chính xác ở V1; server so với profile/bundle của mình, không dùng hash client để chọn nội dung; lệch bị từ chối trước sảnh |
+| `InputCommand` / batch | `round_id`, player do server bind, `ack_snapshot`, tối đa 8 lệnh `{seq, target_tick, dir|bomb}` | Seq tăng liên tục; dedup/duplicate idempotent; cửa sổ trễ 100 ms/trước 200 ms; gap timeout 100 ms; rate limit; authority đổi thành `PlayerInput` |
+| `Snapshot` | `snapshot_seq`, round/tick, `state_schema`, `rules_hash`, `content_epoch`, phase, RNG/allocator, ack input, players/field/bombs/flames/items | **Đầy đủ**, khôi phục được `SimulationState`; client dựng lại và gọi `check_invariants`; bỏ snapshot cũ/khác round; chưa có delta |
 | `ReplayHeader` | schema, profile ID + hash, mode, map, seed, roster/spawn, `hash_algo` | Từ chối revision/profile không khớp. Bản file hiện tại: `boom-replay` schema 1 |
-| `ReplayRecord` | tick, input được server áp dụng (kể cả neutral), checkpoint hash | Ghi input thực được áp dụng; không dựa wall clock |
-| Event ra ngoài | `round_id` + `EventId` + `name` + `fields` | Consumer dedup theo `(round_id, EventId)` |
+| `ReplayRecord` | tick, `PlayerInput` **sau scheduler** (kể cả neutral/expired), checkpoint hash | Ghi input thực được áp dụng; không ghi raw batch/`target_tick`; không dựa wall clock |
+| Event ra ngoài | `round_id` + `EventId` + `name` + `fields` | Consumer dedup theo `(round_id, EventId)`; snapshot không phát lại event |
 
-Lệnh phòng tin cậy (`ready/start/leave`) tách khỏi input trận tần suất cao; cả hai có identity/dedup,
-chính sách hết hạn khác nhau. Policy phòng/start/disconnect lấy từ SCOPE_V1.
+Quy tắc kèm theo:
+
+- Input mạng chỉ là **đề nghị**; server chuyển thành `PlayerInput` sau khi kiểm round, sequence, cửa sổ và
+  rate limit. Client không gửi tọa độ/máu/item/kết quả. Lệnh trùng/đến muộn/ngoài cửa sổ không được làm đổi
+  state; lệnh hết hạn/gap được ghi nhận là neutral trong replay.
+- `Snapshot` V1 là full state, không delta. Kích thước Village00 4 người ước tính ≈0,7 KiB điển hình và
+  ≈4,9 KiB trần cấu trúc, dưới `MAX_SNAPSHOT_BYTES=16 KiB` (ADR 0009); đây là design, chưa đo runtime.
+- `snapshot_seq`/`round_id`/`content_epoch`/`rules_hash` phải khớp phiên; `content_sha256` đầy đủ chỉ ở
+  handshake. Client bỏ snapshot cũ/trùng và xin `SnapshotRequest` khi cần resync.
+- Client dự đoán di chuyển của mình từ snapshot confirmed, replay lệnh chưa ack; bom chỉ là bóng chờ, còn
+  nổ/nhốt/chết/item chỉ theo event server (ADR 0005). Snapshot đầy đủ làm resync đơn giản; delta sau này
+  cần baseline/resync và ADR mới.
+- `INPUT_*`/`SNAPSHOT_INTERVAL`/`MAX_*` là **tham số giao thức** trong `ProtocolLimits` có revision, không
+  phải luật chơi và không nằm trong `Rules`; tick/round vẫn đọc từ `Rules`. Không rải hằng số trong code.
+- Snapshot cần getter RNG state và allocator next từ core (contracts-r4, integrator); chưa có thì chưa thể
+  hiện thực snapshot đầy đủ. Không sửa `crates/boom-core` trong task #14.
+- Lệnh phòng tin cậy (`ready/start/leave`, kind dành riêng) tách khỏi input trận tần suất cao; cả hai có
+  identity/dedup, chính sách hết hạn khác nhau. Policy phòng/start/disconnect lấy từ SCOPE_V1.
+- Index ADR và dòng "Codec giao thức" ở §8 do integrator cập nhật khi nhận ADR 0009; task #14 chỉ sửa ADR
+  mới và mục này theo phạm vi issue.
 
 ### 5.5 Boundary scenario
 
