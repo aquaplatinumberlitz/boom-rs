@@ -279,7 +279,7 @@ review. Font Unicode, fallback, wrap, focus là contract UI. Golden bản Việt
 | Quyết định | Trạng thái | Gate |
 |---|---|---|
 | Client stack | **ADR 0010: macroquad, có điều kiện** | Còn: build+run thật 3 OS, input-held/focus, playback audio (P6) |
-| Persistence | **ADR 0011 (Proposed, chờ review)**: SQLite (`rusqlite`) + Argon2id + session token; tùy chọn client lưu phía client | Còn: addendum ADR 0009 cho message auth, TLS (ADR 0006), test backend thật ở P7 |
+| Persistence | **ADR 0011 (Proposed, chờ review)**: SQLite (`rusqlite`) + Argon2id + session token gắn `instance_id`/`connection_id` (giải phóng khi disconnect/timeout/restart, không khóa tài khoản tới TTL); tùy chọn client lưu phía client; health runtime qua admin listener loopback + offline check tách riêng | Còn: addendum ADR 0009 cho message auth + kind health, TLS (ADR 0006), test backend thật ở P7 |
 | Codec giao thức | **ADR 0009** | Triển khai `boom-proto`/`boom-net` ở P7 |
 | Định dạng bundle content | Mở (P4) | Provenance, validation, asset closure, rebuild tái lập |
 | Thứ tự chi tiết trong tick | Mở (START-C, Q-006) | Boundary scenario pickup/lửa/chain/chết cùng tick |
