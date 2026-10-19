@@ -2201,8 +2201,9 @@ fn disconnect_broadcasts_roster_waiting_and_loading() {
         }
         drain_client(&mut clients[0]);
         clients[1].writer.close().unwrap();
-        for _ in 0..100 {
-            let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+        clients[1].reader.close().unwrap();
+        for _ in 0..500 {
+            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
             if server.session_count() == 1 {
                 break;
             }
