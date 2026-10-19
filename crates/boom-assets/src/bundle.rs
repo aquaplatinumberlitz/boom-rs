@@ -348,7 +348,8 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
     }
 
     // Entry có ảnh trong closure nhưng chưa có clip nào dùng tới: ghi rõ lý do thay vì
-    // bỏ qua âm thầm (hiệu ứng nổ chưa có claim state → animation).
+    // bỏ qua âm thầm. Hiệu ứng nổ đã có clip (R-084) nên nhánh này chỉ là lưới an toàn
+    // cho entry ảnh mới chưa có clip.
     for entry in &manifest.entries {
         if entry.role != ClosureRole::ExplosionArt {
             continue;
@@ -364,8 +365,7 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
             "animation_clip",
             &entry.entry,
             "entry có ảnh trong atlas nhưng bảng clip animation của V1 chưa có clip nào dùng \
-             tới; chưa có claim state → animation cho hiệu ứng nổ (RULES_V1 R-077/R-078 chỉ \
-             nêu đi, chết, bom, item, idle, start, trapped và lửa)",
+             tới; chưa có claim state → animation cho entry này (RULES_V1 R-077/R-078/R-084)",
             &[],
         );
     }
@@ -1303,7 +1303,7 @@ mod tests {
                 .unwrap_or_else(|| panic!("thiếu clip {}", source.id));
             assert_eq!(clip.claims, source.claims, "clip {}", clip.id);
             let expected_status = match source.claims.first().map(String::as_str) {
-                Some("R-077") => "confirmed",
+                Some("R-077") | Some("R-084") => "confirmed",
                 Some("R-078") => "candidate",
                 other => panic!("claim không lạ trong bảng clip: {other:?}"),
             };
@@ -1374,23 +1374,30 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    /// Entry có ảnh nhưng chưa có clip nào dùng tới thì phải được ghi trong `unknown`
-    /// kèm lý do — không bỏ qua âm thầm.
+    /// Entry ảnh **đã có** clip thì không được ghi trong `unknown`: `unknown` chỉ dành
+    /// cho phần chưa xác định, có lý do (R-084: hiệu ứng nổ đã có clip nổ).
     #[test]
-    fn art_without_a_clip_is_reported_as_unknown() {
+    fn art_with_a_clip_is_not_reported_as_unknown() {
         let Some(root) = pack_root() else {
             eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
             return;
         };
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        // Hiệu ứng nổ đã có clip (R-084) nên không còn nằm trong `unknown`.
         let explosion = built
             .bundle
-            .unknown
-            .iter()
-            .find(|unknown| unknown.kind == "animation_clip")
-            .expect("hiệu ứng nổ chưa có clip thì phải nằm trong unknown");
-        assert_eq!(explosion.id, "FxDesktop/Bomb/BombExplosion001");
-        assert!(!explosion.reason.is_empty());
+            .clip("explosion.main")
+            .expect("bundle phải có clip nổ");
+        assert_eq!(explosion.entry, "Bomb/BombExplosion001");
+        assert!(!explosion.frames.is_empty(), "clip nổ phải có frame");
+        assert!(
+            !built
+                .bundle
+                .unknown
+                .iter()
+                .any(|unknown| unknown.kind == "animation_clip"),
+            "entry ảnh đã có clip thì không được ghi trong unknown"
+        );
     }
 
     /// PNG trong suốt cùng kích thước — dùng để mô phỏng "thay toàn bộ atlas".
