@@ -274,9 +274,9 @@ review. Font Unicode, fallback, wrap, focus là contract UI. Golden bản Việt
 
 | Quyết định | Trạng thái | Gate |
 |---|---|---|
-| Client stack | ADR 0007 Proposed — spike | Một scene V1 trên 3 OS, so độ đúng pixel và chi phí bảo trì |
+| Client stack | **ADR 0010: macroquad, có điều kiện** | Còn: build+run thật 3 OS, input-held/focus, playback audio (P6) |
 | Persistence | Mở (Q-011); SQLite là ứng viên V1 | Uniqueness/transaction, migration/backup, test backend thật |
-| Codec giao thức | Mở (START-C/P7) | Version compatibility, kích thước snapshot, dễ debug |
+| Codec giao thức | **ADR 0009** | Triển khai `boom-proto`/`boom-net` ở P7 |
 | Định dạng bundle content | Mở (P4) | Provenance, validation, asset closure, rebuild tái lập |
 | Thứ tự chi tiết trong tick | Mở (START-C, Q-006) | Boundary scenario pickup/lửa/chain/chết cùng tick |
 
