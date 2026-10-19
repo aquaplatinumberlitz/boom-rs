@@ -24,7 +24,7 @@ boom-rs/
     boom-scenario/  # [có] định dạng dựng trận chung + harness boundary scenario
     boom-proto/     # [dự kiến P7] envelope + DTO giao thức mới, không chứa luật
     boom-net/       # [dự kiến P7] trait transport, framing, session (ADR 0006)
-    boom-room/      # [có, rỗng] máy trạng thái phòng/vòng đời thuần (SCOPE_V1 §3), chờ task backend
+    boom-room/      # [có] máy trạng thái phòng/vòng đời thuần (SCOPE_V1 §3), API ở §5.4
     boom-client/    # [dự kiến P6] input, prediction, render/audio/UI (ADR 0007)
     boom-server/    # [dự kiến P7] auth, lobby, authority, persistence
   xtask/                                # `cargo xtask ci`, golden replay
