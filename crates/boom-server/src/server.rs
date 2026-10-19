@@ -4,12 +4,12 @@
 //! của server. `send_frame` được gọi từ vòng tick trên nửa ghi của cùng kết nối; vì vậy test dùng
 //! hai đầu `MemoryTransport` cho hai chiều. Không gọi `recv_frame` trong vòng tick.
 //!
-//! Room/loading/result đi qua wire Addendum B: `LobbyListRequest`, `RoomCommand`, `RoomChat`,
-//! `LoadingAck`, `ResultAck`, `RoundStart`, `RoundResult`. Server bind `player` từ session đã auth;
-//! auth thật (T5) chưa có, `mark_authenticated_for_test` tạm đánh dấu. Wrapper API authority vẫn
-//! giữ cho test nội bộ và caller chưa chuyển wire.
+//! Auth T5 đi qua wire Addendum A: `Hello` → `Welcome` (fingerprint) → `Auth` →
+//! `AuthOk`/`AuthFail`; `Logout` revoke + đóng; Ping/Pong liveness. Room/loading/result đi qua
+//! Addendum B sau `AuthOk`. Server bind `player`/account từ session, không tin payload.
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::net::TcpListener;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
 use std::thread;
@@ -17,22 +17,26 @@ use std::time::Duration;
 
 use boom_core::Life;
 use boom_net::{NetError, TcpTransport, Transport};
+use boom_proto::dto::auth::{Auth, AuthFail, AuthFailReason, AuthOk, AuthOp, Logout};
 use boom_proto::{
-    Hello, InputBatch, InputRejectReason, InputRejected, LoadingAck, LobbyListRequest, Message,
-    Ping, Pong, Reject, RejectReason, ResultAck, RoomChat, RoomChatMessage,
+    Hello, InputBatch, InputRejectReason, InputRejected, LoadingAck, LobbyList, LobbyListRequest,
+    Message, Ping, Pong, Reject, RejectReason, ResultAck, RoomChat, RoomChatMessage,
     RoomCommand as RoomCommandDto, RoomOutcome, RoomRejected, RoundResult, RoundStart,
-    SnapshotRequest, Welcome, decode_frame, encode_frame, limits::WIRE_SCHEMA, read_envelope,
+    SnapshotRequest, Welcome, decode_frame, decode_payload, encode_frame, limits::WIRE_SCHEMA,
+    read_envelope,
 };
 use boom_room::{PlayerId, RoomCommand, RoomView, RoundId};
 use boom_sync::{
     RoomGate, from_room_command, reject_reason, to_lobby_list, to_room_state, to_round_events,
 };
 
+use crate::auth::{AuthError, AuthOutcome, AuthService};
 use crate::authority::{
     Authority, InternalRoundResult, InternalServerEvent, MatchOutcome, RoomUpdate, ServerError,
     ServerPhase,
 };
 use crate::config::HandshakeConfig;
+use crate::identity::{AccountStore, RevokeReason, SessionId, SessionStore};
 
 fn room_command_reject_reason(err: &ServerError) -> Option<boom_proto::RoomRejectReason> {
     use boom_proto::RoomRejectReason as Reason;
@@ -44,6 +48,109 @@ fn room_command_reject_reason(err: &ServerError) -> Option<boom_proto::RoomRejec
         ServerError::NoSession(_) | ServerError::UnknownPlayer(_) => Some(Reason::PlayerNotInRoom),
         _ => None,
     }
+}
+
+/// Cổng store mà auth cần: tài khoản + vòng đời phiên. Trait object để `Server` giữ
+/// `SqliteAccountStore` thật mà không phụ thuộc driver.
+pub trait AuthStore: AccountStore + SessionStore {}
+impl<T: AccountStore + SessionStore> AuthStore for T {}
+
+/// Lỗi khởi tạo auth của [`Server`] (boot cleanup store).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AuthInitError(pub String);
+impl fmt::Display for AuthInitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for AuthInitError {}
+
+struct AuthRuntime {
+    service: AuthService,
+    store: Box<dyn AuthStore>,
+}
+
+impl AuthRuntime {
+    fn boot_cleanup(&mut self, now_ms: i64) -> Result<usize, crate::identity::StoreError> {
+        self.service
+            .sessions()
+            .boot_cleanup(self.store.as_mut(), now_ms)
+    }
+
+    fn login(
+        &mut self,
+        op: AuthOp,
+        username: &str,
+        password: &str,
+        source: &str,
+        connection_id: &str,
+        now_ms: i64,
+    ) -> Result<AuthOutcome, AuthError> {
+        match op {
+            AuthOp::Login => self.service.login(
+                self.store.as_mut(),
+                username,
+                password,
+                source,
+                connection_id,
+                now_ms,
+            ),
+            AuthOp::Register => self.service.register(
+                self.store.as_mut(),
+                username,
+                password,
+                source,
+                connection_id,
+                now_ms,
+            ),
+        }
+    }
+
+    fn revoke(
+        &mut self,
+        session_id: SessionId,
+        reason: RevokeReason,
+        now_ms: i64,
+    ) -> Result<bool, crate::identity::StoreError> {
+        match reason {
+            RevokeReason::Logout => {
+                self.service
+                    .sessions()
+                    .logout(self.store.as_mut(), session_id, now_ms)
+            }
+            RevokeReason::TimeoutNoInput => {
+                self.service
+                    .sessions()
+                    .on_liveness_timeout(self.store.as_mut(), session_id, now_ms)
+            }
+            _ => self
+                .service
+                .sessions()
+                .on_disconnect(self.store.as_mut(), session_id, now_ms),
+        }
+    }
+
+    fn touch(&mut self, session_id: SessionId, now_ms: i64) {
+        let _ = self
+            .service
+            .sessions()
+            .touch(self.store.as_mut(), session_id, now_ms);
+    }
+
+    fn shutdown_all(&mut self, now_ms: i64) {
+        let _ = self
+            .service
+            .sessions()
+            .shutdown(self.store.as_mut(), now_ms);
+    }
+}
+
+#[derive(Clone, Debug)]
+struct AuthSession {
+    display_name: String,
+    session_id: SessionId,
+    last_pong_ms: u64,
+    next_ping_ms: u64,
 }
 
 enum Inbound {
@@ -73,8 +180,10 @@ struct Session {
     writer_done: Receiver<()>,
     next_snapshot_ms: u64,
     snapshot_seq: u32,
-    /// Cổng kind phòng: false trước `AuthOk` (T5 thay bằng Auth thật).
+    /// Cổng kind phòng: false trước `AuthOk`.
     auth: RoomGate,
+    /// Phiên tài khoản đã `AuthOk`; `None` trước auth.
+    account: Option<AuthSession>,
     /// Cửa sổ rate-limit chat 1 giây; server kiểm, DTO chỉ kiểm độ dài.
     chat_window_start_ms: u64,
     chat_count: u32,
@@ -98,6 +207,11 @@ pub struct Server {
     sessions: BTreeMap<PlayerId, Session>,
     now_ms: u64,
     next_session: u64,
+    /// Auth + store thật; `None` chỉ dành cho test handshake thuần.
+    auth: Option<AuthRuntime>,
+    server_version: String,
+    ping_interval_ms: u64,
+    liveness_timeout_ms: u64,
 }
 
 impl Server {
@@ -111,7 +225,54 @@ impl Server {
             sessions: BTreeMap::new(),
             now_ms: 0,
             next_session: 1,
+            auth: None,
+            server_version: env!("CARGO_PKG_VERSION").to_owned(),
+            ping_interval_ms: 15_000,
+            liveness_timeout_ms: 30_000,
         }
+    }
+
+    /// Tạo server có auth/store thật và chạy boot cleanup theo `instance_id` của
+    /// `AuthService` trước khi nhận kết nối (ADR 0011 §6.1).
+    pub fn with_auth(
+        authority: Authority,
+        handshake: HandshakeConfig,
+        auth: AuthService,
+        store: Box<dyn AuthStore>,
+        now_ms: u64,
+    ) -> Result<Self, AuthInitError> {
+        Self::with_auth_and_timers(authority, handshake, auth, store, now_ms, 15_000, 30_000)
+    }
+
+    /// Như [`Self::with_auth`] nhưng đặt chu kỳ Ping/liveness (test dùng đồng hồ tiêm).
+    pub fn with_auth_and_timers(
+        authority: Authority,
+        handshake: HandshakeConfig,
+        auth: AuthService,
+        store: Box<dyn AuthStore>,
+        now_ms: u64,
+        ping_interval_ms: u64,
+        liveness_timeout_ms: u64,
+    ) -> Result<Self, AuthInitError> {
+        let now_i64 = i64::try_from(now_ms).unwrap_or(i64::MAX);
+        let mut runtime = AuthRuntime {
+            service: auth,
+            store,
+        };
+        runtime
+            .boot_cleanup(now_i64)
+            .map_err(|err| AuthInitError(format!("boot cleanup auth thất bại: {err}")))?;
+        let mut server = Self::new(authority, handshake);
+        server.auth = Some(runtime);
+        server.now_ms = now_ms;
+        server.ping_interval_ms = ping_interval_ms.max(1);
+        server.liveness_timeout_ms = liveness_timeout_ms;
+        Ok(server)
+    }
+
+    /// Build id của server trong `Welcome`/fingerprint.
+    pub fn set_server_version(&mut self, version: impl Into<String>) {
+        self.server_version = version.into();
     }
 
     pub fn authority(&self) -> &Authority {
@@ -120,6 +281,11 @@ impl Server {
 
     pub fn phase(&self) -> ServerPhase {
         self.authority.phase()
+    }
+
+    /// Đồng hồ server hiện tại (ms) do caller tiêm qua [`Server::poll`].
+    pub fn now_ms(&self) -> u64 {
+        self.now_ms
     }
 
     pub fn room_view(&self) -> Option<RoomView> {
@@ -132,20 +298,6 @@ impl Server {
 
     pub fn session_count(&self) -> usize {
         self.sessions.len()
-    }
-
-    /// Tạm đánh dấu session đã `AuthOk` cho test/transition; task auth T5 sẽ thay bằng
-    /// `Auth`/`AuthOk` thật (ADR 0009 Addendum A).
-    #[cfg(test)]
-    pub fn mark_authenticated_for_test(&mut self, player: PlayerId) -> Result<(), ServerError> {
-        let Some(session) = self.sessions.get_mut(&player) else {
-            return Err(ServerError::NoSession(player));
-        };
-        if !session.handshaken {
-            return Err(ServerError::NoSession(player));
-        }
-        session.auth.on_auth_ok();
-        Ok(())
     }
 
     /// Nhận một nửa đọc và một nửa ghi của kết nối; spawn đúng một luồng đọc chặn.
@@ -197,6 +349,7 @@ impl Server {
                 next_snapshot_ms: 0,
                 snapshot_seq: 0,
                 auth: RoomGate::new(),
+                account: None,
                 chat_window_start_ms: 0,
                 chat_count: 0,
             },
@@ -300,6 +453,7 @@ impl Server {
                 }
             }
         }
+        self.flush_liveness(now_ms)?;
         let events = self.authority.advance_to(now_ms)?;
         self.flush_events()?;
         self.flush_lifecycle(&events)?;
@@ -324,7 +478,12 @@ impl Server {
             return Ok(());
         };
         if !session.handshaken {
-            return self.handle_hello(player, frame);
+            let (envelope, _) = read_envelope(frame)?;
+            if envelope.kind == boom_proto::MessageKind::Hello {
+                return self.handle_hello(player, frame);
+            }
+            self.reject_session_before_welcome(player, envelope.kind);
+            return Ok(());
         }
         let (envelope, _) = read_envelope(frame)?;
         let kind = envelope.kind;
@@ -333,20 +492,42 @@ impl Server {
         if kind == boom_proto::MessageKind::Hello {
             return self.handle_hello(player, frame);
         }
-        if kind.is_room()
-            && !self
-                .sessions
-                .get(&player)
-                .is_some_and(|session| session.auth.is_authenticated())
-        {
+        let authenticated = self
+            .sessions
+            .get(&player)
+            .is_some_and(|session| session.account.is_some());
+        if !authenticated {
+            return match kind {
+                boom_proto::MessageKind::Auth => self.handle_auth(player, frame),
+                boom_proto::MessageKind::Ping => {
+                    let ping: Ping = decode_frame(frame, &self.authority.config().protocol_limits)?;
+                    self.send(player, &Pong(ping.0))
+                }
+                boom_proto::MessageKind::Pong => {
+                    let _: Pong = decode_frame(frame, &self.authority.config().protocol_limits)?;
+                    Ok(())
+                }
+                _ => {
+                    self.reject_session_before_auth(player, kind);
+                    Ok(())
+                }
+            };
+        }
+        if kind == boom_proto::MessageKind::Auth {
+            // Auth chỉ hợp lệ một lần thành công mỗi kết nối.
             self.send(
                 player,
                 &Reject {
                     reason: RejectReason::SessionRejected,
-                    detail: format!("{kind:?} chỉ hợp lệ sau AuthOk"),
+                    detail: "Auth lần hai sau AuthOk là lỗi giao thức".to_owned(),
                 },
             )?;
-            self.close_session_after_flush(player);
+            self.close_session(player);
+            return Ok(());
+        }
+        if kind == boom_proto::MessageKind::Logout {
+            let _: Logout = decode_frame(frame, &self.authority.config().protocol_limits)?;
+            self.close_session_after_flush_with_reason(player, RevokeReason::Logout);
             return Ok(());
         }
         let limits = self.authority.config().protocol_limits;
@@ -366,7 +547,10 @@ impl Server {
                 let ping: Ping = decode_frame(frame, &limits)?;
                 self.send(player, &Pong(ping.0))?;
             }
-            boom_proto::MessageKind::Pong => {}
+            boom_proto::MessageKind::Pong => {
+                let _: Pong = decode_frame(frame, &limits)?;
+                self.handle_pong(player);
+            }
             boom_proto::MessageKind::LobbyListRequest => {
                 let _: LobbyListRequest = decode_frame(frame, &limits)?;
                 self.send_lobby_list(player)?;
@@ -438,6 +622,133 @@ impl Server {
         Ok(())
     }
 
+    fn reject_session_before_welcome(&mut self, player: PlayerId, kind: boom_proto::MessageKind) {
+        let _ = self.send(
+            player,
+            &Reject {
+                reason: RejectReason::SessionRejected,
+                detail: format!("{kind:?} chỉ hợp lệ sau Hello/Welcome"),
+            },
+        );
+        self.close_session_after_flush(player);
+    }
+
+    fn reject_session_before_auth(&mut self, player: PlayerId, kind: boom_proto::MessageKind) {
+        let _ = self.send(
+            player,
+            &Reject {
+                reason: RejectReason::SessionRejected,
+                detail: format!("{kind:?} chỉ hợp lệ sau AuthOk"),
+            },
+        );
+        self.close_session_after_flush(player);
+    }
+
+    fn handle_auth(&mut self, player: PlayerId, frame: &[u8]) -> Result<(), ServerError> {
+        let limits = self.authority.config().protocol_limits;
+        let (_, payload) = read_envelope(frame)?;
+        let auth: Auth = match decode_payload(payload) {
+            Ok(auth) => auth,
+            Err(_) => {
+                self.send(
+                    player,
+                    &AuthFail {
+                        reason: AuthFailReason::InvalidInput,
+                    },
+                )?;
+                return Ok(());
+            }
+        };
+        if auth.limit_violation(&limits).is_some() {
+            self.send(
+                player,
+                &AuthFail {
+                    reason: AuthFailReason::InvalidInput,
+                },
+            )?;
+            return Ok(());
+        }
+        let Some(session) = self.sessions.get(&player) else {
+            return Ok(());
+        };
+        let connection_id = session.session_id.clone();
+        let source = format!("connection:{connection_id}");
+        let now = i64::try_from(self.now_ms).unwrap_or(i64::MAX);
+        let Some(runtime) = self.auth.as_mut() else {
+            self.send(
+                player,
+                &AuthFail {
+                    reason: AuthFailReason::Unavailable,
+                },
+            )?;
+            return Ok(());
+        };
+        match runtime.login(
+            auth.op,
+            &auth.username,
+            &auth.password,
+            &source,
+            &connection_id,
+            now,
+        ) {
+            Ok(outcome) => {
+                let success = outcome.success();
+                let account_id = u64::try_from(success.account_id.0).unwrap_or(0);
+                let expires_at_ms = u64::try_from(success.expires_at_ms).unwrap_or(u64::MAX);
+                let session_id = success.session_id;
+                let display_name = success.display_name.clone();
+                let token = success.token.expose().to_owned();
+                self.send(
+                    player,
+                    &AuthOk {
+                        account_id,
+                        display_name: display_name.clone(),
+                        token,
+                        expires_at_ms,
+                    },
+                )?;
+                if let Some(session) = self.sessions.get_mut(&player) {
+                    session.auth.on_auth_ok();
+                    session.account = Some(AuthSession {
+                        display_name,
+                        session_id,
+                        last_pong_ms: self.now_ms,
+                        next_ping_ms: self.now_ms.saturating_add(self.ping_interval_ms),
+                    });
+                }
+            }
+            Err(err) => {
+                self.send(
+                    player,
+                    &AuthFail {
+                        reason: err.wire_reason(),
+                    },
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_pong(&mut self, player: PlayerId) {
+        let now = self.now_ms;
+        let session_id = if let Some(session) = self.sessions.get_mut(&player) {
+            if let Some(account) = session.account.as_mut() {
+                account.last_pong_ms = now;
+                account.next_ping_ms = now.saturating_add(self.ping_interval_ms);
+                Some(account.session_id)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(session_id) = session_id
+            && let Some(auth) = self.auth.as_mut()
+        {
+            auth.touch(session_id, i64::try_from(now).unwrap_or(i64::MAX));
+        }
+    }
+
     fn ack_round_matches(&self, round: u64) -> bool {
         self.authority
             .current_round_id()
@@ -489,15 +800,28 @@ impl Server {
         Ok(())
     }
 
-    fn send_lobby_list(&mut self, player: PlayerId) -> Result<(), ServerError> {
+    fn lobby_list(&self) -> LobbyList {
         let views: Vec<RoomView> = self.authority.room_view().into_iter().collect();
-        let list = to_lobby_list(&views);
+        let mut list = to_lobby_list(&views);
+        for room in &mut list.rooms {
+            if let Some(account) = self
+                .sessions
+                .get(&PlayerId(room.host))
+                .and_then(|session| session.account.as_ref())
+            {
+                room.name = account.display_name.clone();
+            }
+        }
+        list
+    }
+
+    fn send_lobby_list(&mut self, player: PlayerId) -> Result<(), ServerError> {
+        let list = self.lobby_list();
         self.send(player, &list)
     }
 
     fn broadcast_lobby_list(&mut self) -> Result<(), ServerError> {
-        let views: Vec<RoomView> = self.authority.room_view().into_iter().collect();
-        let list = to_lobby_list(&views);
+        let list = self.lobby_list();
         let players: Vec<PlayerId> = self
             .sessions
             .iter()
@@ -576,10 +900,16 @@ impl Server {
             return Ok(());
         }
         session.chat_count = session.chat_count.saturating_add(1);
+        let from_name = self
+            .sessions
+            .get(&player)
+            .and_then(|session| session.account.as_ref())
+            .map(|account| account.display_name.clone())
+            .unwrap_or_else(|| format!("player{}", player.0));
         let message = RoomChatMessage {
             room_id: view.id.0,
             from: player.0,
-            from_name: format!("player{}", player.0),
+            from_name,
             text: chat.text.clone(),
         };
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
@@ -691,8 +1021,10 @@ impl Server {
             player_id: session.slot,
             wire_schema: WIRE_SCHEMA,
             state_schema: 1,
+            server_version: self.server_version.clone(),
             rules_profile_id: self.handshake.rules_profile_id.clone(),
             rules_hash: self.handshake.rules_hash,
+            content_sha256: self.handshake.content_sha256,
             content_epoch: self.handshake.content_epoch,
             snapshot_interval_ms: self.handshake.snapshot_interval_ms.max(1),
             protocol_limits_version: limits.revision,
@@ -804,6 +1136,43 @@ impl Server {
             .is_some_and(|view| view.members.iter().any(|m| m.player == player))
     }
 
+    fn flush_liveness(&mut self, now_ms: u64) -> Result<(), ServerError> {
+        let timeout = self.liveness_timeout_ms.max(1);
+        let timed_out: Vec<PlayerId> =
+            self.sessions
+                .iter()
+                .filter(|(_, session)| {
+                    session.account.as_ref().is_some_and(|account| {
+                        now_ms.saturating_sub(account.last_pong_ms) >= timeout
+                    })
+                })
+                .map(|(player, _)| *player)
+                .collect();
+        for player in timed_out {
+            self.close_session_with_reason(player, RevokeReason::TimeoutNoInput);
+        }
+        let due: Vec<PlayerId> = self
+            .sessions
+            .iter()
+            .filter(|(_, session)| {
+                session
+                    .account
+                    .as_ref()
+                    .is_some_and(|account| now_ms >= account.next_ping_ms)
+            })
+            .map(|(player, _)| *player)
+            .collect();
+        for player in due {
+            self.send(player, &Ping(now_ms))?;
+            if let Some(session) = self.sessions.get_mut(&player)
+                && let Some(account) = session.account.as_mut()
+            {
+                account.next_ping_ms = now_ms.saturating_add(self.ping_interval_ms);
+            }
+        }
+        Ok(())
+    }
+
     fn flush_snapshots(&mut self, now_ms: u64) -> Result<(), ServerError> {
         let due: Vec<PlayerId> = self
             .sessions
@@ -839,8 +1208,27 @@ impl Server {
     }
 
     fn close_session(&mut self, player: PlayerId) {
-        if self.sessions.remove(&player).is_some() {
-            self.notify_disconnect(player);
+        self.close_session_with_reason(player, RevokeReason::Disconnect);
+    }
+
+    fn close_session_with_reason(&mut self, player: PlayerId, reason: RevokeReason) {
+        let Some(session) = self.sessions.remove(&player) else {
+            return;
+        };
+        self.revoke_account(&session, reason);
+        self.notify_disconnect(player);
+    }
+
+    fn revoke_account(&mut self, session: &Session, reason: RevokeReason) {
+        let Some(account) = session.account.as_ref() else {
+            return;
+        };
+        if let Some(auth) = self.auth.as_mut() {
+            let _ = auth.revoke(
+                account.session_id,
+                reason,
+                i64::try_from(self.now_ms).unwrap_or(i64::MAX),
+            );
         }
     }
 
@@ -858,9 +1246,14 @@ impl Server {
     /// Bỏ `out_tx` làm writer thoát sau khi rút hết queue; một luồng canh gọi shutdown khi writer
     /// xong hoặc quá `GRACEFUL_CLOSE_MS`, nên writer kẹt vẫn bị thu hồi và tick không phải chờ.
     fn close_session_after_flush(&mut self, player: PlayerId) {
+        self.close_session_after_flush_with_reason(player, RevokeReason::Disconnect);
+    }
+
+    fn close_session_after_flush_with_reason(&mut self, player: PlayerId, reason: RevokeReason) {
         let Some(mut session) = self.sessions.remove(&player) else {
             return;
         };
+        self.revoke_account(&session, reason);
         self.notify_disconnect(player);
         let shutdown = session.shutdown.take();
         let (dummy_tx, dummy_rx) = mpsc::channel();
@@ -918,5 +1311,13 @@ impl Server {
 
     pub fn player_life(&self, player: PlayerId) -> Option<Life> {
         self.authority.player_life(player)
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        if let Some(auth) = self.auth.as_mut() {
+            auth.shutdown_all(i64::try_from(self.now_ms).unwrap_or(i64::MAX));
+        }
     }
 }

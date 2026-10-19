@@ -2,7 +2,8 @@
 //!
 //! Lõi authority thuần, không wall clock trực tiếp; caller truyền `now_ms` và gọi
 //! [`Authority::advance_to`]. [`Server`] bọc lõi bằng vòng IO `boom-net` (một luồng đọc chặn mỗi
-//! kết nối), handshake `Hello`/`Welcome`/`Reject` và snapshot/event DTO. Input ở biên dùng
+//! kết nối), handshake `Hello`/`Welcome`/`Reject`, auth `Auth`/`AuthOk`/`AuthFail`/`Logout`
+//! (ADR 0009 Addendum A), Ping/Pong liveness và snapshot/event DTO. Input ở biên dùng
 //! `boom_proto::InputBatch`; chuyển state↔DTO nằm ở `boom-sync`, không có bản chuyển đổi riêng
 //! trong server.
 //!
@@ -38,4 +39,4 @@ pub use input::{InputAck, InputError};
 pub use observability::{
     LogFields, LogLevel, Logger, SharedLogBuffer, events, new_instance_id, now_ms, rfc3339_utc_ms,
 };
-pub use server::Server;
+pub use server::{AuthInitError, AuthStore, Server};

@@ -630,14 +630,17 @@ fn second_create_is_rejected_until_room_is_deleted() {
 use std::time::{Duration, Instant};
 
 use boom_net::{MemoryConfig, MemoryTransport, Transport};
+use boom_proto::dto::auth::{Auth, AuthFail, AuthFailReason, AuthOk, AuthOp, Logout};
 use boom_proto::{
     Hello, InputRejectReason, InputRejected, LoadingAck, LobbyList, LobbyListRequest, Message,
-    MessageKind, Ping, Reject, RejectReason, ResultAck, RoomAction as RoomActionDto, RoomCharacter,
-    RoomChat, RoomChatMessage, RoomCommand as RoomCommandDto, RoomRejectReason, RoomRejected,
-    RoomState, RoundResult, RoundStart, Snapshot, Welcome, decode_frame, encode_frame,
-    limits::ProtocolLimits, read_envelope,
+    MessageKind, Ping, Pong, Reject, RejectReason, ResultAck, RoomAction as RoomActionDto,
+    RoomCharacter, RoomChat, RoomChatMessage, RoomCommand as RoomCommandDto, RoomRejectReason,
+    RoomRejected, RoomState, RoundResult, RoundStart, Snapshot, Welcome, decode_frame,
+    encode_frame, limits::ProtocolLimits, read_envelope,
 };
 
+use crate::auth::{AuthConfig, AuthService};
+use crate::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use crate::{HandshakeConfig, Server};
 
 struct WireClient {
@@ -751,9 +754,70 @@ fn send_room(c: &mut WireClient, request: u64, action: RoomActionDto) {
     send(c, &RoomCommandDto { request, action });
 }
 
-fn authenticate(server: &mut Server, players: &[PlayerId]) {
-    for &player in players {
-        server.mark_authenticated_for_test(player).unwrap();
+fn test_credentials(player: PlayerId) -> (String, String) {
+    (format!("player{}", player.0), "password123".to_owned())
+}
+
+fn recv_auth_response(
+    client: &mut WireClient,
+    timeout: Duration,
+) -> Option<Result<AuthOk, AuthFailReason>> {
+    let start = Instant::now();
+    loop {
+        if let Some(frame) = client.reader.try_recv_frame().unwrap() {
+            let (envelope, _) = read_envelope(&frame).unwrap();
+            match envelope.kind {
+                MessageKind::AuthOk => {
+                    return Some(Ok(decode_frame(&frame, &ProtocolLimits::v1()).unwrap()));
+                }
+                MessageKind::AuthFail => {
+                    let fail: AuthFail = decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
+                    return Some(Err(fail.reason));
+                }
+                _ => {}
+            }
+        } else if start.elapsed() >= timeout {
+            return None;
+        } else {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
+fn auth_attempt(
+    server: &mut Server,
+    client: &mut WireClient,
+    op: AuthOp,
+    username: &str,
+    password: &str,
+) -> Result<AuthOk, AuthFailReason> {
+    for _ in 0..300 {
+        send(
+            client,
+            &Auth {
+                op,
+                username: username.to_owned(),
+                password: password.to_owned(),
+            },
+        );
+        let _ = server
+            .poll(server.now_ms(), Duration::from_millis(20))
+            .unwrap();
+        if let Some(result) = recv_auth_response(client, Duration::from_millis(250)) {
+            return result;
+        }
+    }
+    panic!("không nhận AuthOk/AuthFail sau retry");
+}
+
+fn authenticate_player(server: &mut Server, client: &mut WireClient, player: PlayerId) {
+    let (username, password) = test_credentials(player);
+    auth_attempt(server, client, AuthOp::Register, &username, &password).unwrap();
+}
+
+fn authenticate(server: &mut Server, clients: &mut [WireClient], players: &[PlayerId]) {
+    for (index, &player) in players.iter().enumerate() {
+        authenticate_player(server, &mut clients[index], player);
     }
 }
 
@@ -802,10 +866,37 @@ fn recv_input_rejected(c: &mut WireClient) -> InputRejected {
 }
 
 fn server_with_clients(players: &[PlayerId]) -> (Server, Vec<WireClient>) {
+    server_with_clients_config(players, u64::MAX, u64::MAX)
+}
+
+fn server_with_clients_config(
+    players: &[PlayerId],
+    ping_interval_ms: u64,
+    liveness_timeout_ms: u64,
+) -> (Server, Vec<WireClient>) {
     let setup = setup();
     let a = Authority::new(ServerConfig::v1(), setup);
     let h = handshake_config(&a);
-    let mut server = Server::new(a, h);
+    // SQLite thật trong tempdir (ADR 0011 §10); `keep` để file sống qua thời gian test.
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.keep().join("auth.sqlite3");
+    let store = SqliteAccountStore::open(&db_path, SqliteOptions::default()).unwrap();
+    let auth = AuthService::new(
+        AuthConfig::default(),
+        format!("test-instance-{}", players.len()),
+        Box::new(OsRandomSource),
+    )
+    .unwrap();
+    let mut server = Server::with_auth_and_timers(
+        a,
+        h,
+        auth,
+        Box::new(store),
+        0,
+        ping_interval_ms,
+        liveness_timeout_ms,
+    )
+    .unwrap();
     let clients: Vec<WireClient> = players
         .iter()
         .enumerate()
@@ -814,18 +905,29 @@ fn server_with_clients(players: &[PlayerId]) -> (Server, Vec<WireClient>) {
     (server, clients)
 }
 
-fn wire_handshake(server: &mut Server, clients: &mut [WireClient]) {
+fn wire_handshake_at(server: &mut Server, clients: &mut [WireClient], now_ms: u64) -> Vec<Welcome> {
     let h = {
         let setup = setup();
         let a = Authority::new(ServerConfig::v1(), setup);
         handshake_config(&a)
     };
+    let mut welcomes = Vec::new();
     for c in clients.iter_mut() {
         let msg = hello(h.rules_hash);
         send(c, &msg);
-        let _ = server.poll(0, Duration::from_millis(100)).unwrap();
-        let _: Welcome = recv(c);
+        let _ = server.poll(now_ms, Duration::from_millis(100)).unwrap();
+        let welcome: Welcome = recv(c);
+        welcomes.push(welcome);
     }
+    welcomes
+}
+
+fn wire_handshake_capture(server: &mut Server, clients: &mut [WireClient]) -> Vec<Welcome> {
+    wire_handshake_at(server, clients, 0)
+}
+
+fn wire_handshake(server: &mut Server, clients: &mut [WireClient]) {
+    let _ = wire_handshake_capture(server, clients);
 }
 
 #[test]
@@ -888,6 +990,7 @@ fn memory_transport_input_dedup_and_window() {
     let players = [PlayerId(1), PlayerId(2)];
     let (mut server, mut clients) = server_with_clients(&players);
     wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
     // Room/lifecycle chưa có DTO trong boom-proto; dùng API authority đã bind session.
     let mut req = Requests::new(&players);
     let host = players[0];
@@ -985,6 +1088,7 @@ fn memory_transport_two_and_four_clients_two_rounds() {
     ] {
         let (mut server, mut clients) = server_with_clients(&players);
         wire_handshake(&mut server, &mut clients);
+        authenticate(&mut server, &mut clients, &players);
         let mut req = Requests::new(&players);
         let host = players[0];
         server
@@ -1438,6 +1542,7 @@ fn malformed_frame_closes_only_that_session() {
     let players = [PlayerId(1), PlayerId(2)];
     let (mut server, mut clients) = server_with_clients(&players);
     wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
     let mut req = Requests::new(&players);
     let host = players[0];
     server
@@ -1517,6 +1622,7 @@ fn malformed_payload_closes_only_that_session() {
     let players = [PlayerId(1), PlayerId(2), PlayerId(3)];
     let (mut server, mut clients) = server_with_clients(&players);
     wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
     let mut req = Requests::new(&players);
     let host = players[0];
     server
@@ -1652,7 +1758,7 @@ fn room_kind_before_auth_is_rejected_and_after_auth_works() {
     let reject: Reject = recv(&mut clients[0]);
     assert_eq!(reject.reason, RejectReason::SessionRejected);
 
-    authenticate(&mut server, &[players[1]]);
+    authenticate_player(&mut server, &mut clients[1], players[1]);
     send(&mut clients[1], &LobbyListRequest {});
     let _ = server.poll(0, Duration::from_millis(200)).unwrap();
     let list: LobbyList = recv_lobby(&mut clients[1]);
@@ -1664,7 +1770,7 @@ fn wire_room_commands_are_idempotent_and_chat_is_room_scoped() {
     let players = [PlayerId(1), PlayerId(2), PlayerId(3)];
     let (mut server, mut clients) = server_with_clients(&players);
     wire_handshake(&mut server, &mut clients);
-    authenticate(&mut server, &players);
+    authenticate(&mut server, &mut clients, &players);
 
     send_room(
         &mut clients[1],
@@ -1725,6 +1831,7 @@ fn wire_room_commands_are_idempotent_and_chat_is_room_scoped() {
     let msg: RoomChatMessage = recv_of(&mut clients[1], MessageKind::RoomChatMessage);
     assert_eq!(msg.room_id, room);
     assert_eq!(msg.text, "hello");
+    assert_eq!(msg.from_name, "player1");
     while let Some(frame) = clients[2].reader.try_recv_frame().unwrap() {
         let (envelope, _) = read_envelope(&frame).unwrap();
         assert_ne!(
@@ -1768,7 +1875,7 @@ fn wire_room_full_lifecycle_two_and_four_clients() {
     ] {
         let (mut server, mut clients) = server_with_clients(&players);
         wire_handshake(&mut server, &mut clients);
-        authenticate(&mut server, &players);
+        authenticate(&mut server, &mut clients, &players);
 
         send(&mut clients[0], &LobbyListRequest {});
         let _ = server.poll(0, Duration::from_millis(200)).unwrap();
@@ -1786,6 +1893,7 @@ fn wire_room_full_lifecycle_two_and_four_clients() {
         let room = state.room_id;
         let lobby: LobbyList = recv_lobby(&mut clients[0]);
         assert_eq!(lobby.rooms[0].member_count, 1);
+        assert_eq!(lobby.rooms[0].name, "player1");
         for (index, &player) in players.iter().enumerate().skip(1) {
             send_room(
                 &mut clients[index],
@@ -1967,7 +2075,7 @@ fn ack_with_wrong_round_does_not_advance_or_finish() {
     let players = [PlayerId(1), PlayerId(2)];
     let (mut server, mut clients) = server_with_clients(&players);
     wire_handshake(&mut server, &mut clients);
-    authenticate(&mut server, &players);
+    authenticate(&mut server, &mut clients, &players);
 
     send_room(
         &mut clients[1],
@@ -2094,7 +2202,7 @@ fn expected_room_errors_are_rejected_without_killing_poll() {
     let players = [PlayerId(1), PlayerId(2)];
     let (mut server, mut clients) = server_with_clients(&players);
     wire_handshake(&mut server, &mut clients);
-    authenticate(&mut server, &players);
+    authenticate(&mut server, &mut clients, &players);
 
     send_room(
         &mut clients[1],
@@ -2186,7 +2294,7 @@ fn disconnect_broadcasts_roster_waiting_and_loading() {
     for loading in [false, true] {
         let (mut server, mut clients) = server_with_clients(&players);
         wire_handshake(&mut server, &mut clients);
-        authenticate(&mut server, &players);
+        authenticate(&mut server, &mut clients, &players);
         send_room(
             &mut clients[0],
             1,
@@ -2398,7 +2506,25 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
         let setup = setup();
         let a = Authority::new(ServerConfig::v1(), setup);
         let h = handshake_config(&a);
-        let mut server = Server::new(a, h.clone());
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.keep().join("auth.sqlite3");
+        let store = SqliteAccountStore::open(&db_path, SqliteOptions::default()).unwrap();
+        let auth = AuthService::new(
+            AuthConfig::default(),
+            format!("lossy-{}", players.len()),
+            Box::new(OsRandomSource),
+        )
+        .unwrap();
+        let mut server = Server::with_auth_and_timers(
+            a,
+            h.clone(),
+            auth,
+            Box::new(store),
+            0,
+            u64::MAX,
+            u64::MAX,
+        )
+        .unwrap();
         let mut clients: Vec<WireClient> = players
             .iter()
             .enumerate()
@@ -2413,7 +2539,7 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
             })
             .collect();
         lossy_handshake(&mut server, &mut clients, &h);
-        authenticate(&mut server, &players);
+        authenticate(&mut server, &mut clients, &players);
 
         let mut lobby = None;
         for _ in 0..100 {
@@ -2505,7 +2631,7 @@ fn wire_round_result_alive_uses_authoritative_state_in_draw() {
     let players = [PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)];
     let (mut server, mut clients) = server_with_clients(&players);
     wire_handshake(&mut server, &mut clients);
-    authenticate(&mut server, &players);
+    authenticate(&mut server, &mut clients, &players);
     send_room(
         &mut clients[0],
         1,
@@ -2757,4 +2883,224 @@ fn replay_write_error_does_not_break_round_or_touch_existing_path() {
     a.advance_to(200_000).unwrap();
     assert_eq!(a.phase(), ServerPhase::Results);
     assert_eq!(std::fs::read(&not_a_dir).unwrap(), b"sentinel");
+}
+
+#[test]
+fn wire_auth_welcome_fingerprint_gates_and_second_auth() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let welcomes = wire_handshake_capture(&mut server, &mut clients);
+    assert_eq!(welcomes.len(), 2);
+    assert!(!welcomes[0].server_version.is_empty());
+    assert_eq!(welcomes[0].content_sha256, [7; 32]);
+    assert_eq!(welcomes[0].wire_schema, 1);
+
+    // Auth trước Hello bị từ chối.
+    let mut early = wire_client(&mut server, PlayerId(3), 2);
+    send(
+        &mut early,
+        &Auth {
+            op: AuthOp::Login,
+            username: "early".into(),
+            password: "password123".into(),
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let reject: Reject = recv(&mut early);
+    assert_eq!(reject.reason, RejectReason::SessionRejected);
+
+    // Auth vượt biên username trả InvalidInput, không vào auth store.
+    send(
+        &mut clients[1],
+        &Auth {
+            op: AuthOp::Login,
+            username: "a".repeat(65),
+            password: "password123".into(),
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let fail: AuthFail = recv(&mut clients[1]);
+    assert_eq!(fail.reason, AuthFailReason::InvalidInput);
+
+    // Kind phòng trước AuthOk bị từ chối.
+    send(&mut clients[1], &LobbyListRequest {});
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let reject: Reject = recv(&mut clients[1]);
+    assert_eq!(reject.reason, RejectReason::SessionRejected);
+
+    let ok = auth_attempt(
+        &mut server,
+        &mut clients[0],
+        AuthOp::Register,
+        "wireuser",
+        "password123",
+    )
+    .unwrap();
+    assert!(ok.account_id > 0);
+    assert_eq!(ok.display_name, "wireuser");
+    assert_eq!(ok.token.len(), 43);
+    let debug = format!("{ok:?}");
+    assert!(!debug.contains(&ok.token));
+    assert!(debug.contains("<redacted>"));
+
+    // Auth lần hai sau AuthOk là lỗi giao thức.
+    send(
+        &mut clients[0],
+        &Auth {
+            op: AuthOp::Login,
+            username: "wireuser".into(),
+            password: "password123".into(),
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let reject: Reject = recv(&mut clients[0]);
+    assert_eq!(reject.reason, RejectReason::SessionRejected);
+}
+
+#[test]
+fn wire_auth_login_active_session_disconnect_logout_and_liveness() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    let (username, password) = test_credentials(players[0]);
+    auth_attempt(
+        &mut server,
+        &mut clients[0],
+        AuthOp::Register,
+        &username,
+        &password,
+    )
+    .unwrap();
+
+    let reason = auth_attempt(
+        &mut server,
+        &mut clients[1],
+        AuthOp::Login,
+        &username,
+        "wrong-password",
+    )
+    .unwrap_err();
+    assert_eq!(reason, AuthFailReason::InvalidCredentials);
+    let reason = auth_attempt(
+        &mut server,
+        &mut clients[1],
+        AuthOp::Login,
+        &username,
+        &password,
+    )
+    .unwrap_err();
+    assert_eq!(reason, AuthFailReason::AccountHasActiveSession);
+    let reason = auth_attempt(
+        &mut server,
+        &mut clients[1],
+        AuthOp::Register,
+        &username,
+        &password,
+    )
+    .unwrap_err();
+    assert_eq!(reason, AuthFailReason::UsernameUnavailable);
+
+    // Client đầu đóng socket: phiên được giải phóng, login lại được (T4-A1).
+    clients[0].writer.close().unwrap();
+    clients[0].reader.close().unwrap();
+    for _ in 0..300 {
+        let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+        if server.session_count() == 1 {
+            break;
+        }
+    }
+    let ok = auth_attempt(
+        &mut server,
+        &mut clients[1],
+        AuthOp::Login,
+        &username,
+        &password,
+    )
+    .unwrap();
+    assert_eq!(ok.display_name, username);
+
+    // Logout thu hồi đúng phiên và đóng; login lại được.
+    send(&mut clients[1], &Logout {});
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.session_count(), 0);
+    let mut next = wire_client(&mut server, PlayerId(3), 2);
+    wire_handshake(&mut server, std::slice::from_mut(&mut next));
+    auth_attempt(&mut server, &mut next, AuthOp::Login, &username, &password).unwrap();
+}
+
+#[test]
+fn wire_auth_liveness_timeout_releases_session() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients_config(&players, 100, 250);
+    wire_handshake(&mut server, &mut clients);
+    let (username, password) = test_credentials(players[0]);
+    authenticate_player(&mut server, &mut clients[0], players[0]);
+    assert_eq!(server.session_count(), 2);
+
+    // Quá 250 ms không Pong: phiên bị giải phóng, không chờ TTL 24 h.
+    let _ = server.poll(300, Duration::ZERO).unwrap();
+    assert_eq!(server.session_count(), 1);
+
+    let mut next = wire_client(&mut server, PlayerId(3), 2);
+    wire_handshake_at(&mut server, std::slice::from_mut(&mut next), 300);
+    auth_attempt(&mut server, &mut next, AuthOp::Login, &username, &password).unwrap();
+}
+
+#[test]
+fn server_boot_cleanup_revokes_previous_instance_session() {
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.keep().join("boot.sqlite3");
+    let username = "bootuser";
+    let password = "password123";
+    {
+        let mut store = SqliteAccountStore::open(&db_path, SqliteOptions::default()).unwrap();
+        let mut auth = AuthService::new(
+            AuthConfig::default(),
+            "old-instance",
+            Box::new(OsRandomSource),
+        )
+        .unwrap();
+        auth.register(
+            &mut store,
+            username,
+            password,
+            "old-connection",
+            "old-conn",
+            0,
+        )
+        .unwrap();
+    }
+
+    let store = SqliteAccountStore::open(&db_path, SqliteOptions::default()).unwrap();
+    let auth = AuthService::new(
+        AuthConfig::default(),
+        "new-instance",
+        Box::new(OsRandomSource),
+    )
+    .unwrap();
+    let setup = setup();
+    let authority = Authority::new(ServerConfig::v1(), setup);
+    let h = handshake_config(&authority);
+    let mut server = Server::with_auth(authority, h, auth, Box::new(store), 0).unwrap();
+    let mut client = wire_client(&mut server, PlayerId(1), 0);
+    wire_handshake(&mut server, std::slice::from_mut(&mut client));
+    auth_attempt(&mut server, &mut client, AuthOp::Login, username, password).unwrap();
+}
+
+#[test]
+fn wire_auth_pong_extends_liveness_then_timeout_closes() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients_config(&players, 100, 500);
+    wire_handshake(&mut server, &mut clients);
+    authenticate_player(&mut server, &mut clients[0], players[0]);
+
+    let _ = server.poll(150, Duration::ZERO).unwrap();
+    let ping: Ping = recv_of(&mut clients[0], MessageKind::Ping);
+    assert_eq!(ping.0, 150);
+    send(&mut clients[0], &Pong(ping.0));
+    let _ = server.poll(300, Duration::from_millis(100)).unwrap();
+    assert_eq!(server.session_count(), 2);
+    // Pong cuối ở 300: quá 500 ms nữa không Pong ⇒ đóng.
+    let _ = server.poll(900, Duration::ZERO).unwrap();
+    assert_eq!(server.session_count(), 1);
 }
