@@ -195,11 +195,12 @@ Delta chỉ được thêm sau khi có baseline + resync + test mất gói; vi�
 | Header | `snapshot_seq u32`, `round_id u32`, `tick u32`, `state_schema u16`, `rules_hash u64`, `content_epoch u32`, `phase`, `rng_state u64`, `next_entity_id u32` | `snapshot_seq` tăng từ 1 trong round; `phase` = Playing / Ended(Draw) / Ended(Winner u8) |
 | `acks` | `Vec<{ player u8, last_seq u32, applied_tick u32 }>` | Một mục/người chơi, sắp theo `player`; đây là ack của input đã áp dụng, không phải ack TCP |
 | `players` | `Vec<{ id u8, x i32, y i32, facing u8, speed Stat, bombs Stat, range Stat, life }>` | `Stat = {value u8, max u8}`; `life` = Alive / Trapped{since u32} / Dead |
-| `field` | `{ width u16, height u16, kinds_bits Vec<u8>, hidden Vec<{cell u16, kind u8}> }` | `kinds_bits` 2 bit/ô, hàng rồi cột, 0=Floor, 1=Solid, 2=Breakable, 3=không hợp lệ; `hidden` sắp theo `cell`, chỉ trên ô Breakable |
+| `field` | `{ width u16, height u16, kinds_bits Vec<u8>, hidden Vec<{cell u16, kind u8}> }` | `kinds_bits` 2 bit/ô, bit thấp trước (ô 0 ở bit 0–1), hàng rồi cột, 0=Floor, 1=Solid, 2=Breakable, 3=không hợp lệ; `hidden` sắp theo `cell`, chỉ trên ô Breakable |
 | `bombs` | `Vec<{ id u32, owner u8, cell u16, range u8, explodes_at u32, grace Vec<u8> }>` | Sắp theo `id`; `grace` sắp tăng |
 | `flames` | `Vec<{ cell u16, until u32, source u32, owner u8 }>` | Sắp theo `cell`, mỗi ô tối đa một flame |
 | `items` | `Vec<{ id u32, kind u8, cell u16 }>` | Sắp theo `id`, mỗi ô tối đa một item |
 
+Thứ tự field trong bảng là thứ tự encode (postcard struct); đổi thứ tự/kiểu field là tăng `state_schema`.
 `cell` = `y * width + x`; dùng `u16` để không phụ thuộc map 15×13. `kind` của item là chỉ số trong
 `Rules::items`, không phải ID asset. `rng_state` là state SplitMix64 hiện tại, không phải seed; `next_entity_id`
 là giá trị allocator sẽ cấp tiếp theo, không suy từ max ID đã thấy vì entity đã chết/nhặt có thể đã bị xóa.
@@ -245,8 +246,8 @@ phân loại ô, thay H bằng số thật và ghi lại trong ADR/QA. Không d�
   `SimulationState::check_invariants(&World)` (contracts-r3) trước khi áp dụng. Snapshot sai bất biến bị bỏ,
   không panic, không áp dụng một phần; client gửi `SnapshotRequest`.
 - Client bỏ snapshot cũ/trùng; snapshot mới thay toàn bộ state confirmed, rồi replay các lệnh chưa ack.
-- Server gửi snapshot đầu sau khi round bắt đầu và snapshot định kỳ; `SnapshotRequest` trả snapshot đầy đủ
-  kế tiếp, không cần chờ kỳ.
+- `SnapshotRequest` = `{ round_id, last_snapshot_seq }`; server trả snapshot đầy đủ kế tiếp, không cần chờ kỳ.
+- Server gửi snapshot đầu sau khi round bắt đầu và snapshot định kỳ.
 - Không có "snapshot delta"; nếu sau này thêm, phải có `baseline_seq`, resync và test mất baseline trước.
 
 ### 4.4 Yêu cầu core khi mở `boom-proto` (không sửa trong task này)
@@ -275,6 +276,11 @@ mà không suy đoán.
 | Debug | Không tự mô tả; cần dump tool/golden vector | `.proto` dễ đọc, nhưng cần tool | Tự viết dump |
 | Hai đầu Rust | Phù hợp; `no_std`, không unsafe | Phù hợp nhưng nặng hơn | Phù hợp |
 | Rủi ro decode | Cần giới hạn count/frame, tránh cấp phát theo length độc hại | Length-delimited trong frame; vẫn cần giới hạn | Tự chịu trách nhiệm bounds/fuzz |
+
+Bincode 2 cũng đã được cân nhắc; nó tương đương postcard về kích thước/determinism nhưng có cấu hình
+varint/derive riêng và khác biệt format 1↔2 dễ nhầm. Postcard 1.x có spec wire công khai, ổn định từ v1.0,
+`no_std`, đủ cho V1; bincode không tạo lợi thế rõ nên không chọn. Spec tham chiếu:
+[Postcard Wire Format](https://postcard.jamesmunns.com/wire-format), truy cập 2026-10-19.
 
 Chọn **postcard 1.x cho payload**, **envelope viết tay 16 byte**. Lý do:
 
