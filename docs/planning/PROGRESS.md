@@ -19,10 +19,10 @@ Không chia điểm cho in_progress/in_review/blocked. Scope đổi phải đổ
 
 | Trạng thái | V1 | Toàn catalog cần triển khai |
 |---|---:|---:|
-| Chưa làm | 37 | 112 |
-| Đang làm | 0 | 0 |
+| Chưa làm | 24 | 99 |
+| Đang làm | 3 | 3 |
 | Bị chặn | 0 | 0 |
-| Chờ review | 0 | 0 |
+| Chờ review | 10 | 10 |
 | Đã nghiệm thu | 0 | 0 |
 
 ## Planning và gate phát hành — không cộng vào feature %
@@ -63,24 +63,24 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-001 | Auth tài khoản dự án | Chưa làm | backend / chưa giao | — | — | — |
 | V1-002 | Handshake phiên bản/rules/content | Chưa làm | net / chưa giao | — | Issue #14 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-003 | Một kênh và sảnh danh sách phòng | Chưa làm | backend / chưa giao | — | — | — |
-| V1-004 | Tạo phòng công khai | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-005 | Vào/rời phòng | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-006 | Chủ phòng và kick | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-007 | Chọn C00/C01 | Chưa làm | client / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-008 | Ready/cancel/start | Chưa làm | backend / chưa giao | — | Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-004 | Tạo phòng công khai | Chờ review | backend / dsh-3 | Codex | Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
+| V1-005 | Vào/rời phòng | Chờ review | backend / dsh-3 | Codex | Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
+| V1-006 | Chủ phòng và kick | Chờ review | backend / dsh-3 | Codex | Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
+| V1-007 | Chọn C00/C01 | Đang làm | client / dsh-3 | Codex | Phần server (chọn nhân vật, hủy ready) có ở PR #23; còn UI chọn C00/C01 phía client. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
+| V1-008 | Ready/cancel/start | Chờ review | backend / dsh-3 | Codex | Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
 | V1-009 | Chat trong phòng chờ | Chưa làm | backend / chưa giao | — | — | — |
 | V1-010 | Start barrier và spawn | Chưa làm | net / chưa giao | — | — | — |
-| V1-011 | Di chuyển và ưu tiên input | Chưa làm | core / chưa giao | — | Issue #3 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-012 | Va chạm tường/gạch/bom | Chưa làm | core / chưa giao | — | Issue #3 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-013 | Đặt bom và hạn mức | Chưa làm | core / chưa giao | — | Issue #4 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-014 | Fuse/nổ/lan/chặn | Chưa làm | core / chưa giao | — | Issue #5 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-015 | Nổ dây chuyền | Chưa làm | core / chưa giao | — | Issue #5 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-011 | Di chuyển và ưu tiên input | Đang làm | core / opencode-4 | Claude | Đã có đi/rẽ/va chạm (PR #22); còn ưu tiên giữ nhiều phím/mất focus (V1-033) và hiệu chuẩn tốc độ/bám góc (#11, Q-005). | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); `fefd5c0d810c` |
+| V1-012 | Va chạm tường/gạch/bom | Chờ review | core / opencode-4 | Claude | Đã review và merge PR #22; đặt done khi dependency V1-011 done (AGENTS §6). | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); [bomb_grace_one_way.toml](<../../fixtures/scenarios/movement/bomb_grace_one_way.toml>); `fefd5c0d810c` |
+| V1-013 | Đặt bom và hạn mức | Chờ review | core / opencode-1 | Claude | Đã review và merge PR #19; đặt done khi dependency V1-012 done (AGENTS §6). | [bomb_place.rs](<../../crates/boom-core/src/systems/bomb_place.rs>); [place_one.toml](<../../fixtures/scenarios/bomb_place/place_one.toml>); `4600810eacb6` |
+| V1-014 | Fuse/nổ/lan/chặn | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #21; đặt done khi dependency V1-013 done (AGENTS §6). | [explosion.rs](<../../crates/boom-core/src/systems/explosion.rs>); [rays_stop_at_solid.toml](<../../fixtures/scenarios/explosion/rays_stop_at_solid.toml>); `0c9207c4b67b` |
+| V1-015 | Nổ dây chuyền | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #21; đặt done khi dependency V1-014 done (AGENTS §6). | [explosion.rs](<../../crates/boom-core/src/systems/explosion.rs>); [chain.toml](<../../fixtures/scenarios/explosion/chain.toml>); `0c9207c4b67b` |
 | V1-016 | Phá gạch và drop giới hạn | Chưa làm | core / chưa giao | — | Issue #6 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-017 | Item Bomb tăng capacity | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-018 | Item Fire tăng tầm | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-019 | Item Roller tăng tốc | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-020 | Bẫy/bong bóng/chết | Chưa làm | core / chưa giao | — | Issue #8 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-021 | Thắng/hòa/hết giờ | Chưa làm | core / chưa giao | — | Issue #8 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-020 | Bẫy/bong bóng/chết | Chờ review | core / opencode-3 | Claude | Đã review và merge PR #20; đặt done khi dependency V1-014 done (AGENTS §6). | [life.rs](<../../crates/boom-core/src/systems/life.rs>); [trap_timeout.toml](<../../fixtures/scenarios/life/trap_timeout.toml>); `5b42a6a899a6` |
+| V1-021 | Thắng/hòa/hết giờ | Chờ review | core / Claude | Codex | Thắng/hòa/hết giờ ở mode.rs (contracts review #2) + life #20; đặt done khi V1-020 done. | [mode.rs](<../../crates/boom-core/src/mode.rs>); [time_limit_draw.toml](<../../fixtures/scenarios/round/time_limit_draw.toml>); `5b42a6a899a6` |
 | V1-022 | Kết quả và chơi vòng tiếp | Chưa làm | backend / chưa giao | — | — | — |
 | V1-023 | Disconnect/timeout | Chưa làm | net / chưa giao | — | — | — |
 | V1-024 | Input/snapshot authoritative | Chưa làm | net / chưa giao | — | Issue #14 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
@@ -89,7 +89,7 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-027 | QA mạng 4 client | Chưa làm | qa / chưa giao | — | — | — |
 | V1-028 | Lưu tài khoản và tùy chọn | Chưa làm | backend / chưa giao | — | — | — |
 | V1-029 | Log/health và vận hành test | Chưa làm | backend / chưa giao | — | — | — |
-| V1-030 | Map Village00 + dependency closure | Chưa làm | assets / chưa giao | — | Issue #9 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-030 | Map Village00 + dependency closure | Đang làm | assets / dsh-1 | Codex | Phân loại ô + World từ Village00 KR đã merge (PR #25); còn closure render (theme/tile/object/preview, animation state). | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); `243d230fd7f0` |
 | V1-031 | Animation C00/C01 và bomb | Chưa làm | client / chưa giao | — | — | — |
 | V1-032 | UI luồng V1 bằng asset KR | Chưa làm | client / chưa giao | — | Issue #15 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-033 | Input/scale/focus | Chưa làm | client / chưa giao | — | — | — |
