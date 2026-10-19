@@ -6,7 +6,9 @@ use crate::mode::{Outcome, mode_by_id};
 use crate::num::{Cell, Mpx};
 use crate::rules::{ItemEffect, Rules};
 use crate::sim::{CoreError, Dir, PlayerInput, PlayerSetup, World};
-use crate::state::{Bomb, CharacterStats, EntityId, Life, Phase, SimulationState, Stat};
+use crate::state::{
+    Bomb, CharacterStats, EntityId, Flame, FloorItem, ItemKind, Life, Phase, SimulationState, Stat,
+};
 
 const PROFILE: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
 
@@ -45,7 +47,7 @@ fn run(w: &World, s: &mut SimulationState, dir: Dir, ticks: u32) -> Vec<Simulati
     let mut events = Vec::new();
     for _ in 0..ticks {
         s.step(w, &[walk(dir)], &mut events).unwrap();
-        s.check_invariants().unwrap();
+        s.check_invariants(w).unwrap();
     }
     events
 }
@@ -218,28 +220,120 @@ fn spawn_assignment_depends_on_seed_only() {
     assert!(differs, "seed phải ảnh hưởng hoán vị spawn");
 }
 
-#[test]
-fn invariants_catch_contract_violations() {
-    let w = world(&["0.."]);
-    let mut s = solo(&w);
-    s.check_invariants().unwrap();
-    let bomb = |id| Bomb {
+fn bomb(id: u32, cell: Cell, owner: u8) -> Bomb {
+    Bomb {
         id: EntityId(id),
-        owner: 0,
-        cell: Cell::new(1, 0),
+        owner,
+        cell,
         range: 1,
         explodes_at: 10,
         grace: vec![],
-    };
-    s.ids.next_id();
-    s.ids.next_id();
-    s.bombs = vec![bomb(1), bomb(2)];
-    assert!(s.check_invariants().unwrap_err().contains("hai bom"));
-    s.bombs = vec![bomb(9)];
-    assert!(s.check_invariants().unwrap_err().contains("IdAllocator"));
+    }
+}
+
+/// State đã cấp `n` ID, cho các ca kiểm bất biến.
+fn with_ids(w: &World, n: u32) -> SimulationState {
+    let mut s = solo(w);
+    for _ in 0..n {
+        s.ids.next_id();
+    }
+    s
+}
+
+fn violation(w: &World, s: &SimulationState) -> String {
+    s.check_invariants(w).expect_err("phải vi phạm contract")
+}
+
+#[test]
+fn invariants_catch_basic_violations() {
+    let w = world(&["0.."]);
+    let mut s = with_ids(&w, 2);
+    s.check_invariants(&w).unwrap();
+    s.bombs = vec![bomb(1, Cell::new(1, 0), 0), bomb(2, Cell::new(1, 0), 0)];
+    assert!(violation(&w, &s).contains("hai bom"));
+    s.bombs = vec![bomb(9, Cell::new(1, 0), 0)];
+    assert!(violation(&w, &s).contains("IdAllocator"));
     s.bombs.clear();
     s.players[0].range = Stat { value: 9, max: 7 };
-    assert!(s.check_invariants().unwrap_err().contains("vượt trần"));
+    assert!(violation(&w, &s).contains("vượt trần"));
+}
+
+#[test]
+fn invariants_require_unique_ids_across_entity_kinds() {
+    // Review contracts-r1 (#2): bom và item cùng ID từng lọt qua.
+    let w = world(&["0.."]);
+    let mut s = with_ids(&w, 1);
+    s.bombs = vec![bomb(1, Cell::new(1, 0), 0)];
+    s.items = vec![FloorItem {
+        id: EntityId(1),
+        kind: ItemKind(0),
+        cell: Cell::new(2, 0),
+    }];
+    assert!(violation(&w, &s).contains("hai entity"));
+}
+
+#[test]
+fn invariants_check_references_against_world() {
+    // Review contracts-r1 (#2): ô ngoài lưới, owner lạ, ItemKind lạ từng lọt qua.
+    let w = world(&["0.#"]);
+    let base = with_ids(&w, 1);
+
+    let mut s = base.clone();
+    s.bombs = vec![bomb(1, Cell::new(999, 999), 0)];
+    assert!(violation(&w, &s).contains("không phải nền"));
+    s.bombs = vec![bomb(1, Cell::new(2, 0), 0)];
+    assert!(
+        violation(&w, &s).contains("không phải nền"),
+        "bom trên khối cứng"
+    );
+    s.bombs = vec![bomb(1, Cell::new(1, 0), 7)];
+    assert!(violation(&w, &s).contains("owner 7"));
+    let mut b = bomb(1, Cell::new(1, 0), 0);
+    b.grace = vec![5];
+    s.bombs = vec![b];
+    assert!(violation(&w, &s).contains("grace"));
+
+    let mut s = base.clone();
+    s.items = vec![FloorItem {
+        id: EntityId(1),
+        kind: ItemKind(65535),
+        cell: Cell::new(1, 0),
+    }];
+    assert!(violation(&w, &s).contains("ItemKind(65535)"));
+
+    let mut s = base.clone();
+    s.flames = vec![Flame {
+        cell: Cell::new(1, 0),
+        until: 5,
+        source: EntityId(0),
+        owner: 9,
+    }];
+    assert!(violation(&w, &s).contains("owner 9"));
+
+    let mut s = base;
+    s.players[0].x = Mpx(-1);
+    assert!(violation(&w, &s).contains("ngoài lưới"));
+}
+
+#[test]
+fn new_round_rejects_stats_above_cap() {
+    // Review contracts-r1 (#2): speed 255 / trần 1 từng tạo được lượt.
+    let w = world(&["0.."]);
+    let mut bad = setup(0);
+    bad.stats.speed = Stat::new(255, 1);
+    assert_eq!(
+        SimulationState::new_round(&w, &[bad], 0).err(),
+        Some(CoreError::InvalidStat {
+            player: 0,
+            stat: "speed"
+        })
+    );
+    let mut bad = setup(0);
+    bad.stats.range = Stat::new(3, 2);
+    assert!(matches!(
+        SimulationState::new_round(&w, &[bad], 0),
+        Err(CoreError::InvalidStat { stat: "range", .. })
+    ));
 }
 
 #[test]

@@ -117,11 +117,15 @@ với loại ô đã biết. Đọc `.map` legacy hỗ trợ cả header VN (spa
 Thời gian: fixed step, `sim.ticks_per_second` từ profile; tọa độ `Mpx` (1/1000 px); ms → tick làm tròn lên
 một lần khi nạp (ADR 0004). Hiệu chuẩn tick gốc và speed-level còn mở (Q-004, Q-005).
 
-## 5. Contracts — `contracts-r1`
+## 5. Contracts — `contracts-r2`
 
-Revision **`contracts-r1`**, 2026-10-19, **chờ review** của core + net + QA (task review trên GitHub).
-Code là nguồn chuẩn của kiểu dữ liệu; mục này giữ quy tắc. Worker có thể bắt đầu theo r1; review
-đổi gì thì integrator ra r2 và báo các task bị ảnh hưởng.
+Revision **`contracts-r2`**, 2026-10-19, chờ review lại ở issue #2. Code là nguồn chuẩn của kiểu dữ liệu;
+mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới và báo các task bị ảnh hưởng.
+
+| Revision | Thay đổi | Lý do |
+|---|---|---|
+| r1 | Bản đầu: state theo module, event V1, pipeline FFA, quyền ghi, harness scenario | START-C |
+| r2 | `check_invariants(&World)`: ID duy nhất xuyên bom/item; ô, owner, grace, `ItemKind` đối chiếu World/Rules; người chơi trong lưới. `new_round` từ chối chỉ số vượt trần (`CoreError::InvalidStat`) và kiểm bất biến sau `on_round_start` (`CoreError::Contract`) | Review #2: ba lỗi P2 (ID trùng, tham chiếu sai, lượt dựng với chỉ số sai) |
 
 ### 5.1 Kiểu trong `boom-core`
 
@@ -140,9 +144,11 @@ Code là nguồn chuẩn của kiểu dữ liệu; mục này giữ quy tắc. W
 | `EventKind` (10 loại V1) | `event.rs` | `name()` + `fields()` là encoding chung cho digest, scenario, log |
 | `Mode`, `System` | `mode.rs`, `system.rs` | `System::on_round_start` cho việc đầu lượt (giấu item) |
 
-`SimulationState::check_invariants()` kiểm bất biến của contract (thứ tự danh sách, một bom/item/flame
-mỗi ô, ID do allocator cấp, chỉ số không vượt trần, item giấu chỉ trong khối mềm). Harness scenario và
-replay gọi nó sau mỗi tick; system vi phạm sẽ bị bắt ngay ở tick gây lỗi.
+`SimulationState::check_invariants(&World)` (`state/invariants.rs`) kiểm: danh sách sắp đúng; một bom/item/
+flame mỗi ô; ID entity duy nhất trên mọi loại và do allocator cấp; bom/item trên ô nền, lửa trên nền hoặc
+khối mềm; owner/grace là người chơi có thật; `ItemKind` có trong `Rules::items`; người chơi trong lưới;
+chỉ số không vượt trần; item giấu chỉ trong khối mềm. Hàm không panic với state sai. `new_round` gọi nó
+trước khi trả state; harness scenario và replay gọi sau mỗi tick, nên system vi phạm bị bắt ở tick gây lỗi.
 
 ### 5.2 Thứ tự trong một tick (pipeline FFA)
 

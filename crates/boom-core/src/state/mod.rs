@@ -8,6 +8,7 @@
 mod bomb;
 mod field;
 mod flame;
+mod invariants;
 mod item;
 mod player;
 
@@ -91,45 +92,6 @@ impl SimulationState {
         hash_list(&mut h, &self.flames, Flame::hash_into);
         hash_list(&mut h, &self.items, FloorItem::hash_into);
         h.finish()
-    }
-
-    /// Kiểm bất biến của contract; harness scenario gọi sau mỗi tick. Trả lỗi đầu tiên tìm thấy.
-    pub fn check_invariants(&self) -> Result<(), String> {
-        if !self.players.windows(2).all(|w| w[0].id < w[1].id) {
-            return Err("players phải sắp theo id, không trùng".into());
-        }
-        for p in &self.players {
-            p.check()?;
-        }
-        if !self.bombs.windows(2).all(|w| w[0].id < w[1].id) {
-            return Err("bombs phải sắp theo id".into());
-        }
-        let mut cells: Vec<_> = self.bombs.iter().map(|b| b.cell).collect();
-        cells.sort();
-        if cells.windows(2).any(|w| w[0] == w[1]) {
-            return Err("hai bom cùng một ô".into());
-        }
-        if !self.flames.windows(2).all(|w| w[0].cell < w[1].cell) {
-            return Err("flames phải sắp theo ô, mỗi ô một flame".into());
-        }
-        if !self.items.windows(2).all(|w| w[0].id < w[1].id) {
-            return Err("items phải sắp theo id".into());
-        }
-        let mut cells: Vec<_> = self.items.iter().map(|i| i.cell).collect();
-        cells.sort();
-        if cells.windows(2).any(|w| w[0] == w[1]) {
-            return Err("hai item cùng một ô".into());
-        }
-        let max_id = self.ids.next;
-        let ids = self
-            .bombs
-            .iter()
-            .map(|b| b.id)
-            .chain(self.items.iter().map(|i| i.id));
-        if let Some(id) = ids.into_iter().find(|id| id.0 == 0 || id.0 >= max_id) {
-            return Err(format!("entity {id:?} không do IdAllocator cấp"));
-        }
-        self.field.check()
     }
 }
 

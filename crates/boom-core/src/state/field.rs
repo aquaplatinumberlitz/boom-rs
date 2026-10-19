@@ -79,13 +79,19 @@ impl Field {
         }
     }
 
-    pub(crate) fn check(&self) -> Result<(), String> {
+    /// `item_kinds` = số loại item trong `Rules::items`.
+    pub(crate) fn check(&self, item_kinds: usize) -> Result<(), String> {
         for (i, (kind, hidden)) in self.kinds.iter().zip(&self.hidden).enumerate() {
             if *kind == CellKind::Unknown {
                 return Err(format!("ô {i} Unknown trong state"));
             }
-            if hidden.is_some() && *kind != CellKind::Breakable {
-                return Err(format!("ô {i} giấu item nhưng không phải khối mềm"));
+            if let Some(k) = hidden {
+                if *kind != CellKind::Breakable {
+                    return Err(format!("ô {i} giấu item nhưng không phải khối mềm"));
+                }
+                if usize::from(k.0) >= item_kinds {
+                    return Err(format!("ô {i} giấu ItemKind({}) không có trong rules", k.0));
+                }
             }
         }
         Ok(())

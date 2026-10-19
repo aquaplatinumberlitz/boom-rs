@@ -1,4 +1,4 @@
-//! World (dữ liệu bất biến của lượt), input và vòng `step` (contracts-r1).
+//! World (dữ liệu bất biến của lượt), input và vòng `step` (contracts-r2).
 
 use std::fmt;
 
@@ -43,7 +43,7 @@ impl Dir {
     }
 }
 
-/// Input đã được authority chấp nhận cho một người chơi trong một tick (contracts-r1).
+/// Input đã được authority chấp nhận cho một người chơi trong một tick (contracts-r2).
 /// Authority chuyển `InputCommand` mạng thành giá trị này; input neutral là `default()`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerInput {
@@ -64,11 +64,23 @@ pub enum CoreError {
     UnknownCells,
     EmptyRoster,
     DuplicatePlayer(u8),
-    TooManyPlayers { players: usize, spawns: usize },
+    TooManyPlayers {
+        players: usize,
+        spawns: usize,
+    },
     SpawnBlocked(u16, u16),
     SpeedTooHigh(u8),
-    InputCount { expected: usize, found: usize },
+    InvalidStat {
+        player: u8,
+        stat: &'static str,
+    },
+    InputCount {
+        expected: usize,
+        found: usize,
+    },
     RoundOver,
+    /// State dựng lượt vi phạm bất biến contract (lỗi trong system hoặc dữ liệu đầu vào).
+    Contract(String),
 }
 
 impl fmt::Display for CoreError {
@@ -86,6 +98,10 @@ impl fmt::Display for CoreError {
                 write!(f, "cần {expected} input, nhận {found}")
             }
             Self::RoundOver => write!(f, "lượt đã kết thúc"),
+            Self::InvalidStat { player, stat } => {
+                write!(f, "người chơi {player}: chỉ số {stat} có giá trị vượt trần")
+            }
+            Self::Contract(e) => write!(f, "vi phạm contract khi dựng lượt: {e}"),
         }
     }
 }
@@ -152,12 +168,13 @@ impl World {
 }
 
 impl SimulationState {
-    /// Chốt đầu lượt (contracts-r1):
+    /// Chốt đầu lượt (contracts-r2):
     /// 1. Lưới đổi được lấy từ địa hình gốc.
     /// 2. Hoán vị spawn theo seed, N người lấy N spawn đầu (SCOPE_V1 §3, DESIGN).
     /// 3. `on_round_start` của từng system theo thứ tự mode (vd. giấu item vào khối mềm).
     ///
     /// RNG dùng theo đúng thứ tự trên, nên đổi thứ tự là đổi kết quả của cùng seed.
+    /// Từ chối chỉ số vượt trần; state trả về đã qua `check_invariants`.
     pub fn new_round(world: &World, roster: &[PlayerSetup], seed: u64) -> Result<Self, CoreError> {
         if roster.is_empty() {
             return Err(CoreError::EmptyRoster);
@@ -188,6 +205,19 @@ impl SimulationState {
             if field.kind(cell) != Some(CellKind::Floor) {
                 return Err(CoreError::SpawnBlocked(sx, sy));
             }
+            let stats = setup.stats;
+            for (stat, s) in [
+                ("speed", stats.speed),
+                ("bombs", stats.bombs),
+                ("range", stats.range),
+            ] {
+                if s.value > s.max {
+                    return Err(CoreError::InvalidStat {
+                        player: setup.id,
+                        stat,
+                    });
+                }
+            }
             if world.speed(setup.stats.speed.max).0 * 2 >= world.rules.tile.0 {
                 return Err(CoreError::SpeedTooHigh(setup.stats.speed.max));
             }
@@ -217,6 +247,7 @@ impl SimulationState {
         for system in world.mode.systems() {
             system.on_round_start(world, &mut state);
         }
+        state.check_invariants(world).map_err(CoreError::Contract)?;
         Ok(state)
     }
 

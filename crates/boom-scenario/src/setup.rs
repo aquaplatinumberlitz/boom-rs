@@ -273,7 +273,7 @@ impl Match {
         let mut state = SimulationState::new_round(&world, &roster, setup.seed.unwrap_or(1))?;
         Self::apply_prestate(setup, &world, &mut state)?;
         state
-            .check_invariants()
+            .check_invariants(&world)
             .map_err(|e| format!("state dựng sẵn sai contract: {e}"))?;
         let mut inputs = setup.input.clone();
         inputs.sort_by_key(|i| i.tick);
@@ -376,7 +376,7 @@ impl Match {
         }
         self.state.step(&self.world, &self.held, &mut self.events)?;
         self.state
-            .check_invariants()
+            .check_invariants(&self.world)
             .map_err(|e| format!("tick {tick}: vi phạm contract: {e}"))?;
         Ok(())
     }

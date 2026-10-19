@@ -14,6 +14,10 @@ Pha, hạn và việc tiếp theo ở [REWRITE_PLAN](REWRITE_PLAN.md) — không
 | Core/net/server | luật trận, command/state, authority | mô phỏng, server và protocol mới |
 | Reviewer/QA | kiểm nguồn và implementation độc lập | báo cáo tái lập, replay/diff, lỗi còn mở |
 
+**Integrator hiện tại:** Claude (agent Claude Code trong phiên của chủ dự án), chủ dự án chỉ định 2026-10-19;
+thao tác GitHub dưới tài khoản `aquaplatinumberlitz`. Integrator không tự review code mình viết: thay đổi
+contract do integrator làm vẫn cần reviewer khác.
+
 Một người có thể kiêm nhiều vai trò. Với tối đa ba worker, lead chia ba luồng độc lập (xem bảng luồng
 theo pha trong REWRITE_PLAN). Thêm agent không làm nhanh phần đang chờ cùng một spec/interface;
 không cho hai agent viết hai phiên bản core/server song song.
@@ -85,8 +89,8 @@ Quy tắc code:
   là regression baseline, ghi rõ như vậy.
 - Đổi hành vi core có chủ đích: `cargo xtask bless` và giải thích trong PR.
 - Fixture cần dữ liệu game không commit; test đọc đường dẫn từ biến môi trường và tự bỏ qua khi thiếu.
-- Repo private trên gói Free không bật được branch protection; kỷ luật PR + hook pre-push thay thế.
-  Muốn khóa cứng `main` (bắt buộc CI + review) thì chuyển repo public hoặc nâng GitHub Pro.
+- Không khóa nhánh `main` (quyết định chủ dự án 2026-10-19; repo private gói Free cũng không hỗ trợ).
+  Kỷ luật PR + hook pre-push thay thế: chỉ integrator push thẳng `main`, và chỉ khi `cargo xtask ci` xanh.
 
 ## 6. Mẫu task và cách giao cho agent
 
@@ -126,7 +130,7 @@ Integrator là người ghi duy nhất của `features.json` và `execution.json
 nhận task, nhập proof/review khi worker bàn giao (PR đã merge, commit tích hợp, lệnh kiểm), rồi chạy
 `python3 tools/kr_catalog.py` và `--check`. `tracking.next_action` của feature trỏ số issue đang giữ việc.
 
-Thứ tự merge đợt 1 khi nhiều PR cùng sẵn sàng: contract review (#2) → bomb_place, explosion → blocks,
+Thứ tự merge đợt 1 khi nhiều PR cùng sẵn sàng: contract review (#2, hiện contracts-r2) → bomb_place, explosion → blocks,
 pickup, life → movement (phần grace cần bomb_place) → các scenario liên hệ chéo (`own_bomb_full_cycle`,
 `destroy_and_reveal`) chuyển active. Các luồng assets/RE/backend/client/l10n merge độc lập.
 Định nghĩa done và % ở AGENTS §6. Đánh giá bằng feature chơi được, rule có nguồn và số sai khác chưa giải;
