@@ -119,7 +119,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-003"
@@ -128,24 +128,27 @@
       "acceptance": "Một tài khoản chỉ ở một phòng; phòng có ID duy nhất và tối đa 4 slot.",
       "open_questions": "Tên phòng/giới hạn ký tự theo spec dự án.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "dsh-3",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "evidence": [
+          "crates/boom-room/src/lib.rs",
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #23 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #23"
         },
         "blocker": "",
-        "next_action": "Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
       }
     },
     {
@@ -155,7 +158,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-004"
@@ -164,24 +167,27 @@
       "acceptance": "Join đồng thời không vượt 4 người; không late-join khi đang đấu; rời dọn đúng slot.",
       "open_questions": "Không có password/private/spectator trong V1.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "dsh-3",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "evidence": [
+          "crates/boom-room/src/lib.rs",
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #23 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #23"
         },
         "blocker": "",
-        "next_action": "Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
       }
     },
     {
@@ -191,7 +197,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-005"
@@ -200,24 +206,27 @@
       "acceptance": "Chủ rời phòng thì người vào sớm nhất còn lại làm chủ; non-host không kick/start.",
       "open_questions": "Host rời giữa trận không dừng mô phỏng server.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "dsh-3",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "evidence": [
+          "crates/boom-room/src/lib.rs",
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #23 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #23"
         },
         "blocker": "",
-        "next_action": "Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
       }
     },
     {
@@ -227,7 +236,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "client",
       "depends_on": [
         "V1-005"
@@ -236,24 +245,27 @@
       "acceptance": "Mỗi người chọn một trong hai template; đổi lựa chọn được đồng bộ và hủy ready.",
       "open_questions": "Tên hiển thị và chỉ số nối với BomberAttr; chưa suy từ tên VN.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "dsh-3",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "crates/boom-room/src/lib.rs",
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #23 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #23"
         },
         "blocker": "",
-        "next_action": "Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Phần server (chọn nhân vật, hủy ready) có ở PR #23; còn UI chọn C00/C01 phía client."
       }
     },
     {
@@ -263,7 +275,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-007"
@@ -272,24 +284,27 @@
       "acceptance": "2–4 người, mọi người ready mới start; đổi roster/selection hủy toàn bộ ready; command lặp chỉ start một lần.",
       "open_questions": "Host cũng phải ready; đây là policy V1.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "dsh-3",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "evidence": [
+          "crates/boom-room/src/lib.rs",
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #23 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #23"
         },
         "blocker": "",
-        "next_action": "Issue #13 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
       }
     },
     {
@@ -372,7 +387,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "core",
       "depends_on": [
         "V1-030",
@@ -382,24 +397,27 @@
       "acceptance": "Trace đi thẳng/rẽ/giữ nhiều hướng/mất focus có kết quả theo spec; không kẹt phím.",
       "open_questions": "BLOCKER: tốc độ/hitbox/cornering theo C00/C01 và mô hình thời gian.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-4",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "crates/boom-core/src/systems/movement.rs",
+          "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #22 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #22"
         },
         "blocker": "",
-        "next_action": "Issue #3 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã có đi/rẽ/va chạm (PR #22); còn ưu tiên giữ nhiều phím/mất focus (V1-033) và hiệu chuẩn tốc độ/bám góc (#11, Q-005)."
       }
     },
     {
@@ -409,7 +427,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-011"
@@ -418,24 +436,28 @@
       "acceptance": "Không xuyên vật cản; bước khỏi bom vừa đặt được, không bước lại khi chưa nổ.",
       "open_questions": "BLOCKER: tile/object semantics và biên collision; own-bomb policy phải đối chiếu nguồn.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-4",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "fefd5c0d810c4e3d494c5a064272be29fa5c39c9",
+        "evidence": [
+          "crates/boom-core/src/systems/movement.rs",
+          "fixtures/scenarios/movement/bomb_grace_one_way.toml",
+          "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #22 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #22"
         },
         "blocker": "",
-        "next_action": "Issue #3 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #22; đặt done khi dependency V1-011 done (AGENTS §6)."
       }
     },
     {
@@ -445,7 +467,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-012"
@@ -454,24 +476,28 @@
       "acceptance": "Không đặt hai bom cùng ô; giới hạn theo stat; command trùng không tạo thêm bom.",
       "open_questions": "BLOCKER: stats template và timing đặt bom.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-1",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "4600810eacb611354677aa1074282e5ddb2b0e75",
+        "evidence": [
+          "crates/boom-core/src/systems/bomb_place.rs",
+          "fixtures/scenarios/bomb_place/place_one.toml",
+          "git:4600810eacb611354677aa1074282e5ddb2b0e75"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #19 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #19"
         },
         "blocker": "",
-        "next_action": "Issue #4 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #19; đặt done khi dependency V1-012 done (AGENTS §6)."
       }
     },
     {
@@ -481,7 +507,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-013"
@@ -490,24 +516,28 @@
       "acceptance": "Nổ ở tick đã đặc tả; ray dừng đúng tường/gạch; thời gian tồn tại vùng nổ có nguồn.",
       "open_questions": "BLOCKER: fuse gốc unknown (RULES_V1 R-021), chọn design ở hạn P1; 2.5s emu chỉ là candidate; propagation/chain cần boundary scenario.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-2",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
+        "evidence": [
+          "crates/boom-core/src/systems/explosion.rs",
+          "fixtures/scenarios/explosion/rays_stop_at_solid.toml",
+          "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #21 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #21"
         },
         "blocker": "",
-        "next_action": "Issue #5 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #21; đặt done khi dependency V1-013 done (AGENTS §6)."
       }
     },
     {
@@ -517,7 +547,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-014"
@@ -526,24 +556,28 @@
       "acceptance": "Bom bị flame kích hoạt một lần; thứ tự xử lý ổn định; không double kill/drop.",
       "open_questions": "BLOCKER: chain delay và block-stop behavior.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-2",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
+        "evidence": [
+          "crates/boom-core/src/systems/explosion.rs",
+          "fixtures/scenarios/explosion/chain.toml",
+          "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #21 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #21"
         },
         "blocker": "",
-        "next_action": "Issue #5 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #21; đặt done khi dependency V1-014 done (AGENTS §6)."
       }
     },
     {
@@ -698,7 +732,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-014"
@@ -707,24 +741,28 @@
       "acceptance": "Trúng flame sang trapped; hết hạn hoặc địch chạm thì chết; mỗi người chết chỉ một lần.",
       "open_questions": "BLOCKER: trapped timeout, contact rule và miễn nhiễm chuyển trạng thái.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-3",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
+        "evidence": [
+          "crates/boom-core/src/systems/life.rs",
+          "fixtures/scenarios/life/trap_timeout.toml",
+          "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #20 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #20"
         },
         "blocker": "",
-        "next_action": "Issue #8 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #20; đặt done khi dependency V1-014 done (AGENTS §6)."
       }
     },
     {
@@ -734,7 +772,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-020"
@@ -743,24 +781,28 @@
       "acceptance": "Còn một người sống thì thắng; không còn người sống hoặc hết giờ nhiều người sống thì hòa; trapped chưa tính chết.",
       "open_questions": "BLOCKER: match_duration, clock start tại barrier hoàn tất; gameplay trước timeout cùng tick; DESIGN ordering phải version hóa.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "Claude",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
+        "evidence": [
+          "crates/boom-core/src/mode.rs",
+          "fixtures/scenarios/round/time_limit_draw.toml",
+          "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #2 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #2"
         },
         "blocker": "",
-        "next_action": "Issue #8 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Thắng/hòa/hết giờ ở mode.rs (contracts review #2) + life #20; đặt done khi V1-020 done."
       }
     },
     {
@@ -1057,31 +1099,34 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "assets",
       "depends_on": [],
       "server_responsibility": "Dùng allowlist content manifest.",
       "acceptance": "Resolve map/theme/tile/object/preview và mọi state dùng; 4spawn không trùng, không blocked, có đường thoát; không skip unknown object/script.",
       "open_questions": "BLOCKER: giải object/tile semantics; fixture mới xác nhận header, chưa runtime.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "dsh-1",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "docs/specification/gameplay/RULES_V1.md",
+          "git:243d230fd7f04524b7dc7794f597237cf4d4454d"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #25 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #25"
         },
         "blocker": "",
-        "next_action": "Issue #9 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Phân loại ô + World từ Village00 KR đã merge (PR #25); còn closure render (theme/tile/object/preview, animation state)."
       }
     },
     {
