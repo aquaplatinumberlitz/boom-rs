@@ -23,6 +23,12 @@ Pha, hạn và việc tiếp theo ở [REWRITE_PLAN](REWRITE_PLAN.md) — không
 | OpenCode | Worker, 2–4 agent | Mặc định nhận luồng core; mỗi agent đặt tên `opencode-N` |
 | dsh | Worker, 2 phiên cố định `dsh-A`, `dsh-B` | Mặc định nhận assets/RE/research/backend/net/l10n; xem quy tắc dsh dưới bảng |
 
+**Tiếp quản tạm (chỉ đạo chủ dự án 2026-10-19):** Claude hết credit; Codex giữ cả vai trò integrator
+chính và co-integrator cho tới khi bàn giao lại. Quyền ghi duy nhất sổ tiến độ chuyển tạm sang Codex;
+phân công worker/worktree và hai phiên dsh-A/B giữ nguyên. Phạm vi bao gồm cả core/server/net của Claude.
+Theo [AGENTS §5](../../AGENTS.md#5-làm-việc-nhiều-ngườiagent), vẫn cần reviewer độc lập cho thay đổi
+code/contract/claim/quy trình do người đang giữ quyền integrator viết; không dùng hai vai trò để tự approve.
+
 Quy tắc review và merge:
 
 - PR của worker: integrator điều phối luồng đó review và merge.

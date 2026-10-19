@@ -64,6 +64,14 @@ là một bằng chứng; không tìm thấy phải ghi phạm vi đã tìm, kh�
 
 ## 5. Làm việc nhiều người/agent
 
+**Ủy quyền tạm thời của chủ dự án (2026-10-19):** khi Claude hết credit, Codex tạm thực hiện cả
+vai trò integrator chính: tiếp quản hàng đợi worker đang có, điều phối/review các luồng, merge PR đủ
+điều kiện và là người ghi duy nhất `features.json`/`execution.json` trong thời gian tiếp quản.
+Đây là ủy quyền trực tiếp mới hơn bảng phân công Claude/Codex bên dưới; không có hai người cùng ghi sổ.
+Khi Claude trở lại, bàn giao rõ các PR/task/registry đang dở trước khi chuyển quyền ghi.
+Giữ quy định PR, CI ba OS và review độc lập: Codex không tự review code/contract/rules/quy trình mình viết.
+Không tự thêm phiên dsh ngoài hai phiên cố định hoặc giao trùng task đang chạy.
+
 - Task là GitHub issue (nhãn `task`) có ID, mục tiêu, baseline, owner, reviewer, file được sửa, dependency,
   đầu ra, cách nghiệm thu (quy trình ở [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md) §5–6).
 - Đội và quyền: [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md) §1 — integrator chính Claude, co-integrator Codex,
