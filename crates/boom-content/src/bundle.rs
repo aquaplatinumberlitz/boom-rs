@@ -1,8 +1,9 @@
-//! Bundle nội dung: ảnh (atlas) + metadata ô của map, đóng gói cho client.
+//! Bundle nội dung: ảnh (atlas) + metadata ô của map + clip animation, đóng gói cho client.
 //!
 //! Bundle là **output cục bộ** của `boom-assets bundle` (không commit vào repo). Nó gom
 //! ảnh đã giải mã từ pack KR thành các trang atlas PNG, kèm metadata ánh xạ ô của map →
-//! sprite/frame, kích thước, canvas và pivot. Client đọc bundle bằng kiểu ở đây, **không
+//! sprite/frame, kích thước, canvas và pivot, **và** clip animation của V1 (schema 2) —
+//! dãi frame, canvas, pivot và thời lượng. Client đọc bundle bằng kiểu ở đây, **không
 //! cần bộ giải mã pack** (ARCHITECTURE §7).
 //!
 //! ## Phạm vi
@@ -10,6 +11,11 @@
 //! - Bundle chỉ mang **nội dung**: ảnh và ánh xạ id. Phân loại ô/va chạm vẫn nằm ở bảng
 //!   [`crate::map::MapProfile`] (`data/maps/*.toml`) — một thông tin, một nguồn chuẩn
 //!   (AGENTS §3). Bundle không nhân bản loại ô.
+//! - Clip animation **không mang ảnh riêng**: ảnh của clip nằm trong sprite mà clip trỏ
+//!   tới, nên mỗi entry chỉ có một bản pixel trong atlas.
+//! - Thời lượng frame giữ đúng trạng thái bằng chứng: `unknown` không mang số; khi V1
+//!   chốt được nhịp, giá trị `design` đi kèm claim và nằm ở profile rules — không
+//!   hard-code trong bundle lẫn trong code.
 //! - Định dạng bundle là quyết định **design** của dự án (ARCHITECTURE §8 "Định dạng
 //!   bundle content"), không phải định dạng của client gốc. Mô tả ở
 //!   `docs/specification/assets/BUNDLES.md`.
@@ -29,10 +35,18 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::rules::Status;
+use crate::animation::{FrameTiming, PresentationState, SpriteLayer, source_name, status_name};
+use crate::rules::{Source, Status};
 
-/// Schema hiện hành của bundle nội dung.
-pub const SCHEMA: u32 = 1;
+/// Schema hiện hành của bundle nội dung (có clip animation).
+pub const SCHEMA: u32 = 2;
+
+/// Schema bundle chỉ có atlas + ô của map, **không** có clip animation.
+///
+/// Bundle schema này bị reader từ chối: client V1 cần clip để phát animation, và
+/// đọc bundle không có clip sẽ im lặng bỏ qua một phần nội dung. Dựng lại bằng
+/// `boom-assets bundle` là đủ.
+pub const SCHEMA_SPRITE_ONLY: u32 = 1;
 
 /// Tên file metadata trong thư mục bundle.
 pub const METADATA_FILE: &str = "bundle.toml";
@@ -169,6 +183,48 @@ pub struct Sprite {
     pub frames: Vec<Frame>,
 }
 
+/// Một clip animation trong bundle: dãi frame, canvas, pivot và thời lượng.
+///
+/// Clip **không mang ảnh riêng**: ảnh của clip nằm trong sprite mà [`Clip::sprite`]
+/// trỏ tới (bảng `[[sprites]]`), nên mỗi entry chỉ có một bản pixel trong atlas.
+///
+/// Thời lượng frame giữ đúng trạng thái bằng chứng của R-079: [`FrameTiming::Unknown`]
+/// không mang số; khi V1 chốt được nhịp, giá trị `design` đi kèm claim và nằm ở
+/// profile rules — **không** hard-code trong bundle lẫn trong code.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Clip {
+    /// ID ổn định của clip, ví dụ `c00.walk.down.static`.
+    pub id: String,
+    /// State trình diễn mà clip phục vụ.
+    pub state: PresentationState,
+    /// Tên pack chứa entry, ví dụ `FxCharacter`.
+    pub pack: String,
+    /// Đường dẫn entry trong pack, ví dụ `Character/C00-WalkDown_ALayerStatic`.
+    pub entry: String,
+    /// Lớp sprite; vắng nếu clip không chia lớp.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer: Option<SpriteLayer>,
+    /// Dword thứ tư của header sprite — nghĩa chưa chốt, giữ nguyên số.
+    pub sprite_unk: u32,
+    /// ID của sprite trong bảng `[[sprites]]` chứa ảnh của clip.
+    pub sprite: String,
+    /// Nguồn bằng chứng (AGENTS §4).
+    pub source: Source,
+    /// Trạng thái bằng chứng (AGENTS §4).
+    pub status: EvidenceStatus,
+    /// Claim RULES_V1 liên quan; phải có ít nhất một claim.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub claims: Vec<String>,
+    /// Ghi chú: lý do, giới hạn, ứng viên.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    /// Thời lượng một frame.
+    pub timing: FrameTiming,
+    /// Dãi frame của clip; chỉ số ảnh trỏ vào ảnh của [`Clip::sprite`].
+    pub frames: Vec<Frame>,
+}
+
 /// Một ô của map: ID tile/obj theo file `.map` nguồn.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -252,6 +308,9 @@ pub struct Bundle {
     pub cells: Vec<Cell>,
     /// Các phần chưa xác định, kèm lý do.
     pub unknown: Vec<Unknown>,
+    /// Các clip animation của V1 (schema 2).
+    #[serde(default)]
+    pub clips: Vec<Clip>,
 }
 
 impl Bundle {
@@ -294,7 +353,7 @@ impl Bundle {
     #[must_use]
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Canonical::new();
-        out.bytes(b"boom-bundle-v1\0");
+        out.bytes(b"boom-bundle-v2\0");
         out.u32(self.schema);
         out.str(&self.build);
         out.str(&self.map);
@@ -376,6 +435,59 @@ impl Bundle {
                 out.str(candidate);
             }
         }
+        out.u32(self.clips.len() as u32);
+        for clip in &self.clips {
+            out.str(&clip.id);
+            out.str(&clip.state.key());
+            out.str(&clip.pack);
+            out.str(&clip.entry);
+            out.opt_str(clip.layer.map(SpriteLayer::key));
+            out.u32(clip.sprite_unk);
+            out.str(&clip.sprite);
+            out.str(source_name(clip.source));
+            out.str(clip.status.as_str());
+            out.u32(clip.claims.len() as u32);
+            for claim in &clip.claims {
+                out.str(claim);
+            }
+            out.str(clip.note.as_deref().unwrap_or(""));
+            match &clip.timing {
+                FrameTiming::Unknown { reason } => {
+                    out.str("unknown");
+                    out.str(reason);
+                }
+                FrameTiming::Known {
+                    ms,
+                    source,
+                    status,
+                    claims,
+                } => {
+                    out.str("known");
+                    out.u32(*ms);
+                    out.str(source_name(*source));
+                    out.str(status_name(*status));
+                    out.u32(claims.len() as u32);
+                    for claim in claims {
+                        out.str(claim);
+                    }
+                }
+            }
+            out.u32(clip.frames.len() as u32);
+            for frame in &clip.frames {
+                out.u32(frame.image);
+                out.i32(frame.offset_x);
+                out.i32(frame.offset_y);
+                out.i32(frame.flag);
+                out.i32(frame.x0);
+                out.i32(frame.y0);
+                out.i32(frame.x1);
+                out.i32(frame.y1);
+                out.i32(frame.canvas_width);
+                out.i32(frame.canvas_height);
+                out.i32(frame.pivot_x);
+                out.i32(frame.pivot_y);
+            }
+        }
         out.finish()
     }
 
@@ -394,6 +506,11 @@ impl Bundle {
     /// hình chữ nhật nguồn nằm trong ảnh, canvas không nhỏ hơn hình nguồn, pivot nằm
     /// trong canvas; mỗi ô có sprite nền (hoặc nằm trong `unknown` kèm lý do) và sprite
     /// vật cản nếu có; mọi `unknown` đều có lý do.
+    ///
+    /// Với clip (schema 2): ID clip là duy nhất, clip phải có claim, clip phải trỏ
+    /// tới một sprite có thật, mỗi frame của clip phải trỏ tới ảnh có thật của sprite
+    /// đó, rect nằm trong ảnh, canvas không nhỏ hơn hình nguồn, pivot nằm trong canvas,
+    /// và thời lượng phải hợp lệ (`unknown` không mang số; `known` phải có claim).
     ///
     /// Phân loại spawn (va chạm với ô, ý nghĩa của vị trí spawn) vẫn thuộc bảng phân
     /// loại map, không nhân bản vào bundle (AGENTS §3 — một thông tin, một nguồn).
@@ -581,6 +698,8 @@ impl Bundle {
             }
         }
 
+        self.validate_clips()?;
+
         let mut seen_assets: Vec<&str> = Vec::with_capacity(self.assets.len());
         for asset in &self.assets {
             if asset.entry.is_empty() || asset.reason.is_empty() {
@@ -619,6 +738,125 @@ impl Bundle {
             }
         }
         Ok(())
+    }
+
+    /// Kiểm mọi clip của bundle (schema 2).
+    ///
+    /// Mỗi clip phải có ID duy nhất và ít nhất một claim; phải trỏ tới một sprite có
+    /// thật; mỗi frame phải trỏ tới ảnh có thật của sprite đó (ảnh giữ chỗ 0×0 của
+    /// client gốc cũng được phép — khung cuối clip chết trỏ về ảnh đó), rect nằm trong
+    /// ảnh, canvas không nhỏ hơn hình nguồn và pivot nằm trong canvas. Thời lượng phải
+    /// hợp lệ theo [`FrameTiming::validate`]: `unknown` không mang số, `known` phải có
+    /// claim (kể cả khi nguồn là `design`).
+    ///
+    /// # Errors
+    ///
+    /// Trả [`BundleError::Reference`] cho clip đầu tiên vi phạm.
+    fn validate_clips(&self) -> Result<(), BundleError> {
+        let mut seen_clips: Vec<&str> = Vec::with_capacity(self.clips.len());
+        for clip in &self.clips {
+            if clip.id.is_empty() {
+                return Err(BundleError::Reference("clip thiếu id".to_owned()));
+            }
+            if seen_clips.contains(&clip.id.as_str()) {
+                return Err(BundleError::Reference(format!("clip {} bị lặp", clip.id)));
+            }
+            seen_clips.push(clip.id.as_str());
+            if clip.claims.is_empty() {
+                return Err(BundleError::Reference(format!(
+                    "clip {} phải có claim (không có claim thì không truy được nguồn)",
+                    clip.id
+                )));
+            }
+            let expected_sprite = format!("{}/{}", clip.pack, clip.entry);
+            if clip.sprite != expected_sprite {
+                return Err(BundleError::Reference(format!(
+                    "clip {} trỏ sprite {} nhưng entry là {expected_sprite}",
+                    clip.id, clip.sprite
+                )));
+            }
+            let Some(sprite) = self.sprites.iter().find(|s| s.id == clip.sprite) else {
+                return Err(BundleError::Reference(format!(
+                    "clip {} trỏ tới sprite {} không có trong bundle",
+                    clip.id, clip.sprite
+                )));
+            };
+            if clip.frames.is_empty() {
+                return Err(BundleError::Reference(format!(
+                    "clip {} không có frame nào",
+                    clip.id
+                )));
+            }
+            for (position, frame) in clip.frames.iter().enumerate() {
+                let Some(image) = sprite.images.get(frame.image as usize) else {
+                    return Err(BundleError::Reference(format!(
+                        "clip {}: frame {position} trỏ tới ảnh {} không có (sprite {} có {} ảnh)",
+                        clip.id,
+                        frame.image,
+                        sprite.id,
+                        sprite.images.len()
+                    )));
+                };
+                let (Ok(x0), Ok(y0), Ok(x1), Ok(y1)) = (
+                    u32::try_from(frame.x0),
+                    u32::try_from(frame.y0),
+                    u32::try_from(frame.x1),
+                    u32::try_from(frame.y1),
+                ) else {
+                    return Err(BundleError::Reference(format!(
+                        "clip {}: frame {position} có toạ độ nguồn âm",
+                        clip.id
+                    )));
+                };
+                if x1 < x0 || y1 < y0 || x1 > image.width || y1 > image.height {
+                    return Err(BundleError::Reference(format!(
+                        "clip {}: frame {position} nguồn ({x0},{y0})-({x1},{y1}) không nằm trong ảnh {}x{}",
+                        clip.id, image.width, image.height
+                    )));
+                }
+                if frame.canvas_width < i32::try_from(x1 - x0).unwrap_or(i32::MAX)
+                    || frame.canvas_height < i32::try_from(y1 - y0).unwrap_or(i32::MAX)
+                {
+                    return Err(BundleError::Reference(format!(
+                        "clip {}: frame {position} có canvas {}x{} nhỏ hơn hình nguồn",
+                        clip.id, frame.canvas_width, frame.canvas_height
+                    )));
+                }
+                if frame.pivot_x < 0
+                    || frame.pivot_y < 0
+                    || frame.pivot_x > frame.canvas_width
+                    || frame.pivot_y > frame.canvas_height
+                {
+                    return Err(BundleError::Reference(format!(
+                        "clip {}: frame {position} có pivot ({},{}) nằm ngoài canvas {}x{}",
+                        clip.id,
+                        frame.pivot_x,
+                        frame.pivot_y,
+                        frame.canvas_width,
+                        frame.canvas_height
+                    )));
+                }
+            }
+            clip.timing
+                .validate(&clip.id)
+                .map_err(|e| BundleError::Reference(format!("clip {}: {e}", clip.id)))?;
+        }
+        Ok(())
+    }
+
+    /// Clip theo ID.
+    #[must_use]
+    pub fn clip(&self, id: &str) -> Option<&Clip> {
+        self.clips.iter().find(|clip| clip.id == id)
+    }
+
+    /// Các clip phục vụ một state trình diễn.
+    #[must_use]
+    pub fn clips_by_state(&self, state: PresentationState) -> Vec<&Clip> {
+        self.clips
+            .iter()
+            .filter(|clip| clip.state == state)
+            .collect()
     }
 
     /// Sprite có vai trò `role` và ID map `id`, nếu có (phải là duy nhất).
@@ -691,6 +929,19 @@ impl Canonical {
     fn str(&mut self, value: &str) {
         self.u32(u32::try_from(value.len()).expect("chuỗi quá dài"));
         self.buf.extend_from_slice(value.as_bytes());
+    }
+
+    /// Ghi `Option<&str>` bằng cờ hiện diện rồi mới tới giá trị (không dùng sentinel).
+    fn opt_str(&mut self, value: Option<&str>) {
+        match value {
+            Some(value) => {
+                self.u32(1);
+                self.str(value);
+            }
+            None => {
+                self.u32(0);
+            }
+        }
     }
 
     fn finish(self) -> Vec<u8> {
@@ -848,7 +1099,14 @@ impl fmt::Display for BundleError {
             Self::Parse(e) => write!(f, "TOML bundle sai: {e}"),
             Self::Encode(e) => write!(f, "không xuất được TOML bundle: {e}"),
             Self::Schema { found } => {
-                write!(f, "schema bundle {found} không hỗ trợ (cần {SCHEMA})")
+                write!(f, "schema bundle {found} không hỗ trợ (cần {SCHEMA})")?;
+                if *found == SCHEMA_SPRITE_ONLY {
+                    write!(
+                        f,
+                        "; schema {SCHEMA_SPRITE_ONLY} không có clip animation — dựng lại bằng `boom-assets bundle`"
+                    )?;
+                }
+                Ok(())
             }
             Self::ContentHash { recorded, computed } => write!(
                 f,
@@ -1030,6 +1288,7 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::animation::Direction;
 
     /// Bundle tối thiểu: một trang atlas, một sprite tile, một ô.
     fn sample_bundle() -> Bundle {
@@ -1095,7 +1354,73 @@ mod tests {
                 reason: "file map không phải ảnh; bản đọc được ở bảng phân loại ô".to_owned(),
             }],
             unknown: Vec::new(),
+            clips: Vec::new(),
         }
+    }
+
+    /// Sprite mẫu chứa ảnh của clip (một ảnh 40×40, một frame).
+    fn character_sprite() -> Sprite {
+        Sprite {
+            id: "FxCharacter/Character/C00-WalkDown_ALayerStatic".to_owned(),
+            entry: "FxCharacter/Character/C00-WalkDown_ALayerStatic".to_owned(),
+            role: "character_walk".to_owned(),
+            status: EvidenceStatus::Confirmed,
+            source_sha256: "ee".repeat(32),
+            map_id: None,
+            object_name: None,
+            images: vec![SpriteImage {
+                index: 0,
+                page: Some(0),
+                x: 0,
+                y: 0,
+                width: 40,
+                height: 40,
+                pixel_sha256: "ff".repeat(32),
+            }],
+            frames: Vec::new(),
+        }
+    }
+
+    /// Clip mẫu: một frame trỏ vào ảnh 0 của sprite nhân vật.
+    fn sample_clip() -> Clip {
+        Clip {
+            id: "c00.walk.down.static".to_owned(),
+            state: PresentationState::Walk(Direction::Down),
+            pack: "FxCharacter".to_owned(),
+            entry: "Character/C00-WalkDown_ALayerStatic".to_owned(),
+            layer: Some(SpriteLayer::Static),
+            sprite_unk: 1,
+            sprite: "FxCharacter/Character/C00-WalkDown_ALayerStatic".to_owned(),
+            source: Source::KrStatic,
+            status: EvidenceStatus::Confirmed,
+            claims: vec!["R-077".to_owned()],
+            note: None,
+            timing: FrameTiming::Unknown {
+                reason: "chưa có nguồn thời lượng frame".to_owned(),
+            },
+            frames: vec![Frame {
+                image: 0,
+                offset_x: 0,
+                offset_y: 39,
+                flag: -1,
+                x0: 0,
+                y0: 0,
+                x1: 40,
+                y1: 40,
+                canvas_width: 40,
+                canvas_height: 40,
+                pivot_x: 0,
+                pivot_y: 39,
+            }],
+        }
+    }
+
+    /// Bundle có một clip hợp lệ (không cần pack thật).
+    fn bundle_with_clip() -> Bundle {
+        let mut bundle = sample_bundle();
+        bundle.sprites.push(character_sprite());
+        bundle.clips.push(sample_clip());
+        bundle
     }
 
     #[test]
@@ -1467,5 +1792,137 @@ mod tests {
         let no_page = bundle.compute_content_hash();
         bundle.sprites[0].images[0].page = Some(u32::MAX);
         assert_ne!(bundle.compute_content_hash(), no_page);
+    }
+
+    /// Clip hợp lệ thì bundle hợp lệ và clip đi vòng lại được.
+    #[test]
+    fn bundle_with_a_clip_is_valid_and_round_trips() {
+        let mut bundle = bundle_with_clip();
+        assert!(bundle.validate().is_ok());
+        bundle.content_hash = bundle.compute_content_hash();
+        let text = bundle.to_toml().expect("xuất TOML");
+        let parsed = Bundle::from_toml(&text).expect("đọc lại TOML");
+        assert_eq!(parsed, bundle);
+        assert_eq!(parsed.clips.len(), 1);
+        let clip = parsed.clip("c00.walk.down.static").expect("clip theo ID");
+        assert_eq!(clip.state, PresentationState::Walk(Direction::Down));
+        assert_eq!(clip.frames.len(), 1);
+        assert_eq!(clip.timing.ms(), None, "thời lượng unknown không mang số");
+        assert_eq!(
+            parsed
+                .clips_by_state(PresentationState::Walk(Direction::Down))
+                .len(),
+            1
+        );
+        assert_eq!(parsed.clips_by_state(PresentationState::Dead).len(), 0);
+    }
+
+    /// `content_hash` phải bao phủ clip: đổi frame hoặc thời lượng của clip thì hash đổi.
+    #[test]
+    fn content_hash_covers_the_clips() {
+        let mut bundle = bundle_with_clip();
+        let first = bundle.compute_content_hash();
+        bundle.clips[0].frames[0].offset_x += 1;
+        assert_ne!(bundle.compute_content_hash(), first);
+
+        let mut bundle = bundle_with_clip();
+        let first = bundle.compute_content_hash();
+        bundle.clips[0].timing = FrameTiming::Known {
+            ms: 100,
+            source: Source::Design,
+            status: Status::Design,
+            claims: vec!["R-079".to_owned()],
+        };
+        assert_ne!(bundle.compute_content_hash(), first);
+    }
+
+    /// Clip trỏ tới sprite không có trong bundle thì bị từ chối.
+    #[test]
+    fn rejects_clip_without_its_sprite() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips[0].sprite = "FxCharacter/Character/C00-DieLayerStatic".to_owned();
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// `sprite` của clip phải khớp entry (`<pack>/<entry>`).
+    #[test]
+    fn rejects_clip_whose_sprite_does_not_match_its_entry() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips[0].pack = "FxTile".to_owned();
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Frame của clip trỏ tới ảnh không tồn tại thì bị từ chối.
+    #[test]
+    fn rejects_clip_frame_without_its_image() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips[0].frames[0].image = 7;
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Pivot của frame clip nằm ngoài canvas thì bị từ chối.
+    #[test]
+    fn rejects_clip_frame_with_pivot_outside_the_canvas() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips[0].frames[0].pivot_y = 41;
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Clip không có frame thì bị từ chối.
+    #[test]
+    fn rejects_clip_without_frame() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips[0].frames.clear();
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// ID clip phải là duy nhất.
+    #[test]
+    fn rejects_duplicate_clip_id() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips.push(sample_clip());
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Clip không có claim thì không truy được nguồn → bị từ chối.
+    #[test]
+    fn rejects_clip_without_claim() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips[0].claims.clear();
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Thời lượng `known` thiếu claim (kể cả khi nguồn là `design`) thì bị từ chối —
+    /// không có nguồn thì không được mang số.
+    #[test]
+    fn rejects_clip_with_timing_value_but_without_claim() {
+        let mut bundle = bundle_with_clip();
+        bundle.clips[0].timing = FrameTiming::Known {
+            ms: 100,
+            source: Source::Design,
+            status: Status::Design,
+            claims: Vec::new(),
+        };
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Schema cũ (chỉ có atlas + ô) bị từ chối: client V1 cần clip để phát animation.
+    #[test]
+    fn rejects_the_legacy_schema_without_clips() {
+        let mut bundle = bundle_with_clip();
+        bundle.schema = SCHEMA_SPRITE_ONLY;
+        match bundle.validate() {
+            Err(BundleError::Schema { found }) => assert_eq!(found, SCHEMA_SPRITE_ONLY),
+            other => panic!("sai lỗi: {other:?}"),
+        }
+        // Thông điệp lỗi phải nói rõ cần dựng lại bundle.
+        let message = BundleError::Schema {
+            found: SCHEMA_SPRITE_ONLY,
+        }
+        .to_string();
+        assert!(
+            message.contains("dựng lại"),
+            "thông điệp phải hướng dẫn dựng lại bundle: {message}"
+        );
     }
 }
