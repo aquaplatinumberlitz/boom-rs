@@ -13,6 +13,34 @@ use serde_json::{Map, Value, json};
 
 use crate::config::ConfigFingerprint;
 
+/// Tên sự kiện log ổn định (ADR 0011 §8.1).
+///
+/// ADR 0011 §8.1 liệt kê một **tập tối thiểu** tên sự kiện; các hằng ở đây giữ **đúng tên**
+/// của ADR (kể cả khi issue ghi khác, ví dụ `auth.login_fail` — không phải
+/// `auth.login_failed`). Sự kiện ngoài tập tối thiểu được đặt tên riêng và **không** thay
+/// thế tên nào đã có trong ADR.
+///
+/// **Chưa có nguồn phát** (sẽ đi kèm T5 phần 2 — message auth trên wire): `auth.logout`
+/// (client đăng xuất) và `session.expired` (job quét TTL của tiến trình server).
+pub mod events {
+    /// Đăng ký tài khoản thành công.
+    pub const AUTH_REGISTER: &str = "auth.register";
+    /// Đăng ký bị từ chối (tên đã có, đăng ký đóng, input sai).
+    pub const AUTH_REGISTER_FAILED: &str = "auth.register_failed";
+    /// Đăng nhập thành công.
+    pub const AUTH_LOGIN_OK: &str = "auth.login_ok";
+    /// Đăng nhập bị từ chối (sai thông tin, sai định dạng, tài khoản bị vô hiệu hoá).
+    pub const AUTH_LOGIN_FAIL: &str = "auth.login_fail";
+    /// Vượt ngưỡng tần suất theo tài khoản hoặc theo nguồn.
+    pub const AUTH_RATE_LIMITED: &str = "auth.rate_limited";
+    /// Đăng nhập bị từ chối vì tài khoản đã có phiên còn sống.
+    pub const AUTH_LOGIN_REJECTED_DUPLICATE_SESSION: &str = "auth.login_rejected_duplicate_session";
+    /// Lỗi entropy của hệ điều hành: không phát token, không fallback RNG yếu.
+    pub const AUTH_RNG_UNAVAILABLE: &str = "auth.rng_unavailable";
+    /// Phiên bị thu hồi (logout, disconnect, timeout, lệnh admin).
+    pub const SESSION_REVOKED: &str = "session.revoked";
+}
+
 /// Mức log cố định.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LogLevel {

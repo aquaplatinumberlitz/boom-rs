@@ -187,9 +187,11 @@ dependencies = [
  "fs4",
  "getrandom",
  "rusqlite",
+ "serde",
  "serde_json",
  "sha2",
  "tempfile",
+ "toml",
 ]
 
 [[package]]
