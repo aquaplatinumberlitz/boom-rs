@@ -4,7 +4,7 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
-use boom_core::{CharacterStats, Dir, Stat, World, mode_by_id};
+use boom_core::{CharacterStats, Dir, Life, Stat, World, mode_by_id};
 use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
@@ -630,8 +630,9 @@ use boom_net::{MemoryConfig, MemoryTransport, Transport};
 use boom_proto::{
     Hello, InputRejectReason, InputRejected, LoadingAck, LobbyList, LobbyListRequest, Message,
     MessageKind, Ping, Reject, RejectReason, ResultAck, RoomAction as RoomActionDto, RoomCharacter,
-    RoomChat, RoomChatMessage, RoomCommand as RoomCommandDto, RoomState, RoundResult, RoundStart,
-    Snapshot, Welcome, decode_frame, encode_frame, limits::ProtocolLimits, read_envelope,
+    RoomChat, RoomChatMessage, RoomCommand as RoomCommandDto, RoomRejectReason, RoomRejected,
+    RoomState, RoundResult, RoundStart, Snapshot, Welcome, decode_frame, encode_frame,
+    limits::ProtocolLimits, read_envelope,
 };
 
 use crate::{HandshakeConfig, Server};
@@ -652,8 +653,24 @@ fn handshake_config(a: &Authority) -> HandshakeConfig {
 }
 
 fn wire_client(server: &mut Server, player: PlayerId, slot: u8) -> WireClient {
-    let (writer, server_reader) = MemoryTransport::pair(MemoryConfig::default());
-    let (server_writer, reader) = MemoryTransport::pair(MemoryConfig::default());
+    wire_client_with_configs(
+        server,
+        player,
+        slot,
+        MemoryConfig::default(),
+        MemoryConfig::default(),
+    )
+}
+
+fn wire_client_with_configs(
+    server: &mut Server,
+    player: PlayerId,
+    slot: u8,
+    to_server: MemoryConfig,
+    to_client: MemoryConfig,
+) -> WireClient {
+    let (writer, server_reader) = MemoryTransport::pair(to_server);
+    let (server_writer, reader) = MemoryTransport::pair(to_client);
     server
         .accept(player, slot, server_reader, server_writer)
         .unwrap();
@@ -694,11 +711,35 @@ fn recv<M: Message>(c: &mut WireClient) -> M {
 }
 
 fn recv_of<M: Message>(c: &mut WireClient, kind: MessageKind) -> M {
+    let start = Instant::now();
     loop {
-        let frame = recv_raw(c);
-        let (envelope, _) = read_envelope(&frame).unwrap();
-        if envelope.kind == kind {
-            return decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
+        match c.reader.try_recv_frame().unwrap() {
+            Some(frame) => {
+                let (envelope, _) = read_envelope(&frame).unwrap();
+                if envelope.kind == kind {
+                    return decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
+                }
+            }
+            None if start.elapsed() > Duration::from_secs(2) => {
+                panic!("timeout chờ {kind:?}")
+            }
+            None => std::thread::sleep(Duration::from_millis(1)),
+        }
+    }
+}
+
+fn try_recv_of<M: Message>(c: &mut WireClient, kind: MessageKind, timeout: Duration) -> Option<M> {
+    let start = Instant::now();
+    loop {
+        if let Some(frame) = c.reader.try_recv_frame().unwrap() {
+            let (envelope, _) = read_envelope(&frame).unwrap();
+            if envelope.kind == kind {
+                return Some(decode_frame(&frame, &ProtocolLimits::v1()).unwrap());
+            }
+        } else if start.elapsed() >= timeout {
+            return None;
+        } else {
+            std::thread::sleep(Duration::from_millis(1));
         }
     }
 }
@@ -722,13 +763,7 @@ fn recv_lobby(c: &mut WireClient) -> LobbyList {
 }
 
 fn recv_snapshot(c: &mut WireClient) -> Snapshot {
-    loop {
-        let frame = recv_raw(c);
-        let (envelope, _) = read_envelope(&frame).unwrap();
-        if envelope.kind == MessageKind::Snapshot {
-            return decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
-        }
-    }
+    recv_of(c, MessageKind::Snapshot)
 }
 
 fn recv_input_rejected(c: &mut WireClient) -> InputRejected {
@@ -983,7 +1018,7 @@ fn memory_transport_two_and_four_clients_two_rounds() {
                     ack_snapshot: 0,
                     commands: vec![InputCommand {
                         seq: 1,
-                        target_tick: 0,
+                        target_tick: server.authority().tick().unwrap_or(0).saturating_add(1),
                         bits: InputBits::new(4, false).unwrap(),
                     }],
                 },
@@ -1034,7 +1069,7 @@ fn memory_transport_two_and_four_clients_two_rounds() {
                     ack_snapshot: 0,
                     commands: vec![InputCommand {
                         seq: 1,
-                        target_tick: 0,
+                        target_tick: server.authority().tick().unwrap_or(0).saturating_add(1),
                         bits: InputBits::new(4, false).unwrap(),
                     }],
                 },
@@ -1607,6 +1642,18 @@ fn wire_room_commands_are_idempotent_and_chat_is_room_scoped() {
     authenticate(&mut server, &players);
 
     send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room: 1,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let rejected: RoomRejected = recv_of(&mut clients[1], MessageKind::RoomRejected);
+    assert_eq!(rejected.reason, RoomRejectReason::RoomNotFound);
+
+    send_room(
         &mut clients[0],
         1,
         RoomActionDto::Create {
@@ -1766,7 +1813,7 @@ fn wire_room_full_lifecycle_two_and_four_clients() {
                     ack_snapshot: 0,
                     commands: vec![InputCommand {
                         seq: 1,
-                        target_tick: 0,
+                        target_tick: server.authority().tick().unwrap_or(0).saturating_add(1),
                         bits: InputBits::new(4, false).unwrap(),
                     }],
                 },
@@ -1834,7 +1881,7 @@ fn wire_room_full_lifecycle_two_and_four_clients() {
                     ack_snapshot: 0,
                     commands: vec![InputCommand {
                         seq: 1,
-                        target_tick: 0,
+                        target_tick: server.authority().tick().unwrap_or(0).saturating_add(1),
                         bits: InputBits::new(4, false).unwrap(),
                     }],
                 },
@@ -1869,4 +1916,638 @@ fn wire_room_full_lifecycle_two_and_four_clients() {
             let _ = c.writer.close();
         }
     }
+}
+
+#[test]
+fn round_result_life_is_authoritative_not_outcome() {
+    let players = [PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)];
+    let mut a = authority();
+    let _round = create_start(&mut a, &players, 0);
+    // Player 4 mất kết nối quá timeout: bị loại/Dead, còn 3 người sống tới hết giờ → hòa.
+    a.disconnect(players[3], 0).unwrap();
+    a.advance_to(10_001).unwrap();
+    a.advance_to(200_000).unwrap();
+    assert_eq!(a.last_result().unwrap().outcome, MatchOutcome::Draw);
+    assert_eq!(a.round_player_life(players[3]), Some(Life::Dead));
+    for player in &players[..3] {
+        assert!(
+            !matches!(a.round_player_life(*player), Some(Life::Dead)),
+            "player {player:?} còn sống"
+        );
+    }
+}
+
+#[test]
+fn ack_with_wrong_round_does_not_advance_or_finish() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &players);
+
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room: 1,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let rejected: RoomRejected = recv_of(&mut clients[1], MessageKind::RoomRejected);
+    assert_eq!(rejected.reason, RoomRejectReason::RoomNotFound);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let room = recv_room_state(&mut clients[0]).room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut clients[1]);
+    for (index, _) in players.iter().enumerate() {
+        send_room(
+            &mut clients[index],
+            2,
+            RoomActionDto::SetReady { ready: true },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[0]);
+    }
+    send_room(&mut clients[0], 3, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let start: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+
+    send(
+        &mut clients[0],
+        &LoadingAck {
+            round_id: start.round_id + 1,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Loading);
+    let rejected: RoomRejected = recv_of(&mut clients[0], MessageKind::RoomRejected);
+    assert_eq!(rejected.reason, RoomRejectReason::NotWaiting);
+
+    for (index, _) in players.iter().enumerate() {
+        send(
+            &mut clients[index],
+            &LoadingAck {
+                round_id: start.round_id,
+            },
+        );
+    }
+    for _ in 0..100 {
+        let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+        if server.phase() == ServerPhase::Playing {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Playing);
+    // Ack lặp sau barrier idempotent.
+    send(
+        &mut clients[0],
+        &LoadingAck {
+            round_id: start.round_id,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Playing);
+
+    let _ = server.poll(200_000, Duration::ZERO).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Results);
+    let _: RoundResult = recv_of(&mut clients[0], MessageKind::RoundResult);
+    send(
+        &mut clients[0],
+        &ResultAck {
+            round_id: start.round_id + 1,
+        },
+    );
+    let _ = server.poll(200_000, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Results);
+    let rejected: RoomRejected = recv_of(&mut clients[0], MessageKind::RoomRejected);
+    assert_eq!(rejected.reason, RoomRejectReason::NotWaiting);
+
+    for (index, _) in players.iter().enumerate() {
+        send(
+            &mut clients[index],
+            &ResultAck {
+                round_id: start.round_id,
+            },
+        );
+    }
+    for _ in 0..100 {
+        let _ = server.poll(200_000, Duration::from_millis(10)).unwrap();
+        if server.phase() == ServerPhase::Waiting {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Waiting);
+    // ResultAck lặp sau khi về phòng idempotent.
+    send(
+        &mut clients[0],
+        &ResultAck {
+            round_id: start.round_id,
+        },
+    );
+    let _ = server.poll(200_000, Duration::from_millis(200)).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Waiting);
+}
+
+#[test]
+fn expected_room_errors_are_rejected_without_killing_poll() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &players);
+
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room: 1,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let rejected: RoomRejected = recv_of(&mut clients[1], MessageKind::RoomRejected);
+    assert_eq!(rejected.reason, RoomRejectReason::RoomNotFound);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut clients[0]);
+
+    // Create thứ hai: authority trả RoomExists, server phải RoomRejected và tiếp tục poll.
+    send_room(
+        &mut clients[0],
+        2,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let rejected: RoomRejected = recv_of(&mut clients[0], MessageKind::RoomRejected);
+    assert_eq!(rejected.reason, RoomRejectReason::AlreadyStarted);
+    send(&mut clients[1], &LobbyListRequest {});
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let list: LobbyList = recv_lobby(&mut clients[1]);
+    assert_eq!(list.rooms.len(), 1);
+
+    // Join room lạ: RoomNotFound, không thoát poll.
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room: 999,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let rejected: RoomRejected = recv_of(&mut clients[1], MessageKind::RoomRejected);
+    assert_eq!(rejected.reason, RoomRejectReason::RoomNotFound);
+
+    // Start lặp cùng request sau khi đã Start: duplicate idempotent, không đóng session.
+    let room = list.rooms[0].room_id;
+    send_room(
+        &mut clients[1],
+        2,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut clients[1]);
+    for (index, _) in players.iter().enumerate() {
+        send_room(
+            &mut clients[index],
+            3,
+            RoomActionDto::SetReady { ready: true },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    }
+    send_room(&mut clients[0], 4, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    send_room(&mut clients[0], 4, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    send(&mut clients[0], &LobbyListRequest {});
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _: LobbyList = recv_lobby(&mut clients[0]);
+}
+
+fn drain_client(c: &mut WireClient) {
+    while c.reader.try_recv_frame().unwrap().is_some() {}
+}
+
+#[test]
+fn disconnect_broadcasts_roster_waiting_and_loading() {
+    let players = [PlayerId(1), PlayerId(2)];
+    for loading in [false, true] {
+        let (mut server, mut clients) = server_with_clients(&players);
+        wire_handshake(&mut server, &mut clients);
+        authenticate(&mut server, &players);
+        send_room(
+            &mut clients[0],
+            1,
+            RoomActionDto::Create {
+                character: RoomCharacter::C00,
+            },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let room = recv_room_state(&mut clients[0]).room_id;
+        send_room(
+            &mut clients[1],
+            1,
+            RoomActionDto::Join {
+                room,
+                character: RoomCharacter::C01,
+            },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[1]);
+        for (index, _) in players.iter().enumerate() {
+            send_room(
+                &mut clients[index],
+                2,
+                RoomActionDto::SetReady { ready: true },
+            );
+            let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        }
+        if loading {
+            send_room(&mut clients[0], 3, RoomActionDto::Start);
+            let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+            let _: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+        } else {
+            // Waiting: ready vẫn true; disconnect phải reset roster về 1 người.
+            send_room(&mut clients[0], 3, RoomActionDto::SetReady { ready: false });
+            let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+            let _ = recv_room_state(&mut clients[0]);
+        }
+        drain_client(&mut clients[0]);
+        clients[1].writer.close().unwrap();
+        for _ in 0..100 {
+            let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+            if server.session_count() == 1 {
+                break;
+            }
+        }
+        assert_eq!(server.session_count(), 1);
+        let state: RoomState = recv_room_state(&mut clients[0]);
+        assert_eq!(state.members.len(), 1);
+        assert_eq!(state.members[0].player, players[0].0);
+        let lobby: LobbyList = recv_lobby(&mut clients[0]);
+        assert_eq!(lobby.rooms[0].member_count, 1);
+        if loading {
+            assert_eq!(server.phase(), ServerPhase::Waiting);
+            assert!(!state.members[0].ready, "loading reset ready");
+        }
+    }
+}
+
+fn lossy_memory(seed: u64, loss_permille: u16) -> MemoryConfig {
+    MemoryConfig {
+        seed,
+        faults: boom_net::MemoryFaults {
+            loss_permille,
+            delay_ms: 5,
+            jitter_ms: 10,
+            ..boom_net::MemoryFaults::none()
+        },
+        timing: boom_net::Timing::Virtual,
+    }
+}
+
+fn lossy_handshake(server: &mut Server, clients: &mut [WireClient], h: &HandshakeConfig) {
+    for c in clients.iter_mut() {
+        let mut welcome = None;
+        for _ in 0..100 {
+            send(c, &hello(h.rules_hash));
+            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+            if let Some(msg) =
+                try_recv_of::<Welcome>(c, MessageKind::Welcome, Duration::from_millis(50))
+            {
+                welcome = Some(msg);
+                break;
+            }
+        }
+        assert!(welcome.is_some(), "không nhận Welcome qua mạng lossy");
+    }
+}
+
+fn retry_room_state(
+    server: &mut Server,
+    client: &mut WireClient,
+    request: u64,
+    action: RoomActionDto,
+    now: u64,
+) -> RoomState {
+    for _ in 0..100 {
+        send_room(client, request, action.clone());
+        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
+        if let Some(state) =
+            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(50))
+        {
+            return state;
+        }
+    }
+    panic!("không nhận RoomState sau retry");
+}
+
+fn retry_ready(server: &mut Server, client: &mut WireClient, player: u64, request: u64, now: u64) {
+    for _ in 0..100 {
+        send_room(client, request, RoomActionDto::SetReady { ready: true });
+        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
+        if let Some(state) =
+            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(50))
+            && state.members.iter().any(|m| m.player == player && m.ready)
+        {
+            return;
+        }
+    }
+    panic!("ready không tới server sau retry");
+}
+
+fn retry_start(server: &mut Server, client: &mut WireClient, request: u64, now: u64) -> RoundStart {
+    for _ in 0..100 {
+        send_room(client, request, RoomActionDto::Start);
+        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
+        if let Some(start) =
+            try_recv_of::<RoundStart>(client, MessageKind::RoundStart, Duration::from_millis(50))
+        {
+            return start;
+        }
+    }
+    panic!("Start/RoundStart không qua mạng lossy");
+}
+
+fn retry_loading(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
+    for _ in 0..100 {
+        for c in clients.iter_mut() {
+            send(c, &LoadingAck { round_id: round });
+        }
+        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
+        if server.phase() == ServerPhase::Playing {
+            return;
+        }
+    }
+    panic!("LoadingAck không vượt barrier sau retry");
+}
+
+fn retry_input(
+    server: &mut Server,
+    clients: &mut [WireClient],
+    players: &[PlayerId],
+    round: u64,
+    now: u64,
+) {
+    for attempt in 0..100 {
+        for (index, _) in players.iter().enumerate() {
+            send(
+                &mut clients[index],
+                &InputBatch {
+                    round_id: u32::try_from(round).unwrap(),
+                    player: index as u8,
+                    ack_snapshot: 0,
+                    commands: vec![InputCommand {
+                        seq: 1,
+                        target_tick: server.authority().tick().unwrap_or(0).saturating_add(1),
+                        bits: InputBits::new(4, false).unwrap(),
+                    }],
+                },
+            );
+        }
+        let _ = server
+            .poll(
+                now.saturating_add(34 * (attempt + 1)),
+                Duration::from_millis(20),
+            )
+            .unwrap();
+        if players
+            .iter()
+            .all(|player| server.authority().applied_seq(*player) == Some(1))
+        {
+            for c in clients.iter_mut() {
+                let _: Snapshot = recv_of(c, MessageKind::Snapshot);
+            }
+            return;
+        }
+    }
+    panic!("input không tới server sau retry");
+}
+
+fn retry_result_ack(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
+    for _ in 0..100 {
+        for c in clients.iter_mut() {
+            send(c, &ResultAck { round_id: round });
+        }
+        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
+        if server.phase() == ServerPhase::Waiting {
+            return;
+        }
+    }
+    panic!("ResultAck không về Waiting sau retry");
+}
+
+#[test]
+fn wire_room_full_lifecycle_with_delay_loss_seed() {
+    for players in [
+        vec![PlayerId(1), PlayerId(2)],
+        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
+    ] {
+        let setup = setup();
+        let a = Authority::new(ServerConfig::v1(), setup);
+        let h = handshake_config(&a);
+        let mut server = Server::new(a, h.clone());
+        let mut clients: Vec<WireClient> = players
+            .iter()
+            .enumerate()
+            .map(|(slot, &player)| {
+                wire_client_with_configs(
+                    &mut server,
+                    player,
+                    slot as u8,
+                    lossy_memory(0xBEEF_5EED, 100),
+                    lossy_memory(0xBEEF_5EED, 0),
+                )
+            })
+            .collect();
+        lossy_handshake(&mut server, &mut clients, &h);
+        authenticate(&mut server, &players);
+
+        let mut lobby = None;
+        for _ in 0..100 {
+            send(&mut clients[0], &LobbyListRequest {});
+            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+            if let Some(list) = try_recv_of::<LobbyList>(
+                &mut clients[0],
+                MessageKind::LobbyList,
+                Duration::from_millis(50),
+            ) {
+                lobby = Some(list);
+                break;
+            }
+        }
+        assert!(lobby.is_some(), "không nhận LobbyList lossy");
+
+        let state = retry_room_state(
+            &mut server,
+            &mut clients[0],
+            1,
+            RoomActionDto::Create {
+                character: RoomCharacter::C00,
+            },
+            0,
+        );
+        let room = state.room_id;
+        for (index, _player) in players.iter().enumerate().skip(1) {
+            let joined = retry_room_state(
+                &mut server,
+                &mut clients[index],
+                1,
+                RoomActionDto::Join {
+                    room,
+                    character: RoomCharacter::C01,
+                },
+                0,
+            );
+            assert_eq!(joined.members.len(), index + 1);
+        }
+        for (index, &player) in players.iter().enumerate() {
+            retry_ready(&mut server, &mut clients[index], player.0, 2, 0);
+        }
+        let start = retry_start(&mut server, &mut clients[0], 3, 0);
+        assert_eq!(start.roster.len(), players.len());
+        let round = start.round_id;
+        retry_loading(&mut server, &mut clients, round, 0);
+        retry_input(&mut server, &mut clients, &players, round, 0);
+
+        let _ = server.poll(200_000, Duration::ZERO).unwrap();
+        for c in clients.iter_mut() {
+            let result: RoundResult = recv_of(c, MessageKind::RoundResult);
+            assert_eq!(result.round_id, round);
+        }
+        retry_result_ack(&mut server, &mut clients, round, 200_000);
+        let waiting: RoomState = recv_room_state(&mut clients[0]);
+        assert_eq!(waiting.members.len(), players.len());
+
+        // Trận 2 qua cùng mạng lossy.
+        for (index, &player) in players.iter().enumerate() {
+            retry_ready(&mut server, &mut clients[index], player.0, 4, 200_000);
+        }
+        let start2 = retry_start(&mut server, &mut clients[0], 5, 200_000);
+        assert_ne!(start2.round_id, round);
+        retry_loading(&mut server, &mut clients, start2.round_id, 200_000);
+        retry_input(
+            &mut server,
+            &mut clients,
+            &players,
+            start2.round_id,
+            200_016,
+        );
+        let _ = server.poll(400_000, Duration::ZERO).unwrap();
+        for c in clients.iter_mut() {
+            let result: RoundResult = recv_of(c, MessageKind::RoundResult);
+            assert_eq!(result.round_id, start2.round_id);
+        }
+        retry_result_ack(&mut server, &mut clients, start2.round_id, 400_000);
+    }
+}
+
+#[test]
+fn wire_round_result_alive_uses_authoritative_state_in_draw() {
+    let players = [PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &players);
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let room = recv_room_state(&mut clients[0]).room_id;
+    for (index, _) in players.iter().enumerate().skip(1) {
+        send_room(
+            &mut clients[index],
+            1,
+            RoomActionDto::Join {
+                room,
+                character: RoomCharacter::C01,
+            },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[index]);
+    }
+    for (index, _) in players.iter().enumerate() {
+        send_room(
+            &mut clients[index],
+            2,
+            RoomActionDto::SetReady { ready: true },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[0]);
+    }
+    send_room(&mut clients[0], 3, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let start: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+    for (index, _) in players.iter().enumerate() {
+        send(
+            &mut clients[index],
+            &LoadingAck {
+                round_id: start.round_id,
+            },
+        );
+    }
+    for _ in 0..100 {
+        let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+        if server.phase() == ServerPhase::Playing {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Playing);
+
+    // Player 4 rời transport; quá disconnect timeout bị Dead, 3 người còn lại hết giờ → hòa.
+    clients[3].writer.close().unwrap();
+    for _ in 0..100 {
+        let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+        if server.session_count() == 3 {
+            break;
+        }
+    }
+    let _ = server.poll(10_001, Duration::ZERO).unwrap();
+    let _ = server.poll(200_000, Duration::ZERO).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Results);
+    let result: RoundResult = recv_of(&mut clients[0], MessageKind::RoundResult);
+    assert_eq!(result.outcome, boom_proto::RoomOutcome::Draw);
+    let dead = result
+        .results
+        .iter()
+        .find(|r| r.player == players[3].0)
+        .expect("kết quả player 4");
+    assert!(!dead.alive);
+    assert!(
+        result
+            .results
+            .iter()
+            .filter(|r| r.player != players[3].0)
+            .all(|r| r.alive)
+    );
 }

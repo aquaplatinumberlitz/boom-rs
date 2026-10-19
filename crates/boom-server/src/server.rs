@@ -34,6 +34,18 @@ use crate::authority::{
 };
 use crate::config::HandshakeConfig;
 
+fn room_command_reject_reason(err: &ServerError) -> Option<boom_proto::RoomRejectReason> {
+    use boom_proto::RoomRejectReason as Reason;
+    match err {
+        ServerError::Room(e) => Some(reject_reason(e)),
+        ServerError::WrongPhase { .. } => Some(Reason::NotWaiting),
+        ServerError::RoomExists { .. } => Some(Reason::AlreadyStarted),
+        ServerError::NoRoom => Some(Reason::RoomNotFound),
+        ServerError::NoSession(_) | ServerError::UnknownPlayer(_) => Some(Reason::PlayerNotInRoom),
+        _ => None,
+    }
+}
+
 enum Inbound {
     Frame { player: PlayerId, frame: Vec<u8> },
     Closed { player: PlayerId },
@@ -124,6 +136,7 @@ impl Server {
 
     /// Tạm đánh dấu session đã `AuthOk` cho test/transition; task auth T5 sẽ thay bằng
     /// `Auth`/`AuthOk` thật (ADR 0009 Addendum A).
+    #[cfg(test)]
     pub fn mark_authenticated_for_test(&mut self, player: PlayerId) -> Result<(), ServerError> {
         let Some(session) = self.sessions.get_mut(&player) else {
             return Err(ServerError::NoSession(player));
@@ -315,6 +328,11 @@ impl Server {
         }
         let (envelope, _) = read_envelope(frame)?;
         let kind = envelope.kind;
+        // Hello lặp (vd. test mạng lossy) được trả lại Welcome thay vì đóng; TCP thật không
+        // sinh duplicate nhưng đây là idempotent an toàn cho handshake.
+        if kind == boom_proto::MessageKind::Hello {
+            return self.handle_hello(player, frame);
+        }
         if kind.is_room()
             && !self
                 .sessions
@@ -358,16 +376,13 @@ impl Server {
                 let command = from_room_command(&dto, player);
                 match self.room_command(command, self.now_ms) {
                     Ok(update) => self.after_room_update(&update)?,
-                    Err(ServerError::Room(err)) => {
-                        self.send(
-                            player,
-                            &boom_proto::RoomRejected {
-                                request: dto.request,
-                                reason: reject_reason(&err),
-                            },
-                        )?;
+                    Err(err) => {
+                        if let Some(reason) = room_command_reject_reason(&err) {
+                            self.send_room_rejected(player, dto.request, reason)?;
+                        } else {
+                            return Err(err);
+                        }
                     }
-                    Err(err) => return Err(err),
                 }
             }
             boom_proto::MessageKind::RoomChat => {
@@ -376,26 +391,44 @@ impl Server {
             }
             boom_proto::MessageKind::LoadingAck => {
                 let ack: LoadingAck = decode_frame(frame, &limits)?;
-                let _ = ack.round_id;
-                match self.authority.ack_loading(player, self.now_ms) {
-                    Ok(events) => self.flush_lifecycle(&events)?,
-                    Err(_) => self.send_room_rejected(
+                if !self.ack_round_matches(ack.round_id) {
+                    self.send_room_rejected(
                         player,
-                        0,
+                        ack.round_id,
                         boom_proto::RoomRejectReason::NotWaiting,
-                    )?,
+                    )?;
+                } else if self.authority.phase() == ServerPhase::Playing {
+                    // Ack lặp sau barrier: idempotent, không đổi phase.
+                } else {
+                    match self.authority.ack_loading(player, self.now_ms) {
+                        Ok(events) => self.flush_lifecycle(&events)?,
+                        Err(_) => self.send_room_rejected(
+                            player,
+                            ack.round_id,
+                            boom_proto::RoomRejectReason::NotWaiting,
+                        )?,
+                    }
                 }
             }
             boom_proto::MessageKind::ResultAck => {
                 let ack: ResultAck = decode_frame(frame, &limits)?;
-                let _ = ack.round_id;
-                match self.authority.ack_result(player, self.now_ms) {
-                    Ok(events) => self.flush_lifecycle(&events)?,
-                    Err(_) => self.send_room_rejected(
+                if !self.ack_round_matches(ack.round_id) {
+                    self.send_room_rejected(
                         player,
-                        0,
+                        ack.round_id,
                         boom_proto::RoomRejectReason::NotWaiting,
-                    )?,
+                    )?;
+                } else if self.authority.phase() == ServerPhase::Waiting {
+                    // ResultAck lặp sau khi đã về phòng: idempotent.
+                } else {
+                    match self.authority.ack_result(player, self.now_ms) {
+                        Ok(events) => self.flush_lifecycle(&events)?,
+                        Err(_) => self.send_room_rejected(
+                            player,
+                            ack.round_id,
+                            boom_proto::RoomRejectReason::NotWaiting,
+                        )?,
+                    }
                 }
             }
             _ => {
@@ -403,6 +436,12 @@ impl Server {
             }
         }
         Ok(())
+    }
+
+    fn ack_round_matches(&self, round: u64) -> bool {
+        self.authority
+            .current_round_id()
+            .is_some_and(|current| u64::from(current) == round)
     }
 
     fn send_room_rejected(
@@ -419,7 +458,17 @@ impl Server {
             self.send_room_state(&view)?;
         }
         self.broadcast_lobby_list()?;
-        if let Some(round) = update.round {
+        let round = update.round.or_else(|| {
+            if update.duplicate && self.authority.phase() == ServerPhase::Loading {
+                self.authority
+                    .room_view()
+                    .and_then(|view| view.round)
+                    .map(|r| r.id)
+            } else {
+                None
+            }
+        });
+        if let Some(round) = round {
             self.send_round_start(round)?;
         }
         Ok(())
@@ -474,8 +523,9 @@ impl Server {
         let Some(seed) = self.authority.round_seed() else {
             return Ok(());
         };
+        let public_round = view.round.as_ref().map_or(round.0, |r| r.id.0);
         let message = RoundStart {
-            round_id: round.0,
+            round_id: public_round,
             seed,
             rules_profile_id: self.handshake.rules_profile_id.clone(),
             rules_hash: self.handshake.rules_hash,
@@ -557,23 +607,27 @@ impl Server {
             MatchOutcome::Winner(player) => Some(player),
             MatchOutcome::Draw | MatchOutcome::Aborted => None,
         };
-        let draw = matches!(result.outcome, MatchOutcome::Draw | MatchOutcome::Aborted);
         let outcome = winner.map_or(RoomOutcome::Draw, |p| RoomOutcome::Winner(p.0));
         let results = roster
             .into_iter()
-            .map(|member| boom_proto::PlayerResult {
-                player: member.player,
-                slot: member.slot,
-                rank: if draw || winner == Some(PlayerId(member.player)) {
-                    1
-                } else {
-                    2
-                },
-                alive: draw || winner == Some(PlayerId(member.player)),
+            .map(|member| {
+                let player = PlayerId(member.player);
+                let alive = self
+                    .authority
+                    .round_player_life(player)
+                    .is_some_and(|life| life != Life::Dead);
+                boom_proto::PlayerResult {
+                    player: member.player,
+                    slot: member.slot,
+                    // Chưa có spec/design thứ hạng V1-022; để 0 (unknown), không tự đặt policy.
+                    rank: 0,
+                    alive,
+                }
             })
             .collect();
+        let public_round = view.round.as_ref().map_or(result.round.0, |r| r.id.0);
         let message = RoundResult {
-            round_id: result.round.0,
+            round_id: public_round,
             outcome,
             results,
         };
@@ -786,8 +840,18 @@ impl Server {
 
     fn close_session(&mut self, player: PlayerId) {
         if self.sessions.remove(&player).is_some() {
-            let _ = self.authority.disconnect(player, self.now_ms);
+            self.notify_disconnect(player);
         }
+    }
+
+    fn notify_disconnect(&mut self, player: PlayerId) {
+        if let Ok(events) = self.authority.disconnect(player, self.now_ms) {
+            let _ = self.flush_lifecycle(&events);
+        }
+        if let Some(view) = self.authority.room_view() {
+            let _ = self.send_room_state(&view);
+        }
+        let _ = self.broadcast_lobby_list();
     }
 
     /// Đóng session nhưng để writer gửi nốt frame đã xếp (vd. `Reject` handshake, ADR 0009 §1).
@@ -797,7 +861,7 @@ impl Server {
         let Some(mut session) = self.sessions.remove(&player) else {
             return;
         };
-        let _ = self.authority.disconnect(player, self.now_ms);
+        self.notify_disconnect(player);
         let shutdown = session.shutdown.take();
         let (dummy_tx, dummy_rx) = mpsc::channel();
         drop(dummy_tx);
