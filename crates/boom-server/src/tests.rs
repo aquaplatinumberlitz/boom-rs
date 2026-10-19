@@ -69,17 +69,14 @@ fn verify_replay_output(path: &std::path::Path) -> std::process::Output {
     let target = std::env::var_os("CARGO_TARGET_DIR")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| workspace.join("target"));
-    let binary = target.join("debug/boom-replay");
-    if binary.exists() {
-        Command::new(&binary).args(["verify"]).arg(path).output()
-    } else {
-        Command::new("cargo")
-            .current_dir(&workspace)
-            .args(["run", "-q", "-p", "boom-replay", "--", "verify"])
-            .arg(path)
-            .output()
-    }
-    .expect("chạy boom-replay")
+    let _ = target;
+    // Luôn qua cargo để binary replay được rebuild theo schema hiện tại; không dùng binary cũ.
+    Command::new("cargo")
+        .current_dir(&workspace)
+        .args(["run", "-q", "-p", "boom-replay", "--", "verify"])
+        .arg(path)
+        .output()
+        .expect("chạy boom-replay")
 }
 
 fn verify_replay_with_cli(path: &std::path::Path) {
@@ -1690,52 +1687,29 @@ fn replay_publish_never_overwrites_existing_round_files() {
 }
 
 #[test]
-fn replay_is_not_published_for_disconnect_timeout() {
+fn replay_verifies_disconnect_timeout_one_and_all_players() {
     for players in [
         vec![PlayerId(1), PlayerId(2)],
         vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
     ] {
-        let dir = tempfile::tempdir().unwrap();
-        let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
-        let _ = create_start(&mut a, &players, 0);
-        for &player in &players[1..] {
-            a.disconnect(player, 0).unwrap();
+        for all in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+            let round = create_start(&mut a, &players, 0);
+            let disconnected: &[PlayerId] = if all { &players } else { &players[1..] };
+            for &player in disconnected {
+                a.disconnect(player, 0).unwrap();
+            }
+            a.advance_to(9_000).unwrap();
+            a.advance_to(10_001).unwrap();
+            let replay_path = dir.path().join(format!("round-{}.toml", round.0));
+            assert!(
+                replay_path.exists(),
+                "phải publish replay disconnect ({all}): {}",
+                replay_path.display()
+            );
+            verify_replay_with_cli(&replay_path);
         }
-        a.advance_to(9_000).unwrap();
-        a.advance_to(10_001).unwrap();
-        assert!(
-            !std::fs::read_dir(dir.path()).unwrap().any(|entry| entry
-                .unwrap()
-                .path()
-                .extension()
-                .is_some_and(|e| e == "toml")),
-            "không được publish replay không tái tạo được disconnect"
-        );
-    }
-}
-
-#[test]
-fn replay_is_not_published_when_all_players_disconnect() {
-    for players in [
-        vec![PlayerId(1), PlayerId(2)],
-        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
-    ] {
-        let dir = tempfile::tempdir().unwrap();
-        let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
-        let _ = create_start(&mut a, &players, 0);
-        for &player in &players {
-            a.disconnect(player, 0).unwrap();
-        }
-        a.advance_to(9_000).unwrap();
-        a.advance_to(10_001).unwrap();
-        assert!(
-            !std::fs::read_dir(dir.path()).unwrap().any(|entry| entry
-                .unwrap()
-                .path()
-                .extension()
-                .is_some_and(|e| e == "toml")),
-            "không được publish replay khi mọi người disconnect"
-        );
     }
 }
 

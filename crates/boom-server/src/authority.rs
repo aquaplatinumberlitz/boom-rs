@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::sync::Arc;
 
 use boom_core::{
     CharacterStats, CoreError, Life, Outcome as CoreOutcome, Phase as CorePhase, PlayerInput,
@@ -16,10 +17,12 @@ use boom_room::{
     CharacterId, Lobby, Outcome as RoomOutcome, PlayerId, RequestId, RoomAction, RoomCommand,
     RoomError, RoomEvent, RoomId, RoomView, RoundId, RoundMember,
 };
+use boom_scenario::setup::{AuthorityAction, AuthorityEntry, apply_authority};
 use boom_sync::{SnapshotContext, input_ack, to_snapshot};
 
 use crate::config::{CharacterStatsTable, InputTicks, ReplaySetup, ServerConfig};
 use crate::input::{InputAck, InputError, InputTrack};
+use crate::observability::{LogFields, Logger};
 
 /// Kết quả trận do server quyết, một lần cho mỗi round.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -255,6 +258,7 @@ pub struct Authority {
     phase: Lifecycle,
     active: Option<Match>,
     replay: Option<crate::replay_log::ReplayLog>,
+    logger: Option<Arc<Logger>>,
     last_result: Option<InternalRoundResult>,
     now_ms: u64,
     next_tick_ms: u64,
@@ -282,6 +286,7 @@ impl Authority {
             phase: Lifecycle::Waiting,
             active: None,
             replay: None,
+            logger: None,
             last_result: None,
             now_ms: 0,
             next_tick_ms: 0,
@@ -298,6 +303,12 @@ impl Authority {
 
     pub fn config(&self) -> &ServerConfig {
         &self.config
+    }
+
+    /// Gắn logger vận hành; replay dùng `replay.write_failed` thay cho stderr.
+    pub fn with_logger(mut self, logger: Arc<Logger>) -> Self {
+        self.logger = Some(logger);
+        self
     }
 
     pub fn phase(&self) -> ServerPhase {
@@ -609,7 +620,10 @@ impl Authority {
             ) {
                 Ok(log) => self.replay = Some(log),
                 Err(err) => {
-                    eprintln!("replay_log: không mở được {}: {err}", dir.display());
+                    self.log_replay_error(
+                        "replay.open_failed",
+                        &format!("{}: {err}", dir.display()),
+                    );
                 }
             }
         }
@@ -873,18 +887,29 @@ impl Authority {
             return;
         };
         let outcome = crate::replay_log::outcome_label(result.outcome, &active.members);
-        if let Err(err) = replay.finish(
+        let mut replay = replay;
+        replay.record_checkpoint(active.state.tick, active.state.hash());
+        let _ = replay.finish(
             active.state.tick,
             active.state.hash(),
             boom_core::event_digest(&active.events),
             active.events.len(),
             &outcome,
-        ) {
-            eprintln!("replay_log: không ghi được replay: {err}");
+            self.logger.as_deref(),
+        );
+    }
+
+    fn log_replay_error(&self, event: &str, message: &str) {
+        if let Some(logger) = &self.logger {
+            let mut fields = LogFields::new();
+            fields.insert("reason", serde_json::json!(event));
+            fields.insert("error_message", serde_json::json!(message));
+            logger.error(event, fields);
         }
     }
 
     fn eliminate_disconnected(&mut self, now_ms: u64, out: &mut Vec<InternalServerEvent>) {
+        let logger = self.logger.clone();
         let timeout = u64::from(self.config.policy.disconnect_timeout_ms);
         let Some(active) = self.active.as_mut() else {
             return;
@@ -895,12 +920,6 @@ impl Authority {
             .filter(|(p, at)| !active.eliminated.contains(p) && now_ms >= **at + timeout)
             .map(|(p, _)| *p)
             .collect();
-        if !due.is_empty() && self.replay.is_some() {
-            // Replay schema 1 chỉ có input; authority đổi life trực tiếp khi timeout. Không thể
-            // tái tạo các thay đổi đó bằng input, nên không publish một golden biết trước sai.
-            self.replay = None;
-            eprintln!("replay_log: bỏ replay vì có disconnect timeout ngoài input");
-        }
         for player in due {
             active.eliminated.insert(player);
             if let Some(slot) = active
@@ -908,10 +927,25 @@ impl Authority {
                 .iter()
                 .find(|m| m.player == player)
                 .map(|m| m.slot.0)
-                && let Some(p) = active.state.players.iter_mut().find(|p| p.id == slot)
-                && p.life != Life::Dead
             {
-                p.life = Life::Dead;
+                let tick = active.state.tick;
+                if let Err(err) = apply_authority(
+                    &mut active.state,
+                    &AuthorityEntry {
+                        tick,
+                        player: slot,
+                        action: AuthorityAction::Eliminate,
+                    },
+                ) && let Some(logger) = &logger
+                {
+                    let mut fields = LogFields::new();
+                    fields.insert("reason", serde_json::json!("replay.authority_failed"));
+                    fields.insert("error_message", serde_json::json!(err.to_string()));
+                    logger.error("replay.authority_failed", fields);
+                }
+                if let Some(replay) = &mut self.replay {
+                    replay.record_authority(tick, slot);
+                }
             }
             out.push(InternalServerEvent::PlayerEliminated {
                 room: active.room,

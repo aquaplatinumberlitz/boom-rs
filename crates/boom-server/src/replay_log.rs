@@ -18,6 +18,7 @@ use boom_room::RoundMember;
 
 use crate::authority::{MatchOutcome, MatchSetup};
 use crate::config::ReplaySetup;
+use crate::observability::{LogFields, Logger};
 
 /// Ghi một round vào `<replay_dir>/round-<id>.toml` + `.golden`.
 pub(crate) struct ReplayLog {
@@ -25,8 +26,10 @@ pub(crate) struct ReplayLog {
     round: u64,
     setup: String,
     players: String,
+    authority: String,
     inputs: String,
     checkpoints: BTreeSet<u32>,
+    recorded: BTreeSet<u32>,
     golden: String,
 }
 
@@ -90,10 +93,20 @@ impl ReplayLog {
             round,
             setup: setup_text,
             players: players_text,
+            authority: String::new(),
             inputs: String::new(),
             checkpoints: checkpoints.into_iter().collect(),
+            recorded: BTreeSet::new(),
             golden,
         })
+    }
+
+    /// Ghi một thay đổi authority ngoài input (disconnect timeout) đúng tick áp.
+    pub(crate) fn record_authority(&mut self, tick: u32, slot: u8) {
+        self.authority.push_str("\n[[authority]]\n");
+        self.authority.push_str(&format!("tick = {tick}\n"));
+        self.authority.push_str(&format!("player = {slot}\n"));
+        self.authority.push_str("action = \"eliminate\"\n");
     }
 
     /// Ghi input đã áp cho tick này, theo đúng thứ tự slot của `state.players`.
@@ -112,7 +125,7 @@ impl ReplayLog {
 
     /// Ghi checkpoint nếu tick này nằm trong danh sách cấu hình.
     pub(crate) fn record_checkpoint(&mut self, tick: u32, hash: u64) {
-        if self.checkpoints.contains(&tick) {
+        if self.checkpoints.contains(&tick) && self.recorded.insert(tick) {
             self.golden
                 .push_str(&format!("tick {tick} state {hash:#018x}\n"));
         }
@@ -126,6 +139,7 @@ impl ReplayLog {
         events_digest: u64,
         event_count: usize,
         outcome: &str,
+        logger: Option<&Logger>,
     ) -> io::Result<PathBuf> {
         let mut replay = self.setup;
         replay.push_str(&format!("ticks = {final_tick}\n"));
@@ -138,6 +152,7 @@ impl ReplayLog {
                 .join(", ")
         ));
         replay.push_str(&self.players);
+        replay.push_str(&self.authority);
         replay.push_str(&self.inputs);
         let mut golden = self.golden;
         golden.push_str(&format!(
@@ -149,9 +164,13 @@ impl ReplayLog {
         golden.push_str(&format!("outcome {outcome}\n"));
 
         let (replay_path, golden_path) = unique_paths(&self.dir, self.round);
-        write_new_atomic(&replay_path, replay.as_bytes())?;
+        if let Err(err) = write_new_atomic(&replay_path, replay.as_bytes()) {
+            log_write_failed(logger, &replay_path, &err);
+            return Err(err);
+        }
         if let Err(err) = write_new_atomic(&golden_path, golden.as_bytes()) {
             let _ = fs::remove_file(&replay_path);
+            log_write_failed(logger, &golden_path, &err);
             return Err(err);
         }
         Ok(replay_path)
@@ -299,4 +318,14 @@ fn write_new_atomic(path: &Path, data: &[u8]) -> io::Result<()> {
         return Err(err);
     }
     Ok(())
+}
+
+fn log_write_failed(logger: Option<&Logger>, path: &Path, err: &io::Error) {
+    if let Some(logger) = logger {
+        let mut fields = LogFields::new();
+        fields.insert("reason", serde_json::json!("replay.write_failed"));
+        fields.insert("path", serde_json::json!(path.to_string_lossy()));
+        fields.insert("error_message", serde_json::json!(err.to_string()));
+        logger.error("replay.write_failed", fields);
+    }
 }
