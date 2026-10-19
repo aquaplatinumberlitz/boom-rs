@@ -54,6 +54,7 @@ Locator viết tắt: `oc_e` = `/home/admin/boom-re/docs/oc_e-game.md` (main `4c
 | R-033 | Lửa phủ ô đặt bom + tối đa `range` ô mỗi hướng; khối cứng/mép lưới chặn, khối mềm đầu tiên có lửa rồi dừng. Bom đến hạn hoặc bị lửa chạm nổ cùng tick, xử lý theo `id` tăng dần, mỗi bom một lần; nhiều lửa cùng ô giữ `until` lớn nhất, hòa chọn `source` id nhỏ | — | `design` (từ R-030) | Task #5, `systems/explosion.rs`; R-030 |
 | R-034 | V1: "chạm" = hai người chơi cùng một ô lưới tại bước life; chỉ người `Alive` làm vỡ bong bóng, hai người `Trapped` chạm nhau không đổi trạng thái | — | `design` / design | SCOPE_V1 §4; issue #8 (cùng ô); `systems/life.rs` |
 | R-035 | V1: trong một tick, người `Alive` đứng trên lửa bị nhốt trước; chỉ người đã `Trapped` từ đầu bước life mới xét chết; nếu vừa hết `trap_ticks` vừa bị chạm thì `player_died.by` là người chạm; nhiều người `Alive` cùng ô thì chọn id nhỏ nhất | — | `design` / design | SCOPE_V1 §4; ARCHITECTURE §5.2; issue #8 |
+| R-036 | Người bị nhốt không di chuyển trong V1 (đứng tại chỗ tới khi chết) | — | `design` / design | SCOPE_V1 §4; R-029 (`web` / candidate) nói "đi rất chậm" nhưng chưa có px/s; quyết định cho V1-012 |
 
 Hai claim `design` R-034/R-035 chỉ định nghĩa cách engine V1 hiện thực hóa "chạm" và thứ tự trong
 tick; chưa có bằng chứng client KR/VN cho trường hợp biên. Khi có trace, thay bằng claim `confirmed`
@@ -71,6 +72,8 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 | R-045 | Roller: +1 cấp tốc độ | +1 cấp | `web` / candidate | NAMU §1 |
 | R-046 | Bám góc khi rẽ trong 12 px | 12 px | `oss` / candidate | OSS §5 |
 | R-047 | Di chuyển không có gói C→S; client tự mô phỏng | — | `vn_static` / confirmed | oc_e §5a |
+| R-048 | Bom đang tồn tại chặn mọi người đi vào ô của nó | — | `design` / design | SCOPE_V1 §4 ("bom chặn/đi ra"); chưa đối chiếu collision client gốc |
+| R-049 | Grace một chiều: người đang đứng trên bom được đi ra; rời ô thì mất quyền, không được quay lại | — | `design` / design | SCOPE_V1 §4; V1-012 |
 
 ## 5. Item rơi và nhặt
 
@@ -99,6 +102,9 @@ Profile [`v1-dev`](../../../data/rules/v1-dev.toml) không dùng được cho ph
 | Trọng số rơi | 3650 : 2800 : 2000 (`confirmed`, R-051) | Dữ liệu client; vai trò bảng còn unknown |
 | Xác suất gạch có item | 35% (`design`, R-053) | Chỉ có OSS |
 | Căn trục khi rẽ | Căn về tâm hàng/cột, tối đa bằng tốc độ mỗi tick (`design`) | Thay thế tạm cho R-046 tới khi Q-005 xong |
+| Bom chặn đường | Ô có bom không đi vào được (`design`, R-048) | Chưa có phép đo collision client gốc |
+| Grace | Một chiều, xóa khi rời ô (`design`, R-049) | SCOPE_V1 §4; V1-012 |
+| Người bị nhốt | Đứng yên (`design`, R-036) | R-029 candidate web nói "đi rất chậm" nhưng chưa có px/s; V1 chọn đứng yên |
 
 Profile phát hành phải thay mọi `candidate` bằng `confirmed` hoặc `design` đã được review;
 `unknown` không được có giá trị. `boom-content` kiểm điều này khi nạp.

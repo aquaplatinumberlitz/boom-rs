@@ -1,0 +1,31 @@
+# R-029 là candidate web ("đi rất chậm"); V1 chọn DESIGN: người bị nhốt đứng yên (R-036).
+name = "Người bị nhốt không di chuyển trong V1"
+features = ["V1-011", "V1-012"]
+claims = ["R-029", "R-036"]
+status = "active"
+ticks = 60
+map = [
+    "#####",
+    "#0..#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+life = "trapped"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 60
+player = 0
+cell = [1, 1]
+pos_mpx = [60000, 60000]
+life = "trapped"
