@@ -1,8 +1,10 @@
 # Chuỗi và ảnh UI cho luồng V1 (Q-012)
 
-Cập nhật: 2026-10-19. Phục vụ **V1-032** (UI luồng V1 bằng asset KR) và **V1-035** (Việt hóa UI V1),
-câu hỏi [Q-012](../../research/QUESTIONS.md). Baseline khi lập: `main` @ `fefd5c0`, contract `contracts-r3`;
-kiểm lại nguồn trên `main` @ `5845f15`, worktree `issue-15`. Nguồn chuẩn về scope là
+Cập nhật: 2026-10-20 (V1-032: cột "Trạng thái dùng" ở §3 và mục §3.1). Phục vụ **V1-032**
+(UI luồng V1 bằng asset KR) và **V1-035** (Việt hóa UI V1), câu hỏi
+[Q-012](../../research/QUESTIONS.md). Baseline khi lập: `main` @ `fefd5c0`, contract `contracts-r3`;
+kiểm lại nguồn trên `main` @ `5845f15`, worktree `issue-15`; phần trạng thái dùng kiểm trên
+`main` @ `5242e48`, worktree `issue-84` (bundle schema 3). Nguồn chuẩn về scope là
 [SCOPE_V1](../../planning/SCOPE_V1.md), về luật trận là [RULES_V1](../gameplay/RULES_V1.md).
 
 Tài liệu này là **danh mục chọn/tham chiếu**, không phải nguồn bản dịch. `catalog.csv` ở
@@ -24,7 +26,8 @@ spectator, quảng trường đi bộ) bị loại, kể cả khi catalog có ch
 | Ảnh có chữ | `/home/admin/boom-re-l10n/l10n/images_todo.csv` | 3.038 ứng viên I16/JPEG; chưa có quyết định duyệt nào. |
 | Trạng thái duyệt ảnh | `/home/admin/boom-re-l10n/l10n/.cache/image-review/images_review.csv` | Toàn bộ 3.038 dòng `pending`; chưa có `l10n/images_review.csv` (kết quả thật). |
 | Ảnh giải mã | `/home/admin/boom-re-l10n/l10n/.cache/image-review/` | PNG giải mã cục bộ, không commit; dùng để đọc chữ và kích thước. |
-| Asset UI V1 đã chọn | [kr_v1_content.json](../../evidence/inventory/kr_v1_content.json) | Chỉ 4 entry UI được chọn: `room_create`, `room_create_dialog`, `ready`, `start`; map/theme/nhân vật/item là asset khác. |
+| Asset UI V1 đã chọn | [kr_v1_content.json](../../evidence/inventory/kr_v1_content.json) | Chỉ 4 entry UI được chọn: `room_create`, `room_create_dialog`, `ready`, `start`; map/theme/nhân vật/item là asset khác. SHA-256 của các entry UI còn lại nằm ở `[[sprites]].source_sha256` của bundle (`kr_v1_content.json` là output của tool `boom-re/tools/kr_v1_content.py`, không sửa tay ở task này). |
+| Bảng asset UI của closure V1 | `crates/boom-assets/src/closure.rs` (`UI_ASSETS`) và mục `[[ui]]` của bundle ([BUNDLES §3.3](../assets/BUNDLES.md)) | Trạng thái dùng của từng phần tử UI của luồng V1 (xem §3); nguồn chuẩn cho cột "Trạng thái dùng". |
 | Quy trình duyệt ảnh | [IMAGE_REVIEW](IMAGE_REVIEW.md) | Trạng thái `pending/translated/needs_translation/no_text/check`; không tự đánh dấu đã dịch. |
 
 Đối chiếu **tên khóa** legacy (chỉ là locator, không lấy text làm bản dịch). Một số khóa V1 trùng tên
@@ -215,35 +218,65 @@ host (`PremiumSlotRoomTicket`, `BannedBySuper`, `ChiefBanned`).
 
 ## 3. Ảnh có chữ trong luồng V1
 
-Cột **Đã chọn?** lấy từ `kr_v1_content.json` (`required`/`selected_resources`). `—` nghĩa là chưa nằm
-trong closure V1; muốn dùng phải bổ sung evidence và review. Cột **Chữ trên ảnh** là đọc trực tiếp PNG giải
-mã ngày 2026-10-19, chỉ là bằng chứng mô tả, **không phải** bản dịch do spec này đặt. Tất cả trạng thái duyệt
-hiện là `pending`; muốn dùng phải import `images_review.csv` qua quy trình [IMAGE_REVIEW](IMAGE_REVIEW.md).
+Cột **Trạng thái dùng** là quyết định của dự án cho V1-032, lấy từ bảng asset UI của
+closure (`crates/boom-assets/src/closure.rs`) và được ghi vào mục `[[ui]]` của bundle
+(schema 3, xem [BUNDLES §3.3](../assets/BUNDLES.md)). Ba trạng thái:
 
-| Asset (pack:entry) | Kích thước | Đã chọn? | Chữ trên ảnh (bằng chứng) | VN cùng tên | Ghi chú review |
-|---|---|---:|---|---|---|
-| `FxDesktop:LoginStage/CAStage` | 800×600 JPEG | — | KR: có chữ Hàn + huy hiệu; VN: có logo/chữ bản quyền | `diff_bytes` | **Không dùng nguyên trạng**: có nhãn Nexon và bản quyền cũ; cần nền mới hoặc che chữ |
-| `FxStage:Lobby/CAStage` | 800×600 JPEG | — | Có chữ Hàn ở hai nhãn tab; VN: có chữ Việt ở hai tab | `diff_bytes` | Chữ nằm trong ảnh nền; tab nhiệm vụ ngoài scope V1, phải che/redraw |
-| `FxMap:Prepare/CAStage` | 800×600 JPEG | — | Có chữ Hàn ở các nhãn; VN: có chữ Việt ở các nhãn | `diff_bytes` | Nhãn chọn đội/auto-ready ngoài scope FFA V1; phải che/redraw |
-| `FxStage:Lobby/LB_Bt_T_Create-NM` | 92×495 | Có (`room_create`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Ảnh nút có chữ; nếu dùng phải duyệt `translated`, nếu không thì render text từ catalog |
-| `FxStage:Lobby/Dlg_LB-NMCreate` | 414×455 | Có (`room_create_dialog`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
-| `FxMap:Prepare/PRE_Bt_Ready` | 193×342 | Có (`ready`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
-| `FxMap:Prepare/PRE_Bt_Start` | 193×342 | Có (`start`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
-| `FxMap:Prepare/PRE_Bt_Roominfo` | 100×110 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Ảnh KR/VN khác nghĩa; nếu render text thì lấy catalog, không tự chọn/sửa nhãn |
-| `FxMap:Prepare/Dlg_PRE-NMRoominfo` | 414×455 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Như trên; dialog V1 có thể chỉ để xem, không đổi tên |
-| `FxStage:Lobby/LB_Bt_T_ShowAllRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt ngắn hơn | `diff_bytes` | VN ngắn hơn nên có thể mất nghĩa "xem mọi phòng"; V1 có thể không cần filter |
-| `FxStage:Lobby/LB_Bt_T_WaitRoomRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt là danh từ | `diff_bytes` | VN không phải hành động "xem phòng chờ" |
-| `FxStage:Lobby/ReadyBox` | 127×176 | — | Có chữ Hàn; VN: chữ Việt khác nghĩa | `diff_bytes` | **Sai nghĩa**: không dùng làm indicator ready; cần asset/key khác ở boom-re-l10n |
-| `FxStage:Game/Win` | 243×59 (nhiều frame) | — | Nhiều frame; KR có chữ; VN cần kiểm đủ chữ | `diff_bytes` | Ảnh động nhiều frame; duyệt cả chuỗi frame và xác nhận đủ chữ, không chỉ frame 0 |
-| `FxStage:Game/Lose` | 317×59 (nhiều frame) | — | Nhiều frame; KR có chữ; VN chưa đọc rõ | `diff_bytes` | Chuỗi frame VN không đọc ra từ rõ ràng; đánh dấu `check`, cần người duyệt xem đủ frame |
-| `FxStage:Game/Draw` | 366×59 (nhiều frame) | — | Nhiều frame; KR có chữ; VN cần kiểm dấu | `diff_bytes` | Dấu có thể nằm ở frame khác; duyệt cả frame và kiểm dấu |
-| `FxStage:Game/ResultInfoBar` | 356×288 (6 ảnh) | — | Spritesheet trộn nhãn KR/EN; VN có bản tương ứng | `diff_bytes` | Không dùng cả sheet; V1 chỉ cần cột `Hạng/Người chơi/Kết quả`; nếu dùng phải chọn frame và lấy text từ catalog |
-| `FxStage:Game/ResultInfoGood` | 98×144 | — | Chỉ mũi tên, không thấy chữ | `no` | Có thể `no_text`; vẫn cần người duyệt xác nhận |
+| Trạng thái | Nghĩa | Ảnh trong atlas | Hiển thị được |
+|---|---|---|---|
+| `selected` | Có trong closure V1 và **không có chữ** cần duyệt | có | có |
+| `needs_review_text` | Có trong closure V1 nhưng **có chữ** | có | chỉ khi ảnh được duyệt; chưa duyệt thì client vẽ text từ catalog |
+| `excluded` | Không dùng asset này | không | thay bằng text/màu theo cột "Ghi chú review" |
+
+Tên trong ngoặc là **ID phần tử UI** trong bundle (`lobby.create`, `result.win`, …), để
+client tra cùng một ID ở bảng `[[ui]]`. Trước V1-032, cột này ghi trạng thái chọn trong
+`kr_v1_content.json` (`required`/`selected_resources`): `—` nghĩa là chưa nằm trong
+closure V1. Cột **Chữ trên ảnh** là đọc trực tiếp PNG giải mã ngày 2026-10-19 (UI) và
+2026-10-20 (các ảnh đọc thêm cho V1-032; bản PNG nằm ở cache review ảnh của
+`boom-re-l10n`: `l10n/.cache/image-review/`), chỉ là bằng chứng mô tả, **không phải** bản
+dịch do spec này đặt. Số frame trong cột **Kích thước** đếm từ blob sprite I16 trong
+bundle, khớp với `frame_count` của cache review ảnh. Tất cả trạng thái duyệt hiện là
+`pending`; muốn dùng phải import `images_review.csv` qua quy trình
+[IMAGE_REVIEW](IMAGE_REVIEW.md).
+
+| Asset (pack:entry) | Kích thước | Trạng thái dùng | Chữ trên ảnh (bằng chứng) | VN cùng tên | Ghi chú review |
+|---|---|---|---|---|---|
+| `FxDesktop:LoginStage/CAStage` | 800×600 JPEG | `excluded` (`login.background`) | KR: lời thoại tiếng Hàn + huy hiệu Nexon (ô "N" góc trên); VN: logo Boom + dòng bản quyền "Copyright (C) 2001 Nexon" | `diff_bytes` | **Không dùng nguyên trạng**: nền là JPEG nên bộ giải mã bundle không đọc được, và ảnh có huy hiệu Nexon/bản quyền → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxStage:Lobby/CAStage` | 800×600 JPEG | `excluded` (`lobby.background`) | KR: hai tab "대결 모드" / "상이 모드" + nhãn "레벨"; VN: "ĐẠI CHIẾN" / "NHIỆM VỤ" | `diff_bytes` | Chữ nằm trong ảnh nền; tab chế độ ngoài scope V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxMap:Prepare/CAStage` | 800×600 JPEG | `excluded` (`room.background`) | KR: nhãn "방" (phòng), "던전" (dungeon), "게임디테일" (game detail) và nút "자동 준비" (auto-ready); VN có chữ Việt ở các nhãn | `diff_bytes` | Auto-ready ngoài scope FFA V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxStage:Lobby/LB_Bt_T_Create-NM` | 92×495 (9 frame) | `needs_review_text` (`lobby.create`) | Có chữ Hàn (방만들기); VN: có chữ Việt | `diff_bytes` | Ảnh nút có chữ; nếu dùng phải duyệt `translated`, nếu không thì render text từ catalog |
+| `FxStage:Lobby/Dlg_LB-NMCreate` | 414×455 | `needs_review_text` (`lobby.create_dialog`) | Tiêu đề "방만들기" nằm trong ảnh; VN: có chữ Việt | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
+| `FxMap:Prepare/PRE_Bt_Ready` | 193×342 (6 frame) | `needs_review_text` (`room.ready`) | Có chữ Hàn (준비); VN: có chữ Việt | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
+| `FxMap:Prepare/PRE_Bt_Start` | 193×342 (6 frame) | `needs_review_text` (`room.start`) | Có chữ Hàn (시작); VN: có chữ Việt | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
+| `FxMap:Prepare/PRE_Bt_Roominfo` | 100×110 (5 frame) | `excluded` (`room.info_label`) | KR: "방정보변경" (đổi thông tin phòng); VN: "THÔNG TIN" (thông tin) | `diff_bytes` | Ảnh KR/VN khác nghĩa; V1 vẽ nhãn từ catalog, không tự chọn/sửa nhãn |
+| `FxMap:Prepare/Dlg_PRE-NMRoominfo` | 414×455 | `needs_review_text` (`room.info_dialog`) | Tiêu đề KR "방정보변경" còn VN "THÔNG TIN" — khác nghĩa | `diff_bytes` | Như trên; nếu dùng thì lấy nhãn từ catalog, không tự chọn/sửa nhãn trong ảnh |
+| `FxStage:Lobby/LB_Bt_T_ShowAllRenew` | 99×423 (9 frame) | `excluded` (`lobby.show_all`) | KR: "모든방보기" (xem mọi phòng); VN: "TOÀN BỘ" (tất cả) | `diff_bytes` | VN ngắn hơn nên có thể mất nghĩa "xem mọi phòng"; V1 không cần filter, vẽ nút bằng text từ catalog |
+| `FxStage:Lobby/LB_Bt_T_WaitRoomRenew` | 99×423 (9 frame) | `excluded` (`lobby.wait_room`) | KR: "대기방보기" (xem phòng chờ); VN: "PHÒNG CHỜ" (danh từ) | `diff_bytes` | VN không phải hành động "xem phòng chờ"; V1 vẽ nút bằng text từ catalog |
+| `FxStage:Lobby/ReadyBox` | 127×176 | `excluded` (`room.ready_indicator`) | KR: "준비중" (đang chuẩn bị); VN: "ĐẠI CHIẾN" | `diff_bytes` | **Sai nghĩa**: không dùng làm indicator ready; V1 vẽ trạng thái ready bằng text và màu, cần asset/key khác ở boom-re-l10n |
+| `FxStage:Game/Win` | 243×59 (4 frame) | `needs_review_text` (`result.win`) | Chữ Latin "WIN!!" ghép trong ảnh; VN cần kiểm đủ chữ | `diff_bytes` | Ảnh động nhiều frame; duyệt cả chuỗi frame và xác nhận đủ chữ, không chỉ frame 0 |
+| `FxStage:Game/Lose` | 317×59 (5 frame) | `needs_review_text` (`result.lose`) | Chữ Latin "LOSE!!" ghép trong ảnh; VN chưa đọc rõ | `diff_bytes` | Chuỗi frame VN không đọc ra từ rõ ràng; đánh dấu `check`, cần người duyệt xem đủ frame |
+| `FxStage:Game/Draw` | 366×59 (5 frame) | `needs_review_text` (`result.draw`) | Chữ Latin "DRAW!!" ghép trong ảnh; VN cần kiểm dấu | `diff_bytes` | Dấu có thể nằm ở frame khác; duyệt cả frame và kiểm dấu |
+| `FxStage:Game/ResultInfoBar` | 356×288 (6 ảnh) | `excluded` (`result.info_bar`) | Spritesheet trộn nhãn KR/EN và cột EXP/LUCCI; VN có bản tương ứng | `diff_bytes` | Không dùng cả sheet: V1 không có tiền/EXP và chỉ cần cột `Hạng/Người chơi/Kết quả` → vẽ bằng text từ catalog |
+| `FxStage:Game/ResultInfoGood` | 98×144 (4 frame) | `selected` (`result.info_good`) | Chỉ icon bàn tay (ngón cái), không thấy chữ | `no` | Đã đọc trực tiếp PNG giải mã (pack KR 00967, 2026-10-20): chỉ có icon ngón cái, không thấy chữ nên không cần duyệt text |
 
 Các asset đã chọn khác trong `kr_v1_content.json` (`FxMap/Map/Village00`, preview, theme, BGM, Attr, sprite
 C00/C01, Bomb/Fire/Roller, Bomb00/BombExplosion001) không nằm trong `images_todo.csv` như ứng viên chữ,
 hoặc là sprite không chữ; không cần duyệt text. Nếu màn kết quả dùng art khác `Win/Lose/Draw`, phải bổ sung
 asset vào evidence trước khi dùng.
+
+### 3.1 Phần tử UI chưa có asset
+
+Bảng UI của closure còn ghi các phần tử mà V1 **không dùng asset nào**; chúng vẫn có
+trạng thái `excluded` kèm lý do, để client không im lặng thiếu ảnh:
+
+| ID | Màn hình | Vai trò | Vì sao không có asset |
+|---|---|---|---|
+| `login.submit` | login | button | `login.submit` ở §2.2 đã chốt lấy key catalog → V1 vẽ nút bằng text |
+| `match.background` | match | background | Nền trận là bản đồ V1: lưới ô và sprite nền đã ở closure (role `map`/`tile`) |
+| `match.hud` | match | info | HUD trận (đồng hồ, trạng thái nhốt/chết, tên item) chưa có asset; §2.5 ghi `unknown` → V1 vẽ bằng text |
+| `match.navigation` | match | button | Trong trận không có nút điều hướng; đường về phòng mở ở màn kết quả |
+| `result.background` | result | background | Chưa có asset nền riêng cho màn kết quả → V1 dùng nền màu, chữ lấy từ catalog |
+| `result.continue` | result | button | `result.continue` ở §2.6 là `unknown` → V1 vẽ nút bằng text |
 
 ## 4. Đối chiếu 23 mục REVIEW đang mở
 
@@ -322,11 +355,12 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
 |---|---|---|
 | 42 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
 | 15 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
-| 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 4 asset đã chọn |
+| 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 8 ảnh UI có chữ của V1-032 (§3) |
+| 8 ảnh UI có chữ ở trạng thái `needs_review_text` | Client phải vẽ text từ catalog thay cho ảnh | Duyệt ảnh (`translated`/`no_text`) rồi import CSV; đổi trạng thái trong bảng UI của closure |
 | Chưa có font/license trong repo | V1-035 chưa bundle được font | Chọn version, thêm license/attribution, golden glyph; ngoài phạm vi docs này |
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
-| Màn kết quả chưa có asset trong closure | V1-032 có thể dead end ở result | Bổ sung asset/art vào evidence, hoặc dùng text từ catalog + asset đã có |
-| Nền login/lobby/prepare có chữ và nhãn ngoài scope | Dùng nguyên trạng sẽ hiện Nexon/nhiệm vụ/đội | Che/redraw hoặc chọn asset khác; cần review ảnh |
+| Nền login/lobby/prepare là JPEG 800×600 có chữ và nhãn ngoài scope | V1-032 không đưa nền vào atlas: bộ giải mã bundle chỉ đọc sprite I16, và ảnh có huy hiệu Nexon/tab chế độ/auto-ready | V1 dựng nền bằng màu, chữ lấy từ catalog (đã ghi ở §3); muốn dùng ảnh nền thì cần bộ giải mã JPEG + bản ảnh đã che chữ (quyết định kiến trúc, thuộc integrator) |
+| Màn kết quả chỉ có art `Win/Lose/Draw` (đều `needs_review_text`) và icon ngón cái | V1-032 không dead end ở result: cột Hạng/Người chơi/Kết quả vẽ bằng text từ catalog | Duyệt ảnh kết quả; nếu cần art khác thì bổ sung asset vào evidence trước khi dùng |
 | Chưa có golden wrap/scale/focus | Không chứng minh được V1-035 | Tạo golden ảnh + test glyph sau khi client có renderer |
 
 Không thêm claim luật chơi mới trong tài liệu này. Các giá trị thời gian nhắc ở §2 (120 s, 10 s, 5 s, 15 s)

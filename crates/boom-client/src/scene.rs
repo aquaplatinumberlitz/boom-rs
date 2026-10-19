@@ -529,6 +529,7 @@ mod tests {
             assets: Vec::new(),
             cells,
             clips: Vec::new(),
+            ui: Vec::new(),
             unknown: Vec::new(),
         }
     }
