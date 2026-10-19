@@ -46,6 +46,16 @@ impl HealthStatus {
     pub const fn code(self) -> u8 {
         self as u8
     }
+
+    /// Tên trạng thái như trong JSON của CLI (ADR 0011 §8.2.1).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::Unhealthy => "unhealthy",
+            Self::Unreachable => "unreachable",
+            Self::Timeout => "timeout",
+        }
+    }
 }
 
 /// `HealthResponse` (S→C, kind `0x0051`, admin loopback): số liệu vận hành của tiến trình server.
@@ -100,13 +110,44 @@ impl HealthRequest {
 }
 
 impl HealthResponse {
-    /// Kiểm DTO sau khi decode: số mục `problems` trong trần của phiên.
+    /// Kiểm DTO sau khi decode: miền giá trị của `HealthResponse` trên wire.
+    ///
+    /// Ba kiểm, theo đúng nghĩa ADR 0011 §8.2.1:
+    ///
+    /// 1. `status` trên wire chỉ có `Healthy`/`Unhealthy`. `Unreachable`/`Timeout` là **kết quả
+    ///    của CLI** khi không liên lạc được server, không phải câu trả lời của server.
+    /// 2. Số mục `problems` trong trần của phiên.
+    /// 3. `Healthy` ⇒ `problems` **rỗng**: exit code `0` của `boom-server health` đòi
+    ///    `status = "healthy"` và `problems` rỗng (ADR 0011 §8.2.1). `Unhealthy` thì `problems`
+    ///    phải nêu vấn đề, nhưng `db_ok`/`integrity_check`/`schema_version` lệch cũng đủ để
+    ///    `unhealthy`, nên `problems` rỗng vẫn hợp lệ khi `Unhealthy`.
     pub fn check(&self, limits: &ProtocolLimits) -> Result<(), ProtoError> {
+        if matches!(
+            self.status,
+            HealthStatus::Unreachable | HealthStatus::Timeout
+        ) {
+            return Err(ProtoError::Invalid {
+                field: "status",
+                detail: format!(
+                    "{} là kết quả của CLI, không phải trạng thái HealthResponse trên wire",
+                    self.status.name()
+                ),
+            });
+        }
         if self.problems.len() > limits.max_problems {
             return Err(ProtoError::CountLimit {
                 field: "problems",
                 len: self.problems.len(),
                 max: limits.max_problems,
+            });
+        }
+        if self.status == HealthStatus::Healthy && !self.problems.is_empty() {
+            return Err(ProtoError::Invalid {
+                field: "problems",
+                detail: format!(
+                    "status = healthy thì problems phải rỗng, có {} mục",
+                    self.problems.len()
+                ),
             });
         }
         Ok(())
@@ -164,15 +205,74 @@ mod tests {
     }
 
     #[test]
+    fn status_names_match_adr_0011() {
+        assert_eq!(HealthStatus::Healthy.name(), "healthy");
+        assert_eq!(HealthStatus::Unhealthy.name(), "unhealthy");
+        assert_eq!(HealthStatus::Unreachable.name(), "unreachable");
+        assert_eq!(HealthStatus::Timeout.name(), "timeout");
+    }
+
+    #[test]
     fn healthy_response_has_no_problems() {
         let limits = ProtocolLimits::v1();
         assert!(response().check(&limits).is_ok());
+    }
+
+    /// `Unreachable`/`Timeout` là kết quả của CLI, không phải trạng thái trên wire.
+    #[test]
+    fn cli_only_status_is_rejected() {
+        let limits = ProtocolLimits::v1();
+        for status in [HealthStatus::Unreachable, HealthStatus::Timeout] {
+            let mut resp = response();
+            resp.status = status;
+            let err = resp.check(&limits).unwrap_err();
+            assert!(
+                matches!(
+                    err,
+                    ProtoError::Invalid {
+                        field: "status",
+                        ..
+                    }
+                ),
+                "thực tế: {err:?}"
+            );
+        }
+    }
+
+    /// `healthy` mà `problems` không rỗng thì không hợp lệ (ADR 0011 §8.2.1, exit code 0).
+    #[test]
+    fn healthy_with_problems_is_rejected() {
+        let limits = ProtocolLimits::v1();
+        let mut resp = response();
+        resp.problems = vec!["db hỏng".into()];
+        let err = resp.check(&limits).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtoError::Invalid {
+                    field: "problems",
+                    ..
+                }
+            ),
+            "thực tế: {err:?}"
+        );
+    }
+
+    /// `unhealthy` kèm `problems` là hợp lệ.
+    #[test]
+    fn unhealthy_with_problems_is_accepted() {
+        let limits = ProtocolLimits::v1();
+        let mut resp = response();
+        resp.status = HealthStatus::Unhealthy;
+        resp.problems = vec!["db hỏng".into()];
+        assert!(resp.check(&limits).is_ok());
     }
 
     #[test]
     fn problems_over_limit_is_an_error() {
         let limits = ProtocolLimits::v1();
         let mut resp = response();
+        resp.status = HealthStatus::Unhealthy;
         resp.problems = (0..limits.max_problems + 1)
             .map(|i| format!("problem {i}"))
             .collect();

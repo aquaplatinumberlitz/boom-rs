@@ -252,10 +252,60 @@ fn auth_over_limit_is_rejected() {
     assert!(decode_frame::<Auth>(&frame, &LIMITS).is_ok());
 }
 
+/// Miền giá trị của `HealthResponse` trên wire (ADR 0011 §8.2.1).
+#[test]
+fn health_response_wire_domain_is_checked() {
+    // `Healthy` mà `problems` không rỗng: không hợp lệ (exit code 0 đòi `problems` rỗng).
+    let mut resp = health_response();
+    resp.problems = vec!["db hỏng".into()];
+    let frame = encode_frame(&resp, &LIMITS).unwrap();
+    let err = decode_frame::<HealthResponse>(&frame, &LIMITS).unwrap_err();
+    assert!(
+        matches!(
+            err,
+            ProtoError::Invalid {
+                field: "problems",
+                ..
+            }
+        ),
+        "thực tế: {err:?}"
+    );
+
+    // `Unreachable`/`Timeout` là kết quả của CLI, không phải trạng thái trên wire.
+    for status in [HealthStatus::Unreachable, HealthStatus::Timeout] {
+        let mut resp = health_response();
+        resp.status = status;
+        let frame = encode_frame(&resp, &LIMITS).unwrap();
+        let err = decode_frame::<HealthResponse>(&frame, &LIMITS).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                ProtoError::Invalid {
+                    field: "status",
+                    ..
+                }
+            ),
+            "thực tế: {err:?}"
+        );
+    }
+
+    // `Healthy` + `problems` rỗng: hợp lệ.
+    let frame = encode_frame(&health_response(), &LIMITS).unwrap();
+    assert!(decode_frame::<HealthResponse>(&frame, &LIMITS).is_ok());
+
+    // `Unhealthy` + `problems` không rỗng: hợp lệ.
+    let mut resp = health_response();
+    resp.status = HealthStatus::Unhealthy;
+    resp.problems = vec!["db hỏng".into(), "integrity check fail".into()];
+    let frame = encode_frame(&resp, &LIMITS).unwrap();
+    assert!(decode_frame::<HealthResponse>(&frame, &LIMITS).is_ok());
+}
+
 /// Số mục `problems` trong trần của `ProtocolLimits`.
 #[test]
 fn health_response_problems_over_limit_is_rejected() {
     let mut over = health_response();
+    over.status = HealthStatus::Unhealthy;
     over.problems = (0..LIMITS.max_problems + 1)
         .map(|i| format!("problem {i}"))
         .collect();
@@ -274,6 +324,7 @@ fn health_response_problems_over_limit_is_rejected() {
     );
 
     let mut at_limit = health_response();
+    at_limit.status = HealthStatus::Unhealthy;
     at_limit.problems = (0..LIMITS.max_problems)
         .map(|i| format!("problem {i}"))
         .collect();
