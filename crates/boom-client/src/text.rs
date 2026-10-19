@@ -263,8 +263,8 @@ pub fn layout_l10n(l10n: &L10n, key: &str, font: &TextFont, size: f32, max_width
 /// Layout một chuỗi trong khung rộng `max_width` (px).
 ///
 /// - Chuẩn hóa `\r\n` → `\n` trước khi đo.
-/// - Xuống dòng theo ranh giới từ; khoảng trắng cuối dòng bị bỏ (không thêm vào
-///   bề rộng dòng).
+/// - Xuống dòng theo ranh giới từ; khoảng trắng cuối dòng bị bỏ (không tính vào
+///   bề rộng dòng), khoảng trắng đầu đoạn được giữ.
 /// - Từ dài hơn khung thì cắt theo **cụm chữ**, không cắt giữa cụm chữ; không rút,
 ///   không ellipsis, không viết lại nội dung.
 /// - Dòng chỉ vượt `max_width` khi một cụm chữ đơn lẻ đã dài hơn khung.
@@ -375,7 +375,9 @@ fn wrap_clusters(clusters: Vec<Cluster>, max_width: f32) -> Vec<Vec<Cluster>> {
     let mut index = 0usize;
     while index < clusters.len() {
         if clusters[index].is_space() {
-            if !current.is_empty() {
+            // Khoảng trắng ở đầu đoạn được giữ; khoảng trắng ở đầu dòng (sau khi
+            // xuống dòng) đã bị dùng làm ranh giới nên không lặp lại.
+            if !current.is_empty() || lines.is_empty() {
                 width += clusters[index].width;
                 current.push(clusters[index].clone());
             }
@@ -702,6 +704,36 @@ mod tests {
             assert!(regular.has_glyph(ch), "Regular thiếu {ch:?}");
             assert!(bold.has_glyph(ch), "Bold thiếu {ch:?}");
         }
+    }
+
+    /// Layout không được viết lại nội dung: ghép lại các dòng phải cho lại đúng
+    /// chuỗi gốc (chỉ khác ở khoảng trắng cuối dòng và `\r\n` đã chuẩn hóa).
+    #[test]
+    fn layout_keeps_the_text_content() {
+        let font = font();
+        let l10n = l10n();
+        let compact = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+        for key in l10n.keys() {
+            let Some(text) = l10n.text(key).as_str() else {
+                continue;
+            };
+            let layout = layout(text, &font, GOLDEN_SIZE, GOLDEN_WIDTH);
+            let joined = layout
+                .lines()
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert_eq!(compact(&joined), compact(text), "khóa {key}");
+        }
+    }
+
+    /// Khoảng trắng đầu đoạn được giữ; khoảng trắng cuối dòng bị bỏ.
+    #[test]
+    fn layout_keeps_leading_space_and_drops_trailing_space() {
+        let font = font();
+        let layout = layout(" a ", &font, GOLDEN_SIZE, GOLDEN_WIDTH);
+        assert_eq!(layout.lines()[0].text, " a");
     }
 
     /// Xuống dòng theo từ; không cắt giữa cụm chữ.
