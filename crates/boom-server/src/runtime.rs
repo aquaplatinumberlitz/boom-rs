@@ -17,7 +17,7 @@
 //! hoặc file cấu hình (AGENTS §3).
 
 use std::io;
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -345,6 +345,13 @@ impl ServeRuntime {
         config.content_sha256 = content.content_sha256;
         config.content_epoch = CONTENT_EPOCH;
 
+        // Logger dùng chung cho auth, admin, heartbeat và authority.
+        let logger = Arc::new(Logger::stdout(
+            config.fingerprint(),
+            instance_id.clone(),
+            config.content_epoch,
+        ));
+
         // DB identity: giữ khóa instance ⇒ chỉ một server chạy trên một file DB (ADR 0011 §4).
         let store =
             SqliteAccountStore::open(&config.db_path, SqliteOptions::default()).map_err(|err| {
@@ -352,7 +359,7 @@ impl ServeRuntime {
                     message: err.to_string(),
                 }
             })?;
-        let auth = AuthService::new(
+        let mut auth = AuthService::new(
             config.auth_config(),
             instance_id.clone(),
             Box::new(OsRandomSource),
@@ -360,6 +367,8 @@ impl ServeRuntime {
         .map_err(|err| StartupError::Database {
             message: err.to_string(),
         })?;
+        // Sự kiện `auth.*` của ADR 0011 §8.1 đi qua log của tiến trình.
+        auth.set_logger(logger.clone());
 
         // World: địa hình từ bundle + rules từ profile + mode FFA.
         let Some(mode) = mode_by_id(MODE_FFA) else {
@@ -396,12 +405,6 @@ impl ServeRuntime {
             snapshot_interval_ms: snapshot_interval_ms(&content.rules),
         };
         let epoch_base_ms = now_ms();
-        // Logger dùng chung cho admin, heartbeat và authority (lỗi ghi replay đi qua log).
-        let logger = Arc::new(Logger::stdout(
-            config.fingerprint(),
-            instance_id.clone(),
-            config.content_epoch,
-        ));
         let mut server = Server::with_auth(
             Authority::new(server_config, setup).with_logger(logger.clone()),
             handshake,
@@ -428,12 +431,6 @@ impl ServeRuntime {
             addr: listen_addr.to_string(),
             message: err.to_string(),
         })?;
-        listener
-            .set_nonblocking(true)
-            .map_err(|err| StartupError::Listen {
-                addr: listen_addr.to_string(),
-                message: err.to_string(),
-            })?;
         let local_addr = listener.local_addr().map_err(|err| StartupError::Listen {
             addr: listen_addr.to_string(),
             message: err.to_string(),
@@ -567,6 +564,9 @@ impl ServeRuntime {
     /// Việc dọn dẹp nằm trong [`Drop`] nên chạy dù vòng tick dừng vì lỗi hay vì tín hiệu.
     fn shutdown(&mut self) {
         self.stop.request();
+        // Vòng accept đang chờ trong `accept()` (listener blocking) ⇒ kết nối giả tới
+        // chính listener để mở khóa nó, rồi mới join.
+        let _ = TcpStream::connect_timeout(&self.wakeup_addr(), Duration::from_millis(500));
         if let Some(handle) = self.accept_handle.take() {
             let _ = handle.join();
         }
@@ -577,6 +577,15 @@ impl ServeRuntime {
             fields.insert("reason", serde_json::json!("health_json_write_failed"));
             fields.insert("error_message", serde_json::json!(err.to_string()));
             self.logger.warn("server.stop", fields);
+        }
+    }
+
+    /// Địa chỉ dùng để mở khóa vòng accept: loopback khi listener bind mọi interface.
+    fn wakeup_addr(&self) -> SocketAddr {
+        if self.local_addr.ip().is_unspecified() {
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), self.local_addr.port())
+        } else {
+            self.local_addr
         }
     }
 }
@@ -600,6 +609,12 @@ fn snapshot_interval_ms(rules: &Rules) -> u32 {
 }
 
 /// Vòng accept: chấp nhận kết nối trên luồng riêng, cấp `PlayerId` mới cho mỗi kết nối.
+///
+/// Listener **blocking** (không non-blocking): socket trả về bởi `accept()` kế thừa cờ
+/// non-blocking của listener trên BSD/macOS, và trên Linux một socket vừa chuyển từ
+/// non-blocking về blocking vẫn có thể trả `EAGAIN` cho lần đọc đầu ⇒ luồng đọc của
+/// session sẽ đóng kết nối ngay. Vòng accept vì vậy dừng bằng **kết nối giả** tới chính
+/// listener (xem [`ServeRuntime::shutdown`]), không bằng cờ non-blocking.
 fn spawn_accept_loop(
     listener: TcpListener,
     tx: Sender<Accepted>,
@@ -611,6 +626,11 @@ fn spawn_accept_loop(
         while !stop.is_requested() {
             match listener.accept() {
                 Ok((stream, peer)) => {
+                    if stop.is_requested() {
+                        // Kết nối giả dùng để mở khóa accept khi dừng.
+                        let _ = stream.shutdown(Shutdown::Both);
+                        break;
+                    }
                     let id = next_player.fetch_add(1, Ordering::SeqCst);
                     let slot =
                         u8::try_from(next_slot.fetch_add(1, Ordering::SeqCst) % 256).unwrap_or(0);
@@ -624,10 +644,8 @@ fn spawn_accept_loop(
                         break;
                     }
                 }
-                Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(ACCEPT_POLL_MS));
-                }
                 Err(_) => {
+                    // Lỗi accept (ví dụ hết fd) không được giết vòng accept.
                     thread::sleep(Duration::from_millis(ACCEPT_POLL_MS));
                 }
             }
@@ -651,6 +669,7 @@ mod tests {
     use super::*;
 
     use std::path::{Path, PathBuf};
+    #[cfg(unix)]
     use std::process::{Command, Stdio};
 
     use boom_content::bundle::Cell;
@@ -845,6 +864,11 @@ empty = "floor"
         account_id: i64,
     }
 
+    /// Gắn nhãn bước vào lỗi để biết client dừng ở đâu.
+    fn step<T>(name: &str, result: Result<T, String>) -> Result<T, String> {
+        result.map_err(|err| format!("{name}: {err}"))
+    }
+
     /// Luồng client đầy đủ: handshake → đăng ký → tạo/join phòng → ready → start → snapshot.
     fn drive_two_clients(
         addr: SocketAddr,
@@ -852,17 +876,23 @@ empty = "floor"
     ) -> Result<ClientOutcome, String> {
         let mut host = Client::connect(addr)?;
         let mut guest = Client::connect(addr)?;
-        for client in [&mut host, &mut guest] {
-            client.send(&Hello {
-                wire_schema: 1,
-                state_schema: 1,
-                rules_profile_id: config.rules_profile_id.clone(),
-                rules_hash: config.rules_hash,
-                content_sha256: config.content_sha256,
-                client_build: "test".to_owned(),
-                capabilities: Vec::new(),
-            })?;
-            let welcome: Welcome = client.recv_of(MessageKind::Welcome)?;
+        for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
+            step(
+                &format!("gửi Hello ({name})"),
+                client.send(&Hello {
+                    wire_schema: 1,
+                    state_schema: 1,
+                    rules_profile_id: config.rules_profile_id.clone(),
+                    rules_hash: config.rules_hash,
+                    content_sha256: config.content_sha256,
+                    client_build: "test".to_owned(),
+                    capabilities: Vec::new(),
+                }),
+            )?;
+            let welcome: Welcome = step(
+                &format!("nhận Welcome ({name})"),
+                client.recv_of(MessageKind::Welcome),
+            )?;
             if welcome.rules_hash != config.rules_hash {
                 return Err("Welcome mang rules hash khác server".to_owned());
             }
@@ -870,63 +900,111 @@ empty = "floor"
 
         let mut account_id = 0i64;
         for (index, client) in [&mut host, &mut guest].into_iter().enumerate() {
-            client.send(&Auth {
-                op: AuthOp::Register,
-                username: format!("player{index}"),
-                password: "password123".to_owned(),
-            })?;
-            let ok: AuthOk = client.recv_of(MessageKind::AuthOk)?;
+            let name = format!("đăng ký (client {index})");
+            step(
+                &format!("gửi Auth ({name})"),
+                client.send(&Auth {
+                    op: AuthOp::Register,
+                    username: format!("player{index}"),
+                    password: "password123".to_owned(),
+                }),
+            )?;
+            let ok: AuthOk = step(
+                &format!("nhận AuthOk ({name})"),
+                client.recv_of(MessageKind::AuthOk),
+            )?;
             if index == 0 {
                 account_id = i64::try_from(ok.account_id).unwrap_or_default();
             }
         }
 
-        host.send(&RoomCommandDto {
-            request: 1,
-            action: RoomActionDto::Create {
-                character: RoomCharacter::C00,
-            },
-        })?;
-        let state = recv_room_state(&mut host, 1)?;
+        step(
+            "gửi Create",
+            host.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Create {
+                    character: RoomCharacter::C00,
+                },
+            }),
+        )?;
+        let state = step("nhận RoomState (host)", recv_room_state(&mut host, 1))?;
         let room = state.room_id;
 
-        guest.send(&RoomCommandDto {
-            request: 1,
-            action: RoomActionDto::Join {
-                room,
-                character: RoomCharacter::C01,
-            },
-        })?;
-        recv_room_state(&mut guest, 2)?;
-        recv_room_state(&mut host, 2)?;
+        step(
+            "gửi Join",
+            guest.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Join {
+                    room,
+                    character: RoomCharacter::C01,
+                },
+            }),
+        )?;
+        step("nhận RoomState (guest)", recv_room_state(&mut guest, 2))?;
+        step("nhận RoomState (host)", recv_room_state(&mut host, 2))?;
 
-        for (index, client) in [&mut host, &mut guest].into_iter().enumerate() {
-            client.send(&RoomCommandDto {
-                request: 2,
-                action: RoomActionDto::SetReady { ready: true },
-            })?;
-            let _ = index;
+        for client in [&mut host, &mut guest] {
+            step(
+                "gửi SetReady",
+                client.send(&RoomCommandDto {
+                    request: 2,
+                    action: RoomActionDto::SetReady { ready: true },
+                }),
+            )?;
         }
-        recv_room_state(&mut host, 2)?;
-        recv_room_state(&mut guest, 2)?;
+        step("nhận RoomState (host)", recv_room_state(&mut host, 2))?;
+        step("nhận RoomState (guest)", recv_room_state(&mut guest, 2))?;
 
-        host.send(&RoomCommandDto {
-            request: 3,
-            action: RoomActionDto::Start,
-        })?;
-        let start: RoundStart = host.recv_of(MessageKind::RoundStart)?;
+        step(
+            "gửi Start",
+            host.send(&RoomCommandDto {
+                request: 3,
+                action: RoomActionDto::Start,
+            }),
+        )?;
+        let start: RoundStart = step("nhận RoundStart", host.recv_of(MessageKind::RoundStart))?;
         let round = start.round_id;
         if start.roster.len() != 2 {
             return Err("roster phải có 2 người".to_owned());
         }
 
         for client in [&mut host, &mut guest] {
-            client.send(&LoadingAck { round_id: round })?;
+            step(
+                "gửi LoadingAck",
+                client.send(&LoadingAck { round_id: round }),
+            )?;
         }
-        let _: Snapshot = host.recv_of(MessageKind::Snapshot)?;
-        let _: Snapshot = guest.recv_of(MessageKind::Snapshot)?;
+        let _: Snapshot = step("nhận Snapshot (host)", host.recv_of(MessageKind::Snapshot))?;
+        let _: Snapshot = step(
+            "nhận Snapshot (guest)",
+            guest.recv_of(MessageKind::Snapshot),
+        )?;
 
         Ok(ClientOutcome { account_id })
+    }
+
+    /// Socket của `accept()` phải là blocking trên mọi OS.
+    ///
+    /// BSD/macOS: socket trả về **kế thừa** cờ non-blocking của listener (khác Linux) ⇒
+    /// luồng đọc của session thấy `WouldBlock` và đóng kết nối ngay. Vòng accept của
+    /// server dùng listener **blocking** và dừng bằng kết nối giả, nên socket luôn
+    /// blocking; test này giữ hành vi đó.
+    #[test]
+    fn accepted_socket_is_blocking_after_accept() {
+        use std::io::{Read, Write};
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        let sender = thread::spawn(move || {
+            let mut client = TcpStream::connect(addr).expect("connect");
+            thread::sleep(Duration::from_millis(100));
+            client.write_all(b"x").expect("ghi");
+        });
+        let (mut stream, _) = listener.accept().expect("accept");
+        // Đọc phải **chờ** dữ liệu (socket blocking) chứ không trả `WouldBlock` ngay.
+        let mut buf = [0u8; 1];
+        let read = stream.read(&mut buf).expect("đọc phải chờ dữ liệu");
+        assert_eq!(read, 1, "phải đọc được byte client gửi");
+        sender.join().expect("luồng client");
     }
 
     #[test]
@@ -1069,6 +1147,7 @@ empty = "floor"
     }
 
     /// Đường dẫn binary `boom-server` (test chạy trong `target/<profile>/deps`).
+    #[cfg(unix)]
     fn server_binary() -> Option<PathBuf> {
         if let Ok(path) = std::env::var("CARGO_BIN_EXE_boom-server") {
             return Some(PathBuf::from(path));
@@ -1085,6 +1164,7 @@ empty = "floor"
     }
 
     /// Chờ `health.json` có địa chỉ game thật (cổng 0 ⇒ cổng thật sau khi bind).
+    #[cfg(unix)]
     fn wait_for_listen_addr(artifact: &Path) -> SocketAddr {
         for _ in 0..300 {
             if let Ok(text) = std::fs::read_to_string(artifact)
