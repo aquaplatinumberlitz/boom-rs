@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -9,7 +10,8 @@ use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
 use crate::{
-    Authority, CharacterStatsTable, InputError, MatchOutcome, MatchSetup, ServerConfig, ServerPhase,
+    Authority, CharacterStatsTable, InputError, MatchOutcome, MatchSetup, ReplaySetup,
+    ServerConfig, ServerPhase,
 };
 
 const RULES: &str = include_str!("../../../fixtures/rules/skeleton-test.toml");
@@ -37,11 +39,54 @@ fn setup() -> MatchSetup {
             c00: stats(),
             c01: stats(),
         },
+        replay: None,
     }
 }
 
 fn authority() -> Authority {
     Authority::new(ServerConfig::v1(), setup())
+}
+
+fn setup_for_replay() -> MatchSetup {
+    let mut setup = setup();
+    setup.replay = Some(ReplaySetup {
+        rules_path: std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/rules/skeleton-test.toml"),
+        profile_id: "skeleton-test".to_owned(),
+        checkpoints: vec![1, 16, 32, 64, 128, 256],
+    });
+    setup
+}
+
+fn replay_config(dir: &std::path::Path) -> ServerConfig {
+    let mut config = ServerConfig::v1();
+    config.replay_dir = Some(dir.to_path_buf());
+    config
+}
+
+fn verify_replay_output(path: &std::path::Path) -> std::process::Output {
+    let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| workspace.join("target"));
+    let _ = target;
+    // Luôn qua cargo để binary replay được rebuild theo schema hiện tại; không dùng binary cũ.
+    Command::new("cargo")
+        .current_dir(&workspace)
+        .args(["run", "-q", "-p", "boom-replay", "--", "verify"])
+        .arg(path)
+        .output()
+        .expect("chạy boom-replay")
+}
+
+fn verify_replay_with_cli(path: &std::path::Path) {
+    let output = verify_replay_output(path);
+    assert!(
+        output.status.success(),
+        "boom-replay verify thất bại: {}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 struct Requests {
@@ -1547,4 +1592,138 @@ fn tcp_reject_reaches_client_before_eof() {
             "sau Reject là EOF"
         );
     }
+}
+
+#[test]
+fn server_writes_round_replay_that_boom_replay_verifies() {
+    for players in [
+        vec![PlayerId(1), PlayerId(2)],
+        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+        let round = create_start(&mut a, &players, 0);
+        let tick = a.tick().unwrap();
+        // Input deterministic theo seed, gửi trùng, rồi một batch ngoài cửa sổ.
+        let mut rng = 0xC0FFEE_u64 ^ players.len() as u64;
+        let dirs = [Dir::Up, Dir::Right, Dir::Down, Dir::Left];
+        for &player in &players {
+            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let dir = dirs[usize::try_from(rng >> 32).unwrap_or(0) % dirs.len()];
+            let bomb = rng & 1 == 0;
+            let batch = input_batch(&a, player, 1, tick, dir, bomb);
+            a.submit_input(player, &batch, 0).unwrap();
+            a.submit_input(player, &batch, 0).unwrap();
+            let mut window =
+                input_batch(&a, player, 2, tick.saturating_add(10_000), Dir::Left, false);
+            window.commands[0].target_tick = tick.saturating_add(10_000);
+            assert!(a.submit_input(player, &window, 0).is_err());
+        }
+        a.advance_to(200_000).unwrap();
+        assert_eq!(a.phase(), ServerPhase::Results);
+        let replay_path = dir.path().join(format!("round-{}.toml", round.0));
+        assert!(
+            replay_path.exists(),
+            "thiếu replay {}",
+            replay_path.display()
+        );
+        assert!(replay_path.with_extension("golden").exists());
+        verify_replay_with_cli(&replay_path);
+        // Sửa input (giữ envelope TOML) phải làm verify fail.
+        let mut mutated = std::fs::read_to_string(&replay_path).unwrap();
+        let prefix = "dir = \"";
+        let start = mutated.find(prefix).expect("replay phải có input dir") + prefix.len();
+        let end = start + mutated[start..].find('"').expect("dir kết thúc");
+        let replacement = if &mutated[start..end] == "left" {
+            "right"
+        } else {
+            "left"
+        };
+        mutated.replace_range(start..end, replacement);
+        assert!(mutated.contains(&format!("dir = \"{replacement}\"")));
+        let bad_path = dir.path().join("tampered.toml");
+        std::fs::write(&bad_path, mutated).unwrap();
+        std::fs::copy(
+            replay_path.with_extension("golden"),
+            bad_path.with_extension("golden"),
+        )
+        .unwrap();
+        assert!(!verify_replay_output(&bad_path).status.success());
+    }
+}
+
+#[test]
+fn replay_is_not_written_when_dir_is_disabled() {
+    let mut a = Authority::new(ServerConfig::v1(), setup_for_replay());
+    let players = [PlayerId(1), PlayerId(2)];
+    let _ = create_start(&mut a, &players, 0);
+    a.advance_to(200_000).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Results);
+}
+
+#[test]
+fn replay_publish_never_overwrites_existing_round_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let old_replay = dir.path().join("round-1.toml");
+    let old_golden = dir.path().join("round-1.golden");
+    std::fs::write(&old_replay, b"old replay").unwrap();
+    std::fs::write(&old_golden, b"old golden").unwrap();
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+    create_start(&mut a, &players, 0);
+    a.advance_to(200_000).unwrap();
+    assert_eq!(std::fs::read(&old_replay).unwrap(), b"old replay");
+    assert_eq!(std::fs::read(&old_golden).unwrap(), b"old golden");
+    let new_replays: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(|entry| {
+            let path = entry.unwrap().path();
+            let name = path.file_name()?.to_string_lossy().into_owned();
+            (name.starts_with("round-1-") && name.ends_with(".toml")).then_some(path)
+        })
+        .collect();
+    assert_eq!(new_replays.len(), 1);
+    verify_replay_with_cli(&new_replays[0]);
+}
+
+#[test]
+fn replay_verifies_disconnect_timeout_one_and_all_players() {
+    for players in [
+        vec![PlayerId(1), PlayerId(2)],
+        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
+    ] {
+        for all in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut a = Authority::new(replay_config(dir.path()), setup_for_replay());
+            let round = create_start(&mut a, &players, 0);
+            let disconnected: &[PlayerId] = if all { &players } else { &players[1..] };
+            for &player in disconnected {
+                a.disconnect(player, 0).unwrap();
+            }
+            a.advance_to(9_000).unwrap();
+            a.advance_to(10_001).unwrap();
+            let replay_path = dir.path().join(format!("round-{}.toml", round.0));
+            assert!(
+                replay_path.exists(),
+                "phải publish replay disconnect ({all}): {}",
+                replay_path.display()
+            );
+            verify_replay_with_cli(&replay_path);
+        }
+    }
+}
+
+#[test]
+fn replay_write_error_does_not_break_round_or_touch_existing_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let not_a_dir = dir.path().join("replay-dir-is-file");
+    std::fs::write(&not_a_dir, b"sentinel").unwrap();
+    let players = [PlayerId(1), PlayerId(2)];
+    let mut config = replay_config(&not_a_dir);
+    config.replay_dir = Some(not_a_dir.clone());
+    let mut a = Authority::new(config, setup_for_replay());
+    create_start(&mut a, &players, 0);
+    a.advance_to(200_000).unwrap();
+    assert_eq!(a.phase(), ServerPhase::Results);
+    assert_eq!(std::fs::read(&not_a_dir).unwrap(), b"sentinel");
 }
