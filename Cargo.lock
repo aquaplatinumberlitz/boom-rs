@@ -151,6 +151,7 @@ dependencies = [
  "boom-content",
  "boom-core",
  "boom-proto",
+ "boom-room",
  "boom-scenario",
 ]
 
