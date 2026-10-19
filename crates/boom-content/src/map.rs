@@ -7,6 +7,10 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use serde::Deserialize;
+
+use crate::rules::{Source, Status};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CellIds {
     /// `None` khi file ghi `-1`.
@@ -46,6 +50,188 @@ impl CellClassifier {
             None => self.empty.unwrap_or(CellKind::Unknown),
             Some(id) => self.objects.get(&id).copied().unwrap_or(CellKind::Unknown),
         }
+    }
+}
+
+/// Loại ô được phép ghi trong bảng phân loại. Khác [`CellKind`] ở chỗ không có `Unknown`:
+/// dữ liệu phải khai báo dứt khoát, ID lạ bị từ chối thay vì âm thầm thành `Unknown`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CellRule {
+    Floor,
+    Solid,
+    Breakable,
+}
+
+impl CellRule {
+    pub fn kind(self) -> CellKind {
+        match self {
+            Self::Floor => CellKind::Floor,
+            Self::Solid => CellKind::Solid,
+            Self::Breakable => CellKind::Breakable,
+        }
+    }
+}
+
+/// Một obj trong bảng phân loại: tên lấy từ ObjectTable và lớp quyết định loại ô.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MapObjectRule {
+    pub name: String,
+    pub class: String,
+}
+
+/// Bảng phân loại ô cho một map/theme theo build, có nguồn/trạng thái như rules profile.
+///
+/// Định dạng TOML (schema 1): `map`, `build` (`kr`/`vn`), `width`, `height`, `source`, `status`,
+/// `empty`, `[classes]` (tên lớp → [`CellRule`]), `[tiles]` (ID nền đã biết) và `[objects.<id>]`.
+/// Obj ID là chỉ số entry trong `fx/ObjectTable/ObjectTable` của build tương ứng.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MapProfile {
+    pub schema: u32,
+    pub profile_id: String,
+    pub map: String,
+    pub build: String,
+    pub width: u16,
+    pub height: u16,
+    pub source: Source,
+    pub status: Status,
+    pub empty: CellRule,
+    pub classes: BTreeMap<String, CellRule>,
+    #[serde(default)]
+    pub tiles: BTreeMap<u32, String>,
+    pub objects: BTreeMap<u32, MapObjectRule>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum MapProfileError {
+    Parse(String),
+    Schema(u32),
+    Build(String),
+    Status(Status),
+    Dimensions(u16, u16),
+    Size {
+        profile: String,
+        width: u16,
+        height: u16,
+    },
+    MissingClass {
+        id: u32,
+        class: String,
+    },
+    UnknownTile(u32),
+    UnknownObject(u32),
+    Terrain(TerrainError),
+}
+
+impl fmt::Display for MapProfileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Parse(e) => write!(f, "TOML bảng phân loại sai: {e}"),
+            Self::Schema(v) => write!(f, "schema bảng phân loại {v} không hỗ trợ"),
+            Self::Build(v) => write!(f, "build {v:?} không hợp lệ (kr/vn)"),
+            Self::Status(s) => write!(f, "trạng thái {s:?} không dùng cho bảng phân loại"),
+            Self::Dimensions(w, h) => write!(f, "kích thước {w}x{h} không hợp lệ"),
+            Self::Size {
+                profile,
+                width,
+                height,
+            } => write!(
+                f,
+                "bảng {profile} là {width}x{height} nhưng lưới không khớp"
+            ),
+            Self::MissingClass { id, class } => {
+                write!(
+                    f,
+                    "obj {id} trỏ lớp {class:?} chưa khai báo trong [classes]"
+                )
+            }
+            Self::UnknownTile(id) => write!(f, "tile {id} chưa có trong bảng [tiles]"),
+            Self::UnknownObject(id) => write!(f, "obj {id} chưa có trong bảng [objects]"),
+            Self::Terrain(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for MapProfileError {}
+
+impl From<TerrainError> for MapProfileError {
+    fn from(e: TerrainError) -> Self {
+        Self::Terrain(e)
+    }
+}
+
+impl MapProfile {
+    /// Schema TOML hiện hành của bảng phân loại ô.
+    pub const SCHEMA: u32 = 1;
+
+    pub fn from_toml(text: &str) -> Result<Self, MapProfileError> {
+        let profile: Self =
+            toml::from_str(text).map_err(|e| MapProfileError::Parse(e.to_string()))?;
+        if profile.schema != Self::SCHEMA {
+            return Err(MapProfileError::Schema(profile.schema));
+        }
+        if !matches!(profile.build.as_str(), "kr" | "vn") {
+            return Err(MapProfileError::Build(profile.build));
+        }
+        if profile.status == Status::Unknown {
+            return Err(MapProfileError::Status(profile.status));
+        }
+        if profile.width == 0 || profile.height == 0 {
+            return Err(MapProfileError::Dimensions(profile.width, profile.height));
+        }
+        for (&id, object) in &profile.objects {
+            if !profile.classes.contains_key(&object.class) {
+                return Err(MapProfileError::MissingClass {
+                    id,
+                    class: object.class.clone(),
+                });
+            }
+        }
+        Ok(profile)
+    }
+
+    pub fn classifier(&self) -> Result<CellClassifier, MapProfileError> {
+        let mut objects = BTreeMap::new();
+        for (&id, object) in &self.objects {
+            let rule =
+                self.classes
+                    .get(&object.class)
+                    .ok_or_else(|| MapProfileError::MissingClass {
+                        id,
+                        class: object.class.clone(),
+                    })?;
+            objects.insert(id, rule.kind());
+        }
+        Ok(CellClassifier {
+            empty: Some(self.empty.kind()),
+            objects,
+        })
+    }
+
+    /// Phân loại lưới; từ chối kích thước khác profile, tile/obj ID lạ trước khi gọi core.
+    pub fn classify(&self, grid: &MapGrid) -> Result<Terrain, MapProfileError> {
+        if (grid.width, grid.height) != (self.width, self.height) {
+            return Err(MapProfileError::Size {
+                profile: self.profile_id.clone(),
+                width: self.width,
+                height: self.height,
+            });
+        }
+        for cell in &grid.cells {
+            if let Some(tile) = cell.tile
+                && !self.tiles.contains_key(&tile)
+            {
+                return Err(MapProfileError::UnknownTile(tile));
+            }
+            if let Some(obj) = cell.obj
+                && !self.objects.contains_key(&obj)
+            {
+                return Err(MapProfileError::UnknownObject(obj));
+            }
+        }
+        Ok(grid.classify(&self.classifier()?)?)
     }
 }
 
@@ -184,6 +370,45 @@ mod tests {
         assert_eq!(
             Terrain::from_ascii(&["0.2"]),
             Err(TerrainError::MissingSpawn(1))
+        );
+    }
+
+    #[test]
+    fn village00_profile_parses_and_classifies_keys() {
+        let profile =
+            MapProfile::from_toml(include_str!("../../../data/maps/village00-kr.toml")).unwrap();
+        assert_eq!(profile.map, "Village00");
+        assert_eq!(profile.status, Status::Confirmed);
+        let classifier = profile.classifier().unwrap();
+        let cell = |obj| CellIds {
+            tile: Some(1943),
+            obj,
+        };
+        assert_eq!(classifier.classify(cell(None)), CellKind::Floor);
+        assert_eq!(classifier.classify(cell(Some(1958))), CellKind::Solid);
+        assert_eq!(classifier.classify(cell(Some(1933))), CellKind::Breakable);
+    }
+
+    #[test]
+    fn map_profile_rejects_unknown_ids_instead_of_guessing() {
+        let profile =
+            MapProfile::from_toml(include_str!("../../../data/maps/village00-kr.toml")).unwrap();
+        let mut grid = MapGrid {
+            width: 15,
+            height: 13,
+            cells: vec![
+                CellIds {
+                    tile: Some(1943),
+                    obj: None,
+                };
+                15 * 13
+            ],
+            spawns: vec![(0, 0)],
+        };
+        grid.cells[0].obj = Some(999_999);
+        assert_eq!(
+            profile.classify(&grid),
+            Err(MapProfileError::UnknownObject(999_999))
         );
     }
 

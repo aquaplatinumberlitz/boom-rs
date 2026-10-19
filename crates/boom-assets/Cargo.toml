@@ -9,5 +9,9 @@ publish.workspace = true
 [dependencies]
 boom-content.workspace = true
 
+# Chỉ dùng cho test nghiệm thu dựng `World` từ Village00 (V1-030); không phải dependency runtime.
+[dev-dependencies]
+boom-core.workspace = true
+
 [lints]
 workspace = true
