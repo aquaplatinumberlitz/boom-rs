@@ -13,6 +13,7 @@
 //! vẫn hoạt động và được ghi đè lên trên (đổi sau, thắng trước).
 
 mod anim;
+mod audio;
 mod input;
 mod options;
 mod render;
@@ -261,6 +262,10 @@ struct Game {
     previous_positions: BTreeMap<u8, (i32, i32)>,
     /// Kịch bản demo offline (`--demo`); `None` = người chơi điều khiển.
     demo: Option<Demo>,
+    /// Quyết định cue âm thanh thuần (test được); phần phát nằm ở `audio::MacroquadAudio`.
+    audio_state: audio::AudioState,
+    /// Cue tích luỹ giữa các tick trong một frame; `take` sau khi phát.
+    audio_plan: audio::AudioPlan,
 }
 
 impl Game {
@@ -367,6 +372,8 @@ impl Game {
             explosions: anim::ExplosionJournal::default(),
             previous_positions,
             demo: None,
+            audio_state: audio::AudioState::new(0),
+            audio_plan: audio::AudioPlan::default(),
         })
     }
 
@@ -411,6 +418,12 @@ impl Game {
             &self.frame_clock,
             self.explosion_frame_count(),
         );
+        // Âm thanh: cue đọc từ event của tick vừa chạy (PR #104).
+        if let Some(bundle) = &self.bundle {
+            let plan = self.audio_state.plan(bundle, 0, &self.events);
+            self.audio_plan.cues.extend(plan.cues);
+            self.audio_plan.start_bgm |= plan.start_bgm;
+        }
         // Event đã đọc xong: xóa để không phình bộ nhớ trong chế độ offline.
         self.events.clear();
         Ok(())
@@ -450,6 +463,11 @@ impl Game {
 
     fn tile_px(&self) -> f32 {
         self.world.rules().tile.0 as f32 / 1000.0
+    }
+
+    /// Lấy cue tích luỹ để phần phát xử lý; gọi sau mỗi frame.
+    fn take_audio_plan(&mut self) -> audio::AudioPlan {
+        std::mem::take(&mut self.audio_plan)
     }
 }
 
@@ -579,6 +597,13 @@ async fn run(mut game: Game, opts: Options) {
         _ => None,
     };
 
+    let mut audio = match (game.bundle_dir.as_deref(), game.bundle.as_ref()) {
+        (Some(dir), Some(bundle)) if !bundle.audio.is_empty() => {
+            Some(audio::MacroquadAudio::load(dir, bundle).await)
+        }
+        _ => None,
+    };
+
     if let Some(path) = &opts.snapshot {
         if opts.demo {
             // Chế độ demo: chạy tới khi scene đủ nhân vật + bom + lửa (hoặc hết lượt).
@@ -653,6 +678,10 @@ async fn run(mut game: Game, opts: Options) {
             }
         }
 
+        if let Some(audio) = &mut audio {
+            let plan = game.take_audio_plan();
+            audio.apply(&plan, &game.options);
+        }
         draw_scene(&game, atlas.as_ref(), &target, &copy_material, scale);
         frame += 1;
 

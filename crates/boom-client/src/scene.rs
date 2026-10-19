@@ -882,6 +882,7 @@ mod tests {
             cells,
             clips: Vec::new(),
             ui: Vec::new(),
+            audio: Vec::new(),
             unknown: Vec::new(),
         }
     }
