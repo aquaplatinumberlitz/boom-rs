@@ -5,8 +5,9 @@ Chỉ tạo ADR cho quyết định có tác động lâu dài; không biến m�
 
 | ID | Chủ đề | Trạng thái |
 |---|---|---|
+| [0011](0011-identity-persistence-log-v1.md) | Identity, persistence, log và health V1 (SQLite, Argon2id, session gắn kết nối) | Accepted (mặc định có thể đảo) — review #57 (Codex) |
 | [0010](0010-client-stack-choice.md) | Client stack: macroquad (có điều kiện), winit+softbuffer làm tham chiếu | Accepted có điều kiện — review #37 (Codex + Claude) |
-| [0009](0009-wire-protocol-input-snapshot-codec.md) | Giao thức InputCommand/Snapshot và codec | Accepted — review #24 (Codex) |
+| [0009](0009-wire-protocol-input-snapshot-codec.md) | Giao thức InputCommand/Snapshot và codec; Addendum A: auth/health | Accepted — review #24 (Codex); Addendum A chờ review |
 | [0008](0008-extensibility-model.md) | Mô hình mở rộng: Mode/System/Event, overlay luật, dữ liệu item/liveops | Accepted — yêu cầu người dùng 2026-10-19 |
 | [0007](0007-client-stack-spike.md) | Client stack chọn bằng spike một scene V1 | Superseded bởi 0010 |
 | [0006](0006-transport-default.md) | Transport mặc định: TCP sau trait, input dư thừa | Accepted — mặc định có thể đảo |
@@ -16,7 +17,7 @@ Chỉ tạo ADR cho quyết định có tác động lâu dài; không biến m�
 | [0002](0002-vn-kr-trusted-sources.md) | VN/KR là nguồn tin cậy ngang nhau | Accepted — chỉ đạo người dùng 2026-10-19 |
 | [0001](0001-project-baseline.md) | Target, scope V1, pha và nguồn chuẩn docs | Accepted, superseded một phần bởi 0002–0004 |
 
-Quyết định còn mở (persistence, định dạng bundle) nằm ở ARCHITECTURE §8.
+Quyết định còn mở (định dạng bundle, TLS) nằm ở ARCHITECTURE §8.
 "Mặc định có thể đảo" nghĩa là team làm theo ngay; điều kiện đảo ghi trong ADR, đảo bằng ADR mới.
 
 Khi cần ADR mới: ID, status, bối cảnh, quyết định, phương án, hệ quả, bằng chứng/giới hạn,
