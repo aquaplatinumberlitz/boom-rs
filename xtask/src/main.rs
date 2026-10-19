@@ -1,6 +1,7 @@
 //! Tác vụ repo, chạy bằng `cargo xtask <lệnh>`:
 //!
-//! - `ci`: cổng bàn giao (AGENTS §7) — fmt, clippy `-D warnings`, test, replay golden, docs/catalog.
+//! - `ci`: cổng bàn giao (AGENTS §7) — fmt, clippy `-D warnings`, test, replay golden, docs/catalog,
+//!   test Python của tool theo dõi tiến độ.
 //! - `bless`: ghi lại mọi golden replay sau khi đổi hành vi core có chủ đích.
 //! - `setup`: bật hook pre-push của repo (`.githooks/`), chạy `ci` trước mỗi lần push.
 
@@ -92,6 +93,10 @@ fn ci() -> bool {
         && run(
             "kr_catalog --check",
             python().args(["tools/kr_catalog.py", "--check"]),
+        )
+        && run(
+            "test_kr_tracking",
+            python().args(["tools/test_kr_tracking.py"]),
         )
 }
 

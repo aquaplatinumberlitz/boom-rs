@@ -94,7 +94,7 @@ input đã chấp nhận ─▶ Mode.systems() theo thứ tự ─▶ Simulation
   (`crates/boom-core/clippy.toml`), không IO/socket/wall clock/render/audio.
 - Mọi giá trị luật lấy từ rules profile; code core không chứa hằng số luật chơi.
 - `cargo xtask ci` = fmt check + clippy `-D warnings` + test (gồm mọi scenario) + kiểm replay golden + docs check.
-- Mọi thay đổi vào `main` qua pull request; CI ba OS phải xanh (TEAM_WORKFLOW §5).
+- Mọi thay đổi vào `main` qua pull request theo AGENTS §5 (CI ba OS xanh; reviewer độc lập trừ PR sổ tiến độ).
 
 ## 4. Rules profile, content và mô hình thời gian
 
@@ -119,7 +119,7 @@ một lần khi nạp (ADR 0004). Hiệu chuẩn tick gốc và speed-level còn
 
 ## 5. Contracts — `contracts-r3`
 
-Revision **`contracts-r3`**, 2026-10-19, chờ review lại ở issue #2. Code là nguồn chuẩn của kiểu dữ liệu;
+Revision **`contracts-r3`**, 2026-10-19, **đã review** (issue #2 approve). Code là nguồn chuẩn của kiểu dữ liệu;
 mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới và báo các task bị ảnh hưởng.
 
 | Revision | Thay đổi | Lý do |

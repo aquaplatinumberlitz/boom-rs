@@ -28,7 +28,7 @@
       ],
       "verification": "Đã nghiệm thu ở boom-re-l10n@0bdb02c (reviewer /root/architecture_docs). Sau chuyển repo sang boom-rs và viết lại AGENTS (2026-10-19) cần review lại; docs_check + kr_catalog --check đạt trong boom-rs.",
       "blocker": "",
-      "next_action": "Review độc lập ở issue #1; đạt thì đặt done với integration commit của boom-rs."
+      "next_action": "Review #1 trả 2 điểm (policy PR, test tracking); sửa ở PR fix/review-1, chờ review lại rồi đặt done."
     },
     {
       "id": "P1",
@@ -70,7 +70,7 @@
       ],
       "verification": "",
       "blocker": "",
-      "next_action": "Review lại contracts-r3 ở issue #2 (r1 trả 3 lỗi P2, r2 trả 1 lỗi P2, đã sửa); NET-DESIGN #14 sau khi #2 approve; spike client #12; hạn 2026-11-02."
+      "next_action": "contracts-r3 đã approve (#2). Còn: ADR giao thức #14, spike client #12; hạn 2026-11-02."
     },
     {
       "id": "P3",
