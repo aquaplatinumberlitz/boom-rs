@@ -14,12 +14,30 @@ Pha, hạn và việc tiếp theo ở [REWRITE_PLAN](REWRITE_PLAN.md) — không
 | Core/net/server | luật trận, command/state, authority | mô phỏng, server và protocol mới |
 | Reviewer/QA | kiểm nguồn và implementation độc lập | báo cáo tái lập, replay/diff, lỗi còn mở |
 
-**Integrator hiện tại:** Claude (agent Claude Code trong phiên của chủ dự án), chủ dự án chỉ định 2026-10-19;
-thao tác GitHub dưới tài khoản `aquaplatinumberlitz`. Integrator không tự review code mình viết: thay đổi
-contract do integrator làm vẫn cần reviewer khác.
+### Đội hiện tại (chủ dự án chỉ định 2026-10-19)
 
-Một người có thể kiêm nhiều vai trò. Với tối đa ba worker, lead chia ba luồng độc lập (xem bảng luồng
-theo pha trong REWRITE_PLAN). Thêm agent không làm nhanh phần đang chờ cùng một spec/interface;
+| Ai | Vai trò | Quyền và trách nhiệm |
+|---|---|---|
+| Claude (Claude Code) | Integrator chính | Điều phối + review luồng core (#3–#8); **người ghi duy nhất** sổ tiến độ (`features.json`, `execution.json`); giữ contract core, AGENTS, `.github/`; merge, push, commit trên repo |
+| Codex | Co-integrator | Điều phối + review các luồng còn lại (#9–#15); merge PR đã review của luồng mình; review mọi PR do Claude viết |
+| OpenCode | Worker, 2–4 agent | Mặc định nhận luồng core; mỗi agent đặt tên `opencode-N` |
+| dsh | Worker, 2–4 agent | Mặc định nhận assets/RE/research/backend/net/l10n; mỗi agent đặt tên `dsh-N` |
+
+Quy tắc review và merge:
+
+- PR của worker: integrator điều phối luồng đó review và merge.
+- PR do một integrator viết: integrator còn lại review. PR đổi contract core (`state/`, `event.rs`, `rules.rs`,
+  `mode.rs`, `sim.rs`) hoặc AGENTS: cả hai đồng ý (tác giả + người review).
+- **Approval:** mọi agent dùng chung tài khoản GitHub `aquaplatinumberlitz`, nên GitHub không cho bấm Approve.
+  Approval là comment review trên PR, của người không phải tác giả, ghi head SHA đã review và dòng kết luận
+  `APPROVE` (hoặc `CHANGES REQUESTED` kèm finding). Merge chỉ khi có comment đó ứng với head hiện tại và CI xanh.
+- Sau merge, người merge báo Claude (comment trên issue) để cập nhật sổ tiến độ; Claude mở PR sổ tiến độ.
+- Worker không merge, không push `main`, không sửa sổ tiến độ.
+- Một issue = một agent = một worktree = một PR. Agent comment `nhận (opencode-2)` trên issue trước khi làm.
+- Task đo trên client VN dùng Wine/Xvfb dùng chung máy: tại một thời điểm chỉ một agent chạy (ghi trong issue).
+
+Một người có thể kiêm nhiều vai trò. Số agent chạy cùng lúc bị giới hạn bởi năng lực review của hai integrator
+(xem bảng luồng theo pha trong REWRITE_PLAN). Thêm agent không làm nhanh phần đang chờ cùng một spec/interface;
 không cho hai agent viết hai phiên bản core/server song song.
 
 ## 2. Một đường đi chung cho mọi tính năng
@@ -128,7 +146,7 @@ thời điểm hết hạn và các trường hợp biên.
 
 ## 7. Theo dõi tiến độ
 
-Integrator là người ghi duy nhất của `features.json` và `execution.json`: ghi ID/assignee/revision khi
+Integrator chính (Claude) là người ghi duy nhất của `features.json` và `execution.json`: ghi ID/assignee/revision khi
 nhận task, nhập proof/review khi worker bàn giao (PR đã merge, commit tích hợp, lệnh kiểm), rồi chạy
 `python3 tools/kr_catalog.py` và `--check`. `tracking.next_action` của feature trỏ số issue đang giữ việc.
 

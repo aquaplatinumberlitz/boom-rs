@@ -66,11 +66,14 @@ là một bằng chứng; không tìm thấy phải ghi phạm vi đã tìm, kh�
 
 - Task là GitHub issue (nhãn `task`) có ID, mục tiêu, baseline, owner, reviewer, file được sửa, dependency,
   đầu ra, cách nghiệm thu (quy trình ở [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md) §5–6).
-- Một file chỉ có một owner tại một thời điểm. Integrator giữ: `AGENTS.md`, `docs/README.md`,
-  `features.json`, `execution.json`, index ADR, `Cargo.toml` gốc, `rust-toolchain.toml`, các `clippy.toml`.
+- Đội và quyền: [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md) §1 — integrator chính Claude, co-integrator Codex,
+  worker OpenCode và dsh. Một file chỉ có một owner tại một thời điểm. Integrator giữ: `AGENTS.md`,
+  `docs/README.md`, `features.json`, `execution.json` (chỉ integrator chính ghi), index ADR, `Cargo.toml` gốc,
+  `rust-toolchain.toml`, các `clippy.toml`.
 - Mọi thay đổi vào `main` qua pull request, **kể cả của integrator**; không push thẳng `main`
   (hook pre-push chặn; bật bằng `cargo xtask setup`). Merge khi CI ba OS xanh và:
-  - code, contract, rules/claim, ADR, AGENTS hoặc quy trình: reviewer khác người làm đã approve;
+  - code, contract, rules/claim, ADR, AGENTS hoặc quy trình: reviewer khác người làm đã approve
+    (comment `APPROVE` kèm head SHA, vì mọi agent dùng chung tài khoản GitHub — TEAM_WORKFLOW §1);
   - chỉ sổ tiến độ (`features.json` tracking, `execution.json`, file generated) hoặc sửa link/chính tả
     không đổi nghĩa: integrator tự merge được, ghi lý do trong PR.
   Không khóa nhánh trên GitHub (quyết định chủ dự án 2026-10-19); quy tắc này + hook thay thế.
