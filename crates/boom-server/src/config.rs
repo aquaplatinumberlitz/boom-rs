@@ -132,3 +132,205 @@ pub struct HandshakeConfig {
     /// Chu kỳ gửi snapshot, ms (ADR 0009 design).
     pub snapshot_interval_ms: u32,
 }
+
+/// Cấu hình vận hành T1 (ADR 0011 §8.2/§10), tách khỏi [`ServerConfig`] của authority.
+///
+/// Đây là cấu hình tiến trình: địa chỉ admin loopback, thư mục artifact, chu kỳ heartbeat và
+/// timeout CLI health. Không chứa luật chơi; các giá trị mặc định là DESIGN của V1.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OperationalConfig {
+    /// Địa chỉ admin listener; bắt buộc loopback (ADR 0011 §8.2.1).
+    pub admin_addr: std::net::SocketAddr,
+    /// Thư mục chứa `health.json` và DB.
+    pub data_dir: std::path::PathBuf,
+    /// Đường dẫn file SQLite identity; `data_dir/boom-server.sqlite3` mặc định.
+    pub db_path: std::path::PathBuf,
+    /// Schema version T1/identity mong đợi (ADR 0011 §4).
+    pub expected_db_schema_version: u32,
+    /// Các địa chỉ game server bind; dùng trong `HealthResponse.listen_addrs`.
+    pub listen_addrs: Vec<std::net::SocketAddr>,
+    /// Build id hiển thị trong log/health fingerprint.
+    pub server_version: String,
+    /// Chu kỳ heartbeat + ghi `health.json`, ms (ADR 0011 §8.1/§8.2.3).
+    pub heartbeat_interval_ms: u64,
+    /// Timeout CLI health runtime, ms (ADR 0011 §8.2.1).
+    pub health_timeout_ms: u64,
+    /// TTL phiên tài khoản, ms (ADR 0011 §6; T4).
+    pub session_ttl_ms: u64,
+    /// Chu kỳ Ping cho connection đã auth, ms (ADR 0011 §6.1; T4).
+    pub session_ping_interval_ms: u64,
+    /// Timeout không Pong trước khi coi connection chết, ms (ADR 0011 §6.1; T4).
+    pub session_liveness_timeout_ms: u64,
+    /// Cho phép đăng ký tài khoản (ADR 0011 §9; T3).
+    pub registration_open: bool,
+    /// Ngưỡng thử auth theo tài khoản mỗi phút (ADR 0011 §5; T3).
+    pub auth_attempts_per_minute: u32,
+    /// Ngưỡng thử auth theo IP mỗi phút (ADR 0011 §5; T3).
+    pub auth_attempts_per_ip_per_minute: u32,
+    /// `wire_schema` của V1 (ADR 0009).
+    pub wire_schema: u16,
+    /// `state_schema` của DTO snapshot V1.
+    pub state_schema: u16,
+    /// Revision của `ProtocolLimits`.
+    pub protocol_limits_version: u32,
+    /// Profile rules đang chạy.
+    pub rules_profile_id: String,
+    /// Hash định danh profile rules.
+    pub rules_hash: u64,
+    /// Hash manifest content đã nạp.
+    pub content_sha256: [u8; 32],
+    /// Content epoch của phiên.
+    pub content_epoch: u32,
+}
+
+/// Địa chỉ admin mặc định (ADR 0011 §8.2.1).
+pub const DEFAULT_ADMIN_ADDR: &str = "127.0.0.1:17890";
+/// Địa chỉ game mặc định dùng trong fingerprint/health.
+pub const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:17889";
+/// Chu kỳ heartbeat mặc định: 60 giây.
+pub const DEFAULT_HEARTBEAT_INTERVAL_MS: u64 = 60_000;
+/// Timeout CLI health mặc định: 3 giây.
+pub const DEFAULT_HEALTH_TIMEOUT_MS: u64 = 3_000;
+
+impl Default for OperationalConfig {
+    fn default() -> Self {
+        Self {
+            admin_addr: DEFAULT_ADMIN_ADDR.parse().expect("địa chỉ admin mặc định"),
+            data_dir: std::path::PathBuf::from("data"),
+            db_path: std::path::PathBuf::from("data/boom-server.sqlite3"),
+            expected_db_schema_version: 1,
+            listen_addrs: vec![DEFAULT_LISTEN_ADDR.parse().expect("địa chỉ game mặc định")],
+            server_version: env!("CARGO_PKG_VERSION").to_owned(),
+            heartbeat_interval_ms: DEFAULT_HEARTBEAT_INTERVAL_MS,
+            health_timeout_ms: DEFAULT_HEALTH_TIMEOUT_MS,
+            session_ttl_ms: 86_400_000,
+            session_ping_interval_ms: 15_000,
+            session_liveness_timeout_ms: 30_000,
+            registration_open: true,
+            auth_attempts_per_minute: 10,
+            auth_attempts_per_ip_per_minute: 20,
+            wire_schema: 1,
+            state_schema: 1,
+            protocol_limits_version: ProtocolLimits::v1().revision,
+            rules_profile_id: "unknown".to_owned(),
+            rules_hash: 0,
+            content_sha256: [0; 32],
+            content_epoch: 0,
+        }
+    }
+}
+
+/// Lỗi đọc cấu hình vận hành từ biến môi trường.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConfigError {
+    /// Giá trị địa chỉ không parse được.
+    Addr { name: &'static str, value: String },
+    /// Giá trị số không parse được.
+    Number { name: &'static str, value: String },
+}
+
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Addr { name, value } => write!(f, "{name} không phải địa chỉ: {value}"),
+            Self::Number { name, value } => write!(f, "{name} không phải số: {value}"),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+impl OperationalConfig {
+    /// Cấu hình từ biến môi trường, dùng cho binary và test CLI.
+    ///
+    /// Các biến: `BOOM_ADMIN_ADDR`, `BOOM_DATA_DIR`, `BOOM_LISTEN_ADDR`,
+    /// `BOOM_SERVER_VERSION`, `BOOM_HEARTBEAT_INTERVAL_MS`, `BOOM_HEALTH_TIMEOUT_MS`.
+    pub fn from_env() -> Result<Self, ConfigError> {
+        let mut config = Self::default();
+        if let Ok(value) = std::env::var("BOOM_ADMIN_ADDR") {
+            config.admin_addr = value.parse().map_err(|_| ConfigError::Addr {
+                name: "BOOM_ADMIN_ADDR",
+                value,
+            })?;
+        }
+        if let Ok(value) = std::env::var("BOOM_DATA_DIR") {
+            config.data_dir = value.clone().into();
+            config.db_path = std::path::Path::new(&value).join("boom-server.sqlite3");
+        }
+        if let Ok(value) = std::env::var("BOOM_DB_PATH") {
+            config.db_path = value.into();
+        }
+        if let Ok(value) = std::env::var("BOOM_EXPECTED_DB_SCHEMA_VERSION") {
+            config.expected_db_schema_version = value.parse().map_err(|_| ConfigError::Number {
+                name: "BOOM_EXPECTED_DB_SCHEMA_VERSION",
+                value,
+            })?;
+        }
+        if let Ok(value) = std::env::var("BOOM_LISTEN_ADDR") {
+            config.listen_addrs = value
+                .split(',')
+                .map(|part| {
+                    part.trim().parse().map_err(|_| ConfigError::Addr {
+                        name: "BOOM_LISTEN_ADDR",
+                        value: value.clone(),
+                    })
+                })
+                .collect::<Result<_, _>>()?;
+        }
+        if let Ok(value) = std::env::var("BOOM_SERVER_VERSION") {
+            config.server_version = value;
+        }
+        if let Ok(value) = std::env::var("BOOM_HEARTBEAT_INTERVAL_MS") {
+            config.heartbeat_interval_ms = value.parse().map_err(|_| ConfigError::Number {
+                name: "BOOM_HEARTBEAT_INTERVAL_MS",
+                value,
+            })?;
+        }
+        if let Ok(value) = std::env::var("BOOM_HEALTH_TIMEOUT_MS") {
+            config.health_timeout_ms = value.parse().map_err(|_| ConfigError::Number {
+                name: "BOOM_HEALTH_TIMEOUT_MS",
+                value,
+            })?;
+        }
+        Ok(config)
+    }
+
+    /// Ngón tay cấu hình không nhạy cảm (ADR 0011 §8.3).
+    pub fn fingerprint(&self) -> ConfigFingerprint {
+        ConfigFingerprint {
+            server_version: self.server_version.clone(),
+            wire_schema: self.wire_schema,
+            state_schema: self.state_schema,
+            rules_profile_id: self.rules_profile_id.clone(),
+            rules_hash: self.rules_hash,
+            content_sha256: self.content_sha256,
+            protocol_limits_version: self.protocol_limits_version,
+        }
+    }
+
+    /// Kiểm admin listener chỉ bind loopback.
+    pub fn admin_is_loopback(&self) -> bool {
+        self.admin_addr.ip().is_loopback()
+    }
+}
+
+/// Ngón tay cấu hình không nhạy cảm, xuất hiện trong `health` và `server.start` (ADR 0011 §8.3).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfigFingerprint {
+    pub server_version: String,
+    pub wire_schema: u16,
+    pub state_schema: u16,
+    pub rules_profile_id: String,
+    pub rules_hash: u64,
+    pub content_sha256: [u8; 32],
+    pub protocol_limits_version: u32,
+}
+
+impl ConfigFingerprint {
+    pub fn content_sha256_hex(&self) -> String {
+        self.content_sha256
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    }
+}

@@ -352,7 +352,41 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
 # content_hash phải bằng giá trị trên; dựng hai lần cho cùng hash và cùng byte file.
 ```
 
-## 7. Giới hạn đã biết
+## 7. Quy ước đặt ảnh của client (presentation — `design`)
+
+Nguồn `design` / trạng thái `design` (AGENTS §4): đây là **quyết định trình diễn của
+client**, không phải luật chơi và **không** phải cách client gốc đặt ảnh — nghĩa
+`f0..f11` vẫn là câu hỏi mở **Q-003** (xem [MAPS §3](MAPS.md)). Vì không có consumer
+runtime đã xác nhận, quy ước ghi ở đây để client, reviewer và công cụ đo dùng chung
+một công thức, và để đổi được khi có trace.
+
+Quy ước (ô rộng `T` px, `T` = `grid.tile_px` trong profile rules, claim R-001):
+
+1. Mốc ô: mép trái `x = cột·T`, mép dưới `y = (hàng+1)·T`.
+2. **Canvas** của frame (`f8`, `f9`) đặt sao cho *đáy canvas trùng mép dưới ô* và
+   *trục X của pivot (`f10`) trùng mép trái ô*:
+   `canvas.x = cột·T − pivot_x`, `canvas.y = (hàng+1)·T − canvas_h`.
+3. **Vùng ảnh thật** của frame (rect nguồn `f4`–`f7`) đặt trong canvas: *canh giữa
+   ngang*, *canh đáy*.
+
+Vì sao trục Y theo canvas chứ không theo `pivot_y`: ở Village00, `pivot_y` của vật cản
+không trùng đáy canvas (`FxTile/Tile00/Fountain00` lệch 31 px, `BoxOrange`/`BoxRed` lệch
+2 px), nên neo theo `pivot_y` sẽ đặt vùng ảnh lệch khỏi mặt đất (vòi nước ~30 px dưới
+ô). Canh đáy theo canvas đặt đáy vùng ảnh đúng bằng mép dưới ô cho cả 5 vật cản của
+Village00 (`Grass00/01`, `Road00/01/02`, `BoxOrange`, `BoxRed`, `Fountain00`,
+`HouseBlue/Red/Yellow`, `Tree00`).
+
+Giới hạn đã biết:
+
+- Không có bằng chứng consumer nào cho quy ước này; test của client chỉ là
+  **regression** theo đúng công thức đã chốt, không phải bằng chứng fidelity.
+- `R-009` (neo hiển thị **nhân vật** `x = cột·40`, `y = hàng·40 + 39`) là quan sát khác
+  đối tượng; **không** dùng nó làm bằng chứng cho neo vật cản.
+- Bước kiểm lại (đóng ở Q-003): đọc consumer render của client gốc (`CDataI16Alpha`)
+  hoặc đối chiếu ảnh chạy VN; nếu cách đặt ảnh gốc khác thì sửa quy ước ở đây và
+  cập nhật client theo, không âm thầm lệch.
+
+## 8. Giới hạn đã biết
 
 - **Chỉ map V1.** Closure hiện chỉ dựng được `Village00`; `bundle --map <khác>` báo lỗi
   rõ ràng chứ không đoán.
