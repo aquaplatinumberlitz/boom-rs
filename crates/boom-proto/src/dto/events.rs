@@ -40,6 +40,10 @@ pub struct RoundEvent {
 }
 
 /// `RoundEvents` (kind `0x0030`, S→C): event của một round.
+///
+/// **Chưa có trần riêng cho số event và số field của một event** — ADR 0009 chưa quy định, nên
+/// hiện chỉ giới hạn tổng byte của frame. Việc chốt budget event để lại cho task backend
+/// (ghi nhận ở review PR #56; không phải finding chặn của vòng review đó).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoundEvents {
     /// Round mà event thuộc về.

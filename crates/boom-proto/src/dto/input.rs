@@ -81,7 +81,7 @@ pub struct InputBatch {
     pub player: u8,
     /// `snapshot_seq` lớn nhất client đã áp dụng đủ.
     pub ack_snapshot: u32,
-    /// 1..8 lệnh; `seq` tăng liên tục **trong batch**.
+    /// 1..8 lệnh; `seq` bắt đầu từ 1 và tăng liên tục **trong batch**.
     #[serde(deserialize_with = "de_commands")]
     pub commands: Vec<InputCommand>,
 }
@@ -131,8 +131,9 @@ where
 }
 
 impl InputBatch {
-    /// Kiểm DTO sau khi decode: số lệnh trong miền 1..8, `seq` tăng liên tục **trong batch**,
-    /// `bits` phải có bit dành riêng bằng 0 và hướng hợp lệ (ADR 0009 §3.1, §3.3 bước 1).
+    /// Kiểm DTO sau khi decode: số lệnh trong miền 1..8, `seq` bắt đầu từ 1 và tăng liên tục
+    /// **trong batch**, `bits` phải có bit dành riêng bằng 0 và hướng hợp lệ
+    /// (ADR 0009 §3.1, §3.3 bước 1).
     ///
     /// Lỗ hổng **giữa** các batch là gap hợp lệ, không phải lỗi cấu trúc.
     pub fn check(&self, limits: &ProtocolLimits) -> Result<(), ProtoError> {
@@ -150,6 +151,12 @@ impl InputBatch {
             });
         }
         for (i, cmd) in self.commands.iter().enumerate() {
+            if cmd.seq == 0 {
+                return Err(ProtoError::Invalid {
+                    field: "seq",
+                    detail: "seq phải bắt đầu từ 1 cho mỗi (round_id, player)".into(),
+                });
+            }
             if !cmd.bits.reserved_is_zero() {
                 return Err(ProtoError::Invalid {
                     field: "bits",
@@ -165,7 +172,11 @@ impl InputBatch {
             if i > 0 {
                 let prev = self.commands[i - 1].seq;
                 let cur = cmd.seq;
-                if cur != prev.saturating_add(1) {
+                // `checked_add`, **không** phải `saturating_add`: ở biên `u32::MAX` phải báo
+                // lỗi, không được coi như tăng liên tục — nếu không batch `[MAX, MAX]` (trùng
+                // sequence) lọt qua (ADR 0009 §3.1: `seq` tăng 1 mỗi lệnh, không trùng).
+                let consecutive = prev.checked_add(1) == Some(cur);
+                if !consecutive {
                     return Err(ProtoError::Invalid {
                         field: "seq",
                         detail: format!("seq {prev} rồi {cur} không tăng liên tục trong batch"),
@@ -292,5 +303,90 @@ mod tests {
                 max: 8
             })
         ));
+    }
+
+    /// Batch chỉ có một lệnh với `seq = 0` phải bị từ chối: sequence bắt đầu từ 1 cho mỗi
+    /// `(round_id, player)` (ADR 0009 §3.1).
+    #[test]
+    fn batch_rejects_zero_seq() {
+        let limits = ProtocolLimits::v1();
+        let single = InputBatch {
+            round_id: 1,
+            player: 0,
+            ack_snapshot: 0,
+            commands: vec![cmd(0, 0)],
+        };
+        assert!(
+            matches!(
+                single.check(&limits),
+                Err(ProtoError::Invalid { field: "seq", .. })
+            ),
+            "lệnh đơn seq 0 phải bị từ chối"
+        );
+
+        let zero_then_one = InputBatch {
+            round_id: 1,
+            player: 0,
+            ack_snapshot: 0,
+            commands: vec![cmd(0, 0), cmd(1, 0)],
+        };
+        assert!(
+            matches!(
+                zero_then_one.check(&limits),
+                Err(ProtoError::Invalid { field: "seq", .. })
+            ),
+            "batch [0, 1] phải bị từ chối"
+        );
+    }
+
+    /// Regression: `saturating_add` cho phép batch `[MAX, MAX]` lọt (hai lệnh cùng sequence).
+    /// `checked_add` phải từ chối, dù hai lệnh có payload khác nhau.
+    #[test]
+    fn batch_rejects_duplicate_seq_at_u32_max() {
+        let limits = ProtocolLimits::v1();
+        let same_bits = InputBatch {
+            round_id: 1,
+            player: 0,
+            ack_snapshot: 0,
+            commands: vec![cmd(u32::MAX, 0), cmd(u32::MAX, 0)],
+        };
+        assert!(
+            matches!(
+                same_bits.check(&limits),
+                Err(ProtoError::Invalid { field: "seq", .. })
+            ),
+            "batch [MAX, MAX] phải bị từ chối"
+        );
+
+        let different_bits = InputBatch {
+            round_id: 1,
+            player: 0,
+            ack_snapshot: 0,
+            commands: vec![cmd(u32::MAX, 0), cmd(u32::MAX, 0b0000_0100)],
+        };
+        assert!(
+            matches!(
+                different_bits.check(&limits),
+                Err(ProtoError::Invalid { field: "seq", .. })
+            ),
+            "batch [MAX, MAX] khác bits phải bị từ chối"
+        );
+    }
+
+    /// `[MAX-1, MAX]` vẫn hợp lệ: sequence tăng đúng 1 mỗi lệnh.
+    #[test]
+    fn batch_accepts_consecutive_seq_at_u32_max() {
+        let limits = ProtocolLimits::v1();
+        let batch = InputBatch {
+            round_id: 1,
+            player: 0,
+            ack_snapshot: 0,
+            commands: vec![cmd(u32::MAX - 1, 0), cmd(u32::MAX, 0)],
+        };
+        assert!(
+            batch.check(&limits).is_ok(),
+            "batch [MAX-1, MAX] phải hợp lệ: {:?}",
+            batch.check(&limits)
+        );
     }
 }

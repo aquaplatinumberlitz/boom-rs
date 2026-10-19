@@ -73,6 +73,23 @@ fn input_rejected() -> InputRejected {
     }
 }
 
+/// Batch chỉ khác ở dãy `seq` của các lệnh (dùng để dựng frame hỏng cho test decode).
+fn batch_with_seqs(seqs: &[u32]) -> InputBatch {
+    InputBatch {
+        round_id: 1,
+        player: 0,
+        ack_snapshot: 10,
+        commands: seqs
+            .iter()
+            .map(|seq| InputCommand {
+                seq: *seq,
+                target_tick: 120,
+                bits: InputBits(0x08),
+            })
+            .collect(),
+    }
+}
+
 fn round_events() -> RoundEvents {
     RoundEvents {
         round_id: 1,
@@ -375,6 +392,54 @@ fn decode_rejects_kind_mismatch() {
             got: MessageKind::InputBatch
         }
     ));
+}
+
+/// Regression review PR #56: `seq` trùng ở biên `u32::MAX` và `seq = 0` phải bị từ chối khi
+/// decode, không chỉ khi gọi `check` (ADR 0009 §3.1: sequence bắt đầu từ 1, tăng 1 mỗi lệnh).
+#[test]
+fn decode_rejects_broken_input_seq() {
+    // `[MAX, MAX]`: hai lệnh cùng sequence ở biên u32.
+    let frame = encode_frame(&batch_with_seqs(&[u32::MAX, u32::MAX]), &LIMITS).unwrap();
+    let err = decode_frame::<InputBatch>(&frame, &LIMITS).unwrap_err();
+    assert!(
+        matches!(err, ProtoError::Invalid { field: "seq", .. }),
+        "thực tế: {err:?}"
+    );
+
+    // `[MAX, MAX]` với payload khác nhau: cùng sequence phải cùng lệnh.
+    let mut batch = batch_with_seqs(&[u32::MAX, u32::MAX]);
+    batch.commands[1].bits = InputBits(0b0000_0100);
+    let frame = encode_frame(&batch, &LIMITS).unwrap();
+    let err = decode_frame::<InputBatch>(&frame, &LIMITS).unwrap_err();
+    assert!(
+        matches!(err, ProtoError::Invalid { field: "seq", .. }),
+        "thực tế: {err:?}"
+    );
+
+    // `[0, 1]`: sequence phải bắt đầu từ 1.
+    let frame = encode_frame(&batch_with_seqs(&[0, 1]), &LIMITS).unwrap();
+    let err = decode_frame::<InputBatch>(&frame, &LIMITS).unwrap_err();
+    assert!(
+        matches!(err, ProtoError::Invalid { field: "seq", .. }),
+        "thực tế: {err:?}"
+    );
+
+    // Một lệnh đơn với `seq = 0`.
+    let frame = encode_frame(&batch_with_seqs(&[0]), &LIMITS).unwrap();
+    let err = decode_frame::<InputBatch>(&frame, &LIMITS).unwrap_err();
+    assert!(
+        matches!(err, ProtoError::Invalid { field: "seq", .. }),
+        "thực tế: {err:?}"
+    );
+}
+
+/// `[MAX-1, MAX]` vẫn hợp lệ: sequence tăng đúng 1 mỗi lệnh.
+#[test]
+fn decode_accepts_consecutive_seq_at_u32_max() {
+    let frame = encode_frame(&batch_with_seqs(&[u32::MAX - 1, u32::MAX]), &LIMITS).unwrap();
+    let decoded = decode_frame::<InputBatch>(&frame, &LIMITS).unwrap();
+    assert_eq!(decoded.commands[0].seq, u32::MAX - 1);
+    assert_eq!(decoded.commands[1].seq, u32::MAX);
 }
 
 #[test]
