@@ -1,5 +1,5 @@
 # Bom (1,1) tầm 3 gặp khối mềm (2,1): ô đó có lửa rồi lửa dừng, không tới bom (3,1).
-# Khối mềm không bị phá ở đây (việc của blocks); bom phía sau vẫn còn và không nổ.
+# Khối mềm bị lửa phá trong cùng tick (V1-016, R-030); bom phía sau vẫn còn và không nổ.
 name = "Lửa dừng ở khối mềm, bom phía sau không nổ"
 features = ["V1-014", "V1-015"]
 claims = ["R-030", "R-033"]
@@ -45,7 +45,7 @@ count = 1
 [[expect]]
 tick = 11
 at = [2, 1]
-kind = "breakable"
+kind = "floor"
 flame = true
 
 [[expect]]
