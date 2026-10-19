@@ -53,7 +53,8 @@ Cột **Trạng thái nguồn**:
 
 Tổng hợp 110 khóa: **44 dòng có locator catalog** (33 `catalog-translated` + 11 `catalog-reused`),
 **15 dòng `review`**, **9 dòng `image-pending`** và **42 dòng `unknown`**. Không có dòng nào tự soạn
-bản VI hay yêu cầu sửa bản dịch đã có.
+bản VI hay yêu cầu sửa bản dịch đã có. Mọi dòng `review`/`unknown` là **đầu việc của `boom-re-l10n`**:
+ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch.
 
 ## 2. Khóa V1 theo màn hình
 
@@ -62,56 +63,56 @@ bản VI hay yêu cầu sửa bản dịch đã có.
 | Khóa V1 | Phần tử / ngữ cảnh | Locator nguồn | Trạng thái nguồn | Yêu cầu hiển thị |
 |---|---|---|---|---|
 | `app.loading` | Dòng trạng thái tải | `catalog:Loading` | `catalog-reused` | Lấy `catalog.vi`; giữ dấu `...`. |
-| `app.connecting` | Dòng đang kết nối | `catalog:ConnectingToSvr` | `review` | Catalog là câu chờ chung; reviewer chọn key/ngữ cảnh, không tự soạn bản mới. |
+| `app.connecting` | Dòng đang kết nối | `catalog:ConnectingToSvr` | `review` | Catalog là câu chờ chung; reviewer chọn key/ngữ cảnh, không tự soạn bản mới. Cần chọn/sửa key ở boom-re-l10n. |
 | `app.network_error` | Hộp thoại mất mạng | `catalog:NetworkError` | `catalog-translated` | Lấy `catalog.vi`; wrap tối đa 3 dòng. |
 | `app.session_replaced` | Phiên bị thay | `catalog:szConnCloseMsg` | `catalog-translated` | Lấy `catalog.vi`; tối đa 2 dòng. |
-| `app.auth_failed` | Đăng nhập thất bại | `catalog:ErrLoginNotRegistered` | `review` | Catalog gắn luồng Nexon; reviewer chọn key phù hợp, không tự soạn. |
-| `app.version_mismatch` | Handshake phiên bản | — | `unknown` | Chưa có locator catalog/ảnh; bổ sung ở task auth/protocol. |
-| `app.content_mismatch` | Handshake rules/content | — | `unknown` | Chưa có locator; bổ sung cùng task auth/protocol. |
-| `app.quit_confirm` | Hộp thoại thoát | — | `unknown` | Cần key catalog hoặc asset; không tự soạn. |
+| `app.auth_failed` | Đăng nhập thất bại | `catalog:ErrLoginNotRegistered` | `review` | Catalog gắn luồng Nexon; reviewer chọn key phù hợp, không tự soạn. Cần chọn/sửa key ở boom-re-l10n. |
+| `app.version_mismatch` | Handshake phiên bản | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `app.version_mismatch`; chưa render. |
+| `app.content_mismatch` | Handshake rules/content | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `app.content_mismatch`; chưa render. |
+| `app.quit_confirm` | Hộp thoại thoát | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; chưa render. |
 | `app.invalid_map` | Map không hợp lệ | `catalog:InvalidMapReturnToLobby` | `catalog-translated` | Lấy `catalog.vi`. |
 
 ### 2.2 Đăng nhập
 
 | Khóa V1 | Phần tử / ngữ cảnh | Locator nguồn | Trạng thái nguồn | Yêu cầu hiển thị |
 |---|---|---|---|---|
-| `login.title` | Tiêu đề màn hình | — | `unknown` | Tên hiển thị do chủ dự án chốt; chưa có key catalog. |
-| `login.account` | Nhãn ô tài khoản | `catalog:NewUserDlgID` | `review` | Catalog chỉ là nhãn ID; reviewer chọn key, không tự soạn. |
+| `login.title` | Tiêu đề màn hình | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.title`; chưa render. |
+| `login.account` | Nhãn ô tài khoản | `catalog:NewUserDlgID` | `review` | Catalog chỉ là nhãn ID; reviewer chọn key, không tự soạn. Cần chọn/sửa key ở boom-re-l10n. |
 | `login.password` | Nhãn ô mật khẩu | `catalog:Password` | `catalog-translated` | Lấy `catalog.vi`. |
-| `login.submit` | Nút đăng nhập | `catalog:DailyMission_Mission_Login` | `review` | Catalog gắn nhiệm vụ ngày; reviewer chọn key. |
-| `login.register` | Nút tạo tài khoản | — | `unknown` | Chưa có key; phụ thuộc quyết định V1-001. |
-| `login.failed` | Sai tài khoản/mật khẩu | `catalog:ErrLoginNotRegistered` | `review` | Catalog gắn Nexon; reviewer chọn key. |
-| `login.empty` | Thiếu trường bắt buộc | — | `unknown` | Chưa có key; bổ sung khi chốt spec auth. |
-| `login.account_rule` | Quy tắc tên tài khoản | — | `unknown` | Chưa có spec; không render tới khi có nguồn. |
+| `login.submit` | Nút đăng nhập | `catalog:DailyMission_Mission_Login` | `review` | Catalog gắn nhiệm vụ ngày; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n. |
+| `login.register` | Nút tạo tài khoản | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.register`; chưa render. |
+| `login.failed` | Sai tài khoản/mật khẩu | `catalog:ErrLoginNotRegistered` | `review` | Catalog gắn Nexon; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n. |
+| `login.empty` | Thiếu trường bắt buộc | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.empty`; chưa render. |
+| `login.account_rule` | Quy tắc tên tài khoản | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.account_rule`; chưa render. |
 
 ### 2.3 Sảnh
 
 | Khóa V1 | Phần tử / ngữ cảnh | Locator nguồn | Trạng thái nguồn | Yêu cầu hiển thị |
 |---|---|---|---|---|
-| `lobby.title` | Tiêu đề sảnh | — | `unknown` | Chưa có key; chủ dự án chốt tên hiển thị. |
-| `lobby.channel` | Tên kênh | — | `unknown` | Chưa có key nhãn; V1 một kênh. |
+| `lobby.title` | Tiêu đề sảnh | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.title`; chưa render. |
+| `lobby.channel` | Tên kênh | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.channel`; chưa render. |
 | `lobby.channel_desc` | Tooltip kênh | `catalog:ChannelExplain1` | `catalog-translated` | Lấy `catalog.vi`; tooltip. |
 | `lobby.room_name` | Cột tên phòng | `catalog:CreateDlgTitle` | `catalog-reused` | Lấy `catalog.vi`. |
-| `lobby.room_host` | Cột chủ phòng | — | `unknown` | Chưa có key nhãn. |
-| `lobby.room_count` | Cột số người | `catalog:BigBattle_Lobby_Desc_UserCount` | `review` | Catalog là format BigBattle; reviewer chọn format, giữ `%d`. |
+| `lobby.room_host` | Cột chủ phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.room_host`; chưa render. |
+| `lobby.room_count` | Cột số người | `catalog:BigBattle_Lobby_Desc_UserCount` | `review` | Catalog là format BigBattle; reviewer chọn format, giữ `%d`. Cần chọn/sửa key ở boom-re-l10n. |
 | `lobby.room_status` | Cột trạng thái | `catalog:RoomInfoDlgStatus` | `catalog-translated` | Lấy `catalog.vi`. |
-| `lobby.state_waiting` | Trạng thái chờ | — | `unknown` | Chưa có key; không tự soạn. |
-| `lobby.state_playing` | Trạng thái đang chơi | — | `unknown` | Chưa có key; không tự soạn. |
-| `lobby.empty` | Danh sách rỗng | — | `unknown` | Chưa có key; không tự soạn. |
+| `lobby.state_waiting` | Trạng thái chờ | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.state_waiting`; chưa render. |
+| `lobby.state_playing` | Trạng thái đang chơi | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.state_playing`; chưa render. |
+| `lobby.empty` | Danh sách rỗng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.empty`; chưa render. |
 | `lobby.create` | Nút tạo phòng | `ảnh FxStage:Lobby/LB_Bt_T_Create-NM` | `image-pending` | Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog được chốt. |
-| `lobby.join` | Nút vào phòng | — | `unknown` | Chưa có key/asset; không tự soạn. |
-| `lobby.refresh` | Nút làm mới | — | `unknown` | Chưa có key/asset; không tự soạn. |
+| `lobby.join` | Nút vào phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.join`; chưa render. |
+| `lobby.refresh` | Nút làm mới | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.refresh`; chưa render. |
 | `lobby.back` | Nút quay lại | `catalog:BackButton` | `catalog-reused` | Lấy `catalog.vi`. |
 | `lobby.options` | Nút tùy chọn | `catalog:GBOption` | `catalog-reused` | Lấy `catalog.vi`. |
 | `lobby.help` | Nút trợ giúp | `catalog:GBHelp` | `catalog-reused` | Lấy `catalog.vi`; có thể ẩn nếu chưa có nội dung. |
 | `lobby.exit` | Nút thoát game | `catalog:GBExit` | `catalog-reused` | Lấy `catalog.vi`. |
 | `lobby.chat_tab_all` | Tab chat chung | `catalog:LobbySquare_ChatTab_All` | `catalog-reused` | Lấy `catalog.vi`. |
 | `lobby.chat_tab_notice` | Tab thông báo | `catalog:LobbySquare_ChatTab_Notice` | `catalog-reused` | Lấy `catalog.vi`. |
-| `lobby.chat_hint` | Gợi ý ô chat | — | `unknown` | Catalog `Chatting` là nhãn, không phải placeholder; cần key khác. |
-| `lobby.chat_send` | Nút gửi chat | — | `unknown` | Chưa có key; có thể dùng Enter, không cần nút. |
+| `lobby.chat_hint` | Gợi ý ô chat | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.chat_hint`; chưa render. |
+| `lobby.chat_send` | Nút gửi chat | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.chat_send`; chưa render. |
 | `lobby.chat_too_long` | Chat quá dài | `catalog:150CharLimit` | `catalog-translated` | Dùng giới hạn 150; đếm grapheme cluster, giữ `%`/`[...]` nếu có. |
 | `lobby.join_failed` | Vào phòng thất bại | `catalog:CantJoinRoom` | `catalog-translated` | Lấy `catalog.vi`. |
-| `lobby.room_full` | Phòng đã đủ | `catalog:InvalidMaxUser` | `review` | Catalog nói số người không hợp lệ; reviewer chọn key/ngữ cảnh. |
+| `lobby.room_full` | Phòng đã đủ | `catalog:InvalidMaxUser` | `review` | Catalog nói số người không hợp lệ; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
 | `lobby.room_removed` | Phòng đã bị xóa | `catalog:RoomDestroyed` | `catalog-translated` | Lấy `catalog.vi`. |
 | `lobby.room_info_changed` | Thông tin phòng đổi | `catalog:RoomInfoChanged` | `catalog-translated` | Lấy `catalog.vi`. |
 | `lobby.join_session` | Chat hệ thống có người vào | `catalog:JoinSession` | `catalog-translated` | Giữ `%s`; lấy `catalog.vi`. |
@@ -123,20 +124,20 @@ bản VI hay yêu cầu sửa bản dịch đã có.
 |---|---|---|---|---|
 | `room.title_label` | Nhãn tên phòng trong dialog tạo | `catalog:CreateDlgTitle` | `catalog-reused` | Lấy `catalog.vi`. |
 | `room.create_title` | Tiêu đề dialog tạo phòng | `ảnh FxStage:Lobby/Dlg_LB-NMCreate` | `image-pending` | Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog được chốt. |
-| `room.create_submit` | Nút tạo | — | `unknown` | Chưa có key/asset; không tự soạn. |
-| `common.cancel` | Nút hủy | — | `unknown` | Catalog không có nhãn hủy đơn giản; cần key/asset. |
-| `common.confirm` | Nút đồng ý | `catalog:OptionDlgYes` | `review` | Catalog là 'Có' trong hộp thoại tùy chọn; reviewer chọn key/ngữ cảnh. |
-| `common.close` | Nút đóng | — | `unknown` | Chưa có key; cần key/asset. |
+| `room.create_submit` | Nút tạo | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.create_submit`; chưa render. |
+| `common.cancel` | Nút hủy | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `common.cancel`; chưa render. |
+| `common.confirm` | Nút đồng ý | `catalog:OptionDlgYes` | `review` | Catalog là 'Có' trong hộp thoại tùy chọn; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
+| `common.close` | Nút đóng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `common.close`; chưa render. |
 | `room.info_title` | Tiêu đề thông tin phòng | `ảnh FxMap:Prepare/PRE_Bt_Roominfo`, `ảnh FxMap:Prepare/Dlg_PRE-NMRoominfo` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt. |
-| `room.host` | Nhãn chủ phòng | — | `unknown` | Chưa có key nhãn. |
-| `room.players` | Nhãn danh sách người chơi | — | `unknown` | Chưa có key nhãn. |
+| `room.host` | Nhãn chủ phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host`; chưa render. |
+| `room.players` | Nhãn danh sách người chơi | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.players`; chưa render. |
 | `room.status` | Nhãn trạng thái | `catalog:RoomInfoDlgStatus` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.id` | Nhãn ID phòng | `catalog:RoomInfoDlgID` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.map` | Nhãn bản đồ | `ảnh FxMap:Prepare/CAStage` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt. |
 | `room.map_name` | Tên map V1 | `catalog:map:Village00` | `catalog-translated` | Lấy `catalog.vi`; reviewer chốt dùng tên catalog hay tên kỹ thuật. |
 | `room.character` | Nhãn chọn nhân vật | `ảnh FxMap:Prepare/CAStage` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt. |
-| `room.character_c00` | Tên hiển thị C00 | — | `unknown` | Chưa map C00 → tên; cần dữ liệu/claim trước khi render. |
-| `room.character_c01` | Tên hiển thị C01 | — | `unknown` | Chưa map C01 → tên; cần dữ liệu/claim trước khi render. |
+| `room.character_c00` | Tên hiển thị C00 | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c00`; chưa render. |
+| `room.character_c01` | Tên hiển thị C01 | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c01`; chưa render. |
 | `room.ready` | Trạng thái/nút sẵn sàng | `ảnh FxMap:Prepare/PRE_Bt_Ready` | `image-pending` | Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog. |
 | `room.ready_cancel` | Hủy sẵn sàng | `ảnh FxMap:Prepare/PRE_Bt_Ready` | `image-pending` | Cùng nút ready; duyệt ảnh hoặc render text từ key catalog. |
 | `room.start` | Nút bắt đầu | `ảnh FxMap:Prepare/PRE_Bt_Start` | `image-pending` | Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog. |
@@ -144,36 +145,36 @@ bản VI hay yêu cầu sửa bản dịch đã có.
 | `room.min_players` | Chưa đủ người để bắt đầu | `catalog:SmallPlayerNo` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.all_ready` | Chưa ready hết | `catalog:AllMustReady` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.loading` | Loading barrier | `catalog:Loading` | `catalog-reused` | Lấy `catalog.vi`; nhắc 15 giây theo SCOPE_V1 §3 nếu hiển thị đếm ngược. |
-| `room.kick` | Nút mời ra | — | `unknown` | Chưa có key nhãn; catalog chỉ có help text. |
+| `room.kick` | Nút mời ra | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.kick`; chưa render. |
 | `room.kick_confirm` | Xác nhận mời ra | `catalog:SureToBan` | `catalog-translated` | Giữ `%s`; lấy `catalog.vi`. |
 | `room.kicked` | Bị chủ phòng mời ra | `catalog:BannedByLeader` | `catalog-translated` | Lấy `catalog.vi`; cắt khoảng trắng đầu. |
 | `room.non_host_denied` | Non-host start/kick | `catalog:RoomLeaderOnly` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.name_changed` | Đổi tên phòng | `catalog:RoomNameChanged` | `catalog-translated` | Lấy `catalog.vi`. |
-| `room.host_changed` | Chuyển chủ phòng | — | `unknown` | Chưa có key; không tự soạn. |
-| `room.slot_empty` | Slot trống | — | `unknown` | Chưa có key; không tự soạn. |
+| `room.host_changed` | Chuyển chủ phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host_changed`; chưa render. |
+| `room.slot_empty` | Slot trống | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.slot_empty`; chưa render. |
 | `room.chat_to_all` | Phạm vi chat | `catalog:ChatToAll` | `catalog-translated` | Lấy `catalog.vi`; V1 FFA không có `<Đồng đội>`. |
-| `room.stats_bomb` | Nhãn số bom | `catalog:PREEA` | `review` | Catalog là nhãn chung '개수'; reviewer chọn key/ngữ cảnh. |
-| `room.stats_fire` | Nhãn tầm nổ | `catalog:PREPOW` | `review` | Catalog là nhãn '물줄기'; reviewer chọn key/ngữ cảnh. |
+| `room.stats_bomb` | Nhãn số bom | `catalog:PREEA` | `review` | Catalog là nhãn chung '개수'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
+| `room.stats_fire` | Nhãn tầm nổ | `catalog:PREPOW` | `review` | Catalog là nhãn '물줄기'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
 | `room.stats_speed` | Nhãn tốc độ | `catalog:PRESPD` | `catalog-reused` | Lấy `catalog.vi`. |
-| `room.leave` | Nút rời phòng | — | `unknown` | Catalog `GBExit` là thoát game, không phải rời phòng; cần key khác. |
+| `room.leave` | Nút rời phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.leave`; chưa render. |
 | `room.leave_ready_confirm` | Xác nhận rời khi đang ready | `catalog:WannaExitToLobby` | `catalog-translated` | Lấy `catalog.vi`; reviewer chốt ngữ cảnh V1. |
 
 ### 2.5 Trong trận
 
 | Khóa V1 | Phần tử / ngữ cảnh | Locator nguồn | Trạng thái nguồn | Yêu cầu hiển thị |
 |---|---|---|---|---|
-| `match.timer` | Nhãn đồng hồ | — | `unknown` | Chưa có key nhãn; giá trị 120 s lấy từ R-010, UI chỉ hiển thị. |
-| `match.timer_format` | Định dạng mm:ss | — | `unknown` | Định dạng kỹ thuật, chưa có key catalog; không tự soạn. |
-| `match.go` | Hiệu lệnh bắt đầu | `catalog:TutorialClickStartBackStress1` | `review` | Catalog là nhãn tutorial 'Nút Bắt đầu'; reviewer chọn key/ngữ cảnh. |
-| `match.trapped` | Trạng thái bị nhốt | — | `unknown` | Chưa có nhãn trạng thái; R-026/R-036 chỉ là luật. |
-| `match.eliminated` | Trạng thái bị loại | `catalog:BlueMonSay_event4_01` | `review` | Catalog gắn sự kiện quái; reviewer chọn key/ngữ cảnh. |
-| `match.disconnect_warning` | Cảnh báo mất kết nối | `catalog:ErrNetworkError` | `review` | Catalog là thông báo mất mạng chung, không có đếm ngược; reviewer chọn key. |
-| `match.disconnect_eliminated` | Bị loại do mất kết nối | `catalog:ErrDisconnectByServer` | `review` | Catalog là thông báo ngắt kết nối chung; reviewer chọn key/ngữ cảnh. |
-| `match.item_bomb` | Tên item Bomb | — | `unknown` | Tên item lấy từ ItemAttr, không phải catalog UI; cần locator dữ liệu. |
-| `match.item_fire` | Tên item Fire | — | `unknown` | Tên item lấy từ ItemAttr; cần locator dữ liệu. |
-| `match.item_roller` | Tên item Roller | — | `unknown` | Tên item lấy từ ItemAttr; cần locator dữ liệu. |
-| `match.pickup` | Thông báo nhặt item | — | `unknown` | Chưa có key phù hợp; không tự soạn; giữ 1 `%s` cho tên item nếu có. |
-| `match.result_pending` | Chờ server chốt kết quả | — | `unknown` | Chưa có key; không tự soạn. |
+| `match.timer` | Nhãn đồng hồ | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer`; chưa render. |
+| `match.timer_format` | Định dạng mm:ss | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer_format`; chưa render. |
+| `match.go` | Hiệu lệnh bắt đầu | `catalog:TutorialClickStartBackStress1` | `review` | Catalog là nhãn tutorial 'Nút Bắt đầu'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
+| `match.trapped` | Trạng thái bị nhốt | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.trapped`; chưa render. |
+| `match.eliminated` | Trạng thái bị loại | `catalog:BlueMonSay_event4_01` | `review` | Catalog gắn sự kiện quái; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
+| `match.disconnect_warning` | Cảnh báo mất kết nối | `catalog:ErrNetworkError` | `review` | Catalog là thông báo mất mạng chung, không có đếm ngược; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n. |
+| `match.disconnect_eliminated` | Bị loại do mất kết nối | `catalog:ErrDisconnectByServer` | `review` | Catalog là thông báo ngắt kết nối chung; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
+| `match.item_bomb` | Tên item Bomb | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_bomb`; chưa render. |
+| `match.item_fire` | Tên item Fire | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_fire`; chưa render. |
+| `match.item_roller` | Tên item Roller | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_roller`; chưa render. |
+| `match.pickup` | Thông báo nhặt item | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.pickup`; chưa render. |
+| `match.result_pending` | Chờ server chốt kết quả | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.result_pending`; chưa render. |
 
 ### 2.6 Kết quả
 
@@ -184,12 +185,12 @@ bản VI hay yêu cầu sửa bản dịch đã có.
 | `result.lose` | Nhãn thua | `catalog:StateLose` | `catalog-translated` | Lấy `catalog.vi`; ảnh `Lose` cần duyệt nếu dùng. |
 | `result.draw` | Nhãn hòa | `ảnh FxStage:Game/Draw` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì dùng key catalog được chốt. |
 | `result.rank` | Cột hạng | `catalog:Olympic_TitleRank` | `catalog-translated` | Lấy `catalog.vi`. |
-| `result.player` | Cột người chơi | — | `unknown` | Chưa có key nhãn. |
-| `result.continue` | Nút tiếp tục | — | `unknown` | Chưa có key nhãn; không tự soạn. |
-| `result.auto_return` | Đếm ngược về phòng | — | `unknown` | Chưa có key; 5 giây là policy SCOPE_V1 §3. |
-| `result.winner` | Người thắng | `catalog:BigBattle_Ingame_Winner_Line1` | `review` | Catalog là câu BigBattle, không có `%s`; reviewer chọn key/format. |
+| `result.player` | Cột người chơi | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.player`; chưa render. |
+| `result.continue` | Nút tiếp tục | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.continue`; chưa render. |
+| `result.auto_return` | Đếm ngược về phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.auto_return`; chưa render. |
+| `result.winner` | Người thắng | `catalog:BigBattle_Ingame_Winner_Line1` | `review` | Catalog là câu BigBattle, không có `%s`; reviewer chọn key/format. Cần chọn/sửa key ở boom-re-l10n. |
 | `result.draw_all` | Hòa khi không còn ai | `catalog:TournamentNoWinner` | `catalog-translated` | Lấy `catalog.vi`; reviewer chốt ngữ cảnh giải đấu. |
-| `result.waiting` | Chờ ack người khác | — | `unknown` | Chưa có key; không tự soạn. |
+| `result.waiting` | Chờ ack người khác | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.waiting`; chưa render. |
 
 ### 2.7 Tùy chọn
 
@@ -197,10 +198,10 @@ bản VI hay yêu cầu sửa bản dịch đã có.
 |---|---|---|---|---|
 | `options.fullscreen` | Chế độ toàn màn hình | `catalog:OptionDlgFullScreen` | `catalog-translated` | Lấy `catalog.vi`. |
 | `options.windowed` | Chế độ cửa sổ | `catalog:OptionDlgWindowMode` | `catalog-translated` | Lấy `catalog.vi`. |
-| `options.volume` | Âm lượng chung | — | `unknown` | Chưa có key nhãn âm lượng chung; cần key/asset. |
+| `options.volume` | Âm lượng chung | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `options.volume`; chưa render. |
 | `options.music` | Nhạc nền | `catalog:OptionDlgBGM` | `catalog-translated` | Lấy `catalog.vi`. |
 | `options.sfx` | Hiệu ứng âm | `catalog:OptionDlgEffect` | `catalog-translated` | Lấy `catalog.vi`. |
-| `options.apply` | Áp dụng | — | `unknown` | Chưa có key nhãn; không tự soạn. |
+| `options.apply` | Áp dụng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `options.apply`; chưa render. |
 
 ### 2.8 Chuỗi không dùng trong V1
 
@@ -221,23 +222,23 @@ hiện là `pending`; muốn dùng phải import `images_review.csv` qua quy tr�
 
 | Asset (pack:entry) | Kích thước | Đã chọn? | Chữ trên ảnh (bằng chứng) | VN cùng tên | Ghi chú review |
 |---|---|---:|---|---|---|
-| FxDesktop:LoginStage/CAStage | 800×600 JPEG | — | KR: overlay tiếng Hàn + huy hiệu "전체이용가"; VN: logo Boom + dòng "Nexon… Copyright" | `diff_bytes` | **Không dùng nguyên trạng**: có nhãn Nexon và bản quyền cũ; cần nền mới hoặc che chữ |
-| FxStage:Lobby/CAStage | 800×600 JPEG | — | KR: hai nhãn tab (đọc được "대전 모드" / "대기 모드"); VN: `ĐẤU CHIẾN` / `NHIỆM VỤ` | `diff_bytes` | Chữ nằm trong ảnh nền; `NHIỆM VỤ` ngoài scope V1, phải che/redraw |
-| FxMap:Prepare/CAStage | 800×600 JPEG | — | KR: "캐릭터선택" / "팀선택" / "미니맵" / "자동준비"; VN: `NHÂN VẬT` / `CHỌN ĐỘI` / `BẢN ĐỒ` / `TỰ ĐỘNG` | `diff_bytes` | `CHỌN ĐỘI` ngoài scope FFA V1; phải che/redraw; `TỰ ĐỘNG` là auto-ready ngoài V1 |
-| FxStage:Lobby/LB_Bt_T_Create-NM | 92×495 | Có (`room_create`) | KR: `방만들기`; VN: `TẠO PHÒNG` | `diff_bytes` | Ảnh nút có chữ; nếu dùng phải duyệt `translated`, nếu không thì render text từ catalog |
-| FxStage:Lobby/Dlg_LB-NMCreate | 414×455 | Có (`room_create_dialog`) | KR: `방만들기`; VN: `TẠO PHÒNG` | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
-| FxMap:Prepare/PRE_Bt_Ready | 193×342 | Có (`ready`) | KR: `준 비`; VN: `SẴN SÀNG` | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
-| FxMap:Prepare/PRE_Bt_Start | 193×342 | Có (`start`) | KR: `시 작`; VN: `BẮT ĐẦU` | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
-| FxMap:Prepare/PRE_Bt_Roominfo | 100×110 | — | KR: `방정보 변경`; VN: `THÔNG TIN` | `diff_bytes` | Nghĩa KR là "đổi thông tin phòng", VN là "thông tin"; chọn nhãn nào phải chốt |
-| FxMap:Prepare/Dlg_PRE-NMRoominfo | 414×455 | — | KR: `방정보 변경`; VN: `THÔNG TIN` | `diff_bytes` | Như trên; dialog V1 có thể chỉ để xem, không đổi tên |
-| FxStage:Lobby/LB_Bt_T_ShowAllRenew | 99×423 | — | KR: `모든방보기`; VN: `TOÀN BỘ` | `diff_bytes` | VN rút gọn mất nghĩa "xem mọi phòng"; V1 có thể không cần filter |
-| FxStage:Lobby/LB_Bt_T_WaitRoomRenew | 99×423 | — | KR: `대기방보기`; VN: `PHÒNG CHỜ` | `diff_bytes` | VN là danh từ, không phải hành động "xem phòng chờ" |
-| FxStage:Lobby/ReadyBox | 127×176 | — | KR: `준비중`; VN: `ĐẠI CHIẾN` | `diff_bytes` | **Sai nghĩa**: không dùng làm indicator ready; cần ảnh/text khác |
-| FxStage:Game/Win | 243×59 (nhiều frame) | — | KR: `WIN!!!`; VN: các frame đọc được `TH` + `Ắ` + `N` + `!!` (chưa thấy `G` trong bộ frame giải mã) | `diff_bytes` | Ảnh động nhiều frame; duyệt cả chuỗi frame và xác nhận đủ chữ, không chỉ frame 0 |
-| FxStage:Game/Lose | 317×59 (nhiều frame) | — | KR: `LOSE!!!`; VN: frame đọc được `SC` / `A` / `N` / `U!!` / `O` | `diff_bytes` | Chuỗi frame VN không đọc ra từ rõ ràng; đánh dấu `check`, cần người duyệt xem đủ frame |
-| FxStage:Game/Draw | 366×59 (nhiều frame) | — | KR: `DRAW!!!`; VN: `HO` + `A` + `!!` → `HÒA!!` | `diff_bytes` | Dấu `Ò` có thể nằm ở frame khác; duyệt cả frame và kiểm dấu |
-| FxStage:Game/ResultInfoBar | 356×288 (6 ảnh) | — | Spritesheet trộn nhãn KR/EN: `ID`, `RANK`, `KILL`, `EXP`, `LUCCI+`, và các biến thể tiếng Hàn (마을/아이템/음표) | `diff_bytes` | Không dùng cả sheet; V1 chỉ cần cột `Hạng/Người chơi/Kết quả`; nếu dùng phải chọn frame + dịch |
-| FxStage:Game/ResultInfoGood | 98×144 | — | Chỉ mũi tên, không thấy chữ | `no` | Có thể `no_text`; vẫn cần người duyệt xác nhận |
+| `FxDesktop:LoginStage/CAStage` | 800×600 JPEG | — | KR: có chữ Hàn + huy hiệu; VN: có logo/chữ bản quyền | `diff_bytes` | **Không dùng nguyên trạng**: có nhãn Nexon và bản quyền cũ; cần nền mới hoặc che chữ |
+| `FxStage:Lobby/CAStage` | 800×600 JPEG | — | Có chữ Hàn ở hai nhãn tab; VN: có chữ Việt ở hai tab | `diff_bytes` | Chữ nằm trong ảnh nền; tab nhiệm vụ ngoài scope V1, phải che/redraw |
+| `FxMap:Prepare/CAStage` | 800×600 JPEG | — | Có chữ Hàn ở các nhãn; VN: có chữ Việt ở các nhãn | `diff_bytes` | Nhãn chọn đội/auto-ready ngoài scope FFA V1; phải che/redraw |
+| `FxStage:Lobby/LB_Bt_T_Create-NM` | 92×495 | Có (`room_create`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Ảnh nút có chữ; nếu dùng phải duyệt `translated`, nếu không thì render text từ catalog |
+| `FxStage:Lobby/Dlg_LB-NMCreate` | 414×455 | Có (`room_create_dialog`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
+| `FxMap:Prepare/PRE_Bt_Ready` | 193×342 | Có (`ready`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
+| `FxMap:Prepare/PRE_Bt_Start` | 193×342 | Có (`start`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
+| `FxMap:Prepare/PRE_Bt_Roominfo` | 100×110 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Nghĩa Hàn là "đổi thông tin phòng", VN là "thông tin"; chọn nhãn nào phải chốt |
+| `FxMap:Prepare/Dlg_PRE-NMRoominfo` | 414×455 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Như trên; dialog V1 có thể chỉ để xem, không đổi tên |
+| `FxStage:Lobby/LB_Bt_T_ShowAllRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt rút gọn | `diff_bytes` | VN rút gọn mất nghĩa "xem mọi phòng"; V1 có thể không cần filter |
+| `FxStage:Lobby/LB_Bt_T_WaitRoomRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt là danh từ | `diff_bytes` | VN không phải hành động "xem phòng chờ" |
+| `FxStage:Lobby/ReadyBox` | 127×176 | — | Có chữ Hàn; VN: chữ Việt khác nghĩa | `diff_bytes` | **Sai nghĩa**: không dùng làm indicator ready; cần asset/key khác ở boom-re-l10n |
+| `FxStage:Game/Win` | 243×59 (nhiều frame) | — | Nhiều frame; KR có chữ; VN cần kiểm đủ chữ | `diff_bytes` | Ảnh động nhiều frame; duyệt cả chuỗi frame và xác nhận đủ chữ, không chỉ frame 0 |
+| `FxStage:Game/Lose` | 317×59 (nhiều frame) | — | Nhiều frame; KR có chữ; VN chưa đọc rõ | `diff_bytes` | Chuỗi frame VN không đọc ra từ rõ ràng; đánh dấu `check`, cần người duyệt xem đủ frame |
+| `FxStage:Game/Draw` | 366×59 (nhiều frame) | — | Nhiều frame; KR có chữ; VN cần kiểm dấu | `diff_bytes` | Dấu có thể nằm ở frame khác; duyệt cả frame và kiểm dấu |
+| `FxStage:Game/ResultInfoBar` | 356×288 (6 ảnh) | — | Spritesheet trộn nhãn KR/EN; VN có bản tương ứng | `diff_bytes` | Không dùng cả sheet; V1 chỉ cần cột `Hạng/Người chơi/Kết quả`; nếu dùng phải chọn frame và lấy text từ catalog |
+| `FxStage:Game/ResultInfoGood` | 98×144 | — | Chỉ mũi tên, không thấy chữ | `no` | Có thể `no_text`; vẫn cần người duyệt xác nhận |
 
 Các asset đã chọn khác trong `kr_v1_content.json` (`FxMap/Map/Village00`, preview, theme, BGM, Attr, sprite
 C00/C01, Bomb/Fire/Roller, Bomb00/BombExplosion001) không nằm trong `images_todo.csv` như ứng viên chữ,
@@ -312,12 +313,12 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
 
 | Thiếu | Ảnh hưởng | Bước tiếp |
 |---|---|---|
-| 42 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn | Bổ sung `id` catalog hoặc asset đã duyệt ở repo l10n; không tự soạn bản dịch trong task này |
-| 15 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | Reviewer quyết định key/format; giữ text catalog, không viết lại |
+| 42 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
+| 15 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
 | 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 4 asset đã chọn |
 | Chưa có font/license trong repo | V1-035 chưa bundle được font | Chọn version, thêm license/attribution, golden glyph; ngoài phạm vi docs này |
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
-| Màn kết quả chưa có asset trong closure | V1-032 có thể dead end ở result | Bổ sung asset/art vào evidence, hoặc thiết kế UI kết quả bằng text + asset đã có |
+| Màn kết quả chưa có asset trong closure | V1-032 có thể dead end ở result | Bổ sung asset/art vào evidence, hoặc dùng text + asset đã có |
 | Nền login/lobby/prepare có chữ và nhãn ngoài scope | Dùng nguyên trạng sẽ hiện Nexon/nhiệm vụ/đội | Che/redraw hoặc chọn asset khác; cần review ảnh |
 | Chưa có golden wrap/scale/focus | Không chứng minh được V1-035 | Tạo golden ảnh + test glyph sau khi client có renderer |
 
