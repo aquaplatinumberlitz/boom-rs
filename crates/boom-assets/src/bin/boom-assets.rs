@@ -230,12 +230,21 @@ fn pack_extract(opts: &Options) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn audio_build_error(build: Build) -> Option<&'static str> {
+    (build == Build::Vn)
+        .then_some("audio hiện chỉ hỗ trợ pack KR (FxSound); --build vn chưa có stem/khóa VN")
+}
+
 fn audio(opts: &Options) -> ExitCode {
     let [dir] = opts.positional.as_slice() else {
         return usage();
     };
     if !opts.list && opts.extract.is_none() {
         return usage();
+    }
+    if let Some(message) = audio_build_error(opts.build) {
+        eprintln!("{message}");
+        return ExitCode::from(2);
     }
     let pack = match Pack::open(Path::new(dir), "FxSound", opts.build) {
         Ok(pack) => pack,
@@ -449,4 +458,19 @@ fn pack_stems(dir: &Path) -> std::io::Result<Vec<String>> {
     }
     stems.sort();
     Ok(stems)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn audio_rejects_vn_build_clearly() {
+        assert!(audio_build_error(Build::Kr).is_none());
+        assert!(
+            audio_build_error(Build::Vn)
+                .unwrap()
+                .contains("chỉ hỗ trợ pack KR")
+        );
+    }
 }

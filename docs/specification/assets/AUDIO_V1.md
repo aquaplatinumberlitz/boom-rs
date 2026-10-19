@@ -19,8 +19,8 @@ còn mở: [QUESTIONS](../../research/QUESTIONS.md) Q-015.
 - Tool l10n `kr_v1_content.py` chỉ chốt `music` = `FxSound/MP3/Village` (và `explosion_art` =
   `FxDesktop/Bomb/BombExplosion001`, không phải SFX); `idf.py` chỉ đọc/giải mã pack, không có bảng
   event→entry. `boom-re/docs/features.md` A10 (audio/BGM/SFX) vẫn ghi "chưa điều tra"; legacy server không chứa
-  quyết định phát SFX (server chỉ gửi event gameplay). Vì vậy **R-081 BGM confirmed**, còn mapping
-  event→entry và policy chồng tiếng là **design** (R-082/R-083), không nhận `confirmed` KR/VN.
+  quyết định phát SFX (server chỉ gửi event gameplay). Vì vậy **R-081 chỉ confirmed entry/mapping BGM**; loop/một voice và mapping
+  event→entry, policy chồng tiếng là **design** (R-083/R-082), không nhận `confirmed` KR/VN.
 - `boom-assets` chỉ đọc/ghi payload thô và hash; không decode Ogg/MP3/WAV, không giải mã nội dung âm
   thanh. Không commit file âm thanh; output đi vào `local/` khi kiểm tay.
 
@@ -28,10 +28,10 @@ còn mở: [QUESTIONS](../../research/QUESTIONS.md) Q-015.
 
 | Dùng | Entry | Định dạng thô | Byte | SHA-256 | Nguồn / trạng thái |
 |---|---|---|---:|---|---|
-| BGM Village, loop một bản | `MP3/Village` | ogg | 270601 | `7a34054f23a66a1f19cd1cd47b70705bda0c774b6d2afd094c4bd5b6d709038f` | `kr_static` + `vn_static` / confirmed (R-070, R-081) |
+| Entry/mapping BGM Village | `MP3/Village` | ogg | 270601 | `7a34054f23a66a1f19cd1cd47b70705bda0c774b6d2afd094c4bd5b6d709038f` | `kr_static` + `vn_static` / confirmed (R-070, R-081; chỉ entry/mapping) |
 
-BGM loop không tính vào số voice SFX; không restart khi reconcile, chỉ đổi khi vòng đời lượt/map đổi
-(chi tiết policy ở §4).
+Loop một bản, không tính vào số voice SFX và không restart khi reconcile là **design R-083**, không
+phải bằng chứng asset; chi tiết policy ở §4.
 
 ## 3. Bảng event→entry V1
 
@@ -42,7 +42,7 @@ giữ im lặng tạm thời và theo dõi ở Q-015. Event core lấy từ `boo
 
 | Event V1 | EventKind / nguồn | Entry | Nhãn | Ghi chú |
 |---|---|---|---|---|
-| `bgm_loop` | BGM theo map (R-070) | `MP3/Village` | `kr_static` + `vn_static` / confirmed | R-081 |
+| `bgm_loop` | BGM theo map (R-070) | `MP3/Village` | `design` | Entry/mapping confirmed R-081; loop policy design R-083 |
 | `bomb_placed` | `EventKind::BombPlaced` | `Wave/Cha_BombIgnite` | `design` | Tên fuse/ignite; chưa có trace consumer |
 | `bomb_exploded` | `EventKind::BombExploded` | `Wave/BombExplosion001` | `design` | Pack có `001…032`; chưa rõ biến thể, `chained` dùng cùng entry |
 | `item_revealed` | `EventKind::ItemRevealed` | `Wave/Itm_ItemPop` | `design` | Item lộ ra khỏi khối |
@@ -117,7 +117,9 @@ cargo run -p boom-assets --bin boom-assets -- audio /home/admin/boomkr-full --li
 cargo run -p boom-assets --bin boom-assets -- audio /home/admin/boomkr-full --extract local/audio-v1
 ```
 
-`--build vn` dùng key pack VN nếu trỏ đúng thư mục pack VN; đường dẫn entry vẫn giữ tên gốc.
+`--build vn` **không được hỗ trợ** cho lệnh `audio`: lệnh chỉ đọc pack KR `FxSound`; truyền
+`--build vn` bị từ chối rõ (exit 2) thay vì đoán stem/khóa pack VN. Hỗ trợ VN nếu cần phải chọn đúng
+stem `fx`/bảng khóa VN và kiểm trên pack VN thật, ngoài phạm vi KR của issue #64.
 
 ## 7. Chưa làm / câu hỏi
 

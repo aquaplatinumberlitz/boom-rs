@@ -2,7 +2,8 @@
 //!
 //! Không có bảng ánh xạ event→entry nào được xác nhận bởi consumer client gốc; các mapping trong
 //! [`V1_AUDIO_USES`] là **design** của V1-034 (xem `AUDIO_V1.md`/R-082), còn sự tồn tại entry là
-//! `kr_static`. BGM Village đã xác nhận bởi R-070.
+//! `kr_static`. Entry/mapping BGM Village đã xác nhận bởi R-070/R-081; policy loop/một voice là
+//! design R-083.
 
 use std::collections::BTreeSet;
 use std::error::Error;
@@ -62,18 +63,19 @@ impl AudioFormat {
 pub struct V1AudioUse {
     pub event: &'static str,
     pub entry: &'static str,
-    /// `confirmed` (BGM R-070) hoặc `design` (mapping V1 chưa có consumer trace).
+    /// `confirmed` chỉ cho entry/mapping BGM (R-081); `design` cho mapping SFX/loop policy.
     pub status: &'static str,
     pub note: &'static str,
 }
 
-/// Bảng event→entry V1 (design, trừ BGM đã xác nhận R-070). Đây là nguồn cho CLI `audio --list`.
+/// Bảng event→entry V1: entry/mapping BGM confirmed R-081; loop policy và mapping SFX là design.
+/// Đây là nguồn cho CLI `audio --list`.
 pub const V1_AUDIO_USES: &[V1AudioUse] = &[
     V1AudioUse {
         event: "bgm_loop",
         entry: "MP3/Village",
-        status: "confirmed",
-        note: "R-070; theme Village, entry FxSound/MP3/Village",
+        status: "design",
+        note: "entry/mapping confirmed R-081; loop một voice là design R-083",
     },
     V1AudioUse {
         event: "bomb_placed",
@@ -295,5 +297,13 @@ mod tests {
         }
         assert_eq!(entries.len(), 15);
         assert!(V1_AUDIO_USES.iter().any(|u| u.entry == "MP3/Village"));
+        assert_eq!(
+            V1_AUDIO_USES
+                .iter()
+                .find(|u| u.event == "bgm_loop")
+                .unwrap()
+                .status,
+            "design"
+        );
     }
 }
