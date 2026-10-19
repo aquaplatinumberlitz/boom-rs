@@ -496,6 +496,22 @@ impl std::fmt::Debug for SqliteAccountStore {
     }
 }
 
+impl Drop for SqliteAccountStore {
+    /// Nhả khoá instance **tường minh** trước khi đóng file khoá.
+    ///
+    /// `flock` gắn với *open file description* (không phải với fd), và mô tả đó bị **kế
+    /// thừa** khi tiến trình `fork` — trong khoảng giữa `fork` và `exec`, `O_CLOEXEC` chưa
+    /// có tác dụng. Nếu chỉ đóng fd thì khoá **vẫn còn** tới khi đứa trẻ `exec` xong ⇒
+    /// instance mới thấy DB "đang bị khoá" và từ chối khởi động với `db_locked`
+    /// (ADR 0011 §4) dù instance cũ đã thoát.
+    ///
+    /// `flock(LOCK_UN)` tường minh nhả khoá của **cả** mô tả ⇒ việc giải phóng là tức thời
+    /// và không phụ thuộc đứa trẻ. Lỗi `unlock` bị bỏ qua: khoá vẫn được nhả khi fd đóng.
+    fn drop(&mut self) {
+        let _ = FileExt::unlock(&self._instance_lock);
+    }
+}
+
 impl AccountStore for SqliteAccountStore {
     fn create_account(&mut self, account: NewAccount) -> Result<Account, StoreError> {
         let key = username_key(&account.username)?;
@@ -1329,6 +1345,35 @@ mod tests {
     #[test]
     fn username_key_helper_is_shared_with_store() {
         assert_eq!(username_key(" BoMber ").unwrap(), "bomber");
+    }
+
+    /// Khoá instance phải được nhả **tức thời** khi store bị drop — kể cả khi còn fd khác
+    /// trỏ vào **cùng** *open file description*.
+    ///
+    /// `flock` gắn với *open file description*, không phải với fd: chỉ đóng fd thì khoá **còn**
+    /// hiệu lực tới khi *mọi* fd của mô tả đó đóng. Đây đúng là tình huống fd khoá bị **kế
+    /// thừa** sang tiến trình con trong khoảng giữa `fork` và `exec` — khi đó instance mới thấy
+    /// DB "đang bị khoá" và từ chối khởi động với `db_locked` (ADR 0011 §4).
+    ///
+    /// `SqliteAccountStore::drop` gọi `unlock` tường minh nên khoá được nhả ngay ⇒ instance
+    /// mới mở được DB.
+    #[test]
+    fn instance_lock_is_released_on_drop_even_with_another_fd_on_same_description() {
+        let dir = TempDir::new().unwrap();
+        let path = db_path(&dir);
+        let inherited = {
+            let store = SqliteAccountStore::open(&path, SqliteOptions::default()).unwrap();
+            // `try_clone` ⇒ fd khác nhưng **cùng** open file description.
+            store
+                ._instance_lock
+                .try_clone()
+                .expect("clone fd khoá instance")
+        };
+        // Store đã drop, mô tả vẫn còn fd ⇒ nếu chỉ đóng fd thì khoá còn hiệu lực.
+        let store = SqliteAccountStore::open(&path, SqliteOptions::default())
+            .expect("instance mới phải mở được DB");
+        drop(store);
+        drop(inherited);
     }
 
     /// DB **chỉ** lưu SHA-256(token thô), không lưu token thô (ADR 0011 §6, threat §9 dòng 3).
