@@ -1,0 +1,68 @@
+# Bom (1,1) tầm 3 gặp khối mềm (2,1): ô đó có lửa rồi lửa dừng, không tới bom (3,1).
+# Khối mềm không bị phá ở đây (việc của blocks); bom phía sau vẫn còn và không nổ.
+name = "Lửa dừng ở khối mềm, bom phía sau không nổ"
+features = ["V1-014", "V1-015"]
+claims = ["R-030", "R-033"]
+status = "active"
+ticks = 12
+map = [
+    "#######",
+    "#.+...#",
+    "#.....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [5, 2]
+
+[[bomb]]
+cell = [1, 1]
+owner = 0
+range = 3
+fuse = 10
+
+[[bomb]]
+cell = [3, 1]
+owner = 0
+range = 1
+fuse = 1000
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+count = 1
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 1, y = 1, chained = 0 }
+count = 1
+
+[[expect]]
+tick = 11
+at = [2, 1]
+kind = "breakable"
+flame = true
+
+[[expect]]
+tick = 11
+at = [3, 1]
+flame = false
+bomb = true
+
+[[expect]]
+tick = 11
+bomb_count = 1
+
+[[expect]]
+tick = 12
+bomb_count = 1
+
+[[expect]]
+tick = 12
+event = "bomb_exploded"
+count = 0

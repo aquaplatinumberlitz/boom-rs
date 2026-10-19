@@ -2,7 +2,8 @@
 # Tầm 2 từ (3,1): trái (2,1)(1,1); phải (4,1)(5,1); trên là tường; dưới (3,2)(3,3).
 name = "Nổ đúng tick, lửa lan theo tầm và dừng ở khối cứng"
 features = ["V1-014"]
-status = "pending"
+claims = ["R-030", "R-033"]
+status = "active"
 ticks = 11
 map = [
     "#######",

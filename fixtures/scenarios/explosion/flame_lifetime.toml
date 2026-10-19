@@ -1,7 +1,8 @@
 # flame_ms 500 = 30 tick ở 60 Hz: lửa sinh trong tick 11 (step 10), còn tới hết step 39, mất ở step 40.
 name = "Lửa tồn tại đúng bomb.flame_ms"
 features = ["V1-014"]
-status = "pending"
+claims = ["R-023"]
+status = "active"
 ticks = 41
 map = [
     "#######",
