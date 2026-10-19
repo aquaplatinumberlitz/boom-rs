@@ -171,9 +171,9 @@ Cần ghi field của system khác → mở issue cho integrator, không sửa t
 
 ### 5.4 Contract mạng và replay (chưa có code)
 
-Revision **`proto-r1`**, 2026-10-19, **Proposed** theo
-[ADR 0009](../decisions/0009-wire-protocol-input-snapshot-codec.md). `boom-proto` chưa được tạo; crate chỉ
-mở sau khi ADR accepted. Khi có code, kiểu DTO là nguồn chuẩn; mục này giữ quy tắc và bất biến review.
+Revision **`proto-r1`**, 2026-10-19, **Accepted** theo
+[ADR 0009](../decisions/0009-wire-protocol-input-snapshot-codec.md) (PR #24). `boom-proto` chưa được tạo;
+integrator mở task triển khai ở P7. Khi có code, kiểu DTO là nguồn chuẩn; mục này giữ quy tắc và bất biến review.
 
 | Contract | Nội dung tối thiểu | Bất biến cần review |
 |---|---|---|
