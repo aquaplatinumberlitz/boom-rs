@@ -69,12 +69,18 @@ class TrackingIntegrityTests(unittest.TestCase):
             validate_features(self.features, self.baseline, ROOT)
 
     def test_only_done_earns_credit_and_drops_are_excluded(self):
+        # Tương đối với dữ liệu thật: sổ tiến độ có thể đã có mục done.
+        self.assertNotEqual(self.features[0]["implementation"], "done")
+        base = metrics(self.features)
         self.complete_record(self.features[0])
         m = metrics(self.features)
-        self.assertEqual((m["V1"]["done"], m["V1"]["total"]), (1, 37))
-        self.assertEqual((m["catalog"]["done"], m["catalog"]["total"], m["excluded"]), (1, 112, 2))
+        self.assertEqual((m["V1"]["done"], m["V1"]["total"]), (base["V1"]["done"] + 1, 37))
+        self.assertEqual(
+            (m["catalog"]["done"], m["catalog"]["total"], m["excluded"]),
+            (base["catalog"]["done"] + 1, 112, 2),
+        )
         self.features[0]["implementation"] = "in_review"
-        self.assertEqual(metrics(self.features)["V1"]["percent"], 0)
+        self.assertEqual(metrics(self.features)["V1"]["percent"], base["V1"]["percent"])
 
     def test_scope_change_cannot_silently_change_denominator(self):
         self.features[0]["release"] = "later"
