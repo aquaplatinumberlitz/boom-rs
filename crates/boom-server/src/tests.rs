@@ -1251,7 +1251,12 @@ fn malformed_frame_closes_only_that_session() {
         }],
     };
     send(&mut clients[0], &good);
-    let _events = server.poll(0, Duration::from_millis(200)).unwrap();
+    for _ in 0..100 {
+        if server.session_count() == 1 {
+            break;
+        }
+        let _events = server.poll(0, Duration::from_millis(20)).unwrap();
+    }
     assert_eq!(server.session_count(), 1);
     let snapshot: Snapshot = recv_snapshot(&mut clients[0]);
     assert_eq!(snapshot.round_id, round);
@@ -1335,7 +1340,12 @@ fn malformed_payload_closes_only_that_session() {
         }],
     };
     send(&mut clients[0], &good);
-    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    for _ in 0..100 {
+        if server.session_count() == 2 {
+            break;
+        }
+        let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+    }
     assert_eq!(server.session_count(), 2);
     let snapshot: Snapshot = recv_snapshot(&mut clients[0]);
     assert_eq!(snapshot.round_id, round);
