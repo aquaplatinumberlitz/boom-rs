@@ -2,7 +2,7 @@
 name = "Bị nhốt quá player.trap_to_death_ms thì chết"
 features = ["V1-020"]
 claims = ["R-026"]
-status = "pending"
+status = "active"
 ticks = 400
 map = [
     "#######",

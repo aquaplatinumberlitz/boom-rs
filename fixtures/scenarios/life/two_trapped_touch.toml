@@ -1,0 +1,46 @@
+# Chỉ người Alive mới làm vỡ bong bóng; hai người Trapped chạm nhau (cùng ô, design R-034)
+# không đổi trạng thái và không phát player_died.
+name = "Hai người bị nhốt chạm nhau thì không ai chết"
+features = ["V1-020"]
+claims = ["R-034"]
+status = "active"
+ticks = 5
+map = [
+    "#####",
+    "#0.1#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+life = "trapped"
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+life = "trapped"
+
+[[expect]]
+tick = 5
+event = "player_died"
+count = 0
+
+[[expect]]
+tick = 5
+player = 0
+life = "trapped"
+
+[[expect]]
+tick = 5
+player = 1
+life = "trapped"
+
+[end]
+outcome = "playing"
