@@ -4,8 +4,10 @@
 //! của server. `send_frame` được gọi từ vòng tick trên nửa ghi của cùng kết nối; vì vậy test dùng
 //! hai đầu `MemoryTransport` cho hai chiều. Không gọi `recv_frame` trong vòng tick.
 //!
-//! Room/loading/result vẫn đi qua API authority (chưa có DTO `RoomCommand`/`LoadingAck` trong
-//! `boom-proto`); `Server` cung cấp wrapper để test và lớp backend sau này gắn message.
+//! Room/loading/result đi qua wire Addendum B: `LobbyListRequest`, `RoomCommand`, `RoomChat`,
+//! `LoadingAck`, `ResultAck`, `RoundStart`, `RoundResult`. Server bind `player` từ session đã auth;
+//! auth thật (T5) chưa có, `mark_authenticated_for_test` tạm đánh dấu. Wrapper API authority vẫn
+//! giữ cho test nội bộ và caller chưa chuyển wire.
 
 use std::collections::BTreeMap;
 use std::net::TcpListener;
@@ -16,14 +18,19 @@ use std::time::Duration;
 use boom_core::Life;
 use boom_net::{NetError, TcpTransport, Transport};
 use boom_proto::{
-    Hello, InputBatch, InputRejectReason, InputRejected, Message, Ping, Pong, Reject, RejectReason,
+    Hello, InputBatch, InputRejectReason, InputRejected, LoadingAck, LobbyListRequest, Message,
+    Ping, Pong, Reject, RejectReason, ResultAck, RoomChat, RoomChatMessage,
+    RoomCommand as RoomCommandDto, RoomOutcome, RoomRejected, RoundResult, RoundStart,
     SnapshotRequest, Welcome, decode_frame, encode_frame, limits::WIRE_SCHEMA, read_envelope,
 };
-use boom_room::{PlayerId, RoomCommand, RoomView};
-use boom_sync::to_round_events;
+use boom_room::{PlayerId, RoomCommand, RoomView, RoundId};
+use boom_sync::{
+    RoomGate, from_room_command, reject_reason, to_lobby_list, to_room_state, to_round_events,
+};
 
 use crate::authority::{
-    Authority, InternalRoundResult, InternalServerEvent, RoomUpdate, ServerError, ServerPhase,
+    Authority, InternalRoundResult, InternalServerEvent, MatchOutcome, RoomUpdate, ServerError,
+    ServerPhase,
 };
 use crate::config::HandshakeConfig;
 
@@ -54,6 +61,11 @@ struct Session {
     writer_done: Receiver<()>,
     next_snapshot_ms: u64,
     snapshot_seq: u32,
+    /// Cổng kind phòng: false trước `AuthOk` (T5 thay bằng Auth thật).
+    auth: RoomGate,
+    /// Cửa sổ rate-limit chat 1 giây; server kiểm, DTO chỉ kiểm độ dài.
+    chat_window_start_ms: u64,
+    chat_count: u32,
 }
 
 impl Drop for Session {
@@ -110,6 +122,19 @@ impl Server {
         self.sessions.len()
     }
 
+    /// Tạm đánh dấu session đã `AuthOk` cho test/transition; task auth T5 sẽ thay bằng
+    /// `Auth`/`AuthOk` thật (ADR 0009 Addendum A).
+    pub fn mark_authenticated_for_test(&mut self, player: PlayerId) -> Result<(), ServerError> {
+        let Some(session) = self.sessions.get_mut(&player) else {
+            return Err(ServerError::NoSession(player));
+        };
+        if !session.handshaken {
+            return Err(ServerError::NoSession(player));
+        }
+        session.auth.on_auth_ok();
+        Ok(())
+    }
+
     /// Nhận một nửa đọc và một nửa ghi của kết nối; spawn đúng một luồng đọc chặn.
     pub fn accept<R, W>(
         &mut self,
@@ -158,6 +183,9 @@ impl Server {
                 writer_done,
                 next_snapshot_ms: 0,
                 snapshot_seq: 0,
+                auth: RoomGate::new(),
+                chat_window_start_ms: 0,
+                chat_count: 0,
             },
         );
         let outbound_tx = self.tx.clone();
@@ -261,6 +289,7 @@ impl Server {
         }
         let events = self.authority.advance_to(now_ms)?;
         self.flush_events()?;
+        self.flush_lifecycle(&events)?;
         self.flush_snapshots(now_ms)?;
         Ok(events)
     }
@@ -285,27 +314,296 @@ impl Server {
             return self.handle_hello(player, frame);
         }
         let (envelope, _) = read_envelope(frame)?;
-        match envelope.kind {
+        let kind = envelope.kind;
+        if kind.is_room()
+            && !self
+                .sessions
+                .get(&player)
+                .is_some_and(|session| session.auth.is_authenticated())
+        {
+            self.send(
+                player,
+                &Reject {
+                    reason: RejectReason::SessionRejected,
+                    detail: format!("{kind:?} chỉ hợp lệ sau AuthOk"),
+                },
+            )?;
+            self.close_session_after_flush(player);
+            return Ok(());
+        }
+        let limits = self.authority.config().protocol_limits;
+        match kind {
             boom_proto::MessageKind::InputBatch => {
-                let batch: InputBatch =
-                    decode_frame(frame, &self.authority.config().protocol_limits)?;
+                let batch: InputBatch = decode_frame(frame, &limits)?;
                 match self.authority.submit_input(player, &batch, self.now_ms) {
                     Ok(_) => {}
                     Err(err) => self.send_input_rejected(player, &batch, &err)?,
                 }
             }
             boom_proto::MessageKind::SnapshotRequest => {
-                let _: SnapshotRequest =
-                    decode_frame(frame, &self.authority.config().protocol_limits)?;
+                let _: SnapshotRequest = decode_frame(frame, &limits)?;
                 self.send_snapshot(player)?;
             }
             boom_proto::MessageKind::Ping => {
-                let ping: Ping = decode_frame(frame, &self.authority.config().protocol_limits)?;
+                let ping: Ping = decode_frame(frame, &limits)?;
                 self.send(player, &Pong(ping.0))?;
             }
             boom_proto::MessageKind::Pong => {}
+            boom_proto::MessageKind::LobbyListRequest => {
+                let _: LobbyListRequest = decode_frame(frame, &limits)?;
+                self.send_lobby_list(player)?;
+            }
+            boom_proto::MessageKind::RoomCommand => {
+                let dto: RoomCommandDto = decode_frame(frame, &limits)?;
+                let command = from_room_command(&dto, player);
+                match self.room_command(command, self.now_ms) {
+                    Ok(update) => self.after_room_update(&update)?,
+                    Err(ServerError::Room(err)) => {
+                        self.send(
+                            player,
+                            &boom_proto::RoomRejected {
+                                request: dto.request,
+                                reason: reject_reason(&err),
+                            },
+                        )?;
+                    }
+                    Err(err) => return Err(err),
+                }
+            }
+            boom_proto::MessageKind::RoomChat => {
+                let chat: RoomChat = decode_frame(frame, &limits)?;
+                self.handle_room_chat(player, &chat)?;
+            }
+            boom_proto::MessageKind::LoadingAck => {
+                let ack: LoadingAck = decode_frame(frame, &limits)?;
+                let _ = ack.round_id;
+                match self.authority.ack_loading(player, self.now_ms) {
+                    Ok(events) => self.flush_lifecycle(&events)?,
+                    Err(_) => self.send_room_rejected(
+                        player,
+                        0,
+                        boom_proto::RoomRejectReason::NotWaiting,
+                    )?,
+                }
+            }
+            boom_proto::MessageKind::ResultAck => {
+                let ack: ResultAck = decode_frame(frame, &limits)?;
+                let _ = ack.round_id;
+                match self.authority.ack_result(player, self.now_ms) {
+                    Ok(events) => self.flush_lifecycle(&events)?,
+                    Err(_) => self.send_room_rejected(
+                        player,
+                        0,
+                        boom_proto::RoomRejectReason::NotWaiting,
+                    )?,
+                }
+            }
             _ => {
                 self.close_session(player);
+            }
+        }
+        Ok(())
+    }
+
+    fn send_room_rejected(
+        &mut self,
+        player: PlayerId,
+        request: u64,
+        reason: boom_proto::RoomRejectReason,
+    ) -> Result<(), ServerError> {
+        self.send(player, &RoomRejected { request, reason })
+    }
+
+    fn after_room_update(&mut self, update: &RoomUpdate) -> Result<(), ServerError> {
+        if let Some(view) = self.authority.room_view() {
+            self.send_room_state(&view)?;
+        }
+        self.broadcast_lobby_list()?;
+        if let Some(round) = update.round {
+            self.send_round_start(round)?;
+        }
+        Ok(())
+    }
+
+    fn send_room_state(&mut self, view: &RoomView) -> Result<(), ServerError> {
+        let state = to_room_state(view);
+        let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
+        for player in members {
+            if self
+                .sessions
+                .get(&player)
+                .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
+            {
+                self.send(player, &state)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn send_lobby_list(&mut self, player: PlayerId) -> Result<(), ServerError> {
+        let views: Vec<RoomView> = self.authority.room_view().into_iter().collect();
+        let list = to_lobby_list(&views);
+        self.send(player, &list)
+    }
+
+    fn broadcast_lobby_list(&mut self) -> Result<(), ServerError> {
+        let views: Vec<RoomView> = self.authority.room_view().into_iter().collect();
+        let list = to_lobby_list(&views);
+        let players: Vec<PlayerId> = self
+            .sessions
+            .iter()
+            .filter(|(_, s)| s.handshaken && s.auth.is_authenticated())
+            .map(|(p, _)| *p)
+            .collect();
+        for player in players {
+            self.send(player, &list)?;
+        }
+        Ok(())
+    }
+
+    fn send_round_start(&mut self, round: RoundId) -> Result<(), ServerError> {
+        let Some(view) = self.authority.room_view() else {
+            return Ok(());
+        };
+        if view.round.is_none() {
+            return Ok(());
+        }
+        let Some(roster) = to_room_state(&view).round else {
+            return Ok(());
+        };
+        let Some(seed) = self.authority.round_seed() else {
+            return Ok(());
+        };
+        let message = RoundStart {
+            round_id: round.0,
+            seed,
+            rules_profile_id: self.handshake.rules_profile_id.clone(),
+            rules_hash: self.handshake.rules_hash,
+            content_sha256: self.handshake.content_sha256,
+            map: self.authority.map_id().to_owned(),
+            mode: self.authority.mode_id().to_owned(),
+            roster: roster.members,
+            start_tick: self.authority.tick().unwrap_or(0),
+        };
+        let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
+        for player in members {
+            if self
+                .sessions
+                .get(&player)
+                .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
+            {
+                self.send(player, &message)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_room_chat(&mut self, player: PlayerId, chat: &RoomChat) -> Result<(), ServerError> {
+        let Some(view) = self.authority.room_view() else {
+            return self.send_room_rejected(
+                player,
+                chat.request,
+                boom_proto::RoomRejectReason::PlayerNotInRoom,
+            );
+        };
+        if !view.members.iter().any(|m| m.player == player) {
+            return self.send_room_rejected(
+                player,
+                chat.request,
+                boom_proto::RoomRejectReason::PlayerNotInRoom,
+            );
+        }
+        let max_per_s = self.authority.config().protocol_limits.max_chat_per_s;
+        let now = self.now_ms;
+        let Some(session) = self.sessions.get_mut(&player) else {
+            return Ok(());
+        };
+        if now.saturating_sub(session.chat_window_start_ms) >= 1_000 {
+            session.chat_window_start_ms = now;
+            session.chat_count = 0;
+        }
+        if session.chat_count >= max_per_s {
+            return Ok(());
+        }
+        session.chat_count = session.chat_count.saturating_add(1);
+        let message = RoomChatMessage {
+            room_id: view.id.0,
+            from: player.0,
+            from_name: format!("player{}", player.0),
+            text: chat.text.clone(),
+        };
+        let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
+        for member in members {
+            if self
+                .sessions
+                .get(&member)
+                .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
+            {
+                self.send(member, &message)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn send_round_result(&mut self, result: &InternalRoundResult) -> Result<(), ServerError> {
+        let Some(view) = self.authority.room_view() else {
+            return Ok(());
+        };
+        let roster = to_room_state(&view)
+            .round
+            .map(|r| r.members)
+            .unwrap_or_default();
+        let winner = match result.outcome {
+            MatchOutcome::Winner(player) => Some(player),
+            MatchOutcome::Draw | MatchOutcome::Aborted => None,
+        };
+        let draw = matches!(result.outcome, MatchOutcome::Draw | MatchOutcome::Aborted);
+        let outcome = winner.map_or(RoomOutcome::Draw, |p| RoomOutcome::Winner(p.0));
+        let results = roster
+            .into_iter()
+            .map(|member| boom_proto::PlayerResult {
+                player: member.player,
+                slot: member.slot,
+                rank: if draw || winner == Some(PlayerId(member.player)) {
+                    1
+                } else {
+                    2
+                },
+                alive: draw || winner == Some(PlayerId(member.player)),
+            })
+            .collect();
+        let message = RoundResult {
+            round_id: result.round.0,
+            outcome,
+            results,
+        };
+        let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
+        for player in members {
+            if self
+                .sessions
+                .get(&player)
+                .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
+            {
+                self.send(player, &message)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn flush_lifecycle(&mut self, events: &[InternalServerEvent]) -> Result<(), ServerError> {
+        for event in events {
+            match event {
+                InternalServerEvent::RoundFinished { result, .. } => {
+                    self.send_round_result(result)?;
+                }
+                InternalServerEvent::ReturnedToWaiting { .. }
+                | InternalServerEvent::RoundCancelled { .. } => {
+                    if let Some(view) = self.authority.room_view() {
+                        self.send_room_state(&view)?;
+                    }
+                    self.broadcast_lobby_list()?;
+                }
+                _ => {}
             }
         }
         Ok(())

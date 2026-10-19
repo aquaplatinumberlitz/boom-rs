@@ -1,8 +1,8 @@
 //! Lõi authority thuần: `boom-room` → loading barrier → `boom-core` → kết quả → phòng.
 //!
 //! Không socket, không wall clock đọc trực tiếp: caller truyền `now_ms` và gọi `advance_to`.
-//! Phần 2 sẽ bọc lõi này bằng `boom-proto`/`boom-sync`/`boom-net`; kiểu `Internal*` ở đây chỉ là
-//! lệnh nội bộ, không phải DTO wire.
+//! `Server` bọc lõi này bằng `boom-proto`/`boom-sync`/`boom-net`; kiểu `Internal*` ở đây chỉ là
+//! lệnh nội bộ, không phải DTO wire (message phòng/loading/result đã có ở Addendum B).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -204,6 +204,8 @@ impl From<boom_net::NetError> for ServerError {
 pub struct MatchSetup {
     pub world: World,
     pub stats: CharacterStatsTable,
+    /// Tên map đã nạp, để `RoundStart` gửi client dựng cùng bản đồ. Không phải luật chơi.
+    pub map: String,
 }
 
 struct Match {
@@ -334,6 +336,19 @@ impl Authority {
 
     pub fn rules_hash(&self) -> u64 {
         self.setup.world.rules().profile_hash
+    }
+
+    pub fn mode_id(&self) -> &str {
+        self.setup.world.mode().id()
+    }
+
+    pub fn map_id(&self) -> &str {
+        &self.setup.map
+    }
+
+    /// Seed của round đang active; `None` khi chưa vào loading/playing.
+    pub fn round_seed(&self) -> Option<u64> {
+        self.active.as_ref().map(|m| m.seed)
     }
 
     pub fn current_round_id(&self) -> Option<u32> {

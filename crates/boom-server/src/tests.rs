@@ -37,6 +37,7 @@ fn setup() -> MatchSetup {
             c00: stats(),
             c01: stats(),
         },
+        map: "skeleton-test".to_owned(),
     }
 }
 
@@ -627,7 +628,9 @@ use std::time::{Duration, Instant};
 
 use boom_net::{MemoryConfig, MemoryTransport, Transport};
 use boom_proto::{
-    Hello, InputRejectReason, InputRejected, Message, MessageKind, Ping, Reject, RejectReason,
+    Hello, InputRejectReason, InputRejected, LoadingAck, LobbyList, LobbyListRequest, Message,
+    MessageKind, Ping, Reject, RejectReason, ResultAck, RoomAction as RoomActionDto, RoomCharacter,
+    RoomChat, RoomChatMessage, RoomCommand as RoomCommandDto, RoomState, RoundResult, RoundStart,
     Snapshot, Welcome, decode_frame, encode_frame, limits::ProtocolLimits, read_envelope,
 };
 
@@ -688,6 +691,34 @@ fn recv_raw(c: &mut WireClient) -> Vec<u8> {
 fn recv<M: Message>(c: &mut WireClient) -> M {
     let frame = recv_raw(c);
     decode_frame(&frame, &ProtocolLimits::v1()).unwrap()
+}
+
+fn recv_of<M: Message>(c: &mut WireClient, kind: MessageKind) -> M {
+    loop {
+        let frame = recv_raw(c);
+        let (envelope, _) = read_envelope(&frame).unwrap();
+        if envelope.kind == kind {
+            return decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
+        }
+    }
+}
+
+fn send_room(c: &mut WireClient, request: u64, action: RoomActionDto) {
+    send(c, &RoomCommandDto { request, action });
+}
+
+fn authenticate(server: &mut Server, players: &[PlayerId]) {
+    for &player in players {
+        server.mark_authenticated_for_test(player).unwrap();
+    }
+}
+
+fn recv_room_state(c: &mut WireClient) -> RoomState {
+    recv_of(c, MessageKind::RoomState)
+}
+
+fn recv_lobby(c: &mut WireClient) -> LobbyList {
+    recv_of(c, MessageKind::LobbyList)
 }
 
 fn recv_snapshot(c: &mut WireClient) -> Snapshot {
@@ -1546,5 +1577,296 @@ fn tcp_reject_reaches_client_before_eof() {
             matches!(client.recv_frame(), Ok(None) | Err(_)),
             "sau Reject là EOF"
         );
+    }
+}
+
+#[test]
+fn room_kind_before_auth_is_rejected_and_after_auth_works() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+
+    // Chưa AuthOk: LobbyListRequest là kind phòng, server Reject rồi đóng.
+    send(&mut clients[0], &LobbyListRequest {});
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let reject: Reject = recv(&mut clients[0]);
+    assert_eq!(reject.reason, RejectReason::SessionRejected);
+
+    authenticate(&mut server, &[players[1]]);
+    send(&mut clients[1], &LobbyListRequest {});
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let list: LobbyList = recv_lobby(&mut clients[1]);
+    assert!(list.rooms.is_empty());
+}
+
+#[test]
+fn wire_room_commands_are_idempotent_and_chat_is_room_scoped() {
+    let players = [PlayerId(1), PlayerId(2), PlayerId(3)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &players);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    let room = state.room_id;
+
+    // Cùng request lặp: không tạo phòng/member lần hai.
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    assert_eq!(state.members.len(), 1);
+
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let joined = recv_room_state(&mut clients[1]);
+    assert_eq!(joined.members.len(), 2);
+
+    // Client 3 không ở phòng: không nhận chat.
+    send(
+        &mut clients[0],
+        &RoomChat {
+            request: 1,
+            text: "hello".into(),
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let msg: RoomChatMessage = recv_of(&mut clients[1], MessageKind::RoomChatMessage);
+    assert_eq!(msg.room_id, room);
+    assert_eq!(msg.text, "hello");
+    while let Some(frame) = clients[2].reader.try_recv_frame().unwrap() {
+        let (envelope, _) = read_envelope(&frame).unwrap();
+        assert_ne!(
+            envelope.kind,
+            MessageKind::RoomChatMessage,
+            "client ngoài phòng không được nhận chat"
+        );
+    }
+
+    // Rate limit: gửi 6 tin trong cùng cửa sổ; chỉ tối đa MAX_CHAT_PER_S được phát.
+    for request in 2..=7 {
+        send(
+            &mut clients[0],
+            &RoomChat {
+                request,
+                text: "spam".into(),
+            },
+        );
+    }
+    for i in 0..50 {
+        let _ = server.poll(i, Duration::from_millis(20)).unwrap();
+    }
+    let mut delivered = 0;
+    while let Some(frame) = clients[1].reader.try_recv_frame().unwrap() {
+        let (envelope, _) = read_envelope(&frame).unwrap();
+        if envelope.kind == MessageKind::RoomChatMessage {
+            delivered += 1;
+        }
+    }
+    assert!(
+        delivered <= ProtocolLimits::v1().max_chat_per_s as usize,
+        "chat vượt rate bị phát {delivered} lần"
+    );
+}
+
+#[test]
+fn wire_room_full_lifecycle_two_and_four_clients() {
+    for players in [
+        vec![PlayerId(1), PlayerId(2)],
+        vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
+    ] {
+        let (mut server, mut clients) = server_with_clients(&players);
+        wire_handshake(&mut server, &mut clients);
+        authenticate(&mut server, &players);
+
+        send(&mut clients[0], &LobbyListRequest {});
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _: LobbyList = recv_lobby(&mut clients[0]);
+
+        send_room(
+            &mut clients[0],
+            1,
+            RoomActionDto::Create {
+                character: RoomCharacter::C00,
+            },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let state = recv_room_state(&mut clients[0]);
+        let room = state.room_id;
+        let lobby: LobbyList = recv_lobby(&mut clients[0]);
+        assert_eq!(lobby.rooms[0].member_count, 1);
+        for (index, &player) in players.iter().enumerate().skip(1) {
+            send_room(
+                &mut clients[index],
+                1,
+                RoomActionDto::Join {
+                    room,
+                    character: RoomCharacter::C01,
+                },
+            );
+            let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+            let joined = recv_room_state(&mut clients[index]);
+            assert_eq!(joined.members.len(), index + 1);
+            let lobby: LobbyList = recv_lobby(&mut clients[0]);
+            assert_eq!(lobby.rooms[0].member_count, (index + 1) as u8);
+            let _ = player;
+        }
+        for (index, _) in players.iter().enumerate() {
+            send_room(
+                &mut clients[index],
+                2,
+                RoomActionDto::SetReady { ready: true },
+            );
+            let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+            let _ = recv_room_state(&mut clients[0]);
+        }
+        send_room(&mut clients[0], 3, RoomActionDto::Start);
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let start: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+        assert_eq!(start.roster.len(), players.len());
+        assert_eq!(start.mode, "battle_ffa");
+        assert_eq!(start.map, "skeleton-test");
+        let round = start.round_id;
+        for (index, _) in players.iter().enumerate() {
+            send(&mut clients[index], &LoadingAck { round_id: round });
+        }
+        for _ in 0..100 {
+            let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+            if server.phase() == ServerPhase::Playing {
+                break;
+            }
+        }
+        assert_eq!(server.phase(), ServerPhase::Playing);
+
+        for (index, _) in players.iter().enumerate() {
+            send(
+                &mut clients[index],
+                &InputBatch {
+                    round_id: u32::try_from(round).unwrap(),
+                    player: index as u8,
+                    ack_snapshot: 0,
+                    commands: vec![InputCommand {
+                        seq: 1,
+                        target_tick: 0,
+                        bits: InputBits::new(4, false).unwrap(),
+                    }],
+                },
+            );
+        }
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        for c in clients.iter_mut() {
+            let _: Snapshot = recv_snapshot(c);
+        }
+
+        let _ = server.poll(200_000, Duration::ZERO).unwrap();
+        assert_eq!(server.phase(), ServerPhase::Results);
+        for c in clients.iter_mut() {
+            let result: RoundResult = recv_of(c, MessageKind::RoundResult);
+            assert_eq!(result.round_id, round);
+        }
+        for (index, _) in players.iter().enumerate() {
+            send(&mut clients[index], &ResultAck { round_id: round });
+        }
+        for _ in 0..100 {
+            let _ = server.poll(200_000, Duration::from_millis(20)).unwrap();
+            if server.phase() == ServerPhase::Waiting {
+                break;
+            }
+        }
+        assert_eq!(server.phase(), ServerPhase::Waiting);
+        let waiting = recv_room_state(&mut clients[0]);
+        assert_eq!(waiting.room_id, room);
+        assert_eq!(waiting.members.len(), players.len());
+
+        // Trận 2: ready lại, start, loading ack; round ID tăng.
+        for (index, _) in players.iter().enumerate() {
+            send_room(
+                &mut clients[index],
+                4,
+                RoomActionDto::SetReady { ready: true },
+            );
+            let _ = server.poll(200_000, Duration::from_millis(200)).unwrap();
+        }
+        send_room(&mut clients[0], 5, RoomActionDto::Start);
+        let _ = server.poll(200_000, Duration::from_millis(200)).unwrap();
+        let start2: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+        assert_ne!(start2.round_id, round);
+        for (index, _) in players.iter().enumerate() {
+            send(
+                &mut clients[index],
+                &LoadingAck {
+                    round_id: start2.round_id,
+                },
+            );
+        }
+        for _ in 0..100 {
+            let _ = server.poll(200_000, Duration::from_millis(10)).unwrap();
+            if server.phase() == ServerPhase::Playing {
+                break;
+            }
+        }
+        assert_eq!(server.phase(), ServerPhase::Playing);
+        for (index, _) in players.iter().enumerate() {
+            send(
+                &mut clients[index],
+                &InputBatch {
+                    round_id: u32::try_from(start2.round_id).unwrap(),
+                    player: index as u8,
+                    ack_snapshot: 0,
+                    commands: vec![InputCommand {
+                        seq: 1,
+                        target_tick: 0,
+                        bits: InputBits::new(4, false).unwrap(),
+                    }],
+                },
+            );
+        }
+        let _ = server.poll(200_016, Duration::from_millis(200)).unwrap();
+        for c in clients.iter_mut() {
+            let _: Snapshot = recv_snapshot(c);
+        }
+        let _ = server.poll(400_000, Duration::ZERO).unwrap();
+        assert_eq!(server.phase(), ServerPhase::Results);
+        for c in clients.iter_mut() {
+            let result: RoundResult = recv_of(c, MessageKind::RoundResult);
+            assert_eq!(result.round_id, start2.round_id);
+        }
+        for (index, _) in players.iter().enumerate() {
+            send(
+                &mut clients[index],
+                &ResultAck {
+                    round_id: start2.round_id,
+                },
+            );
+        }
+        for _ in 0..100 {
+            let _ = server.poll(400_000, Duration::from_millis(20)).unwrap();
+            if server.phase() == ServerPhase::Waiting {
+                break;
+            }
+        }
+        assert_eq!(server.phase(), ServerPhase::Waiting);
+        for c in clients.iter_mut() {
+            let _ = c.writer.close();
+        }
     }
 }
