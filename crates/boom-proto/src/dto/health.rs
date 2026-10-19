@@ -268,6 +268,18 @@ mod tests {
         assert!(resp.check(&limits).is_ok());
     }
 
+    /// `unhealthy` mà `problems` **rỗng** vẫn hợp lệ: `db_ok`/`integrity_check`/
+    /// `schema_version` lệch cũng đủ để `unhealthy` (ADR 0011 §8.2.1, exit `1`).
+    #[test]
+    fn unhealthy_without_problems_is_accepted() {
+        let limits = ProtocolLimits::v1();
+        let mut resp = response();
+        resp.status = HealthStatus::Unhealthy;
+        resp.db_ok = false;
+        resp.integrity_check = "page 3 corrupt".into();
+        assert!(resp.check(&limits).is_ok());
+    }
+
     #[test]
     fn problems_over_limit_is_an_error() {
         let limits = ProtocolLimits::v1();

@@ -301,6 +301,34 @@ fn health_response_wire_domain_is_checked() {
     assert!(decode_frame::<HealthResponse>(&frame, &LIMITS).is_ok());
 }
 
+/// Mã trạng thái trên dây là thứ tự khai báo của enum (postcard encode variant theo thứ tự
+/// khai báo). `0x02`/`0x03` là `Unreachable`/`Timeout` — đúng hai giá trị mà `check` loại khỏi
+/// `HealthResponse`, nên byte trên dây phải khớp `HealthStatus::code()`.
+#[test]
+fn health_status_wire_code_matches_enum_order() {
+    let frame = encode_frame(&health_response(), &LIMITS).unwrap();
+    assert_eq!(
+        frame[16],
+        HealthStatus::Healthy.code(),
+        "byte đầu payload là mã trạng thái"
+    );
+
+    for (status, code) in [
+        (HealthStatus::Unhealthy, 1u8),
+        (HealthStatus::Unreachable, 2),
+        (HealthStatus::Timeout, 3),
+    ] {
+        assert_eq!(status.code(), code, "mã trạng thái của {status:?}");
+        let mut resp = health_response();
+        resp.status = status;
+        let frame = encode_frame(&resp, &LIMITS).unwrap();
+        assert_eq!(
+            frame[16], code,
+            "mã trạng thái trên dây của {status:?} phải khớp enum order"
+        );
+    }
+}
+
 /// Số mục `problems` trong trần của `ProtocolLimits`.
 #[test]
 fn health_response_problems_over_limit_is_rejected() {
