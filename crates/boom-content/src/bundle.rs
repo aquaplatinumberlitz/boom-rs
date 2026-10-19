@@ -17,9 +17,12 @@
 //! ## Định danh nội dung
 //!
 //! Trường `content_hash` là SHA-256 của encoding chuẩn ([`Bundle::canonical_bytes`]):
-//! số, chuỗi và danh sách theo thứ tự cố định, **không** phụ thuộc thứ tự key, cách
-//! ghi file hay bộ mã PNG. Hash tính trên **pixel thô** (RGBA) nên đổi bộ mã PNG không
-//! làm đổi `content_hash`; đổi bố cục atlas hoặc đổi ảnh thì có.
+//! số, chuỗi và danh sách theo thứ tự cố định, **không** phụ thuộc thứ tự key hay
+//! cách ghi file. Encoding **có** kèm SHA-256 của từng file atlas, nên `content_hash`
+//! ràng buộc đúng byte mà reader nạp: thay ảnh trong atlas (kể cả khi giữ nguyên mọi
+//! `pixel_sha256`) thì `content_hash` phải đổi và `load()` phải từ chối bundle cũ.
+//! Đánh đổi của thiết kế này: đổi bộ mã PNG cũng đổi `content_hash` — đổi lại reader
+//! kiểm được nội dung hiển thị mà **không** cần giải ảnh.
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -76,8 +79,9 @@ pub struct AtlasPage {
     pub height: u32,
     /// SHA-256 của **file** PNG (hex).
     ///
-    /// Đây là kiểm tra toàn vẹn file, **không** nằm trong `content_hash`: bộ mã PNG khác
-    /// vẫn cho cùng nội dung. `content_hash` băm pixel thô.
+    /// Nằm trong `content_hash` (xem [`Bundle::compute_content_hash`]): hash phải ràng
+    /// buộc đúng byte file mà reader nạp, nếu không thì thay ảnh trong atlas vẫn giữ
+    /// nguyên `content_hash` dù nội dung hiển thị đã khác.
     pub sha256: String,
 }
 
@@ -235,7 +239,8 @@ pub struct Bundle {
     pub height: u16,
     /// Spawn của map, theo thứ tự file nguồn.
     pub spawns: Vec<(u16, u16)>,
-    /// Định danh nội dung: SHA-256 của [`Bundle::canonical_bytes`] (hex).
+    /// Định danh toàn bộ bundle: SHA-256 của [`Bundle::canonical_bytes`] (hex) — gồm
+    /// metadata **và** byte file atlas.
     pub content_hash: String,
     /// Các trang atlas.
     pub atlas: Vec<AtlasPage>,
@@ -267,7 +272,7 @@ impl Bundle {
         let body = toml::to_string(self).map_err(|e| BundleError::Encode(e.to_string()))?;
         Ok(format!(
             "# Bundle nội dung — map {map} (build {build}), schema {schema}.\n\
-             # Sinh bởi `boom-assets bundle`; content_hash băm pixel thô, không phụ thuộc bộ mã PNG.\n\
+             # Sinh bởi `boom-assets bundle`; content_hash băm metadata và byte file atlas.\n\
              # Định dạng: docs/specification/assets/BUNDLES.md\n\n\
              {body}",
             map = self.map,
@@ -279,8 +284,13 @@ impl Bundle {
     /// Encoding chuẩn của nội dung bundle: SHA-256 của chuỗi này là `content_hash`.
     ///
     /// Thứ tự phần tử theo đúng thứ tự trong struct, chuỗi có tiền tố độ dài, số là
-    /// little-endian. `content_hash` và `sha256` của file atlas **không** nằm trong
-    /// encoding này (vòng lặp, và phụ thuộc bộ mã PNG).
+    /// little-endian. `content_hash` không nằm trong encoding này (vòng lặp), nhưng
+    /// **SHA-256 của từng file atlas** thì có: hash phải ràng buộc đúng byte file mà
+    /// reader nạp, nếu không thì thay ảnh trong atlas vẫn giữ nguyên `content_hash`.
+    ///
+    /// Trường `Option<u32>` được ghi bằng cờ hiện diện (0 = không có, 1 = có) rồi mới
+    /// tới giá trị, để **không mất dữ liệu**: mọi giá trị `u32` — kể cả `u32::MAX` —
+    /// đều biểu diễn được và khác nhau với `None`.
     #[must_use]
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Canonical::new();
@@ -301,6 +311,9 @@ impl Bundle {
             out.str(&page.file);
             out.u32(page.width);
             out.u32(page.height);
+            // SHA-256 của file atlas nằm trong encoding: `content_hash` phải ràng buộc
+            // đúng byte file mà reader nạp (xem [`Bundle::compute_content_hash`]).
+            out.str(&page.sha256);
         }
         out.u32(self.sprites.len() as u32);
         for sprite in &self.sprites {
@@ -309,16 +322,12 @@ impl Bundle {
             out.str(&sprite.role);
             out.str(sprite.status.as_str());
             out.str(&sprite.source_sha256);
-            out.i32(
-                sprite
-                    .map_id
-                    .map_or(-1, |id| i32::try_from(id).unwrap_or(i32::MAX)),
-            );
+            out.opt_u32(sprite.map_id);
             out.str(sprite.object_name.as_deref().unwrap_or(""));
             out.u32(sprite.images.len() as u32);
             for image in &sprite.images {
                 out.u32(image.index);
-                out.u32(image.page.unwrap_or(u32::MAX));
+                out.opt_u32(image.page);
                 out.u32(image.x);
                 out.u32(image.y);
                 out.u32(image.width);
@@ -345,8 +354,8 @@ impl Bundle {
         for cell in &self.cells {
             out.u32(u32::from(cell.x));
             out.u32(u32::from(cell.y));
-            out.u32(cell.tile.unwrap_or(u32::MAX));
-            out.u32(cell.object.unwrap_or(u32::MAX));
+            out.opt_u32(cell.tile);
+            out.opt_u32(cell.object);
         }
         out.u32(self.assets.len() as u32);
         for asset in &self.assets {
@@ -370,7 +379,9 @@ impl Bundle {
         out.finish()
     }
 
-    /// `content_hash` tính từ nội dung hiện tại.
+    /// `content_hash` tính từ nội dung hiện tại: metadata **và** byte file atlas.
+    ///
+    /// Đổi bất kỳ phần nào của bundle — kể cả pixel trong atlas — thì hash phải đổi.
     #[must_use]
     pub fn compute_content_hash(&self) -> String {
         sha256_hex(&self.canonical_bytes())
@@ -378,10 +389,14 @@ impl Bundle {
 
     /// Kiểm mọi tham chiếu trong metadata.
     ///
-    /// Kiểm: lưới ô đủ và không trùng; mỗi ảnh nằm trong trang atlas và nằm trong
-    /// trang; mỗi frame trỏ tới ảnh có thật, hình chữ nhật nguồn nằm trong ảnh, canvas
-    /// không nhỏ hơn hình nguồn, pivot nằm trong canvas; mỗi ô có sprite nền (hoặc nằm
-    /// trong `unknown` kèm lý do) và sprite vật cản nếu có; mọi `unknown` đều có lý do.
+    /// Kiểm: lưới ô đủ và không trùng; mọi spawn nằm trong lưới và không trùng nhau;
+    /// mỗi ảnh nằm trong trang atlas và nằm trong trang; mỗi frame trỏ tới ảnh có thật,
+    /// hình chữ nhật nguồn nằm trong ảnh, canvas không nhỏ hơn hình nguồn, pivot nằm
+    /// trong canvas; mỗi ô có sprite nền (hoặc nằm trong `unknown` kèm lý do) và sprite
+    /// vật cản nếu có; mọi `unknown` đều có lý do.
+    ///
+    /// Phân loại spawn (va chạm với ô, ý nghĩa của vị trí spawn) vẫn thuộc bảng phân
+    /// loại map, không nhân bản vào bundle (AGENTS §3 — một thông tin, một nguồn).
     pub fn validate(&self) -> Result<(), BundleError> {
         if self.schema != SCHEMA {
             return Err(BundleError::Schema { found: self.schema });
@@ -405,6 +420,21 @@ impl Bundle {
                 self.width,
                 self.height
             )));
+        }
+
+        // Spawn phải nằm trong lưới và không trùng nhau.
+        let mut seen_spawns: Vec<(u16, u16)> = Vec::with_capacity(self.spawns.len());
+        for (x, y) in &self.spawns {
+            if *x >= self.width || *y >= self.height {
+                return Err(BundleError::Reference(format!(
+                    "spawn ({x}, {y}) nằm ngoài lưới {}x{}",
+                    self.width, self.height
+                )));
+            }
+            if seen_spawns.contains(&(*x, *y)) {
+                return Err(BundleError::Reference(format!("spawn ({x}, {y}) bị lặp")));
+            }
+            seen_spawns.push((*x, *y));
         }
 
         let mut seen_cells: Vec<(u16, u16)> = Vec::with_capacity(self.cells.len());
@@ -642,6 +672,22 @@ impl Canonical {
         self.buf.extend_from_slice(&value.to_le_bytes());
     }
 
+    /// Ghi `Option<u32>` **không mất dữ liệu**: cờ hiện diện rồi mới tới giá trị.
+    ///
+    /// Không dùng giá trị sentinel (`u32::MAX`): mọi ID `u32` phải cho encoding khác
+    /// nhau, kể cả `u32::MAX` và `None`.
+    fn opt_u32(&mut self, value: Option<u32>) {
+        match value {
+            Some(value) => {
+                self.u32(1);
+                self.u32(value);
+            }
+            None => {
+                self.u32(0);
+            }
+        }
+    }
+
     fn str(&mut self, value: &str) {
         self.u32(u32::try_from(value.len()).expect("chuỗi quá dài"));
         self.buf.extend_from_slice(value.as_bytes());
@@ -653,6 +699,10 @@ impl Canonical {
 }
 
 /// Nạp bundle từ thư mục: đọc metadata, kiểm tham chiếu, kiểm hash và file atlas.
+///
+/// `content_hash` gồm SHA-256 của từng file atlas, nên thay ảnh trong atlas — kể cả
+/// khi người dựng cập nhật luôn `sha256` của file — vẫn bị từ chối vì hash cũ không
+/// còn khớp nội dung.
 ///
 /// # Lỗi
 ///
@@ -1170,6 +1220,69 @@ mod tests {
         data
     }
 
+    /// Adler-32 (checksum cuối của stream zlib).
+    fn adler32(data: &[u8]) -> u32 {
+        const MOD: u32 = 65521;
+        let mut a = 1u32;
+        let mut b = 0u32;
+        for &byte in data {
+            a = (a + u32::from(byte)) % MOD;
+            b = (b + a) % MOD;
+        }
+        (b << 16) | a
+    }
+
+    /// PNG hợp lệ: signature + IHDR + IDAT + IEND, mọi pixel cùng một màu.
+    ///
+    /// IDAT là stream zlib chứa deflate block **không nén** (stored block), nên không
+    /// cần bộ giải nén: test chỉ cần file PNG đúng kích thước và **khác byte** so với
+    /// ảnh khác — đúng việc mà probe "thay toàn bộ atlas" của reviewer làm.
+    fn solid_png(width: u32, height: u32, rgba: [u8; 4]) -> Vec<u8> {
+        // Mỗi hàng: 1 byte filter (0 = None) rồi pixel RGBA.
+        let mut row = vec![0u8; 1 + (width as usize) * 4];
+        for pixel in row[1..].as_chunks_mut::<4>().0 {
+            pixel.copy_from_slice(&rgba);
+        }
+        let raw = row.repeat(height as usize);
+        // zlib header (CMF=0x78, FLG=0x01) + stored deflate block + adler32.
+        let mut zlib = vec![0x78u8, 0x01];
+        let mut offset = 0usize;
+        loop {
+            let len = (raw.len() - offset).min(0xFFFF);
+            let last = offset + len == raw.len();
+            zlib.push(u8::from(last));
+            zlib.extend_from_slice(&(len as u16).to_le_bytes());
+            zlib.extend_from_slice(&(!(len as u16)).to_le_bytes());
+            zlib.extend_from_slice(&raw[offset..offset + len]);
+            offset += len;
+            if last {
+                break;
+            }
+        }
+        zlib.extend_from_slice(&adler32(&raw).to_be_bytes());
+
+        let mut data = minimal_png(width, height);
+        data.extend_from_slice(&(zlib.len() as u32).to_be_bytes());
+        data.extend_from_slice(b"IDAT");
+        data.extend_from_slice(&zlib);
+        let mut crc_input = b"IDAT".to_vec();
+        crc_input.extend_from_slice(&zlib);
+        data.extend_from_slice(&crc32_ieee(&crc_input).to_be_bytes());
+        data.extend_from_slice(&0u32.to_be_bytes());
+        data.extend_from_slice(b"IEND");
+        data.extend_from_slice(&crc32_ieee(b"IEND").to_be_bytes());
+        data
+    }
+
+    /// Ghi metadata bundle ra thư mục.
+    fn write_metadata(dir: &Path, bundle: &Bundle) {
+        std::fs::write(
+            dir.join(METADATA_FILE),
+            bundle.to_toml().expect("xuất TOML"),
+        )
+        .expect("ghi metadata");
+    }
+
     /// Thư mục tạm cho test; tự xoá khi test xong.
     fn temp_dir(name: &str) -> PathBuf {
         let dir =
@@ -1241,5 +1354,118 @@ mod tests {
         assert!(matches!(load(&dir), Err(BundleError::Png(_))));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Regression review PR #55 (P2 #1): thay toàn bộ atlas bằng PNG khác (cùng kích
+    /// thước, pixel khác) và cập nhật `sha256` của file — `load()` phải từ chối.
+    ///
+    /// Trước khi sửa, encoding bỏ `atlas.sha256` nên `content_hash` không ràng buộc với
+    /// pixel thật: bundle vẫn nạp được với **cùng hash cũ** dù nội dung hiển thị đã
+    /// khác (đúng probe của reviewer).
+    #[test]
+    fn load_rejects_atlas_replaced_with_other_pixels() {
+        let dir = temp_dir("swap");
+        let atlas_dir = dir.join(ATLAS_DIR);
+        std::fs::create_dir_all(&atlas_dir).expect("tạo thư mục atlas");
+        let original = solid_png(64, 64, [255, 0, 0, 255]);
+        std::fs::write(atlas_dir.join("page-000.png"), &original).expect("ghi PNG");
+
+        let mut bundle = sample_bundle();
+        bundle.atlas[0].sha256 = sha256_hex(&original);
+        bundle.content_hash = bundle.compute_content_hash();
+        write_metadata(&dir, &bundle);
+        assert!(load(&dir).is_ok(), "bundle gốc phải nạp được");
+
+        // Thay toàn bộ atlas bằng PNG trong suốt cùng kích thước, cập nhật `sha256` của
+        // file — giữ nguyên `content_hash` và mọi `pixel_sha256`.
+        let other = solid_png(64, 64, [0, 0, 0, 0]);
+        assert_ne!(other, original, "ảnh thay thế phải khác byte ảnh gốc");
+        std::fs::write(atlas_dir.join("page-000.png"), &other).expect("ghi PNG thay thế");
+        let mut swapped = bundle.clone();
+        swapped.atlas[0].sha256 = sha256_hex(&other);
+        write_metadata(&dir, &swapped);
+        assert!(
+            matches!(load(&dir), Err(BundleError::ContentHash { .. })),
+            "atlas bị thay mà content_hash cũ vẫn phải bị từ chối"
+        );
+
+        // Tính lại hash theo metadata mới thì hash phải đổi: định danh đi theo artifact.
+        let mut recomputed = swapped.clone();
+        recomputed.content_hash = recomputed.compute_content_hash();
+        assert_ne!(recomputed.content_hash, bundle.content_hash);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `content_hash` phải ràng buộc byte file atlas: đổi `sha256` ghi trong metadata
+    /// thì hash phải đổi.
+    #[test]
+    fn content_hash_covers_the_atlas_file_hash() {
+        let mut bundle = sample_bundle();
+        let first = bundle.compute_content_hash();
+        bundle.atlas[0].sha256 = "dd".repeat(32);
+        assert_ne!(bundle.compute_content_hash(), first);
+    }
+
+    /// Regression review PR #55 (P2 #2): spawn nằm ngoài lưới phải bị từ chối.
+    #[test]
+    fn rejects_spawn_outside_the_grid() {
+        let mut bundle = sample_bundle();
+        bundle.spawns = vec![(0, 0), (1, 1)]; // lưới 1x1 → (1, 1) nằm ngoài
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Regression review PR #55 (P2 #2): spawn trùng toạ độ phải bị từ chối.
+    #[test]
+    fn rejects_duplicate_spawns() {
+        let mut bundle = sample_bundle();
+        bundle.spawns = vec![(0, 0), (0, 0)];
+        assert!(matches!(bundle.validate(), Err(BundleError::Reference(_))));
+    }
+
+    /// Spawn hợp lệ (trong lưới, không trùng) vẫn phải qua.
+    #[test]
+    fn accepts_spawns_inside_the_grid() {
+        let mut bundle = sample_bundle();
+        bundle.spawns = vec![(0, 0)];
+        assert!(bundle.validate().is_ok());
+    }
+
+    /// Regression review PR #55 (P2 #3): `map_id` là `u32` — mọi giá trị phải cho
+    /// `content_hash` khác nhau, kể cả hai giá trị trên `i32::MAX`.
+    #[test]
+    fn content_hash_distinguishes_every_map_id() {
+        let mut bundle = sample_bundle();
+        bundle.sprites[0].map_id = Some(2_147_483_648);
+        let first = bundle.compute_content_hash();
+        bundle.sprites[0].map_id = Some(2_147_483_649);
+        assert_ne!(
+            bundle.compute_content_hash(),
+            first,
+            "hai map_id khác phải cho content_hash khác"
+        );
+    }
+
+    /// Regression review PR #55 (P2 #3): `Option<u32>` không dùng giá trị sentinel —
+    /// `None` phải khác **mọi** giá trị, kể cả `u32::MAX`.
+    #[test]
+    fn content_hash_distinguishes_none_from_every_id() {
+        let mut bundle = sample_bundle();
+        bundle.sprites[0].map_id = None;
+        let no_map_id = bundle.compute_content_hash();
+        bundle.sprites[0].map_id = Some(u32::MAX);
+        assert_ne!(bundle.compute_content_hash(), no_map_id);
+
+        let mut bundle = sample_bundle();
+        bundle.cells[0].tile = None;
+        let no_tile = bundle.compute_content_hash();
+        bundle.cells[0].tile = Some(u32::MAX);
+        assert_ne!(bundle.compute_content_hash(), no_tile);
+
+        let mut bundle = sample_bundle();
+        bundle.sprites[0].images[0].page = None;
+        let no_page = bundle.compute_content_hash();
+        bundle.sprites[0].images[0].page = Some(u32::MAX);
+        assert_ne!(bundle.compute_content_hash(), no_page);
     }
 }

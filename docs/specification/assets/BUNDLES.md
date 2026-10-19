@@ -48,7 +48,7 @@ và **bộ giải mã sprite** `CDataI16Alpha` v2 (`crates/boom-assets/src/sprit
 | `width`, `height` | số | Kích thước lưới ô (số cột, số hàng) |
 | `spawns` | mảng cặp số | Spawn theo thứ tự file `.map` nguồn |
 | `content_hash` | chuỗi | Định danh nội dung, xem §4 |
-| `[[atlas]]` | bảng | Một trang atlas: `file`, `width`, `height`, `sha256` (SHA-256 của **file** PNG) |
+| `[[atlas]]` | bảng | Một trang atlas: `file`, `width`, `height`, `sha256` (SHA-256 của **file** PNG; nằm trong `content_hash`) |
 | `[[sprites]]` | bảng | Một entry ảnh của closure, xem §3.1 |
 | `[[assets]]` | bảng | Entry của closure **không phải ảnh** (file map, BGM, bảng chỉ số): `entry`, `role`, `status`, `source_sha256`, `bytes`, `reason` |
 | `[[cells]]` | bảng | Ô của map: `x`, `y`, `tile` (ID nền), `object` (ID vật cản, vắng nếu ô trống) |
@@ -107,30 +107,34 @@ u32 schema
 str build, str map, str tileset
 u32 width, u32 height
 u32 n_spawns × (u32 x, u32 y)
-u32 n_atlas  × (str file, u32 width, u32 height)
+u32 n_atlas  × (str file, u32 width, u32 height, str sha256)
 u32 n_sprites × (
     str id, str entry, str role, str status, str source_sha256,
-    i32 map_id (-1 = không có), str object_name ("" = không có),
-    u32 n_images × (u32 index, u32 page, u32 x, u32 y, u32 width, u32 height, str pixel_sha256),
+    opt_u32 map_id, str object_name ("" = không có),
+    u32 n_images × (u32 index, opt_u32 page, u32 x, u32 y, u32 width, u32 height, str pixel_sha256),
     u32 n_frames × (u32 image, i32 offset_x, i32 offset_y, i32 flag,
                     i32 x0, i32 y0, i32 x1, i32 y1,
                     i32 canvas_width, i32 canvas_height, i32 pivot_x, i32 pivot_y))
-u32 n_cells   × (u32 x, u32 y, u32 tile, u32 object)
+u32 n_cells   × (u32 x, u32 y, opt_u32 tile, opt_u32 object)
 u32 n_assets  × (str entry, str role, str status, str source_sha256, u32 bytes, str reason)
 u32 n_unknown × (str kind, str id, str reason, u32 n_candidates × str candidate)
 ```
 
 - Số là little-endian; chuỗi có tiền tố độ dài `u32` rồi byte UTF-8.
-- Giá trị `u32::MAX` đánh dấu "không có" (`map_id` là `i32` nên dùng `-1`; `page`,
-  `tile`, `object` dùng `u32::MAX`).
-- `content_hash` và `sha256` của file atlas **không** nằm trong encoding (vòng lặp, và
-  phụ thuộc bộ mã PNG).
-- Hash tính trên **pixel thô** (`pixel_sha256`), nên **đổi bộ mã PNG không làm đổi
-  `content_hash`**; đổi ảnh, bố cục atlas hoặc metadata thì có.
+- `opt_u32` = cờ hiện diện (`u32` 0 = không có, 1 = có) rồi mới tới giá trị `u32`.
+  **Không** dùng giá trị sentinel (`u32::MAX`): mọi ID `u32` — kể cả `u32::MAX` — phải
+  cho encoding khác nhau và khác `None`.
+- `content_hash` không nằm trong encoding (vòng lặp), nhưng **SHA-256 của từng file
+  atlas thì có**: hash phải ràng buộc đúng byte file mà reader nạp. Nếu bỏ, thay ảnh
+  trong atlas vẫn giữ nguyên `content_hash` dù nội dung hiển thị đã khác — reader nhận
+  nhầm artifact.
+- Đánh đổi của thiết kế này: `content_hash` **phụ thuộc byte file atlas**, nên đổi bộ
+  mã PNG cũng đổi hash. Đổi lại reader ràng buộc được nội dung hiển thị mà không cần
+  giải ảnh (xem §5).
 
-Tái lập: cùng pack ⇒ cùng `content_hash`, vì thứ tự sprite theo thứ tự manifest closure,
-thứ tự ảnh theo thứ tự blob gốc, và thuật toán đóng gói atlas có thứ tự ảnh cố định
-(chiều cao giảm dần, rồi chiều rộng, rồi thứ tự ban đầu).
+Tái lập: cùng pack + cùng phiên bản bộ mã PNG ⇒ cùng `content_hash`, vì thứ tự sprite
+theo thứ tự manifest closure, thứ tự ảnh theo thứ tự blob gốc, và thuật toán đóng gói
+atlas có thứ tự ảnh cố định (chiều cao giảm dần, rồi chiều rộng, rồi thứ tự ban đầu).
 
 ## 5. Reader và kiểm tra
 
@@ -138,18 +142,26 @@ thứ tự ảnh theo thứ tự blob gốc, và thuật toán đóng gói atlas
 `content_hash` và kiểm SHA-256 từng file atlas. `Bundle::validate()` kiểm:
 
 1. `schema` đúng; lưới ô đủ `width × height`, không ô nào lặp hoặc nằm ngoài lưới.
-2. Mỗi ảnh có trang atlas hợp lệ (hoặc là ảnh rỗng 0×0 không có trang) và không tràn trang.
-3. Mỗi frame trỏ tới ảnh có thật; hình chữ nhật nguồn nằm trong ảnh; canvas không nhỏ hơn
+2. Mọi spawn nằm trong lưới và không trùng toạ độ nhau. Phân loại spawn (va chạm với
+   ô, ý nghĩa của vị trí spawn) vẫn thuộc bảng phân loại map, **không** nhân bản vào
+   bundle (AGENTS §3 — một thông tin, một nguồn chuẩn).
+3. Mỗi ảnh có trang atlas hợp lệ (hoặc là ảnh rỗng 0×0 không có trang) và không tràn trang.
+4. Mỗi frame trỏ tới ảnh có thật; hình chữ nhật nguồn nằm trong ảnh; canvas không nhỏ hơn
    hình nguồn; pivot nằm trong canvas.
-4. Mỗi ô có sprite nền và (nếu có) sprite vật cản, **hoặc** ID đó nằm trong `unknown` kèm
+5. Mỗi ô có sprite nền và (nếu có) sprite vật cản, **hoặc** ID đó nằm trong `unknown` kèm
    lý do — không ô nào bị bỏ qua âm thầm.
-5. Mọi mục `unknown` đều có lý do; mọi `id` của sprite là duy nhất.
+6. Mọi mục `unknown` đều có lý do; mọi `id` của sprite là duy nhất.
 
 `load()` kiểm thêm: file atlas tồn tại, SHA-256 khớp `sha256` ghi trong metadata, và
 header PNG (chunk IHDR, có CRC) cho kích thước đúng bằng `width`/`height` của trang.
 
 Đây là kiểm tra *siêu hình*; reader **không** giải ảnh (client giải khi nạp texture) và
-không kiểm ngữ nghĩa field frame (`f2` vẫn chưa chốt, xem [MAPS §3](MAPS.md)).
+không kiểm ngữ nghĩa field frame (`f2` vẫn chưa chốt, xem [MAPS §3](MAPS.md)). Ràng buộc
+giữa `content_hash` và **pixel thật** làm theo chuỗi: `content_hash` gồm SHA-256 của
+file atlas, còn `pixel_sha256` của từng ảnh là hash buffer RGBA mà builder ghi lúc
+dựng (test `atlas_pixels_match_the_recorded_image_hashes` kiểm lại điều đó). Nhờ vậy
+thay ảnh trong atlas — kể cả khi người dựng cập nhật luôn `sha256` của file — thì
+`content_hash` cũ không còn khớp và `load()` từ chối bundle đó.
 
 ## 6. Đo trên pack KR 00967 (2026-10-19)
 
@@ -163,7 +175,7 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Trang atlas | 1 trang 2048×1241 |
 | Ô | 195, mọi ô có sprite nền |
 | `unknown` | 4 mục `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) |
-| `content_hash` | `bf12715f52e44d2b0ab48a9dc10748584d011e37b6529d93bc23400c23bddcad` |
+| `content_hash` | `4793a9901b98b4ddd30afedd50aa5ed1c718b9b74e5485f181b40add379b171f` |
 
 Cách kiểm lại:
 
@@ -190,3 +202,9 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
 - **Chưa có bước kiểm pixel của client.** Bộ giải mã sprite đã khớp từng pixel với tool
   tham chiếu `boom-re-l10n/tools/i16.py` (task #33), nhưng chưa có trace runtime của client
   KR/VN để chứng minh client tiêu thụ `f0..f11` đúng như ta hiểu.
+- **`content_hash` gắn với byte file atlas.** Đổi bộ mã PNG (đổi phiên bản thư viện
+  `png`) thì hash đổi, dù pixel không đổi. Đánh đổi có chủ ý: reader ràng buộc được
+  nội dung hiển thị mà không cần giải ảnh. Nếu sau này cần hash **theo pixel thuần**
+  (đổi bộ mã PNG không đổi hash) thì reader phải giải PNG và đối chiếu từng vùng RGBA
+  với `pixel_sha256` — việc đó cần thêm bộ giải ảnh vào `boom-content` (quyết định kiến
+  trúc, thuộc integrator).

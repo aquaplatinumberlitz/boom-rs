@@ -18,7 +18,8 @@
 //! - Thứ tự sprite theo thứ tự manifest closure; thứ tự ảnh theo thứ tự blob gốc.
 //! - Đóng gói atlas dùng thuật toán kệ (shelf) với thứ tự ảnh cố định
 //!   (chiều cao giảm dần, rồi chiều rộng, rồi thứ tự ban đầu).
-//! - `content_hash` băm **pixel thô** (RGBA), không phụ thuộc bộ mã PNG.
+//! - `content_hash` băm **toàn bộ bundle**: metadata **và** SHA-256 của từng file atlas,
+//!   nên thay ảnh trong atlas thì hash đổi (đổi bộ mã PNG cũng đổi hash).
 
 use std::fmt;
 use std::fs;
@@ -770,6 +771,61 @@ mod tests {
             Err(other) => panic!("lỗi sai: {other}"),
             Ok(_) => panic!("map khác phải bị từ chối"),
         }
+    }
+
+    /// PNG trong suốt cùng kích thước — dùng để mô phỏng "thay toàn bộ atlas".
+    fn transparent_png(width: u32, height: u32) -> Vec<u8> {
+        let rgba = vec![0u8; (width as usize) * (height as usize) * 4];
+        let mut out: Vec<u8> = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut out, width, height);
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().expect("ghi header PNG");
+            writer.write_image_data(&rgba).expect("ghi pixel PNG");
+        }
+        out
+    }
+
+    /// Regression review PR #55 (P2 #1): trên bundle thật, thay toàn bộ atlas bằng PNG
+    /// trong suốt cùng kích thước và cập nhật `sha256` của file — reader phải từ chối.
+    ///
+    /// Đúng probe của reviewer: trước khi sửa, `load()` trả `Ok` với **cùng**
+    /// `content_hash` dù nội dung hiển thị đã khác.
+    #[test]
+    fn load_rejects_real_atlas_replaced_with_other_pixels() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let dir = temp_dir("swap-real");
+        built.write(&dir).expect("ghi bundle");
+
+        // Thay file atlas bằng PNG trong suốt cùng kích thước trang.
+        let page = &built.bundle.atlas[0];
+        let transparent = transparent_png(page.width, page.height);
+        std::fs::write(dir.join(ATLAS_DIR).join("page-000.png"), &transparent)
+            .expect("ghi PNG thay thế");
+
+        // Cập nhật `sha256` của file, giữ nguyên `content_hash` và mọi `pixel_sha256`.
+        let mut swapped = built.bundle.clone();
+        swapped.atlas[0].sha256 = sha256_hex(&transparent);
+        std::fs::write(
+            dir.join(METADATA_FILE),
+            swapped.to_toml().expect("xuất TOML"),
+        )
+        .expect("ghi metadata");
+
+        assert!(
+            matches!(
+                boom_content::bundle::load(&dir),
+                Err(boom_content::bundle::BundleError::ContentHash { .. })
+            ),
+            "atlas bị thay mà content_hash cũ vẫn phải bị từ chối"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     /// Nghiệm thu V1-030: pixel trong trang atlas phải khớp SHA-256 của ảnh đã ghi.
