@@ -30,7 +30,7 @@ Hai run `probe/sample1.txt` (11,505 s, 24 mẫu) và `probe/sample2.txt` (5,503 
 
 Cửa sổ 2,5 s dao động 32,98–34,00 bước/s do lượng tử mẫu 0,5 s; toàn cửa sổ ổn định 33,38/33,44.
 Kết luận: **30 ms/bước** (≈33,3 bước/s), sai số làm tròn ±0,1 ms. `33 Hz` không phải số đo; là lựa chọn
-nguyên của profile (R-071, design).
+nguyên của profile (R-074, design).
 
 - Dữ liệu: [tick-runs.csv](tick-runs.csv), log gốc [tick-samples.txt](tick-samples.txt).
 - Lệnh: `python3 analyze_tick.py`.
