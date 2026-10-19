@@ -171,9 +171,9 @@ Cần ghi field của system khác → mở issue cho integrator, không sửa t
 
 ### 5.4 Contract mạng và replay (chưa có code)
 
-Revision **`proto-r1`**, 2026-10-19, **Proposed** theo
-[ADR 0009](../decisions/0009-wire-protocol-input-snapshot-codec.md). `boom-proto` chưa được tạo; crate chỉ
-mở sau khi ADR accepted. Khi có code, kiểu DTO là nguồn chuẩn; mục này giữ quy tắc và bất biến review.
+Revision **`proto-r1`**, 2026-10-19, **Accepted** theo
+[ADR 0009](../decisions/0009-wire-protocol-input-snapshot-codec.md) (PR #24). `boom-proto` chưa được tạo;
+integrator mở task triển khai ở P7. Khi có code, kiểu DTO là nguồn chuẩn; mục này giữ quy tắc và bất biến review.
 
 | Contract | Nội dung tối thiểu | Bất biến cần review |
 |---|---|---|
@@ -274,9 +274,9 @@ review. Font Unicode, fallback, wrap, focus là contract UI. Golden bản Việt
 
 | Quyết định | Trạng thái | Gate |
 |---|---|---|
-| Client stack | ADR 0007 Proposed — spike | Một scene V1 trên 3 OS, so độ đúng pixel và chi phí bảo trì |
+| Client stack | **ADR 0010: macroquad, có điều kiện** | Còn: build+run thật 3 OS, input-held/focus, playback audio (P6) |
 | Persistence | Mở (Q-011); SQLite là ứng viên V1 | Uniqueness/transaction, migration/backup, test backend thật |
-| Codec giao thức | Mở (START-C/P7) | Version compatibility, kích thước snapshot, dễ debug |
+| Codec giao thức | **ADR 0009** | Triển khai `boom-proto`/`boom-net` ở P7 |
 | Định dạng bundle content | Mở (P4) | Provenance, validation, asset closure, rebuild tái lập |
 | Thứ tự chi tiết trong tick | Mở (START-C, Q-006) | Boundary scenario pickup/lửa/chain/chết cùng tick |
 

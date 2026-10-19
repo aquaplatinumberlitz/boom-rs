@@ -1,7 +1,7 @@
 # 0009 — Giao thức V1: envelope có revision, InputCommand/Snapshot đầy đủ và codec
 
-Status: **Proposed** — chờ review #14, 2026-10-19. Chưa tạo crate `boom-proto`; ADR accepted rồi
-integrator mở task codec theo thứ tự dependency.
+Status: **Accepted**, 2026-10-19 — Codex approve và merge PR #24 (issue #14). Chưa tạo crate `boom-proto`;
+integrator mở task triển khai codec ở P7 theo thứ tự dependency.
 
 ## Bối cảnh
 

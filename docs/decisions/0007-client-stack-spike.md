@@ -1,6 +1,6 @@
 # 0007 — Client stack: chọn bằng spike một scene V1
 
-Status: **Proposed**, 2026-10-19. Chưa chọn thư viện; ADR này chốt cách chọn và hạn chọn.
+Status: **Superseded** bởi [0010](0010-client-stack-choice.md) (2026-10-19); trước đó Proposed. Chưa chọn thư viện; ADR này chốt cách chọn và hạn chọn.
 
 ## Ràng buộc
 

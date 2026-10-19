@@ -23,7 +23,8 @@ V1 là lát cắt chơi được; mục tiêu dài hạn vẫn là mở rộng c
 | Fixed step, số nguyên, RNG/hash riêng trong core | [ADR 0004](../decisions/0004-time-numeric-model.md) |
 | Server quyết kết quả; client chỉ dự đoán di chuyển của mình | [ADR 0005](../decisions/0005-authority-and-prediction.md) |
 | Transport mặc định TCP sau trait | [ADR 0006](../decisions/0006-transport-default.md) |
-| Client stack chọn bằng spike | [ADR 0007](../decisions/0007-client-stack-spike.md) — Proposed |
+| Client stack: macroquad (có điều kiện) | [ADR 0010](../decisions/0010-client-stack-choice.md) (thay 0007) |
+| Giao thức InputCommand/Snapshot, codec | [ADR 0009](../decisions/0009-wire-protocol-input-snapshot-codec.md) |
 | Mở rộng qua Mode/System/Event, overlay luật, dữ liệu item/liveops | [ADR 0008](../decisions/0008-extensibility-model.md) |
 
 ### Nguồn chi tiết và trạng thái
