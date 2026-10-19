@@ -19,8 +19,8 @@ Không chia điểm cho in_progress/in_review/blocked. Scope đổi phải đổ
 
 | Trạng thái | V1 | Toàn catalog cần triển khai |
 |---|---:|---:|
-| Chưa làm | 19 | 94 |
-| Đang làm | 4 | 4 |
+| Chưa làm | 9 | 84 |
+| Đang làm | 14 | 14 |
 | Bị chặn | 0 | 0 |
 | Chờ review | 14 | 14 |
 | Đã nghiệm thu | 0 | 0 |
@@ -60,8 +60,8 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 
 | ID | Feature | Trạng thái | Owner / assignee | Reviewer | Bước tiếp / blocker | Bằng chứng |
 |---|---|---|---|---|---|---|
-| V1-001 | Auth tài khoản dự án | Chưa làm | backend / chưa giao | — | — | — |
-| V1-002 | Handshake phiên bản/rules/content | Chưa làm | net / chưa giao | — | Issue #14 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-001 | Auth tài khoản dự án | Đang làm | backend / opencode-1 | Codex | ADR 0011 đã merge (PR #57); wire auth ở #63, storage #61, tiếp theo T3/T4/T5. | [0011-identity-persistence-log-v1.md](<../../docs/decisions/0011-identity-persistence-log-v1.md>); `06058297ddd9` |
+| V1-002 | Handshake phiên bản/rules/content | Đang làm | net / dsh-a | Codex | DTO Hello/Welcome/Reject đã merge (PR #56); handshake server ở PR #60; Welcome thêm ngón tay cấu hình theo ADR 0009 Addendum A (PR #59, T5). | [handshake.rs](<../../crates/boom-proto/src/dto/handshake.rs>); `e627112e5fe5` |
 | V1-003 | Một kênh và sảnh danh sách phòng | Chưa làm | backend / chưa giao | — | — | — |
 | V1-004 | Tạo phòng công khai | Chờ review | backend / dsh-3 | Codex | Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
 | V1-005 | Vào/rời phòng | Chờ review | backend / dsh-3 | Codex | Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
@@ -69,7 +69,7 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-007 | Chọn C00/C01 | Đang làm | client / dsh-3 | Codex | Phần server (chọn nhân vật, hủy ready) có ở PR #23; còn UI chọn C00/C01 phía client. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
 | V1-008 | Ready/cancel/start | Chờ review | backend / dsh-3 | Codex | Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done. | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c` |
 | V1-009 | Chat trong phòng chờ | Chưa làm | backend / chưa giao | — | — | — |
-| V1-010 | Start barrier và spawn | Chưa làm | net / chưa giao | — | — | — |
+| V1-010 | Start barrier và spawn | Đang làm | net / dsh-a | Codex | Lõi authority (start barrier, kết quả, disconnect) đã merge (PR #53); IO thật qua boom-net + test memory transport ở PR #60. | [lib.rs](<../../crates/boom-server/src/lib.rs>); `fb4ed043822a` |
 | V1-011 | Di chuyển và ưu tiên input | Đang làm | core / opencode-4 | Claude | Đã có đi/rẽ/va chạm (PR #22); còn ưu tiên giữ nhiều phím/mất focus (V1-033) và hiệu chuẩn tốc độ/bám góc (#11, Q-005). | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); `fefd5c0d810c` |
 | V1-012 | Va chạm tường/gạch/bom | Chờ review | core / opencode-4 | Claude | Đã review và merge PR #22; đặt done khi dependency V1-011 done (AGENTS §6). | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); [bomb_grace_one_way.toml](<../../fixtures/scenarios/movement/bomb_grace_one_way.toml>); `fefd5c0d810c` |
 | V1-013 | Đặt bom và hạn mức | Chờ review | core / opencode-1 | Claude | Đã review và merge PR #19; đặt done khi dependency V1-012 done (AGENTS §6). | [bomb_place.rs](<../../crates/boom-core/src/systems/bomb_place.rs>); [place_one.toml](<../../fixtures/scenarios/bomb_place/place_one.toml>); `4600810eacb6` |
@@ -81,19 +81,19 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-019 | Item Roller tăng tốc | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #29; đặt done khi V1-016 và V1-011 done. | [pickup.rs](<../../crates/boom-core/src/systems/pickup.rs>); [bomb.toml](<../../fixtures/scenarios/pickup/bomb.toml>); `5845f1541242` |
 | V1-020 | Bẫy/bong bóng/chết | Chờ review | core / opencode-3 | Claude | Đã review và merge PR #20; đặt done khi dependency V1-014 done (AGENTS §6). | [life.rs](<../../crates/boom-core/src/systems/life.rs>); [trap_timeout.toml](<../../fixtures/scenarios/life/trap_timeout.toml>); `5b42a6a899a6` |
 | V1-021 | Thắng/hòa/hết giờ | Chờ review | core / Claude | Codex | Thắng/hòa/hết giờ ở mode.rs (contracts review #2) + life #20; đặt done khi V1-020 done. | [mode.rs](<../../crates/boom-core/src/mode.rs>); [time_limit_draw.toml](<../../fixtures/scenarios/round/time_limit_draw.toml>); `5b42a6a899a6` |
-| V1-022 | Kết quả và chơi vòng tiếp | Chưa làm | backend / chưa giao | — | — | — |
-| V1-023 | Disconnect/timeout | Chưa làm | net / chưa giao | — | — | — |
-| V1-024 | Input/snapshot authoritative | Đang làm | net / dsh-4 | Codex | Thiết kế ADR 0009 đã merge (PR #24); còn triển khai boom-proto/boom-net và authority (đợt 2). | [0009-wire-protocol-input-snapshot-codec.md](<../../docs/decisions/0009-wire-protocol-input-snapshot-codec.md>); `743a38af2a27` |
+| V1-022 | Kết quả và chơi vòng tiếp | Đang làm | backend / dsh-a | Codex | Lõi authority (start barrier, kết quả, disconnect) đã merge (PR #53); IO thật qua boom-net + test memory transport ở PR #60. | [lib.rs](<../../crates/boom-server/src/lib.rs>); `fb4ed043822a` |
+| V1-023 | Disconnect/timeout | Đang làm | net / dsh-a | Codex | Lõi authority (start barrier, kết quả, disconnect) đã merge (PR #53); IO thật qua boom-net + test memory transport ở PR #60. | [lib.rs](<../../crates/boom-server/src/lib.rs>); `fb4ed043822a` |
+| V1-024 | Input/snapshot authoritative | Đang làm | net / dsh-a | Codex | boom-proto/boom-net/boom-sync + lõi authority server đã merge (PR #50, #56, #53); IO server qua boom-net ở PR #60 (#46 phần 2). | [0009-wire-protocol-input-snapshot-codec.md](<../../docs/decisions/0009-wire-protocol-input-snapshot-codec.md>); `743a38af2a27`; [envelope.rs](<../../crates/boom-proto/src/envelope.rs>); [lib.rs](<../../crates/boom-net/src/lib.rs>); [lib.rs](<../../crates/boom-sync/src/lib.rs>); `2af995d8def9`; `e627112e5fe5`; `fb4ed043822a` |
 | V1-025 | Prediction/reconciliation | Chưa làm | net / chưa giao | — | — | — |
 | V1-026 | Replay và state hash | Chưa làm | core / chưa giao | — | — | — |
 | V1-027 | QA mạng 4 client | Chưa làm | qa / chưa giao | — | — | — |
-| V1-028 | Lưu tài khoản và tùy chọn | Chưa làm | backend / chưa giao | — | — | — |
-| V1-029 | Log/health và vận hành test | Chưa làm | backend / chưa giao | — | — | — |
-| V1-030 | Map Village00 + dependency closure | Đang làm | assets / dsh-1 | Codex | Phân loại ô + World từ Village00 KR đã merge (PR #25); còn closure render (theme/tile/object/preview, animation state). | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); `243d230fd7f0` |
-| V1-031 | Animation C00/C01 và bomb | Chưa làm | client / chưa giao | — | — | — |
+| V1-028 | Lưu tài khoản và tùy chọn | Đang làm | backend / opencode-1 | Codex | ADR 0011 đã merge (PR #57); storage identity #61, options client #62. | [0011-identity-persistence-log-v1.md](<../../docs/decisions/0011-identity-persistence-log-v1.md>); `06058297ddd9` |
+| V1-029 | Log/health và vận hành test | Đang làm | backend / dsh-a | Codex | ADR 0011 đã merge (PR #57); T1 log/health/admin giao sau khi PR #59, #60 merge. | [0011-identity-persistence-log-v1.md](<../../docs/decisions/0011-identity-persistence-log-v1.md>); `06058297ddd9` |
+| V1-030 | Map Village00 + dependency closure | Đang làm | assets / opencode-4 | Codex | Closure Village00 + giải mã sprite đã merge (PR #36, #38, #39); bundle ở PR #55 (#49) đang re-review. | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); `243d230fd7f0`; [closure.rs](<../../crates/boom-assets/src/closure.rs>); [sprite.rs](<../../crates/boom-assets/src/sprite.rs>); `9372f2074939`; `fd2e5d217251`; `282a051a5ce7` |
+| V1-031 | Animation C00/C01 và bomb | Đang làm | client / opencode-3 | Codex | Schema animation + bộ trích entry→clip đã merge (PR #52, R-077…R-079); còn phát clip trong client từ bundle. | [animation.rs](<../../crates/boom-assets/src/animation.rs>); `389b6ce78fc1` |
 | V1-032 | UI luồng V1 bằng asset KR | Chưa làm | client / chưa giao | — | Issue #15 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-033 | Input/scale/focus | Chưa làm | client / chưa giao | — | — | — |
-| V1-034 | Audio/volume | Chưa làm | client / chưa giao | — | — | — |
+| V1-033 | Input/scale/focus | Đang làm | client / dsh-b | Codex | Input mặc định/integer scale/release khi mất focus đã merge (PR #51); còn rebind qua options.toml (#62). | [input.rs](<../../crates/boom-client/src/input.rs>); `0c5df165ffab` |
+| V1-034 | Audio/volume | Đang làm | client / dsh-b | Codex | Phần 1 (event→SFX, giải mã FxSound) ở #64. | — |
 | V1-035 | Việt hóa UI V1 | Chưa làm | client / chưa giao | — | Issue #15 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
 | V1-036 | Build Windows/Linux/macOS | Chưa làm | release / chưa giao | — | — | — |
 | V1-037 | Đối chiếu và báo sai khác | Chưa làm | qa / chưa giao | — | — | — |

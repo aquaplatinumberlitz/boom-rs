@@ -28,6 +28,17 @@ boom-assets = { path = "crates/boom-assets" }
 boom-scenario = { path = "crates/boom-scenario" }
 serde = { version = "1", features = ["derive"] }
 toml = "1"
+# Identity/persistence/log của boom-server (ADR 0011 §10). Không dùng `rand` (ADR 0011 §6).
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+argon2 = "0.6.0"
+getrandom = "0.4.3"
+fs4 = "1.1.0"
+serde_json = "1.0.154"
+# SHA-256 của token thô và mã hóa base64url không padding (ADR 0011 §6).
+sha2 = "0.11.1"
+base64 = "0.23.1"
+# Test SQLite thật trên file tạm (ADR 0011 §10).
+tempfile = "3.27.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
