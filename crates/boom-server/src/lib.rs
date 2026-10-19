@@ -11,8 +11,8 @@ mod input;
 mod tests;
 
 pub use authority::{
-    Authority, MatchOutcome, MatchSetup, RoomUpdate, RoundResult, ServerError, ServerEvent,
-    ServerPhase,
+    Authority, InternalRoundResult, InternalServerEvent, MatchOutcome, MatchSetup, RoomUpdate,
+    ServerError, ServerPhase,
 };
 pub use config::{CharacterStatsTable, InputLimits, PolicyConfig, ServerConfig};
 pub use input::{InputAck, InputError, InternalInputBatch, InternalInputCommand};

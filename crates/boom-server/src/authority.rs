@@ -30,7 +30,7 @@ pub enum MatchOutcome {
 
 /// Kết quả round kèm event của round. Đây là dữ liệu nội bộ; phần 2 map sang `RoundEvents` DTO.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RoundResult {
+pub struct InternalRoundResult {
     pub round: RoundId,
     pub outcome: MatchOutcome,
     pub tick: Tick,
@@ -40,7 +40,7 @@ pub struct RoundResult {
 
 /// Event authority phát cho lớp IO/log. Không phải DTO wire.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ServerEvent {
+pub enum InternalServerEvent {
     LoadingAcked {
         room: RoomId,
         round: RoundId,
@@ -52,7 +52,7 @@ pub enum ServerEvent {
     },
     RoundFinished {
         room: RoomId,
-        result: RoundResult,
+        result: InternalRoundResult,
     },
     ReturnedToWaiting {
         room: RoomId,
@@ -172,7 +172,7 @@ struct Match {
     disconnected_at: BTreeMap<PlayerId, u64>,
     eliminated: BTreeSet<PlayerId>,
     events: Vec<SimulationEvent>,
-    result: Option<RoundResult>,
+    result: Option<InternalRoundResult>,
 }
 
 impl Match {
@@ -206,7 +206,7 @@ pub struct Authority {
     internal_room: Option<RoomId>,
     phase: Lifecycle,
     active: Option<Match>,
-    last_result: Option<RoundResult>,
+    last_result: Option<InternalRoundResult>,
     now_ms: u64,
     next_tick_ms: u64,
     tick_origin_ms: u64,
@@ -278,7 +278,7 @@ impl Authority {
         Some(view)
     }
 
-    pub fn last_result(&self) -> Option<&RoundResult> {
+    pub fn last_result(&self) -> Option<&InternalRoundResult> {
         self.last_result.as_ref()
     }
 
@@ -487,7 +487,7 @@ impl Authority {
         &mut self,
         player: PlayerId,
         now_ms: u64,
-    ) -> Result<Vec<ServerEvent>, ServerError> {
+    ) -> Result<Vec<InternalServerEvent>, ServerError> {
         self.advance_clock(now_ms)?;
         let Lifecycle::Loading { acked, .. } = &mut self.phase else {
             return Err(ServerError::WrongPhase {
@@ -499,7 +499,7 @@ impl Authority {
             return Err(ServerError::UnknownPlayer(player));
         }
         acked.insert(player);
-        let mut events = vec![ServerEvent::LoadingAcked {
+        let mut events = vec![InternalServerEvent::LoadingAcked {
             room: active.room,
             round: active.round,
             player,
@@ -508,7 +508,7 @@ impl Authority {
             let (room, round) = (active.room, active.round);
             self.phase = Lifecycle::Playing;
             self.start_play_clock(now_ms);
-            events.push(ServerEvent::MatchStarted { room, round });
+            events.push(InternalServerEvent::MatchStarted { room, round });
         }
         Ok(events)
     }
@@ -548,7 +548,7 @@ impl Authority {
     }
 
     /// Cho thời gian trôi; chạy các tick đã đến hạn, kiểm loading/disconnect/result timeout.
-    pub fn advance_to(&mut self, now_ms: u64) -> Result<Vec<ServerEvent>, ServerError> {
+    pub fn advance_to(&mut self, now_ms: u64) -> Result<Vec<InternalServerEvent>, ServerError> {
         self.advance_clock(now_ms)?;
         let mut events = Vec::new();
         loop {
@@ -560,14 +560,14 @@ impl Authority {
                         let (room, round) = (active.room, active.round);
                         self.phase = Lifecycle::Playing;
                         self.start_play_clock(now_ms);
-                        events.push(ServerEvent::MatchStarted { room, round });
+                        events.push(InternalServerEvent::MatchStarted { room, round });
                         continue;
                     }
                     if now_ms.saturating_sub(*started_ms) >= deadline {
                         let (room, round) = (active.room, active.round);
                         let members = active.members.clone();
                         self.cancel_round(&members);
-                        events.push(ServerEvent::RoundCancelled {
+                        events.push(InternalServerEvent::RoundCancelled {
                             room,
                             round: Some(round),
                         });
@@ -598,7 +598,7 @@ impl Authority {
                             acked: BTreeSet::new(),
                         };
                         self.last_result = Some(result.clone());
-                        events.push(ServerEvent::RoundFinished { room, result });
+                        events.push(InternalServerEvent::RoundFinished { room, result });
                     }
                     self.ticks_elapsed = self.ticks_elapsed.saturating_add(1);
                     self.next_tick_ms = self
@@ -625,14 +625,17 @@ impl Authority {
         self.next_tick_ms = now_ms;
     }
 
-    fn run_tick(&mut self, out: &mut Vec<ServerEvent>) -> Result<(), ServerError> {
+    fn run_tick(&mut self, out: &mut Vec<InternalServerEvent>) -> Result<(), ServerError> {
         let active = self.active.as_mut().ok_or(ServerError::NoRoom)?;
         let tick = active.state.tick;
-        let mut inputs = Vec::with_capacity(active.members.len());
-        for player in 0..active.members.len() {
-            let Some(&player_id) = active.slot_to_player.get(&(player as u8)) else {
-                continue;
-            };
+        let player_ids: Vec<PlayerId> = active
+            .state
+            .players
+            .iter()
+            .map(|player| active.slot_to_player[&player.id])
+            .collect();
+        let mut inputs = Vec::with_capacity(player_ids.len());
+        for player_id in player_ids {
             if active.disconnected_at.contains_key(&player_id)
                 || active.eliminated.contains(&player_id)
             {
@@ -645,7 +648,7 @@ impl Authority {
                 .expect("input track")
                 .apply_tick(tick, self.input_limits);
             for seq in retired {
-                out.push(ServerEvent::InputRetired {
+                out.push(InternalServerEvent::InputRetired {
                     room: active.room,
                     round: active.round,
                     player: player_id,
@@ -671,7 +674,7 @@ impl Authority {
                 }
                 CorePhase::Playing => unreachable!(),
             };
-            active.result = Some(RoundResult {
+            active.result = Some(InternalRoundResult {
                 round: active.round,
                 outcome,
                 tick: active.state.tick,
@@ -682,7 +685,7 @@ impl Authority {
         Ok(())
     }
 
-    fn eliminate_disconnected(&mut self, now_ms: u64, out: &mut Vec<ServerEvent>) {
+    fn eliminate_disconnected(&mut self, now_ms: u64, out: &mut Vec<InternalServerEvent>) {
         let timeout = u64::from(self.config.policy.disconnect_timeout_ms);
         let Some(active) = self.active.as_mut() else {
             return;
@@ -705,14 +708,14 @@ impl Authority {
             {
                 p.life = Life::Dead;
             }
-            out.push(ServerEvent::PlayerEliminated {
+            out.push(InternalServerEvent::PlayerEliminated {
                 room: active.room,
                 player,
                 at_ms: now_ms,
             });
         }
         if active.eliminated.len() >= active.members.len() {
-            active.result = Some(RoundResult {
+            active.result = Some(InternalRoundResult {
                 round: active.round,
                 outcome: MatchOutcome::Aborted,
                 tick: active.state.tick,
@@ -727,7 +730,7 @@ impl Authority {
         &mut self,
         player: PlayerId,
         now_ms: u64,
-    ) -> Result<Vec<ServerEvent>, ServerError> {
+    ) -> Result<Vec<InternalServerEvent>, ServerError> {
         self.advance_clock(now_ms)?;
         let Lifecycle::Results { acked, .. } = &mut self.phase else {
             return Err(ServerError::WrongPhase {
@@ -753,7 +756,7 @@ impl Authority {
         &mut self,
         player: PlayerId,
         now_ms: u64,
-    ) -> Result<Vec<ServerEvent>, ServerError> {
+    ) -> Result<Vec<InternalServerEvent>, ServerError> {
         self.advance_clock(now_ms)?;
         let mut events = Vec::new();
         match &self.phase {
@@ -765,7 +768,7 @@ impl Authority {
                 let (room, round) = (active.room, active.round);
                 let members = active.members.clone();
                 self.cancel_round(&members);
-                events.push(ServerEvent::RoundCancelled {
+                events.push(InternalServerEvent::RoundCancelled {
                     room,
                     round: Some(round),
                 });
@@ -776,7 +779,7 @@ impl Authority {
                     return Err(ServerError::UnknownPlayer(player));
                 }
                 active.disconnected_at.entry(player).or_insert(now_ms);
-                events.push(ServerEvent::PlayerDisconnected {
+                events.push(InternalServerEvent::PlayerDisconnected {
                     room: active.room,
                     player,
                     at_ms: now_ms,
@@ -811,7 +814,7 @@ impl Authority {
         self.rebuild_waiting(members);
     }
 
-    fn return_to_waiting(&mut self, out: &mut Vec<ServerEvent>) {
+    fn return_to_waiting(&mut self, out: &mut Vec<InternalServerEvent>) {
         let Some(active) = self.active.take() else {
             return;
         };
@@ -819,7 +822,7 @@ impl Authority {
         self.phase = Lifecycle::Waiting;
         self.current_public_round = None;
         self.rebuild_waiting(&active.members);
-        out.push(ServerEvent::ReturnedToWaiting { room, round });
+        out.push(InternalServerEvent::ReturnedToWaiting { room, round });
     }
 
     /// Dựng lại lobby waiting từ roster đã chốt, giữ ID public; ready reset hết.

@@ -162,7 +162,7 @@ fn two_and_four_players_complete_two_rounds() {
         assert!(
             events
                 .iter()
-                .any(|e| matches!(e, crate::ServerEvent::RoundFinished { .. }))
+                .any(|e| matches!(e, crate::InternalServerEvent::RoundFinished { .. }))
         );
         assert_eq!(a.phase(), ServerPhase::Results);
         let result = a.last_result().unwrap();
@@ -311,7 +311,7 @@ fn loading_timeout_cancels_start_and_resets_ready() {
     assert!(
         events
             .iter()
-            .any(|e| matches!(e, crate::ServerEvent::RoundCancelled { .. }))
+            .any(|e| matches!(e, crate::InternalServerEvent::RoundCancelled { .. }))
     );
     assert_eq!(a.phase(), ServerPhase::Waiting);
     assert!(a.room_view().unwrap().members.iter().all(|m| !m.ready));
@@ -362,7 +362,7 @@ fn results_timeout_returns_to_room_without_all_acks() {
     assert!(
         events
             .iter()
-            .any(|e| matches!(e, crate::ServerEvent::ReturnedToWaiting { .. }))
+            .any(|e| matches!(e, crate::InternalServerEvent::ReturnedToWaiting { .. }))
     );
     assert_eq!(a.phase(), ServerPhase::Waiting);
 }
@@ -389,7 +389,7 @@ fn gap_timeout_retires_only_missing_sequences() {
     assert!(
         events
             .iter()
-            .any(|e| matches!(e, crate::ServerEvent::InputRetired { seq: 1, .. }))
+            .any(|e| matches!(e, crate::InternalServerEvent::InputRetired { seq: 1, .. }))
     );
     let ack = a
         .submit_input(
