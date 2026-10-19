@@ -141,8 +141,12 @@ pub struct HandshakeConfig {
 pub struct OperationalConfig {
     /// Địa chỉ admin listener; bắt buộc loopback (ADR 0011 §8.2.1).
     pub admin_addr: std::net::SocketAddr,
-    /// Thư mục chứa `health.json` và (sau này) DB.
+    /// Thư mục chứa `health.json` và DB.
     pub data_dir: std::path::PathBuf,
+    /// Đường dẫn file SQLite identity; `data_dir/boom-server.sqlite3` mặc định.
+    pub db_path: std::path::PathBuf,
+    /// Schema version T1/identity mong đợi (ADR 0011 §4).
+    pub expected_db_schema_version: u32,
     /// Các địa chỉ game server bind; dùng trong `HealthResponse.listen_addrs`.
     pub listen_addrs: Vec<std::net::SocketAddr>,
     /// Build id hiển thị trong log/health fingerprint.
@@ -193,6 +197,8 @@ impl Default for OperationalConfig {
         Self {
             admin_addr: DEFAULT_ADMIN_ADDR.parse().expect("địa chỉ admin mặc định"),
             data_dir: std::path::PathBuf::from("data"),
+            db_path: std::path::PathBuf::from("data/boom-server.sqlite3"),
+            expected_db_schema_version: 1,
             listen_addrs: vec![DEFAULT_LISTEN_ADDR.parse().expect("địa chỉ game mặc định")],
             server_version: env!("CARGO_PKG_VERSION").to_owned(),
             heartbeat_interval_ms: DEFAULT_HEARTBEAT_INTERVAL_MS,
@@ -248,7 +254,17 @@ impl OperationalConfig {
             })?;
         }
         if let Ok(value) = std::env::var("BOOM_DATA_DIR") {
-            config.data_dir = value.into();
+            config.data_dir = value.clone().into();
+            config.db_path = std::path::Path::new(&value).join("boom-server.sqlite3");
+        }
+        if let Ok(value) = std::env::var("BOOM_DB_PATH") {
+            config.db_path = value.into();
+        }
+        if let Ok(value) = std::env::var("BOOM_EXPECTED_DB_SCHEMA_VERSION") {
+            config.expected_db_schema_version = value.parse().map_err(|_| ConfigError::Number {
+                name: "BOOM_EXPECTED_DB_SCHEMA_VERSION",
+                value,
+            })?;
         }
         if let Ok(value) = std::env::var("BOOM_LISTEN_ADDR") {
             config.listen_addrs = value

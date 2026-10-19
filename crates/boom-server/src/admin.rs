@@ -21,6 +21,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 use crate::config::OperationalConfig;
+use crate::identity::{SqliteAccountStore, SqliteOptions};
 use crate::observability::{LogFields, Logger, hex, now_ms};
 
 /// Số liệu DB mà health phản ánh; T1 chưa có identity nên mặc định `configured = false`.
@@ -341,6 +342,12 @@ impl AdminServer {
         listener.set_nonblocking(true)?;
         let local_addr = listener.local_addr()?;
         state.set_admin_addr(local_addr);
+        if let Err(err) = write_health_json(&state, now_ms()) {
+            let mut fields = LogFields::new();
+            fields.insert("reason", json!("health_json_write_failed"));
+            fields.insert("error_message", json!(err.to_string()));
+            logger.warn("server.start", fields);
+        }
         let actual_listen = state.response(now_ms()).listen_addrs;
         logger.server_start(&actual_listen, &local_addr.to_string());
         let stop = Arc::new(AtomicBool::new(false));
@@ -629,21 +636,58 @@ fn artifact_diagnostic(config: &OperationalConfig) -> Value {
     })
 }
 
-fn offline_health(config: &OperationalConfig) -> HealthCliOutcome {
-    // T1 chưa tích hợp read-only identity. Không được coi "file tồn tại" là DB khỏe:
-    // offline chỉ đọc config + báo DB chưa kiểm tra cho tới khi có API read-only của identity.
-    let db_configured = config.data_dir.join("boom-server.sqlite3").exists();
-    let problems: Vec<String> = if db_configured {
-        vec!["db_not_checked".to_owned()]
-    } else {
-        vec!["db_not_configured".to_owned()]
+/// Đọc DB qua API identity (không tự viết SQL) để health offline/runtime dùng cùng nguồn.
+pub fn probe_database(config: &OperationalConfig) -> DbHealth {
+    if !config.db_path.exists() {
+        return DbHealth::default();
+    }
+    let mut db = DbHealth {
+        configured: true,
+        ok: false,
+        schema_version: 0,
+        expected_schema_version: config.expected_db_schema_version,
+        integrity_check: "not_checked".to_owned(),
+        problems: Vec::new(),
     };
-    let code = 1;
+    match SqliteAccountStore::open(&config.db_path, SqliteOptions::default()) {
+        Ok(store) => {
+            match store.schema_version() {
+                Ok(version) if version >= 0 => db.schema_version = version as u32,
+                Ok(_) | Err(_) => db.problems.push("schema_version_unreadable".to_owned()),
+            }
+            match store.integrity_check() {
+                Ok(()) => {
+                    db.integrity_check = "ok".to_owned();
+                    if db.schema_version == config.expected_db_schema_version {
+                        db.ok = true;
+                    } else {
+                        db.problems.push(format!(
+                            "schema_version_mismatch:{}!={}",
+                            db.schema_version, config.expected_db_schema_version
+                        ));
+                    }
+                }
+                Err(err) => {
+                    db.integrity_check = err.to_string();
+                    db.problems.push("integrity_check_failed".to_owned());
+                }
+            }
+        }
+        Err(err) => db.problems.push(format!("db_open_failed: {err}")),
+    }
+    db
+}
+
+fn offline_health(config: &OperationalConfig) -> HealthCliOutcome {
+    let db = probe_database(config);
+    let healthy = db.configured && db.ok;
+    let status = if healthy { "healthy" } else { "unhealthy" };
+    let code = if healthy { 0 } else { 1 };
     let fp = config.fingerprint();
     HealthCliOutcome {
         code,
         body: json!({
-            "status": "unhealthy",
+            "status": status,
             "scope": "offline",
             "runtime": "not_checked",
             "server_version": fp.server_version,
@@ -653,10 +697,13 @@ fn offline_health(config: &OperationalConfig) -> HealthCliOutcome {
             "rules_hash": fp.rules_hash,
             "content_sha256": fp.content_sha256_hex(),
             "protocol_limits_version": fp.protocol_limits_version,
-            "db": "not_configured",
-            "db_ok": false,
+            "db": if db.configured { "configured" } else { "not_configured" },
+            "db_ok": db.configured && db.ok,
+            "schema_version": db.schema_version,
+            "expected_schema_version": db.expected_schema_version,
+            "integrity_check": db.integrity_check,
             "config": fingerprint_json(config),
-            "problems": problems,
+            "problems": db.problems,
         }),
     }
 }
@@ -773,6 +820,7 @@ mod tests {
     use serde_json::Value;
 
     use crate::config::OperationalConfig;
+    use crate::identity::{SqliteAccountStore, SqliteOptions};
     use crate::observability::{Logger, SharedLogBuffer, new_instance_id, now_ms};
 
     fn temp_dir(tag: &str) -> PathBuf {
@@ -786,9 +834,11 @@ mod tests {
     }
 
     fn config(tag: &str) -> OperationalConfig {
+        let data_dir = temp_dir(tag);
         OperationalConfig {
             admin_addr: "127.0.0.1:0".parse().unwrap(),
-            data_dir: temp_dir(tag),
+            db_path: data_dir.join("boom-server.sqlite3"),
+            data_dir,
             server_version: "test-build".to_owned(),
             rules_profile_id: "test-rules".to_owned(),
             rules_hash: 0x1234,
@@ -981,6 +1031,22 @@ mod tests {
     }
 
     #[test]
+    fn offline_uses_identity_api_for_user_version_and_integrity() {
+        let config = config("offline-valid");
+        let store = SqliteAccountStore::open(&config.db_path, SqliteOptions::default()).unwrap();
+        assert_eq!(store.schema_version().unwrap(), 1);
+        drop(store);
+        let outcome = run_health_cli(&config, true);
+        assert_eq!(outcome.code, 0);
+        assert_eq!(outcome.body["db"], "configured");
+        assert_eq!(outcome.body["db_ok"], true);
+        assert_eq!(outcome.body["schema_version"], 1);
+        assert_eq!(outcome.body["integrity_check"], "ok");
+        assert_eq!(outcome.body["status"], "healthy");
+        let _ = std::fs::remove_dir_all(&config.data_dir);
+    }
+
+    #[test]
     fn offline_never_certifies_database_from_existence() {
         let config = config("offline-garbage");
         std::fs::write(
@@ -990,9 +1056,10 @@ mod tests {
         .unwrap();
         let outcome = run_health_cli(&config, true);
         assert_eq!(outcome.code, 1);
-        assert_eq!(outcome.body["db"], "not_configured");
+        assert_eq!(outcome.body["db"], "configured");
         assert_eq!(outcome.body["db_ok"], false);
         assert_eq!(outcome.body["status"], "unhealthy");
+        assert!(!outcome.body["problems"].as_array().unwrap().is_empty());
         let _ = std::fs::remove_dir_all(&config.data_dir);
     }
 

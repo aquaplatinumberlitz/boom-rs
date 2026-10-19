@@ -22,7 +22,7 @@ mod tests;
 
 pub use admin::{
     AdminServer, DbHealth, HealthCliOutcome, HealthState, Heartbeat, handle_admin_connection,
-    health_artifact_path, peer_is_loopback, run_health_cli, write_health_json,
+    health_artifact_path, peer_is_loopback, probe_database, run_health_cli, write_health_json,
 };
 pub use authority::{
     Authority, InternalRoundResult, InternalServerEvent, MatchOutcome, MatchSetup, RoomUpdate,
