@@ -1,0 +1,243 @@
+# Build phát hành 3 OS (V1-036 phần 1, issue #102).
+#
+# Chạy tay (workflow_dispatch) hoặc khi đẩy tag `v*`. Mỗi OS ra một artifact: gói gồm
+# bin/, data/rules/, data/l10n/, README chạy nhanh và LICENSES.
+# KHÔNG kèm pack/bundle/asset game — người dùng tự dựng bundle từ pack của mình.
+# Bố cục gói và cách chạy: docs/specification/RELEASE.md.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Phiên bản đóng gói (ví dụ 0.1.0; để trống = dev)"
+        required: false
+        default: "dev"
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Python đọc/ghi UTF-8 trên mọi OS (Windows mặc định cp1252).
+  PYTHONUTF8: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Cổng bàn giao (AGENTS §7) trước khi đóng gói: không đóng gói từ cây chưa xanh.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Validator tiến độ kiểm commit bằng chứng/tích hợp có trong lịch sử (kr_tracking.check_commit).
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: rustup show active-toolchain
+      # boom-client (macroquad, ADR 0010) cần thư viện hệ thống khi build trên Linux.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
+      - run: cargo xtask ci
+
+  package:
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os_name: linux
+            arch: x86_64
+            archive: tar.gz
+          - os: windows-latest
+            os_name: windows
+            arch: x86_64
+            archive: zip
+          - os: macos-latest
+            os_name: macos
+            arch: aarch64
+            archive: tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Validator tiến độ kiểm commit bằng chứng/tích hợp có trong lịch sử (kr_tracking.check_commit).
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: rustup show active-toolchain
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
+
+      - name: Chọn phiên bản
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="dev"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build release
+        run: cargo build --release -p boom-client -p boom-server -p boom-assets
+
+      - name: Gom gói
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          EXT=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            EXT=".exe"
+          fi
+          NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
+          export NAME
+          export PKG="dist/${NAME}"
+          rm -rf dist
+          mkdir -p "${PKG}/bin" "${PKG}/data/rules" "${PKG}/data/l10n"
+          for bin in boom-client boom-server boom-assets; do
+            cp "target/release/${bin}${EXT}" "${PKG}/bin/"
+          done
+          cp data/rules/*.toml "${PKG}/data/rules/"
+          cp data/l10n/*.toml "${PKG}/data/l10n/"
+          # README chạy nhanh: trích từ docs/specification/RELEASE.md (một nguồn chuẩn).
+          python - <<'PY'
+          import os, pathlib
+          doc = pathlib.Path("docs/specification/RELEASE.md").read_text(encoding="utf-8")
+          start = doc.index("<!-- QUICKSTART:START -->") + len("<!-- QUICKSTART:START -->")
+          end = doc.index("<!-- QUICKSTART:END -->")
+          out = pathlib.Path(os.environ["PKG"]) / "README.md"
+          out.write_text(doc[start:end].strip() + "\n", encoding="utf-8")
+          PY
+          test -s "${PKG}/README.md" || { echo "LỖI: không trích được README"; exit 1; }
+          echo "Gói: ${PKG}"
+
+      - name: Sinh LICENSES
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
+          export NAME
+          export PKG="dist/${NAME}"
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          # Đọc byte rồi tự giải mã UTF-8: `text=True` trên Windows dùng cp1252 và hỏng
+          # khi metadata có ký tự ngoài ASCII.
+          raw = subprocess.run(
+              ["cargo", "metadata", "--format-version", "1"],
+              capture_output=True, check=True).stdout
+          meta = json.loads(raw.decode("utf-8"))
+          rows = sorted({
+              "{} {} — {} — {}".format(
+                  p["name"], p["version"], p.get("license") or "không khai",
+                  p.get("repository") or "không có")
+              for p in meta["packages"] if p.get("source")})
+          lines = [
+              "LICENSES — boom-rs (V1, phần 1)",
+              "",
+              "Crate phụ thuộc của gói này, lấy từ `cargo metadata` lúc build.",
+              "Liệt kê toàn bộ đồ thị phụ thuộc (mọi nền tảng), không chỉ crate được link ở nền tảng này.",
+              "Mỗi dòng: tên · phiên bản · license (SPDX) · kho mã nguồn.",
+              "Toàn văn license nằm ở kho của từng crate (mục repository) và ở crate trên crates.io.",
+              "",
+          ] + rows
+          out = pathlib.Path(os.environ["PKG"]) / "LICENSES"
+          out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          test -s "${PKG}/LICENSES" || { echo "LỖI: LICENSES rỗng"; exit 1; }
+
+      - name: Kiểm binary trong gói
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          EXT=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            EXT=".exe"
+          fi
+          NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
+          PKG="dist/${NAME}"
+          # `--help` phải chạy được trên nền tảng này (exit 0).
+          "${PKG}/bin/boom-server${EXT}" --help > /dev/null
+          "${PKG}/bin/boom-client${EXT}" --help > /dev/null
+          # Bộ nội dung trong gói phải nạp được (exit 0).
+          "${PKG}/bin/boom-server${EXT}" content \
+            --rules "${PKG}/data/rules/v1-dev.toml" \
+            --l10n "${PKG}/data/l10n/vi-v1.toml"
+          # Thiếu file phải báo lỗi rõ (đường dẫn + cách sửa) và exit khác 0.
+          # `grep` theo mảng byte ASCII để không phụ thuộc encoding console Windows.
+          set +e
+          OUT="$("${PKG}/bin/boom-server${EXT}" content --rules "${PKG}/data/rules/khong-co.toml" 2>&1)"
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 0 ]; then
+            echo "LỖI: thiếu file rules mà vẫn exit 0"
+            exit 1
+          fi
+          echo "$OUT" | grep -q "file rules" || {
+            echo "LỖI: thông điệp không nêu file rules"
+            echo "$OUT"
+            exit 1
+          }
+          set +e
+          OUT="$("${PKG}/bin/boom-client${EXT}" --rules "${PKG}/data/rules/khong-co.toml" 2>&1)"
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 0 ]; then
+            echo "LỖI: thiếu file rules mà client vẫn exit 0"
+            exit 1
+          fi
+          echo "$OUT" | grep -q "file rules" || {
+            echo "LỖI: client không nêu file rules"
+            echo "$OUT"
+            exit 1
+          }
+          echo "Kiểm binary: OK"
+
+      - name: Đóng gói
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH: ${{ matrix.arch }}
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          set -euo pipefail
+          NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
+          export NAME
+          cd dist
+          python - <<'PY'
+          import os, shutil
+          name = os.environ["NAME"]
+          fmt = "zip" if os.environ["ARCHIVE"] == "zip" else "gztar"
+          shutil.make_archive(name, fmt, root_dir=".", base_dir=name)
+          PY
+          ls -l
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}
+          path: dist/boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}.*
+          if-no-files-found: error
