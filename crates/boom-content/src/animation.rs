@@ -5,6 +5,13 @@
 //! nguồn/trạng thái/claim như rule profile ([`crate::rules`]); kiểu này không chứa
 //! hằng số luật chơi.
 //!
+//! **Thời lượng frame luôn phải có claim**, kể cả khi nguồn là `design`: rule profile
+//! chấp nhận ngoại lệ `design` thuần (rule kiến trúc không cần claim), nhưng thời
+//! lượng là quyết định nội dung của V1 nên phải truy được claim dẫn tới — theo
+//! AGENTS §4, `design` là "dự án chọn, **có claim dẫn tới**". Vì chưa có nguồn cho
+//! thời lượng (R-079) nên mọi clip đang dùng [`FrameTiming::Unknown`] chứ không tự
+//! đặt số.
+//!
 //! Nguồn định dạng frame 48 byte: [MAPS §3](../../../../docs/specification/assets/MAPS.md).
 //! Blob `CDataI16Alpha` v2 **không mang trường thời gian** (`f8`–`f11` là canvas và
 //! pivot, không phải thời lượng), nên thời lượng frame chỉ có được khi đọc metadata
@@ -111,10 +118,14 @@ pub enum PresentationState {
 /// Blob `CDataI16Alpha` v2 không có trường thời gian (MAPS §3), nên thời lượng chỉ
 /// có được khi đọc metadata hoặc consumer của client gốc. Khi chưa có nguồn thì
 /// dùng [`FrameTiming::Unknown`] — engine không tự đặt mặc định.
+///
+/// Nhánh [`FrameTiming::Known`] bắt buộc có ít nhất một claim, **kể cả khi nguồn là
+/// `design`**: ngoại lệ `design` thuần của rule profile không áp cho thời lượng
+/// frame.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameTiming {
-    /// Có giá trị kèm nguồn rõ ràng.
+    /// Có giá trị kèm nguồn và claim rõ ràng.
     Known {
         /// Thời lượng một frame (ms).
         ms: u32,
@@ -122,7 +133,8 @@ pub enum FrameTiming {
         source: Source,
         /// Trạng thái bằng chứng.
         status: Status,
-        /// Claim ID trong RULES_V1.
+        /// Claim ID trong RULES_V1; bắt buộc có ít nhất một claim, kể cả khi nguồn
+        /// là `design`.
         #[serde(default)]
         claims: Vec<String>,
     },
@@ -143,8 +155,9 @@ impl FrameTiming {
         }
     }
 
-    /// Kiểm tra quy tắc giống rules profile: `unknown` không mang giá trị, giá trị
-    /// phải có claim trừ khi nguồn là `design`, và thời lượng phải khác 0.
+    /// Kiểm tra quy tắc: `unknown` không mang giá trị, **mọi** giá trị đều phải có
+    /// claim — kể cả khi nguồn là `design` (khác rule profile: ngoại lệ `design` thuần
+    /// không áp cho thời lượng frame) — và thời lượng phải khác 0.
     ///
     /// # Errors
     ///
@@ -152,10 +165,7 @@ impl FrameTiming {
     pub fn validate(&self, clip: &str) -> Result<(), AnimationError> {
         match self {
             Self::Known {
-                ms,
-                source,
-                status,
-                claims,
+                ms, status, claims, ..
             } => {
                 if *status == Status::Unknown {
                     return Err(AnimationError::TimingUnknownWithValue {
@@ -167,7 +177,7 @@ impl FrameTiming {
                         clip: clip.to_owned(),
                     });
                 }
-                if claims.is_empty() && *source != Source::Design {
+                if claims.is_empty() {
                     return Err(AnimationError::TimingMissingClaims {
                         clip: clip.to_owned(),
                     });
@@ -406,7 +416,7 @@ pub enum AnimationError {
         /// ID clip.
         clip: String,
     },
-    /// Thời lượng không có claim và nguồn không phải `design`.
+    /// Thời lượng có giá trị nhưng không có claim (kể cả khi nguồn là `design`).
     TimingMissingClaims {
         /// ID clip.
         clip: String,
@@ -467,10 +477,7 @@ impl std::fmt::Display for AnimationError {
                 "{clip}: thời lượng mang trạng thái unknown (không được mang giá trị)"
             ),
             Self::TimingMissingClaims { clip } => {
-                write!(
-                    f,
-                    "{clip}: thời lượng không có claim và nguồn không phải design"
-                )
+                write!(f, "{clip}: thời lượng có giá trị nhưng không có claim")
             }
             Self::TimingZero { clip } => write!(f, "{clip}: thời lượng bằng 0"),
         }
@@ -538,6 +545,10 @@ pub fn validate_frames(clip: &AnimationClip, images: &[ImageSize]) -> Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Claim ID giả cho test validator: thời lượng frame chưa có claim thật (R-079),
+    /// nên test chỉ kiểm quy tắc "phải có claim", không khẳng định nội dung claim.
+    const FAKE_CLAIM: &str = "R-000";
 
     fn frame(image_index: u32, source: SourceRect) -> AnimationFrame {
         AnimationFrame {
@@ -740,7 +751,8 @@ mod tests {
     }
 
     #[test]
-    fn timing_with_value_needs_claim_unless_design() {
+    fn timing_with_value_needs_claim_even_when_source_is_design() {
+        // Nguồn khác `design` thì chắc chắn phải có claim.
         let timing = FrameTiming::Known {
             ms: 100,
             source: Source::KrStatic,
@@ -754,14 +766,78 @@ mod tests {
             })
         );
 
-        let design = FrameTiming::Known {
+        // Ngoại lệ `design` thuần của rule profile **không** áp cho thời lượng frame.
+        let design_without_claim = FrameTiming::Known {
             ms: 100,
             source: Source::Design,
             status: Status::Design,
             claims: Vec::new(),
         };
-        assert_eq!(design.validate("c00.walk.down.static"), Ok(()));
-        assert_eq!(design.ms(), Some(100));
+        assert_eq!(
+            design_without_claim.validate("c00.walk.down.static"),
+            Err(AnimationError::TimingMissingClaims {
+                clip: "c00.walk.down.static".to_owned()
+            })
+        );
+
+        // Có claim thì mọi nguồn đều hợp lệ, kể cả `design`.
+        let design_with_claim = FrameTiming::Known {
+            ms: 100,
+            source: Source::Design,
+            status: Status::Design,
+            claims: vec![FAKE_CLAIM.to_owned()],
+        };
+        assert_eq!(design_with_claim.validate("c00.walk.down.static"), Ok(()));
+        assert_eq!(design_with_claim.ms(), Some(100));
+
+        let confirmed_with_claim = FrameTiming::Known {
+            ms: 100,
+            source: Source::KrStatic,
+            status: Status::Confirmed,
+            claims: vec![FAKE_CLAIM.to_owned()],
+        };
+        assert_eq!(
+            confirmed_with_claim.validate("c00.walk.down.static"),
+            Ok(())
+        );
+    }
+
+    /// Hồi quy: bundle nạp `known` thiếu claim phải bị từ chối, kể cả nguồn `design`.
+    #[test]
+    fn known_timing_from_bundle_without_claim_is_rejected() {
+        let text = r#"
+id = "c00.walk.down.static"
+state = { walk = "down" }
+pack = "FxCharacter"
+entry = "Character/C00-WalkDown_ALayerStatic"
+layer = "static"
+sprite_unk = 1
+timing = { known = { ms = 100, source = "design", status = "design" } }
+source = "kr_static"
+status = "confirmed"
+
+[[frames]]
+image_index = 0
+source = { x0 = 0, y0 = 0, x1 = 34, y1 = 32 }
+canvas = { width = 56, height = 67 }
+pivot = { x = 8, y = 66 }
+offset_x = 0
+offset_y = 40
+flag = 0
+"#;
+        let clip: AnimationClip = toml::from_str(text).expect("nạp clip từ TOML");
+        assert_eq!(clip.timing.ms(), Some(100));
+        assert_eq!(
+            clip.timing.validate("probe"),
+            Err(AnimationError::TimingMissingClaims {
+                clip: "probe".to_owned()
+            })
+        );
+        let set = AnimationSet { clips: vec![clip] };
+        assert!(matches!(
+            set.validate(),
+            Err(AnimationError::TimingMissingClaims { .. })
+        ));
     }
 
     #[test]
@@ -786,7 +862,7 @@ mod tests {
             ms: 0,
             source: Source::Design,
             status: Status::Design,
-            claims: Vec::new(),
+            claims: vec![FAKE_CLAIM.to_owned()],
         };
         assert_eq!(
             timing.validate("c00.walk.down.static"),

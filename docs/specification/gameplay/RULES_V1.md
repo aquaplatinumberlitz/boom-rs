@@ -169,6 +169,12 @@ trạng thái + claim) và `Unknown` (lý do, không có giá trị); bộ tríc
 được sẽ vào profile rules cùng claim `design` có nguồn — **không** đặt hằng số trong
 code.
 
+Nhánh `Known` của thời lượng frame **bắt buộc** có ít nhất một claim, kể cả khi nguồn
+là `design`: ngoại lệ `design` thuần của rule profile (rule kiến trúc không cần claim)
+không áp cho thời lượng frame, vì theo AGENTS §4 `design` là "dự án chọn, **có claim
+dẫn tới**". `FrameTiming::validate` từ chối mọi `Known` thiếu claim nên không thể lọt
+thời lượng tự đặt không truy được quyết định.
+
 Lớp sprite `Static`/`Adjust` của nhân vật được ghi lại theo entry, nhưng **thứ tự vẽ và
 cách blend chưa xác nhận** (Q-003); quyết định của V1 cho phần này thuộc task client P6
 và cần claim riêng — chưa có ở đây.
