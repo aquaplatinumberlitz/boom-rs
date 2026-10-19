@@ -7,6 +7,7 @@ ghi provenance; VN là [trusted source ngang KR](../../decisions/0002-vn-kr-trus
 |---|---|
 | [VN_BATTLE_RUNTIME_REFERENCE](VN_BATTLE_RUNTIME_REFERENCE.md) | Luật cứu/chọc, đồng bộ item, chín map, room type/RPG và tác động tới task hiện hành |
 | [VN_LEGACY_SERVER_REFERENCE](VN_LEGACY_SERVER_REFERENCE.md) | Server giả lập VN: phần client-derived dùng trực tiếp, phần emulator tự đặt, kỹ thuật tận dụng |
+| [VN_ENGINE_DIFF](VN_ENGINE_DIFF.md) | Đối chiếu từng cơ chế V1 với server giả lập VN, nhãn nguồn và scenario pending cho khác biệt đo được |
 | [VN_FEATURES_REFERENCE](VN_FEATURES_REFERENCE.md) | Tra chức năng/opcode VN; không phải catalog KR |
 | [VN_RUNTIME_REFERENCE](VN_RUNTIME_REFERENCE.md) | Tra cách chạy Wine/WinBoat và giới hạn snapshot cũ |
 | [VN_DEVIRT_STATUS](VN_DEVIRT_STATUS.md) | Tra các site/patch và giới hạn RE VN |

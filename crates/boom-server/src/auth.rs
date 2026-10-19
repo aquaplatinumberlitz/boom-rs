@@ -57,16 +57,18 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
 use boom_proto::dto::auth::AuthFailReason;
 use boom_proto::limits::{MAX_PASSWORD_BYTES, MAX_USERNAME_BYTES};
+use serde_json::json;
 
 use crate::identity::{
     Account, AccountId, AccountStore, NewAccount, RandomSource, Secret, SessionId, SessionService,
     SessionStore, StoreError, username_key,
 };
+use crate::observability::{LogFields, Logger, events};
 
 /// Tham số Argon2id (ADR 0011 §5).
 ///
@@ -129,6 +131,14 @@ pub struct AuthConfig {
     pub register_rate_limit_max_attempts: u32,
     /// Cửa sổ tính rate limit (ms) — dùng cho cả bộ đếm đăng nhập lẫn quota đăng ký.
     pub rate_limit_window_ms: i64,
+    /// **Trần số bucket** rate limit giữ trong RAM.
+    ///
+    /// Bộ đếm nằm trong RAM tiến trình (ADR 0011 §5, §14) nên map bucket phải có trần: nếu
+    /// không, kẻ tấn công đổi tên liên tục làm map phình vô hạn (ghi chú review PR #85).
+    /// Khi chạm trần, bucket có **cửa sổ mở cũ nhất** bị đuổi để nhường chỗ — đánh đổi
+    /// đã biết: dưới flood tên khác nhau, bucket theo tài khoản của nạn nhân có thể bị
+    /// đuổi sớm; bucket theo **nguồn** vẫn giữ ngân sách chung (xem §14 của ADR 0011).
+    pub rate_limit_max_buckets: usize,
     /// Tham số Argon2id.
     pub argon2: Argon2Settings,
     /// Đăng ký có mở không (ADR 0011 §9 dòng 12: chống tạo tài khoản hàng loạn).
@@ -148,6 +158,7 @@ impl Default for AuthConfig {
             rate_limit_max_failures: 5,
             register_rate_limit_max_attempts: 5,
             rate_limit_window_ms: 5 * 60 * 1_000,
+            rate_limit_max_buckets: 4_096,
             argon2: Argon2Settings::default(),
             registration_open: true,
             password_min_chars: 8,
@@ -314,20 +325,41 @@ struct Window {
 ///
 /// [`AuthService`] dùng **hai** bộ đếm **tách biệt**: bộ đếm lần đăng nhập sai và bộ đếm lượt
 /// đăng ký (xem doc đầu module).
+///
+/// # Trần số bucket
+///
+/// Bộ đếm nằm trong RAM nên map bucket phải có trần, nếu không kẻ tấn công đổi tên liên tục
+/// làm map phình vô hạn (ghi chú review PR #85). Cơ chế:
+///
+/// 1. **Dọn theo thời gian khi ghi**: mỗi lần ghi nhận lượt, bucket đã hết cửa sổ bị xoá
+///    khỏi map (quét theo thời gian, không cần job nền).
+/// 2. **Trần số bucket**: khi map đã đủ số bucket tối đa và cần thêm bucket mới, bucket có
+///    **cửa sổ mở cũ nhất** bị đuổi để nhường chỗ.
+///
+/// Đánh đổi đã biết (ADR 0011 §14): dưới flood tên khác nhau, bucket theo tài khoản của nạn
+/// nhân có thể bị đuổi sớm ⇒ giới hạn theo tài khoản yếu đi. Bucket theo **nguồn** vẫn giữ
+/// ngân sách chung cho mọi tên từ một IP, nên flood vẫn bị chặn ở mức ngưỡng nguồn.
 #[derive(Debug)]
 struct RateLimiter {
     window_ms: i64,
     /// Ngưỡng: số lượt tối đa trong một cửa sổ.
     max_count: u32,
+    /// Trần số bucket giữ trong RAM.
+    max_buckets: usize,
     buckets: HashMap<String, Window>,
+    /// Số bucket bị đuổi vì chạm trần (chẩn đoán).
+    evicted: u64,
 }
 
 impl RateLimiter {
-    fn new(window_ms: i64, max_count: u32) -> Self {
+    fn new(window_ms: i64, max_count: u32, max_buckets: usize) -> Self {
         Self {
             window_ms,
             max_count,
+            // Luôn giữ ít nhất một bucket, nếu không thì mọi lượt đều không được đếm.
+            max_buckets: max_buckets.max(1),
             buckets: HashMap::new(),
+            evicted: 0,
         }
     }
 
@@ -343,6 +375,12 @@ impl RateLimiter {
     /// ký). Lượt đã đếm thì **giữ nguyên** khi bị từ chối: lượt bị từ chối không tiêu tốn
     /// ngân sách, nên kẻ tấn công không giữ được cửa sổ của nạn nhân mãi.
     fn record_attempt(&mut self, key: &str, now_ms: i64) {
+        // Dọn bucket hết cửa sổ **khi ghi**: không cần job nền, map không phình theo số
+        // tên đã thử (ADR 0011 §5 + ghi chú review PR #85).
+        self.sweep_expired(now_ms);
+        if !self.buckets.contains_key(key) && self.buckets.len() >= self.max_buckets {
+            self.evict_oldest();
+        }
         let expired = match self.buckets.get(key) {
             Some(window) => !in_window(window, self.window_ms, now_ms),
             None => true,
@@ -356,6 +394,40 @@ impl RateLimiter {
             window.count = 0;
         }
         window.count = window.count.saturating_add(1);
+    }
+
+    /// Xoá mọi bucket đã hết cửa sổ.
+    fn sweep_expired(&mut self, now_ms: i64) {
+        self.buckets
+            .retain(|_, window| in_window(window, self.window_ms, now_ms));
+    }
+
+    /// Đuổi bucket có cửa sổ mở **cũ nhất** để nhường chỗ cho bucket mới.
+    fn evict_oldest(&mut self) {
+        let oldest = self
+            .buckets
+            .iter()
+            .min_by(|left, right| {
+                left.1
+                    .start_ms
+                    .cmp(&right.1.start_ms)
+                    .then_with(|| left.0.cmp(right.0))
+            })
+            .map(|(key, _)| key.clone());
+        if let Some(key) = oldest {
+            self.buckets.remove(&key);
+            self.evicted = self.evicted.saturating_add(1);
+        }
+    }
+
+    /// Số bucket đang giữ trong RAM (chẩn đoán).
+    fn bucket_count(&self) -> usize {
+        self.buckets.len()
+    }
+
+    /// Số bucket đã bị đuổi vì chạm trần (chẩn đoán).
+    fn evicted_count(&self) -> u64 {
+        self.evicted
     }
 
     /// `now_ms` còn nằm trong cửa sổ của `window` không.
@@ -409,6 +481,11 @@ pub struct AuthService {
     /// Số lần băm mật khẩu (Argon2id) đã thực hiện — để kiểm chứng quota chặn **trước**
     /// phần công việc tốn kém.
     hashes: u64,
+    /// Logger ghi sự kiện `auth.*` (ADR 0011 §8.1); `None` = không ghi (lõi domain, test).
+    ///
+    /// Logger **không** có API nhận token/mật khẩu/PHC: mọi trường ghi ở đây là mã lý do và
+    /// định danh (`account_id`/`session_id`), không phải bí mật.
+    logger: Option<Arc<Logger>>,
 }
 
 impl AuthService {
@@ -431,10 +508,15 @@ impl AuthService {
                 format!("tham số Argon2 không hợp lệ: {err}"),
             )
         })?;
-        let limiter = RateLimiter::new(config.rate_limit_window_ms, config.rate_limit_max_failures);
+        let limiter = RateLimiter::new(
+            config.rate_limit_window_ms,
+            config.rate_limit_max_failures,
+            config.rate_limit_max_buckets,
+        );
         let register_limiter = RateLimiter::new(
             config.rate_limit_window_ms,
             config.register_rate_limit_max_attempts,
+            config.rate_limit_max_buckets,
         );
         Ok(Self {
             config,
@@ -446,12 +528,39 @@ impl AuthService {
             dummy_hash: OnceLock::new(),
             verifies: VerifyCounts::default(),
             hashes: 0,
+            logger: None,
         })
     }
 
     /// Cấu hình đang dùng.
     pub fn config(&self) -> &AuthConfig {
         &self.config
+    }
+
+    /// Gắn logger để ghi sự kiện `auth.*` (ADR 0011 §8.1).
+    ///
+    /// Không gắn logger thì dịch vụ chạy **không ghi** sự kiện nào (lõi domain dùng trong
+    /// test hoặc khi nhúng). Logger tự lọc khoá nhạy cảm nên không thể rò token/mật khẩu.
+    pub fn set_logger(&mut self, logger: Arc<Logger>) {
+        self.logger = Some(logger);
+    }
+
+    /// Số bucket rate limit đang giữ trong RAM: `(bộ đếm đăng nhập, bộ đếm đăng ký)`.
+    ///
+    /// Chẩn đoán + test cho trần bucket và dọn bucket hết cửa sổ (ADR 0011 §5).
+    pub fn rate_limit_bucket_counts(&self) -> (usize, usize) {
+        (
+            self.limiter.bucket_count(),
+            self.register_limiter.bucket_count(),
+        )
+    }
+
+    /// Số bucket rate limit đã bị đuổi vì chạm trần: `(bộ đếm đăng nhập, bộ đếm đăng ký)`.
+    pub fn rate_limit_evicted_counts(&self) -> (u64, u64) {
+        (
+            self.limiter.evicted_count(),
+            self.register_limiter.evicted_count(),
+        )
     }
 
     /// Dịch vụ vòng đời phiên (phát token, revoke, quét TTL, cleanup lúc boot).
@@ -496,34 +605,57 @@ impl AuthService {
         connection_id: &str,
         now_ms: i64,
     ) -> Result<AuthOutcome, AuthError> {
-        self.check_bounds(username, password)?;
+        if let Err(err) = self.check_bounds(username, password) {
+            return Err(self.reject(err, events::AUTH_REGISTER_FAILED, None));
+        }
         let user_bucket = register_user_bucket(username);
         let source_bucket = register_source_bucket(source);
         // Quota đăng ký: kiểm **trước** mọi việc tốn kém, **không** tra DB trước.
-        self.check_register_quota(&user_bucket, &source_bucket, now_ms)?;
+        if let Err(err) = self.check_register_quota(&user_bucket, &source_bucket, now_ms) {
+            return Err(self.reject(err, events::AUTH_REGISTER_FAILED, None));
+        }
 
         if !self.config.registration_open {
-            return Err(AuthError::rejected(AuthFailure::RegistrationClosed));
+            let err = AuthError::rejected(AuthFailure::RegistrationClosed);
+            return Err(self.reject(err, events::AUTH_REGISTER_FAILED, None));
         }
         // Ràng buộc định dạng tên (ADR 0011 §4).
-        username_key(username).map_err(|_| AuthError::rejected(AuthFailure::InvalidInput))?;
-        self.check_password(password)?;
+        if username_key(username).is_err() {
+            let err = AuthError::rejected(AuthFailure::InvalidInput);
+            return Err(self.reject(err, events::AUTH_REGISTER_FAILED, None));
+        }
+        if let Err(err) = self.check_password(password) {
+            return Err(self.reject(err, events::AUTH_REGISTER_FAILED, None));
+        }
 
         // Đếm lượt đăng ký **trước** bước băm: mọi lượt đi tới đây đều tốn công băm Argon2id,
         // kể cả lượt thất bại vì tên đã có.
         self.register_limiter.record_attempt(&user_bucket, now_ms);
         self.register_limiter.record_attempt(&source_bucket, now_ms);
 
-        let phc = self.hash_password(password)?;
-        let account = store
+        let phc = match self.hash_password(password) {
+            Ok(phc) => phc,
+            Err(err) => return Err(self.reject(err, events::AUTH_REGISTER_FAILED, None)),
+        };
+        let account = match store
             .create_account(NewAccount {
                 username: username.trim().to_string(),
                 password_hash: Secret::new(phc),
                 created_at_ms: now_ms,
             })
-            .map_err(map_store_error)?;
+            .map_err(map_store_error)
+        {
+            Ok(account) => account,
+            Err(err) => return Err(self.reject(err, events::AUTH_REGISTER_FAILED, None)),
+        };
 
-        let success = self.issue_session(store, &account, connection_id, now_ms)?;
+        let success = match self.issue_session(store, &account, connection_id, now_ms) {
+            Ok(success) => success,
+            Err(err) => {
+                return Err(self.reject(err, events::AUTH_REGISTER_FAILED, Some(account.id)));
+            }
+        };
+        self.log_authenticated(events::AUTH_REGISTER, &success);
         Ok(AuthOutcome::Registered(success))
     }
 
@@ -541,20 +673,33 @@ impl AuthService {
         now_ms: i64,
     ) -> Result<AuthOutcome, AuthError> {
         // (1) biên / quota đăng nhập — trước mọi việc khác, kể cả trước khi tra DB.
-        self.check_bounds(username, password)?;
+        if let Err(err) = self.check_bounds(username, password) {
+            return Err(self.reject(err, events::AUTH_LOGIN_FAIL, None));
+        }
         let user_bucket = user_bucket(username);
         let source_bucket = source_bucket(source);
-        self.check_login_quota(&user_bucket, &source_bucket, now_ms)?;
+        if let Err(err) = self.check_login_quota(&user_bucket, &source_bucket, now_ms) {
+            return Err(self.reject(err, events::AUTH_LOGIN_FAIL, None));
+        }
 
         // Ràng buộc định dạng tên (ADR 0011 §4) — sai định dạng thì không có tài khoản nào
         // mang tên đó, nên trả `InvalidInput` thay vì `InvalidCredentials`.
-        let key =
-            username_key(username).map_err(|_| AuthError::rejected(AuthFailure::InvalidInput))?;
+        let key = match username_key(username) {
+            Ok(key) => key,
+            Err(_) => {
+                let err = AuthError::rejected(AuthFailure::InvalidInput);
+                return Err(self.reject(err, events::AUTH_LOGIN_FAIL, None));
+            }
+        };
 
         // (2) verify mật khẩu — tên không tồn tại vẫn verify với hash giả.
-        let account = store
+        let account = match store
             .account_by_key(&key)
-            .map_err(|err| AuthError::internal(AuthErrorKind::Storage, err.to_string()))?;
+            .map_err(|err| AuthError::internal(AuthErrorKind::Storage, err.to_string()))
+        {
+            Ok(account) => account,
+            Err(err) => return Err(self.reject(err, events::AUTH_LOGIN_FAIL, None)),
+        };
         let verified = match &account {
             Some(account) => {
                 self.verifies.with_account += 1;
@@ -562,36 +707,112 @@ impl AuthService {
             }
             None => {
                 self.verifies.with_dummy += 1;
-                self.verify_password(self.dummy_hash()?, password)
+                match self.dummy_hash() {
+                    Ok(dummy) => self.verify_password(dummy, password),
+                    Err(err) => return Err(self.reject(err, events::AUTH_LOGIN_FAIL, None)),
+                }
             }
         };
         if !verified {
             self.limiter.record_attempt(&user_bucket, now_ms);
             self.limiter.record_attempt(&source_bucket, now_ms);
-            return Err(AuthError::rejected(AuthFailure::InvalidCredentials));
+            let err = AuthError::rejected(AuthFailure::InvalidCredentials);
+            return Err(self.reject(err, events::AUTH_LOGIN_FAIL, None));
         }
 
         // Verify chỉ thành công khi tài khoản tồn tại: nhánh `None` luôn verify thất bại.
         let account = match account {
             Some(account) => account,
-            None => return Err(AuthError::rejected(AuthFailure::InvalidCredentials)),
+            None => {
+                let err = AuthError::rejected(AuthFailure::InvalidCredentials);
+                return Err(self.reject(err, events::AUTH_LOGIN_FAIL, None));
+            }
         };
         // Tài khoản bị vô hiệu hoá: thông báo thống nhất, không lộ trạng thái tài khoản.
         if account.disabled {
-            return Err(AuthError::rejected(AuthFailure::InvalidCredentials));
+            let err = AuthError::rejected(AuthFailure::InvalidCredentials);
+            return Err(self.reject(err, events::AUTH_LOGIN_FAIL, Some(account.id)));
         }
 
         // Rehash khi tham số Argon2 đã đổi (ADR 0011 §5): người dùng không cần đổi mật khẩu.
         if self.needs_rehash(account.password_hash.expose()) {
-            let phc = self.hash_password(password)?;
-            store
-                .update_password_hash(account.id, &phc, now_ms)
-                .map_err(|err| AuthError::internal(AuthErrorKind::Storage, err.to_string()))?;
+            let phc = match self.hash_password(password) {
+                Ok(phc) => phc,
+                Err(err) => {
+                    return Err(self.reject(err, events::AUTH_LOGIN_FAIL, Some(account.id)));
+                }
+            };
+            if let Err(err) = store.update_password_hash(account.id, &phc, now_ms) {
+                let err = AuthError::internal(AuthErrorKind::Storage, err.to_string());
+                return Err(self.reject(err, events::AUTH_LOGIN_FAIL, Some(account.id)));
+            }
         }
 
         // (3) chỉ khi verify thành công mới kiểm phiên.
-        let success = self.issue_session(store, &account, connection_id, now_ms)?;
+        let success = match self.issue_session(store, &account, connection_id, now_ms) {
+            Ok(success) => success,
+            Err(err) => return Err(self.reject(err, events::AUTH_LOGIN_FAIL, Some(account.id))),
+        };
+        self.log_authenticated(events::AUTH_LOGIN_OK, &success);
         Ok(AuthOutcome::LoggedIn(success))
+    }
+
+    /// Ghi sự kiện auth **thành công**: định danh tài khoản + phiên, không có bí mật.
+    fn log_authenticated(&self, event: &str, success: &LoginSuccess) {
+        let mut fields = LogFields::new();
+        fields.insert("account_id", json!(success.account_id.0));
+        fields.insert("session_id", json!(success.session_id.0));
+        self.log_info(event, fields);
+    }
+
+    /// Ghi sự kiện auth **thất bại** rồi trả lại lỗi để caller dùng chung một đường.
+    ///
+    /// Tên sự kiện theo ADR 0011 §8.1: `auth.rate_limited`, `auth.rng_unavailable`,
+    /// `auth.login_rejected_duplicate_session`; còn lại dùng `fallback_event` của nhánh gọi.
+    /// Trường ghi chỉ gồm mã lý do và định danh — **không** ghi mật khẩu, PHC hay token.
+    fn reject(
+        &self,
+        error: AuthError,
+        fallback_event: &str,
+        account_id: Option<AccountId>,
+    ) -> AuthError {
+        let event = match error.kind {
+            AuthErrorKind::RngUnavailable => events::AUTH_RNG_UNAVAILABLE,
+            _ => match error.reason {
+                AuthFailure::RateLimited => events::AUTH_RATE_LIMITED,
+                AuthFailure::AccountHasActiveSession => {
+                    events::AUTH_LOGIN_REJECTED_DUPLICATE_SESSION
+                }
+                _ => fallback_event,
+            },
+        };
+        let mut fields = LogFields::new();
+        fields.insert("fail_reason", json!(auth_fail_reason_name(error.reason)));
+        if let Some(account_id) = account_id {
+            fields.insert("account_id", json!(account_id.0));
+        }
+        if error.kind == AuthErrorKind::RngUnavailable {
+            fields.insert("error_code", json!("entropy_unavailable"));
+        }
+        if let Some(detail) = &error.detail {
+            fields.insert("error_message", json!(detail));
+        }
+        self.log_warn(event, fields);
+        error
+    }
+
+    /// Ghi một dòng log qua logger đã gắn (nếu có).
+    fn log_info(&self, event: &str, fields: LogFields) {
+        if let Some(logger) = &self.logger {
+            logger.info(event, fields);
+        }
+    }
+
+    /// Ghi một dòng log cảnh báo qua logger đã gắn (nếu có).
+    fn log_warn(&self, event: &str, fields: LogFields) {
+        if let Some(logger) = &self.logger {
+            logger.warn(event, fields);
+        }
     }
 
     /// Cấp phiên cho tài khoản vừa xác thực (phát token + tạo phiên trong một transaction).
@@ -785,6 +1006,22 @@ fn register_source_bucket(source: &str) -> String {
     format!("reg-source:{source}")
 }
 
+/// Tên mã lý do auth dùng trong log (ADR 0011 §8.1: trường `reason`/`fail_reason`).
+///
+/// Tập mã này **bám theo** mã lý do trên dây (`boom_proto::dto::auth::AuthFailReason`) để
+/// log và wire dùng chung một tên; nó không phải luật chơi.
+fn auth_fail_reason_name(reason: AuthFailure) -> &'static str {
+    match reason {
+        AuthFailure::InvalidCredentials => "invalid_credentials",
+        AuthFailure::UsernameUnavailable => "username_unavailable",
+        AuthFailure::InvalidInput => "invalid_input",
+        AuthFailure::AccountHasActiveSession => "account_has_active_session",
+        AuthFailure::RateLimited => "rate_limited",
+        AuthFailure::RegistrationClosed => "registration_closed",
+        AuthFailure::Unavailable => "unavailable",
+    }
+}
+
 /// Dịch lỗi tầng lưu trữ sang lỗi miền.
 ///
 /// `UsernameTaken` chỉ xảy ra ở `Register` ⇒ `UsernameUnavailable`; `AccountHasActiveSession`
@@ -803,15 +1040,19 @@ fn map_store_error(err: StoreError) -> AuthError {
 #[cfg(test)]
 mod tests {
     use super::{
-        Argon2Settings, AuthConfig, AuthErrorKind, AuthFailure, AuthService, VerifyCounts,
+        Argon2Settings, AuthConfig, AuthErrorKind, AuthFailure, AuthService, RateLimiter,
+        VerifyCounts,
     };
+    use crate::config::OperationalConfig;
     use crate::identity::{
         AccountStore, OsRandomSource, RandomSource, RngError, SessionStore, SqliteAccountStore,
         SqliteOptions, StoreError,
     };
+    use crate::observability::{Logger, SharedLogBuffer};
     use argon2::Params;
     use boom_proto::dto::auth::AuthFailReason;
     use boom_proto::limits::MAX_USERNAME_BYTES;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     const NOW: i64 = 1_700_000_000_000;
@@ -841,6 +1082,209 @@ mod tests {
 
     fn default_service() -> AuthService {
         service(AuthConfig::default())
+    }
+
+    /// Logger ghi vào buffer để test đọc lại dòng log.
+    fn logged_service(config: AuthConfig, buffer: &SharedLogBuffer) -> AuthService {
+        let operational = OperationalConfig::default();
+        let logger = Arc::new(Logger::new(
+            operational.fingerprint(),
+            "instance-1".to_owned(),
+            operational.content_epoch,
+            Box::new(buffer.clone()),
+        ));
+        let mut service = service(config);
+        service.set_logger(logger);
+        service
+    }
+
+    /// Các tên sự kiện xuất hiện trong log.
+    fn logged_events(buffer: &SharedLogBuffer) -> Vec<String> {
+        buffer
+            .lines()
+            .iter()
+            .filter_map(|line| {
+                line.get("event")
+                    .and_then(|value| value.as_str())
+                    .map(|value| value.to_owned())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn rate_limiter_sweeps_buckets_out_of_window_when_writing() {
+        let mut limiter = RateLimiter::new(1_000, 5, 64);
+        for index in 0..10 {
+            limiter.record_attempt(&format!("user:{index}"), NOW);
+        }
+        assert_eq!(limiter.bucket_count(), 10);
+        // Hết cửa sổ: lần ghi sau dọn sạch bucket cũ, map không phình theo số tên đã thử.
+        limiter.record_attempt("user:moi", NOW + 2_000);
+        assert_eq!(limiter.bucket_count(), 1);
+        assert_eq!(limiter.evicted_count(), 0);
+    }
+
+    #[test]
+    fn rate_limiter_keeps_bucket_count_under_cap() {
+        let mut limiter = RateLimiter::new(60_000, 5, 8);
+        for index in 0..100 {
+            limiter.record_attempt(&format!("user:{index}"), NOW);
+        }
+        assert!(
+            limiter.bucket_count() <= 8,
+            "số bucket vượt trần: {}",
+            limiter.bucket_count()
+        );
+        assert!(limiter.evicted_count() > 0, "phải có bucket bị đuổi");
+    }
+
+    #[test]
+    fn rate_limiter_never_drops_below_one_bucket() {
+        // Trần 0 không được làm mất toàn bộ bộ đếm.
+        let mut limiter = RateLimiter::new(60_000, 5, 0);
+        limiter.record_attempt("user:a", NOW);
+        assert_eq!(limiter.bucket_count(), 1);
+    }
+
+    #[test]
+    fn auth_events_are_logged_without_secrets() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let buffer = SharedLogBuffer::new();
+        let mut auth = logged_service(AuthConfig::default(), &buffer);
+
+        // Đăng ký thành công.
+        let registered = auth
+            .register(
+                &mut store,
+                "bomber",
+                "matkhau123",
+                "10.0.0.1",
+                "conn-1",
+                NOW,
+            )
+            .expect("đăng ký thành công");
+        // Sai mật khẩu.
+        assert!(
+            auth.login(
+                &mut store,
+                "bomber",
+                "saimatkhau",
+                "10.0.0.1",
+                "conn-2",
+                NOW
+            )
+            .is_err()
+        );
+        // Đúng mật khẩu nhưng phiên đầu còn sống ⇒ bị từ chối.
+        assert!(
+            auth.login(
+                &mut store,
+                "bomber",
+                "matkhau123",
+                "10.0.0.1",
+                "conn-2",
+                NOW
+            )
+            .is_err()
+        );
+
+        let events = logged_events(&buffer);
+        assert!(events.contains(&"auth.register".to_owned()), "{events:?}");
+        assert!(events.contains(&"auth.login_fail".to_owned()), "{events:?}");
+        assert!(
+            events.contains(&"auth.login_rejected_duplicate_session".to_owned()),
+            "{events:?}"
+        );
+
+        // Log không được chứa mật khẩu, PHC string hay token phiên (ADR 0011 §6, §8.1).
+        let raw = buffer.bytes();
+        let text = String::from_utf8_lossy(&raw);
+        assert!(!text.contains("matkhau123"), "log lộ mật khẩu");
+        assert!(!text.contains("saimatkhau"), "log lộ mật khẩu sai");
+        assert!(!text.contains("$argon2id$"), "log lộ PHC string");
+        let phc = store
+            .account_by_key("bomber")
+            .expect("đọc tài khoản")
+            .expect("tài khoản tồn tại")
+            .password_hash
+            .expose()
+            .clone();
+        assert!(!text.contains(&phc), "log lộ PHC string");
+        let token = registered.success().token.expose().clone();
+        assert!(!text.contains(&token), "log lộ token phiên");
+    }
+
+    #[test]
+    fn rate_limited_and_rng_errors_are_logged() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+
+        // Vượt ngưỡng đăng nhập sai ⇒ `auth.rate_limited`.
+        let buffer = SharedLogBuffer::new();
+        let config = AuthConfig {
+            rate_limit_max_failures: 1,
+            ..AuthConfig::default()
+        };
+        let mut auth = logged_service(config, &buffer);
+        assert!(
+            auth.login(
+                &mut store,
+                "bomber",
+                "saimatkhau",
+                "10.0.0.1",
+                "conn-1",
+                NOW
+            )
+            .is_err()
+        );
+        let second = auth.login(
+            &mut store,
+            "bomber",
+            "saimatkhau",
+            "10.0.0.1",
+            "conn-1",
+            NOW,
+        );
+        assert_eq!(second.unwrap_err().reason, AuthFailure::RateLimited);
+        let events = logged_events(&buffer);
+        assert!(
+            events.contains(&"auth.rate_limited".to_owned()),
+            "{events:?}"
+        );
+
+        // Lỗi entropy ⇒ `auth.rng_unavailable` (ADR 0011 §6).
+        let buffer = SharedLogBuffer::new();
+        let operational = OperationalConfig::default();
+        let logger = Arc::new(Logger::new(
+            operational.fingerprint(),
+            "instance-1".to_owned(),
+            operational.content_epoch,
+            Box::new(buffer.clone()),
+        ));
+        let mut auth =
+            AuthService::new(AuthConfig::default(), "instance-1", Box::new(FailingRandom))
+                .expect("tạo dịch vụ");
+        auth.set_logger(logger);
+        let error = auth
+            .register(
+                &mut store,
+                "bomber2",
+                "matkhau123",
+                "10.0.0.1",
+                "conn-1",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(error.kind, AuthErrorKind::RngUnavailable);
+        let events = logged_events(&buffer);
+        assert!(
+            events.contains(&"auth.rng_unavailable".to_owned()),
+            "{events:?}"
+        );
+        let raw = buffer.bytes();
+        let text = String::from_utf8_lossy(&raw);
+        assert!(!text.contains("matkhau123"), "log lộ mật khẩu");
     }
 
     #[test]

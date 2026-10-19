@@ -183,13 +183,16 @@ dependencies = [
  "boom-net",
  "boom-proto",
  "boom-room",
+ "boom-scenario",
  "boom-sync",
  "fs4",
  "getrandom",
  "rusqlite",
+ "serde",
  "serde_json",
  "sha2",
  "tempfile",
+ "toml",
 ]
 
 [[package]]
