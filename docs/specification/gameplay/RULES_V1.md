@@ -85,6 +85,17 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 | R-053 | Xác suất một gạch có item | — | unknown | Q-007; OSS dùng 0,35 (`oss` / candidate) |
 | R-054 | Nhặt: client xin (117), server xác nhận (158), item mất sau xác nhận | — | `vn_runtime` / confirmed | oc_e §5a-5d |
 | R-055 | Bảng rơi gốc của Village00 chỉ có 6 loại Lucci | — | `kr_static` / confirmed | `kr_v1_content.json`; V1 thay bằng Bomb/Fire/Roller (DESIGN, SCOPE_V1 §2) |
+| R-056 | V1: người còn sống (`Alive`) có tâm trong ô có item trên nền thì nhặt; duyệt người chơi theo id tăng dần nên hai người cùng ô trong cùng tick chỉ người id nhỏ nhận; item mất khỏi nền sau khi nhặt và phát `item_picked` | — | `design` (từ R-054) | Task #7, `systems/pickup.rs`; R-054; SCOPE_V1 §4 |
+| R-057 | V1: ItemBomb +1 số bom, ItemFire +1 tầm nổ, ItemRoller +1 cấp tốc độ; lượng lấy từ profile (`item.*_delta`), kẹp theo trần chỉ số; bom đã đặt giữ tầm chụp lúc đặt | — | `design` (từ R-025, R-032, R-045) | Task #7, `systems/pickup.rs`; R-025; R-032; R-045 |
+| R-058 | V1: chỉ số đã ở trần thì không nhặt — item vẫn nằm trên nền, không áp hiệu ứng, không phát event; nhặt là atomic (item chỉ mất khi hiệu ứng áp được) | — | `design` | Task #7; R-054 (item mất sau khi server xác nhận); SCOPE_V1 §4; Q-007 |
+| R-059 | V1: người bị nhốt (`Trapped`) hoặc đã chết không nhặt item; người bị nhốt đứng yên nên cũng không tới ô item | — | `design` | Task #7; R-036 (đứng yên), R-028 |
+
+Bốn claim `design` R-056…R-059 là quyết định V1 cho luồng nhặt, chưa có bằng chứng client KR/VN cho
+các ca biên: thứ tự khi hai người cùng tick (Q-007), và nhặt khi chỉ số đã ở trần (Q-007, `cap`).
+Luồng chung đã có bằng chứng: client xin nhặt (117), server xác nhận (158) rồi item mới mất
+(R-054), nên V1 cho server quyết cả trường hợp "đã chạm trần" — giữ item trên nền thay vì xóa
+đi. Khi có trace, thay các claim này bằng `confirmed` hoặc mở câu hỏi ở
+[QUESTIONS](../../research/QUESTIONS.md).
 
 ## 6. Giá trị được chọn cho profile dev
 
@@ -105,6 +116,7 @@ Profile [`v1-dev`](../../../data/rules/v1-dev.toml) không dùng được cho ph
 | Bom chặn đường | Ô có bom không đi vào được (`design`, R-048) | Chưa có phép đo collision client gốc |
 | Grace | Một chiều, xóa khi rời ô (`design`, R-049) | SCOPE_V1 §4; V1-012 |
 | Người bị nhốt | Đứng yên (`design`, R-036) | R-029 candidate web nói "đi rất chậm" nhưng chưa có px/s; V1 chọn đứng yên |
+| Nhặt item | Chỉ người `Alive`, duyệt theo id; đã chạm trần thì không nhặt (`design`, R-056…R-059) | Luồng client xin 117 → server xác nhận 158 (R-054); ca biên chưa có bằng chứng client gốc, V1 tự quyết (Q-007) |
 
 Profile phát hành phải thay mọi `candidate` bằng `confirmed` hoặc `design` đã được review;
 `unknown` không được có giá trị. `boom-content` kiểm điều này khi nạp.
