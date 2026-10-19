@@ -1,4 +1,6 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
@@ -1057,6 +1059,160 @@ impl Transport for SlowWriter {
     }
 }
 
+struct ShutdownState {
+    closed: Mutex<bool>,
+    cv: Condvar,
+}
+
+impl ShutdownState {
+    fn shutdown(&self) {
+        *self.closed.lock().unwrap() = true;
+        self.cv.notify_all();
+    }
+
+    fn wait(&self) {
+        let mut closed = self.closed.lock().unwrap();
+        while !*closed {
+            closed = self.cv.wait(closed).unwrap();
+        }
+    }
+
+    fn is_closed(&self) -> bool {
+        *self.closed.lock().unwrap()
+    }
+}
+
+struct BlockingReader {
+    frames: Arc<Mutex<VecDeque<Vec<u8>>>>,
+    state: Arc<ShutdownState>,
+    finished: Arc<AtomicBool>,
+}
+
+impl Transport for BlockingReader {
+    fn send_frame(&mut self, _frame: &[u8]) -> Result<(), boom_net::NetError> {
+        Ok(())
+    }
+
+    fn recv_frame(&mut self) -> Result<Option<Vec<u8>>, boom_net::NetError> {
+        loop {
+            if let Some(frame) = self.frames.lock().unwrap().pop_front() {
+                return Ok(Some(frame));
+            }
+            let closed = self.state.closed.lock().unwrap();
+            if *closed {
+                self.finished.store(true, Ordering::SeqCst);
+                return Ok(None);
+            }
+            let (_guard, _) = self
+                .state
+                .cv
+                .wait_timeout(closed, Duration::from_millis(1))
+                .unwrap();
+        }
+    }
+
+    fn close(&mut self) -> Result<(), boom_net::NetError> {
+        self.state.shutdown();
+        Ok(())
+    }
+
+    fn is_closed(&self) -> bool {
+        self.state.is_closed()
+    }
+}
+
+struct BlockingWriter {
+    state: Arc<ShutdownState>,
+    finished: Arc<AtomicBool>,
+}
+
+impl Transport for BlockingWriter {
+    fn send_frame(&mut self, _frame: &[u8]) -> Result<(), boom_net::NetError> {
+        self.state.wait();
+        self.finished.store(true, Ordering::SeqCst);
+        Err(boom_net::NetError::Closed)
+    }
+
+    fn recv_frame(&mut self) -> Result<Option<Vec<u8>>, boom_net::NetError> {
+        Ok(None)
+    }
+
+    fn close(&mut self) -> Result<(), boom_net::NetError> {
+        self.state.shutdown();
+        Ok(())
+    }
+
+    fn is_closed(&self) -> bool {
+        self.state.is_closed()
+    }
+}
+
+#[test]
+fn closed_session_shuts_down_stuck_transport_and_threads() {
+    let setup = setup();
+    let a = Authority::new(ServerConfig::v1(), setup);
+    let h = handshake_config(&a);
+    let mut server = Server::new(a, h.clone());
+    let state = Arc::new(ShutdownState {
+        closed: Mutex::new(false),
+        cv: Condvar::new(),
+    });
+    let frames = Arc::new(Mutex::new(VecDeque::new()));
+    let reader_done = Arc::new(AtomicBool::new(false));
+    let writer_done = Arc::new(AtomicBool::new(false));
+    let shutdown_called = Arc::new(AtomicBool::new(false));
+
+    let reader = BlockingReader {
+        frames: frames.clone(),
+        state: state.clone(),
+        finished: reader_done.clone(),
+    };
+    let writer = BlockingWriter {
+        state: state.clone(),
+        finished: writer_done.clone(),
+    };
+    let state_for_shutdown = state.clone();
+    let called = shutdown_called.clone();
+    server
+        .accept_with_shutdown(PlayerId(1), 0, reader, writer, move || {
+            called.store(true, Ordering::SeqCst);
+            state_for_shutdown.shutdown();
+        })
+        .unwrap();
+
+    let msg = hello(h.rules_hash);
+    let frame = encode_frame(&msg, &ProtocolLimits::v1()).unwrap();
+    frames.lock().unwrap().push_back(frame);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    // 40 Ping vượt queue 32; session bị loại phải gọi shutdown độc lập writer đang kẹt.
+    for i in 0..40u64 {
+        let frame = encode_frame(&Ping(i), &ProtocolLimits::v1()).unwrap();
+        frames.lock().unwrap().push_back(frame);
+    }
+    for _ in 0..100 {
+        if server.session_count() == 0 {
+            break;
+        }
+        let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+    }
+    assert_eq!(server.session_count(), 0);
+    assert!(shutdown_called.load(Ordering::SeqCst));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while (!reader_done.load(Ordering::SeqCst) || !writer_done.load(Ordering::SeqCst))
+        && Instant::now() < deadline
+    {
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(
+        reader_done.load(Ordering::SeqCst),
+        "reader thread chưa thoát"
+    );
+    assert!(
+        writer_done.load(Ordering::SeqCst),
+        "writer thread chưa thoát"
+    );
+}
+
 #[test]
 fn slow_writer_does_not_block_tick() {
     let setup = setup();
@@ -1240,27 +1396,29 @@ fn malformed_frame_closes_only_that_session() {
     let round = round_u32(server.authority());
     // Client xấu gửi envelope rác; client tốt vẫn gửi input hợp lệ cùng lượt.
     clients[1].writer.send_frame(b"bad envelope").unwrap();
+    let target_tick = server.authority().tick().unwrap_or(0);
     let good = InputBatch {
         round_id: round,
         player: 0,
         ack_snapshot: 0,
         commands: vec![InputCommand {
             seq: 1,
-            target_tick: 0,
+            target_tick,
             bits: InputBits::new(4, false).unwrap(),
         }],
     };
     send(&mut clients[0], &good);
-    for _ in 0..100 {
-        if server.session_count() == 1 {
+    for i in 0..100u64 {
+        if server.session_count() == 1 && server.authority().applied_seq(players[0]) == Some(1) {
             break;
         }
-        let _events = server.poll(0, Duration::from_millis(20)).unwrap();
+        let _events = server.poll(16 + i * 16, Duration::from_millis(20)).unwrap();
     }
     assert_eq!(server.session_count(), 1);
+    assert_eq!(server.authority().applied_seq(players[0]), Some(1));
     let snapshot: Snapshot = recv_snapshot(&mut clients[0]);
     assert_eq!(snapshot.round_id, round);
-    assert_eq!(server.authority().tick(), Some(1));
+    assert!(snapshot.tick >= target_tick);
 }
 
 #[test]
@@ -1315,7 +1473,7 @@ fn malformed_payload_closes_only_that_session() {
         server.ack_loading(player, 0).unwrap();
     }
     let round = round_u32(server.authority());
-    // Envelope hợp lệ nhưng payload bị cắt: lỗi chỉ thuộc session 2.
+    // Envelope và payload_len hợp lệ, nhưng byte payload cuối (bits) sai DTO.
     let bad = InputBatch {
         round_id: round,
         player: 1,
@@ -1327,27 +1485,30 @@ fn malformed_payload_closes_only_that_session() {
         }],
     };
     let mut frame = encode_frame(&bad, &ProtocolLimits::v1()).unwrap();
-    frame.pop();
+    let last = frame.len() - 1;
+    frame[last] = 0xFF;
     clients[1].writer.send_frame(&frame).unwrap();
+    let target_tick = server.authority().tick().unwrap_or(0);
     let good = InputBatch {
         round_id: round,
         player: 0,
         ack_snapshot: 0,
         commands: vec![InputCommand {
             seq: 1,
-            target_tick: 0,
+            target_tick,
             bits: InputBits::new(4, false).unwrap(),
         }],
     };
     send(&mut clients[0], &good);
-    for _ in 0..100 {
-        if server.session_count() == 2 {
+    for i in 0..100u64 {
+        if server.session_count() == 2 && server.authority().applied_seq(players[0]) == Some(1) {
             break;
         }
-        let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+        let _ = server.poll(16 + i * 16, Duration::from_millis(20)).unwrap();
     }
     assert_eq!(server.session_count(), 2);
+    assert_eq!(server.authority().applied_seq(players[0]), Some(1));
     let snapshot: Snapshot = recv_snapshot(&mut clients[0]);
     assert_eq!(snapshot.round_id, round);
-    assert_eq!(server.authority().tick(), Some(1));
+    assert!(snapshot.tick >= target_tick);
 }

@@ -45,8 +45,17 @@ struct Session {
     session_id: String,
     handshaken: bool,
     out_tx: SyncSender<Outbound>,
+    shutdown: Option<Box<dyn FnOnce() + Send>>,
     next_snapshot_ms: u64,
     snapshot_seq: u32,
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        if let Some(shutdown) = self.shutdown.take() {
+            shutdown();
+        }
+    }
 }
 
 /// Server một phòng: authority + các session transport. Test dùng `MemoryTransport`; production
@@ -100,12 +109,30 @@ impl Server {
         &mut self,
         player: PlayerId,
         slot: u8,
-        mut reader: R,
+        reader: R,
         writer: W,
     ) -> Result<(), ServerError>
     where
         R: Transport + Send + 'static,
         W: Transport + Send + 'static,
+    {
+        self.accept_with_shutdown(player, slot, reader, writer, || {})
+    }
+
+    /// Như [`Server::accept`] nhưng có handle shutdown độc lập để hủy socket khi session bị loại,
+    /// kể cả writer đang kẹt trong `send_frame` blocking.
+    pub fn accept_with_shutdown<R, W, S>(
+        &mut self,
+        player: PlayerId,
+        slot: u8,
+        mut reader: R,
+        writer: W,
+        shutdown: S,
+    ) -> Result<(), ServerError>
+    where
+        R: Transport + Send + 'static,
+        W: Transport + Send + 'static,
+        S: FnOnce() + Send + 'static,
     {
         if self.sessions.contains_key(&player) {
             return Err(ServerError::SessionExists(player));
@@ -120,6 +147,7 @@ impl Server {
                 session_id,
                 handshaken: false,
                 out_tx,
+                shutdown: Some(Box::new(shutdown)),
                 next_snapshot_ms: 0,
                 snapshot_seq: 0,
             },
@@ -167,9 +195,13 @@ impl Server {
     ) -> Result<(), ServerError> {
         let (stream, _) = listener.accept().map_err(NetError::from)?;
         let writer_stream = stream.try_clone().map_err(NetError::from)?;
+        let shutdown_stream = writer_stream.try_clone().map_err(NetError::from)?;
         let reader = TcpTransport::from_stream(stream)?;
         let writer = TcpTransport::from_stream(writer_stream)?;
-        self.accept(player, slot, reader, writer)
+        let mut shutdown = TcpTransport::from_stream(shutdown_stream)?;
+        self.accept_with_shutdown(player, slot, reader, writer, move || {
+            let _ = shutdown.close();
+        })
     }
 
     /// Chạy một vòng: nhận frame (chờ tối đa `wait`), xử lý authority, gửi snapshot/event.
@@ -227,9 +259,7 @@ impl Server {
     fn handle_inbound(&mut self, inbound: Inbound) -> Result<(), ServerError> {
         match inbound {
             Inbound::Closed { player } | Inbound::WriteFailed { player } => {
-                if self.sessions.remove(&player).is_some() {
-                    let _ = self.authority.disconnect(player, self.now_ms);
-                }
+                self.close_session(player);
             }
             Inbound::Frame { player, frame } => {
                 self.handle_frame(player, &frame)?;
