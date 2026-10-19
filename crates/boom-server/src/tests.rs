@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
+use std::net::{IpAddr, Ipv4Addr};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
@@ -668,6 +669,8 @@ fn wire_client(server: &mut Server, player: PlayerId, slot: u8) -> WireClient {
     )
 }
 
+const TEST_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+
 fn wire_client_with_configs(
     server: &mut Server,
     player: PlayerId,
@@ -675,10 +678,21 @@ fn wire_client_with_configs(
     to_server: MemoryConfig,
     to_client: MemoryConfig,
 ) -> WireClient {
+    wire_client_from(server, player, slot, TEST_IP, to_server, to_client)
+}
+
+fn wire_client_from(
+    server: &mut Server,
+    player: PlayerId,
+    slot: u8,
+    source_ip: IpAddr,
+    to_server: MemoryConfig,
+    to_client: MemoryConfig,
+) -> WireClient {
     let (writer, server_reader) = MemoryTransport::pair(to_server);
     let (server_writer, reader) = MemoryTransport::pair(to_client);
     server
-        .accept(player, slot, server_reader, server_writer)
+        .accept(player, slot, source_ip, server_reader, server_writer)
         .unwrap();
     WireClient { writer, reader }
 }
@@ -1369,7 +1383,7 @@ fn closed_session_shuts_down_stuck_transport_and_threads() {
     let state_for_shutdown = state.clone();
     let called = shutdown_called.clone();
     server
-        .accept_with_shutdown(PlayerId(1), 0, reader, writer, move || {
+        .accept_with_shutdown(PlayerId(1), 0, TEST_IP, reader, writer, move || {
             called.store(true, Ordering::SeqCst);
             state_for_shutdown.shutdown();
         })
@@ -1422,6 +1436,7 @@ fn slow_writer_does_not_block_tick() {
         .accept(
             PlayerId(1),
             0,
+            TEST_IP,
             slow_server_reader,
             SlowWriter {
                 inner: slow_server_writer,
@@ -1509,6 +1524,7 @@ fn bounded_outbound_queue_disconnects_slow_client() {
         .accept(
             PlayerId(1),
             0,
+            TEST_IP,
             server_reader,
             SlowWriter {
                 inner: server_writer,
@@ -3103,4 +3119,82 @@ fn wire_auth_pong_extends_liveness_then_timeout_closes() {
     // Pong cuối ở 300: quá 500 ms nữa không Pong ⇒ đóng.
     let _ = server.poll(900, Duration::ZERO).unwrap();
     assert_eq!(server.session_count(), 1);
+}
+
+#[test]
+fn auth_rate_limit_is_per_source_ip_not_per_connection() {
+    let players: Vec<PlayerId> = (1..=6).map(PlayerId).collect();
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    for (index, _) in players.iter().enumerate().take(5) {
+        authenticate_player(&mut server, &mut clients[index], players[index]);
+    }
+    let (username, password) = test_credentials(players[5]);
+    let reason = auth_attempt(
+        &mut server,
+        &mut clients[5],
+        AuthOp::Register,
+        &username,
+        &password,
+    )
+    .unwrap_err();
+    assert_eq!(reason, AuthFailReason::RateLimited);
+
+    // IP khác không bị ảnh hưởng bởi bucket của 127.0.0.1.
+    let mut other = wire_client_from(
+        &mut server,
+        PlayerId(7),
+        6,
+        IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)),
+        MemoryConfig::default(),
+        MemoryConfig::default(),
+    );
+    wire_handshake_at(&mut server, std::slice::from_mut(&mut other), 0);
+    auth_attempt(
+        &mut server,
+        &mut other,
+        AuthOp::Register,
+        "other-ip-user",
+        "password123",
+    )
+    .unwrap();
+}
+
+#[test]
+fn unauthenticated_connection_has_handshake_auth_deadline() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    server.set_auth_deadline_ms(100);
+    // Một client chưa Hello, một client đã Welcome nhưng chưa Auth.
+    wire_handshake_at(&mut server, std::slice::from_mut(&mut clients[1]), 0);
+    let _ = server.poll(150, Duration::ZERO).unwrap();
+    assert_eq!(server.session_count(), 0);
+}
+
+#[test]
+fn repeated_hello_is_allowed_before_auth_but_not_after() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    let h = handshake_config(server.authority());
+
+    // Trước AuthOk: Hello lặp trả lại Welcome và không reset trạng thái auth.
+    send(&mut clients[0], &hello(h.rules_hash));
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _: Welcome = recv(&mut clients[0]);
+    let (username, password) = test_credentials(players[0]);
+    auth_attempt(
+        &mut server,
+        &mut clients[0],
+        AuthOp::Register,
+        &username,
+        &password,
+    )
+    .unwrap();
+
+    // Sau AuthOk: Hello là lỗi giao thức, đóng kết nối (Addendum A).
+    send(&mut clients[0], &hello(h.rules_hash));
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let reject: Reject = recv(&mut clients[0]);
+    assert_eq!(reject.reason, RejectReason::SessionRejected);
 }

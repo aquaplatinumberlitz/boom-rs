@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::net::TcpListener;
+use std::net::{IpAddr, TcpListener};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
 use std::thread;
 use std::time::Duration;
@@ -173,6 +173,10 @@ const GRACEFUL_CLOSE_MS: u64 = 2_000;
 struct Session {
     slot: u8,
     session_id: String,
+    /// IP nguồn của kết nối (không lấy port) — bucket rate limit theo nguồn ADR 0011 §5.
+    source_ip: IpAddr,
+    /// Mốc accept (ms) để áp hạn handshake/auth.
+    connected_at_ms: u64,
     handshaken: bool,
     out_tx: SyncSender<Outbound>,
     shutdown: Option<Box<dyn FnOnce() + Send>>,
@@ -212,6 +216,8 @@ pub struct Server {
     server_version: String,
     ping_interval_ms: u64,
     liveness_timeout_ms: u64,
+    /// Hạn hoàn tất handshake+auth cho kết nối chưa `AuthOk`.
+    auth_deadline_ms: u64,
 }
 
 impl Server {
@@ -229,6 +235,7 @@ impl Server {
             server_version: env!("CARGO_PKG_VERSION").to_owned(),
             ping_interval_ms: 15_000,
             liveness_timeout_ms: 30_000,
+            auth_deadline_ms: 10_000,
         }
     }
 
@@ -275,6 +282,11 @@ impl Server {
         self.server_version = version.into();
     }
 
+    /// Đặt hạn handshake/auth cho kết nối chưa `AuthOk` (mặc định 10 s).
+    pub fn set_auth_deadline_ms(&mut self, deadline_ms: u64) {
+        self.auth_deadline_ms = deadline_ms.max(1);
+    }
+
     pub fn authority(&self) -> &Authority {
         &self.authority
     }
@@ -305,6 +317,7 @@ impl Server {
         &mut self,
         player: PlayerId,
         slot: u8,
+        source_ip: IpAddr,
         reader: R,
         writer: W,
     ) -> Result<(), ServerError>
@@ -312,7 +325,7 @@ impl Server {
         R: Transport + Send + 'static,
         W: Transport + Send + 'static,
     {
-        self.accept_with_shutdown(player, slot, reader, writer, || {})
+        self.accept_with_shutdown(player, slot, source_ip, reader, writer, || {})
     }
 
     /// Như [`Server::accept`] nhưng có handle shutdown độc lập để hủy socket khi session bị loại,
@@ -321,6 +334,7 @@ impl Server {
         &mut self,
         player: PlayerId,
         slot: u8,
+        source_ip: IpAddr,
         mut reader: R,
         writer: W,
         shutdown: S,
@@ -342,6 +356,8 @@ impl Server {
             Session {
                 slot,
                 session_id,
+                source_ip,
+                connected_at_ms: self.now_ms,
                 handshaken: false,
                 out_tx,
                 shutdown: Some(Box::new(shutdown)),
@@ -396,13 +412,14 @@ impl Server {
         player: PlayerId,
         slot: u8,
     ) -> Result<(), ServerError> {
-        let (stream, _) = listener.accept().map_err(NetError::from)?;
+        let (stream, peer) = listener.accept().map_err(NetError::from)?;
+        let source_ip = peer.ip();
         let writer_stream = stream.try_clone().map_err(NetError::from)?;
         let shutdown_stream = writer_stream.try_clone().map_err(NetError::from)?;
         let reader = TcpTransport::from_stream(stream)?;
         let writer = TcpTransport::from_stream(writer_stream)?;
         let mut shutdown = TcpTransport::from_stream(shutdown_stream)?;
-        self.accept_with_shutdown(player, slot, reader, writer, move || {
+        self.accept_with_shutdown(player, slot, source_ip, reader, writer, move || {
             let _ = shutdown.close();
         })
     }
@@ -487,15 +504,26 @@ impl Server {
         }
         let (envelope, _) = read_envelope(frame)?;
         let kind = envelope.kind;
-        // Hello lặp (vd. test mạng lossy) được trả lại Welcome thay vì đóng; TCP thật không
-        // sinh duplicate nhưng đây là idempotent an toàn cho handshake.
-        if kind == boom_proto::MessageKind::Hello {
-            return self.handle_hello(player, frame);
-        }
         let authenticated = self
             .sessions
             .get(&player)
             .is_some_and(|session| session.account.is_some());
+        if kind == boom_proto::MessageKind::Hello {
+            // Trước AuthOk: Hello lặp được trả lại Welcome (dùng cho test mạng lossy); không
+            // đổi account/RoomGate. Sau AuthOk: Addendum A không nhận Hello → lỗi giao thức.
+            if authenticated {
+                self.send(
+                    player,
+                    &Reject {
+                        reason: RejectReason::SessionRejected,
+                        detail: "Hello sau AuthOk là lỗi giao thức".to_owned(),
+                    },
+                )?;
+                self.close_session(player);
+                return Ok(());
+            }
+            return self.handle_hello(player, frame);
+        }
         if !authenticated {
             return match kind {
                 boom_proto::MessageKind::Auth => self.handle_auth(player, frame),
@@ -672,7 +700,7 @@ impl Server {
             return Ok(());
         };
         let connection_id = session.session_id.clone();
-        let source = format!("connection:{connection_id}");
+        let source = session.source_ip.to_string();
         let now = i64::try_from(self.now_ms).unwrap_or(i64::MAX);
         let Some(runtime) = self.auth.as_mut() else {
             self.send(
@@ -1137,6 +1165,19 @@ impl Server {
     }
 
     fn flush_liveness(&mut self, now_ms: u64) -> Result<(), ServerError> {
+        let deadline = self.auth_deadline_ms.max(1);
+        let auth_expired: Vec<PlayerId> = self
+            .sessions
+            .iter()
+            .filter(|(_, session)| {
+                session.account.is_none()
+                    && now_ms.saturating_sub(session.connected_at_ms) >= deadline
+            })
+            .map(|(player, _)| *player)
+            .collect();
+        for player in auth_expired {
+            self.close_session_with_reason(player, RevokeReason::Disconnect);
+        }
         let timeout = self.liveness_timeout_ms.max(1);
         let timed_out: Vec<PlayerId> =
             self.sessions
