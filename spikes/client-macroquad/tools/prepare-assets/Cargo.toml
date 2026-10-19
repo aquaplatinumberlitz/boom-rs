@@ -1,0 +1,18 @@
+[package]
+name = "prepare-assets"
+description = "Giải mã pack KR đã có (qua boom-assets) thành PNG + scene.json cho spike client"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = "1"
+boom-assets = { path = "../../../../crates/boom-assets" }
+boom-content = { path = "../../../../crates/boom-content" }
+png = "0.17"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+
+[lints]
+workspace = true

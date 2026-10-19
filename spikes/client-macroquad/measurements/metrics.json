@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "date": "2026-10-19",
+  "host": {
+    "cpu": "AMD Ryzen 5 3600 6-Core Processor",
+    "threads": 12,
+    "os": "Linux",
+    "rust": "1.99.0"
+  },
+  "method": {
+    "build": "cargo build --release, target sạch, registry đã warm",
+    "pixel": "snapshot --time-ms 300 --no-audio; HUD tách khỏi vùng scene",
+    "deps": "cargo tree --prefix none, đếm crate duy nhất trừ package spike"
+  },
+  "linux_release": {
+    "macroquad": {
+      "build_s": 16.95,
+      "binary_b": 2631744,
+      "deps": 53,
+      "loc_game": 559
+    },
+    "winit_softbuffer": {
+      "build_s": 33.99,
+      "binary_b": 6221152,
+      "deps": 117,
+      "loc_game": 764
+    }
+  },
+  "windows_gnu_release": {
+    "macroquad": {
+      "build_s": 15.19,
+      "binary_b": 9156705
+    },
+    "winit_softbuffer": {
+      "build_s": 13.50,
+      "binary_b": 7966962
+    }
+  },
+  "pixel": {
+    "scene_1x": {
+      "pixels": 312000,
+      "different": 127,
+      "different_gt1": 108,
+      "max_delta": 17,
+      "pct": 0.040705128205128206
+    },
+    "scene_2x": {
+      "pixels": 1248000,
+      "different": 508,
+      "different_gt1": 432,
+      "max_delta": 17,
+      "pct": 0.040705128205128206
+    },
+    "hud_1x": {
+      "pixels": 24000,
+      "different": 2611,
+      "different_gt1": 2513,
+      "max_delta": 144
+    }
+  },
+  "cpu_render_ms": {
+    "1x": 3.107,
+    "2x": 8.563
+  }
+}
