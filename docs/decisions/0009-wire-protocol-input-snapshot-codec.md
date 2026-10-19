@@ -103,7 +103,7 @@ Giới hạn khung: `MAX_FRAME_BYTES = 64 KiB` gồm envelope; `MAX_SNAPSHOT_BYT
 | `round_id` | `u32` | Round server đã chốt; lệch round bị từ chối |
 | `player` | `u8` | Chỉ để đối chiếu; server **bind** người chơi theo session, không route theo trường này |
 | `ack_snapshot` | `u32` | `snapshot_seq` lớn nhất client đã áp dụng đủ; dùng để cắt cửa sổ và đo RTT |
-| `commands` | mảng 1..8 | Sắp `seq` tăng liên tục, không trùng |
+| `commands` | mảng 1..8 | Trong batch: `seq` tăng liên tục, không trùng; giữa các batch có thể có lỗ hổng do bỏ lệnh (server xử lý như gap) |
 
 Mỗi `InputCommand`:
 
@@ -123,25 +123,42 @@ nghĩa trong tick đầu tiên lệnh được áp dụng. Không gửi tọa đ
 | `round_id` | `u32` | Round bị từ chối; lệch round không vào scheduler |
 | `reason` | `u8` | 0 `BadSequence`, 1 `OutOfWindow` (chỉ quá tương lai), 2 `GapTooLarge`, 3 `RateLimited` |
 | `applied_seq` | `u32` | Ack hiện tại sau dedup/retire; client bỏ mọi lệnh `seq <=` giá trị này |
-| `server_tick` | `u32` | Tick server lúc từ chối; client dùng để bỏ lệnh đã quá `INPUT_LATE` và tính lại `target_tick` |
+| `server_tick` | `u32` | Tick server lúc từ chối; client dùng để phân loại quá khứ/tương lai và quyết định chờ/bỏ lệnh chắc chắn chưa buffer, không dùng để sửa payload lệnh đã gửi |
 
 `InputRejected` không áp dụng input và không thay đổi state; nó là tín hiệu resync sequence, không phải
 "hủy cả cửa sổ". Client xử lý như một ack (§3.2).
 
 ### 3.2 Cửa sổ dư thừa và resend
 
-- Mỗi batch chứa tối đa 8 lệnh liên tiếp bắt đầu từ lệnh chưa được ack nhỏ nhất, không phải 8 lệnh mới nhất.
-  Nhờ vậy một lệnh bị mất/không áp dụng ở giữa vẫn được gửi lại; lệnh đã áp dụng chỉ tốn vài byte và được
-  dedup.
+- Mỗi batch chứa tối đa 8 lệnh liên tiếp **trong batch**, bắt đầu từ lệnh chưa được ack nhỏ nhất còn giữ,
+  không phải 8 lệnh mới nhất. Nhờ vậy một lệnh bị mất/không áp dụng ở giữa vẫn được gửi lại; lệnh đã áp
+  dụng chỉ tốn vài byte và được dedup. Nếu client đã bỏ một seq (chắc chắn chưa buffer), batch kế tiếp bắt
+  đầu ở seq lớn hơn; lỗ hổng đó là gap hợp lệ và do gap timeout retire.
 - Ack (`Snapshot.acks[player].last_seq` hoặc `InputRejected.applied_seq`) là `applied_seq` đã **giải quyết**:
   đã áp dụng **hoặc** đã retire vì quá hạn/gap. Client bỏ mọi lệnh `seq <=` ack; lệnh quá hạn không bao giờ
   bị giữ lại chỉ vì chưa từng vào `pending`.
 - Client gửi lại cùng cửa sổ cho tới khi ack vượt qua lệnh đó. Không có cơ chế "gửi một lần rồi thôi".
 - `ack_snapshot` không cấp quyền gì; server không dùng nó để bỏ qua validation. Nó giúp client/server tính
   RTT và biết snapshot nào đã tới.
+- **Payload bất biến theo `seq`:** `seq` được cấp khi lệnh lần đầu vào một batch gửi; sau đó
+  `(target_tick, bits)` của seq đó không được đổi. Client chỉ tính/chỉnh `target_tick` cho lệnh **chưa
+  gửi**; input thay thế nhận `seq` mới. Vì vậy không có "retarget" một seq có thể đã vào `pending` của
+  server.
 - Khi nhận `InputRejected` (hoặc snapshot có ack mới), client coi `applied_seq` là ack: bỏ lệnh `seq <=`
-  ack, bỏ lệnh có `target_tick < server_tick - INPUT_LATE`, tính lại `target_tick` cho phần còn lại và
-  resend từ lệnh chưa ack nhỏ nhất. Không resend nguyên batch lỗi.
+  ack. Với lệnh **đã gửi** còn lại, client **resend y nguyên payload**, không đổi `target_tick` và không
+  bỏ chỉ vì `target_tick < server_tick - INPUT_LATE`; lệnh quá hạn sẽ được server retire và ack, client có
+  thể ngừng dự đoán trước nhưng vẫn giữ payload để resend tới khi ack. Lệnh **chưa gửi** được tính
+  `target_tick` mới (nếu còn dùng) hoặc bỏ tự do. Không resend nguyên batch lỗi.
+- Client được bỏ một lệnh **đã gửi** chỉ khi chắc chắn server chưa buffer nó. Một batch bị
+  `InputRejected` bị từ chối trước khi chèn mọi lệnh **mới** trong batch (§3.3 bước 1–3), nên lệnh chỉ
+  từng xuất hiện trong đúng batch đó là chắc chắn chưa buffer; client được bỏ nó (không tái sử dụng `seq`)
+  hoặc resend. Nếu lệnh từng nằm trong batch khác, hoặc client không chắc, coi là **có thể đã buffer**:
+  chỉ resend y nguyên tới khi ack. Bỏ một seq tạo lỗ hổng; gap timeout/late retire của server đóng lỗ hổng
+  đó, client không tự nhảy ack.
+- Lệnh quá tương lai trong batch bị `OutOfWindow` **không được chèn**, nhưng cũng không được kéo theo lệnh
+  quá khứ ở đầu hàng: client tách lệnh quá tương lai ra, chờ tới khi nó vào cửa sổ rồi gửi lại y nguyên
+  (hoặc bỏ nếu chắc chắn chưa buffer, dùng seq mới cho input thay thế) và gửi phần còn lại để retire/ack
+  tiến. Không gộp một lệnh quá tương lai với lệnh mới làm reject cả batch.
 - Batch lặp lại hoặc lệnh đã áp dụng là **idempotent**: không đổi state, không phát event; ack hiện tại đi
   trong snapshot kế tiếp. Lệnh trùng ngay trong một batch là batch sai cấu trúc (`seq` phải tăng liên tục)
   và bị `InputRejected::BadSequence`.
@@ -157,26 +174,33 @@ Server giữ cho mỗi `(round, player)`:
   không có gap.
 - `last_held_dir` và tick cuối nhận lệnh, để giữ hướng khi không có lệnh mới.
 
-Xử lý một batch ở `server_tick` theo đúng thứ tự sau; **dedup trước khi kiểm cửa sổ**:
+Xử lý một batch ở `server_tick` theo đúng thứ tự sau; **dedup trước khi kiểm cửa sổ**. Batch là **atomic**
+với lệnh mới: hoặc chèn tất cả lệnh mới hợp lệ, hoặc từ chối và không chèn lệnh mới nào; reject không
+retire:
 
 1. **Kiểm cấu trúc batch** (lỗi thì không sửa state): `round_id`, session/player, 1..8 lệnh, `seq` tăng
-   liên tục không trùng, `bits` reserved = 0. Không kiểm `target_tick` ở bước này.
+   liên tục **trong batch**, không trùng, `bits` reserved = 0. Lỗ hổng giữa các batch là gap hợp lệ, không
+   phải lỗi cấu trúc. Không kiểm `target_tick` ở bước này.
 2. **Dedup theo sequence**:
    - `seq <= applied_seq`: lệnh đã giải quyết (kể cả ack chưa tới client) → bỏ qua hoàn toàn, **không** kiểm
      `target_tick` và không đổi state. Nhờ vậy lệnh cũ trong batch resend không làm hỏng lệnh mới.
    - `seq` đã có trong `pending`: giữ bản đầu; payload giống → bỏ qua; payload khác → từ chối batch
-     (`InputRejected::BadSequence`), không sửa state, vì cùng sequence phải cùng lệnh.
+     (`InputRejected::BadSequence`), không sửa state, vì cùng sequence phải cùng lệnh. Bản trong `pending`
+     thắng; batch bị từ chối trước khi chèn các lệnh mới, client xử lý theo §3.4(d).
    - Còn lại là lệnh mới.
 3. **Kiểm lệnh mới**: `target_tick > server_tick + INPUT_LEAD` → từ chối batch
-   (`InputRejected::OutOfWindow`, nghĩa "quá tương lai"), không sửa state; `seq > applied_seq + MAX_INPUT_GAP`
-   → từ chối (`InputRejected::GapTooLarge`). Lệnh có `target_tick < server_tick - INPUT_LATE` **không** bị
-   từ chối; nó sẽ được retire, không áp dụng.
+   (`InputRejected::OutOfWindow`, nghĩa "quá tương lai"), không sửa state và không chèn bất kỳ lệnh mới nào
+   của batch; `seq > applied_seq + MAX_INPUT_GAP` → từ chối (`InputRejected::GapTooLarge`). Lệnh có
+   `target_tick < server_tick - INPUT_LATE` **không** bị từ chối; nó sẽ được retire, không áp dụng.
+   `InputRejected` mang `applied_seq`/`server_tick`; client tách lệnh quá tương lai ra và gửi lại phần còn
+   lại (nhất là lệnh quá khứ ở đầu hàng) để ack tiến, không gộp chúng mãi thành một batch bị reject.
 4. **Chèn** các lệnh mới hợp lệ vào `pending`. Miền `seq` ở bước 3 bảo đảm `pending` không vượt
    `MAX_INPUT_GAP` sequence.
 5. **Retire đầu hàng** ngay sau khi chèn: lặp khi lệnh kế tiếp `applied_seq + 1` có
    `target_tick < server_tick - INPUT_LATE` → bỏ khỏi `pending`, tăng `applied_seq`, ghi `input_expired`.
    Retire không tạo `PlayerInput` và không phát event; nó chỉ tiến ack. Dừng khi lệnh kế tiếp còn trong cửa
-   sổ hoặc `applied_seq + 1` đang thiếu.
+   sổ hoặc `applied_seq + 1` đang thiếu. Bước này chỉ chạy khi batch được chấp nhận; batch bị reject ở
+   bước 1–3 không retire, nên client phải tách lệnh để lần gửi sau retire.
 6. **Mỗi tick, gap timeout trước**: `gap_since_tick` được đặt khi buffer một lệnh có `seq > applied_seq + 1`
    trong lúc `applied_seq + 1` không có trong `pending` (hoặc khi ack tiến tới một lỗ). Mốc bắt đầu là tick
    đầu tiên thấy thiếu, không phải tick `applied_seq` dừng; resend/duplicate không reset mốc, và mốc được
@@ -199,9 +223,11 @@ Xử lý một batch ở `server_tick` theo đúng thứ tự sau; **dedup trư�
    tick.
 
 **Vì sao luôn tiến được:** mọi lệnh đã giải quyết đều nằm trong `applied_seq` và được ack; lệnh quá hạn ở
-đầu hàng được retire ngay, không cần chờ vào `pending`; gap timeout chỉ bỏ các sequence thực sự thiếu;
-`InputRejected` mang `applied_seq`/`server_tick` để client bỏ lệnh cũ, tính lại `target_tick` và resend từ
-lệnh chưa ack nhỏ nhất. Không có nhánh nào giữ một lệnh quá hạn ở đầu hàng mà không tiến ack.
+đầu hàng được retire ngay khi batch được chấp nhận, không cần chờ vào `pending`; gap timeout chỉ bỏ các
+sequence thực sự thiếu; `InputRejected` mang `applied_seq`/`server_tick` để client bỏ lệnh cũ, tách lệnh quá
+tương lai và resend y nguyên payload từ lệnh chưa ack nhỏ nhất. Payload bất biến theo `seq` nên resend
+không tạo `BadSequence` với lệnh đang `pending`; không có nhánh nào giữ một lệnh quá hạn ở đầu hàng mà
+không tiến ack, và không nhánh nào yêu cầu client sửa `target_tick` của lệnh có thể đã buffer.
 
 Replay chỉ ghi `PlayerInput` **sau scheduler** cho từng tick, kể cả neutral/expired. Không ghi raw batch,
 `target_tick` hay `ack_snapshot`: đến muộn/sớm/trùng không được làm replay khác đi. Vì vậy một lần chạy lại
@@ -224,18 +250,34 @@ seq 6 nằm trong `[124,142]` nên vào pending. Batch hợp lệ; ack vẫn 5 t
 trước dedup, batch bị từ chối vì 4/5 quá hạn và lệnh mới 6 không bao giờ vào — đây là lỗi phải tránh.
 
 **(c) Gap timeout không bỏ lệnh pending.** `applied_seq=0`, `pending={2: target_tick=130}`; gap bắt đầu
-tick 120. Tại tick 126 (`130-120 >= 6`), server chỉ retire sequence thiếu là 1, đặt `applied_seq=1`, ack=1;
+tick 120. Tại tick 126 (`126-120 >= 6`), server chỉ retire sequence thiếu là 1, đặt `applied_seq=1`, ack=1;
 seq 2 vẫn pending. Tại tick 130, seq 2 chín và được áp dụng, ack=2. Không được đặt `applied_seq=2` ngay
 sau timeout vì như vậy seq 2 bị bỏ dù chưa áp dụng.
 
-**(d) Reject → phục hồi.** `applied_seq=8`; client gửi `seq=9,target_tick=200` tại tick 130
-(`200 > 142`). Server trả `InputRejected{reason=OutOfWindow, applied_seq=8, server_tick=130}`, không đổi
-state. Client coi 8 là ack (bỏ seq <=8), thấy `target_tick=200` quá xa nên tính lại
-`target_tick = snapshot.tick + số tick local + 1` và gửi lại seq 9; nếu state chưa chắc, gửi
-`SnapshotRequest` (snapshot trả kèm `acks`). Không resend nguyên batch lỗi. Tương tự với
+**(d) Reject → phục hồi, không retarget lệnh có thể đã buffer.** `applied_seq=8`; client gửi
+`seq=9,target_tick=200` tại tick 130 (`200 > 142`). Server trả
+`InputRejected{reason=OutOfWindow, applied_seq=8, server_tick=130}` và không chèn lệnh mới nào của batch.
+Nếu seq 9 mới chỉ xuất hiện trong đúng batch này, client biết chắc nó chưa buffer: có thể (i) giữ seq 9 và
+resend y nguyên khi server tick tiến đủ để 200 vào cửa sổ, hoặc (ii) bỏ seq 9, dùng seq 10 với
+`target_tick` mới; lỗ hổng seq 9 do gap timeout retire. Nếu seq 9 từng nằm trong batch khác (có thể đã
+buffer), client **không đổi payload**: resend y nguyên và chờ tới cửa sổ, không gửi kèm lệnh mới làm reject
+cả batch. Client coi 8 là ack (bỏ seq <=8), tách lệnh quá tương lai khỏi lệnh quá khứ/đầu hàng, và gửi
+`SnapshotRequest` nếu state chưa chắc. Không resend nguyên batch lỗi. Tương tự với
 `GapTooLarge`/`BadSequence`/`RateLimited`: ack trong reject là điểm bắt đầu resend, không phải "bỏ toàn bộ
-cửa sổ". Riêng `BadSequence` do payload khác bản đã có trong `pending`, client bỏ bản local của seq đó và
-resync state; không gửi lại payload khác cho cùng seq.
+cửa sổ". Riêng `BadSequence` do payload khác bản đã có trong `pending` (lỗi client, không xảy ra với quy tắc
+bất biến): server giữ bản `pending` đầu tiên và không chèn lệnh mới; client bỏ bản local của seq đó (bản
+server thắng), không gửi payload khác cho cùng seq, resync state bằng snapshot và tiếp tục bằng seq mới.
+Snapshot không mang payload `pending`, nên client không cố khôi phục nó; lệnh gốc trong `pending` vẫn được
+server áp dụng/retire theo `target_tick` của nó.
+
+**(e) Snapshot ack tiến khi còn lệnh tương lai pending + lệnh mới.** Server tick 130, `applied_seq=5`,
+`pending={6: target_tick=132}`. Snapshot tick 130/ack 5 tới client; client bỏ seq <=5, **không** đổi seq 6
+(vẫn `target_tick=132`) và resend `[6:132, 7:133]`, trong đó 7 là input mới với seq mới. Server dedup 6 y
+nguyên, chèn 7; tick 132 áp dụng 6, tick 133 áp dụng 7, ack tiến. Nếu snapshot có ack=6 (6 đã áp dụng) trong
+khi 7 còn pending, client bỏ 6, giữ 7 y nguyên và gửi input mới là seq 8; resend `[7,8]`. Không nhánh nào
+đổi `target_tick` của 6/7 sau khi đã gửi; nếu lệnh mới có `target_tick` sớm hơn lệnh pending phía trước,
+server vẫn áp dụng theo thứ tự `seq` và có thể dồn lệnh mới sang tick sau, nên client nên gán `target_tick`
+không giảm dần theo `seq`.
 
 `SnapshotRequest` chỉ là resync **state** (snapshot trả kèm `acks`); nó không thay thế retire/ack. Liveness
 sequence đến từ retire ở bước 5/6 và ack trong `InputRejected`, nên không phải chờ snapshot mới tiến được.
@@ -275,7 +317,7 @@ Delta chỉ được thêm sau khi có baseline + resync + test mất gói; vi�
 |---|---|---|
 | Header | `snapshot_seq u32`, `round_id u32`, `tick u32`, `state_schema u16`, `rules_hash u64`, `content_epoch u32`, `phase`, `rng_state u64`, `next_entity_id u32` | `snapshot_seq` tăng từ 1 trong round; `phase` = Playing / Ended(Draw) / Ended(Winner u8) |
 | `acks` | `Vec<{ player u8, last_seq u32, applied_tick u32 }>` | Một mục/người chơi, sắp theo `player`; `last_seq` là sequence đã **giải quyết** (áp dụng hoặc retire), không phải ack TCP |
-| `players` | `Vec<{ id u8, x i32, y i32, facing u8, speed Stat, bombs Stat, range Stat, life }>` | `Stat = {value u8, max u8}`; `life` = Alive / Trapped{since u32} / Dead |
+| `players` | `Vec<{ id u8, x i32, y i32, facing u8, speed Stat, bombs Stat, range Stat, life }>` | `x`/`y` là `Mpx` (1/1000 px), **không** phải chỉ số ô; `Stat = {value u8, max u8}`; `life` = Alive / Trapped{since u32} / Dead |
 | `field` | `{ width u16, height u16, kinds_bits Vec<u8>, hidden Vec<{cell u16, kind u8}> }` | `kinds_bits` 2 bit/ô, bit thấp trước (ô 0 ở bit 0–1), hàng rồi cột, 0=Floor, 1=Solid, 2=Breakable, 3=không hợp lệ; `hidden` sắp theo `cell`, chỉ trên ô Breakable |
 | `bombs` | `Vec<{ id u32, owner u8, cell u16, range u8, explodes_at u32, grace Vec<u8> }>` | Sắp theo `id`; `grace` sắp tăng |
 | `flames` | `Vec<{ cell u16, until u32, source u32, owner u8 }>` | Sắp theo `cell`, mỗi ô tối đa một flame |
@@ -285,6 +327,9 @@ Thứ tự field trong bảng là thứ tự encode (postcard struct); đổi th
 `cell` = `y * width + x`; dùng `u16` để không phụ thuộc map 15×13. `kind` của item là chỉ số trong
 `Rules::items`, không phải ID asset. `rng_state` là state SplitMix64 hiện tại, không phải seed; `next_entity_id`
 là giá trị allocator sẽ cấp tiếp theo, không suy từ max ID đã thấy vì entity đã chết/nhặt có thể đã bị xóa.
+`x`/`y` giữ nguyên tọa độ `Mpx` của `contracts-r3` để dựng lại đúng `SimulationState` (kể cả vị trí đang di
+chuyển); không nén về chỉ số ô. Domain được kiểm theo `width`/`height`/`Rules::tile` ở §4.2, không phải
+`0..14`/`0..12`.
 
 Snapshot **không** chứa event. Event đi trong `RoundEvents` cùng stream TCP, có `round_id + EventId`; consumer
 dedup theo `(round_id, EventId)` (ADR 0008). Snapshot không phát lại âm thanh/hiệu ứng.
@@ -297,12 +342,19 @@ Village00 KR là 15×13 = 195 ô (R-002). Bảng dưới là **trần theo miề
 Miền enforce (decoder kiểm trước khi cấp phát; client gọi `check_invariants` trước khi áp dụng):
 
 - 2–4 người; `acks.len() <= 4`, `players.len() <= 4`; `grace.len() <= 4`.
-- `width=15`, `height=13`, `cell < 195`, `0 <= x < 15`, `0 <= y < 13`; `hidden` chỉ trên ô Breakable.
+- `width=15`, `height=13`, `cell < 195`; `hidden` chỉ trên ô Breakable.
+- Tọa độ người chơi giữ đúng `Mpx` của `contracts-r3`: `0 <= x < width·tile_mpx`,
+  `0 <= y < height·tile_mpx`, với `tile_mpx = grid.tile_px·1000` từ `Rules` (V1: 40 px → 40 000).
+  V1 enforce `x < 600 000`, `y < 520 000`; tâm ô `index·tile_mpx + tile_mpx/2` (ví dụ spawn (13,11)
+  → `x=540 000`, `y=460 000`) nằm trong miền này. Decoder dùng `Rules` của phiên, không hard-code 15/13
+  và không đổi sang chỉ số ô.
 - `bombs.len() <= 40` (4 × C00 max bombs 10); `flames.len() <= 195`; `items.len() <= 195`;
   `hidden.len() <= 195`.
-- Varint: `u8` = 1 B; `u16` cell 0..194 = 2 B; `u32` tối đa 5 B; `u64` tối đa 10 B; `i32` trong
-  0..14/0..12 zigzag = 1 B; `Stat` = 2 B; `life` max `Trapped{since u32}` = 1+5 = 6 B; `phase` lồng nhau
-  tối đa 3 B. `Vec` prefix là `varint(usize)`: count 4/8/20/40 = 1 B, count 195 = 2 B.
+- Varint: `u8` = 1 B; `u16` cell 0..194 = 2 B; `u32` tối đa 5 B; `u64` tối đa 10 B; `i32` `Mpx`
+  trong miền trên là không âm, zigzag max `2·599 999 = 1 199 998` (x) và `2·519 999 = 1 039 998` (y)
+  nên 3 B; nếu không enforce miền, cận kiểu `i32` là 5 B. `Stat` = 2 B; `life` max
+  `Trapped{since u32}` = 1+5 = 6 B; `phase` lồng nhau tối đa 3 B. `Vec` prefix là `varint(usize)`:
+  count 4/8/20/40 = 1 B, count 195 = 2 B.
 
 Giả định "điển hình": 4 người, 8 bom (2/người), 20 ô lửa, 6 item trên nền, 40 item còn giấu. Cột
 "điển hình" dùng count của trạng thái đại diện nhưng vẫn lấy cận trên từng trường, nên là **cận trên** của
@@ -313,27 +365,29 @@ trạng thái đó, không phải số byte thực của một frame cụ thể.
 | Envelope | `16` | 16 | 16 |
 | Header snapshot | `5+5+5+3+10+5+3+10+5` | 51 | 51 |
 | `acks` | `1 + 4·(1+5+5)` | 45 | 45 |
-| `players` | `1 + 4·(1+1+1+1+2+2+2+6)` | 65 | 65 |
+| `players` | `1 + 4·(1+3+3+1+2+2+2+6)` | 81 | 81 |
 | `field` | `1+1+(1+49)+(P_H+3·H)` | 173 (H=40, P_H=1) | 639 (H=195, P_H=2) |
 | `bombs` | `1 + B·(5+1+2+1+5+1+4)` | 153 (B=8) | 761 (B=40) |
 | `flames` | `P_F + F·(2+5+5+1)` | 261 (F=20, P_F=1) | 2 537 (F=195, P_F=2) |
 | `items` | `P_I + I·(5+1+2)` | 49 (I=6, P_I=1) | 1 562 (I=195, P_I=2) |
-| **Tổng** | | **813** | **5 676** |
+| **Tổng** | | **829** | **5 692** |
 
 `P_H`/`P_F`/`P_I` là varint length prefix của Vec (1 byte khi count < 128, 2 byte khi count = 195).
 `field` gồm `width` (1 B), `height` (1 B), `kinds_bits` (`1 + ceil(15·13/4) = 1+49`) và `hidden`
-(`P_H + H·(2+1)`). `bombs` gồm `id u32` 5, `owner` 1, `cell` 2, `range` 1, `explodes_at u32` 5, `grace`
+(`P_H + H·(2+1)`). `players` mỗi người: `id` 1, `x` 3, `y` 3, `facing` 1, ba `Stat` 2+2+2, `life` 6.
+`bombs` gồm `id u32` 5, `owner` 1, `cell` 2, `range` 1, `explodes_at u32` 5, `grace`
 (prefix 1 + tối đa 4 ID = 5). `flames` mỗi ô: `cell` 2, `until` 5, `source` 5, `owner` 1. `items` mỗi mục:
 `id` 5, `kind` 1, `cell` 2.
 
-Nếu **không** enforce miền trên, cận kiểu postcard lớn hơn: `players` với `x/y i32` tối đa 5 B là
-`1+4·(1+5+5+1+2+2+2+6) = 97 B`; `cell u16` tối đa 3 B làm `flames`/`items`/`field` tăng. Decoder phải
-kiểm `width`/`height`/`cell`/`x`/`y`/count trước khi cấp phát; nếu map sau này khác 15×13, phải tính lại
-bảng và `MAX_SNAPSHOT_BYTES`, không dùng bảng này cho map khác.
+Nếu **không** enforce miền `Mpx` trên, cận kiểu `i32` 5 B cho `x/y` làm `players` thành
+`1+4·(1+5+5+1+2+2+2+6) = 97 B`, tổng điển hình/trần là **845/5 708 B**; bảng chính dùng miền enforce 3 B.
+Nếu `cell u16` không được kiểm, cận 3 B cũng làm `flames`/`items`/`field` tăng. Decoder phải kiểm
+`width`/`height`/`cell`/`x`/`y`/count trước khi cấp phát; nếu map sau này khác 15×13 hoặc `tile_px` khác,
+phải tính lại bảng và `MAX_SNAPSHOT_BYTES`, không dùng bảng này cho map khác.
 
-Với 20 Hz: điển hình `813·20 = 16 260 B/s ≈15,9 KiB/s/client`, 4 client `≈63,5 KiB/s`; trần
-`5 676·20 = 113 520 B/s ≈110,9 KiB/s/client`, 4 client `≈443,4 KiB/s`. Chưa tính overhead TCP/frame
-transport và các message khác. `MAX_SNAPSHOT_BYTES = 16 KiB` còn dư so với trần 5 676 B; nếu map/mode sau
+Với 20 Hz: điển hình `829·20 = 16 580 B/s ≈16,2 KiB/s/client`, 4 client `≈64,8 KiB/s`; trần
+`5 692·20 = 113 840 B/s ≈111,2 KiB/s/client`, 4 client `≈444,7 KiB/s`. Chưa tính overhead TCP/frame
+transport và các message khác. `MAX_SNAPSHOT_BYTES = 16 KiB` còn dư so với trần 5 692 B; nếu map/mode sau
 này vượt, phải tăng revision/limit có review, không nới âm thầm.
 
 Số liệu này là `design`; Q-002 chưa chốt số ô Breakable thật của Village00, nên H là tham số. Khi có bảng
@@ -370,7 +424,7 @@ mà không suy đoán.
 
 | Tiêu chí | postcard 1.x | protobuf/prost | Tự viết toàn bộ |
 |---|---|---|---|
-| Kích thước | Varint, rất gần trần lý thuyết; 813 B cận trên điển hình, 5 676 B trần ở trên | Tốt nhưng có tag/field number; repeated packed | Tốt nhất nếu tối ưu bit, nhưng công sức cao |
+| Kích thước | Varint, rất gần trần lý thuyết; 829 B cận trên điển hình, 5 692 B trần ở trên | Tốt nhưng có tag/field number; repeated packed | Tốt nhất nếu tối ưu bit, nhưng công sức cao |
 | Revision/schema | Không self-describing, không hỗ trợ schema evolution; phải bump `wire_schema` | Có field number, unknown field, evolution tốt hơn | Tự đặt revision; không có gì tự động |
 | Determinism | Encoder tuần tự, ổn định; decoder chấp nhận varint không canonical | Thứ tự field/map và default value làm canonical không bảo đảm | Kiểm soát tuyệt đối |
 | Dependency/codegen | `postcard` + `serde`; không build.rs, không codegen | `prost` + `prost-build`/protoc; thêm bước build | Không dependency, nhưng nhiều code encode/decode |
@@ -441,8 +495,9 @@ Nếu batch tới khi server tick 130, cả 120/121 đều `< 130-6=124`: đây 
 `OutOfWindow`. Server retire seq 7 rồi 8 ở đầu hàng, tăng `applied_seq` lên 8, ghi `input_expired`, không
 áp dụng input; snapshot ack `last_seq=8` để client bỏ chúng. Nếu batch là `[7:120, 8:131]` thì retire 7,
 giữ 8 và áp dụng 8 khi tới tick 131. `OutOfWindow` chỉ dùng khi `target_tick > server_tick+INPUT_LEAD`
-(ví dụ 200 tại tick 130); khi đó `InputRejected` mang `applied_seq`/`server_tick` để client tính lại và
-resend, không khóa cửa sổ. Ví dụ liveness đầy đủ ở §3.4.
+(ví dụ 200 tại tick 130); khi đó `InputRejected` mang `applied_seq`/`server_tick` để client bỏ lệnh cũ,
+tách lệnh quá tương lai và resend y nguyên payload (chỉ lệnh chưa gửi mới nhận `target_tick` mới), không
+khóa cửa sổ. Ví dụ liveness đầy đủ ở §3.4.
 
 Ví dụ này cũng là golden vector đầu tiên cho `boom-proto`; khi codec được viết, test phải tạo đúng byte này
 và decode ngược, trên ba OS.
@@ -455,11 +510,12 @@ và decode ngược, trên ba OS.
    theo snapshot (không ngoại suy). Đây là correction; hiển thị mượt là việc presentation, không sửa core.
 3. Trong lúc chờ, client dự đoán **chỉ di chuyển của mình**; bom chỉ là bóng chờ, nổ/nhốt/chết/item chỉ
    hiện theo `RoundEvents`/snapshot server. Không phát âm thanh/hiệu ứng từ state dự đoán.
-4. Client gửi cửa sổ 8 lệnh chưa ack mỗi batch; `target_tick = snapshot.tick + số tick local kể từ snapshot + 1`
-   (xấp xỉ; server clamp theo cửa sổ). Nếu lệnh bị retire/reject, `applied_seq` trong snapshot hoặc
-   `InputRejected` là ack: client bỏ mọi lệnh `seq <=` ack, bỏ lệnh có `target_tick < server_tick -
-   INPUT_LATE`, tính lại `target_tick` cho phần còn lại và resend từ lệnh chưa ack nhỏ nhất; không giữ mãi
-   lệnh cũ.
+4. Client gửi cửa sổ 8 lệnh chưa ack mỗi batch; `target_tick` chỉ gán khi lệnh lần đầu vào batch, theo
+   `snapshot.tick + số tick local kể từ snapshot + 1` (xấp xỉ; server clamp theo cửa sổ). Sau khi gửi,
+   payload bất biến: khi nhận snapshot/reject, client bỏ mọi lệnh `seq <= applied_seq`, resend y nguyên các
+   lệnh còn lại (kể cả đã quá `INPUT_LATE`; server sẽ retire + ack), và chỉ cấp `seq` mới cho input mới.
+   Không đổi `target_tick` của lệnh có thể đã vào `pending`; nếu chắc chắn lệnh chưa buffer (chỉ từng ở
+   batch bị reject) thì được bỏ nó và dùng seq mới, lỗ hổng do gap timeout retire.
 5. Event dedup theo `(round_id, EventId)`; snapshot không phát lại event. Replay dự đoán không ghi economy/log
    (ADR 0008).
 6. Nếu p95 correction/input latency vượt ngân sách V1-027, xem lại `INPUT_*`/`SNAPSHOT_INTERVAL`; nếu vẫn
