@@ -18,6 +18,7 @@ mod input;
 mod options;
 mod render;
 mod scene;
+mod text;
 mod ui;
 
 use std::collections::{BTreeMap, BTreeSet};
