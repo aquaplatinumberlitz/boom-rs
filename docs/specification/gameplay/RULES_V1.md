@@ -178,3 +178,14 @@ thời lượng tự đặt không truy được quyết định.
 Lớp sprite `Static`/`Adjust` của nhân vật được ghi lại theo entry, nhưng **thứ tự vẽ và
 cách blend chưa xác nhận** (Q-003); quyết định của V1 cho phần này thuộc task client P6
 và cần claim riêng — chưa có ở đây.
+
+## 9. Input
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-080 | Policy input V1-033: hướng dùng phím hướng **được nhấn gần nhất theo thứ tự event** trong các phím còn giữ (last-pressed wins); bỏ autorepeat; release rồi press lại giữa hai frame vẫn tạo cạnh bom mới; mất focus xóa toàn bộ phím đang giữ và cạnh bom chưa tiêu thụ | — | `design` / design | Issue #47; `crates/boom-client/src/input.rs` (`InputAdapter`, `InputTracker::apply`); test `input::tests::event_order_wins_across_same_frame_reverse_bindings`, `adapter_repress_between_frames_keeps_bomb_edge`, `adapter_ignores_autorepeat`, `adapter_focus_event_clears_held_and_pending_bomb`; R-047 (client tự mô phỏng di chuyển) |
+
+R-080 là **DESIGN của dự án**, không phải claim `confirmed` từ client KR/VN: chưa có trace client gốc
+cho thứ tự ưu tiên khi giữ nhiều phím. Claim chỉ chốt policy input của V1-033 để code/test có nguồn
+chuẩn; nếu sau này có trace, cập nhật giá trị/trạng thái theo trace thay vì suy diễn. R-080 giữ riêng
+cho task #47; không thay đổi R-047 và không sửa các claim khác.
