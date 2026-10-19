@@ -1,9 +1,9 @@
 # Âm thanh V1 — event→entry, FxSound và chính sách chồng tiếng
 
-Phạm vi **V1-034 phần 1 / issue #64**. Tài liệu này chốt bảng event→entry và policy chồng tiếng để
-client P6 dùng; **chưa** đưa asset vào bundle, chưa phát trong client và chưa làm volume/mute (phần
-sau của V1-034). Nguồn chuẩn claim: [RULES_V1](../gameplay/RULES_V1.md) §10 (R-081…R-083); câu hỏi
-còn mở: [QUESTIONS](../../research/QUESTIONS.md) Q-015.
+Phạm vi **V1-034 phần 1+2 (issue #64, #104)**. Tài liệu chốt bảng event→entry, policy chồng tiếng,
+cách đóng gói payload thô vào bundle schema 4 và cách client áp volume/mute. Nguồn chuẩn claim:
+[RULES_V1](../gameplay/RULES_V1.md) §10 (R-081…R-083); câu hỏi còn mở:
+[QUESTIONS](../../research/QUESTIONS.md) Q-015.
 
 ## 1. Nguồn và giới hạn bằng chứng
 
@@ -21,8 +21,10 @@ còn mở: [QUESTIONS](../../research/QUESTIONS.md) Q-015.
   event→entry. `boom-re/docs/features.md` A10 (audio/BGM/SFX) vẫn ghi "chưa điều tra"; legacy server không chứa
   quyết định phát SFX (server chỉ gửi event gameplay). Vì vậy **R-081 chỉ confirmed entry/mapping BGM**; loop/một voice và mapping
   event→entry, policy chồng tiếng là **design** (R-083/R-082), không nhận `confirmed` KR/VN.
-- `boom-assets` chỉ đọc/ghi payload thô và hash; không decode Ogg/MP3/WAV, không giải mã nội dung âm
-  thanh. Không commit file âm thanh; output đi vào `local/` khi kiểm tay.
+- `boom-assets` chỉ đọc/ghi payload thô và hash; không decode Ogg/MP3/WAV. Không commit file âm thanh;
+  output đi vào `local/` khi kiểm tay.
+- Bundle schema 4 mang `[[audio]]` + file `audio/<id>.<format>`; `content_hash` gồm metadata audio và
+  SHA-256 payload. Client dùng `boom_content::bundle::AudioAsset`, không đọc pack.
 
 ## 2. BGM
 
@@ -78,8 +80,16 @@ Các phương án bị loại có chủ ý: `BombExplosion002…032` (chưa bi�
 | Qua tick | Được phát lại nếu event mới; không đặt cooldown toàn cục | Âm thanh là presentation, không đổi mô phỏng |
 | BGM khi reconcile | Không restart; chỉ đổi khi map/lượt đổi | Tránh nhấp/nháy BGM |
 
-Số voice/priority là **design**, chưa có bằng chứng client gốc; Q-015 theo dõi. Volume/mute và
-crossfade không thuộc phần 1 này.
+Số voice/priority là **design**, chưa có bằng chứng client gốc; Q-015 theo dõi.
+
+### 4.1 Thực hiện trong bundle/client (V1-034 phần 2)
+
+- Builder chỉ đưa entry có định dạng macroquad đọc được (`ogg`/`wav`). `mp3`/`unknown` bị **bỏ qua có
+  log**, không đưa file không phát được vào bundle và không panic. Các entry V1 hiện tại đều là Ogg
+  (bảng §5), nên bundle thật có đủ 15 entry.
+- `crates/boom-client/src/audio.rs` tách phần quyết định thuần (`AudioState`) khỏi phần phát
+  (`MacroquadAudio`): dedup `(round_id, EventId)`, gộp cùng cue trong tick, tối đa 8 voice, BGM loop
+  một lần. `AudioMix` áp `master × {bgm,sfx}` và `mute`; không restart BGM khi reconcile.
 
 ## 5. Hash các entry V1
 
@@ -123,7 +133,8 @@ stem `fx`/bảng khóa VN và kiểm trên pack VN thật, ngoài phạm vi KR c
 
 ## 7. Chưa làm / câu hỏi
 
-- Chưa bundle asset, chưa phát trong client, chưa volume/mute (V1-034 phần sau).
+- Bundle schema 4 và client đã nối audio; kiểm tay BGM cần bundle thật + pack local (không commit
+  asset).
 - Chưa xác nhận event→entry bằng consumer gốc; chưa có trace `PlaySound`/log âm thanh. Q-015 cần
   trace client hoặc đối chiếu code client để nâng R-082.
 - Chưa xác nhận 8 voice/priority bằng client gốc; R-083 là design, có thể đổi khi có trace.
