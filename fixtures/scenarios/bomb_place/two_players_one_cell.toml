@@ -1,0 +1,50 @@
+name = "Hai người cùng ô cùng nhấn trong một tick: người id nhỏ đặt, chỉ một bom"
+features = ["V1-013"]
+claims = ["R-032"]
+status = "active"
+ticks = 2
+map = [
+    "#######",
+    "#01...#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [2, 10]
+range = [2, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [2, 10]
+range = [3, 7]
+cell = [1, 1]
+
+# Cố ý xếp input của người id 1 trước: kết quả phải theo thứ tự id, không theo thứ tự input.
+[[input]]
+tick = 0
+player = 1
+bomb = true
+
+[[input]]
+tick = 0
+player = 0
+bomb = true
+
+[[expect]]
+tick = 1
+event = "bomb_placed"
+where = { player = 0, x = 1, y = 1, range = 2 }
+count = 1
+
+[[expect]]
+tick = 1
+bomb_count = 1
+
+[[expect]]
+tick = 2
+at = [1, 1]
+bomb = true

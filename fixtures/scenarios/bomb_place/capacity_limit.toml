@@ -1,6 +1,7 @@
 name = "Không vượt số bom được đặt cùng lúc"
 features = ["V1-013"]
-status = "pending"
+claims = ["R-025"]
+status = "active"
 ticks = 41
 map = [
     "#######",
