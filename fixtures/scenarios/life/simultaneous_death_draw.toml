@@ -1,0 +1,63 @@
+# Cả hai bị nhốt từ tick 0 nên cùng hết hạn ở tick 378; không còn ai sống thì hòa
+# (SCOPE_V1 §4). Mỗi người chỉ phát đúng một player_died, by = -1 (R-026).
+name = "Nhiều người hết thời gian nhốt cùng tick thì chết và hòa"
+features = ["V1-020", "V1-021"]
+claims = ["R-026"]
+status = "active"
+ticks = 400
+map = [
+    "#####",
+    "#0.1#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+life = "trapped"
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+life = "trapped"
+
+[[expect]]
+tick = 378
+player = 0
+life = "trapped"
+
+[[expect]]
+tick = 378
+player = 1
+life = "trapped"
+
+[[expect]]
+tick = 379
+event = "player_died"
+where = { player = 0, by = -1 }
+count = 1
+
+[[expect]]
+tick = 379
+event = "player_died"
+where = { player = 1, by = -1 }
+count = 1
+
+[[expect]]
+tick = 379
+player = 0
+life = "dead"
+
+[[expect]]
+tick = 379
+player = 1
+life = "dead"
+
+[end]
+outcome = "draw"

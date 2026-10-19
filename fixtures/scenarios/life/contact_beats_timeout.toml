@@ -1,0 +1,52 @@
+# Design R-035: nếu người bị nhốt vừa hết thời gian vừa bị người Alive chạm trong cùng tick,
+# player_died.by là người chạm. Người 0 vào ô (2,1) đúng tick 378 (input từ tick 369,
+# 10 bước × 10 px); người 1 bị nhốt từ tick 0 hết hạn cùng tick đó.
+name = "Chạm địch được ưu tiên hơn hết thời gian nhốt trong cùng tick"
+features = ["V1-020", "V1-021"]
+claims = ["R-028", "R-035"]
+status = "active"
+ticks = 380
+map = [
+    "#####",
+    "#0.1#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+life = "trapped"
+
+[[input]]
+tick = 369
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 378
+player = 1
+life = "trapped"
+
+[[expect]]
+tick = 379
+event = "player_died"
+where = { player = 1, by = 0 }
+count = 1
+
+[[expect]]
+tick = 379
+player = 1
+life = "dead"
+
+[end]
+outcome = "winner:0"

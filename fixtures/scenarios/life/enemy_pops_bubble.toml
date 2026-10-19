@@ -1,7 +1,7 @@
 name = "Địch chạm người bị nhốt thì người đó chết, địch thắng"
 features = ["V1-020", "V1-021"]
-claims = ["R-028"]
-status = "pending"
+claims = ["R-028", "R-034"]
+status = "active"
 ticks = 20
 map = [
     "#######",

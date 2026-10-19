@@ -1,6 +1,7 @@
 name = "Đứng trong lửa thì bị nhốt, chưa chết"
 features = ["V1-020"]
-status = "pending"
+claims = ["R-026"]
+status = "active"
 ticks = 2
 map = [
     "#######",
