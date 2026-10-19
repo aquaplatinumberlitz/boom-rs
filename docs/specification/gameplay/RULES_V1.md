@@ -23,6 +23,8 @@ Locator viết tắt: `oc_e` = `/home/admin/boom-re/docs/oc_e-game.md` (main `4c
 | R-007 | Mỗi spawn có ít nhất hai ô `objId -1` liền kề theo hình chữ L; obj `-1` để lộ tile `Tile00_Ground/*` và là ô đi được | — | `kr_static` + `vn_static` / confirmed | Lưới KR/VN + ObjectTable: bốn spawn có tile `Tile00_Ground/*` và obj `-1`; TileInfoList `Data[0]=0` (Ground); test `every_spawn_has_two_adjacent_empty_cells_and_an_escape` (Village00 KR) |
 | R-008 | Item giấu trong gạch chỉ đặt được ở ô loại `CGOTileFixedBox` | — | `vn_runtime` / confirmed | oc_e §5a-5d (S→C 553) |
 | R-009 | Neo hiển thị nhân vật: x = cột·40, y = hàng·40 + 39 | px | `vn_runtime` / confirmed | oc_e §5a-5c (C→S 120) |
+| R-069 | ID tile và ID obj trong file `.map` là **chỉ số entry** của `fx/ObjectTable/ObjectTable`; tên entry `<TileSet>_<Lớp>/<Tên>` ⇒ sprite của ô nằm ở entry `<TileSet>/<Tên>` (pack KR `FxTile`, pack VN `fx`); lớp trong tên chỉ quyết định va chạm | — | `kr_static` + `vn_static` / confirmed | ObjectTable KR index 1958 = `Tile00_Static/Tree00` (entry `FxTile/Tile00/Tree00`), index 1942 = `Tile00_Ground/Grass00`; tile ID 1942 (KR) và 1005 (VN) cùng ra `Tile00_Ground/Grass00`, obj 1958 (KR) và 1020 (VN) cùng ra `Tile00_Static/Tree00`; `crates/boom-assets/src/closure.rs` (`resolve_sprite`) |
+| R-070 | Theme, preview và BGM của map nằm ở entry `FxMap/Theme/<Theme>`, `FxMap/Etc/<Map>_mm`, `FxSound/MP3/<Theme>`; tile set của map là tiền tố `<TileSet>` trong tên ObjectTable (`Tile00` cho Village00) | — | `kr_static` / confirmed | `kr_v1_content.json` (role `theme`/`preview`/`music`); ObjectTable KR `Tile00_*`; manifest closure `crates/boom-assets/src/closure.rs` |
 
 ## 2. Trận và thời gian
 
