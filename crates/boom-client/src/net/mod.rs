@@ -21,15 +21,19 @@ mod prediction;
 mod session;
 
 #[cfg(test)]
+mod fixture;
+#[cfg(test)]
 mod tests;
 
-pub use prediction::{PredictError, Predictor, world_from_snapshot};
+pub use prediction::{
+    ALPHA_ONE, BombShadow, PredictError, Predictor, SnapshotOutcome, world_from_snapshot,
+};
 pub use session::{ClientMessage, ClientSession, NetError};
 
 use std::time::Duration;
 
 use boom_content::rules::RulesProfile;
-use boom_core::{Mode, PlayerInput, Rules, SimulationState, mode_by_id};
+use boom_core::{Mode, Phase, PlayerInput, Rules, SimulationState, mode_by_id};
 use boom_net::{TcpTransport, Transport};
 use boom_proto::{Hello, InputBatch, RoundEvent, Welcome};
 
@@ -48,8 +52,12 @@ pub struct NetClient<W: Transport> {
     predictor: Option<Predictor>,
     /// Slot người chơi do server cấp trong `Welcome`.
     player_slot: Option<u8>,
-    round_id: Option<u32>,
+    /// `snapshot_seq` lớn nhất đã **áp**; chỉ cập nhật khi snapshot được áp, không lùi theo
+    /// snapshot cũ (ADR 0009 §4.3).
     last_snapshot_seq: u32,
+    /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`; presentation dùng để tính
+    /// alpha nội suy.
+    snapshot_interval_ms: u64,
     /// Event mới (đã dedup), chờ presentation journal lấy.
     events: Vec<RoundEvent>,
 }
@@ -63,8 +71,8 @@ impl<W: Transport> NetClient<W> {
             mode,
             predictor: None,
             player_slot: None,
-            round_id: None,
             last_snapshot_seq: 0,
+            snapshot_interval_ms: 0,
             events: Vec::new(),
         }
     }
@@ -73,6 +81,7 @@ impl<W: Transport> NetClient<W> {
     pub fn handshake(&mut self, hello: &Hello) -> Result<Welcome, NetError> {
         let welcome = self.session.handshake(hello)?;
         self.player_slot = Some(welcome.player_id);
+        self.snapshot_interval_ms = u64::from(welcome.snapshot_interval_ms.max(1));
         Ok(welcome)
     }
 
@@ -101,15 +110,30 @@ impl<W: Transport> NetClient<W> {
         Ok(())
     }
 
-    /// Dự đoán một bước của mình rồi gửi cửa sổ lệnh chưa ack.
+    /// Dự đoán một bước của mình: sinh lệnh mới (chưa gửi).
     ///
     /// Chưa có snapshot nào thì chưa dự đoán được: lệnh chỉ được tạo khi đã biết state
-    /// confirmed (ADR 0005).
+    /// confirmed (ADR 0005). Lượt đã kết thúc thì **không** sinh lệnh: kết quả do server quyết,
+    /// client giữ state confirmed và vẫn nhận message.
+    ///
+    /// Lệnh được gửi đi bằng [`NetClient::resend`].
     pub fn predict(&mut self, input: PlayerInput) -> Result<(), NetError> {
         let Some(predictor) = self.predictor.as_mut() else {
             return Ok(());
         };
+        if !predictor.is_playing() {
+            return Ok(());
+        }
         predictor.predict(input)?;
+        Ok(())
+    }
+
+    /// Gửi cửa sổ lệnh chưa ack (bắt đầu từ lệnh chưa ack nhỏ nhất, ADR 0009 §3.2).
+    ///
+    /// ADR 0009 §3.2: "client gửi lại cùng cửa sổ cho tới khi ack vượt qua lệnh đó; không có
+    /// cơ chế gửi một lần rồi thôi". Lệnh đã gửi mà chưa ack vẫn phải được gửi lại **y nguyên
+    /// payload** (không đổi `target_tick`) để server nhận được sau khi frame đầu bị mất.
+    pub fn resend(&mut self) -> Result<(), NetError> {
         self.send_window()
     }
 
@@ -123,14 +147,46 @@ impl<W: Transport> NetClient<W> {
         self.predictor.as_ref().and_then(Predictor::confirmed_state)
     }
 
+    /// Pha lượt theo snapshot mới nhất.
+    pub fn phase(&self) -> Option<Phase> {
+        self.predictor.as_ref().and_then(Predictor::phase)
+    }
+
+    /// Bóng bom chờ xác nhận (presentation; bom thật theo event/snapshot của server).
+    pub fn bomb_shadows(&self) -> &[BombShadow] {
+        self.predictor.as_ref().map_or(&[], Predictor::bomb_shadows)
+    }
+
+    /// Vị trí nội suy của người chơi `id` giữa hai snapshot gần nhất.
+    ///
+    /// `alpha` tính bằng [`ALPHA_ONE`] là 1.0; lớn hơn được clamp ở snapshot cuối (không ngoại
+    /// suy, ADR 0005). Chỉ là **dữ liệu presentation**: state authority vẫn là snapshot.
+    pub fn interpolated_position(&self, id: u8, alpha: u32) -> Option<(i32, i32)> {
+        self.predictor
+            .as_ref()
+            .and_then(|predictor| predictor.interpolated_position(id, alpha))
+    }
+
+    /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`.
+    pub fn snapshot_interval_ms(&self) -> u64 {
+        self.snapshot_interval_ms
+    }
+
+    /// Số lệnh input chưa được server ack (cửa sổ đang chờ resend).
+    pub fn pending_len(&self) -> usize {
+        self.predictor
+            .as_ref()
+            .map_or(0, |predictor| predictor.pending().len())
+    }
+
     /// Lấy event mới (đã dedup theo `(round_id, EventId)`).
     pub fn take_events(&mut self) -> Vec<RoundEvent> {
         std::mem::take(&mut self.events)
     }
 
-    /// Round hiện tại (từ snapshot gần nhất).
+    /// Round hiện tại (từ snapshot gần nhất đã áp).
     pub fn round_id(&self) -> Option<u32> {
-        self.round_id
+        self.current_round()
     }
 
     /// Slot người chơi do server cấp.
@@ -138,24 +194,40 @@ impl<W: Transport> NetClient<W> {
         self.player_slot
     }
 
+    /// Round hiện tại: lấy từ predictor (nguồn duy nhất của state đã áp).
+    fn current_round(&self) -> Option<u32> {
+        self.predictor.as_ref().and_then(Predictor::round_id)
+    }
+
     fn handle(&mut self, message: ClientMessage) -> Result<(), NetError> {
         match message {
             ClientMessage::Snapshot(snapshot) => self.apply_snapshot(snapshot)?,
             ClientMessage::RoundEvents(events) => {
-                let fresh = self.session.accept_events(events);
-                self.events.extend(fresh);
+                // Event của round cũ tới trễ sau khi đã sang round mới thì bỏ: presentation
+                // chỉ nhận event của round đang chơi (dedup theo `(round_id, EventId)`).
+                if self
+                    .current_round()
+                    .is_none_or(|round| events.round_id >= round)
+                {
+                    let fresh = self.session.accept_events(events);
+                    self.events.extend(fresh);
+                }
             }
             ClientMessage::InputRejected(rejected) => {
                 // Reject là tín hiệu resync sequence, không phải "hủy cả cửa sổ" (ADR 0009
                 // §3.2): bỏ lệnh đã giải quyết, giữ nguyên payload lệnh còn lại để resend, và
                 // xin snapshot để chắc state (ADR 0009 §3.4(d)).
+                //
+                // Chỉ reject **cùng round** mới áp dụng: reject của round cũ không được xóa
+                // lệnh của round mới.
+                if self.current_round() != Some(rejected.round_id) {
+                    return Ok(());
+                }
                 if let Some(predictor) = self.predictor.as_mut() {
                     predictor.acknowledge(rejected.applied_seq);
                 }
-                if let Some(round_id) = self.round_id {
-                    self.session
-                        .request_snapshot(round_id, self.last_snapshot_seq)?;
-                }
+                self.session
+                    .request_snapshot(rejected.round_id, self.last_snapshot_seq)?;
             }
             ClientMessage::Reject(reject) => return Err(NetError::Rejected(reject)),
             ClientMessage::UnknownKind(code) => {
@@ -180,12 +252,17 @@ impl<W: Transport> NetClient<W> {
             };
             let world = world_from_snapshot(&snapshot, &self.rules, self.mode)
                 .map_err(|error| NetError::Unexpected(format!("dựng world client: {error}")))?;
-            self.predictor = Some(Predictor::new(world, player));
+            self.predictor = Some(Predictor::new(world, player).map_err(|error| {
+                NetError::Unexpected(format!("dựng predictor client: {error}"))
+            })?);
         }
         let predictor = self.predictor.as_mut().expect("đã dựng predictor ở trên");
-        predictor.apply_snapshot(&snapshot)?;
-        self.round_id = Some(snapshot.round_id);
-        self.last_snapshot_seq = snapshot.snapshot_seq;
+        let outcome = predictor.apply_snapshot(&snapshot)?;
+        // Metadata chỉ cập nhật khi snapshot **được áp**: snapshot cũ/trùng hoặc của round cũ
+        // không được làm lùi `ack_snapshot`.
+        if let SnapshotOutcome::Applied { .. } = outcome {
+            self.last_snapshot_seq = snapshot.snapshot_seq;
+        }
         Ok(())
     }
 
@@ -194,6 +271,10 @@ impl<W: Transport> NetClient<W> {
         let Some(predictor) = self.predictor.as_ref() else {
             return Ok(());
         };
+        if !predictor.is_playing() {
+            // Lượt đã kết thúc: không gửi lệnh nữa.
+            return Ok(());
+        }
         if predictor.pending().is_empty() {
             return Ok(());
         }
@@ -201,7 +282,7 @@ impl<W: Transport> NetClient<W> {
         if commands.is_empty() {
             return Ok(());
         }
-        let (Some(round_id), Some(player)) = (self.round_id, self.player_slot) else {
+        let (Some(round_id), Some(player)) = (self.current_round(), self.player_slot) else {
             return Ok(());
         };
         let batch = InputBatch {

@@ -249,6 +249,10 @@ struct NetStatus {
     round: u32,
     slot: u8,
     events: usize,
+    /// Lượt đã kết thúc (kết quả do server quyết).
+    ended: bool,
+    /// Số lệnh input chưa được server ack.
+    pending: u32,
 }
 
 struct Game {
@@ -262,6 +266,10 @@ struct Game {
     net: Option<net::NetClient<boom_net::TcpTransport>>,
     /// Trạng thái chế độ mạng để hiện trên HUD.
     net_status: Option<NetStatus>,
+    /// Thời điểm (đồng hồ render) nhận snapshot mới nhất: gốc của alpha nội suy.
+    net_snapshot_at: f64,
+    /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`.
+    net_snapshot_interval_ms: u64,
 }
 
 impl Game {
@@ -296,6 +304,8 @@ impl Game {
             logic_size,
             net: None,
             net_status: None,
+            net_snapshot_at: 0.0,
+            net_snapshot_interval_ms: 1,
         })
     }
 
@@ -308,19 +318,30 @@ impl Game {
                 dir: self.input.direction(),
                 place_bomb: self.input.take_bomb(),
             };
+            // Lượt đã kết thúc thì `predict` không sinh lệnh và `resend` không gửi: kết quả do
+            // server quyết, client giữ state confirmed và vẫn nhận message.
             net.predict(input)?;
+            net.resend()?;
             let mut status = self.net_status.unwrap_or_default();
+            let confirmed_tick = net.confirmed_state().map_or(0, |state| state.tick);
+            if confirmed_tick != status.confirmed_tick {
+                // Snapshot mới: đặt lại gốc thời gian của alpha nội suy.
+                self.net_snapshot_at = get_time();
+            }
             if let Some(state) = net.state() {
                 self.state = state.clone();
                 status.predicted_tick = state.tick;
             }
-            status.confirmed_tick = net.confirmed_state().map_or(0, |state| state.tick);
+            status.confirmed_tick = confirmed_tick;
             status.round = net.round_id().unwrap_or(0);
             status.slot = net.player_slot().unwrap_or(0);
+            status.ended = matches!(net.phase(), Some(Phase::Ended(_)));
+            status.pending = u32::try_from(net.pending_len()).unwrap_or(u32::MAX);
             // Event server mới (đã dedup theo `(round_id, EventId)`): presentation journal sẽ
             // dùng, chưa gắn âm thanh/hiệu ứng ở task này.
             status.events += net.take_events().len();
             self.net_status = Some(status);
+            self.net_snapshot_interval_ms = net.snapshot_interval_ms().max(1);
             return Ok(());
         }
         if self.state.phase != Phase::Playing {
@@ -428,6 +449,22 @@ async fn run(mut game: Game, opts: Options) {
     }
 }
 
+/// Alpha nội suy hiện tại (đơn vị 1/65536): `0` = snapshot cũ, `ALPHA_ONE` = snapshot mới.
+///
+/// Thời gian đã trôi kể từ snapshot mới nhất chia cho chu kỳ snapshot do server khai; kết quả
+/// clamp ở `ALPHA_ONE` để **không ngoại suy** (ADR 0005).
+fn net_alpha(game: &Game) -> u32 {
+    if game.net.is_none() {
+        return 0;
+    }
+    let elapsed_ms = ((get_time() - game.net_snapshot_at) * 1000.0).max(0.0) as u64;
+    let interval = game.net_snapshot_interval_ms.max(1);
+    let scaled = elapsed_ms.saturating_mul(u64::from(net::ALPHA_ONE)) / interval;
+    u32::try_from(scaled)
+        .unwrap_or(net::ALPHA_ONE)
+        .min(net::ALPHA_ONE)
+}
+
 fn draw_scene(game: &Game, target: &RenderTarget, copy_material: &Material, scale: u32) {
     let mut camera = Camera2D::from_display_rect(Rect::new(
         0.0,
@@ -459,16 +496,41 @@ fn draw_scene(game: &Game, target: &RenderTarget, copy_material: &Material, scal
         }
     }
 
+    // Người chơi khác được **nội suy** giữa hai snapshot gần nhất (ADR 0005): alpha chạy từ
+    // snapshot cũ tới snapshot mới theo thời gian đã trôi, clamp ở snapshot cuối (không ngoại
+    // suy). Chính mình thì dùng state dự đoán (movement-only).
+    let alpha = net_alpha(game);
+    let own_slot = game.net.as_ref().and_then(net::NetClient::player_slot);
     for player in &game.state.players {
-        let x = player.x.0 as f32 / 1000.0;
-        let y = HUD_HEIGHT + player.y.0 as f32 / 1000.0;
+        let (x, y) = match game.net.as_ref() {
+            Some(net) if Some(player.id) != own_slot => net
+                .interpolated_position(player.id, alpha)
+                .unwrap_or((player.x.0, player.y.0)),
+            _ => (player.x.0, player.y.0),
+        };
+        let px = x as f32 / 1000.0;
+        let py = HUD_HEIGHT + y as f32 / 1000.0;
         let color = match player.life {
             Life::Alive if player.id == 0 => Color::from_rgba(245, 200, 80, 255),
             Life::Alive => Color::from_rgba(80, 190, 245, 255),
             Life::Trapped { .. } => Color::from_rgba(245, 130, 40, 255),
             Life::Dead => Color::from_rgba(80, 80, 80, 255),
         };
-        draw_rectangle(x - 12.0, y - 12.0, 24.0, 24.0, color);
+        draw_rectangle(px - 12.0, py - 12.0, 24.0, 24.0, color);
+    }
+
+    // Bóng bom chờ xác nhận: dữ liệu presentation, tách khỏi state dự đoán (ADR 0005). Bom thật
+    // hiện theo event/snapshot của server.
+    if let Some(net) = game.net.as_ref() {
+        for shadow in net.bomb_shadows() {
+            draw_rectangle(
+                shadow.x as f32 / 1000.0 - 10.0,
+                HUD_HEIGHT + shadow.y as f32 / 1000.0 - 10.0,
+                20.0,
+                20.0,
+                Color::from_rgba(245, 245, 245, 140),
+            );
+        }
     }
 
     draw_rectangle(
@@ -483,12 +545,14 @@ fn draw_scene(game: &Game, target: &RenderTarget, copy_material: &Material, scal
         Some(status) => (
             "boom-client net",
             format!(
-                "  net: round {} slot {}  server {} dự đoán {}  event {}",
+                "  net: round {} slot {}  server {} dự đoán {}  chờ ack {}  event {}{}",
                 status.round,
                 status.slot,
                 status.confirmed_tick,
                 status.predicted_tick,
-                status.events
+                status.pending,
+                status.events,
+                if status.ended { "  kết quả" } else { "" }
             ),
         ),
         None => ("boom-client offline", String::new()),
