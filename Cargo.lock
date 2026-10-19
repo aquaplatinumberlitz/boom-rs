@@ -70,6 +70,8 @@ dependencies = [
  "boom-proto",
  "boom-sync",
  "macroquad",
+ "serde",
+ "toml",
 ]
 
 [[package]]
