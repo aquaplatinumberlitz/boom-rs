@@ -6,6 +6,7 @@
 //! `boom_proto::InputBatch`; chuyển state↔DTO nằm ở `boom-sync`, không có bản chuyển đổi riêng
 //! trong server.
 
+pub mod auth;
 mod authority;
 mod config;
 pub mod identity;
