@@ -11,5 +11,9 @@ boom-core.workspace = true
 boom-content.workspace = true
 boom-proto = { path = "../boom-proto" }
 
+# Chỉ dùng trong test: dựng trận từ `fixtures/scenarios/` để kiểm round-trip state hash.
+[dev-dependencies]
+boom-scenario.workspace = true
+
 [lints]
 workspace = true
