@@ -35,6 +35,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "boom-room"
+version = "0.0.0"
+
+[[package]]
 name = "boom-scenario"
 version = "0.0.0"
 dependencies = [

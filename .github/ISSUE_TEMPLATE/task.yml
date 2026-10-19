@@ -1,0 +1,31 @@
+name: Task
+description: Một việc giao cho người/agent (mẫu TEAM_WORKFLOW §6)
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: "Đọc AGENTS.md trước khi nhận. Một task một owner; chỉ sửa file trong phạm vi."
+  - type: input
+    id: features
+    attributes: { label: "Feature ID / câu hỏi", placeholder: "V1-013 / Q-002" }
+    validations: { required: true }
+  - type: textarea
+    id: goal
+    attributes: { label: "Mục tiêu và phần ngoài phạm vi" }
+    validations: { required: true }
+  - type: textarea
+    id: files
+    attributes: { label: "File/thư mục được sửa" }
+    validations: { required: true }
+  - type: textarea
+    id: deps
+    attributes: { label: "Dependency + revision contract/spec", placeholder: "contracts-r1; cần #12 merge trước" }
+  - type: textarea
+    id: acceptance
+    attributes: { label: "Acceptance / lệnh kiểm" }
+    validations: { required: true }
+  - type: textarea
+    id: handoff
+    attributes:
+      label: "Bàn giao"
+      value: "PR theo mẫu; cargo xtask ci xanh; scenario active; docs nguồn chuẩn cập nhật; ghi unknown."

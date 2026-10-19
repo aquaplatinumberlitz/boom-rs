@@ -1,0 +1,6 @@
+#!/bin/sh
+# Chặn push khi cổng bàn giao chưa xanh (repo private không có branch protection).
+# Bật một lần: cargo xtask setup. Bỏ qua khẩn cấp: git push --no-verify (phải ghi lý do trong PR).
+set -e
+echo "pre-push: cargo xtask ci" >&2
+cargo xtask ci

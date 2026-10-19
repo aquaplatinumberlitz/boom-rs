@@ -1,0 +1,38 @@
+# Owner theo đường dẫn (TEAM_WORKFLOW §5). Khi có thành viên/agent cố định, thay tài khoản theo vai trò;
+# thêm reviewer bằng cách ghi nhiều tài khoản trên cùng dòng.
+# Vai trò ghi ở cuối dòng để biết ai cần review khi chưa có người thật.
+
+# Mặc định và file dùng chung: integrator
+*                                   @aquaplatinumberlitz
+/AGENTS.md                          @aquaplatinumberlitz  # integrator
+/Cargo.toml                         @aquaplatinumberlitz  # integrator
+/rust-toolchain.toml                @aquaplatinumberlitz  # integrator
+/.github/                           @aquaplatinumberlitz  # integrator
+/docs/specification/features.json   @aquaplatinumberlitz  # integrator (người ghi duy nhất)
+/docs/planning/execution.json       @aquaplatinumberlitz  # integrator (người ghi duy nhất)
+/docs/decisions/                    @aquaplatinumberlitz  # integrator
+
+# Contract core (đổi = revision contracts-rN)
+/crates/boom-core/src/state/        @aquaplatinumberlitz  # integrator + core reviewer
+/crates/boom-core/src/event.rs      @aquaplatinumberlitz  # integrator + core reviewer
+/crates/boom-core/src/rules.rs      @aquaplatinumberlitz  # integrator + core reviewer
+/crates/boom-core/src/mode.rs       @aquaplatinumberlitz  # integrator + core reviewer
+/crates/boom-core/src/sim.rs        @aquaplatinumberlitz  # integrator + core reviewer
+
+# Mỗi system một owner theo task
+/crates/boom-core/src/systems/movement.rs    @aquaplatinumberlitz  # core: V1-011/012
+/crates/boom-core/src/systems/bomb_place.rs  @aquaplatinumberlitz  # core: V1-013
+/crates/boom-core/src/systems/explosion.rs   @aquaplatinumberlitz  # core: V1-014/015
+/crates/boom-core/src/systems/blocks.rs      @aquaplatinumberlitz  # core: V1-016
+/crates/boom-core/src/systems/pickup.rs      @aquaplatinumberlitz  # core: V1-017..019
+/crates/boom-core/src/systems/life.rs        @aquaplatinumberlitz  # core: V1-020
+/fixtures/scenarios/                         @aquaplatinumberlitz  # QA + owner system tương ứng
+
+# Crate khác
+/crates/boom-assets/                @aquaplatinumberlitz  # assets/RE
+/crates/boom-content/               @aquaplatinumberlitz  # integrator + assets
+/crates/boom-scenario/              @aquaplatinumberlitz  # QA
+/crates/boom-room/                  @aquaplatinumberlitz  # backend
+/data/rules/                        @aquaplatinumberlitz  # RE/research + reviewer
+/docs/specification/gameplay/       @aquaplatinumberlitz  # RE/research + reviewer
+/docs/research/                     @aquaplatinumberlitz  # research

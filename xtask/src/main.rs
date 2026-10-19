@@ -2,6 +2,7 @@
 //!
 //! - `ci`: cổng bàn giao (AGENTS §7) — fmt, clippy `-D warnings`, test, replay golden, docs/catalog.
 //! - `bless`: ghi lại mọi golden replay sau khi đổi hành vi core có chủ đích.
+//! - `setup`: bật hook pre-push của repo (`.githooks/`), chạy `ci` trước mỗi lần push.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -98,8 +99,12 @@ fn main() -> ExitCode {
     let ok = match std::env::args().nth(1).as_deref() {
         Some("ci") => ci(),
         Some("bless") => replay("bless"),
+        Some("setup") => run(
+            "git config core.hooksPath .githooks",
+            Command::new("git").args(["config", "core.hooksPath", ".githooks"]),
+        ),
         _ => {
-            eprintln!("dùng: cargo xtask ci|bless");
+            eprintln!("dùng: cargo xtask ci|bless|setup");
             return ExitCode::from(2);
         }
     };

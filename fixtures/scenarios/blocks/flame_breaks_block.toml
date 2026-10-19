@@ -1,0 +1,49 @@
+# Không cần system explosion: lửa dựng sẵn trên khối mềm có item giấu.
+name = "Lửa trên khối mềm phá khối và lộ item giấu, một lần"
+features = ["V1-016"]
+claims = ["R-050"]
+status = "pending"
+ticks = 3
+map = [
+    "#####",
+    "#0+.#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[flame]]
+cell = [2, 1]
+ticks = 3
+owner = 0
+
+[[hidden]]
+cell = [2, 1]
+kind = "Roller"
+
+[[expect]]
+tick = 1
+event = "block_destroyed"
+where = { x = 2, y = 1 }
+count = 1
+
+[[expect]]
+tick = 1
+event = "item_revealed"
+where = { x = 2, y = 1, kind = 2 }
+count = 1
+
+[[expect]]
+tick = 2
+event = "block_destroyed"
+count = 0
+
+[[expect]]
+tick = 2
+at = [2, 1]
+kind = "floor"
+item = "Roller"
