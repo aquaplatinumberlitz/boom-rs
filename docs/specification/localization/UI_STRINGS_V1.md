@@ -134,7 +134,7 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `room.status` | Nhãn trạng thái | `catalog:RoomInfoDlgStatus` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.id` | Nhãn ID phòng | `catalog:RoomInfoDlgID` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.map` | Nhãn bản đồ | `ảnh FxMap:Prepare/CAStage` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt. |
-| `room.map_name` | Tên map V1 | `catalog:map:Village00` | `catalog-translated` | Lấy `catalog.vi`; reviewer chốt dùng tên catalog hay tên kỹ thuật. |
+| `room.map_name` | Tên map V1 | `catalog:map:Village00` | `catalog-translated` | Lấy `catalog.vi`; muốn dùng tên khác phải ghi **cần sửa ở boom-re-l10n** kèm id. |
 | `room.character` | Nhãn chọn nhân vật | `ảnh FxMap:Prepare/CAStage` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt. |
 | `room.character_c00` | Tên hiển thị C00 | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c00`; chưa render. |
 | `room.character_c01` | Tên hiển thị C01 | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c01`; chưa render. |
@@ -229,7 +229,7 @@ hiện là `pending`; muốn dùng phải import `images_review.csv` qua quy tr�
 | `FxStage:Lobby/Dlg_LB-NMCreate` | 414×455 | Có (`room_create_dialog`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
 | `FxMap:Prepare/PRE_Bt_Ready` | 193×342 | Có (`ready`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
 | `FxMap:Prepare/PRE_Bt_Start` | 193×342 | Có (`start`) | Có chữ Hàn; VN: có chữ Việt | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
-| `FxMap:Prepare/PRE_Bt_Roominfo` | 100×110 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Nghĩa Hàn là "đổi thông tin phòng", VN là "thông tin"; chọn nhãn nào phải chốt |
+| `FxMap:Prepare/PRE_Bt_Roominfo` | 100×110 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Ảnh KR/VN khác nghĩa; nếu render text thì lấy catalog, không tự chọn/sửa nhãn |
 | `FxMap:Prepare/Dlg_PRE-NMRoominfo` | 414×455 | — | Có chữ Hàn; VN: có chữ Việt khác nghĩa | `diff_bytes` | Như trên; dialog V1 có thể chỉ để xem, không đổi tên |
 | `FxStage:Lobby/LB_Bt_T_ShowAllRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt ngắn hơn | `diff_bytes` | VN ngắn hơn nên có thể mất nghĩa "xem mọi phòng"; V1 có thể không cần filter |
 | `FxStage:Lobby/LB_Bt_T_WaitRoomRenew` | 99×423 | — | Có chữ Hàn; VN: chữ Việt là danh từ | `diff_bytes` | VN không phải hành động "xem phòng chờ" |
@@ -325,7 +325,7 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
 | 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 4 asset đã chọn |
 | Chưa có font/license trong repo | V1-035 chưa bundle được font | Chọn version, thêm license/attribution, golden glyph; ngoài phạm vi docs này |
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
-| Màn kết quả chưa có asset trong closure | V1-032 có thể dead end ở result | Bổ sung asset/art vào evidence, hoặc dùng text + asset đã có |
+| Màn kết quả chưa có asset trong closure | V1-032 có thể dead end ở result | Bổ sung asset/art vào evidence, hoặc dùng text từ catalog + asset đã có |
 | Nền login/lobby/prepare có chữ và nhãn ngoài scope | Dùng nguyên trạng sẽ hiện Nexon/nhiệm vụ/đội | Che/redraw hoặc chọn asset khác; cần review ảnh |
 | Chưa có golden wrap/scale/focus | Không chứng minh được V1-035 | Tạo golden ảnh + test glyph sau khi client có renderer |
 
