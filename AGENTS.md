@@ -70,7 +70,9 @@ vai trò integrator chính: tiếp quản hàng đợi worker đang có, điều
 Đây là ủy quyền trực tiếp mới hơn bảng phân công Claude/Codex bên dưới; không có hai người cùng ghi sổ.
 Khi Claude trở lại, bàn giao rõ các PR/task/registry đang dở trước khi chuyển quyền ghi.
 Giữ quy định PR, CI ba OS và review độc lập: Codex không tự review code/contract/rules/quy trình mình viết.
-Không tự thêm phiên dsh ngoài hai phiên cố định hoặc giao trùng task đang chạy.
+Giới hạn do chủ dự án chốt: tối đa **2 worker dsh và 4 worker OpenCode**; không mở thêm worker
+ngoài nhóm này, không giao trùng task đang chạy. Khi Claude có credit và trở lại, Codex bàn giao
+quyền integrator chính rồi trở về vai trò sub/co-integrator.
 
 - Task là GitHub issue (nhãn `task`) có ID, mục tiêu, baseline, owner, reviewer, file được sửa, dependency,
   đầu ra, cách nghiệm thu (quy trình ở [TEAM_WORKFLOW](docs/planning/TEAM_WORKFLOW.md) §5–6).

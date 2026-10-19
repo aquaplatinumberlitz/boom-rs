@@ -25,7 +25,9 @@ Pha, hạn và việc tiếp theo ở [REWRITE_PLAN](REWRITE_PLAN.md) — không
 
 **Tiếp quản tạm (chỉ đạo chủ dự án 2026-10-19):** Claude hết credit; Codex giữ cả vai trò integrator
 chính và co-integrator cho tới khi bàn giao lại. Quyền ghi duy nhất sổ tiến độ chuyển tạm sang Codex;
-phân công worker/worktree và hai phiên dsh-A/B giữ nguyên. Phạm vi bao gồm cả core/server/net của Claude.
+phân công worker/worktree giữ nguyên: tối đa **2 worker dsh và 4 worker OpenCode**, không thêm worker.
+Phạm vi tiếp quản bao gồm cả core/server/net của Claude. Khi Claude có credit và trở lại, Codex bàn giao
+PR/hàng đợi/registry đang dở và quyền ghi duy nhất, rồi trở về sub/co-integrator.
 Theo [AGENTS §5](../../AGENTS.md#5-làm-việc-nhiều-ngườiagent), vẫn cần reviewer độc lập cho thay đổi
 code/contract/claim/quy trình do người đang giữ quyền integrator viết; không dùng hai vai trò để tự approve.
 
