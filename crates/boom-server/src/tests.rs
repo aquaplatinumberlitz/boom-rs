@@ -2453,6 +2453,9 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
             );
             assert_eq!(joined.members.len(), index + 1);
         }
+        for c in clients.iter_mut() {
+            drain_client(c);
+        }
         for (index, &player) in players.iter().enumerate() {
             retry_ready(&mut server, &mut clients[index], player.0, 2, 0);
         }
@@ -2470,6 +2473,9 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
         retry_result_ack(&mut server, &mut clients, round, 200_000);
         let waiting: RoomState = recv_room_state(&mut clients[0]);
         assert_eq!(waiting.members.len(), players.len());
+        for c in clients.iter_mut() {
+            drain_client(c);
+        }
 
         // Trận 2 qua cùng mạng lossy.
         for (index, &player) in players.iter().enumerate() {
