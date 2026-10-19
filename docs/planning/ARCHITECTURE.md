@@ -279,11 +279,12 @@ review. Font Unicode, fallback, wrap, focus là contract UI. Golden bản Việt
 | Quyết định | Trạng thái | Gate |
 |---|---|---|
 | Client stack | **ADR 0010: macroquad, có điều kiện** | Còn: build+run thật 3 OS, input-held/focus, playback audio (P6) |
-| Persistence | Mở (Q-011); SQLite là ứng viên V1 | Uniqueness/transaction, migration/backup, test backend thật |
+| Persistence | **ADR 0011 (Proposed, chờ review)**: SQLite (`rusqlite`) + Argon2id + session token; tùy chọn client lưu phía client | Còn: addendum ADR 0009 cho message auth, TLS (ADR 0006), test backend thật ở P7 |
 | Codec giao thức | **ADR 0009** | Triển khai `boom-proto`/`boom-net` ở P7 |
 | Định dạng bundle content | Mở (P4) | Provenance, validation, asset closure, rebuild tái lập |
 | Thứ tự chi tiết trong tick | Mở (START-C, Q-006) | Boundary scenario pickup/lửa/chain/chết cùng tick |
 
 Đã quyết: thời gian/số học (ADR 0004), authority/prediction (ADR 0005), transport mặc định (ADR 0006),
-mô hình mở rộng (ADR 0008).
-Backend V1 chỉ lưu identity và tùy chọn; room/round là ephemeral theo SCOPE_V1.
+mô hình mở rộng (ADR 0008). Đang chờ review: identity/persistence/log —
+[ADR 0011](../decisions/0011-identity-persistence-log-v1.md) (Q-011).
+Backend V1 chỉ lưu identity và tùy chọn; room/round là ephemeral theo SCOPE_V1 (xem ADR 0011).
