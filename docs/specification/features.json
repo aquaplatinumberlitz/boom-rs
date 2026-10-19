@@ -587,7 +587,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-015"
@@ -596,24 +596,28 @@
       "acceptance": "Gạch phá một lần; item spawn từ profile V1 có seed; client thống nhất vật phẩm.",
       "open_questions": "DESIGN override coin-only: rules profile cần drop_probability, weights Bomb/Fire/Roller, spawn timing, flame-item, caps và pickup-at-cap có revision; không tái dùng coin weights.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-1",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "c0323b13fb39902bd8f0ad67decf158773ec3bdb",
+        "evidence": [
+          "crates/boom-core/src/systems/blocks.rs",
+          "fixtures/scenarios/blocks/destroy_and_reveal.toml",
+          "git:c0323b13fb39902bd8f0ad67decf158773ec3bdb"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #30 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #30"
         },
         "blocker": "",
-        "next_action": "Issue #6 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #30; đặt done khi V1-015 done."
       }
     },
     {
@@ -623,7 +627,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-016"
@@ -632,24 +636,28 @@
       "acceptance": "Một pickup tăng capacity theo rule, không vượt cap; hai người chạm chỉ một người nhận.",
       "open_questions": "KR ItemAttr consumer/cap còn cần xác minh.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-2",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "5845f1541242f13d4effc8d703630d26f1f10e63",
+        "evidence": [
+          "crates/boom-core/src/systems/pickup.rs",
+          "fixtures/scenarios/pickup/bomb.toml",
+          "git:5845f1541242f13d4effc8d703630d26f1f10e63"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #29 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #29"
         },
         "blocker": "",
-        "next_action": "Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #29; đặt done khi V1-016 done."
       }
     },
     {
@@ -659,7 +667,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-016"
@@ -668,24 +676,28 @@
       "acceptance": "Tăng đúng một cấp theo rule; bom đã đặt giữ power chụp tại lúc đặt.",
       "open_questions": "Power capture policy và cap cần spec nguồn hoặc DESIGN.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-2",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "5845f1541242f13d4effc8d703630d26f1f10e63",
+        "evidence": [
+          "crates/boom-core/src/systems/pickup.rs",
+          "fixtures/scenarios/pickup/bomb.toml",
+          "git:5845f1541242f13d4effc8d703630d26f1f10e63"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #29 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #29"
         },
         "blocker": "",
-        "next_action": "Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #29; đặt done khi V1-016 done."
       }
     },
     {
@@ -695,7 +707,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-011",
@@ -705,24 +717,28 @@
       "acceptance": "Tăng đúng cấp speed đã hiệu chuẩn; không đổi tốc độ frame-dependent.",
       "open_questions": "Không coi speed level là px/s; không dùng Shoe thay Roller.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "opencode-2",
+        "reviewer": "Claude",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
+        "integration_commit": "5845f1541242f13d4effc8d703630d26f1f10e63",
+        "evidence": [
+          "crates/boom-core/src/systems/pickup.rs",
+          "fixtures/scenarios/pickup/bomb.toml",
+          "git:5845f1541242f13d4effc8d703630d26f1f10e63"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #29 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #29"
         },
         "blocker": "",
-        "next_action": "Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Đã review và merge PR #29; đặt done khi V1-016 và V1-011 done."
       }
     },
     {
@@ -884,7 +900,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "net",
       "depends_on": [
         "V1-002"
@@ -893,24 +909,27 @@
       "acceptance": "Client tự khai tọa độ/kill/item/win không thay đổi state; command lặp/quá hạn bị xử lý đúng spec.",
       "open_questions": "BLOCKER: wire/input contract có revision trước triển khai.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
+        "assignee": "dsh-4",
+        "reviewer": "Codex",
         "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r3",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "docs/decisions/0009-wire-protocol-input-snapshot-codec.md",
+          "git:743a38af2a27065b7786409ae8504493ec89b1c9"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #24 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #24"
         },
         "blocker": "",
-        "next_action": "Issue #14 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Thiết kế ADR 0009 đã merge (PR #24); còn triển khai boom-proto/boom-net và authority (đợt 2)."
       }
     },
     {

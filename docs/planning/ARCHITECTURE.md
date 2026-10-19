@@ -171,16 +171,52 @@ Cần ghi field của system khác → mở issue cho integrator, không sửa t
 
 ### 5.4 Contract mạng và replay (chưa có code)
 
+Revision **`proto-r1`**, 2026-10-19, **Proposed** theo
+[ADR 0009](../decisions/0009-wire-protocol-input-snapshot-codec.md). `boom-proto` chưa được tạo; crate chỉ
+mở sau khi ADR accepted. Khi có code, kiểu DTO là nguồn chuẩn; mục này giữ quy tắc và bất biến review.
+
 | Contract | Nội dung tối thiểu | Bất biến cần review |
 |---|---|---|
-| `InputCommand` | round ID, player ID do server bind, sequence, tick dự định, hướng giữ, cạnh nhấn bom, ack snapshot | Không gửi tọa độ/kết quả; dedup theo sequence; cửa sổ input hữu hạn (ADR 0006). Authority đổi thành `PlayerInput` |
-| `Snapshot` | schema revision, rules/content hash, round/tick, state DTO, input ack | Bản đầy đủ khôi phục được `SimulationState`; delta chỉ thêm sau khi có baseline/resync |
+| Envelope | 16 byte: magic `BOOM`, `wire_schema=1`, `kind`, `flags`, `payload_len`, reserved; payload postcard | Từ chối magic/schema/kind/flags/len sai trước khi decode; frame tối đa 64 KiB; message lạ không được đoán |
+| Handshake (V1-002) | `wire_schema`, `state_schema`, `rules_profile_id`, `rules_hash`, `content_sha256`, capability | Khớp chính xác ở V1; server so với profile/bundle của mình, không dùng hash client để chọn nội dung; lệch bị từ chối trước sảnh |
+| `InputCommand` / batch | `round_id`, player do server bind, `ack_snapshot`, tối đa 8 lệnh `{seq, target_tick, dir|bomb}` | Seq tăng liên tục **trong batch** (lỗ hổng giữa batch là gap); **payload bất biến theo `seq` sau lần gửi đầu**, chỉ lệnh chưa gửi mới được tính lại `target_tick`; **dedup trước kiểm cửa sổ**, lệnh `seq <= applied_seq` bỏ qua dù `target_tick` cũ; lệnh quá khứ ở đầu hàng được retire + ack (không áp dụng); cửa sổ trễ 100 ms/trước 200 ms; gap timeout 100 ms chỉ retire sequence thiếu, không bỏ lệnh pending; `InputRejected` mang `applied_seq`/`server_tick`/`first_seq`+`command_count` để xác định batch bị reject và resync; rate limit; authority đổi thành `PlayerInput` |
+| `Snapshot` | `snapshot_seq`, round/tick, `state_schema`, `rules_hash`, `content_epoch`, phase, RNG/allocator, ack input, players/field/bombs/flames/items | **Đầy đủ**, khôi phục được `SimulationState`; client dựng lại và gọi `check_invariants`; bỏ snapshot cũ/khác round; chưa có delta |
 | `ReplayHeader` | schema, profile ID + hash, mode, map, seed, roster/spawn, `hash_algo` | Từ chối revision/profile không khớp. Bản file hiện tại: `boom-replay` schema 1 |
-| `ReplayRecord` | tick, input được server áp dụng (kể cả neutral), checkpoint hash | Ghi input thực được áp dụng; không dựa wall clock |
-| Event ra ngoài | `round_id` + `EventId` + `name` + `fields` | Consumer dedup theo `(round_id, EventId)` |
+| `ReplayRecord` | tick, `PlayerInput` **sau scheduler** (kể cả neutral/expired), checkpoint hash | Ghi input thực được áp dụng; không ghi raw batch/`target_tick`; không dựa wall clock |
+| Event ra ngoài | `round_id` + `EventId` + `name` + `fields` | Consumer dedup theo `(round_id, EventId)`; snapshot không phát lại event |
 
-Lệnh phòng tin cậy (`ready/start/leave`) tách khỏi input trận tần suất cao; cả hai có identity/dedup,
-chính sách hết hạn khác nhau. Policy phòng/start/disconnect lấy từ SCOPE_V1.
+Quy tắc kèm theo:
+
+- Input mạng chỉ là **đề nghị**; server chuyển thành `PlayerInput` sau khi kiểm round, sequence, cửa sổ và
+  rate limit. Client không gửi tọa độ/máu/item/kết quả. Lệnh trùng/đến muộn/ngoài cửa sổ không được làm đổi
+  state; lệnh hết hạn/gap được ghi nhận là neutral trong replay. `applied_seq` là sequence đã **giải quyết**
+  (áp dụng hoặc retire), không phải "đã áp dụng input"; ack dùng giá trị này.
+- **Liveness:** dedup trước kiểm cửa sổ; lệnh quá khứ ở đầu hàng được retire ngay khi batch được chấp nhận
+  + ack; gap timeout chỉ retire sequence thiếu rồi xử lý lệnh pending; `OutOfWindow` chỉ dành cho
+  `target_tick` quá tương lai; `InputRejected` mang `applied_seq`/`server_tick` để client bỏ lệnh cũ, tách
+  lệnh quá tương lai và resend. **Payload bất biến theo `seq` sau lần gửi đầu**: client chỉ tính lại
+  `target_tick` cho lệnh chưa gửi; lệnh có thể đã buffer resend y nguyên (không retarget), còn lệnh chắc
+  chắn chưa buffer được bỏ và thay bằng seq mới, lỗ hổng do gap timeout retire. Không nhánh nào giữ lệnh quá
+  hạn ở đầu hàng mà không tiến ack.
+- `Snapshot` V1 là full state, không delta. Kích thước Village00 4 người ước tính **829 B** điển hình và
+  **5 692 B** trần theo miền V1 được enforce, dưới `MAX_SNAPSHOT_BYTES=16 KiB` (ADR 0009 §4.2); đây là
+  design, chưa đo runtime. Trần dùng varint postcard đúng (u32 5 B, u64 10 B, cell 2 B, Vec prefix) và
+  miền `15×13`/count được enforce. Toạ độ `x`/`y` là `Mpx` (1/1000 px, **không** phải chỉ số ô): domain
+  `0 <= x < width·tile_mpx`, `0 <= y < height·tile_mpx` (V1: `x<600 000`, `y<520 000`) nên zigzag 3 B;
+  nếu decoder không enforce domain, cận `i32` 5 B cho tổng **845/5 708 B**.
+- `snapshot_seq`/`round_id`/`content_epoch`/`rules_hash` phải khớp phiên; `content_sha256` đầy đủ chỉ ở
+  handshake. Client bỏ snapshot cũ/trùng và xin `SnapshotRequest` khi cần resync.
+- Client dự đoán di chuyển của mình từ snapshot confirmed, replay lệnh chưa ack; bom chỉ là bóng chờ, còn
+  nổ/nhốt/chết/item chỉ theo event server (ADR 0005). Snapshot đầy đủ làm resync đơn giản; delta sau này
+  cần baseline/resync và ADR mới.
+- `INPUT_*`/`SNAPSHOT_INTERVAL`/`MAX_*` là **tham số giao thức** trong `ProtocolLimits` có revision, không
+  phải luật chơi và không nằm trong `Rules`; tick/round vẫn đọc từ `Rules`. Không rải hằng số trong code.
+- Snapshot cần getter RNG state và allocator next từ core (contracts-r4, integrator); chưa có thì chưa thể
+  hiện thực snapshot đầy đủ. Không sửa `crates/boom-core` trong task #14.
+- Lệnh phòng tin cậy (`ready/start/leave`, kind dành riêng) tách khỏi input trận tần suất cao; cả hai có
+  identity/dedup, chính sách hết hạn khác nhau. Policy phòng/start/disconnect lấy từ SCOPE_V1.
+- Index ADR và dòng "Codec giao thức" ở §8 do integrator cập nhật khi nhận ADR 0009; task #14 chỉ sửa ADR
+  mới và mục này theo phạm vi issue.
 
 #### API `boom-room` (đề xuất task #13, integrator duyệt)
 

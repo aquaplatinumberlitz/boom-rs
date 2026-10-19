@@ -19,10 +19,10 @@ Không chia điểm cho in_progress/in_review/blocked. Scope đổi phải đổ
 
 | Trạng thái | V1 | Toàn catalog cần triển khai |
 |---|---:|---:|
-| Chưa làm | 24 | 99 |
-| Đang làm | 3 | 3 |
+| Chưa làm | 19 | 94 |
+| Đang làm | 4 | 4 |
 | Bị chặn | 0 | 0 |
-| Chờ review | 10 | 10 |
+| Chờ review | 14 | 14 |
 | Đã nghiệm thu | 0 | 0 |
 
 ## Planning và gate phát hành — không cộng vào feature %
@@ -75,15 +75,15 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-013 | Đặt bom và hạn mức | Chờ review | core / opencode-1 | Claude | Đã review và merge PR #19; đặt done khi dependency V1-012 done (AGENTS §6). | [bomb_place.rs](<../../crates/boom-core/src/systems/bomb_place.rs>); [place_one.toml](<../../fixtures/scenarios/bomb_place/place_one.toml>); `4600810eacb6` |
 | V1-014 | Fuse/nổ/lan/chặn | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #21; đặt done khi dependency V1-013 done (AGENTS §6). | [explosion.rs](<../../crates/boom-core/src/systems/explosion.rs>); [rays_stop_at_solid.toml](<../../fixtures/scenarios/explosion/rays_stop_at_solid.toml>); `0c9207c4b67b` |
 | V1-015 | Nổ dây chuyền | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #21; đặt done khi dependency V1-014 done (AGENTS §6). | [explosion.rs](<../../crates/boom-core/src/systems/explosion.rs>); [chain.toml](<../../fixtures/scenarios/explosion/chain.toml>); `0c9207c4b67b` |
-| V1-016 | Phá gạch và drop giới hạn | Chưa làm | core / chưa giao | — | Issue #6 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-017 | Item Bomb tăng capacity | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-018 | Item Fire tăng tầm | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
-| V1-019 | Item Roller tăng tốc | Chưa làm | core / chưa giao | — | Issue #7 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-016 | Phá gạch và drop giới hạn | Chờ review | core / opencode-1 | Claude | Đã review và merge PR #30; đặt done khi V1-015 done. | [blocks.rs](<../../crates/boom-core/src/systems/blocks.rs>); [destroy_and_reveal.toml](<../../fixtures/scenarios/blocks/destroy_and_reveal.toml>); `c0323b13fb39` |
+| V1-017 | Item Bomb tăng capacity | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #29; đặt done khi V1-016 done. | [pickup.rs](<../../crates/boom-core/src/systems/pickup.rs>); [bomb.toml](<../../fixtures/scenarios/pickup/bomb.toml>); `5845f1541242` |
+| V1-018 | Item Fire tăng tầm | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #29; đặt done khi V1-016 done. | [pickup.rs](<../../crates/boom-core/src/systems/pickup.rs>); [bomb.toml](<../../fixtures/scenarios/pickup/bomb.toml>); `5845f1541242` |
+| V1-019 | Item Roller tăng tốc | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #29; đặt done khi V1-016 và V1-011 done. | [pickup.rs](<../../crates/boom-core/src/systems/pickup.rs>); [bomb.toml](<../../fixtures/scenarios/pickup/bomb.toml>); `5845f1541242` |
 | V1-020 | Bẫy/bong bóng/chết | Chờ review | core / opencode-3 | Claude | Đã review và merge PR #20; đặt done khi dependency V1-014 done (AGENTS §6). | [life.rs](<../../crates/boom-core/src/systems/life.rs>); [trap_timeout.toml](<../../fixtures/scenarios/life/trap_timeout.toml>); `5b42a6a899a6` |
 | V1-021 | Thắng/hòa/hết giờ | Chờ review | core / Claude | Codex | Thắng/hòa/hết giờ ở mode.rs (contracts review #2) + life #20; đặt done khi V1-020 done. | [mode.rs](<../../crates/boom-core/src/mode.rs>); [time_limit_draw.toml](<../../fixtures/scenarios/round/time_limit_draw.toml>); `5b42a6a899a6` |
 | V1-022 | Kết quả và chơi vòng tiếp | Chưa làm | backend / chưa giao | — | — | — |
 | V1-023 | Disconnect/timeout | Chưa làm | net / chưa giao | — | — | — |
-| V1-024 | Input/snapshot authoritative | Chưa làm | net / chưa giao | — | Issue #14 (đợt 1); nhận việc theo TEAM_WORKFLOW §5. | — |
+| V1-024 | Input/snapshot authoritative | Đang làm | net / dsh-4 | Codex | Thiết kế ADR 0009 đã merge (PR #24); còn triển khai boom-proto/boom-net và authority (đợt 2). | [0009-wire-protocol-input-snapshot-codec.md](<../../docs/decisions/0009-wire-protocol-input-snapshot-codec.md>); `743a38af2a27` |
 | V1-025 | Prediction/reconciliation | Chưa làm | net / chưa giao | — | — | — |
 | V1-026 | Replay và state hash | Chưa làm | core / chưa giao | — | — | — |
 | V1-027 | QA mạng 4 client | Chưa làm | qa / chưa giao | — | — | — |
