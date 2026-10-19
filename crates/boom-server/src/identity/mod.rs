@@ -36,7 +36,9 @@ pub use session::{
     IssuedSession, OsRandomSource, RandomSource, RevokeReason, RngError, SessionError,
     SessionService, SessionStore, TOKEN_BYTES, issue_token, token_hash,
 };
-pub use sqlite::{LOCK_FILE_NAME, SqliteAccountStore, SqliteOptions};
+pub use sqlite::{
+    DbInspection, LOCK_FILE_NAME, SqliteAccountStore, SqliteOptions, inspect_read_only,
+};
 
 /// Định danh tài khoản (khóa chính `accounts.id`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

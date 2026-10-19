@@ -874,6 +874,41 @@ fn map_constraint(err: rusqlite::Error) -> StoreError {
     StoreError::Sqlite(err.to_string())
 }
 
+/// Kết quả kiểm tra DB ở chế độ chỉ đọc (T1 health --offline).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DbInspection {
+    /// `PRAGMA user_version` đọc được.
+    pub schema_version: i64,
+    /// `PRAGMA integrity_check` đã trả `"ok"`.
+    pub integrity_ok: bool,
+}
+
+/// Mở DB **chỉ đọc** để kiểm `user_version`/`integrity_check`; không migration, không backup,
+/// không đổi journal mode/quyền, không lấy instance lock (ADR 0011 §8.2.2).
+pub fn inspect_read_only(path: &Path) -> Result<DbInspection, StoreError> {
+    let conn = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(sqlite_err)?;
+    let schema_version = conn
+        .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+        .map_err(sqlite_err)?;
+    let mut stmt = conn.prepare("PRAGMA integrity_check").map_err(sqlite_err)?;
+    let mut rows = stmt.query([]).map_err(sqlite_err)?;
+    let mut report = Vec::new();
+    while let Some(row) = rows.next().map_err(sqlite_err)? {
+        report.push(row.get::<_, String>(0).map_err(sqlite_err)?);
+    }
+    let integrity_ok = report.iter().all(|line| line == "ok");
+    if !integrity_ok {
+        return Err(StoreError::IntegrityCheckFailed {
+            report: report.join("; "),
+        });
+    }
+    Ok(DbInspection {
+        schema_version,
+        integrity_ok,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
