@@ -29,8 +29,10 @@
 //! - File hỏng (không phải TOML) hoặc sai `schema_version` → **toàn bộ** dùng mặc định
 //!   ([`LoadStatus::Defaults`]) + cảnh báo.
 //! - Thiếu trường / sai kiểu / giá trị ngoài miền → **riêng trường đó** dùng mặc định + cảnh báo.
-//! - Keybind trùng phím bị **từ chối** và hành động đó giữ mặc định. Phím đang là mặc định của
-//!   hành động khác cũng được bảo vệ, nên bảng keybind luôn là ánh xạ 1–1 (xem [`read_keybinds`]).
+//! - Bảng keybind là **ánh xạ hành động → phím** và phải là ánh xạ 1–1: không hành động nào
+//!   được dùng chung một phím. Bảng **hoán đổi/hoán vị** hợp lệ (ví dụ `up = "Down"`,
+//!   `down = "Up"` — đúng thứ `--rebind` ghi ra) được giữ nguyên; chỉ khi không gán được
+//!   thì hành động đó giữ mặc định kèm cảnh báo (xem [`resolve_keybinds`]).
 //!
 //! Ghi **atomic**: ghi file tạm rồi đổi tên. Đổi tên là thao tác nguyên tử trên POSIX (`rename(2)`)
 //! và dùng `MoveFileExW(MOVEFILE_REPLACE_EXISTING)` trên Windows, nên file cũ không bao giờ bị
@@ -388,16 +390,11 @@ fn read_bool(table: &toml::Table, key: &str, fallback: bool, warnings: &mut Vec<
     }
 }
 
-/// Nạp bảng keybind, từ chối phím trùng.
+/// Nạp bảng keybind; bảng phải là ánh xạ 1–1 (không hai hành động nào dùng chung phím).
 ///
-/// Quy tắc (giữ bảng keybind là ánh xạ 1–1):
-///
-/// 1. Mặc định của mọi hành động được **bảo vệ**: một hành động không lấy được phím đang là
-///    mặc định của hành động khác (nếu không, hành động kia sẽ mất mặc định của nó).
-/// 2. Trong các giá trị đọc từ file, hành động đứng trước trong [`InputAction::ALL`] giữ phím
-///    trước; hành động sau bị **từ chối** và giữ mặc định.
-/// 3. Hành động bị từ chối giữ nguyên mặc định — mặc định của các hành động khác nhau nên bảng
-///    luôn hợp lệ.
+/// Giá trị trong file được ưu tiên; hành động không gán được thì giữ mặc định kèm cảnh báo.
+/// Bảng **hoán đổi/hoán vị** hợp lệ (đúng thứ `--rebind` ghi ra) được giữ nguyên — xem
+/// [`resolve_keybinds`].
 fn read_keybinds(value: Option<&toml::Value>, warnings: &mut Vec<String>) -> Keybinds {
     let defaults = Keybinds::default();
     let Some(value) = value else {
@@ -413,40 +410,112 @@ fn read_keybinds(value: Option<&toml::Value>, warnings: &mut Vec<String>) -> Key
             warnings.push(format!("keybind lạ `{key}` bị bỏ qua"));
         }
     }
-    let mut accepted: Vec<(InputAction, KeyCode)> = Vec::new();
+    // Giá trị trong file theo thứ tự hành động; `None` = thiếu hoặc tên phím không hợp lệ.
+    let mut wanted: Vec<(InputAction, Option<KeyCode>)> = Vec::new();
     for action in InputAction::ALL {
-        let Some(value) = table.get(action.label()) else {
-            warnings.push(format!("thiếu keybind `{}`: giữ mặc định", action.label()));
-            continue;
+        let file_key = match table.get(action.label()) {
+            None => {
+                warnings.push(format!("thiếu keybind `{}`: giữ mặc định", action.label()));
+                None
+            }
+            Some(value) => match value.as_str() {
+                None => {
+                    warnings.push(format!(
+                        "keybind `{}` không phải chuỗi: giữ mặc định",
+                        action.label()
+                    ));
+                    None
+                }
+                Some(raw) => match parse_key_name(raw) {
+                    Some(key) => Some(key),
+                    None => {
+                        warnings.push(format!(
+                            "tên phím lạ `{raw}` cho `{}`: giữ mặc định",
+                            action.label()
+                        ));
+                        None
+                    }
+                },
+            },
         };
-        let Some(raw) = value.as_str() else {
-            warnings.push(format!(
-                "keybind `{}` không phải chuỗi: giữ mặc định",
-                action.label()
-            ));
-            continue;
-        };
-        let Some(key) = parse_key_name(raw) else {
-            warnings.push(format!(
-                "tên phím lạ `{raw}` cho `{}`: giữ mặc định",
-                action.label()
-            ));
-            continue;
-        };
-        let hits_default = InputAction::ALL
+        wanted.push((action, file_key));
+    }
+    let Some(assignment) = resolve_keybinds(&wanted, &defaults) else {
+        warnings.push("bảng `keybinds` không gán được phím: dùng mặc định".to_owned());
+        return defaults;
+    };
+    // Hành động bị từ chối: giá trị trong file trùng phím đã dùng nên giữ mặc định.
+    for &(action, file_key) in &wanted {
+        let Some(file_key) = file_key else { continue };
+        let assigned = assignment
             .iter()
-            .any(|&other| other != action && defaults.key(other) == key);
-        let hits_accepted = accepted.iter().any(|&(_, taken)| taken == key);
-        if hits_default || hits_accepted {
+            .find(|(assigned_action, _)| *assigned_action == action)
+            .map(|(_, key)| *key);
+        if assigned != Some(file_key) {
             warnings.push(format!(
-                "keybind `{}` = `{raw}` trùng phím: bị từ chối, giữ mặc định",
-                action.label()
+                "keybind `{}` = `{}` bị từ chối (trùng phím): giữ mặc định",
+                action.label(),
+                key_name(file_key).unwrap_or("?")
             ));
+        }
+    }
+    Keybinds::from_entries(&assignment)
+}
+
+/// Gán phím cho từng hành động sao cho **không hành động nào trùng phím**.
+///
+/// Mỗi hành động có thứ tự ưu tiên: giá trị trong file trước, mặc định sau. Bảng keybind là
+/// *ánh xạ* nên phải xét cả bảng: một bảng hoán đổi/hoán vị hợp lệ (ví dụ `up = "Down"`,
+/// `down = "Up"` — đúng thứ `--rebind` ghi ra) phải được giữ nguyên, không được loại từng
+/// dòng độc lập.
+///
+/// Vì vậy dùng quay lui theo thứ tự hành động: thử giá trị trong file trước, rồi mặc định.
+/// Lời giải luôn tồn tại (mọi hành động dùng mặc định) nên hàm không bao giờ thất bại; khi
+/// không gán được thì hành động đó giữ mặc định.
+fn resolve_keybinds(
+    wanted: &[(InputAction, Option<KeyCode>)],
+    defaults: &Keybinds,
+) -> Option<Vec<(InputAction, KeyCode)>> {
+    let mut assignment: Vec<(InputAction, KeyCode)> = Vec::new();
+    let mut used: Vec<KeyCode> = Vec::new();
+    if assign_keys(wanted, defaults, 0, &mut assignment, &mut used) {
+        Some(assignment)
+    } else {
+        None
+    }
+}
+
+fn assign_keys(
+    wanted: &[(InputAction, Option<KeyCode>)],
+    defaults: &Keybinds,
+    index: usize,
+    assignment: &mut Vec<(InputAction, KeyCode)>,
+    used: &mut Vec<KeyCode>,
+) -> bool {
+    let Some(&(action, file_key)) = wanted.get(index) else {
+        return true;
+    };
+    let mut candidates: Vec<KeyCode> = Vec::new();
+    if let Some(key) = file_key {
+        candidates.push(key);
+    }
+    let default = defaults.key(action);
+    if !candidates.contains(&default) {
+        candidates.push(default);
+    }
+    for key in candidates {
+        if used.contains(&key) {
             continue;
         }
-        accepted.push((action, key));
+        assignment.push((action, key));
+        used.push(key);
+        if assign_keys(wanted, defaults, index + 1, assignment, used) {
+            return true;
+        }
+        assignment.pop();
+        used.pop();
     }
-    Keybinds::from_entries(&accepted)
+    false
 }
 
 /// Phím có tên chuẩn trong `options.toml`.
@@ -905,9 +974,114 @@ mod tests {
              \n[keybinds]\nup = \"Space\"\ndown = \"Down\"\nleft = \"Left\"\nright = \"Right\"\nbomb = \"Space\"\n",
         );
         let loaded = load(&path);
-        // `Space` là mặc định của `bomb` nên `up` bị từ chối và giữ mặc định.
+        // `bomb` giữ mặc định `Space` nên `up` không lấy được phím đó và giữ mặc định.
         assert_eq!(loaded.options.keybinds.up, KeyCode::Up);
         assert_eq!(loaded.options.keybinds.bomb, KeyCode::Space);
+        assert!(loaded.warnings.iter().any(|w| w.contains("trùng phím")));
+    }
+
+    #[test]
+    fn keybind_may_take_another_actions_default_when_that_action_moves() {
+        let dir = TempDir::new("move");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        write_file(
+            &path,
+            "schema_version = 1\nmaster_volume = 100\nbgm_volume = 100\nsfx_volume = 100\nmute = false\n\
+             \n[keybinds]\nup = \"Space\"\ndown = \"Down\"\nleft = \"Left\"\nright = \"Right\"\nbomb = \"J\"\n",
+        );
+        let loaded = load(&path);
+        // `bomb` đã đi khỏi `Space` nên `up` được lấy phím đó.
+        assert_eq!(loaded.options.keybinds.up, KeyCode::Space);
+        assert_eq!(loaded.options.keybinds.bomb, KeyCode::J);
+    }
+
+    #[test]
+    fn swapped_keybinds_are_preserved() {
+        // Regression review #69: `--rebind up=Down` ghi ra up=Down/down=Up; bảng hoán đổi hợp lệ
+        // phải được giữ nguyên khi đọc lại, nếu không round-trip/restart mất keybind.
+        let dir = TempDir::new("swap");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        write_file(
+            &path,
+            "schema_version = 1\nmaster_volume = 100\nbgm_volume = 100\nsfx_volume = 100\nmute = false\n\
+             \n[keybinds]\nup = \"Down\"\ndown = \"Up\"\nleft = \"Left\"\nright = \"Right\"\nbomb = \"Space\"\n",
+        );
+        let loaded = load(&path);
+        assert_eq!(loaded.options.keybinds.up, KeyCode::Down);
+        assert_eq!(loaded.options.keybinds.down, KeyCode::Up);
+        assert_eq!(loaded.options.keybinds.left, KeyCode::Left);
+        assert_eq!(loaded.options.keybinds.right, KeyCode::Right);
+        assert_eq!(loaded.options.keybinds.bomb, KeyCode::Space);
+        assert!(
+            !loaded.warnings.iter().any(|w| w.contains("trùng phím")),
+            "cảnh báo: {:#?}",
+            loaded.warnings
+        );
+    }
+
+    #[test]
+    fn keybind_cycle_is_preserved() {
+        let dir = TempDir::new("cycle");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        write_file(
+            &path,
+            "schema_version = 1\nmaster_volume = 100\nbgm_volume = 100\nsfx_volume = 100\nmute = false\n\
+             \n[keybinds]\nup = \"Down\"\ndown = \"Left\"\nleft = \"Up\"\nright = \"Right\"\nbomb = \"Space\"\n",
+        );
+        let loaded = load(&path);
+        assert_eq!(loaded.options.keybinds.up, KeyCode::Down);
+        assert_eq!(loaded.options.keybinds.down, KeyCode::Left);
+        assert_eq!(loaded.options.keybinds.left, KeyCode::Up);
+    }
+
+    #[test]
+    fn swapped_keybinds_survive_write_then_read() {
+        // Regression review #69: ghi rồi đọc lại phải giữ nguyên bảng hoán đổi.
+        let dir = TempDir::new("swap-round-trip");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let options = ClientOptions {
+            keybinds: Keybinds {
+                up: KeyCode::Down,
+                down: KeyCode::Up,
+                ..Keybinds::default()
+            },
+            ..ClientOptions::default()
+        };
+        save(&options, &path).expect("ghi options");
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Loaded);
+        assert!(
+            loaded.warnings.is_empty(),
+            "cảnh báo: {:#?}",
+            loaded.warnings
+        );
+        assert_eq!(loaded.options.keybinds, options.keybinds);
+
+        // Ghi lần hai (giống hành vi client khi lưu lại) không được đổi bảng keybind.
+        save(&loaded.options, &path).expect("ghi lại options");
+        let again = load(&path);
+        assert_eq!(again.options.keybinds, options.keybinds);
+    }
+
+    #[test]
+    fn duplicate_keybind_on_swapped_pair_is_rejected() {
+        // `up` và `down` cùng nhận `Down`: phải có một hành động nhường, hành động đó giữ mặc định.
+        let dir = TempDir::new("swap-dup");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        write_file(
+            &path,
+            "schema_version = 1\nmaster_volume = 100\nbgm_volume = 100\nsfx_volume = 100\nmute = false\n\
+             \n[keybinds]\nup = \"Down\"\ndown = \"Down\"\nleft = \"Left\"\nright = \"Right\"\nbomb = \"Space\"\n",
+        );
+        let loaded = load(&path);
+        // `down` giữ `Down` nên `up` không lấy được phím đó và giữ mặc định `Up`.
+        assert_eq!(loaded.options.keybinds.up, KeyCode::Up);
+        assert_eq!(loaded.options.keybinds.down, KeyCode::Down);
+        assert!(
+            loaded.warnings.iter().any(|w| w.contains("trùng phím")),
+            "cảnh báo: {:#?}",
+            loaded.warnings
+        );
     }
 
     #[test]
