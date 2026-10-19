@@ -1,7 +1,9 @@
 //! Test end-to-end headless: client mạng + `boom-server` qua `MemoryTransport`.
 //!
-//! Kịch bản: hai client handshake vào server, vào phòng, đánh bom đi lại. Server là authority
-//! (ADR 0005); client chỉ dự đoán di chuyển của chính mình và reconcile khi snapshot về.
+//! Kịch bản: hai client handshake vào server, đăng nhập thật, vào phòng, đánh bom đi lại.
+//! Server là authority (ADR 0005); client chỉ dự đoán di chuyển của chính mình và reconcile khi
+//! snapshot về. Server dùng `Server::with_auth` + SQLite tempfile (ADR 0011 §10) nên client phải
+//! đi đúng bước `Welcome` → `Auth` → `AuthOk` trước khi gửi input (ADR 0009 Addendum A §A.1).
 //!
 //! Lỗi mạng mô phỏng theo seed (`boom-net`): trễ, mất, trùng, đảo thứ tự. Cùng seed và cùng lệnh
 //! gửi cho cùng thứ tự giao trên mọi OS.
@@ -12,6 +14,7 @@
 //! hội tụ của dự đoán.
 
 use std::collections::BTreeMap;
+use std::net::{IpAddr, Ipv4Addr};
 use std::thread;
 use std::time::Duration;
 
@@ -19,14 +22,17 @@ use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
 use boom_core::{CharacterStats, Dir, PlayerInput, Rules, Stat, World, mode_by_id};
 use boom_net::{MemoryConfig, MemoryFaults, MemoryTransport, Timing, Transport};
+use boom_proto::dto::auth::AuthFailReason;
 use boom_proto::{ProtocolLimits, RejectReason, RoundEvent, Welcome, decode_frame, encode_frame};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
+use boom_server::auth::{AuthConfig, AuthService};
+use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use boom_server::{
     Authority, CharacterStatsTable, HandshakeConfig, MatchSetup, Server, ServerConfig,
 };
 
-use super::fixture::{LATE_THRESHOLD_MS, ScheduledFaults, ScheduledHarness};
-use super::{ClientSession, NetClient, NetError, hello_for_profile};
+use super::fixture::{ACCOUNT_PASSWORD, LATE_THRESHOLD_MS, ScheduledFaults, ScheduledHarness};
+use super::{ClientSession, Credentials, NetClient, NetError, hello_for_profile};
 
 /// Profile rules cố định cho test (khác `data/rules/v1-dev.toml` nhưng cùng schema).
 const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
@@ -36,6 +42,9 @@ const PUMP_TIMEOUT: Duration = Duration::from_millis(20);
 
 /// Số bước mô phỏng trong một kịch bản.
 const STEPS: u64 = 30;
+
+/// IP nguồn giả của kết nối trong test (bucket rate limit theo nguồn, ADR 0011 §5).
+const TEST_SOURCE_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
 fn stats() -> CharacterStats {
     CharacterStats {
@@ -86,6 +95,8 @@ struct Harness {
     ticks: u64,
     /// Tần số tick lấy từ rules profile (không hard-code).
     hz: u32,
+    /// Thư mục tạm chứa DB auth: khai sau `server` nên được xoá **sau** khi store đóng.
+    _db_dir: tempfile::TempDir,
 }
 
 impl Harness {
@@ -126,7 +137,19 @@ impl Harness {
             content_epoch: 1,
             snapshot_interval_ms: 50,
         };
-        let mut server = Server::new(authority, handshake);
+        // Auth thật: SQLite trên file tạm + `AuthService` của server (ADR 0011 §5–§6, §10).
+        // Server chặn mọi kind trước `AuthOk` nên client bắt buộc phải đăng nhập.
+        let db_dir = tempfile::tempdir().expect("tempdir");
+        let db_path = db_dir.path().join("auth.sqlite3");
+        let store = SqliteAccountStore::open(&db_path, SqliteOptions::default()).expect("mở store");
+        let auth = AuthService::new(
+            AuthConfig::default(),
+            "test-instance",
+            Box::new(OsRandomSource),
+        )
+        .expect("dịch vụ auth");
+        let mut server = Server::with_auth(authority, handshake, auth, Box::new(store), 0)
+            .expect("dựng server có auth");
         let hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
         let mut clients = Vec::new();
         for (index, player) in [PlayerId(1), PlayerId(2)].into_iter().enumerate() {
@@ -143,12 +166,14 @@ impl Harness {
                 timing: Timing::Virtual,
             });
             server
-                .accept(player, slot, server_reader, server_writer)
+                .accept(player, slot, TEST_SOURCE_IP, server_reader, server_writer)
                 .expect("accept");
-            // Handshake cần server poll (vòng IO của server), nên client chờ ở luồng riêng còn
-            // server poll tới khi xong.
+            // Handshake + auth cần server poll (vòng IO của server), nên client chờ ở luồng riêng
+            // còn server poll tới khi xong.
             let client_rules = rules.clone();
             let client_hello = hello.clone();
+            let credentials =
+                Credentials::register(format!("test-{index}"), ACCOUNT_PASSWORD.to_owned());
             let handle = thread::spawn(move || {
                 let mut net = NetClient::new(
                     ClientSession::new(client_reader, client_writer),
@@ -156,6 +181,7 @@ impl Harness {
                     mode_by_id("battle_ffa").expect("mode"),
                 );
                 net.handshake(&client_hello).expect("handshake");
+                net.authenticate(&credentials).expect("auth");
                 net
             });
             while !handle.is_finished() {
@@ -179,6 +205,7 @@ impl Harness {
             origin_ms: 0,
             ticks: 0,
             hz,
+            _db_dir: db_dir,
         }
     }
 
@@ -501,7 +528,7 @@ fn client_nhan_reject_khi_rules_lech() {
     let (client_writer, server_reader) = MemoryTransport::pair(MemoryConfig::default());
     let (server_writer, client_reader) = MemoryTransport::pair(MemoryConfig::default());
     server
-        .accept(PlayerId(1), 0, server_reader, server_writer)
+        .accept(PlayerId(1), 0, TEST_SOURCE_IP, server_reader, server_writer)
         .expect("accept");
 
     // Client khai sai hash rules: server phải từ chối rõ ràng (ADR 0009 §1).
@@ -557,6 +584,122 @@ fn gioi_han_giao_thuc_dung_trong_phien() {
     assert_eq!(limits.max_commands, 8);
 }
 
+// --- Auth trên dây (ADR 0009 Addendum A §A.1) ---
+
+#[test]
+fn client_dang_nhap_that_va_nhan_auth_ok() {
+    // Server thật (`Server::with_auth` + SQLite tempfile): client đi đúng thứ tự
+    // `Welcome` → `Auth` → `AuthOk` và nhận token phiên.
+    let harness = Harness::new(MemoryFaults::none(), MemoryFaults::none(), 20261021);
+    for (index, client) in harness.clients.iter().enumerate() {
+        let account = client.net.account().expect("phải đăng nhập được");
+        assert_eq!(
+            account.display_name,
+            format!("test-{index}"),
+            "tên hiển thị phải đúng tên vừa đăng ký"
+        );
+        assert!(
+            !account.token.is_empty(),
+            "server phải cấp token phiên (ADR 0009 Addendum A §A.2)"
+        );
+        assert!(
+            client
+                .net
+                .server_version()
+                .is_some_and(|version| !version.is_empty()),
+            "`Welcome` phải mang build id của server (ADR 0011 §8.3)"
+        );
+    }
+}
+
+#[test]
+fn client_dang_nhap_sai_bao_auth_fail() {
+    // Mật khẩu sai ⇒ server trả `AuthFail` (không lộ enumeration, ADR 0011 §5) và **không**
+    // đóng phiên: client được gửi lại `Auth` trên cùng kết nối (ADR 0009 Addendum A §A.1).
+    let profile = RulesProfile::from_toml(RULES).expect("profile rules");
+    let rules = Rules::from_profile(&profile).expect("rules");
+    let world = World::new(
+        terrain(),
+        rules.clone(),
+        mode_by_id("battle_ffa").expect("mode"),
+    )
+    .expect("world");
+    let authority = Authority::new(
+        ServerConfig::v1(),
+        MatchSetup {
+            world,
+            stats: CharacterStatsTable {
+                c00: stats(),
+                c01: stats(),
+            },
+            map: "skeleton-test".to_owned(),
+            replay: None,
+        },
+    );
+    let handshake = HandshakeConfig {
+        rules_profile_id: profile.profile_id.clone(),
+        rules_hash: rules.profile_hash,
+        content_sha256: [0; 32],
+        content_epoch: 1,
+        snapshot_interval_ms: 50,
+    };
+    let db_dir = tempfile::tempdir().expect("tempdir");
+    let store = SqliteAccountStore::open(
+        &db_dir.path().join("auth.sqlite3"),
+        SqliteOptions::default(),
+    )
+    .expect("mở store");
+    let auth = AuthService::new(
+        AuthConfig::default(),
+        "test-instance",
+        Box::new(OsRandomSource),
+    )
+    .expect("dịch vụ auth");
+    let mut server =
+        Server::with_auth(authority, handshake, auth, Box::new(store), 0).expect("dựng server");
+    let (client_writer, server_reader) = MemoryTransport::pair(MemoryConfig::default());
+    let (server_writer, client_reader) = MemoryTransport::pair(MemoryConfig::default());
+    server
+        .accept(PlayerId(1), 0, TEST_SOURCE_IP, server_reader, server_writer)
+        .expect("accept");
+
+    let client_rules = rules.clone();
+    let client_hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
+    let handle = thread::spawn(move || {
+        let mut net = NetClient::new(
+            ClientSession::new(client_reader, client_writer),
+            client_rules,
+            mode_by_id("battle_ffa").expect("mode"),
+        );
+        net.handshake(&client_hello).expect("handshake");
+        net.authenticate(&Credentials::login("khong-ton-tai", "matkhau sai"))
+    });
+    while !handle.is_finished() {
+        server.poll(0, Duration::from_millis(1)).expect("poll");
+    }
+    match handle.join().expect("join luồng client") {
+        Err(NetError::AuthFailed(reason)) => {
+            assert_eq!(reason, AuthFailReason::InvalidCredentials);
+        }
+        other => panic!("phải báo AuthFail, thấy {other:?}"),
+    }
+}
+
+#[test]
+fn tai_khoan_fixture_dang_ky_that_bang_sqlite() {
+    // Fixture đăng ký tài khoản thật (Argon2id + SQLite tempfile) nên tài khoản đã có phiên
+    // sống trong DB: đăng nhập lại phải bị từ chối `AccountHasActiveSession` (ADR 0011 §6).
+    // Nếu store là giả (trong RAM) thì đăng nhập lại sẽ thành công ⇒ test bắt được.
+    let mut harness = ScheduledHarness::new(ScheduledFaults::none(), ScheduledFaults::none(), 5);
+    let error = harness
+        .login_again(0)
+        .expect_err("tài khoản đã có phiên thì không được đăng nhập lại");
+    assert_eq!(
+        error.reason,
+        boom_server::auth::AuthFailure::AccountHasActiveSession
+    );
+}
+
 // --- Client đơn (không qua server): áp snapshot thẳng để kiểm xử lý round và kết quả. ---
 
 /// Client mạng độc lập: test đẩy message trực tiếp và đọc frame client gửi ra.
@@ -585,8 +728,10 @@ impl SoloClient {
             player_id: 0,
             wire_schema: boom_proto::limits::WIRE_SCHEMA,
             state_schema: 1,
+            server_version: "boom-server-test".to_owned(),
             rules_profile_id: profile.profile_id.clone(),
             rules_hash: rules.profile_hash,
+            content_sha256: [0; 32],
             content_epoch: 1,
             snapshot_interval_ms: 50,
             protocol_limits_version: ProtocolLimits::v1().revision,

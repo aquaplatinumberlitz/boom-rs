@@ -1,7 +1,7 @@
-//! Phiên mạng phía client: handshake, gửi input, nhận snapshot/event.
+//! Phiên mạng phía client: handshake, auth, gửi input, nhận snapshot/event.
 //!
-//! Lớp này chỉ lo **đường truyền và codec** (ADR 0006 + ADR 0009 §1–§3). Nó không biết luật
-//! chơi, không dự đoán: phần dự đoán/reconciliation nằm ở [`super::prediction`].
+//! Lớp này chỉ lo **đường truyền và codec** (ADR 0006 + ADR 0009 §1–§3, Addendum A). Nó không
+//! biết luật chơi, không dự đoán: phần dự đoán/reconciliation nằm ở [`super::prediction`].
 //!
 //! Đọc và ghi tách hai chiều: một luồng đọc chặn đẩy frame vào hàng đợi, phía ghi gọi
 //! `send_frame` trực tiếp. Nhờ vậy client không bao giờ chặn vòng render khi chờ server, và
@@ -14,12 +14,13 @@ use std::thread;
 use std::time::Duration;
 
 use boom_net::{NetError as TransportError, Transport};
+use boom_proto::dto::auth::{Auth, AuthFail, AuthFailReason, AuthOk};
 use boom_proto::kind::{Channel, MessageKind, Role};
 use boom_proto::message::decode_frame_on;
 use boom_proto::{
-    EventId, Hello, InputBatch, InputRejected, Message, Ping, Pong, ProtoError, ProtocolLimits,
-    Reject, RoundEvent, RoundEvents, Snapshot, SnapshotRequest, Welcome, encode_frame,
-    read_envelope,
+    EventId, Hello, InputBatch, InputRejected, LobbyList, Message, Ping, Pong, ProtoError,
+    ProtocolLimits, Reject, RoomChatMessage, RoomRejected, RoomState, RoundEvent, RoundEvents,
+    RoundResult, RoundStart, Snapshot, SnapshotRequest, Welcome, encode_frame, read_envelope,
 };
 
 /// Số frame chờ tối đa trong hàng đợi đọc phía client.
@@ -34,6 +35,12 @@ const INBOUND_QUEUE_FRAMES: usize = 64;
 /// kết nối hỏng và đóng.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Thời gian chờ `AuthOk`/`AuthFail`.
+///
+/// **Tham số vận hành** (design): server băm Argon2id trước khi trả `AuthOk`
+/// (ADR 0011 §5) nên hạn này rộng hơn hạn handshake; quá hạn thì coi như phiên hỏng.
+const AUTH_TIMEOUT: Duration = Duration::from_secs(10);
+
 /// Message server gửi cho client, đã decode.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientMessage {
@@ -41,6 +48,10 @@ pub enum ClientMessage {
     Welcome(Welcome),
     /// Server từ chối handshake/session.
     Reject(Reject),
+    /// Auth thành công: server cấp token phiên (ADR 0009 Addendum A §A.1).
+    AuthOk(AuthOk),
+    /// Auth thất bại; client được gửi lại `Auth` trên cùng kết nối (ADR 0009 Addendum A §A.1).
+    AuthFail(AuthFail),
     /// Snapshot đầy đủ của round.
     Snapshot(Snapshot),
     /// Event của round.
@@ -51,6 +62,11 @@ pub enum ClientMessage {
     Ping(Ping),
     /// Pong của server.
     Pong(Pong),
+    /// Message của nhóm phòng/sảnh (ADR 0009 Addendum B) mà client chưa dùng.
+    ///
+    /// Kind này **đã định nghĩa** trong `boom-proto` và server gửi khi phòng đổi, nhưng tính
+    /// năng sảnh/phòng ngoài phạm vi #80: client bỏ qua (không đoán, không đóng kết nối).
+    Room(MessageKind),
     /// Kind lạ hoặc chiều không hợp lệ: phải đóng kết nối, không đoán (ADR 0009 §2).
     UnknownKind(u16),
 }
@@ -68,6 +84,8 @@ pub enum NetError {
     Timeout,
     /// Server từ chối handshake (sai rules/content/schema).
     Rejected(Reject),
+    /// Auth thất bại; mã lý do do server trả (ADR 0009 Addendum A §A.2).
+    AuthFailed(AuthFailReason),
     /// Message không hợp lệ trong ngữ cảnh hiện tại.
     Unexpected(String),
     /// Lỗi I/O khi mở socket hoặc đọc/ghi cục bộ.
@@ -86,6 +104,7 @@ impl fmt::Display for NetError {
                 "server từ chối phiên: {:?} ({})",
                 reject.reason, reject.detail
             ),
+            Self::AuthFailed(reason) => write!(f, "auth thất bại: {reason:?}"),
             Self::Unexpected(detail) => write!(f, "message không mong đợi: {detail}"),
             Self::Io(detail) => write!(f, "lỗi I/O: {detail}"),
         }
@@ -192,6 +211,48 @@ impl<W: Transport> ClientSession<W> {
         self.send(batch)
     }
 
+    /// Gửi `Auth` và chờ `AuthOk`/`AuthFail` (ADR 0009 Addendum A §A.1).
+    ///
+    /// Thứ tự trên kênh game là `Hello` → `Welcome` → `Auth` → `AuthOk`/`AuthFail`; server chặn
+    /// mọi kind khác trước `AuthOk`. `AuthFail` **không** đóng kết nối: sau `AuthFail` client
+    /// được gửi lại `Auth` trên cùng kết nối (rate limit theo ADR 0011 §5), nên lỗi được trả
+    /// về cho caller quyết định thay vì đóng phiên.
+    ///
+    /// Mạng có thể nhân bản frame: `Welcome` lặp (server trả lại `Welcome` khi nhận `Hello`
+    /// lần hai) được bỏ qua, chỉ `AuthOk`/`AuthFail` mới kết thúc bước này.
+    pub fn authenticate(&mut self, auth: &Auth) -> Result<AuthOk, NetError> {
+        self.send(auth)?;
+        let deadline = std::time::Instant::now() + AUTH_TIMEOUT;
+        loop {
+            let wait = deadline.saturating_duration_since(std::time::Instant::now());
+            if wait.is_zero() {
+                return Err(NetError::Timeout);
+            }
+            match self.next_message(wait)? {
+                Some(ClientMessage::AuthOk(ok)) => return Ok(ok),
+                Some(ClientMessage::AuthFail(fail)) => {
+                    return Err(NetError::AuthFailed(fail.reason));
+                }
+                Some(ClientMessage::Welcome(_)) => continue,
+                Some(ClientMessage::Reject(reject)) => return Err(NetError::Rejected(reject)),
+                Some(other) => {
+                    return Err(NetError::Unexpected(format!(
+                        "message {other:?} đến trước AuthOk"
+                    )));
+                }
+                None => return Err(NetError::Timeout),
+            }
+        }
+    }
+
+    /// Trả `Pong` cho `Ping` của server (đo liveness, ADR 0011 §6.1).
+    ///
+    /// Server đóng phiên đã `AuthOk` nếu quá hạn không nhận `Pong`, nên client **phải** trả
+    /// lời khi nhận `Ping`.
+    pub fn send_pong(&mut self, ping: Ping) -> Result<(), NetError> {
+        self.send(&Pong(ping.0))
+    }
+
     /// Xin snapshot đầy đủ để resync (ADR 0009 §4.3).
     pub fn request_snapshot(
         &mut self,
@@ -250,6 +311,10 @@ impl<W: Transport> ClientSession<W> {
         let message = match kind {
             MessageKind::Welcome => ClientMessage::Welcome(self.decode_payload::<Welcome>(frame)?),
             MessageKind::Reject => ClientMessage::Reject(self.decode_payload::<Reject>(frame)?),
+            MessageKind::AuthOk => ClientMessage::AuthOk(self.decode_payload::<AuthOk>(frame)?),
+            MessageKind::AuthFail => {
+                ClientMessage::AuthFail(self.decode_payload::<AuthFail>(frame)?)
+            }
             MessageKind::Snapshot => {
                 ClientMessage::Snapshot(self.decode_payload::<Snapshot>(frame)?)
             }
@@ -261,6 +326,32 @@ impl<W: Transport> ClientSession<W> {
             }
             MessageKind::Ping => ClientMessage::Ping(self.decode_payload::<Ping>(frame)?),
             MessageKind::Pong => ClientMessage::Pong(self.decode_payload::<Pong>(frame)?),
+            // Nhóm phòng/sảnh (ADR 0009 Addendum B): kind đã định nghĩa nhưng client chưa dùng
+            // (ngoài phạm vi #80) nên bỏ qua — **không** phải kind lạ, không đóng kết nối.
+            MessageKind::RoomState => {
+                self.decode_payload::<RoomState>(frame)?;
+                ClientMessage::Room(kind)
+            }
+            MessageKind::LobbyList => {
+                self.decode_payload::<LobbyList>(frame)?;
+                ClientMessage::Room(kind)
+            }
+            MessageKind::RoomChatMessage => {
+                self.decode_payload::<RoomChatMessage>(frame)?;
+                ClientMessage::Room(kind)
+            }
+            MessageKind::RoundStart => {
+                self.decode_payload::<RoundStart>(frame)?;
+                ClientMessage::Room(kind)
+            }
+            MessageKind::RoundResult => {
+                self.decode_payload::<RoundResult>(frame)?;
+                ClientMessage::Room(kind)
+            }
+            MessageKind::RoomRejected => {
+                self.decode_payload::<RoomRejected>(frame)?;
+                ClientMessage::Room(kind)
+            }
             // Kind lạ hoặc chiều không hợp lệ (ADR 0009 §2): caller đóng kết nối, không đoán.
             _ => ClientMessage::UnknownKind(kind.code()),
         };
@@ -283,6 +374,7 @@ mod tests {
     use super::*;
     use boom_net::{MemoryConfig, MemoryTransport};
     use boom_proto::Hello;
+    use boom_proto::dto::auth::AuthOp;
 
     fn hello() -> Hello {
         Hello {
@@ -312,8 +404,10 @@ mod tests {
                 player_id: 0,
                 wire_schema: 1,
                 state_schema: 1,
+                server_version: "boom-server-test".into(),
                 rules_profile_id: "p".into(),
                 rules_hash: 7,
+                content_sha256: [0; 32],
                 content_epoch: 1,
                 snapshot_interval_ms: 50,
                 protocol_limits_version: 1,
@@ -372,5 +466,137 @@ mod tests {
             0,
             "event lặp phải bị lọc"
         );
+    }
+
+    /// Dựng `Auth` hợp lệ (tên 3–24 ký tự, mật khẩu ≥ 8 ký tự — ADR 0011 §4).
+    fn auth() -> Auth {
+        Auth {
+            op: AuthOp::Login,
+            username: "bomber".into(),
+            password: "matkhau123".into(),
+        }
+    }
+
+    #[test]
+    fn authenticate_nhan_auth_ok() {
+        let (mut server_side, client_side) = MemoryTransport::pair(MemoryConfig::default());
+        let (mut server_writer, client_reader) = MemoryTransport::pair(MemoryConfig::default());
+        let mut session = ClientSession::new(client_reader, client_side);
+
+        // Server giả lập: đọc `Auth` rồi trả `AuthOk`.
+        let handle = thread::spawn(move || {
+            let frame = server_side.recv_frame().unwrap().unwrap();
+            let sent: Auth = boom_proto::decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
+            assert_eq!(sent.op, AuthOp::Login);
+            assert_eq!(sent.username, "bomber");
+            let ok = AuthOk {
+                account_id: 7,
+                display_name: "bomber".into(),
+                token: "token-test".into(),
+                expires_at_ms: 1_700_000_000_000,
+            };
+            let frame = boom_proto::encode_frame(&ok, &ProtocolLimits::v1()).unwrap();
+            server_writer.send_frame(&frame).unwrap();
+        });
+
+        let ok = session.authenticate(&auth()).expect("auth");
+        assert_eq!(ok.account_id, 7);
+        assert_eq!(ok.display_name, "bomber");
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn authenticate_bao_auth_fail_nhung_khong_dong_ket_noi() {
+        let (mut server_side, client_side) = MemoryTransport::pair(MemoryConfig::default());
+        let (mut server_writer, client_reader) = MemoryTransport::pair(MemoryConfig::default());
+        let mut session = ClientSession::new(client_reader, client_side);
+
+        let handle = thread::spawn(move || {
+            let _ = server_side.recv_frame().unwrap();
+            let fail = AuthFail {
+                reason: AuthFailReason::InvalidCredentials,
+            };
+            let frame = boom_proto::encode_frame(&fail, &ProtocolLimits::v1()).unwrap();
+            server_writer.send_frame(&frame).unwrap();
+        });
+
+        match session.authenticate(&auth()) {
+            Err(NetError::AuthFailed(reason)) => {
+                assert_eq!(reason, AuthFailReason::InvalidCredentials);
+            }
+            other => panic!("phải báo AuthFail, thấy {other:?}"),
+        }
+        handle.join().unwrap();
+        // Sau `AuthFail` client được gửi lại `Auth` trên cùng kết nối (ADR 0009 Addendum A
+        // §A.1): phiên phải còn mở.
+        session
+            .next_message(Duration::from_millis(10))
+            .expect("phiên còn mở");
+    }
+
+    #[test]
+    fn client_tra_pong_khi_server_gui_ping() {
+        let (mut server_side, client_side) = MemoryTransport::pair(MemoryConfig::default());
+        let (mut server_writer, client_reader) = MemoryTransport::pair(MemoryConfig::default());
+        let mut session = ClientSession::new(client_reader, client_side);
+
+        let handle = thread::spawn(move || {
+            // Server gửi `Ping` trước rồi đọc `Pong` của client.
+            let frame = boom_proto::encode_frame(&Ping(1234), &ProtocolLimits::v1()).unwrap();
+            server_writer.send_frame(&frame).unwrap();
+            let frame = server_side.recv_frame().unwrap().unwrap();
+            let pong: Pong = boom_proto::decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
+            pong.0
+        });
+
+        let Some(ClientMessage::Ping(ping)) = session
+            .next_message(Duration::from_millis(500))
+            .expect("nhận ping")
+        else {
+            panic!("phải nhận Ping");
+        };
+        session.send_pong(ping).expect("trả pong");
+        assert_eq!(
+            handle.join().unwrap(),
+            1234,
+            "Pong phải trả nguyên giá trị Ping"
+        );
+    }
+
+    /// Kind của nhóm phòng/sảnh (ADR 0009 Addendum B) là kind **đã định nghĩa**: client chưa
+    /// dùng thì bỏ qua, không coi là kind lạ (kind lạ mới đóng kết nối, ADR 0009 §2).
+    #[test]
+    fn kind_phong_bo_qua_khong_phai_loi_giao_thuc() {
+        let (_server_side, client_side) = MemoryTransport::pair(MemoryConfig::default());
+        let (mut server_writer, client_reader) = MemoryTransport::pair(MemoryConfig::default());
+        let mut session = ClientSession::new(client_reader, client_side);
+
+        let handle = thread::spawn(move || {
+            let state = boom_proto::RoomState {
+                room_id: 1,
+                host: 1,
+                phase: boom_proto::RoomPhase::Waiting,
+                members: vec![boom_proto::RoomMember {
+                    player: 1,
+                    slot: 0,
+                    character: boom_proto::RoomCharacter::C00,
+                    ready: false,
+                }],
+                round: None,
+            };
+            let frame = boom_proto::encode_frame(&state, &ProtocolLimits::v1()).unwrap();
+            server_writer.send_frame(&frame).unwrap();
+        });
+
+        let message = session
+            .next_message(Duration::from_millis(500))
+            .expect("nhận message")
+            .expect("có message");
+        assert_eq!(
+            message,
+            ClientMessage::Room(MessageKind::RoomState),
+            "kind phòng phải được bỏ qua, không phải kind lạ"
+        );
+        handle.join().unwrap();
     }
 }

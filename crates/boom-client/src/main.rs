@@ -12,8 +12,10 @@
 //! mute và keybind. Keybind trong file **thay** hằng số phím mặc định; `--rebind` của dòng lệnh
 //! vẫn hoạt động và được ghi đè lên trên (đổi sau, thắng trước).
 //!
-//! Cờ `--connect <addr>` mở chế độ mạng: module [`net`] (handshake, gửi input, dự đoán và
-//! reconciliation theo ADR 0005/0009). Không có cờ thì giữ chế độ offline.
+//! Cờ `--connect <addr>` mở chế độ mạng: module [`net`] (handshake, auth, gửi input, dự đoán và
+//! reconciliation theo ADR 0005/0009). Server chặn mọi kind trước `AuthOk` (ADR 0009 Addendum A
+//! §A.1) nên chế độ mạng cần `--user`/`--password` (hoặc biến môi trường `BOOM_USER`/
+//! `BOOM_PASSWORD`). Không có cờ thì giữ chế độ offline.
 
 mod anim;
 mod audio;
@@ -185,7 +187,18 @@ fn main() {
     };
     // Chế độ mạng: nối server và dùng module `net`; không có `--connect` thì giữ offline.
     if let Some(addr) = opts.connect.clone() {
-        match net::connect(&addr) {
+        let credentials = match net_credentials(
+            &opts,
+            std::env::var("BOOM_USER").ok(),
+            std::env::var("BOOM_PASSWORD").ok(),
+        ) {
+            Ok(credentials) => credentials,
+            Err(error) => {
+                eprintln!("không lấy được thông tin đăng nhập: {error}");
+                std::process::exit(2);
+            }
+        };
+        match net::connect(&addr, &credentials) {
             Ok(client) => game.net = Some(client),
             Err(error) => {
                 eprintln!("không vào được chế độ mạng: {error}");
@@ -221,8 +234,17 @@ fn main() {
 }
 
 fn window_conf(game: &Game, opts: &Options) -> macroquad::miniquad::conf::Conf {
+    // Chế độ mạng: tiêu đề cửa sổ mang build id của server (fingerprint ADR 0011 §8.3).
+    let title = game
+        .net
+        .as_ref()
+        .and_then(net::NetClient::server_version)
+        .map_or_else(
+            || "boom-rs client — offline".to_owned(),
+            |version| format!("boom-rs client — {version}"),
+        );
     macroquad::miniquad::conf::Conf {
-        window_title: "boom-rs client — offline".to_owned(),
+        window_title: title,
         window_width: (game.logic_size[0] * opts.scale) as i32,
         window_height: (game.logic_size[1] * opts.scale) as i32,
         window_resizable: false,
@@ -875,14 +897,19 @@ fn draw_scene(
     // Chế độ mạng: tick server đã xác nhận, tick client đang dự đoán, round và số event mới.
     let net_text = match game.net_status {
         Some(status) => format!(
-            "  net: round {} slot {}  server {} dự đoán {}  chờ ack {}  event {}{}",
+            "  net: round {} slot {}  server {} dự đoán {}  chờ ack {}  event {}{}{}",
             status.round,
             status.slot,
             status.confirmed_tick,
             status.predicted_tick,
             status.pending,
             status.events,
-            if status.ended { "  kết quả" } else { "" }
+            if status.ended { "  kết quả" } else { "" },
+            // Tên hiển thị của tài khoản đã `AuthOk` (ADR 0011 §4).
+            game.net
+                .as_ref()
+                .and_then(net::NetClient::account)
+                .map_or_else(String::new, |account| format!("  {}", account.display_name)),
         ),
         None => String::new(),
     };
@@ -1063,6 +1090,12 @@ struct Options {
     demo: bool,
     /// Địa chỉ server để nối (chế độ mạng). Không có thì client chạy offline.
     connect: Option<String>,
+    /// Tên đăng nhập cho chế độ mạng (fallback: biến môi trường `BOOM_USER`).
+    user: Option<String>,
+    /// Mật khẩu cho chế độ mạng (fallback: biến môi trường `BOOM_PASSWORD`).
+    password: Option<String>,
+    /// Đăng ký tài khoản mới thay vì đăng nhập tài khoản có sẵn.
+    register: bool,
 }
 
 impl Default for Options {
@@ -1082,6 +1115,9 @@ impl Default for Options {
             bundle: None,
             demo: false,
             connect: None,
+            user: None,
+            password: None,
+            register: false,
         }
     }
 }
@@ -1152,11 +1188,21 @@ impl Options {
                 "--connect" => {
                     opts.connect = Some(args.next().ok_or("--connect cần địa chỉ server")?);
                 }
+                "--user" => {
+                    opts.user = Some(args.next().ok_or("--user cần tên đăng nhập")?);
+                }
+                "--password" => {
+                    opts.password = Some(args.next().ok_or("--password cần mật khẩu")?);
+                }
+                "--register" => opts.register = true,
                 "-h" | "--help" => {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
-                         \t  [--bundle DIR] [--demo] [--connect ĐỊA_CHỈ_SERVER]"
+                         \t  [--bundle DIR] [--demo] [--connect ĐỊA_CHỈ_SERVER] [--user TÊN] [--password MẬT_KHẨU] [--register]\n\
+                         \n\
+                         chế độ mạng cần tên/mật khẩu: --user/--password, hoặc biến môi trường BOOM_USER/BOOM_PASSWORD\n\
+                         (nên đặt mật khẩu qua biến môi trường: cờ dòng lệnh lộ trong danh sách tiến trình)."
                     );
                     std::process::exit(0);
                 }
@@ -1168,6 +1214,40 @@ impl Options {
         }
         Ok(opts)
     }
+}
+
+/// Thông tin đăng nhập cho chế độ mạng: cờ dòng lệnh trước, biến môi trường sau.
+///
+/// Server chặn mọi kind trước `AuthOk` (ADR 0009 Addendum A §A.1) nên chế độ mạng **bắt
+/// buộc** có tên/mật khẩu; thiếu thì báo lỗi rõ thay vì đoán. Biến môi trường
+/// (`BOOM_USER`/`BOOM_PASSWORD`) an toàn hơn cờ dòng lệnh: cờ lộ trong danh sách tiến trình.
+///
+/// `env_user`/`env_password` là giá trị biến môi trường do caller đọc và truyền vào để hàm này
+/// không phụ thuộc môi trường lúc test.
+fn net_credentials(
+    opts: &Options,
+    env_user: Option<String>,
+    env_password: Option<String>,
+) -> Result<net::Credentials, String> {
+    let username = opts
+        .user
+        .clone()
+        .or(env_user)
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .ok_or("cần tên đăng nhập: --user TÊN hoặc biến môi trường BOOM_USER")?;
+    // Mật khẩu **không** trim: khoảng trắng có thể là phần của mật khẩu.
+    let password = opts
+        .password
+        .clone()
+        .or(env_password)
+        .filter(|value| !value.is_empty())
+        .ok_or("cần mật khẩu: --password MẬT_KHẨU hoặc biến môi trường BOOM_PASSWORD")?;
+    Ok(if opts.register {
+        net::Credentials::register(username, password)
+    } else {
+        net::Credentials::login(username, password)
+    })
 }
 
 fn parse_action(value: &str) -> Result<InputAction, String> {
@@ -1222,6 +1302,55 @@ mod tests {
         assert!(parse_volume("101").is_err());
         assert!(parse_volume("-1").is_err());
         assert!(parse_volume("toi").is_err());
+    }
+
+    #[test]
+    fn net_credentials_can_come_from_flags_or_env() {
+        // Cờ dòng lệnh trước, biến môi trường sau.
+        let opts = Options {
+            user: Some("tu-flag".to_owned()),
+            password: Some("matkhau-flag".to_owned()),
+            ..Options::default()
+        };
+        let credentials = net_credentials(
+            &opts,
+            Some("tu-env".to_owned()),
+            Some("matkhau-env".to_owned()),
+        )
+        .expect("lấy được thông tin đăng nhập");
+        assert_eq!(credentials.username, "tu-flag");
+        assert_eq!(credentials.password, "matkhau-flag");
+        assert_eq!(credentials.op, boom_proto::dto::auth::AuthOp::Login);
+
+        // Không có cờ thì lấy từ biến môi trường.
+        let credentials = net_credentials(
+            &Options::default(),
+            Some("tu-env".to_owned()),
+            Some("matkhau-env".to_owned()),
+        )
+        .expect("lấy được thông tin đăng nhập từ biến môi trường");
+        assert_eq!(credentials.username, "tu-env");
+        assert_eq!(credentials.password, "matkhau-env");
+    }
+
+    #[test]
+    fn net_credentials_bao_loi_khi_thieu_ten_hoac_mat_khau() {
+        // Server chặn mọi kind trước `AuthOk` nên thiếu thông tin là lỗi rõ, không phải đoán.
+        assert!(net_credentials(&Options::default(), None, Some("matkhau".to_owned())).is_err());
+        assert!(net_credentials(&Options::default(), Some("ten".to_owned()), None).is_err());
+        assert!(net_credentials(&Options::default(), None, None).is_err());
+    }
+
+    #[test]
+    fn net_credentials_dang_ky_theo_co_register() {
+        let opts = Options {
+            register: true,
+            ..Options::default()
+        };
+        let credentials =
+            net_credentials(&opts, Some("ten".to_owned()), Some("matkhau".to_owned()))
+                .expect("lấy được thông tin đăng nhập");
+        assert_eq!(credentials.op, boom_proto::dto::auth::AuthOp::Register);
     }
 
     #[test]

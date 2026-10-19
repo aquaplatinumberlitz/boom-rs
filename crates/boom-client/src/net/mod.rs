@@ -5,17 +5,17 @@
 //!
 //! Chia hai lớp:
 //!
-//! - [`session`]: đường truyền + codec — handshake `Hello`/`Welcome`/`Reject`, gửi
-//!   `InputBatch`, nhận `Snapshot`/`RoundEvents`/`InputRejected`, dedup event theo
-//!   `(round_id, EventId)`.
+//! - [`session`]: đường truyền + codec — handshake `Hello`/`Welcome`/`Reject`, auth
+//!   `Auth`/`AuthOk`/`AuthFail`, gửi `InputBatch`, nhận `Snapshot`/`RoundEvents`/`InputRejected`,
+//!   dedup event theo `(round_id, EventId)`.
 //! - [`prediction`]: state confirmed + state dự đoán của chính mình, replay lệnh chưa ack khi
 //!   có snapshot (correction).
 //!
 //! [`NetClient`] ghép hai lớp trên cho vòng lặp của client: bơm message, dự đoán một bước và
 //! gửi cửa sổ lệnh chưa ack.
 //!
-//! Chưa làm trong module này (ngoài phạm vi issue #80): auth (`Auth`/`AuthOk`), sảnh/phòng
-//! (`RoomCommand`/`RoomState` chưa có DTO), audio.
+//! Chưa làm trong module này (ngoài phạm vi issue #80): sảnh/phòng (`RoomCommand`/`RoomState`
+//! chưa có DTO phía client), audio.
 
 mod prediction;
 mod session;
@@ -30,12 +30,59 @@ pub use prediction::{
 };
 pub use session::{ClientMessage, ClientSession, NetError};
 
+use std::fmt;
 use std::time::Duration;
 
 use boom_content::rules::RulesProfile;
 use boom_core::{Mode, Phase, PlayerInput, Rules, SimulationState, mode_by_id};
 use boom_net::{TcpTransport, Transport};
+use boom_proto::dto::auth::{Auth, AuthOk, AuthOp};
 use boom_proto::{Hello, InputBatch, RoundEvent, Welcome};
+
+/// Thông tin đăng nhập client dùng **sau** `Welcome` (ADR 0009 Addendum A §A.1).
+///
+/// Mật khẩu đi thô trên dây: V1 chưa có TLS (ADR 0006) nên chỉ dùng cho LAN/máy local — đây là
+/// giới hạn đã biết của ADR 0011 §6/§14.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Credentials {
+    /// Tên đăng nhập.
+    pub username: String,
+    /// Mật khẩu thô.
+    pub password: String,
+    /// Đăng ký tài khoản mới hay đăng nhập tài khoản có sẵn.
+    pub op: AuthOp,
+}
+
+impl Credentials {
+    /// Đăng nhập tài khoản có sẵn.
+    pub fn login(username: impl Into<String>, password: impl Into<String>) -> Self {
+        Self {
+            username: username.into(),
+            password: password.into(),
+            op: AuthOp::Login,
+        }
+    }
+
+    /// Đăng ký tài khoản mới.
+    pub fn register(username: impl Into<String>, password: impl Into<String>) -> Self {
+        Self {
+            username: username.into(),
+            password: password.into(),
+            op: AuthOp::Register,
+        }
+    }
+}
+
+/// `Debug` **không** in mật khẩu: mật khẩu không bao giờ vào log (ADR 0011 §5, §8.1).
+impl fmt::Debug for Credentials {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Credentials")
+            .field("op", &self.op)
+            .field("username", &self.username)
+            .field("password", &"<redacted>")
+            .finish()
+    }
+}
 
 /// Lỗi dự đoán/reconciliation báo ra ngoài: client hiện lỗi, không âm thầm bỏ qua state.
 impl From<PredictError> for NetError {
@@ -52,6 +99,10 @@ pub struct NetClient<W: Transport> {
     predictor: Option<Predictor>,
     /// Slot người chơi do server cấp trong `Welcome`.
     player_slot: Option<u8>,
+    /// `Welcome` nhận được (giữ `server_version`/`content_sha256` của server, ADR 0011 §8.3).
+    welcome: Option<Welcome>,
+    /// Kết quả `AuthOk`: tên hiển thị và hạn token (token không log, ADR 0011 §6).
+    account: Option<AuthOk>,
     /// `snapshot_seq` lớn nhất đã **áp**; chỉ cập nhật khi snapshot được áp, không lùi theo
     /// snapshot cũ (ADR 0009 §4.3).
     last_snapshot_seq: u32,
@@ -71,6 +122,8 @@ impl<W: Transport> NetClient<W> {
             mode,
             predictor: None,
             player_slot: None,
+            welcome: None,
+            account: None,
             last_snapshot_seq: 0,
             snapshot_interval_ms: 0,
             events: Vec::new(),
@@ -82,7 +135,35 @@ impl<W: Transport> NetClient<W> {
         let welcome = self.session.handshake(hello)?;
         self.player_slot = Some(welcome.player_id);
         self.snapshot_interval_ms = u64::from(welcome.snapshot_interval_ms.max(1));
+        self.welcome = Some(welcome.clone());
         Ok(welcome)
+    }
+
+    /// Đăng nhập/đăng ký **sau** `Welcome` (ADR 0009 Addendum A §A.1).
+    ///
+    /// Server chặn mọi kind khác trước `AuthOk`, nên client phải làm bước này trước khi gửi
+    /// input. `AuthFail` được trả về lỗi rõ ràng (không đóng kết nối) để caller thử lại.
+    pub fn authenticate(&mut self, credentials: &Credentials) -> Result<AuthOk, NetError> {
+        let auth = Auth {
+            op: credentials.op,
+            username: credentials.username.clone(),
+            password: credentials.password.clone(),
+        };
+        let ok = self.session.authenticate(&auth)?;
+        self.account = Some(ok.clone());
+        Ok(ok)
+    }
+
+    /// Tài khoản đã đăng nhập (sau `AuthOk`).
+    pub fn account(&self) -> Option<&AuthOk> {
+        self.account.as_ref()
+    }
+
+    /// Build id của server (fingerprint ADR 0011 §8.3), lấy từ `Welcome`.
+    pub fn server_version(&self) -> Option<&str> {
+        self.welcome
+            .as_ref()
+            .map(|welcome| welcome.server_version.as_str())
     }
 
     /// Bơm message đang chờ: đọc tới khi hàng đợi rỗng.
@@ -229,14 +310,32 @@ impl<W: Transport> NetClient<W> {
                 self.session
                     .request_snapshot(rejected.round_id, self.last_snapshot_seq)?;
             }
+            ClientMessage::Ping(ping) => {
+                // Server đóng phiên đã `AuthOk` nếu quá hạn không nhận `Pong` (ADR 0011 §6.1)
+                // nên phải trả lời ngay.
+                self.session.send_pong(ping)?;
+            }
             ClientMessage::Reject(reject) => return Err(NetError::Rejected(reject)),
+            ClientMessage::AuthOk(_) => {
+                // `AuthOk` lặp là frame **trùng trên đường** (mạng có thể nhân bản frame):
+                // phiên đã xác lập nên bỏ qua, không coi là lỗi giao thức.
+            }
+            ClientMessage::AuthFail(fail) => {
+                // `AuthFail` tới sau khi đã `AuthOk` là mâu thuẫn với phiên đang chạy.
+                return Err(NetError::Unexpected(format!(
+                    "AuthFail tới sau AuthOk: {:?}",
+                    fail.reason
+                )));
+            }
+            // Nhóm phòng/sảnh (ADR 0009 Addendum B) chưa dùng ở #80: bỏ qua, không đoán.
+            ClientMessage::Room(_) => {}
             ClientMessage::UnknownKind(code) => {
                 let _ = self.session.close();
                 return Err(NetError::Unexpected(format!(
                     "server gửi kind lạ {code:#06x}; đóng kết nối"
                 )));
             }
-            ClientMessage::Welcome(_) | ClientMessage::Ping(_) | ClientMessage::Pong(_) => {}
+            ClientMessage::Welcome(_) | ClientMessage::Pong(_) => {}
         }
         Ok(())
     }
@@ -341,12 +440,15 @@ pub fn connect_tcp(
     ))
 }
 
-/// Nối server bằng profile rules dev của client rồi handshake.
+/// Nối server bằng profile rules dev của client rồi handshake **và** đăng nhập.
 ///
 /// Client chưa có bundle content (P4) nên hash content khai trong `Hello` lấy từ biến môi
 /// trường `BOOM_CONTENT_SHA256` (hex 64 ký tự); không có thì khai toàn 0. Server so với bundle
 /// **của chính nó** (ADR 0009 §1), nên lệch sẽ bị từ chối rõ ràng chứ không đoán.
-pub fn connect(addr: &str) -> Result<NetClient<TcpTransport>, NetError> {
+///
+/// Sau `Welcome` client phải `Auth` (ADR 0009 Addendum A §A.1) vì server chặn mọi kind khác
+/// trước `AuthOk`.
+pub fn connect(addr: &str, credentials: &Credentials) -> Result<NetClient<TcpTransport>, NetError> {
     let profile = RulesProfile::from_toml(include_str!("../../../../data/rules/v1-dev.toml"))
         .map_err(|error| NetError::Unexpected(format!("profile rules: {error}")))?;
     let rules = Rules::from_profile(&profile)
@@ -357,6 +459,7 @@ pub fn connect(addr: &str) -> Result<NetClient<TcpTransport>, NetError> {
     let hello = hello_for_profile(&profile, &rules, content_sha256_from_env(), "boom-client");
     let mut client = connect_tcp(addr, rules, mode)?;
     client.handshake(&hello)?;
+    client.authenticate(credentials)?;
     Ok(client)
 }
 

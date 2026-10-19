@@ -22,6 +22,8 @@ toml.workspace = true
 # (ADR 0005/0009). `boom-room` cần cho API phòng của server khi dựng lượt.
 boom-server = { path = "../boom-server" }
 boom-room = { path = "../boom-room" }
+# Auth thật trong test: SQLite trên file tạm (ADR 0011 §10).
+tempfile.workspace = true
 
 [lints]
 workspace = true

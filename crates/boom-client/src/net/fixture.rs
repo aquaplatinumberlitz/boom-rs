@@ -9,7 +9,9 @@
 //!
 //! Fixture chạy `boom_server::Authority` trực tiếp (không qua vòng IO `Server`) để mọi bước
 //! đều do test điều khiển: không có luồng nào tự quyết khi nào gửi, nên thứ tự giao **tất định**
-//! theo seed trên mọi OS.
+//! theo seed trên mọi OS. Vì vậy phần auth cũng làm thủ công ở đây, nhưng **có thật**: server
+//! giả dùng `boom_server::auth::AuthService` + SQLite tempfile (Argon2id + DB thật, ADR 0011
+//! §5–§6, §10), nên client phải `Auth` sau `Welcome` và nhận `AuthOk` như với server thật.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Arc, Condvar, Mutex};
@@ -20,17 +22,23 @@ use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
 use boom_core::{CharacterStats, Dir, PlayerInput, Rules, Stat, World, mode_by_id};
 use boom_net::{NetError, Transport};
+use boom_proto::dto::auth::{Auth, AuthOk};
 use boom_proto::{
     Hello, InputBatch, InputRejectReason, InputRejected, ProtocolLimits, RoundEvent, Welcome,
     decode_frame, encode_frame,
 };
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
+use boom_server::auth::{AuthConfig, AuthService};
+use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use boom_server::{Authority, CharacterStatsTable, InputError, MatchSetup, ServerConfig};
 
-use super::{ClientSession, NetClient, hello_for_profile};
+use super::{ClientSession, Credentials, NetClient, hello_for_profile};
 
 /// Profile rules cố định cho test (khác `data/rules/v1-dev.toml` nhưng cùng schema).
 const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
+
+/// Mật khẩu tài khoản thật trong fixture (đủ 8 ký tự — ADR 0011 §4).
+pub const ACCOUNT_PASSWORD: &str = "matkhau123";
 
 /// Thời gian chờ message khi bơm hàng đợi đọc.
 pub const PUMP_TIMEOUT: Duration = Duration::from_millis(20);
@@ -421,6 +429,12 @@ pub struct ScheduledClient {
 pub struct ScheduledHarness {
     authority: Authority,
     clients: Vec<ScheduledClient>,
+    /// Dịch vụ auth thật của server (đăng ký/đăng nhập Argon2id, ADR 0011 §5).
+    auth: AuthService,
+    /// Store SQLite thật trên file tạm (ADR 0011 §10).
+    store: SqliteAccountStore,
+    /// Thư mục tạm chứa DB: phải sống suốt đời fixture thì file DB còn tồn tại.
+    _db_dir: tempfile::TempDir,
     /// State hash của server theo tick.
     hashes: BTreeMap<u32, u64>,
     /// Vị trí người chơi ở server theo (người chơi, tick).
@@ -458,6 +472,10 @@ impl ScheduledHarness {
     ///
     /// `out_faults` áp cho chiều client→server (khung input), `in_faults` cho chiều
     /// server→client (snapshot/event).
+    ///
+    /// Mỗi client **đăng nhập thật** (Argon2id + SQLite tempfile) trước khi vào trận: server
+    /// chặn mọi kind trước `AuthOk` (ADR 0009 Addendum A §A.1) nên fixture phải trải đúng
+    /// bước `Welcome` → `Auth` → `AuthOk`.
     pub fn new(out_faults: ScheduledFaults, in_faults: ScheduledFaults, seed: u64) -> Self {
         let profile = RulesProfile::from_toml(RULES).expect("profile rules");
         let rules = Rules::from_profile(&profile).expect("rules");
@@ -481,6 +499,19 @@ impl ScheduledHarness {
                 replay: None,
             },
         );
+        // Auth thật: SQLite trên file tạm + `AuthService` của server (ADR 0011 §5–§6, §10).
+        let db_dir = tempfile::tempdir().expect("tempdir");
+        let mut store = SqliteAccountStore::open(
+            &db_dir.path().join("auth.sqlite3"),
+            SqliteOptions::default(),
+        )
+        .expect("mở store");
+        let mut auth = AuthService::new(
+            AuthConfig::default(),
+            "fixture-instance",
+            Box::new(OsRandomSource),
+        )
+        .expect("dịch vụ auth");
         let mut clients = Vec::new();
         let hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
         for (index, player) in [PlayerId(1), PlayerId(2)].into_iter().enumerate() {
@@ -492,9 +523,12 @@ impl ScheduledHarness {
                 ScheduledTransport::pair(seed.wrapping_add(index as u64));
             let out_net = server_reader.net();
             let in_net = server_writer.net();
-            // Handshake: client gửi `Hello`, fixture trả `Welcome` (như server thật).
+            // Handshake: client gửi `Hello`, fixture trả `Welcome` (như server thật), rồi
+            // client `Auth` và fixture trả `AuthOk` (đăng nhập thật).
             let client_rules = rules.clone();
             let client_hello = hello.clone();
+            let credentials =
+                Credentials::register(format!("fixture-{index}"), ACCOUNT_PASSWORD.to_owned());
             let handle = thread::spawn(move || {
                 let mut net = NetClient::new(
                     ClientSession::new(client_reader, client_writer),
@@ -502,6 +536,7 @@ impl ScheduledHarness {
                     mode_by_id("battle_ffa").expect("mode"),
                 );
                 net.handshake(&client_hello).expect("handshake");
+                net.authenticate(&credentials).expect("auth");
                 net
             });
             // Chờ `Hello` rồi trả `Welcome`.
@@ -523,8 +558,10 @@ impl ScheduledHarness {
                 player_id: slot,
                 wire_schema: boom_proto::limits::WIRE_SCHEMA,
                 state_schema: 1,
+                server_version: "boom-server-fixture".to_owned(),
                 rules_profile_id: profile.profile_id.clone(),
                 rules_hash: rules.profile_hash,
+                content_sha256: [0; 32],
                 content_epoch: 1,
                 snapshot_interval_ms: SNAPSHOT_INTERVAL_MS as u32,
                 protocol_limits_version: ProtocolLimits::v1().revision,
@@ -532,6 +569,36 @@ impl ScheduledHarness {
             server_writer
                 .send_frame(&encode_frame(&welcome, &ProtocolLimits::v1()).expect("encode welcome"))
                 .expect("gửi welcome");
+            in_net.advance_to(0);
+            // Chờ `Auth` của client rồi đăng ký tài khoản thật (Argon2id + SQLite).
+            let frame = loop {
+                out_net.advance_to(0);
+                if let Some(frame) = server_reader.try_recv() {
+                    break frame;
+                }
+                thread::sleep(Duration::from_millis(1));
+            };
+            let auth_in: Auth = decode_frame(&frame, &ProtocolLimits::v1()).expect("decode auth");
+            let outcome = auth
+                .register(
+                    &mut store,
+                    &auth_in.username,
+                    &auth_in.password,
+                    "127.0.0.1",
+                    &format!("fixture-{index}"),
+                    0,
+                )
+                .expect("đăng ký tài khoản");
+            let success = outcome.success();
+            let auth_ok = AuthOk {
+                account_id: u64::try_from(success.account_id.0).unwrap_or(0),
+                display_name: success.display_name.clone(),
+                token: success.token.expose().clone(),
+                expires_at_ms: u64::try_from(success.expires_at_ms).unwrap_or(u64::MAX),
+            };
+            server_writer
+                .send_frame(&encode_frame(&auth_ok, &ProtocolLimits::v1()).expect("encode auth ok"))
+                .expect("gửi auth ok");
             in_net.advance_to(0);
             let net = handle.join().expect("join luồng client");
             // Lỗi mạng chỉ bật **sau** handshake: mất `Hello`/`Welcome` là hỏng phiên chứ không
@@ -553,6 +620,9 @@ impl ScheduledHarness {
         Self {
             authority,
             clients,
+            auth,
+            store,
+            _db_dir: db_dir,
             hashes: BTreeMap::new(),
             server_positions: BTreeMap::new(),
             predicted_positions: BTreeMap::new(),
@@ -708,6 +778,24 @@ impl ScheduledHarness {
             }
         }
         panic!("client không hội tụ sau 200 vòng drain");
+    }
+
+    /// Đăng nhập lại tài khoản của client `index` bằng mật khẩu đã dùng.
+    ///
+    /// Fixture đăng ký tài khoản **thật** nên tài khoản đã có phiên sống ⇒ đăng nhập lại phải bị
+    /// từ chối `AccountHasActiveSession` (ADR 0011 §6). Kết quả này chứng minh store SQLite thật
+    /// đang lưu phiên (không phải store giả trong RAM).
+    pub fn login_again(&mut self, index: usize) -> Result<String, boom_server::auth::AuthError> {
+        let username = format!("fixture-{index}");
+        let outcome = self.auth.login(
+            &mut self.store,
+            &username,
+            ACCOUNT_PASSWORD,
+            "127.0.0.1",
+            "fixture-login-again",
+            0,
+        )?;
+        Ok(outcome.success().display_name.clone())
     }
 
     /// Thống kê lỗi mạng đã xảy ra trên **cả hai chiều**.
