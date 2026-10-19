@@ -5,6 +5,7 @@ bare paths inside prose/code blocks are outside this check's coverage.
 Ignored research caches are skipped; mandatory/migrated documents must remain versionable.
 """
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -12,6 +13,8 @@ from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parents[1]
+# Git phải đọc repo ở ROOT, không theo GIT_DIR thừa hưởng (vd. từ hook).
+GIT_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 REQUIRED = [
     "AGENTS.md", "CLAUDE.md", "docs/README.md",
     "docs/planning/REWRITE_PLAN.md", "docs/planning/SCOPE_V1.md",
@@ -38,7 +41,7 @@ def main():
     files = [ROOT / "README.md", ROOT / "AGENTS.md", ROOT / "CLAUDE.md"]
     files += sorted((ROOT / "docs").rglob("*.md"))
     files += sorted((ROOT / "l10n").glob("*.md"))
-    cache_check = subprocess.run(["git", "check-ignore", "--stdin", "-z"], cwd=ROOT,
+    cache_check = subprocess.run(["git", "check-ignore", "--stdin", "-z"], cwd=ROOT, env=GIT_ENV,
                                  input="\0".join(str(p.relative_to(ROOT)) for p in files) + "\0",
                                  text=True, capture_output=True)
     if cache_check.returncode not in (0, 1):
@@ -63,7 +66,7 @@ def main():
             errors.append(f"migration destination missing: {old} -> {new}")
     candidates = sorted(set(REQUIRED + [str(p.relative_to(ROOT)) for p in files] +
                             list(migration["old_to_new"].values())))
-    ignored = subprocess.run(["git", "check-ignore", "--stdin", "-z"], cwd=ROOT,
+    ignored = subprocess.run(["git", "check-ignore", "--stdin", "-z"], cwd=ROOT, env=GIT_ENV,
                              input="\0".join(candidates) + "\0", text=True,
                              capture_output=True)
     if ignored.returncode not in (0, 1):
