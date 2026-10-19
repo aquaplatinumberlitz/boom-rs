@@ -1,6 +1,6 @@
 [package]
 name = "boom-assets"
-description = "Đọc định dạng dữ liệu legacy (map .map KR/VN) sang schema boom-content"
+description = "Đọc định dạng dữ liệu legacy (map .map, pack .idx/.idd KR/VN) sang schema boom-content"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 boom-content.workspace = true
+# Inflate entry `_mm` (zlib 1.1.4) khi đọc pack; pure Rust, không cần C toolchain.
+miniz_oxide = "0.9"
 
 # Chỉ dùng cho test nghiệm thu dựng `World` từ Village00 (V1-030); không phải dependency runtime.
 [dev-dependencies]
