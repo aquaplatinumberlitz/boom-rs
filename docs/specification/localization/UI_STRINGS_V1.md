@@ -1,6 +1,8 @@
 # Chuỗi và ảnh UI cho luồng V1 (Q-012)
 
-Cập nhật: 2026-10-20 (V1-035 phần 1: xuất chuỗi V1 → `data/l10n/vi-v1.toml` bằng
+Cập nhật: 2026-10-20 (V1-035 phần 2: chốt font Be Vietnam Pro 1.002 + bundle `assets/fonts/`;
+§5.1.1 nguồn/giấy phép/SHA-256, §5.2.1 quy tắc layout của `boom-client::text`).
+Trước đó: 2026-10-20 (V1-035 phần 1: xuất chuỗi V1 → `data/l10n/vi-v1.toml` bằng
 `tools/l10n_export.py`, loader `boom-content::l10n`; §6.1 có báo cáo khóa thiếu do tool sinh).
 Trước đó: 2026-10-20 (V1-032: cột "Trạng thái dùng" ở §3 và mục §3.1). Phục vụ **V1-032**
 (UI luồng V1 bằng asset KR) và **V1-035** (Việt hóa UI V1), câu hỏi
@@ -305,16 +307,40 @@ Hai mục gần phòng/đăng nhập là `PremiumSlotRoomTicket` (phòng premium
 
 | Yêu cầu | Quyết định/đề xuất | Nguồn/trạng thái |
 |---|---|---|
-| Font chính | **Be Vietnam Pro** (OFL 1.1), thiết kế cho tiếng Việt | Đề xuất ở `/home/admin/boom-re-l10n/l10n/README.md` §4; chưa có file trong repo |
-| Fallback Latin | **Noto Sans** phủ Latin Extended Additional | Như trên |
-| Fallback Hàn | **Noto Sans KR** cho tên riêng/credit giữ chữ Hàn | Như trên |
+| Font chính | **Be Vietnam Pro 1.002** (OFL 1.1), thiết kế cho tiếng Việt; file `assets/fonts/BeVietnamPro-Regular.ttf` | `design` — task #112 (chọn + bundle); nguồn/giấy phép ở §5.1.1 |
+| Font đậm | **Be Vietnam Pro 1.002 Bold**, file `assets/fonts/BeVietnamPro-Bold.ttf` | `design` — task #112; cùng nguồn với font chính |
+| Fallback Latin | **Noto Sans** phủ Latin Extended Additional | `candidate`; chưa bundle (xem §6) |
+| Fallback Hàn | **Noto Sans KR** cho tên riêng/credit giữ chữ Hàn | `candidate`; chưa bundle (xem §6) |
 | Không dùng font bitmap cũ | Không dùng `CxUni*.fft`, `CxDefault.fft` | `/home/admin/boom-re-l10n/l10n/README.md` §4 |
 | Chuẩn hóa chuỗi | **NFC** trước khi shape; dữ liệu VN cũ có dấu tổ hợp cp1258 | Như trên; bắt buộc về kỹ thuật |
-| License | Phải kèm file license, version và nguồn tải trước khi bundle | `unknown`; chưa có trong repo, chưa được coi là đã chốt |
-| Fallback chain | `[Be Vietnam Pro, Noto Sans, Noto Sans KR]` | Yêu cầu kỹ thuật; chưa bundle |
+| License | Đã kèm `assets/fonts/OFL.txt` (SIL OFL 1.1) + version + nguồn tải + SHA-256 | `design` — task #112; xem §5.1.1 |
+| Fallback chain | `[Be Vietnam Pro, Noto Sans, Noto Sans KR]` | Yêu cầu kỹ thuật; **mới bundle phần đầu** (task #112) |
 
 Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho `ă â đ ê ô ơ ư` và đủ tổ hợp dấu
 (ví dụ `ắ ộ ữ ợ ỹ ặ ễ ỗ`), cùng Hangul cho tên riêng. Không cần emoji trong V1.
+
+#### 5.1.1 Font đã bundle (task #112)
+
+Font OFL **không phải asset game** nên được commit kèm license. Client nạp bằng
+`include_bytes!` → không cần file font lúc chạy.
+
+| File | Phiên bản | SHA-256 | Nguồn |
+|---|---|---|---|
+| `assets/fonts/BeVietnamPro-Regular.ttf` | 1.002 | `cd1ef6e9d7db28ad5cdb88a65ccbe693870e60d340b791f349d248342b4fe4c3` | google/fonts `ofl/bevietnampro/BeVietnamPro-Regular.ttf` @ `1cfe4cb468a703a247ca2d02410f80841b496218` |
+| `assets/fonts/BeVietnamPro-Bold.ttf` | 1.002 | `7f738fe5c43c8872807b20e2d30d42163618de8a4daf7f48a939adac32c16847` | google/fonts `ofl/bevietnampro/BeVietnamPro-Bold.ttf` @ `1cfe4cb468a703a247ca2d02410f80841b496218` |
+| `assets/fonts/OFL.txt` | OFL 1.1 | `6b7f8f73609a25ea78c891e34cf37b06f8a676b7ea986e941e43b009110f2a85` | google/fonts `ofl/bevietnampro/OFL.txt` @ `1cfe4cb468a703a247ca2d02410f80841b496218` |
+
+Nguồn: <https://github.com/google/fonts/tree/1cfe4cb468a703a247ca2d02410f80841b496218/ofl/bevietnampro>
+(commit 2021-08-27 — "Be Vietnam Pro: Version 1.002; ttfautohint (v1.8.3) added (#3771)"); dự án font
+gốc: <https://github.com/bettergui/BeVietnamPro>. Bảng đầy đủ ở
+[`assets/fonts/README.md`](../../../assets/fonts/README.md).
+
+Giới hạn đã biết của font đã bundle:
+
+- Font **không có** `U+27E8`/`U+27E9` (`⟨`/`⟩`) nên placeholder `⟨khóa⟩` của khóa chưa có
+  text hiện **hộp báo thiếu** ở hai dấu ngoặc (client không bỏ qua âm thầm). Muốn hiện
+  đúng ngoặc thì cần bundle thêm font fallback (xem §6).
+- Font không có Hangul ⇒ tên riêng/credit giữ chữ Hàn cần font fallback.
 
 ### 5.2 Wrap, kích thước và placeholder
 
@@ -337,6 +363,28 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
   1920×1080 ở 100%/150%/200% UI scale (nếu có), không clipping.
 - Focus/IME: tab order rõ, focus ring thấy được; Enter gửi/submit, Escape đóng dialog; phím WASD không bị
   IME/ô chat nuốt khi ngoài ô chat; gõ Telex/VNI trong ô chat/tên phòng không làm mất dấu.
+
+#### 5.2.1 Quy tắc layout đã hiện thực (task #112)
+
+Client hiện thực phần layout ở `crates/boom-client/src/text.rs` (lớp thuần, đo bằng metric
+của file TTF nên test được không cần GPU). Quy tắc đã chốt:
+
+- `\r\n` và `\r` được chuẩn hóa thành `\n` **trước** khi đo; `\n` trong chuỗi là xuống dòng
+  cứng, không phải chỗ trắng để wrap.
+- Xuống dòng theo ranh giới từ; khoảng trắng cuối dòng bị bỏ (không tính vào bề rộng).
+- Từ dài hơn khung thì **cắt theo cụm chữ (grapheme cluster)**, không cắt giữa cụm chữ; không
+  rút, không ellipsis, không viết lại nội dung catalog.
+- Chiều cao dòng = max(metric font, 1,4× cỡ chữ) theo mục “Chiều cao dòng” ở trên.
+- Bề rộng đo bằng metric font; vị trí từng ký tự làm tròn về số nguyên (glyph không bị mờ khi
+  phóng) nên mép chữ có thể vượt khung dưới 0,5 px.
+- Placeholder `{0}`, `{1}`… được thay bằng tham số khi có; `{N}` không có tham số thì giữ
+  nguyên văn. Placeholder khác (`%s`, `{ComponentType|N}`, `<font …>`, `|`) giữ nguyên.
+- Khóa chưa có text hiện `⟨khóa⟩` (`boom_content::l10n::placeholder`); client không tự viết chữ.
+- Ký tự không có glyph trong font được vẽ thành **hộp báo thiếu**, không bỏ qua âm thầm.
+
+Golden layout (số dòng + bề rộng của 44 chuỗi V1 có text ở 1× và 2×) nằm ở test
+`text::tests::golden_layout_matches`; ảnh layout local sinh bằng
+`cargo test -p boom-client -- --ignored write_golden_images --nocapture`.
 
 ### 5.3 Acceptance cho V1-035
 
@@ -364,7 +412,9 @@ Số đếm khóa thiếu text do tool sinh nằm ở [§6.1](#61-báo-cáo-khó
 | 15 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
 | 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 8 ảnh UI có chữ của V1-032 (§3) |
 | 8 ảnh UI có chữ ở trạng thái `needs_review_text` | Client phải vẽ text từ catalog thay cho ảnh | Duyệt ảnh (`translated`/`no_text`) rồi import CSV; đổi trạng thái trong bảng UI của closure |
-| Chưa có font/license trong repo | V1-035 chưa bundle được font | Chọn version, thêm license/attribution, golden glyph; ngoài phạm vi docs này |
+| Chưa có font/license trong repo | ~~V1-035 chưa bundle được font~~ | **Đã xong ở task #112**: Be Vietnam Pro 1.002 + `OFL.txt` trong `assets/fonts/`, nguồn/SHA-256 ở §5.1.1 |
+| Fallback chain chưa bundle (`Noto Sans`, `Noto Sans KR`) | Placeholder `⟨khóa⟩` hiện hộp báo thiếu ở `⟨`/`⟩`; tên riêng chữ Hàn chưa vẽ được | Bundle thêm font fallback (OFL) hoặc chốt hiển thị thay thế; chưa có task |
+| Chưa có golden ảnh theo khung 800×600/1920×1080 | Chưa chứng minh được UI scale ở các độ phân giải | Thuộc phần UI (#103): golden layout đã có ở `boom-client::text`, còn golden theo khung cần màn hình |
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
 | Nền login/lobby/prepare là JPEG 800×600 có chữ và nhãn ngoài scope | V1-032 không đưa nền vào atlas: bộ giải mã bundle chỉ đọc sprite I16, và ảnh có huy hiệu Nexon/tab chế độ/auto-ready | V1 dựng nền bằng màu, chữ lấy từ catalog (đã ghi ở §3); muốn dùng ảnh nền thì cần bộ giải mã JPEG + bản ảnh đã che chữ (quyết định kiến trúc, thuộc integrator) |
 | Màn kết quả chỉ có art `Win/Lose/Draw` (đều `needs_review_text`) và icon ngón cái | V1-032 không dead end ở result: cột Hạng/Người chơi/Kết quả vẽ bằng text từ catalog | Duyệt ảnh kết quả; nếu cần art khác thì bổ sung asset vào evidence trước khi dùng |

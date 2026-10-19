@@ -1,8 +1,12 @@
-# boom-client — V1-033
+# boom-client — V1-033 + UI V1 (V1-032, V1-035)
 
 Client V1 trên macroquad ([ADR 0010](../../docs/decisions/0010-client-stack-choice.md)), phạm vi task
 #47: input/scale/focus và scene offline chạy `boom-core` trực tiếp (chưa mạng). Không đọc
 pack/`boom-assets`; không có `--bundle` thì địa hình và chỉ số chỉ là **placeholder**.
+
+Ngoài ra client có **chế độ demo UI** (`--ui-demo`): chạy trọn luồng màn hình V1 —
+đăng nhập → sảnh → phòng chờ → trận → kết quả → phòng — với nguồn dữ liệu **giả lập**,
+không cần server (xem [UI luồng V1](#ui-luồng-v1-v1-032--v1-035)).
 
 ## Chạy
 
@@ -133,6 +137,69 @@ cargo run -p boom-client -- --bundle /tmp/bundle-village00 \
   tượng ở hàng trên; nhân vật (placeholder) chen theo hàng ô đang đứng.
 - Nhân vật/bom/lửa vẫn là placeholder: animation là V1-031, cần clip trong bundle.
 
+## UI luồng V1 (V1-032, V1-035)
+
+Module `src/ui/` chia làm hai phần:
+
+- **Phần thuần dữ liệu** (`ui::model`, `ui::layout`, `ui::text`): không đụng macroquad,
+  kiểm được **không cần GPU** — đây là phần nghiệm thu chính.
+- **Phần vẽ** (`ui::draw`) và **vòng lặp app** (`ui::app`): mỏng, chỉ đưa layout ra màn hình.
+
+### Chạy
+
+```sh
+# Chế độ demo UI: dữ liệu giả lập, không cần server.
+cargo run -p boom-client -- --ui-demo
+
+# Chụp ảnh một màn (QA ảnh local; ảnh không commit vào repo).
+cargo run -p boom-client -- --ui-demo --ui-shot room \
+  --snapshot /home/admin/boom-team/shots/ui-room.png --bundle /tmp/bundle-village00
+```
+
+Phím trong chế độ demo UI:
+
+| Phím | Việc |
+|---|---|
+| Ký tự thường | gõ vào ô đang focus (tài khoản, mật khẩu, tên phòng, chat) |
+| `Backspace` | xoá ký tự cuối |
+| `Tab` / `Shift+Tab` | chuyển focus giữa các ô và nút |
+| `↑` / `↓` | chọn dòng trong danh sách (phòng ở sảnh, thành viên ở phòng chờ) |
+| `←` / `→` | đổi nhân vật C00 ⇄ C01 (ở phòng chờ) |
+| `Enter` | kích hoạt nút đang focus, hoặc gửi nội dung ô đang focus |
+| `Esc` | quay lại màn trước (màn đăng nhập: thoát ứng dụng) |
+
+### Màn hình và dữ liệu
+
+`UiModel` không tự biết phòng nào đang mở, ai đã sẵn sàng hay kết quả lượt ra sao: nó hỏi
+trait `UiBackend`. Bản offline giả lập là `ui::demo::DemoBackend`; **bản mạng nối vào sau
+khi #89/#99 merge** (task riêng) — model và layout không đổi.
+
+Mỗi màn có ít nhất một hành động đưa người chơi ra khỏi màn đó (không dead end): sảnh →
+về đăng nhập, phòng → về sảnh, kết quả → về phòng. Màn trận **không** có nút rời trận:
+theo [SCOPE_V1 §3](../../docs/planning/SCOPE_V1.md) rời trận chủ động là bị loại, nên V1 chỉ
+cho thoát ứng dụng; lượt luôn kết thúc bằng màn kết quả vì server chốt kết quả.
+
+### Chữ (V1-035)
+
+- Chữ lấy từ `data/l10n/vi-v1.toml` (nhúng vào client) qua `boom_content::l10n`.
+- Khóa chưa có text → hiện placeholder rõ ràng `⟨khóa⟩`; client **không** tự viết chữ.
+- `\r\n` trong chuỗi được chuẩn hóa thành `\n` lúc hiển thị (file nguồn giữ nguyên).
+- Font: ưu tiên font hệ thống có dấu tiếng Việt (DejaVu/Noto/Segoe/Arial/Helvetica), ghi đè
+  bằng `BOOM_FONT`. Font chuẩn của V1 (Be Vietnam Pro) chưa có trong repo.
+
+### Ảnh UI (V1-032)
+
+Bảng `[[ui]]` của bundle ([BUNDLES §3.3](../../docs/specification/assets/BUNDLES.md)) quy
+định trạng thái dùng của từng phần tử UI:
+
+- `selected` (đã duyệt, không có chữ cần duyệt) → client vẽ **ảnh** từ atlas.
+- `needs_review_text` / `excluded` → client vẽ **khung màu + text catalog**, **không** hiện
+  ảnh (ảnh có chữ chưa được duyệt).
+
+Cột phải của màn hình hiện đúng như vậy: ảnh cho phần tử `selected`, khung màu kèm text
+catalog cho phần tử còn lại. Test `ui::tests::only_selected_ui_elements_are_drawn_as_images`
+giữ quy tắc này.
+
 ## Kiểm
 
 ```sh
@@ -148,6 +215,8 @@ Test options: round-trip ghi→đọc, restart giữ volume/keybind, lỗi từn
 Test scene bundle kiểm toạ độ vẽ theo canvas/pivot, thứ tự z-order theo hàng, địa hình dựng từ
 bundle + bảng phân loại ô, và các lỗi nạp bundle (thiếu thư mục, map khác profile) — đều không cần
 GPU.
+Test UI V1 (không GPU): chuyển màn đủ luồng Login → Sảnh → Phòng → Trận → Kết quả → Phòng,
+không màn nào là dead end, text lấy đúng khóa l10n, và phần tử `needs_review_text` không hiện ảnh.
 
 ## Còn thiếu
 
@@ -163,3 +232,12 @@ GPU.
 - Chưa có mạng, prediction, âm thanh; chưa chạy runtime Windows/macOS (CI chỉ build/check).
 - Focus dựa vào `WindowMinimized`/key-up của macroquad; X11 đã kiểm, Wayland/focus thật trên macOS/Windows
   cần runner P6 kiểm lại.
+- **UI V1 chưa có backend mạng**: `ui::demo::DemoBackend` là dữ liệu giả; bản mạng nối vào sau khi
+  #89/#99 merge (task riêng).
+- UI V1 chưa có font chuẩn của V1 (Be Vietnam Pro) trong repo và chưa có golden wrap/focus/scale
+  (UI_STRINGS_V1 §6): ảnh chụp hiện dùng font hệ thống.
+- 66/110 khóa chuỗi V1 chưa có text nên màn hình hiện placeholder `⟨khóa⟩`; phần việc bổ sung khóa
+  thuộc `boom-re-l10n` (UI_STRINGS_V1 §6.1), không phải của client.
+- 8 ảnh UI có chữ ở trạng thái `needs_review_text` chưa được duyệt nên client vẽ khung màu + text
+  catalog; duyệt ảnh theo quy trình [IMAGE_REVIEW](../../docs/specification/localization/IMAGE_REVIEW.md)
+  thì màn hình tự hiện ảnh.

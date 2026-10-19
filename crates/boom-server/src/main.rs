@@ -1,5 +1,6 @@
 //! CLI server V1: `health` runtime/offline (ADR 0011 §8.2), `account revoke-sessions`
-//! (ADR 0011 §6), `config` (đọc/ghi cấu hình vận hành) và `serve` (chạy trận thật).
+//! (ADR 0011 §6), `config` (đọc/ghi cấu hình vận hành), `content` (kiểm bộ nội dung
+//! rules/bundle/l10n của gói phát hành — V1-036) và `serve` (chạy trận thật).
 //!
 //! `serve` nạp rules profile + bundle map, mở DB identity, bind game listener, nhận client
 //! TCP và chạy vòng tick; Ctrl-C/SIGTERM dừng sạch (thu hồi phiên của instance, ghi
@@ -8,6 +9,9 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use boom_content::bundle;
+use boom_content::l10n::L10n;
+use boom_content::rules::RulesProfile;
 use boom_server::identity::{
     AccountId, AccountStore, RevokeReason, SessionService, SqliteAccountStore, SqliteOptions,
     StoreError,
@@ -18,23 +22,47 @@ use boom_server::{
 };
 use serde_json::json;
 
+/// Cách dùng CLI, in ra khi `--help` hoặc khi tham số sai.
+const USAGE: &str = "boom-server health [--offline] | account revoke-sessions <username> | \
+                     config [--out <file>] | content --rules <file> [--bundle <dir>] \
+                     [--l10n <file>] | serve";
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("health") => health_command(&args),
         Some("account") => account_command(&args[1..]),
         Some("config") => config_command(&args[1..]),
+        Some("content") => content_command(&args[1..]),
+        Some("-h") | Some("--help") => {
+            print_usage();
+            ExitCode::SUCCESS
+        }
         None => serve_command(&[]),
         Some("serve") => serve_command(&args[1..]),
         Some(other) => {
-            eprintln!(
-                "lệnh không hỗ trợ: {other}; dùng: boom-server health [--offline] | \
-                 account revoke-sessions <username> | config [--out <file>] | \
-                 serve [--config <file>]"
-            );
+            eprintln!("lệnh không hỗ trợ: {other}; dùng: {USAGE}");
             ExitCode::from(3)
         }
     }
+}
+
+/// In cách dùng đầy đủ (lệnh `--help`).
+fn print_usage() {
+    println!("{USAGE}");
+    println!();
+    println!("lệnh:");
+    println!("  health [--offline]              kiểm runtime: tiến trình, DB, log");
+    println!("  account revoke-sessions <user>   thu hồi phiên đang hiệu lực của tài khoản");
+    println!("  config [--out <file>]           xuất/ghi cấu hình vận hành hiệu lực");
+    println!("  content --rules <file>          kiểm bộ nội dung của gói phát hành");
+    println!("                                  (--bundle <dir> và --l10n <file> là tuỳ chọn)");
+    println!("  serve                           chạy server (admin listener + heartbeat)");
+    println!();
+    println!(
+        "mã thoát: 0 thành công · 2 không dùng được (file nội dung thiếu/sai) · \
+              3 sai cú pháp hoặc lỗi cấu hình"
+    );
 }
 
 fn parse_health_args(args: &[String]) -> Result<bool, String> {
@@ -314,6 +342,136 @@ fn parse_serve_args(args: &[String]) -> Result<Option<PathBuf>, String> {
     Ok(config_path)
 }
 
+/// Mã thoát của lệnh `content`; `content_command` bọc thành [`ExitCode`].
+fn content_command(args: &[String]) -> ExitCode {
+    ExitCode::from(content_exit(args))
+}
+
+/// `boom-server content --rules <file> [--bundle <dir>] [--l10n <file>]`.
+///
+/// Kiểm bộ nội dung của gói phát hành (V1-036): rules profile, bundle content và file
+/// chuỗi UI. Lỗi luôn kèm **đường dẫn** và **cách sửa** (V1-036: thiếu file hoặc sai
+/// hash → báo rõ đường dẫn + cách sửa, exit code khác 0, không panic).
+///
+/// Mã thoát: `0` nội dung dùng được · `2` nội dung thiếu/sai · `3` sai cú pháp.
+fn content_exit(args: &[String]) -> u8 {
+    let mut rules: Option<PathBuf> = None;
+    let mut bundle_dir: Option<PathBuf> = None;
+    let mut l10n: Option<PathBuf> = None;
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        let target = match arg.as_str() {
+            "--rules" => &mut rules,
+            "--bundle" => &mut bundle_dir,
+            "--l10n" => &mut l10n,
+            other => {
+                eprintln!("tham số content không hỗ trợ: {other}; dùng: {USAGE}");
+                return 3;
+            }
+        };
+        let Some(value) = iter.next() else {
+            eprintln!("{arg} cần đường dẫn; dùng: {USAGE}");
+            return 3;
+        };
+        *target = Some(PathBuf::from(value));
+    }
+    let Some(rules_path) = rules else {
+        eprintln!("content cần --rules <file>; dùng: {USAGE}");
+        return 3;
+    };
+
+    let profile = match load_rules_file(&rules_path) {
+        Ok(profile) => profile,
+        Err(message) => {
+            eprintln!("{message}");
+            return 2;
+        }
+    };
+    println!(
+        "rules: {} · hash {:#018x} · {} rule",
+        profile.profile_id,
+        profile.identity_hash(),
+        profile.rules.len()
+    );
+
+    if let Some(dir) = bundle_dir.as_deref() {
+        let loaded = match bundle::load(dir) {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                eprintln!("{}", bundle_error(dir, &error));
+                return 2;
+            }
+        };
+        println!(
+            "bundle: {} (build {}) · content_hash {}",
+            loaded.map, loaded.build, loaded.content_hash
+        );
+    }
+
+    if let Some(path) = l10n.as_deref() {
+        let loaded = match load_l10n_file(path) {
+            Ok(loaded) => loaded,
+            Err(message) => {
+                eprintln!("{message}");
+                return 2;
+            }
+        };
+        println!("chuỗi: {} · {} khóa", loaded.locale(), loaded.len());
+    }
+
+    0
+}
+
+/// Nạp rules profile từ file; thông điệp lỗi kèm đường dẫn và cách sửa.
+fn load_rules_file(path: &Path) -> Result<RulesProfile, String> {
+    let text = std::fs::read_to_string(path).map_err(|error| {
+        format!(
+            "không đọc được file rules: {} ({error})\n  \
+             sửa: file phải tồn tại và đọc được; gói phát hành đặt rules ở data/rules/ \
+             (ví dụ data/rules/v1-dev.toml)",
+            path.display()
+        )
+    })?;
+    RulesProfile::from_toml(&text).map_err(|error| {
+        format!(
+            "file rules không dùng được: {} ({error})\n  \
+             sửa: file phải là rules profile TOML hợp lệ \
+             (xem docs/specification/gameplay/RULES_V1.md)",
+            path.display()
+        )
+    })
+}
+
+/// Nạp bộ chuỗi UI từ file; thông điệp lỗi kèm đường dẫn và cách sửa.
+fn load_l10n_file(path: &Path) -> Result<L10n, String> {
+    let bytes = std::fs::read(path).map_err(|error| {
+        format!(
+            "không đọc được file chuỗi: {} ({error})\n  \
+             sửa: file phải tồn tại; gói phát hành đặt chuỗi ở data/l10n/ \
+             (ví dụ data/l10n/vi-v1.toml)",
+            path.display()
+        )
+    })?;
+    L10n::from_bytes(&bytes).map_err(|error| {
+        format!(
+            "file chuỗi không dùng được: {} ({error})\n  \
+             sửa: file phải là file chuỗi UI V1 hợp lệ (sinh bằng tools/l10n_export.py, \
+             xem docs/specification/localization/UI_STRINGS_V1.md)",
+            path.display()
+        )
+    })
+}
+
+/// Lỗi nạp bundle: kèm thư mục bundle và cách dựng lại từ pack.
+fn bundle_error(dir: &Path, error: &dyn std::fmt::Display) -> String {
+    format!(
+        "không nạp được bundle: {}\n  lỗi: {error}\n  \
+         sửa: dựng lại bundle từ pack của bạn: \
+         `boom-assets bundle --map Village00 --out <dir> --pack-dir <thư mục pack>`",
+        dir.display()
+    )
+}
+
 /// `boom-server serve [--config <file>]` — chạy server thật cho client LAN.
 ///
 /// Thứ tự cấu hình giữ nguyên ADR 0011 §5: mặc định → file (`--config` hoặc
@@ -461,6 +619,69 @@ mod tests {
             account_exit_code(&AccountCliError::Store(StoreError::Sqlite(
                 "lỗi".to_owned()
             ))),
+            2
+        );
+    }
+
+    /// V1-036: thiếu file rules → thông điệp có đường dẫn và cách sửa.
+    #[test]
+    fn missing_rules_file_reports_path_and_fix() {
+        let message = load_rules_file(Path::new("/khong/ton/tai/rules.toml")).unwrap_err();
+        assert!(
+            message.contains("/khong/ton/tai/rules.toml"),
+            "thông điệp phải nêu đường dẫn: {message}"
+        );
+        assert!(
+            message.contains("sửa:"),
+            "thông điệp phải nêu cách sửa: {message}"
+        );
+    }
+
+    /// V1-036: thiếu file chuỗi → thông điệp có đường dẫn và cách sửa.
+    #[test]
+    fn missing_l10n_file_reports_path_and_fix() {
+        let message = load_l10n_file(Path::new("/khong/ton/tai/vi-v1.toml")).unwrap_err();
+        assert!(
+            message.contains("/khong/ton/tai/vi-v1.toml"),
+            "thông điệp phải nêu đường dẫn: {message}"
+        );
+        assert!(
+            message.contains("sửa:"),
+            "thông điệp phải nêu cách sửa: {message}"
+        );
+    }
+
+    /// V1-036: bundle thiếu → thông điệp có thư mục bundle và cách dựng lại.
+    #[test]
+    fn missing_bundle_reports_path_and_fix() {
+        let message = bundle_error(Path::new("/khong/ton/tai/bundle"), &"metadata thiếu");
+        assert!(
+            message.contains("/khong/ton/tai/bundle"),
+            "thông điệp phải nêu thư mục bundle: {message}"
+        );
+        assert!(
+            message.contains("boom-assets bundle"),
+            "thông điệp phải nêu cách dựng lại bundle: {message}"
+        );
+    }
+
+    /// `content` với tham số lạ → mã thoát 3 (sai cú pháp), không phải 2.
+    #[test]
+    fn content_command_rejects_unknown_flag() {
+        assert_eq!(content_exit(&args(&["--bogus", "x"])), 3);
+    }
+
+    /// `content` thiếu `--rules` → mã thoát 3 (sai cú pháp).
+    #[test]
+    fn content_command_requires_rules_flag() {
+        assert_eq!(content_exit(&args(&["--bundle", "/tmp"])), 3);
+    }
+
+    /// `content` với file rules thiếu → mã thoát 2 (nội dung không dùng được).
+    #[test]
+    fn content_command_reports_missing_rules_file() {
+        assert_eq!(
+            content_exit(&args(&["--rules", "/khong/ton/tai/rules.toml"])),
             2
         );
     }
