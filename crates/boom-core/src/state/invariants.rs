@@ -1,4 +1,4 @@
-//! Bất biến của contract (contracts-r2). `new_round` kiểm sau khi dựng lượt; harness scenario và replay
+//! Bất biến của contract (contracts-r3). `new_round` kiểm sau khi dựng lượt; harness scenario và replay
 //! kiểm sau mỗi tick. Mọi tham chiếu (ô, người chơi, loại item, ID entity) được đối chiếu với `World`.
 
 use boom_content::map::CellKind;
@@ -10,6 +10,8 @@ impl SimulationState {
     /// Trả lỗi đầu tiên tìm thấy. Không panic với state sai, kể cả tham chiếu ngoài miền.
     pub fn check_invariants(&self, world: &World) -> Result<(), String> {
         let field = &self.field;
+        // Độ dài dữ liệu trước mọi truy cập ô (review #2, r3).
+        field.check_shape()?;
         let terrain = world.terrain();
         if (field.width(), field.height()) != (i32::from(terrain.width), i32::from(terrain.height))
         {

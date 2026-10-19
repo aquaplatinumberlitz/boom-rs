@@ -41,7 +41,7 @@ impl Field {
 
     /// `None` khi ngoài lưới.
     pub fn kind(&self, c: Cell) -> Option<CellKind> {
-        self.index(c).map(|i| self.kinds[i])
+        self.index(c).and_then(|i| self.kinds.get(i).copied())
     }
 
     pub fn set_kind(&mut self, c: Cell, kind: CellKind) {
@@ -50,7 +50,8 @@ impl Field {
     }
 
     pub fn hidden(&self, c: Cell) -> Option<ItemKind> {
-        self.index(c).and_then(|i| self.hidden[i])
+        self.index(c)
+            .and_then(|i| self.hidden.get(i).copied().flatten())
     }
 
     pub fn set_hidden(&mut self, c: Cell, item: Option<ItemKind>) {
@@ -77,6 +78,31 @@ impl Field {
                 None => h.u8(0),
             };
         }
+    }
+
+    /// Số ô dữ liệu khớp kích thước khai báo. Phải gọi trước mọi truy cập ô khi kiểm state lạ.
+    pub(crate) fn check_shape(&self) -> Result<(), String> {
+        let expected = usize::try_from(self.width)
+            .ok()
+            .zip(usize::try_from(self.height).ok())
+            .and_then(|(w, h)| w.checked_mul(h))
+            .filter(|&n| n > 0)
+            .ok_or_else(|| {
+                format!(
+                    "kích thước lưới {}x{} không hợp lệ",
+                    self.width, self.height
+                )
+            })?;
+        if self.kinds.len() != expected || self.hidden.len() != expected {
+            return Err(format!(
+                "lưới {}x{} cần {expected} ô, có {} loại ô và {} ô item giấu",
+                self.width,
+                self.height,
+                self.kinds.len(),
+                self.hidden.len()
+            ));
+        }
+        Ok(())
     }
 
     /// `item_kinds` = số loại item trong `Rules::items`.

@@ -1,4 +1,4 @@
-use boom_content::map::Terrain;
+use boom_content::map::{CellKind, Terrain};
 use boom_content::rules::RulesProfile;
 
 use crate::event::{EventId, EventKind, SimulationEvent};
@@ -7,7 +7,8 @@ use crate::num::{Cell, Mpx};
 use crate::rules::{ItemEffect, Rules};
 use crate::sim::{CoreError, Dir, PlayerInput, PlayerSetup, World};
 use crate::state::{
-    Bomb, CharacterStats, EntityId, Flame, FloorItem, ItemKind, Life, Phase, SimulationState, Stat,
+    Bomb, CharacterStats, EntityId, Field, Flame, FloorItem, ItemKind, Life, Phase,
+    SimulationState, Stat,
 };
 
 const PROFILE: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
@@ -313,6 +314,41 @@ fn invariants_check_references_against_world() {
     let mut s = base;
     s.players[0].x = Mpx(-1);
     assert!(violation(&w, &s).contains("ngoài lưới"));
+}
+
+#[test]
+fn invariants_check_field_shape_before_cell_access() {
+    // Review contracts-r2 (#2): lưới 3 ô chứa 2 ô từng trả Ok; chứa 0 ô thì panic.
+    let w = world(&["0.."]);
+    let mut s = solo(&w);
+    for kinds in [vec![CellKind::Floor; 2], vec![]] {
+        let bad = Terrain {
+            width: 3,
+            height: 1,
+            kinds,
+            spawns: vec![],
+        };
+        s.field = Field::from_terrain(&bad);
+        assert!(violation(&w, &s).contains("cần 3 ô"));
+    }
+}
+
+#[test]
+fn world_rejects_inconsistent_terrain() {
+    let ffa = mode_by_id("battle_ffa").unwrap();
+    let make = |kinds: usize, spawns: Vec<(u16, u16)>| Terrain {
+        width: 3,
+        height: 1,
+        kinds: vec![CellKind::Floor; kinds],
+        spawns,
+    };
+    for t in [make(2, vec![]), make(0, vec![]), make(3, vec![(3, 0)])] {
+        assert!(matches!(
+            World::new(t, rules(), ffa),
+            Err(CoreError::BadTerrain(_))
+        ));
+    }
+    assert!(World::new(make(3, vec![(2, 0)]), rules(), ffa).is_ok());
 }
 
 #[test]

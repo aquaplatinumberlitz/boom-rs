@@ -1,4 +1,4 @@
-//! World (dữ liệu bất biến của lượt), input và vòng `step` (contracts-r2).
+//! World (dữ liệu bất biến của lượt), input và vòng `step` (contracts-r3).
 
 use std::fmt;
 
@@ -43,7 +43,7 @@ impl Dir {
     }
 }
 
-/// Input đã được authority chấp nhận cho một người chơi trong một tick (contracts-r2).
+/// Input đã được authority chấp nhận cho một người chơi trong một tick (contracts-r3).
 /// Authority chuyển `InputCommand` mạng thành giá trị này; input neutral là `default()`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerInput {
@@ -62,6 +62,8 @@ pub struct PlayerSetup {
 #[derive(Debug, PartialEq, Eq)]
 pub enum CoreError {
     UnknownCells,
+    /// Địa hình không tự nhất quán (số ô khác kích thước, spawn ngoài lưới).
+    BadTerrain(String),
     EmptyRoster,
     DuplicatePlayer(u8),
     TooManyPlayers {
@@ -87,6 +89,7 @@ impl fmt::Display for CoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnknownCells => write!(f, "địa hình còn ô Unknown; cần bảng phân loại ô (Q-002)"),
+            Self::BadTerrain(e) => write!(f, "địa hình sai: {e}"),
             Self::EmptyRoster => write!(f, "không có người chơi"),
             Self::DuplicatePlayer(id) => write!(f, "người chơi {id} trùng"),
             Self::TooManyPlayers { players, spawns } => {
@@ -117,8 +120,24 @@ pub struct World {
 }
 
 impl World {
-    /// Từ chối địa hình còn ô Unknown thay vì đoán (ARCHITECTURE §4).
+    /// Từ chối địa hình không nhất quán hoặc còn ô Unknown thay vì đoán (ARCHITECTURE §4).
     pub fn new(terrain: Terrain, rules: Rules, mode: &'static dyn Mode) -> Result<Self, CoreError> {
+        let cells = usize::from(terrain.width) * usize::from(terrain.height);
+        if cells == 0 || terrain.kinds.len() != cells {
+            return Err(CoreError::BadTerrain(format!(
+                "{}x{} cần {cells} ô, có {}",
+                terrain.width,
+                terrain.height,
+                terrain.kinds.len()
+            )));
+        }
+        if let Some(&(x, y)) = terrain
+            .spawns
+            .iter()
+            .find(|&&(x, y)| x >= terrain.width || y >= terrain.height)
+        {
+            return Err(CoreError::BadTerrain(format!("spawn ({x},{y}) ngoài lưới")));
+        }
         if terrain.has_unknown() {
             return Err(CoreError::UnknownCells);
         }
@@ -168,7 +187,7 @@ impl World {
 }
 
 impl SimulationState {
-    /// Chốt đầu lượt (contracts-r2):
+    /// Chốt đầu lượt (contracts-r3):
     /// 1. Lưới đổi được lấy từ địa hình gốc.
     /// 2. Hoán vị spawn theo seed, N người lấy N spawn đầu (SCOPE_V1 §3, DESIGN).
     /// 3. `on_round_start` của từng system theo thứ tự mode (vd. giấu item vào khối mềm).

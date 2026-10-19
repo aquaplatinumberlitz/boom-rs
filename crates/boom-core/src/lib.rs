@@ -10,7 +10,7 @@
 //! - [`SimulationEvent`]: mọi thay đổi đáng kể phát ra event có ID ổn định; trình diễn, thống kê,
 //!   nhiệm vụ, event vận hành tiêu thụ event ở ngoài core thay vì chèn code vào core.
 //!
-//! Contract hiện hành: **contracts-r2** (ARCHITECTURE §5): kiểu state, event V1, pipeline FFA và
+//! Contract hiện hành: **contracts-r3** (ARCHITECTURE §5): kiểu state, event V1, pipeline FFA và
 //! ma trận quyền ghi trong `systems/mod.rs`. Đã có di chuyển cơ bản và hết giờ; bom, lửa, item,
 //! nhốt là system rỗng chờ task được giao.
 #![deny(clippy::float_arithmetic)]

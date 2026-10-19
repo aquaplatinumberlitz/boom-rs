@@ -55,7 +55,7 @@
       "depends_on": [
         "P0"
       ],
-      "deliverable": "ARCHITECTURE r1, ADR 0004–0008, contracts-r2 trong code, harness scenario, CI ba OS",
+      "deliverable": "ARCHITECTURE r1, ADR 0004–0008, contracts-r3 trong code, harness scenario, CI ba OS",
       "exit_gate": "Boundary/contracts review và giả định quan trọng được ghi nhận",
       "reviewer": "",
       "integration_commit": "",
@@ -70,7 +70,7 @@
       ],
       "verification": "",
       "blocker": "",
-      "next_action": "Review lại contracts-r2 ở issue #2 (r1 bị trả 3 lỗi P2, đã sửa); NET-DESIGN #14 sau khi #2 approve; spike client #12; hạn 2026-11-02."
+      "next_action": "Review lại contracts-r3 ở issue #2 (r1 trả 3 lỗi P2, r2 trả 1 lỗi P2, đã sửa); NET-DESIGN #14 sau khi #2 approve; spike client #12; hạn 2026-11-02."
     },
     {
       "id": "P3",

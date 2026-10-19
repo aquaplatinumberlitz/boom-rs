@@ -1,4 +1,4 @@
-//! System của Battle V1, mỗi file một phần luật, một owner (contracts-r2, ARCHITECTURE §5).
+//! System của Battle V1, mỗi file một phần luật, một owner (contracts-r3, ARCHITECTURE §5).
 //!
 //! | File | Feature | Ghi được | Phát event |
 //! |---|---|---|---|

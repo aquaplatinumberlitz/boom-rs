@@ -130,7 +130,7 @@ Integrator là người ghi duy nhất của `features.json` và `execution.json
 nhận task, nhập proof/review khi worker bàn giao (PR đã merge, commit tích hợp, lệnh kiểm), rồi chạy
 `python3 tools/kr_catalog.py` và `--check`. `tracking.next_action` của feature trỏ số issue đang giữ việc.
 
-Thứ tự merge đợt 1 khi nhiều PR cùng sẵn sàng: contract review (#2, hiện contracts-r2) → bomb_place, explosion → blocks,
+Thứ tự merge đợt 1 khi nhiều PR cùng sẵn sàng: contract review (#2, hiện contracts-r3) → bomb_place, explosion → blocks,
 pickup, life → movement (phần grace cần bomb_place) → các scenario liên hệ chéo (`own_bomb_full_cycle`,
 `destroy_and_reveal`) chuyển active. Các luồng assets/RE/backend/client/l10n merge độc lập.
 Định nghĩa done và % ở AGENTS §6. Đánh giá bằng feature chơi được, rule có nguồn và số sai khác chưa giải;
