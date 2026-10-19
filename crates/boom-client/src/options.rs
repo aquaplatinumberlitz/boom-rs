@@ -301,7 +301,8 @@ pub fn load(path: &Path) -> LoadedOptions {
 /// - Hàm **không** panic: lỗi đổi tên/ghi chỉ được báo bằng cảnh báo. Nếu **không** đổi tên
 ///   được thì file cũ **giữ nguyên** — không ghi đè dữ liệu người dùng khi chưa lưu được bản sao.
 ///
-/// Trả về danh sách cảnh báo (rỗng nghĩa là khôi phục thành công, không có gì để báo).
+/// Trả về danh sách cảnh báo để client in ra (luôn có ít nhất một dòng: đã giữ bản cũ ở đâu,
+/// hoặc lý do không khôi phục được).
 fn recover_broken_file(path: &Path) -> Vec<String> {
     let mut warnings = Vec::new();
     let broken = broken_path(path);
