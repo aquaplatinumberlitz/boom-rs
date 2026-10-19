@@ -13,7 +13,11 @@ boom-room = { path = "../boom-room" }
 boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
 boom-sync = { path = "../boom-sync" }
+boom-scenario.workspace = true
 serde_json.workspace = true
+# File cấu hình TOML của server (ADR 0011 §5/§8: tham số vận hành nằm trong config).
+serde.workspace = true
+toml.workspace = true
 # Identity/persistence (ADR 0011 §3–§4, §10): driver SQLite đồng bộ (`bundled` ⇒ CI ba OS
 # không cần libsqlite3) và khóa instance độc quyền theo file (`boom-server.lock`).
 rusqlite.workspace = true

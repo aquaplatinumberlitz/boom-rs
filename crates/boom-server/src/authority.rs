@@ -1,11 +1,12 @@
 //! Lõi authority thuần: `boom-room` → loading barrier → `boom-core` → kết quả → phòng.
 //!
 //! Không socket, không wall clock đọc trực tiếp: caller truyền `now_ms` và gọi `advance_to`.
-//! Phần 2 sẽ bọc lõi này bằng `boom-proto`/`boom-sync`/`boom-net`; kiểu `Internal*` ở đây chỉ là
-//! lệnh nội bộ, không phải DTO wire.
+//! `Server` bọc lõi này bằng `boom-proto`/`boom-sync`/`boom-net`; kiểu `Internal*` ở đây chỉ là
+//! lệnh nội bộ, không phải DTO wire (message phòng/loading/result đã có ở Addendum B).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::sync::Arc;
 
 use boom_core::{
     CharacterStats, CoreError, Life, Outcome as CoreOutcome, Phase as CorePhase, PlayerInput,
@@ -16,10 +17,12 @@ use boom_room::{
     CharacterId, Lobby, Outcome as RoomOutcome, PlayerId, RequestId, RoomAction, RoomCommand,
     RoomError, RoomEvent, RoomId, RoomView, RoundId, RoundMember,
 };
+use boom_scenario::setup::{AuthorityAction, AuthorityEntry, apply_authority};
 use boom_sync::{SnapshotContext, input_ack, to_snapshot};
 
-use crate::config::{CharacterStatsTable, InputTicks, ServerConfig};
+use crate::config::{CharacterStatsTable, InputTicks, ReplaySetup, ServerConfig};
 use crate::input::{InputAck, InputError, InputTrack};
+use crate::observability::{LogFields, Logger};
 
 /// Kết quả trận do server quyết, một lần cho mỗi round.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -204,6 +207,10 @@ impl From<boom_net::NetError> for ServerError {
 pub struct MatchSetup {
     pub world: World,
     pub stats: CharacterStatsTable,
+    /// Tên map đã nạp, để `RoundStart` gửi client dựng cùng bản đồ. Không phải luật chơi.
+    pub map: String,
+    /// Metadata để ghi replay; `None` dù `replay_dir` bật thì không ghi.
+    pub replay: Option<ReplaySetup>,
 }
 
 struct Match {
@@ -252,6 +259,8 @@ pub struct Authority {
     internal_room: Option<RoomId>,
     phase: Lifecycle,
     active: Option<Match>,
+    replay: Option<crate::replay_log::ReplayLog>,
+    logger: Option<Arc<Logger>>,
     last_result: Option<InternalRoundResult>,
     now_ms: u64,
     next_tick_ms: u64,
@@ -278,6 +287,8 @@ impl Authority {
             internal_room: None,
             phase: Lifecycle::Waiting,
             active: None,
+            replay: None,
+            logger: None,
             last_result: None,
             now_ms: 0,
             next_tick_ms: 0,
@@ -294,6 +305,12 @@ impl Authority {
 
     pub fn config(&self) -> &ServerConfig {
         &self.config
+    }
+
+    /// Gắn logger vận hành; replay dùng `replay.write_failed` thay cho stderr.
+    pub fn with_logger(mut self, logger: Arc<Logger>) -> Self {
+        self.logger = Some(logger);
+        self
     }
 
     pub fn phase(&self) -> ServerPhase {
@@ -336,10 +353,24 @@ impl Authority {
         self.setup.world.rules().profile_hash
     }
 
+    pub fn mode_id(&self) -> &str {
+        self.setup.world.mode().id()
+    }
+
+    pub fn map_id(&self) -> &str {
+        &self.setup.map
+    }
+
+    /// Seed của round đang active; `None` khi chưa vào loading/playing.
+    pub fn round_seed(&self) -> Option<u64> {
+        self.active.as_ref().map(|m| m.seed)
+    }
+
+    /// Round ID **public** (đã ánh xạ ID nội bộ), khớp `RoomView.round.id`/wire.
     pub fn current_round_id(&self) -> Option<u32> {
-        self.active
-            .as_ref()
-            .and_then(|m| u32::try_from(m.round.0).ok())
+        self.room_view()
+            .and_then(|view| view.round)
+            .and_then(|round| u32::try_from(round.id.0).ok())
     }
 
     pub fn state_hash(&self) -> Option<u64> {
@@ -355,6 +386,19 @@ impl Authority {
             .find(|m| m.player == player)?
             .slot
             .0;
+        active
+            .state
+            .players
+            .iter()
+            .find(|p| p.id == slot)
+            .map(|p| p.life)
+    }
+
+    /// Life của người chơi trong roster round, kể cả người đã rời phòng sau Start (dùng cho
+    /// `RoundResult.alive`; khác `player_life` chỉ tìm trong members hiện tại).
+    pub fn round_player_life(&self, player: PlayerId) -> Option<Life> {
+        let active = self.active.as_ref()?;
+        let slot = active.members.iter().find(|m| m.player == player)?.slot.0;
         active
             .state
             .players
@@ -437,12 +481,8 @@ impl Authority {
         now_ms: u64,
     ) -> Result<RoomUpdate, ServerError> {
         self.advance_clock(now_ms)?;
-        if !matches!(self.phase, Lifecycle::Waiting | Lifecycle::Closed) {
-            return Err(ServerError::WrongPhase {
-                phase: self.phase(),
-            });
-        }
-
+        // Dedup trước kiểm phase: Start lặp cùng request sau khi đã chuyển Loading vẫn là
+        // duplicate idempotent, không phải WrongPhase (review #90).
         if let Some(&last) = self.last_external_request.get(&command.player) {
             if command.request == last {
                 return Ok(RoomUpdate {
@@ -458,6 +498,11 @@ impl Authority {
                     received: command.request,
                 }));
             }
+        }
+        if !matches!(self.phase, Lifecycle::Waiting | Lifecycle::Closed) {
+            return Err(ServerError::WrongPhase {
+                phase: self.phase(),
+            });
         }
 
         // Authority một phòng: không cho Create thứ hai ghi đè active room.
@@ -592,6 +637,26 @@ impl Authority {
             started_ms: now_ms,
             acked: BTreeSet::new(),
         };
+        self.replay = None;
+        if let (Some(dir), Some(replay_setup)) = (&self.config.replay_dir, &self.setup.replay) {
+            match crate::replay_log::ReplayLog::new(
+                dir,
+                round.0,
+                seed,
+                replay_setup,
+                &self.setup,
+                &members,
+                self.setup.world.terrain(),
+            ) {
+                Ok(log) => self.replay = Some(log),
+                Err(err) => {
+                    self.log_replay_error(
+                        "replay.open_failed",
+                        &format!("{}: {err}", dir.display()),
+                    );
+                }
+            }
+        }
         Ok(())
     }
 
@@ -656,13 +721,15 @@ impl Authority {
         batch
             .check(&self.config.protocol_limits)
             .map_err(InputError::Proto)?;
+        let public_round =
+            self.current_round_id()
+                .ok_or_else(|| InputError::RoundIdOutOfRange {
+                    round: self.active.as_ref().expect("playing có match").round,
+                })?;
         let active = self.active.as_mut().expect("playing có match");
-        let round = u32::try_from(active.round.0).map_err(|_| InputError::RoundIdOutOfRange {
-            round: active.round,
-        })?;
-        if batch.round_id != round {
+        if batch.round_id != public_round {
             return Err(InputError::WrongRound {
-                expected: active.round,
+                expected: RoundId(u64::from(public_round)),
                 received: RoundId(u64::from(batch.round_id)),
             });
         }
@@ -746,6 +813,7 @@ impl Authority {
                             acked: BTreeSet::new(),
                         };
                         self.last_result = Some(result.clone());
+                        self.finish_replay();
                         events.push(InternalServerEvent::RoundFinished { room, result });
                     }
                     self.ticks_elapsed = self.ticks_elapsed.saturating_add(1);
@@ -805,8 +873,15 @@ impl Authority {
             }
             inputs.push(input);
         }
+        let slots: Vec<u8> = active.state.players.iter().map(|p| p.id).collect();
+        if let Some(replay) = &mut self.replay {
+            replay.record_inputs(tick, &inputs, &slots);
+        }
         let mut events = Vec::new();
         active.state.step(&self.setup.world, &inputs, &mut events)?;
+        if let Some(replay) = &mut self.replay {
+            replay.record_checkpoint(active.state.tick, active.state.hash());
+        }
         active.events.extend(events);
         if active.state.phase != CorePhase::Playing {
             let outcome = match active.state.phase {
@@ -833,7 +908,40 @@ impl Authority {
         Ok(())
     }
 
+    fn finish_replay(&mut self) {
+        let Some(replay) = self.replay.take() else {
+            return;
+        };
+        let Some(active) = self.active.as_ref() else {
+            return;
+        };
+        let Some(result) = active.result.as_ref() else {
+            return;
+        };
+        let outcome = crate::replay_log::outcome_label(result.outcome, &active.members);
+        let mut replay = replay;
+        replay.record_checkpoint(active.state.tick, active.state.hash());
+        let _ = replay.finish(
+            active.state.tick,
+            active.state.hash(),
+            boom_core::event_digest(&active.events),
+            active.events.len(),
+            &outcome,
+            self.logger.as_deref(),
+        );
+    }
+
+    fn log_replay_error(&self, event: &str, message: &str) {
+        if let Some(logger) = &self.logger {
+            let mut fields = LogFields::new();
+            fields.insert("reason", serde_json::json!(event));
+            fields.insert("error_message", serde_json::json!(message));
+            logger.error(event, fields);
+        }
+    }
+
     fn eliminate_disconnected(&mut self, now_ms: u64, out: &mut Vec<InternalServerEvent>) {
+        let logger = self.logger.clone();
         let timeout = u64::from(self.config.policy.disconnect_timeout_ms);
         let Some(active) = self.active.as_mut() else {
             return;
@@ -851,10 +959,25 @@ impl Authority {
                 .iter()
                 .find(|m| m.player == player)
                 .map(|m| m.slot.0)
-                && let Some(p) = active.state.players.iter_mut().find(|p| p.id == slot)
-                && p.life != Life::Dead
             {
-                p.life = Life::Dead;
+                let tick = active.state.tick;
+                if let Err(err) = apply_authority(
+                    &mut active.state,
+                    &AuthorityEntry {
+                        tick,
+                        player: slot,
+                        action: AuthorityAction::Eliminate,
+                    },
+                ) && let Some(logger) = &logger
+                {
+                    let mut fields = LogFields::new();
+                    fields.insert("reason", serde_json::json!("replay.authority_failed"));
+                    fields.insert("error_message", serde_json::json!(err.to_string()));
+                    logger.error("replay.authority_failed", fields);
+                }
+                if let Some(replay) = &mut self.replay {
+                    replay.record_authority(tick, slot);
+                }
             }
             out.push(InternalServerEvent::PlayerEliminated {
                 room: active.room,
