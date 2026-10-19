@@ -311,7 +311,8 @@ mod tests {
         let rules = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../fixtures/rules/skeleton-test.toml")
             .display()
-            .to_string();
+            .to_string()
+            .replace('\\', "\\\\");
         format!(
             r######"
 schema = 1

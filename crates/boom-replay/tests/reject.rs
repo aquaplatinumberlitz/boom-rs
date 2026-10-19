@@ -9,7 +9,8 @@ fn fixture() -> String {
     let rules = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/rules/skeleton-test.toml")
         .display()
-        .to_string();
+        .to_string()
+        .replace('\\', "\\\\");
     text.replace("../rules/skeleton-test.toml", &rules)
 }
 
