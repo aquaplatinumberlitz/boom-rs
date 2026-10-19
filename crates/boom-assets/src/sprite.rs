@@ -29,6 +29,10 @@
 //!
 //! Nghĩa field frame chưa chốt hết (MAPS §3): field giữ nguyên số, tên trong code theo
 //! tài liệu, không suy diễn thêm.
+//!
+//! Cả 12 field của frame đọc bằng `i32` và **giữ nguyên dấu**: layout là 12 × `i32`
+//! (MAPS §3), nên lúc parse không được ép về số không dấu. Chuyển sang kích thước
+//! không dấu chỉ làm ở bước diễn giải có validate và bằng chứng, không phải lúc đọc.
 
 use std::fmt;
 
@@ -41,9 +45,11 @@ pub const TRANSPARENT_RGB565: u16 = 0xF81F;
 /// Số byte của một frame (12 × i32).
 const FRAME_BYTES: usize = 48;
 
-/// Trần cạnh ảnh (giới hạn kỹ thuật, không phải luật chơi). Ảnh lớn nhất trong dữ liệu KR
-/// đã quét là 1198×1024 (`FxDesktop/LobbySquare/MapObject_Img_BigTreeLeaf`); trần này chặn
-/// blob hỏng gây cấp phát bộ nhớ vô hạn.
+/// Trần cạnh ảnh — **giới hạn kỹ thuật tự đặt** (`design` / `design`), không phải luật
+/// chơi và không phải giới hạn của client gốc; chặn blob hỏng gây cấp phát bộ nhớ vô hạn.
+/// Số liệu KR đi kèm (`kr_static` / `confirmed`): cạnh lớn nhất đã quét là rộng 1198 px
+/// (`FxDesktop/LobbySquare/MapObject_Img_BigTreeLeaf`) và cao 1024 px
+/// (`FxStage/Game/GumihoInfectionBoosterEffect`). Nguồn: PACKS §Bộ giải mã Rust.
 pub const MAX_IMAGE_SIDE: u32 = 4096;
 
 /// Kích thước ảnh theo pixel.
@@ -51,6 +57,20 @@ pub const MAX_IMAGE_SIDE: u32 = 4096;
 pub struct Size {
     pub width: u32,
     pub height: u32,
+}
+
+/// Kích thước canvas của frame (`f8`, `f9`) — **giữ số có dấu nguyên như file**.
+///
+/// Layout frame là 12 × `i32` (MAPS §3), nên hai field này đọc bằng `i32` và không
+/// được ép về số không dấu lúc parse. Dữ liệu KR đã quét (474.120 frame của 4 pack:
+/// `fx`, `FxCharacter`, `FxTile`, `CharTE`) cho `f8` ∈ [1, 800], `f9` ∈ [1, 600] — chưa
+/// quan sát thấy giá trị âm, nhưng cũng chưa có bằng chứng rằng giá trị âm là bất
+/// hợp lệ; chuyển sang `Size` (không dấu) chỉ làm ở bước diễn giải có validate và
+/// bằng chứng.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CanvasSize {
+    pub width: i32,
+    pub height: i32,
 }
 
 /// Hình chữ nhật nguồn trong ảnh, theo thứ tự `(x0, y0, x1, y1)`.
@@ -83,7 +103,10 @@ pub struct Frame {
     /// `f4..f7` — rect nguồn `(x0, y0, x1, y1)` trong ảnh (MAPS §3; tin cậy cao).
     pub source: Rect,
     /// `f8, f9` — kích thước canvas `(width, height)` (MAPS §3; tin cậy trung bình).
-    pub canvas: Size,
+    ///
+    /// Giữ **số có dấu** nguyên như file; dấu chưa được xác nhận là không âm, nên
+    /// không suy diễn thành kích thước không dấu lúc parse.
+    pub canvas: CanvasSize,
     /// `f10, f11` — pivot `(x, y)` (MAPS §3; tin cậy trung bình).
     pub pivot: Point,
 }
@@ -242,9 +265,9 @@ pub fn parse(blob: &[u8]) -> Result<Sprite, SpriteError> {
                 x1: cursor.i32()?,
                 y1: cursor.i32()?,
             },
-            canvas: Size {
-                width: cursor.u32()?,
-                height: cursor.u32()?,
+            canvas: CanvasSize {
+                width: cursor.i32()?,
+                height: cursor.i32()?,
             },
             pivot: Point {
                 x: cursor.i32()?,
@@ -571,6 +594,40 @@ mod tests {
         blob
     }
 
+    /// Dựng blob sprite chỉ có frame (không có ảnh) từ các bộ 12 số `i32` theo đúng
+    /// thứ tự file `f0..f11`. Dùng để kiểm tra signedness của từng field frame.
+    fn frames_only_blob(frames: &[[i32; 12]]) -> Vec<u8> {
+        let mut blob = Vec::new();
+        blob.extend_from_slice(&(frames.len() as u32).to_le_bytes()); // n_frames
+        blob.extend_from_slice(&SPRITE_VERSION.to_le_bytes());
+        blob.extend_from_slice(&0u32.to_le_bytes()); // n_images
+        blob.extend_from_slice(&0u32.to_le_bytes()); // unk
+        for frame in frames {
+            for value in frame {
+                blob.extend_from_slice(&value.to_le_bytes());
+            }
+        }
+        blob
+    }
+
+    /// 12 số của một frame theo đúng thứ tự file (`f0..f11`).
+    fn raw_frame_values(frame: &Frame) -> [i32; 12] {
+        [
+            frame.offset_x,
+            frame.offset_y,
+            frame.flag,
+            frame.image_index,
+            frame.source.x0,
+            frame.source.y0,
+            frame.source.x1,
+            frame.source.y1,
+            frame.canvas.width,
+            frame.canvas.height,
+            frame.pivot.x,
+            frame.pivot.y,
+        ]
+    }
+
     /// RGBA kỳ vọng, lấy từ `i16.py` cho blob tổng hợp trên.
     const EXPECTED_0: [u8; 48] = [
         0x1e, 0x14, 0x0a, 0xff, 0x3c, 0x32, 0x28, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -616,7 +673,7 @@ mod tests {
                     x1: 4,
                     y1: 3
                 },
-                canvas: Size {
+                canvas: CanvasSize {
                     width: 5,
                     height: 9
                 },
@@ -625,6 +682,46 @@ mod tests {
         );
         assert_eq!(sprite.frames[2].image_index, 2);
         assert_eq!(sprite.frames[2].pivot, Point { x: 1, y: 2 });
+    }
+
+    /// Mọi field frame đọc bằng `i32` (layout 12 × i32, MAPS §3): số âm phải giữ nguyên
+    /// dấu, không được ép về số không dấu. Regression cho `f8`/`f9` (`CanvasSize`).
+    #[test]
+    fn keeps_every_frame_field_signed() {
+        // Frame lấy từ probe review: canvas `(-1, -2)` phải đọc ra đúng `-1, -2`,
+        // không phải `4294967295 × 4294967294`.
+        let frames = [
+            [0, 0, -1, -1, 0, 0, 0, 0, -1, -2, 0, 0],
+            [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12],
+        ];
+        let sprite = parse(&frames_only_blob(&frames)).expect("parse frame âm");
+
+        assert_eq!(sprite.frames.len(), 2);
+        for (index, expected) in frames.iter().enumerate() {
+            assert_eq!(
+                raw_frame_values(&sprite.frames[index]),
+                *expected,
+                "frame {index}: phải giữ nguyên 12 số có dấu"
+            );
+        }
+
+        let frame = sprite.frames[0];
+        assert_eq!(frame.flag, -1);
+        assert_eq!(frame.image_index, -1);
+        assert_eq!(
+            frame.canvas,
+            CanvasSize {
+                width: -1,
+                height: -2
+            }
+        );
+        assert_eq!(
+            sprite.frames[1].canvas,
+            CanvasSize {
+                width: -9,
+                height: -10
+            }
+        );
     }
 
     #[test]
@@ -905,7 +1002,7 @@ mod tests {
                     x1: 38,
                     y1: 43
                 },
-                canvas: Size {
+                canvas: CanvasSize {
                     width: 40,
                     height: 67
                 },
@@ -949,7 +1046,7 @@ mod tests {
             assert_eq!(frame.source.y1, sizes[index].1 as i32, "frame {index}");
             assert_eq!(
                 frame.canvas,
-                Size {
+                CanvasSize {
                     width: 56,
                     height: 67
                 },

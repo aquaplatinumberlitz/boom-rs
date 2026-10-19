@@ -73,23 +73,58 @@ RLE (`CWriteRLE` 0xA2AC00, color 0xA29F90, alpha 0xA2C970):
 
 `crates/boom-assets/src/sprite.rs` giải blob này (CLI `boom-assets sprite-info` /
 `sprite-png`). Viết lại từ mô tả format và tool tham chiếu `boom-re-l10n/tools/i16.py`,
-không copy code legacy. Chi tiết đã **xác nhận** (2026-10-19):
+không copy code legacy. Nhãn nguồn/trạng thái theo [AGENTS §4](../../../AGENTS.md#4-bằng-chứng).
 
-- Ảnh 24-bit BGR không alpha: byte đầu chỉ là marker, luồng màu bắt đầu ở byte 1.
-- Ảnh 24-bit BGR có alpha: byte đầu marker + `u32` offset alpha; luồng màu bắt đầu ở byte 5,
-  luồng alpha bắt đầu tại offset đó. Mỗi pixel của ảnh tiêu **một** giá trị alpha, kể cả
-  pixel thuộc run trong suốt của luồng màu.
-- Ảnh 16-bit RGB565: luồng màu bắt đầu ngay byte 0; màu `0xF81F` là pixel trong suốt.
-- Control byte có `run == 0` trong luồng alpha trả giá trị 0 (tức alpha 255) và đọc control
-  mới ở pixel kế tiếp. Luồng màu trong dữ liệu KR đã quét không có run rỗng.
-- Sau khi giải hết ảnh, phần màu luôn kết thúc đúng tại cuối ảnh (24-bit không alpha) hoặc
-  đúng tại offset alpha (24-bit có alpha); không có byte thừa.
-- Giới hạn kỹ thuật: cạnh ảnh không vượt 4096 (ảnh lớn nhất trong dữ liệu KR đã quét là
-  1198×1024) để blob hỏng không gây cấp phát bộ nhớ vô hạn.
+Mô tả format ở mục trên (`CDataI16Alpha__Load` 0xA3D850, `CWriteRLE` 0xA2AC00, `CDataI16Alpha`
+0xA29F90, alpha 0xA2C970) là phân tích tĩnh **client VN** → `vn_static` / `confirmed`; bộ giải
+mã Rust không kết luận mới về format. Dưới đây chỉ liệt kê **quan sát trên dữ liệu KR** và
+**giới hạn kỹ thuật tự đặt**, tách riêng.
 
-Đối chiếu: RGBA giải ra **khớp từng pixel** với `i16.py` trên `fx/Item/Bomb` và
-`FxCharacter/Character/C00-WalkDown_ALayerStatic`, và trên **374.719 ảnh** của 4 pack KR
-(`fx`, `FxCharacter`, `FxTile`, `CharTE`) — đủ cả ba chế độ màu. Lệnh so: xem PR task #33.
+#### Quan sát trên dữ liệu KR (`kr_static` / `confirmed`)
+
+Phạm vi đã quét (2026-10-19, build `KR-00967`, `/home/admin/boomkr-full`): 13 pack có sprite —
+`fx`, `FxCharacter`, `FxTile`, `CharTE`, `EmoTE`, `FxAsset`, `FxContents`, `FxDesktop`,
+`FxHiddenCatch`, `FxMap`, `FxMonster`, `FxStage` (`FxSound` không chứa sprite) — **48.898 sprite,
+444.181 ảnh** (409.539 ảnh có dữ liệu RLE, 34.642 ảnh rỗng `len == 0`), 563.285 frame.
+
+Cách đo, hai mức khác nhau:
+
+- **Mức header** (toàn bộ 444.181 ảnh): parse header + danh sách ảnh, khối RLE phải khớp đúng
+  cuối blob (giống `crates/boom-assets/src/sprite.rs`); đếm chế độ màu theo byte đầu, đo cạnh
+  ảnh.
+- **Mức RLE** (mẫu **37.646 ảnh**: mỗi entry thứ 10 của 4 pack `fx`, `FxCharacter`, `FxTile`,
+  `CharTE`): đọc bằng `boom-re-l10n/tools/i16.py`, kiểm vị trí con trỏ sau luồng màu.
+
+| Claim | Nguồn / trạng thái | Locator / cách đo |
+|---|---|---|
+| Frame 48 byte là **12 × `i32` có dấu**: `f0`/`f1`/`f2` có giá trị âm trong dữ liệu thật; `f8`,`f9` cũng đọc có dấu (chưa quan sát thấy giá trị âm, chưa có bằng chứng là bất hợp lệ) | `kr_static` / confirmed | 474.120 frame của 4 pack KR (`fx`, `FxCharacter`, `FxTile`, `CharTE`): `f0` ∈ [−165, 560] (254.624 âm), `f1` ∈ [−163, 599] (48.671 âm), `f2` ∈ [−1, 102.722.344] (443.493 âm), `f8` ∈ [1, 800], `f9` ∈ [1, 600]; bảng field ở [MAPS §3](MAPS.md) |
+| Ảnh 24-bit BGR không alpha: byte đầu chỉ là marker, luồng màu bắt đầu ở byte 1 | `kr_static` / confirmed | 41.615 ảnh có RLE; byte đầu `& 0xC1 == 0xC0` (mức header) |
+| Ảnh 24-bit BGR có alpha: byte đầu marker + `u32` offset alpha; luồng màu bắt đầu ở byte 5, luồng alpha bắt đầu tại offset đó | `kr_static` / confirmed | 6.812 ảnh; byte đầu `& 0xC1 == 0xC1` (mức header) |
+| Ảnh 16-bit RGB565: luồng màu bắt đầu ngay byte 0; màu `0xF81F` là pixel trong suốt | `kr_static` / confirmed | 361.112 ảnh; byte đầu còn lại (mức header) |
+| Mỗi pixel của ảnh tiêu **một** giá trị alpha, kể cả pixel thuộc run trong suốt của luồng màu | `kr_static` / confirmed | Mức RLE: số byte luồng alpha khớp số pixel; đối chiếu `i16.py` (mục dưới) |
+| Control byte có `run == 0` trong luồng alpha trả giá trị 0 (tức alpha 255) và đọc control mới ở pixel kế tiếp | `kr_static` / confirmed | Mức RLE: hành vi run rỗng ở luồng alpha theo `i16.py` |
+| Luồng màu trong mẫu ảnh KR đã quét không có run rỗng | `kr_static` / confirmed | Mức RLE: run rỗng ở luồng màu sẽ lệch vị trí con trỏ — mẫu 37.646 ảnh không có ca nào lệch |
+| Sau khi giải hết ảnh, phần màu kết thúc đúng tại cuối ảnh (24-bit không alpha) hoặc đúng tại offset alpha (24-bit có alpha); không có byte thừa | `kr_static` / confirmed | Mức RLE: vị trí con trỏ sau luồng màu khớp đúng cuối ảnh / offset alpha (37.646 ảnh, 0 sai) |
+| Cạnh ảnh lớn nhất đã quét: rộng **1198** px (`FxDesktop/LobbySquare/MapObject_Img_BigTreeLeaf`, 1198×548), cao **1024** px (`FxStage/Game/GumihoInfectionBoosterEffect`, 131×1024) | `kr_static` / confirmed | Mức header: danh sách kích thước ảnh của 13 pack KR |
+
+#### Giới hạn kỹ thuật tự đặt (`design` / `design`)
+
+| Mục | Nguồn / trạng thái | Ghi chú |
+|---|---|---|
+| `MAX_IMAGE_SIDE = 4096`: ảnh có cạnh vượt 4096 thì báo lỗi, không cấp phát bộ nhớ | `design` / design | Giới hạn của **bộ giải mã**, không phải quy tắc của client gốc; chọn để blob hỏng không gây cấp phát bộ nhớ vô hạn. Số liệu đi kèm là quan sát `kr_static` ở mục trên, không phải giới hạn do client đặt. Gặp asset vượt trần thì phải nâng và ghi lại nguồn. |
+
+#### Đối chiếu với tool tham chiếu — và giới hạn của phép đối chiếu
+
+RGBA giải ra **khớp từng pixel** với `i16.py` trên `fx/Item/Bomb` và
+`FxCharacter/Character/C00-WalkDown_ALayerStatic` (6 ảnh), và trên **374.719 ảnh có dữ liệu
+RLE** của 4 pack KR (`fx`, `FxCharacter`, `FxTile`, `CharTE`) — đủ cả ba chế độ màu. Lệnh so:
+xem PR task #33.
+
+Giới hạn của phép đối chiếu: `i16.py` là bộ giải mã tham chiếu viết lại từ disasm, **không
+phải** client gốc. Hai bộ giải mã khớp nhau chỉ chứng minh chúng đọc cùng một byte theo cùng
+cách, **không** chứng minh client gốc tiêu thụ `f0..f11` hay luồng alpha đúng như ta hiểu; task
+này không có trace runtime nào của client KR/VN cho sprite. Nghĩa field `f0..f11` vẫn ở mức
+bằng chứng của [MAPS §3](MAPS.md).
 
 ## Kết quả giải nén (`assets/`)
 
