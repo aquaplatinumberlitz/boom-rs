@@ -14,6 +14,14 @@ boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
 boom-sync = { path = "../boom-sync" }
 serde_json.workspace = true
+# Identity/persistence (ADR 0011 §3–§4, §10): driver SQLite đồng bộ (`bundled` ⇒ CI ba OS
+# không cần libsqlite3) và khóa instance độc quyền theo file (`boom-server.lock`).
+rusqlite.workspace = true
+fs4.workspace = true
+
+[dev-dependencies]
+# Test SQLite thật trên file tạm, không mock (ADR 0011 §10).
+tempfile.workspace = true
 
 [lints]
 workspace = true

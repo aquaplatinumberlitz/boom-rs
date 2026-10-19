@@ -13,6 +13,7 @@
 mod admin;
 mod authority;
 mod config;
+pub mod identity;
 mod input;
 mod observability;
 mod server;

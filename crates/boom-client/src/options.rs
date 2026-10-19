@@ -26,9 +26,12 @@
 //! Quy tắc nạp — **không bao giờ crash**:
 //!
 //! - Chưa có file → dùng mặc định ([`LoadStatus::Missing`]), không phải lỗi.
-//! - File hỏng (không phải TOML) hoặc sai `schema_version` → **toàn bộ** dùng mặc định
-//!   ([`LoadStatus::Defaults`]) + cảnh báo.
-//! - Thiếu trường / sai kiểu / giá trị ngoài miền → **riêng trường đó** dùng mặc định + cảnh báo.
+//! - File hỏng (không phải UTF-8, không phải TOML) hoặc sai `schema_version` → **toàn bộ** dùng
+//!   mặc định ([`LoadStatus::Defaults`]) + cảnh báo, **và** file cũ được giữ lại bằng cách đổi
+//!   tên thành `options.toml.broken` (ghi đè bản `.broken` cũ) rồi tạo lại file bằng giá trị
+//!   mặc định — đúng ADR 0011 §7 ("file hỏng … dùng mặc định và tạo lại file").
+//! - Thiếu trường / sai kiểu / giá trị ngoài miền → **riêng trường đó** dùng mặc định + cảnh báo;
+//!   file **không** bị đổi tên (hành vi giữ nguyên từ #69).
 //! - Bảng keybind là **ánh xạ hành động → phím** và phải là ánh xạ 1–1: không hành động nào
 //!   được dùng chung một phím. Bảng **hoán đổi/hoán vị** hợp lệ (ví dụ `up = "Down"`,
 //!   `down = "Up"` — đúng thứ `--rebind` ghi ra) được giữ nguyên; chỉ khi không gán được
@@ -53,6 +56,10 @@ pub const OPTIONS_PATH_ENV: &str = "BOOM_CLIENT_OPTIONS_PATH";
 
 /// Tên file options.
 pub const OPTIONS_FILE_NAME: &str = "options.toml";
+
+/// Hậu tố của bản `.broken` — bản sao file options hỏng, giữ lại để chẩn đoán
+/// (ADR 0011 §7). Chỉ giữ bản hỏng **gần nhất**: bản `.broken` cũ bị ghi đè.
+pub const BROKEN_FILE_SUFFIX: &str = ".broken";
 
 /// Thư mục con trong thư mục cấu hình của OS.
 const APP_DIR: &str = "boom-rs";
@@ -222,9 +229,13 @@ fn config_dir() -> Option<PathBuf> {
 ///
 /// Không bao giờ trả lỗi: mọi hợp đồng hỏng đều rơi về mặc định kèm cảnh báo, để client khởi
 /// động được với file options hỏng.
+///
+/// File **hỏng** (không phải UTF-8/TOML) hoặc **sai schema** (`schema_version` thiếu/sai) thì
+/// nội dung cũ được giữ lại ở `options.toml.broken` và file được tạo lại bằng giá trị mặc định
+/// (xem `recover_broken_file`). Lỗi ở **riêng trường** không làm file bị đổi tên.
 pub fn load(path: &Path) -> LoadedOptions {
-    let text = match std::fs::read_to_string(path) {
-        Ok(text) => text,
+    let bytes = match std::fs::read(path) {
+        Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return LoadedOptions {
                 options: ClientOptions::default(),
@@ -233,6 +244,7 @@ pub fn load(path: &Path) -> LoadedOptions {
             };
         }
         Err(error) => {
+            // Lỗi đọc (quyền, thư mục, …): không đụng tới file, chỉ báo và dùng mặc định.
             return LoadedOptions {
                 options: ClientOptions::default(),
                 status: LoadStatus::Defaults,
@@ -240,17 +252,87 @@ pub fn load(path: &Path) -> LoadedOptions {
             };
         }
     };
-    let table = match toml::from_str::<toml::Table>(&text) {
-        Ok(table) => table,
+    let text = match String::from_utf8(bytes) {
+        Ok(text) => text,
         Err(error) => {
+            let mut warnings = vec![format!("file options hỏng: không phải UTF-8 ({error})")];
+            warnings.extend(recover_broken_file(path));
             return LoadedOptions {
                 options: ClientOptions::default(),
                 status: LoadStatus::Defaults,
-                warnings: vec![format!("file options hỏng: {error}")],
+                warnings,
             };
         }
     };
-    from_table(&table)
+    let table = match toml::from_str::<toml::Table>(&text) {
+        Ok(table) => table,
+        Err(error) => {
+            let mut warnings = vec![format!("file options hỏng: {error}")];
+            warnings.extend(recover_broken_file(path));
+            return LoadedOptions {
+                options: ClientOptions::default(),
+                status: LoadStatus::Defaults,
+                warnings,
+            };
+        }
+    };
+    match from_table(&table) {
+        TableOutcome::Usable(options, warnings) => LoadedOptions {
+            options,
+            status: LoadStatus::Loaded,
+            warnings,
+        },
+        TableOutcome::Unusable(mut warnings) => {
+            warnings.extend(recover_broken_file(path));
+            LoadedOptions {
+                options: ClientOptions::default(),
+                status: LoadStatus::Defaults,
+                warnings,
+            }
+        }
+    }
+}
+
+/// Khôi phục sau file options hỏng: giữ bản cũ ở `<file>.broken` rồi tạo lại file mặc định.
+///
+/// - Bản cũ được **đổi tên** (giữ nguyên byte) thành `options.toml.broken`, **ghi đè** bản
+///   `.broken` cũ → chỉ giữ lại bản hỏng gần nhất để chẩn đoán.
+/// - File mới được ghi **atomic** bằng giá trị mặc định, nên lần nạp sau đọc lại được file sạch.
+/// - Hàm **không** panic: lỗi đổi tên/ghi chỉ được báo bằng cảnh báo. Nếu **không** đổi tên
+///   được thì file cũ **giữ nguyên** — không ghi đè dữ liệu người dùng khi chưa lưu được bản sao.
+///
+/// Trả về danh sách cảnh báo để client in ra (luôn có ít nhất một dòng: đã giữ bản cũ ở đâu,
+/// hoặc lý do không khôi phục được).
+fn recover_broken_file(path: &Path) -> Vec<String> {
+    let mut warnings = Vec::new();
+    let broken = broken_path(path);
+    if let Err(error) = std::fs::rename(path, &broken) {
+        warnings.push(format!(
+            "file options hỏng: không đổi tên được bản cũ thành {} ({error}); giữ nguyên file cũ",
+            broken.display()
+        ));
+        return warnings;
+    }
+    warnings.push(format!(
+        "file options hỏng: đã giữ bản cũ ở {}",
+        broken.display()
+    ));
+    match save(&ClientOptions::default(), path) {
+        Ok(()) => warnings.push("đã tạo lại file options với giá trị mặc định".to_owned()),
+        Err(error) => warnings.push(format!("không tạo lại được file options: {error}")),
+    }
+    warnings
+}
+
+/// Đường dẫn bản `.broken` ứng với một đường dẫn file options: thêm hậu tố `.broken` vào **tên
+/// file**, cùng thư mục (`options.toml` → `options.toml.broken`).
+pub fn broken_path(path: &Path) -> PathBuf {
+    let mut name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| OPTIONS_FILE_NAME.to_owned());
+    name.push_str(BROKEN_FILE_SUFFIX);
+    parent_dir(path).join(name)
 }
 
 /// Ghi options **atomic**: ghi file tạm cùng thư mục rồi đổi tên.
@@ -290,18 +372,22 @@ fn temp_path(path: &Path) -> PathBuf {
     parent_dir(path).join(format!(".{name}.tmp{}", std::process::id()))
 }
 
-fn from_table(table: &toml::Table) -> LoadedOptions {
+/// Kết quả phân tích bảng TOML của file options.
+enum TableOutcome {
+    /// File dùng được: giá trị đã chuẩn hoá + cảnh báo cho từng trường.
+    Usable(ClientOptions, Vec<String>),
+    /// File **không** dùng được (`schema_version` thiếu/sai) → toàn bộ dùng mặc định.
+    Unusable(Vec<String>),
+}
+
+fn from_table(table: &toml::Table) -> TableOutcome {
     let defaults = ClientOptions::default();
     let mut warnings: Vec<String> = Vec::new();
 
     match table.get("schema_version") {
         None => {
             warnings.push("thiếu `schema_version`: dùng mặc định cho toàn bộ file".to_owned());
-            return LoadedOptions {
-                options: defaults,
-                status: LoadStatus::Defaults,
-                warnings,
-            };
+            return TableOutcome::Unusable(warnings);
         }
         Some(value) => {
             let Some(version) = value.as_integer() else {
@@ -309,21 +395,13 @@ fn from_table(table: &toml::Table) -> LoadedOptions {
                     "`schema_version` không phải số nguyên: dùng mặc định cho toàn bộ file"
                         .to_owned(),
                 );
-                return LoadedOptions {
-                    options: defaults,
-                    status: LoadStatus::Defaults,
-                    warnings,
-                };
+                return TableOutcome::Unusable(warnings);
             };
             if version != i64::from(OPTIONS_SCHEMA) {
                 warnings.push(format!(
                     "`schema_version` = {version} khác {OPTIONS_SCHEMA}: dùng mặc định cho toàn bộ file"
                 ));
-                return LoadedOptions {
-                    options: defaults,
-                    status: LoadStatus::Defaults,
-                    warnings,
-                };
+                return TableOutcome::Unusable(warnings);
             }
         }
     }
@@ -349,11 +427,7 @@ fn from_table(table: &toml::Table) -> LoadedOptions {
         }
     }
 
-    LoadedOptions {
-        options,
-        status: LoadStatus::Loaded,
-        warnings,
-    }
+    TableOutcome::Usable(options, warnings)
 }
 
 fn read_volume(table: &toml::Table, key: &str, fallback: u8, warnings: &mut Vec<String>) -> u8 {
@@ -912,6 +986,189 @@ mod tests {
             loaded.warnings.iter().any(|w| w.contains("sfx_volume")),
             "cảnh báo: {:#?}",
             loaded.warnings
+        );
+    }
+
+    #[test]
+    fn per_field_error_does_not_quarantine_the_file() {
+        // Lỗi ở **riêng trường** giữ hành vi #69: chỉ trường đó về mặc định, file **không** bị
+        // đổi tên và không bị ghi lại.
+        let dir = TempDir::new("per-field");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let content = "schema_version = 1\nmaster_volume = 150\nbgm_volume = 30\n";
+        write_file(&path, content);
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Loaded);
+        assert_eq!(loaded.options.master_volume, VOLUME_MAX);
+        assert_eq!(loaded.options.bgm_volume, 30);
+        assert!(
+            !broken_path(&path).exists(),
+            "file hỏng từng trường không được đổi tên: {:#?}",
+            entries(dir.path())
+        );
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("đọc file options"),
+            content,
+            "nội dung file phải giữ nguyên"
+        );
+    }
+
+    #[test]
+    fn broken_file_is_quarantined_and_default_file_is_recreated() {
+        // ADR 0011 §7: file hỏng → giữ bản cũ ở `.broken`, tạo lại file bằng giá trị mặc định.
+        let dir = TempDir::new("broken");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let content = "schema_version = 1\nmaster_volume = \n[[[";
+        write_file(&path, content);
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Defaults);
+        assert_eq!(loaded.options, ClientOptions::default());
+        assert!(!loaded.warnings.is_empty(), "phải cảnh báo");
+
+        // Bản cũ nằm ở `.broken` với **nguyên** nội dung.
+        let broken = broken_path(&path);
+        assert_eq!(
+            std::fs::read_to_string(&broken).expect("đọc bản .broken"),
+            content
+        );
+        // File mới đọc lại được và bằng mặc định.
+        let again = load(&path);
+        assert_eq!(again.status, LoadStatus::Loaded);
+        assert_eq!(again.options, ClientOptions::default());
+        assert!(again.warnings.is_empty(), "cảnh báo: {:#?}", again.warnings);
+    }
+
+    #[test]
+    fn wrong_schema_version_is_quarantined_and_default_file_is_recreated() {
+        let dir = TempDir::new("broken-schema");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let content = "schema_version = 99\nmaster_volume = 10\n";
+        write_file(&path, content);
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Defaults);
+        assert_eq!(loaded.options, ClientOptions::default());
+        assert_eq!(
+            std::fs::read_to_string(broken_path(&path)).expect("đọc bản .broken"),
+            content
+        );
+        let again = load(&path);
+        assert_eq!(again.status, LoadStatus::Loaded);
+        assert_eq!(again.options, ClientOptions::default());
+    }
+
+    #[test]
+    fn missing_schema_version_is_quarantined_and_default_file_is_recreated() {
+        let dir = TempDir::new("broken-no-schema");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let content = "master_volume = 10\n";
+        write_file(&path, content);
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Defaults);
+        assert_eq!(loaded.options, ClientOptions::default());
+        assert_eq!(
+            std::fs::read_to_string(broken_path(&path)).expect("đọc bản .broken"),
+            content
+        );
+        assert_eq!(load(&path).status, LoadStatus::Loaded);
+    }
+
+    #[test]
+    fn non_utf8_file_is_quarantined() {
+        let dir = TempDir::new("broken-utf8");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        std::fs::write(&path, [0xff, 0xfe, 0x00]).expect("ghi file test");
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Defaults);
+        assert_eq!(loaded.options, ClientOptions::default());
+        assert!(broken_path(&path).is_file(), "phải giữ bản .broken");
+        assert_eq!(load(&path).status, LoadStatus::Loaded);
+    }
+
+    #[test]
+    fn old_broken_file_is_overwritten_by_the_new_one() {
+        // Chỉ giữ bản hỏng **gần nhất**: bản `.broken` cũ bị ghi đè.
+        let dir = TempDir::new("broken-overwrite");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let broken = broken_path(&path);
+        write_file(&broken, "bản .broken cũ");
+        let content = "schema_version = 1\nmaster_volume = \n[[[";
+        write_file(&path, content);
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Defaults);
+        assert_eq!(
+            std::fs::read_to_string(&broken).expect("đọc bản .broken"),
+            content,
+            "bản .broken cũ phải bị ghi đè bằng bản hỏng mới"
+        );
+    }
+
+    #[test]
+    fn failed_rewrite_keeps_broken_copy_and_does_not_panic() {
+        // Chặn file tạm của ghi atomic bằng một thư mục ⇒ ghi lại thất bại. Lúc đó client
+        // không được crash: bản `.broken` vẫn giữ nội dung cũ và chỉ có cảnh báo.
+        let dir = TempDir::new("broken-write-fail");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let content = "schema_version = 1\nmaster_volume = \n[[[";
+        write_file(&path, content);
+        std::fs::create_dir_all(temp_path(&path)).expect("tạo thư mục chặn file tạm");
+
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Defaults);
+        assert_eq!(loaded.options, ClientOptions::default());
+        assert!(
+            loaded
+                .warnings
+                .iter()
+                .any(|w| w.contains("không tạo lại được file options")),
+            "cảnh báo: {:#?}",
+            loaded.warnings
+        );
+        assert_eq!(
+            std::fs::read_to_string(broken_path(&path)).expect("đọc bản .broken"),
+            content,
+            "bản .broken phải giữ nội dung cũ"
+        );
+    }
+
+    #[test]
+    fn failed_quarantine_keeps_old_file_and_does_not_panic() {
+        // `options.toml.broken` là một thư mục ⇒ không đổi tên được. File cũ phải **giữ nguyên**
+        // (không ghi đè dữ liệu người dùng khi chưa lưu được bản sao) và chỉ có cảnh báo.
+        let dir = TempDir::new("broken-rename-fail");
+        let path = dir.file(OPTIONS_FILE_NAME);
+        let content = "schema_version = 1\nmaster_volume = \n[[[";
+        write_file(&path, content);
+        std::fs::create_dir_all(broken_path(&path)).expect("tạo thư mục chặn bản .broken");
+
+        let loaded = load(&path);
+        assert_eq!(loaded.status, LoadStatus::Defaults);
+        assert_eq!(loaded.options, ClientOptions::default());
+        assert!(
+            loaded
+                .warnings
+                .iter()
+                .any(|w| w.contains("không đổi tên được bản cũ")),
+            "cảnh báo: {:#?}",
+            loaded.warnings
+        );
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("đọc file options"),
+            content,
+            "file cũ phải giữ nguyên"
+        );
+    }
+
+    #[test]
+    fn broken_path_appends_suffix_to_file_name() {
+        let path = PathBuf::from("/tmp/boom-client-options/options.toml");
+        assert_eq!(
+            broken_path(&path),
+            PathBuf::from("/tmp/boom-client-options/options.toml.broken")
+        );
+        // Đường dẫn không có tên file vẫn ra một tên hợp lệ.
+        assert_eq!(
+            broken_path(Path::new("options.toml")),
+            PathBuf::from("./options.toml.broken")
         );
     }
 

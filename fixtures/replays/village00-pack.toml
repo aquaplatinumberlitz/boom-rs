@@ -1,0 +1,31 @@
+# Replay map thật Village00 KR từ pack; CI không có pack nên verify bỏ qua với thông báo.
+# Chạy tay: BOOM_KR_PACK=/home/admin/boomkr-full cargo run -p boom-replay -- verify <file>.
+# Map pack được phân loại bằng data/maps/village00-kr.toml (R-002…R-007); content hash chốt
+# đúng Terrain sau phân loại, không phụ thuộc đường dẫn pack.
+schema = 1
+hash_algo = "fnv1a64-v0"
+content_sha256 = "20bda34f6cc31800fb947a1013c12937404dcfe93a84feeb06068978d6597a39"
+ticks = 10
+checkpoints = [1, 10]
+rules = "../rules/skeleton-test.toml"
+profile_hash = "0x3faa77e6b1c76c15"
+mode = "battle_ffa"
+seed = 7
+
+[map_pack]
+env = "BOOM_KR_PACK"
+entry = "Map/Village00"
+build = "kr"
+profile = "../../data/maps/village00-kr.toml"
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
