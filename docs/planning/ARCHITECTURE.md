@@ -21,6 +21,7 @@ boom-rs/
     boom-content/   # [có] schema rules profile + map runtime; nạp/validate TOML
     boom-assets/    # [có] đọc định dạng legacy (.map) → schema content; CLI
     boom-replay/    # [có] CLI chạy/kiểm replay, so hash checkpoint
+    boom-scenario/  # [có] định dạng dựng trận chung + harness boundary scenario
     boom-proto/     # [dự kiến P7] envelope + DTO giao thức mới, không chứa luật
     boom-net/       # [dự kiến P7] trait transport, framing, session (ADR 0006)
     boom-room/      # [dự kiến P7] máy trạng thái phòng/vòng đời thuần (SCOPE_V1 §3)
@@ -30,6 +31,7 @@ boom-rs/
   data/rules/                           # rules profile có provenance (TOML)
   data/overlays/, data/items/, data/events/  # [dự kiến] overlay luật, hiệu ứng item, liveops (ADR 0008)
   fixtures/replays/                     # replay + hash golden, chạy trên CI ba OS
+  fixtures/scenarios/<system>/          # boundary scenario theo system (active/pending)
   .github/workflows/ci.yml              # CI ba OS (cần remote để chạy)
 ```
 
@@ -42,7 +44,8 @@ Dependency (mũi tên = phụ thuộc vào):
 boom-content → (serde, toml)              # không phụ thuộc core/client/server
 boom-core    → boom-content
 boom-assets  → boom-content
-boom-replay  → boom-core, boom-content
+boom-scenario → boom-core, boom-content
+boom-replay  → boom-core, boom-content, boom-scenario
 boom-proto   → boom-content (ID/schema identity)
 boom-net     → boom-proto
 boom-room    → boom-content
@@ -90,7 +93,8 @@ input đã chấp nhận ─▶ Mode.systems() theo thứ tự ─▶ Simulation
   (`clippy::float_arithmetic` deny), không `HashMap/HashSet`, `Instant`, `SystemTime`
   (`crates/boom-core/clippy.toml`), không IO/socket/wall clock/render/audio.
 - Mọi giá trị luật lấy từ rules profile; code core không chứa hằng số luật chơi.
-- `cargo xtask ci` = fmt check + clippy `-D warnings` + test + kiểm replay golden + docs check.
+- `cargo xtask ci` = fmt check + clippy `-D warnings` + test (gồm mọi scenario) + kiểm replay golden + docs check.
+- Mọi thay đổi vào `main` qua pull request; CI ba OS phải xanh (TEAM_WORKFLOW §5).
 
 ## 4. Rules profile, content và mô hình thời gian
 
@@ -113,26 +117,71 @@ với loại ô đã biết. Đọc `.map` legacy hỗ trợ cả header VN (spa
 Thời gian: fixed step, `sim.ticks_per_second` từ profile; tọa độ `Mpx` (1/1000 px); ms → tick làm tròn lên
 một lần khi nạp (ADR 0004). Hiệu chuẩn tick gốc và speed-level còn mở (Q-004, Q-005).
 
-## 5. Contracts — `contracts-r0` (vocabulary) → r1 trong START-C
+## 5. Contracts — `contracts-r1`
 
-Skeleton hiện có trong `boom-core`: `Tick`, `Mpx`, `Dir`, `PlayerInput`, `SimulationState::{new_round, step, hash}`,
-`Mode`/`FfaBattle`, `System`, `SimulationEvent`/`EventId`, `Rng`. Các contract dưới đây là đích của START-C; mỗi task phụ thuộc ghi revision.
+Revision **`contracts-r1`**, 2026-10-19, **chờ review** của core + net + QA (task review trên GitHub).
+Code là nguồn chuẩn của kiểu dữ liệu; mục này giữ quy tắc. Worker có thể bắt đầu theo r1; review
+đổi gì thì integrator ra r2 và báo các task bị ảnh hưởng.
+
+### 5.1 Kiểu trong `boom-core`
+
+| Contract | Nơi định nghĩa | Ghi chú |
+|---|---|---|
+| `PlayerInput { dir, place_bomb }` | `sim.rs` | Input **đã được authority chấp nhận** cho một tick; `place_bomb` là cạnh nhấn, không phải giữ |
+| `PlayerSetup { id, stats: CharacterStats }` | `sim.rs`, `state/player.rs` | `Stat { value, max }` cho speed/bombs/range, lấy từ BomberAttr qua content |
+| `SimulationState` | `state/mod.rs` | `tick, phase, rng, ids, players, field, bombs, flames, items`; mỗi phần tự hash trong file của nó |
+| `EntityId`, `IdAllocator` | `state/mod.rs` | ID bom/item cấp tăng dần từ 1 trong lượt; chỉ cấp qua `ids.next_id()` |
+| `Player`, `Life`, `Stat` | `state/player.rs` | `Life::Trapped { since }` vẫn tính là chưa chết |
+| `Field` | `state/field.rs` | Loại ô đổi được trong lượt + item giấu trong khối mềm |
+| `Bomb { id, owner, cell, range, explodes_at, grace }` | `state/bomb.rs` | Tầm chụp lúc đặt (R-032); `grace` = người được phép đi ra khỏi bom |
+| `Flame { cell, until, source, owner }` | `state/flame.rs` | `until` là tick cuối còn lửa (bao gồm); mỗi ô một flame |
+| `FloorItem`, `ItemKind` | `state/item.rs` | `ItemKind(i)` = chỉ số trong `Rules::items` (V1: Bomb, Fire, Roller) |
+| `Rules` | `rules.rs` | Mọi giá trị luật V1, đổi từ profile; thêm rule mới qua integrator |
+| `EventKind` (10 loại V1) | `event.rs` | `name()` + `fields()` là encoding chung cho digest, scenario, log |
+| `Mode`, `System` | `mode.rs`, `system.rs` | `System::on_round_start` cho việc đầu lượt (giấu item) |
+
+`SimulationState::check_invariants()` kiểm bất biến của contract (thứ tự danh sách, một bom/item/flame
+mỗi ô, ID do allocator cấp, chỉ số không vượt trần, item giấu chỉ trong khối mềm). Harness scenario và
+replay gọi nó sau mỗi tick; system vi phạm sẽ bị bắt ngay ở tick gây lỗi.
+
+### 5.2 Thứ tự trong một tick (pipeline FFA)
+
+`movement → bomb_place → explosion → blocks → pickup → life`, rồi `tick += 1`, rồi `Mode::outcome`.
+Đầu lượt: lưới từ địa hình → hoán vị spawn theo seed → `on_round_start` từng system theo thứ tự trên.
+RNG được dùng đúng theo thứ tự này. Đổi thứ tự là đổi luật: chỉ integrator, kèm scenario và bless golden.
+
+Hệ quả đã chốt: bom đặt trong step N nằm ở ô người chơi **sau khi** di chuyển của step N; bom có
+`explodes_at = N` nổ trong step N; lửa sinh trong step N phá khối, nhốt người ngay trong step N;
+kết quả lượt xét sau khi mọi system đã chạy. Còn mở (quyết trong task tương ứng, ghi vào RULES_V1):
+lửa có phá item đang nằm trên nền không; nhặt item khi đã chạm trần thì item mất hay ở lại.
+
+### 5.3 Ma trận quyền ghi
+
+Bảng chi tiết ở đầu `crates/boom-core/src/systems/mod.rs`. Tóm tắt: mỗi field công khai chỉ có một
+system được ghi (movement → vị trí/hướng và xóa `grace`; bomb_place → thêm bom; explosion → xóa bom, lửa;
+blocks → lưới, item lộ/bị phá; pickup → xóa item, chỉ số; life → `Player.life`). Đọc thì tự do.
+Cần ghi field của system khác → mở issue cho integrator, không sửa thẳng.
+
+### 5.4 Contract mạng và replay (chưa có code)
 
 | Contract | Nội dung tối thiểu | Bất biến cần review |
 |---|---|---|
-| `InputCommand` | round ID, player ID do server bind, sequence, tick dự định, hướng giữ, cạnh nhấn bom, ack snapshot | Không gửi tọa độ/kết quả; dedup theo sequence; cửa sổ input hữu hạn (ADR 0006) |
-| `SimulationState` | tick, phase lượt, entity ID ổn định, player/bomb/flame/item/block, timer, RNG, bộ đếm cấp ID | Đủ để chạy tiếp; thứ tự duyệt và làm tròn xác định; không chứa audio/GPU/socket |
-| `SimulationEvent` | round ID, tick, event ID ổn định, loại, entity ID, payload trình diễn | Một nguyên nhân không sinh hiệu ứng hai lần khi replay/reconcile |
-| `Snapshot` | schema revision, rules/content hash, round/tick, state DTO, input ack | Bản đầy đủ khôi phục được state; delta chỉ thêm sau khi có baseline/resync |
-| `ReplayHeader` | schema, profile ID + hash, map, seed, roster/spawn, `hash_algo` | Từ chối revision/profile không khớp thay vì phát lại sai |
+| `InputCommand` | round ID, player ID do server bind, sequence, tick dự định, hướng giữ, cạnh nhấn bom, ack snapshot | Không gửi tọa độ/kết quả; dedup theo sequence; cửa sổ input hữu hạn (ADR 0006). Authority đổi thành `PlayerInput` |
+| `Snapshot` | schema revision, rules/content hash, round/tick, state DTO, input ack | Bản đầy đủ khôi phục được `SimulationState`; delta chỉ thêm sau khi có baseline/resync |
+| `ReplayHeader` | schema, profile ID + hash, mode, map, seed, roster/spawn, `hash_algo` | Từ chối revision/profile không khớp. Bản file hiện tại: `boom-replay` schema 1 |
 | `ReplayRecord` | tick, input được server áp dụng (kể cả neutral), checkpoint hash | Ghi input thực được áp dụng; không dựa wall clock |
-
-Thứ tự trong một tick (dự kiến, cần boundary scenario trước khi code từng phần):
-chọn input hợp lệ/neutral → di chuyển/va chạm → đặt bom → timer bom/nổ/chain → vỡ gạch/lộ item →
-nhặt item → nhốt/chết → xét kết quả → hash/event. Thứ tự pickup vs. lửa vs. chain chưa quyết.
+| Event ra ngoài | `round_id` + `EventId` + `name` + `fields` | Consumer dedup theo `(round_id, EventId)` |
 
 Lệnh phòng tin cậy (`ready/start/leave`) tách khỏi input trận tần suất cao; cả hai có identity/dedup,
 chính sách hết hạn khác nhau. Policy phòng/start/disconnect lấy từ SCOPE_V1.
+
+### 5.5 Boundary scenario
+
+Kịch bản nghiệm thu ở `fixtures/scenarios/<system>/*.toml`, chạy bằng `cargo test -p boom-scenario`
+(định dạng ở `crates/boom-scenario/src/scenario.rs`). `active` phải qua; `pending` là acceptance khởi điểm
+cho feature chưa làm. Scenario dựng sẵn được bom/item/lửa/item giấu, nên mỗi system test độc lập với
+system khác. Worker nhận feature chuyển scenario của mình sang `active`, thêm ca biên, và reviewer
+kiểm scenario đối chiếu RULES_V1 chứ không chỉ đối chiếu code.
 
 ## 6. Authority, prediction và side effect
 

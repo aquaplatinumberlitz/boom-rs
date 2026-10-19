@@ -1,0 +1,25 @@
+name = "Khối mềm chặn như khối cứng"
+features = ["V1-012"]
+status = "active"
+ticks = 50
+map = [
+    "#####",
+    "#0+.#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 50
+player = 0
+pos_mpx = [60000, 60000]

@@ -1,0 +1,50 @@
+name = "Hai người tới cùng item: chỉ một người nhận"
+features = ["V1-017"]
+status = "pending"
+ticks = 25
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [3, 1]
+
+[[item]]
+cell = [2, 1]
+kind = "Bomb"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 0
+player = 1
+dir = "left"
+
+[[expect]]
+tick = 25
+item_count = 0
+
+[[expect]]
+tick = 25
+player = 0
+bombs = 2
+
+[[expect]]
+tick = 25
+player = 1
+bombs = 1

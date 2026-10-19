@@ -1,0 +1,33 @@
+name = "Nhặt Bomb tăng bombs một cấp"
+features = ["V1-017", "V1-016"]
+status = "pending"
+ticks = 20
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[item]]
+cell = [2, 1]
+kind = "Bomb"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 20
+player = 0
+bombs = 2
+
+[[expect]]
+tick = 20
+item_count = 0

@@ -1,10 +1,10 @@
 # Hai người đi vòng quanh cột, chạm tường, rẽ; hết giờ là hòa (FFA, SCOPE_V1 §4).
 # Golden kiểm determinism trên ba OS; đây là regression baseline, không phải oracle bản gốc.
-schema = 0
+schema = 1
 hash_algo = "fnv1a64-v0"
 mode = "battle_ffa"
 rules = "../rules/skeleton-test.toml"
-profile_hash = "0xbbab164410c6f084"
+profile_hash = "0x3faa77e6b1c76c15"
 seed = 7
 ticks = 7300
 checkpoints = [1, 60, 300, 1200, 7199]
@@ -20,11 +20,15 @@ map = [
 
 [[player]]
 id = 0
-speed_level = 5
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
 
 [[player]]
 id = 1
-speed_level = 4
+speed = [4, 8]
+bombs = [2, 7]
+range = [1, 9]
 
 [[input]]
 tick = 0

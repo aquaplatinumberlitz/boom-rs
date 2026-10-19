@@ -58,13 +58,6 @@ source = "design"
 status = "design"
 claims = ["R-023"]
 
-[bomb.initial_range]
-value = 1
-unit = "cell"
-source = "vn_runtime"
-status = "confirmed"
-claims = ["R-025"]
-
 [item.fire_range_delta]
 value = 1
 unit = "cell"

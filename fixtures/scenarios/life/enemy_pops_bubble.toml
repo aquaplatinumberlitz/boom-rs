@@ -1,0 +1,38 @@
+name = "Địch chạm người bị nhốt thì người đó chết, địch thắng"
+features = ["V1-020", "V1-021"]
+claims = ["R-028"]
+status = "pending"
+ticks = 20
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+life = "trapped"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 10
+event = "player_died"
+where = { player = 1, by = 0 }
+count = 1
+
+[end]
+outcome = "winner:0"

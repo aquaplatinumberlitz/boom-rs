@@ -1,0 +1,28 @@
+name = "Người bị nhốt vẫn tính là chưa chết"
+features = ["V1-021"]
+status = "active"
+ticks = 5
+map = [
+    "#0.1#",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+life = "trapped"
+
+[[expect]]
+tick = 5
+event = "round_ended"
+count = 0
+
+[end]
+outcome = "playing"

@@ -1,0 +1,31 @@
+name = "Đứng trong lửa thì bị nhốt, chưa chết"
+features = ["V1-020"]
+status = "pending"
+ticks = 2
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[flame]]
+cell = [1, 1]
+ticks = 5
+owner = 0
+
+[[expect]]
+tick = 1
+event = "player_trapped"
+where = { player = 0, by = 0 }
+count = 1
+
+[[expect]]
+tick = 2
+player = 0
+life = "trapped"

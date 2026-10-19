@@ -1,5 +1,6 @@
-# Profile cố định cho replay golden của skeleton. Không sửa khi chỉnh profile dev;
-# đổi file này nghĩa là đổi định danh profile và phải bless lại golden (cargo xtask bless).
+# Profile cố định cho test, scenario và replay golden. Không sửa khi chỉnh profile dev;
+# đổi file này nghĩa là đổi định danh profile: cập nhật `profile_hash` của replay và bless golden.
+# Giá trị bám theo data/rules/v1-dev.toml tại thời điểm tạo, mọi rule ghi `design` cho test.
 schema = 1
 profile_id = "skeleton-test"
 release = false
@@ -13,19 +14,77 @@ status = "design"
 [grid.tile_px]
 value = 40
 unit = "px"
-source = "vn_static"
-status = "confirmed"
-claims = ["R-001"]
+source = "design"
+status = "design"
 
 [round.duration_ms]
 value = 120000
 unit = "ms"
-source = "vn_runtime"
-status = "confirmed"
-claims = ["R-010"]
+source = "design"
+status = "design"
 
 [player.speed_px_per_s_per_level]
 value = 24
 unit = "px/s"
+source = "design"
+status = "design"
+
+[player.trap_to_death_ms]
+value = 6300
+unit = "ms"
+source = "design"
+status = "design"
+
+[bomb.fuse_ms]
+value = 2500
+unit = "ms"
+source = "design"
+status = "design"
+
+[bomb.flame_ms]
+value = 500
+unit = "ms"
+source = "design"
+status = "design"
+
+[item.bomb_capacity_delta]
+value = 1
+unit = "bomb"
+source = "design"
+status = "design"
+
+[item.fire_range_delta]
+value = 1
+unit = "cell"
+source = "design"
+status = "design"
+
+[item.roller_speed_delta]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[drop.brick_item_chance]
+value = 350
+unit = "permille"
+source = "design"
+status = "design"
+
+[drop.weight_bomb]
+value = 3650
+unit = "weight"
+source = "design"
+status = "design"
+
+[drop.weight_fire]
+value = 2800
+unit = "weight"
+source = "design"
+status = "design"
+
+[drop.weight_roller]
+value = 2000
+unit = "weight"
 source = "design"
 status = "design"

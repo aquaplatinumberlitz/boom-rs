@@ -1,0 +1,51 @@
+name = "Lửa chạm bom khác thì bom đó nổ ngay, một lần"
+features = ["V1-015"]
+status = "pending"
+ticks = 12
+map = [
+    "#######",
+    "#.....#",
+    "#.#...#",
+    "#.....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [5, 3]
+
+[[bomb]]
+cell = [1, 1]
+owner = 0
+range = 2
+fuse = 10
+
+[[bomb]]
+cell = [3, 1]
+owner = 0
+range = 1
+fuse = 1000
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 1, y = 1, chained = 0 }
+count = 1
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 3, y = 1, chained = 1 }
+count = 1
+
+[[expect]]
+tick = 11
+bomb_count = 0
+
+[[expect]]
+tick = 12
+event = "bomb_exploded"
+count = 0

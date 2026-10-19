@@ -5,6 +5,7 @@ members = [
     "crates/boom-content",
     "crates/boom-assets",
     "crates/boom-replay",
+    "crates/boom-scenario",
     "xtask",
 ]
 
@@ -18,6 +19,7 @@ publish = false
 boom-core = { path = "crates/boom-core" }
 boom-content = { path = "crates/boom-content" }
 boom-assets = { path = "crates/boom-assets" }
+boom-scenario = { path = "crates/boom-scenario" }
 serde = { version = "1", features = ["derive"] }
 toml = "1"
 

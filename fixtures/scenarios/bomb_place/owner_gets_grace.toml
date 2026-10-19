@@ -1,0 +1,32 @@
+name = "Người đặt bom được đi ra khỏi bom vừa đặt"
+features = ["V1-012", "V1-013"]
+status = "pending"
+ticks = 41
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+bomb = true
+dir = "right"
+
+# Bom đặt trong step 0 sau khi di chuyển (pipeline movement → bomb_place), ở ô (1,1).
+[[expect]]
+tick = 41
+player = 0
+cell = [3, 1]
+
+[[expect]]
+tick = 41
+at = [1, 1]
+bomb = true

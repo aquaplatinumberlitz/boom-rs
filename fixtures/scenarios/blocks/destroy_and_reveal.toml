@@ -1,0 +1,54 @@
+name = "Lửa dừng ở khối mềm, phá nó một lần và lộ item giấu"
+features = ["V1-014", "V1-016"]
+claims = ["R-050"]
+status = "pending"
+ticks = 41
+map = [
+    "#######",
+    "#..+..#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [5, 1]
+
+[[bomb]]
+cell = [1, 1]
+owner = 0
+range = 4
+fuse = 10
+
+[[hidden]]
+cell = [3, 1]
+kind = "Fire"
+
+[[expect]]
+tick = 11
+event = "block_destroyed"
+where = { x = 3, y = 1 }
+count = 1
+
+[[expect]]
+tick = 11
+event = "item_revealed"
+where = { x = 3, y = 1, kind = 1 }
+count = 1
+
+[[expect]]
+tick = 11
+at = [3, 1]
+kind = "floor"
+
+[[expect]]
+tick = 11
+at = [4, 1]
+flame = false
+
+[[expect]]
+tick = 41
+at = [3, 1]
+item = "Fire"

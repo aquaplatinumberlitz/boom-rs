@@ -1,0 +1,75 @@
+# Bom có explodes_at = 10 nổ trong tick thứ 11 (EventId.tick = 10).
+# Tầm 2 từ (3,1): trái (2,1)(1,1); phải (4,1)(5,1); trên là tường; dưới (3,2)(3,3).
+name = "Nổ đúng tick, lửa lan theo tầm và dừng ở khối cứng"
+features = ["V1-014"]
+status = "pending"
+ticks = 11
+map = [
+    "#######",
+    "#.....#",
+    "#.#...#",
+    "#.....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [5, 3]
+
+[[bomb]]
+cell = [3, 1]
+owner = 0
+range = 2
+fuse = 10
+
+[[expect]]
+tick = 10
+bomb_count = 1
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 3, y = 1, chained = 0 }
+count = 1
+
+[[expect]]
+tick = 11
+bomb_count = 0
+
+[[expect]]
+tick = 11
+at = [3, 1]
+flame = true
+
+[[expect]]
+tick = 11
+at = [1, 1]
+flame = true
+
+[[expect]]
+tick = 11
+at = [5, 1]
+flame = true
+
+[[expect]]
+tick = 11
+at = [6, 1]
+flame = false
+
+[[expect]]
+tick = 11
+at = [3, 3]
+flame = true
+
+[[expect]]
+tick = 11
+at = [3, 0]
+flame = false
+
+[[expect]]
+tick = 11
+at = [2, 2]
+flame = false

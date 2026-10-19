@@ -1,9 +1,9 @@
-# boom-replay golden v0 fnv1a64-v0 profile skeleton-test mode battle_ffa
-tick 1 state 0x56e29641f1bb2ca6
-tick 60 state 0xedce1fb809062eeb
-tick 300 state 0xa991a2c413b41ff2
-tick 1200 state 0x39b819884fc2c782
-tick 7199 state 0xc995cd2e87aa0313
-final tick 7200 state 0xa93cbce8d896aa6d
-events 7 digest 0xe3ab05e3efef0a4f
+# boom-replay golden v1 fnv1a64-v0 profile skeleton-test mode battle_ffa
+tick 1 state 0x99851faa17b8de56
+tick 60 state 0xc4daddb494e21cf1
+tick 300 state 0x8319204dff082cdc
+tick 1200 state 0x2048aaa32a41e116
+tick 7199 state 0x2751bcedf831dc3b
+final tick 7200 state 0x6c2e67309537337d
+events 7 digest 0x10de523125bfcbba
 outcome draw

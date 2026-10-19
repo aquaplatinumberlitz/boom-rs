@@ -1,0 +1,36 @@
+name = "Nhấn đặt bom tạo một bom ở ô đang đứng, tầm theo chỉ số lúc đặt"
+features = ["V1-013"]
+claims = ["R-032"]
+status = "pending"
+ticks = 2
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [2, 7]
+
+[[input]]
+tick = 0
+player = 0
+bomb = true
+
+[[expect]]
+tick = 1
+event = "bomb_placed"
+where = { player = 0, x = 1, y = 1, range = 2 }
+count = 1
+
+[[expect]]
+tick = 1
+at = [1, 1]
+bomb = true
+
+[[expect]]
+tick = 2
+bomb_count = 1

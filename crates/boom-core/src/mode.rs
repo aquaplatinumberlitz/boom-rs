@@ -1,8 +1,9 @@
 use std::fmt;
 
-use crate::sim::{SimulationState, World};
+use crate::sim::World;
+use crate::state::SimulationState;
 use crate::system::System;
-use crate::systems::MOVEMENT;
+use crate::systems::{BLOCKS, BOMB_PLACE, EXPLOSION, LIFE, MOVEMENT, PICKUP};
 
 /// Kết quả lượt do authority quyết một lần (SCOPE_V1 §4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,11 +33,15 @@ impl fmt::Debug for dyn Mode {
     }
 }
 
-/// Battle cá nhân V1: người cuối cùng chưa chết thắng; không còn ai hoặc hết giờ là hòa.
+/// Battle cá nhân V1 (V1-021): người cuối cùng chưa chết thắng; không còn ai hoặc hết giờ là hòa.
+/// Người đang bị nhốt vẫn tính là chưa chết.
 #[derive(Debug)]
 pub struct FfaBattle;
 
-static FFA_SYSTEMS: [&dyn System; 1] = [&MOVEMENT];
+/// Thứ tự trong một tick (contracts-r1, ARCHITECTURE §5). Thứ tự là luật: đổi phải qua integrator,
+/// có boundary scenario và bless golden.
+static FFA_SYSTEMS: [&dyn System; 6] =
+    [&MOVEMENT, &BOMB_PLACE, &EXPLOSION, &BLOCKS, &PICKUP, &LIFE];
 
 impl Mode for FfaBattle {
     fn id(&self) -> &'static str {
@@ -48,7 +53,7 @@ impl Mode for FfaBattle {
     }
 
     fn outcome(&self, world: &World, state: &SimulationState) -> Option<Outcome> {
-        let mut alive = state.players.iter().filter(|p| p.alive);
+        let mut alive = state.players.iter().filter(|p| !p.is_dead());
         let first = alive.next();
         let more = alive.next().is_some();
         match (first, more) {

@@ -1,0 +1,31 @@
+name = "Đổi hướng phát player_turned một lần"
+features = ["V1-011"]
+status = "active"
+ticks = 3
+map = [
+    "#####",
+    "#0..#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 1
+event = "player_turned"
+where = { player = 0 }
+count = 1
+
+[[expect]]
+tick = 2
+event = "player_turned"
+count = 0

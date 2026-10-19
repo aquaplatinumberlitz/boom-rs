@@ -30,6 +30,16 @@ version = "0.0.0"
 dependencies = [
  "boom-content",
  "boom-core",
+ "boom-scenario",
+ "serde",
+]
+
+[[package]]
+name = "boom-scenario"
+version = "0.0.0"
+dependencies = [
+ "boom-content",
+ "boom-core",
  "serde",
  "toml",
 ]

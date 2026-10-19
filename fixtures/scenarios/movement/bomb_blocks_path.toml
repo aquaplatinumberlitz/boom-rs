@@ -1,0 +1,31 @@
+name = "Bom chặn đường người không có grace"
+features = ["V1-012"]
+status = "pending"
+ticks = 60
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[bomb]]
+cell = [3, 1]
+owner = 0
+range = 1
+fuse = 1000
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 60
+player = 0
+pos_mpx = [100000, 60000]

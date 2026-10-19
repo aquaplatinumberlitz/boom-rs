@@ -1,0 +1,29 @@
+name = "Hết giờ còn nhiều người sống là hòa"
+features = ["V1-021"]
+claims = ["R-010"]
+status = "active"
+ticks = 7300
+map = [
+    "#0.1#",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[expect]]
+tick = 7200
+event = "round_ended"
+where = { winner = -1 }
+count = 1
+
+[end]
+outcome = "draw"

@@ -9,8 +9,8 @@ publish.workspace = true
 [dependencies]
 boom-core.workspace = true
 boom-content.workspace = true
+boom-scenario.workspace = true
 serde.workspace = true
-toml.workspace = true
 
 [lints]
 workspace = true

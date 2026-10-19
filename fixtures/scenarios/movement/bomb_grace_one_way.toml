@@ -1,0 +1,43 @@
+# SCOPE_V1 §4: grace chỉ cho người đang đứng trên bom đi ra, không cho bước ngược lại (DESIGN).
+name = "Đứng trên bom vừa đặt được đi ra, không được quay lại"
+features = ["V1-012"]
+status = "pending"
+ticks = 80
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[bomb]]
+cell = [1, 1]
+owner = 0
+range = 1
+fuse = 1000
+grace = [0]
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 40
+player = 0
+dir = "left"
+
+[[expect]]
+tick = 40
+player = 0
+pos_mpx = [140000, 60000]
+
+[[expect]]
+tick = 80
+player = 0
+pos_mpx = [100000, 60000]

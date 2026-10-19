@@ -1,0 +1,32 @@
+# trap 6300 ms = 378 tick; nhốt từ tick 0 nên chết trong step 378 (tick 379).
+name = "Bị nhốt quá player.trap_to_death_ms thì chết"
+features = ["V1-020"]
+claims = ["R-026"]
+status = "pending"
+ticks = 400
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+life = "trapped"
+
+[[expect]]
+tick = 378
+player = 0
+life = "trapped"
+
+[[expect]]
+tick = 379
+event = "player_died"
+where = { player = 0, by = -1 }
+count = 1
+
+[end]
+outcome = "draw"

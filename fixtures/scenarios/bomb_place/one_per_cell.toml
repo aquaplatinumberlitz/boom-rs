@@ -1,0 +1,29 @@
+name = "Không đặt hai bom cùng ô dù còn hạn mức"
+features = ["V1-013"]
+status = "pending"
+ticks = 3
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [2, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+bomb = true
+
+[[input]]
+tick = 1
+player = 0
+bomb = true
+
+[[expect]]
+tick = 3
+bomb_count = 1

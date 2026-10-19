@@ -1,0 +1,34 @@
+# 2 px/tick ở cấp 5 (profile test); 80 px tới ô (3,1) mất 40 tick.
+name = "Đi tới tường thì dừng ở tâm ô cuối"
+features = ["V1-011", "V1-012"]
+claims = ["R-001"]
+status = "active"
+ticks = 100
+map = [
+    "#####",
+    "#0..#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 40
+player = 0
+pos_mpx = [140000, 60000]
+
+[[expect]]
+tick = 100
+player = 0
+cell = [3, 1]
+pos_mpx = [140000, 60000]
+facing = "right"

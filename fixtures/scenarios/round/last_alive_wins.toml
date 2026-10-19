@@ -1,0 +1,29 @@
+name = "Còn một người chưa chết thì thắng ngay sau tick đó"
+features = ["V1-021"]
+status = "active"
+ticks = 10
+map = [
+    "#0.1#",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+life = "dead"
+
+[[expect]]
+tick = 1
+event = "round_ended"
+where = { winner = 0 }
+count = 1
+
+[end]
+outcome = "winner:0"

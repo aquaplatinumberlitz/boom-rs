@@ -10,7 +10,9 @@
 //! - [`SimulationEvent`]: mọi thay đổi đáng kể phát ra event có ID ổn định; trình diễn, thống kê,
 //!   nhiệm vụ, event vận hành tiêu thụ event ở ngoài core thay vì chèn code vào core.
 //!
-//! Đây là walking skeleton: mới có di chuyển, va chạm ô và hết giờ; chưa có bom/item/nhốt.
+//! Contract hiện hành: **contracts-r1** (ARCHITECTURE §5): kiểu state, event V1, pipeline FFA và
+//! ma trận quyền ghi trong `systems/mod.rs`. Đã có di chuyển cơ bản và hết giờ; bom, lửa, item,
+//! nhốt là system rỗng chờ task được giao.
 #![deny(clippy::float_arithmetic)]
 
 mod event;
@@ -19,13 +21,18 @@ mod num;
 mod rng;
 mod rules;
 mod sim;
+mod state;
 mod system;
 mod systems;
 
 pub use event::{EventId, EventKind, EventSink, SimulationEvent, event_digest};
 pub use mode::{FfaBattle, Mode, Outcome, mode_by_id, modes};
-pub use num::{Mpx, Tick, ms_to_ticks};
+pub use num::{Cell, Mpx, Tick, ms_to_ticks};
 pub use rng::Rng;
-pub use rules::Rules;
-pub use sim::{CoreError, Dir, Phase, Player, PlayerInput, PlayerSetup, SimulationState, World};
+pub use rules::{ItemDef, ItemEffect, Rules};
+pub use sim::{CoreError, Dir, PlayerInput, PlayerSetup, World};
+pub use state::{
+    Bomb, CharacterStats, EntityId, Field, Flame, FloorItem, IdAllocator, ItemKind, Life, Phase,
+    Player, SimulationState, Stat,
+};
 pub use system::System;
