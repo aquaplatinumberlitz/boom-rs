@@ -127,6 +127,10 @@ Quyết định kèm theo:
 - **Unique partial index** là nơi *thực thi* policy "một tài khoản một phiên hoạt động": đăng nhập thứ hai
   phải thất bại ở tầng DB, không phụ thuộc thứ tự kiểm tra trong code. SQLite hỗ trợ partial index
   (`CREATE UNIQUE INDEX ... WHERE`) (nguồn ở §12).
+- **Định nghĩa "phiên hiệu lực"**: `revoked_at_ms IS NULL AND expires_at_ms > now`. Vì index chỉ nhìn
+  `revoked_at_ms IS NULL`, một phiên đã hết TTL **phải được đánh dấu `revoked_at_ms`** (cleanup khi
+  đăng nhập hoặc job định kỳ) — nếu không, phiên cũ đã hết hạn vẫn chặn đăng nhập mới. Việc này là điều
+  kiện của index, không phải tối ưu hiệu năng.
 - **Tên đăng nhập**: 3–24 ký tự, chữ/số/`_`/`-`, không phân biệt hoa thường khi so khớp (chuẩn hóa
   `username_key`). Đây là **design** (V1 không tái tạo auth Nexon/NGM).
 - **Mật khẩu**: ≥ 8 ký tự, ≤ 256 byte UTF-8; không bắt buộc độ phức tạp; không lưu lịch sử mật khẩu.
@@ -191,7 +195,8 @@ Quyết định kèm theo:
 - **Truyền**: token là **bearer credential** — client gửi kèm sau bước auth; server bind
   `account_id`/`session_id` từ token, **không** tin `account_id` do client khai (ADR 0005).
 - **Hết hạn**: TTL cố định (mặc định 24 giờ, trong config), **không trượt** khi dùng. Hết hạn thì client
-  đăng nhập lại — đúng policy "reconnect cần auth lại" của SCOPE_V1 §3.
+  đăng nhập lại — đúng policy "reconnect cần auth lại" của SCOPE_V1 §3. Phiên hết hạn được đánh dấu
+  `revoked_at_ms` theo §4 để index "một phiên hiệu lực" không chặn đăng nhập mới.
 - **Một phiên mỗi tài khoản**: unique partial index (§4). Đăng nhập khi tài khoản đã có phiên hiệu lực
   bị **từ chối rõ ràng** với mã lý do riêng (`account_has_active_session`), đúng SCOPE_V1 §3 — server
   **không** tự động đuổi phiên cũ.
