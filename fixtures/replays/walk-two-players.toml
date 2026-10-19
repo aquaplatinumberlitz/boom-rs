@@ -2,6 +2,7 @@
 # Golden kiểm determinism trên ba OS; đây là regression baseline, không phải oracle bản gốc.
 schema = 1
 hash_algo = "fnv1a64-v0"
+content_sha256 = "464426d09b79f9db7de0d0b1f0ab9e1558e09b5cf5eb6d207f3a5308ae79fdb1"
 mode = "battle_ffa"
 rules = "../rules/skeleton-test.toml"
 profile_hash = "0x3faa77e6b1c76c15"

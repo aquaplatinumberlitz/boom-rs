@@ -10,6 +10,8 @@ publish.workspace = true
 boom-core.workspace = true
 boom-content.workspace = true
 boom-scenario.workspace = true
+# Chỉ dùng ở CLI replay để đọc map từ pack thật; không đưa decoder pack vào core/scenario.
+boom-assets.workspace = true
 serde.workspace = true
 
 [lints]
