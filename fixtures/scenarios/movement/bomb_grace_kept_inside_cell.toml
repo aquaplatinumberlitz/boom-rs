@@ -1,0 +1,57 @@
+# Ca biên R-049: đi lại trong ô bom nhưng chưa vượt biên thì chưa mất grace,
+# nên vẫn đi ra được ở lần đi tiếp theo.
+name = "Grace chỉ mất khi rời hẳn ô bom"
+features = ["V1-012"]
+claims = ["R-049"]
+status = "active"
+ticks = 70
+map = [
+    "#######",
+    "#0....#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[bomb]]
+cell = [1, 1]
+owner = 0
+range = 1
+fuse = 1000
+grace = [0]
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 5
+player = 0
+dir = "left"
+
+[[input]]
+tick = 10
+player = 0
+dir = "right"
+
+# Đi qua lại trong ô (1,1) rồi về tâm ô, chưa rời ô nên grace còn.
+[[expect]]
+tick = 10
+player = 0
+pos_mpx = [60000, 60000]
+
+[[expect]]
+tick = 10
+at = [1, 1]
+bomb = true
+
+# Vẫn rời ô được sau đó và tới tâm ô (4,1).
+[[expect]]
+tick = 70
+player = 0
+pos_mpx = [180000, 60000]

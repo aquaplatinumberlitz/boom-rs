@@ -1,0 +1,75 @@
+# Ca biên SCOPE_V1 §4: bom vừa đặt dưới hai người thì cả hai đều có grace và đi ra được;
+# rời ô xong thì không ai quay lại được.
+name = "Hai người cùng đứng trên bom vừa đặt đều đi ra được, sau đó không quay lại"
+features = ["V1-012"]
+claims = ["R-049"]
+status = "active"
+ticks = 120
+map = [
+    "#######",
+    "#01...#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+
+[[bomb]]
+cell = [2, 1]
+owner = 0
+range = 1
+fuse = 1000
+grace = [0, 1]
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 0
+player = 1
+dir = "left"
+
+# Cả hai đã rời ô (2,1); grace bị xóa khi rời ô.
+[[expect]]
+tick = 80
+player = 0
+pos_mpx = [220000, 60000]
+
+[[expect]]
+tick = 80
+player = 1
+pos_mpx = [60000, 60000]
+
+[[input]]
+tick = 80
+player = 0
+dir = "left"
+
+[[input]]
+tick = 80
+player = 1
+dir = "right"
+
+# Người 0 quay lại bị bom chặn ở tâm ô (3,1); người 1 đang ở tâm ô (1,1), đi sang phải cũng bị chặn.
+[[expect]]
+tick = 120
+player = 0
+pos_mpx = [140000, 60000]
+
+[[expect]]
+tick = 120
+player = 1
+pos_mpx = [60000, 60000]

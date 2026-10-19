@@ -1,0 +1,56 @@
+name = "Người khác không có grace không vào được ô có bom"
+features = ["V1-012"]
+claims = ["R-048"]
+status = "active"
+ticks = 60
+map = [
+    "#######",
+    "#01...#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [4, 1]
+
+[[bomb]]
+cell = [2, 1]
+owner = 0
+range = 1
+fuse = 1000
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 0
+player = 1
+dir = "left"
+
+# Cả hai dừng ở tâm ô kề bom: (1,1) và (3,1).
+[[expect]]
+tick = 60
+player = 0
+pos_mpx = [60000, 60000]
+
+[[expect]]
+tick = 60
+player = 1
+pos_mpx = [140000, 60000]
+
+[[expect]]
+tick = 60
+at = [2, 1]
+bomb = true

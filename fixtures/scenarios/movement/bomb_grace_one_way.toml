@@ -1,7 +1,8 @@
-# SCOPE_V1 §4: grace chỉ cho người đang đứng trên bom đi ra, không cho bước ngược lại (DESIGN).
+# SCOPE_V1 §4: grace chỉ cho người đang đứng trên bom đi ra, không cho bước ngược lại (DESIGN, R-049).
 name = "Đứng trên bom vừa đặt được đi ra, không được quay lại"
 features = ["V1-012"]
-status = "pending"
+claims = ["R-049"]
+status = "active"
 ticks = 80
 map = [
     "#######",
@@ -32,11 +33,13 @@ tick = 40
 player = 0
 dir = "left"
 
+# Đi ra khỏi ô bom tới tâm ô (3,1); lúc này grace đã bị xóa.
 [[expect]]
 tick = 40
 player = 0
 pos_mpx = [140000, 60000]
 
+# Quay lại bị bom chặn ở tâm ô (2,1), không vào lại ô bom.
 [[expect]]
 tick = 80
 player = 0
