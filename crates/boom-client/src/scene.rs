@@ -479,6 +479,7 @@ mod tests {
             sprites,
             assets: Vec::new(),
             cells,
+            clips: Vec::new(),
             unknown: Vec::new(),
         }
     }
