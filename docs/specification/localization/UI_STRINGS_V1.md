@@ -1,6 +1,8 @@
 # Chuỗi và ảnh UI cho luồng V1 (Q-012)
 
-Cập nhật: 2026-10-20 (V1-032: cột "Trạng thái dùng" ở §3 và mục §3.1). Phục vụ **V1-032**
+Cập nhật: 2026-10-20 (V1-035 phần 1: xuất chuỗi V1 → `data/l10n/vi-v1.toml` bằng
+`tools/l10n_export.py`, loader `boom-content::l10n`; §6.1 có báo cáo khóa thiếu do tool sinh).
+Trước đó: 2026-10-20 (V1-032: cột "Trạng thái dùng" ở §3 và mục §3.1). Phục vụ **V1-032**
 (UI luồng V1 bằng asset KR) và **V1-035** (Việt hóa UI V1), câu hỏi
 [Q-012](../../research/QUESTIONS.md). Baseline khi lập: `main` @ `fefd5c0`, contract `contracts-r3`;
 kiểm lại nguồn trên `main` @ `5845f15`, worktree `issue-15`; phần trạng thái dùng kiểm trên
@@ -29,6 +31,8 @@ spectator, quảng trường đi bộ) bị loại, kể cả khi catalog có ch
 | Asset UI V1 đã chọn | [kr_v1_content.json](../../evidence/inventory/kr_v1_content.json) | Chỉ 4 entry UI được chọn: `room_create`, `room_create_dialog`, `ready`, `start`; map/theme/nhân vật/item là asset khác. SHA-256 của các entry UI còn lại nằm ở `[[sprites]].source_sha256` của bundle (`kr_v1_content.json` là output của tool `boom-re/tools/kr_v1_content.py`, không sửa tay ở task này). |
 | Bảng asset UI của closure V1 | `crates/boom-assets/src/closure.rs` (`UI_ASSETS`) và mục `[[ui]]` của bundle ([BUNDLES §3.3](../assets/BUNDLES.md)) | Trạng thái dùng của từng phần tử UI của luồng V1 (xem §3); nguồn chuẩn cho cột "Trạng thái dùng". |
 | Quy trình duyệt ảnh | [IMAGE_REVIEW](IMAGE_REVIEW.md) | Trạng thái `pending/translated/needs_translation/no_text/check`; không tự đánh dấu đã dịch. |
+| Tool xuất chuỗi V1 | `tools/l10n_export.py` | Đọc §2 của tài liệu này + `catalog.csv` → `data/l10n/vi-v1.toml`. `--check` kiểm file đã xuất mà **không cần** repo `boom-re-l10n` (chỉ kiểm schema + đối chiếu §2); có catalog thì so từng byte `text` với `catalog.vi`. |
+| File chuỗi đã xuất (V1-035) | `data/l10n/vi-v1.toml` | **Output của tool**, không sửa tay: mỗi khóa V1 có `status`; khóa có text thêm `text` (= `catalog.vi` nguyên văn, chỉ trim biên) và `catalog_id`; khóa chưa có text có `reason` (không có `text`) và `note` (yêu cầu hiển thị của §2). Loader: `boom-content::l10n`. |
 
 Đối chiếu **tên khóa** legacy (chỉ là locator, không lấy text làm bản dịch). Một số khóa V1 trùng tên
 khóa trong `strings.rs`, ví dụ: `app.connecting` → `strings.rs:32` (`ConnectingToSvr`), `app.auth_failed`
@@ -351,6 +355,9 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
 
 ## 6. Còn thiếu và bước tiếp
 
+Số đếm khóa thiếu text do tool sinh nằm ở [§6.1](#61-báo-cáo-khóa-thiếu-v1-035-phần-1); bảng dưới
+đây nêu việc còn phải làm.
+
 | Thiếu | Ảnh hưởng | Bước tiếp |
 |---|---|---|
 | 42 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
@@ -366,3 +373,37 @@ Font phải phủ tối thiểu: Latin cơ bản, Latin Extended Additional cho 
 Không thêm claim luật chơi mới trong tài liệu này. Các giá trị thời gian nhắc ở §2 (120 s, 10 s, 5 s, 15 s)
 đã có trong [RULES_V1](../gameplay/RULES_V1.md) R-010 và [SCOPE_V1](../../planning/SCOPE_V1.md) §3; UI chỉ
 hiển thị/đếm, không tự đặt lại.
+
+### 6.1 Báo cáo khóa thiếu (V1-035 phần 1)
+
+`tools/l10n_export.py` đọc §2 của tài liệu này và `catalog.csv`, xuất
+`data/l10n/vi-v1.toml` rồi in số đếm. Chạy lại khi §2 hoặc catalog đổi:
+
+```sh
+python3 tools/l10n_export.py            # xuất lại file
+python3 tools/l10n_export.py --check    # kiểm file đã xuất (không cần repo boom-re-l10n)
+```
+
+| Trạng thái §2 | Số khóa | Có `text`? | Mã `reason` khi thiếu |
+|---|---:|---|---|
+| `catalog-translated` | 33 | có (`catalog.vi` nguyên văn) | — |
+| `catalog-reused` | 11 | có (`catalog.vi` nguyên văn) | — |
+| `review` | 15 | không | `needs-review` |
+| `image-pending` | 9 | không | `image-pending-review` |
+| `unknown` | 42 | không | `no-locator` |
+| **Tổng** | **110** | **44 có text / 66 chỉ có lý do** | — |
+
+Quy tắc của file xuất (nguồn chuẩn vẫn là `catalog.csv`, không lưu bản VI riêng):
+
+- `text` lấy **nguyên văn** `catalog.vi`, chỉ trim biên; giữ nguyên `%s`, `{0}`,
+  `<font …>`, CRLF và `|`.
+- Tool **không xuất** nếu placeholder của bản dịch lệch số lượng với bản Hàn `ko`, hoặc
+  text chưa ở dạng NFC.
+- Khóa chưa có text **không có** trường `text`: client hiện placeholder rõ ràng `⟨khóa⟩`
+  (`boom_content::l10n::placeholder`), không tự viết chữ.
+- `catalog_sha256` trong file là SHA-256 của `catalog.csv` lúc xuất — dùng để biết file
+  xuất từ catalog phiên bản nào (giá trị nằm trong file, không lặp ở tài liệu này).
+- Loader `boom-content::l10n` từ chối file sai: khóa trùng, `text` có/không có không
+  khớp `status`, thiếu `reason`/`catalog_id`/`image`, placeholder lệch giữa hai khóa dùng
+  chung một `catalog_id`, và text có dấu tổ hợp (chưa chuẩn hóa NFC). Kiểm tra NFC **đầy
+  đủ** nằm ở tool (`unicodedata`), loader chỉ chặn dấu tổ hợp.

@@ -37,15 +37,22 @@
 //! vẽ sau nên đối tượng ở hàng dưới (gần người xem hơn) che đúng đối tượng ở
 //! hàng trên. Nhân vật (placeholder) chen vào cùng thứ tự theo hàng của ô đang
 //! đứng.
+//!
+//! Nhân vật, bom và lửa cũng theo cùng thứ tự hàng (BUNDLES §7): trong **cùng ô**,
+//! thứ tự là vật cản → lửa → bom → nhân vật. Lửa là hiệu ứng nằm trên nền còn bom
+//! là vật thể đứng trên nền, nên bom vẽ sau lửa.
 
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
-use boom_content::bundle::{Bundle, BundleError, Frame, ROLE_OBJECT, ROLE_TILE, Sprite};
+use boom_content::bundle::{Bundle, BundleError, Clip, Frame, ROLE_OBJECT, ROLE_TILE, Sprite};
 use boom_content::map::{
     CellClassifier, CellIds, CellKind, MapGrid, MapProfile, MapProfileError, Terrain,
 };
+use boom_core::{Cell, SimulationState, World};
+
+use crate::anim::{self, FrameClock};
 
 /// Hình chữ nhật pixel trong không gian logic của client.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -332,6 +339,303 @@ impl Scene {
     }
 }
 
+/// Thứ tự vẽ trong **cùng một ô** (z-order).
+///
+/// Vật cản trước, rồi lửa (hiệu ứng trên nền), rồi bom (vật thể đứng trên nền), rồi
+/// nhân vật (đứng trên bom khi mới đặt). BUNDLES §7.
+const ORDER_OBJECT: u8 = 0;
+/// Thứ tự vẽ: lửa.
+const ORDER_FLAME: u8 = 1;
+/// Thứ tự vẽ: bom.
+const ORDER_BOMB: u8 = 2;
+/// Thứ tự vẽ: nhân vật.
+const ORDER_CHARACTER: u8 = 3;
+
+/// Một lệnh vẽ của kế hoạch trình diễn.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PlanItem {
+    /// Vật cản của map (không phải clip): ô nền có vật cản.
+    Object(DrawItem),
+    /// Cắt vùng của trang atlas rồi đặt ở toạ độ logic.
+    Sprite {
+        /// ID clip dùng cho đối tượng này.
+        clip: String,
+        /// Chỉ số frame trong clip.
+        frame: usize,
+        /// Lệnh vẽ.
+        item: DrawItem,
+    },
+    /// Ô màu thay thế: bundle **không** có clip cần cho trạng thái này.
+    ///
+    /// Client vẽ ô màu và ghi cảnh báo thay vì bỏ qua âm thầm (AGENTS §4) — và không
+    /// panic.
+    Fallback {
+        /// ID clip mà bundle thiếu.
+        clip: String,
+        /// Ô thay thế.
+        rect: PixelRect,
+    },
+}
+
+/// Kế hoạch vẽ của một lượt: nền, rồi các đối tượng theo z-order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Plan {
+    /// Lệnh vẽ nền, theo thứ tự hàng rồi cột.
+    pub ground: Vec<DrawItem>,
+    /// Lệnh vẽ vật cản, lửa, bom và nhân vật, theo z-order.
+    pub items: Vec<PlanItem>,
+    /// ID clip mà bundle **không** có (không trùng lặp).
+    ///
+    /// Client ghi cảnh báo cho từng clip thiếu; các đối tượng tương ứng vẽ ô màu
+    /// thay thế.
+    pub missing_clips: Vec<String>,
+}
+
+/// Dựng kế hoạch vẽ từ bundle, scene và state mô phỏng.
+///
+/// Hàm thuần: test được **không cần GPU** (acceptance V1-031). `previous` là vị trí
+/// nhân vật ở tick trước (để biết nhân vật đang đi hay đứng yên — xem
+/// [`anim::is_moving`]); thiếu thì coi như đứng yên.
+///
+/// `clock` là nhịp phát frame: frame tiến theo **tick mô phỏng**, không theo đồng hồ
+/// wall clock (ADR 0004).
+///
+/// # Panics
+///
+/// Không panic: bundle thiếu clip hoặc frame không có ảnh thì đối tượng tương ứng
+/// được vẽ bằng ô màu thay thế và ID clip được ghi vào [`Plan::missing_clips`].
+#[must_use]
+pub fn presentation_plan(
+    bundle: &Bundle,
+    scene: &Scene,
+    state: &SimulationState,
+    world: &World,
+    clock: &FrameClock,
+    previous: &BTreeMap<u8, (i32, i32)>,
+) -> Plan {
+    let tile_px = scene.tile_px;
+    let tick = state.tick;
+    let mut missing: Vec<String> = Vec::new();
+    // (hàng, cột, thứ tự trong ô, lệnh vẽ)
+    let mut items: Vec<(u16, u16, u8, PlanItem)> = Vec::new();
+
+    for item in &scene.objects {
+        // Gạch đã phá (ô chuyển sang nền) thì không vẽ nữa, còn vật cản cứng thì luôn vẽ.
+        let current = state
+            .field
+            .kind(Cell::new(i32::from(item.column), i32::from(item.row)));
+        if !object_visible(item.kind, current) {
+            continue;
+        }
+        items.push((item.row, item.column, ORDER_OBJECT, PlanItem::Object(*item)));
+    }
+
+    for flame in &state.flames {
+        let (column, row) = cell_u16(flame.cell.x, flame.cell.y);
+        let frame = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == anim::FLAME_CLIP)
+            .map(|clip| anim::flame_frame(tick, clock, clip.frames.len()));
+        items.push((
+            row,
+            column,
+            ORDER_FLAME,
+            clip_plan_item(
+                bundle,
+                anim::FLAME_CLIP,
+                frame,
+                column,
+                row,
+                tile_px,
+                &mut missing,
+            ),
+        ));
+    }
+
+    for bomb in &state.bombs {
+        let (column, row) = cell_u16(bomb.cell.x, bomb.cell.y);
+        let frame = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == anim::BOMB_CLIP)
+            .map(|clip| anim::bomb_frame(tick, clock, clip.frames.len()));
+        items.push((
+            row,
+            column,
+            ORDER_BOMB,
+            clip_plan_item(
+                bundle,
+                anim::BOMB_CLIP,
+                frame,
+                column,
+                row,
+                tile_px,
+                &mut missing,
+            ),
+        ));
+    }
+
+    for player in &state.players {
+        let cell = world.cell_at(player.x, player.y);
+        let (column, row) = cell_u16(cell.x, cell.y);
+        let moving = anim::is_moving((player.x.0, player.y.0), previous.get(&player.id).copied());
+        let clip_id = anim::character_clip(
+            anim::character_of(player.id),
+            player.life,
+            player.facing,
+            moving,
+        );
+        let frame = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+            .map(|clip| anim::character_frame(player.life, tick, clock, clip.frames.len()));
+        items.push((
+            row,
+            column,
+            ORDER_CHARACTER,
+            clip_plan_item(bundle, &clip_id, frame, column, row, tile_px, &mut missing),
+        ));
+    }
+
+    // Z-order: hàng lớn hơn vẽ sau (gần người xem hơn), cùng hàng thì cột lớn hơn
+    // vẽ sau, cùng ô thì theo thứ tự trong ô.
+    items.sort_by_key(|(row, column, order, _)| (*row, *column, *order));
+
+    Plan {
+        ground: scene.ground.clone(),
+        items: items.into_iter().map(|(_, _, _, item)| item).collect(),
+        missing_clips: missing,
+    }
+}
+
+/// Lệnh vẽ của một clip tại ô; ô màu thay thế khi bundle thiếu clip.
+fn clip_plan_item(
+    bundle: &Bundle,
+    clip_id: &str,
+    frame: Option<usize>,
+    column: u16,
+    row: u16,
+    tile_px: u32,
+    missing: &mut Vec<String>,
+) -> PlanItem {
+    let Some(index) = frame else {
+        note_missing(clip_id, missing);
+        return PlanItem::Fallback {
+            clip: clip_id.to_owned(),
+            rect: fallback_rect(column, row, tile_px),
+        };
+    };
+    let Some(clip) = bundle.clips.iter().find(|clip| clip.id == clip_id) else {
+        note_missing(clip_id, missing);
+        return PlanItem::Fallback {
+            clip: clip_id.to_owned(),
+            rect: fallback_rect(column, row, tile_px),
+        };
+    };
+    match clip_frame_item(bundle, clip, index, column, row, tile_px) {
+        Some(item) => PlanItem::Sprite {
+            clip: clip_id.to_owned(),
+            frame: index,
+            item,
+        },
+        // Frame không có ảnh (ảnh rỗng 0×0) thì không có gì để vẽ, nhưng clip vẫn có
+        // mặt nên không coi là thiếu.
+        None => PlanItem::Fallback {
+            clip: clip_id.to_owned(),
+            rect: fallback_rect(column, row, tile_px),
+        },
+    }
+}
+
+/// Ghi lại clip thiếu (không trùng lặp) để client cảnh báo.
+fn note_missing(clip_id: &str, missing: &mut Vec<String>) {
+    if !missing.iter().any(|id| id == clip_id) {
+        missing.push(clip_id.to_owned());
+    }
+}
+
+/// Lệnh vẽ của một frame của clip; `None` nếu frame không có ảnh để vẽ.
+///
+/// Frame cuối của clip chết trỏ ảnh rỗng 0×0 (dữ liệu thật của client gốc) ⇒ không
+/// có gì để vẽ.
+#[must_use]
+pub fn clip_frame_item(
+    bundle: &Bundle,
+    clip: &Clip,
+    frame_index: usize,
+    cell_x: u16,
+    cell_y: u16,
+    tile_px: u32,
+) -> Option<DrawItem> {
+    let frame = clip.frames.get(frame_index)?;
+    let sprite = bundle
+        .sprites
+        .iter()
+        .find(|sprite| sprite.id == clip.sprite)?;
+    let image = sprite.images.get(frame.image as usize)?;
+    let page = image.page?;
+    if image.width == 0 || image.height == 0 {
+        return None;
+    }
+    let source = PixelRect {
+        x: i32::try_from(image.x).unwrap_or(i32::MAX) + frame.x0,
+        y: i32::try_from(image.y).unwrap_or(i32::MAX) + frame.y0,
+        width: u32::try_from((frame.x1 - frame.x0).max(0)).unwrap_or(0),
+        height: u32::try_from((frame.y1 - frame.y0).max(0)).unwrap_or(0),
+    };
+    Some(DrawItem {
+        page,
+        source,
+        dest: frame_placement(frame, cell_x, cell_y, tile_px),
+        row: cell_y,
+        column: cell_x,
+        kind: CellKind::Floor,
+    })
+}
+
+/// Ô màu thay thế khi bundle thiếu clip: ô vuông đúng kích thước ô.
+#[must_use]
+pub fn fallback_rect(cell_x: u16, cell_y: u16, tile_px: u32) -> PixelRect {
+    let tile = i32::try_from(tile_px).unwrap_or(i32::MAX);
+    PixelRect {
+        x: i32::from(cell_x) * tile,
+        y: i32::from(cell_y) * tile,
+        width: tile_px,
+        height: tile_px,
+    }
+}
+
+/// Ô của lưới (cột, hàng); ngoài lưới thì dùng giá trị lớn nhất để vẽ ở cuối.
+fn cell_u16(x: i32, y: i32) -> (u16, u16) {
+    (
+        u16::try_from(x).unwrap_or(u16::MAX),
+        u16::try_from(y).unwrap_or(u16::MAX),
+    )
+}
+
+/// Clip V1 mà client cần; bundle thiếu thì client vẽ ô màu thay thế.
+///
+/// Danh sách lấy từ bảng clip của V1 (R-077/R-078) cho hai nhân vật C00/C01, cộng
+/// clip bom và clip lửa.
+#[must_use]
+pub fn required_clip_ids() -> Vec<String> {
+    let mut ids = Vec::new();
+    for character in [anim::Character::C00, anim::Character::C01] {
+        let key = character.key();
+        for direction in ["up", "down", "left", "right"] {
+            ids.push(format!("{key}.walk.{direction}.static"));
+        }
+        ids.push(format!("{key}.idle.blink.static"));
+        ids.push(format!("{key}.trapped.static"));
+        ids.push(format!("{key}.dead.static"));
+    }
+    ids.push(anim::BOMB_CLIP.to_owned());
+    ids.push(anim::FLAME_CLIP.to_owned());
+    ids
+}
+
 /// Bundle có ghi ID này trong `unknown` (kèm lý do) không.
 fn has_unknown(bundle: &Bundle, id: &str) -> bool {
     bundle.unknown.iter().any(|unknown| unknown.id == id)
@@ -461,11 +765,23 @@ fn check_profile(bundle: &Bundle, profile: &MapProfile) -> Result<(), SceneError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use boom_content::animation::{Direction, FlameKind, FrameTiming, PresentationState};
     use boom_content::bundle::{
-        AtlasPage, Cell, EvidenceStatus, Frame, Sprite, SpriteImage, Unknown,
+        AtlasPage, Cell, Clip, EvidenceStatus, Frame, Sprite, SpriteImage, Unknown,
+    };
+    use boom_content::rules::Source;
+    use boom_core::{
+        Bomb, CharacterStats, EntityId, Flame, PlayerSetup, Rules, SimulationState, Stat, World,
+        mode_by_id,
     };
 
     const TILE: u32 = 40;
+
+    /// Nhịp test: 33 Hz, frame 100 ms (như profile dev V1).
+    const CLOCK: FrameClock = FrameClock {
+        frame_ms: 100,
+        ticks_per_second: 33,
+    };
 
     /// Sprite một frame, đặt tại `(x, y)` trong trang atlas `page`.
     fn sprite(id: &str, role: &str, map_id: u32, frame: Frame, at: (u32, u32)) -> Sprite {
@@ -772,5 +1088,213 @@ mod tests {
         .expect_err("thư mục không tồn tại");
         assert!(matches!(error, SceneError::Bundle(_)));
         assert!(error.to_string().contains("bundle"));
+    }
+
+    /// Sprite một ảnh cho clip: 40×40 trên trang atlas 0.
+    fn clip_sprite(id: &str) -> Sprite {
+        Sprite {
+            id: id.to_owned(),
+            entry: id.to_owned(),
+            role: "character_walk".to_owned(),
+            status: EvidenceStatus::Confirmed,
+            source_sha256: "00".repeat(32),
+            map_id: None,
+            object_name: None,
+            images: vec![SpriteImage {
+                index: 0,
+                page: Some(0),
+                x: 0,
+                y: 0,
+                width: 40,
+                height: 40,
+                pixel_sha256: "11".repeat(32),
+            }],
+            frames: vec![ground_frame()],
+        }
+    }
+
+    /// Clip test: `frame_count` frame, tất cả trỏ ảnh 0 của sprite.
+    fn clip(id: &str, state: PresentationState, sprite: &str, frame_count: usize) -> Clip {
+        Clip {
+            id: id.to_owned(),
+            state,
+            pack: "FxCharacter".to_owned(),
+            entry: "Character/Test".to_owned(),
+            layer: None,
+            sprite_unk: 0,
+            sprite: sprite.to_owned(),
+            source: Source::KrStatic,
+            status: EvidenceStatus::Confirmed,
+            claims: vec!["R-077".to_owned()],
+            note: None,
+            timing: FrameTiming::Unknown {
+                reason: "chưa có nguồn".to_owned(),
+            },
+            frames: (0..frame_count).map(|_| ground_frame()).collect(),
+        }
+    }
+
+    /// Bundle test có clip của V1: nhân vật (đi/đứng/chết), bom và lửa.
+    fn clip_bundle() -> Bundle {
+        let mut bundle = two_object_bundle();
+        bundle.sprites.push(clip_sprite("c00"));
+        bundle.sprites.push(clip_sprite("bomb"));
+        bundle.sprites.push(clip_sprite("flame"));
+        bundle.clips = vec![
+            clip(
+                "c00.walk.down.static",
+                PresentationState::Walk(Direction::Down),
+                "c00",
+                5,
+            ),
+            clip("c00.idle.blink.static", PresentationState::Idle, "c00", 3),
+            clip("c00.dead.static", PresentationState::Dead, "c00", 14),
+            clip("bomb.fuse", PresentationState::BombFuse, "bomb", 4),
+            clip(
+                "flame.main",
+                PresentationState::Flame(FlameKind::Main),
+                "flame",
+                100,
+            ),
+        ];
+        bundle
+    }
+
+    /// Thế giới test 2×2: spawn ở (0,0), còn lại là nền.
+    fn test_world() -> World {
+        let terrain = Terrain::from_ascii(&["0.", ".."]).expect("bản đồ test");
+        let profile = boom_content::rules::RulesProfile::from_toml(include_str!(
+            "../../../data/rules/v1-dev.toml"
+        ))
+        .expect("rules");
+        let rules = Rules::from_profile(&profile).expect("rules");
+        let mode = mode_by_id("battle_ffa").expect("mode");
+        World::new(terrain, rules, mode).expect("world")
+    }
+
+    /// Lượt test: một nhân vật ở spawn (0,0).
+    fn test_state(world: &World) -> SimulationState {
+        let roster = [PlayerSetup {
+            id: 0,
+            stats: CharacterStats {
+                speed: Stat::new(1, 1),
+                bombs: Stat::new(1, 1),
+                range: Stat::new(1, 1),
+            },
+        }];
+        SimulationState::new_round(world, &roster, 7).expect("lượt")
+    }
+
+    /// Nghiệm thu V1-031 (không GPU): state core → clip/frame đúng cho đi, đứng,
+    /// chết, bom và lửa.
+    #[test]
+    fn plan_picks_the_clip_of_the_core_state() {
+        let bundle = clip_bundle();
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        // Nhân vật đã đi (vị trí khác tick trước) → clip đi theo hướng đang quay.
+        let mut previous = BTreeMap::new();
+        previous.insert(0, (state.players[0].x.0 - 1000, state.players[0].y.0));
+
+        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &previous);
+        let clip_of = |item: &PlanItem| match item {
+            PlanItem::Sprite { clip, frame, .. } => (clip.clone(), *frame),
+            PlanItem::Fallback { clip, .. } => (clip.clone(), usize::MAX),
+            PlanItem::Object(_) => (String::new(), usize::MAX),
+        };
+        let character = plan
+            .items
+            .iter()
+            .map(clip_of)
+            .find(|(clip, _)| clip.starts_with("c00."))
+            .expect("nhân vật phải có lệnh vẽ");
+        assert_eq!(character.0, "c00.walk.down.static");
+
+        // Đứng yên (vị trí không đổi) → clip đứng.
+        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &BTreeMap::new());
+        let character = plan
+            .items
+            .iter()
+            .map(clip_of)
+            .find(|(clip, _)| clip.starts_with("c00."))
+            .expect("nhân vật phải có lệnh vẽ");
+        assert_eq!(character.0, "c00.idle.blink.static");
+
+        // Bom đang chờ và lửa trên ô: mỗi ô một clip riêng.
+        state.bombs.push(Bomb {
+            id: EntityId(1),
+            owner: 0,
+            cell: boom_core::Cell::new(1, 0),
+            range: 1,
+            explodes_at: 100,
+            grace: Vec::new(),
+        });
+        state.flames.push(Flame {
+            cell: boom_core::Cell::new(0, 1),
+            until: 100,
+            source: EntityId(1),
+            owner: 0,
+        });
+        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &previous);
+        let clips: Vec<&str> = plan
+            .items
+            .iter()
+            .map(|item| match item {
+                PlanItem::Sprite { clip, .. } => clip.as_str(),
+                PlanItem::Fallback { clip, .. } => clip.as_str(),
+                PlanItem::Object(_) => "",
+            })
+            .collect();
+        assert!(clips.contains(&"bomb.fuse"), "thiếu clip bom: {clips:?}");
+        assert!(clips.contains(&"flame.main"), "thiếu clip lửa: {clips:?}");
+        // Frame lửa nằm trong dải lõi của clip.
+        let flame_frame = plan
+            .items
+            .iter()
+            .find_map(|item| match item {
+                PlanItem::Sprite { clip, frame, .. } if clip == "flame.main" => Some(*frame),
+                _ => None,
+            })
+            .expect("lửa phải có frame");
+        assert!((28..=59).contains(&flame_frame));
+    }
+
+    /// Clip thiếu trong bundle → ô màu thay thế + ghi tên clip thiếu, không panic.
+    #[test]
+    fn missing_clip_falls_back_to_a_color_box() {
+        let mut bundle = clip_bundle();
+        bundle.clips.retain(|clip| clip.id != "flame.main");
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        state.flames.push(Flame {
+            cell: boom_core::Cell::new(0, 1),
+            until: 100,
+            source: EntityId(1),
+            owner: 0,
+        });
+
+        let plan = presentation_plan(&bundle, &scene, &state, &world, &CLOCK, &BTreeMap::new());
+        assert_eq!(plan.missing_clips, vec!["flame.main".to_owned()]);
+        let fallback = plan
+            .items
+            .iter()
+            .find_map(|item| match item {
+                PlanItem::Fallback { clip, rect } => Some((clip.clone(), *rect)),
+                _ => None,
+            })
+            .expect("thiếu clip thì phải có ô màu thay thế");
+        assert_eq!(fallback.0, "flame.main");
+        // Ô màu nằm đúng chỗ ô lửa (0, 1) và đúng kích thước ô.
+        assert_eq!(
+            fallback.1,
+            PixelRect {
+                x: 0,
+                y: 40,
+                width: TILE,
+                height: TILE
+            }
+        );
     }
 }

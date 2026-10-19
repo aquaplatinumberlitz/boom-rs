@@ -386,6 +386,52 @@ Giới hạn đã biết:
   hoặc đối chiếu ảnh chạy VN; nếu cách đặt ảnh gốc khác thì sửa quy ước ở đây và
   cập nhật client theo, không âm thầm lệch.
 
+### 7.1 Chọn clip và frame (V1)
+
+Ngoài quy ước đặt ảnh, client V1 còn phải chọn **clip nào** cho state core nào và
+**frame nào** trong clip đó. Đây là quyết định **design** của V1 (RULES_V1
+[R-085…R-087](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r087)),
+ghi ở đây để client, reviewer và công cụ đo dùng chung một công thức.
+
+1. **Chọn clip theo state core** (R-086):
+
+   | State core | Clip trong bundle | Nhãn bằng chứng |
+   |---|---|---|
+   | Nhân vật **đang đi** (vị trí đổi so với tick trước) | `c0x.walk.{up,down,left,right}.static` | R-077 `confirmed` |
+   | Nhân vật **đứng yên** | `c0x.idle.blink.static` | R-078 `candidate` |
+   | Nhân vật **bị nhốt** | `c0x.trapped.static` | R-078 `candidate` |
+   | Nhân vật **chết** | `c0x.dead.static` (khung cuối là ảnh 0×0 ⇒ **không vẽ**) | R-077 `confirmed` |
+   | Bom đang chờ nổ | `bomb.fuse` | R-077 `confirmed` |
+   | Lửa trên ô | `flame.main`, **dải frame lõi 28..=59** | R-078 `candidate` (R-087) |
+
+   Nhân vật V1 ghép với `C00`/`C01` theo `id` người chơi vì state core chưa mang trường
+   nhân vật. "Đang đi" suy ra từ **vị trí đổi** giữa hai tick: hướng trong state core
+   được giữ qua lệnh `Dir::None` nên không dùng làm tín hiệu đi/đứng.
+
+2. **Nhịp frame** (R-085): **100 ms** một frame cho mọi clip, đọc từ rules profile
+   (`presentation.frame_duration_ms`) — không hard-code trong client. Frame tiến theo
+   **tick mô phỏng**, không theo đồng hồ wall clock (ADR 0004):
+   `frame = (tick · 1000 / ticks_per_second) / frame_ms mod số frame`.
+
+3. **Z-order trong cùng ô**: vật cản → lửa → bom → nhân vật. Lửa là hiệu ứng nằm trên
+   nền, bom là vật thể đứng trên nền, nhân vật đứng trên bom khi mới đặt.
+
+4. **Thiếu clip**: bundle không có clip cần cho trạng thái này → client vẽ **ô màu**
+   đúng kích thước ô tại ô đó và ghi cảnh báo; không bỏ qua âm thầm (AGENTS §4) và
+   không panic.
+
+Giới hạn đã biết:
+
+- `idle` và `trapped` là clip **candidate** (R-078): chưa có consumer nào xác nhận state
+  nào dùng clip đó (Q-003). Test của client chỉ là **regression** theo quy ước đã
+  chốt, không phải bằng chứng fidelity.
+- Clip `flame.main` là **một** blob 100 frame gộp thân/đuôi/nhánh theo hướng; state
+  core V1 không mang hướng lửa nên V1 chỉ dùng dải frame lõi 28..=59 và **mọi ô lửa
+  vẽ cùng một frame** (R-087, Q-003).
+- V1 chưa có presentation journal nên **không** phát lại chuỗi chết: nhân vật chết
+  dùng khung cuối của clip (ảnh rỗng 0×0) nên **không được vẽ**. Chuỗi chết sẽ phát
+  khi có journal (P7).
+
 ## 8. Giới hạn đã biết
 
 - **Chỉ map V1.** Closure hiện chỉ dựng được `Village00`; `bundle --map <khác>` báo lỗi
@@ -395,7 +441,12 @@ Giới hạn đã biết:
 - **Không có thời lượng frame.** Field `f8..f11` của client gốc **không** phải thời gian
   ([MAPS §3](MAPS.md)); bundle mang `timing = unknown` kèm lý do. Nhịp là việc của
   V1-031 và phải là `design` có claim — khi chốt, giá trị đi kèm profile rules, client
-  đọc từ profile/overlay chứ không hard-code.
+  đọc từ profile/overlay chứ không hard-code. V1 đã chốt nhịp 100 ms (R-085) trong
+  profile `presentation.frame_duration_ms`; **bundle vẫn mang `unknown`** vì pack
+  không có trường thời gian.
+- **Lửa không có hướng trong state.** Clip `flame.main` gộp thân/đuôi/nhánh; state core
+  V1 không mang hướng lửa nên V1 chỉ dùng dải frame lõi 28..=59 cho mọi ô lửa
+  (BUNDLES §7.1, R-087, Q-003).
 - **Vụ nổ chưa có clip.** `FxDesktop/Bomb/BombExplosion001` có ảnh trong atlas (vai trò
   `explosion_art`) nhưng bảng clip animation của V1 chưa có clip nào dùng tới: chưa có
   claim state → animation cho hiệu ứng nổ. Bundle ghi rõ ở `[[unknown]]` (kind
