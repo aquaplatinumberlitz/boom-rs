@@ -8,8 +8,7 @@
 //! 3. Phần tử `needs_review_text`/`excluded` **không hiện ảnh** — chỉ phần tử
 //!    `selected` mới được vẽ bằng ảnh.
 
-use boom_content::bundle::{Bundle, EvidenceStatus, UiElement, UiRole, UiScreen, UiState};
-use boom_content::rules::Source;
+use boom_content::bundle::{Bundle, UiScreen};
 
 use super::demo::{DEMO_ACCOUNT, DEMO_PASSWORD, DemoBackend};
 use super::layout::{self, Widget};
@@ -226,58 +225,61 @@ fn lobby_table_uses_l10n_headers() {
 
 /// Bundle giả với bảng `[[ui]]` của màn kết quả: một phần tử `selected` (được vẽ
 /// bằng ảnh), một `needs_review_text` và một `excluded`.
+///
+/// Fixture đọc từ TOML (như bundle thật) để không phải liệt kê trường của
+/// [`Bundle`] — schema bundle có thể thêm trường mới mà fixture không hỏng.
 fn ui_bundle() -> Bundle {
-    Bundle {
-        schema: boom_content::bundle::SCHEMA,
-        build: "kr".to_owned(),
-        map: "Village00".to_owned(),
-        tileset: "Tile00".to_owned(),
-        width: 1,
-        height: 1,
-        spawns: Vec::new(),
-        content_hash: String::new(),
-        atlas: Vec::new(),
-        sprites: Vec::new(),
-        assets: Vec::new(),
-        cells: Vec::new(),
-        unknown: Vec::new(),
-        clips: Vec::new(),
-        ui: vec![
-            UiElement {
-                id: "result.info_good".to_owned(),
-                screen: UiScreen::Result,
-                role: UiRole::Info,
-                entry: Some("FxStage/Game/ResultInfoGood".to_owned()),
-                state: UiState::Selected,
-                reason: "chỉ có icon, không có chữ".to_owned(),
-                sprite: Some("FxStage/Game/ResultInfoGood".to_owned()),
-                source: Source::KrStatic,
-                status: EvidenceStatus::Confirmed,
-            },
-            UiElement {
-                id: "result.win".to_owned(),
-                screen: UiScreen::Result,
-                role: UiRole::ResultArt,
-                entry: Some("FxStage/Game/Win".to_owned()),
-                state: UiState::NeedsReviewText,
-                reason: "ảnh có chữ, chưa duyệt".to_owned(),
-                sprite: Some("FxStage/Game/Win".to_owned()),
-                source: Source::KrStatic,
-                status: EvidenceStatus::Confirmed,
-            },
-            UiElement {
-                id: "result.background".to_owned(),
-                screen: UiScreen::Result,
-                role: UiRole::Background,
-                entry: Some("FxStage/Game/CAStage".to_owned()),
-                state: UiState::Excluded,
-                reason: "nền có chữ, V1 dựng nền bằng màu".to_owned(),
-                sprite: None,
-                source: Source::KrStatic,
-                status: EvidenceStatus::Confirmed,
-            },
-        ],
-    }
+    let text = format!(
+        r#"
+schema = {schema}
+build = "kr"
+map = "Village00"
+tileset = "Tile00"
+width = 1
+height = 1
+spawns = []
+content_hash = "00"
+atlas = []
+sprites = []
+assets = []
+cells = [{{ x = 0, y = 0 }}]
+unknown = []
+
+[[ui]]
+id = "result.info_good"
+screen = "result"
+role = "info"
+entry = "FxStage/Game/ResultInfoGood"
+state = "selected"
+reason = "chỉ có icon, không có chữ"
+sprite = "FxStage/Game/ResultInfoGood"
+source = "kr_static"
+status = "confirmed"
+
+[[ui]]
+id = "result.win"
+screen = "result"
+role = "result_art"
+entry = "FxStage/Game/Win"
+state = "needs_review_text"
+reason = "ảnh có chữ, chưa duyệt"
+sprite = "FxStage/Game/Win"
+source = "kr_static"
+status = "confirmed"
+
+[[ui]]
+id = "result.background"
+screen = "result"
+role = "background"
+entry = "FxStage/Game/CAStage"
+state = "excluded"
+reason = "nền có chữ, V1 dựng nền bằng màu"
+source = "kr_static"
+status = "confirmed"
+"#,
+        schema = boom_content::bundle::SCHEMA
+    );
+    toml::from_str(&text).expect("bundle giả")
 }
 
 #[test]
