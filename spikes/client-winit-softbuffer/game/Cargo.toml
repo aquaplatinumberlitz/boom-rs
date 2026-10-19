@@ -1,0 +1,18 @@
+[package]
+name = "spike-winit-softbuffer"
+description = "Spike client stack: winit + softbuffer + fontdue + rodio (renderer/UI tự dựng, CPU)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+fontdue = "0.9"
+image = { version = "0.25", default-features = false, features = ["png"] }
+quad-snd = "0.2.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+softbuffer = "0.4"
+winit = "0.30"
+
+[lints]
+workspace = true
