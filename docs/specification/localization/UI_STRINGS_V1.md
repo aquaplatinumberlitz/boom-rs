@@ -27,6 +27,14 @@ spectator, quảng trường đi bộ) bị loại, kể cả khi catalog có ch
 | Asset UI V1 đã chọn | [kr_v1_content.json](../../evidence/inventory/kr_v1_content.json) | Chỉ 4 entry UI được chọn: `room_create`, `room_create_dialog`, `ready`, `start`; map/theme/nhân vật/item là asset khác. |
 | Quy trình duyệt ảnh | [IMAGE_REVIEW](IMAGE_REVIEW.md) | Trạng thái `pending/translated/needs_translation/no_text/check`; không tự đánh dấu đã dịch. |
 
+Đối chiếu **tên khóa** legacy (chỉ là locator, không lấy text làm bản dịch). Một số khóa V1 trùng tên
+khóa trong `strings.rs`, ví dụ: `app.connecting` → `strings.rs:32` (`ConnectingToSvr`), `app.auth_failed`
+→ `strings.rs:35` (`ForbiddenAuthenForOnePlayer`), `lobby.chat_tab_all` → `strings.rs:44`
+(`LobbySquare_ChatTab_All`), `room.stats_bomb` → `strings.rs:89` (`PREEA`), `room.stats_fire` →
+`strings.rs:90` (`PREPOW`), `room.stats_speed` → `strings.rs:91` (`PRESPD`). Danh sách này không đầy đủ;
+text chuẩn vẫn lấy từ catalog. Hai khóa không có trong catalog là `CannotConnectToShop` và
+`CheckRentedItem`, không thuộc luồng V1.
+
 Cột **Locator** chỉ dùng một trong các dạng:
 
 - `catalog:<id>` — dòng tương ứng trong `catalog.csv`; text hiển thị lấy từ `catalog.vi`.
