@@ -302,46 +302,7 @@ impl SessionStore for SqliteAccountStore {
     /// thắng, một còn lại vi phạm unique partial index ⇒ rollback ⇒
     /// [`StoreError::AccountHasActiveSession`] (ADR 0011 §9 dòng 8, ca `T4-A4`).
     fn create_session(&mut self, session: NewSession) -> Result<Session, StoreError> {
-        let now_ms = session.created_at_ms;
-        let tx = self
-            .conn
-            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-            .map_err(sqlite_err)?;
-
-        tx.execute(
-            REVOKE_EXPIRED_FOR_ACCOUNT,
-            params![session.account_id.0, now_ms, RevokeReason::Expired.as_str()],
-        )
-        .map_err(sqlite_err)?;
-
-        tx.execute(
-            INSERT_SESSION,
-            params![
-                session.account_id.0,
-                session.token_hash,
-                session.instance_id,
-                session.connection_id,
-                session.created_at_ms,
-                session.expires_at_ms,
-                session.last_seen_at_ms,
-            ],
-        )
-        .map_err(map_constraint)?;
-
-        let id = tx.last_insert_rowid();
-        tx.commit().map_err(sqlite_err)?;
-
-        Ok(Session {
-            id: SessionId(id),
-            account_id: session.account_id,
-            instance_id: session.instance_id,
-            connection_id: session.connection_id,
-            created_at_ms: session.created_at_ms,
-            expires_at_ms: session.expires_at_ms,
-            last_seen_at_ms: session.last_seen_at_ms,
-            revoked_at_ms: None,
-            revoke_reason: None,
-        })
+        insert_session(&mut self.conn, &session)
     }
 
     /// Đọc phiên theo định danh.
@@ -591,6 +552,57 @@ impl AccountStore for SqliteAccountStore {
             .map_err(sqlite_err)?;
         Ok(changed > 0)
     }
+}
+
+/// Tạo phiên mới trong **một** transaction (ADR 0011 §6.1 bước 2).
+///
+/// Tách thành hàm tự do nhận `&mut Connection` để ca `T4-A4` chạy được **tranh chấp thật**:
+/// hai connection độc lập tới cùng một file DB tạo phiên **cùng lúc** (hai thread + barrier)
+/// — hai lần gọi *tuần tự* thì không phải là race (xem ghi chú ở test).
+///
+/// `BEGIN IMMEDIATE` lấy khóa ghi ngay ⇒ hai lần đăng nhập đồng thời bị tuần tự hóa: một
+/// thắng, một còn lại vi phạm unique partial index `sessions_one_active_per_account` ⇒
+/// rollback ⇒ [`StoreError::AccountHasActiveSession`] (ADR 0011 §4, §9 dòng 8).
+fn insert_session(conn: &mut Connection, session: &NewSession) -> Result<Session, StoreError> {
+    let now_ms = session.created_at_ms;
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(sqlite_err)?;
+
+    tx.execute(
+        REVOKE_EXPIRED_FOR_ACCOUNT,
+        params![session.account_id.0, now_ms, RevokeReason::Expired.as_str()],
+    )
+    .map_err(sqlite_err)?;
+
+    tx.execute(
+        INSERT_SESSION,
+        params![
+            session.account_id.0,
+            session.token_hash,
+            session.instance_id,
+            session.connection_id,
+            session.created_at_ms,
+            session.expires_at_ms,
+            session.last_seen_at_ms,
+        ],
+    )
+    .map_err(map_constraint)?;
+
+    let id = tx.last_insert_rowid();
+    tx.commit().map_err(sqlite_err)?;
+
+    Ok(Session {
+        id: SessionId(id),
+        account_id: session.account_id,
+        instance_id: session.instance_id.clone(),
+        connection_id: session.connection_id.clone(),
+        created_at_ms: session.created_at_ms,
+        expires_at_ms: session.expires_at_ms,
+        last_seen_at_ms: session.last_seen_at_ms,
+        revoked_at_ms: None,
+        revoke_reason: None,
+    })
 }
 
 fn account_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
@@ -866,10 +878,12 @@ fn map_constraint(err: rusqlite::Error) -> StoreError {
 mod tests {
     use super::{
         AccountStore, MIGRATIONS, SUPPORTED_SCHEMA_VERSION, SqliteAccountStore, SqliteOptions,
+        insert_session,
     };
     use crate::identity::{
         AccountId, NewAccount, NewSession, Secret, SessionStore, StoreError, username_key,
     };
+    use rusqlite::Connection;
     use rusqlite::params;
     use tempfile::TempDir;
 
@@ -1131,6 +1145,86 @@ mod tests {
             .create_session(new_session(account.id, b"token-2"))
             .unwrap();
         assert!(store.active_session(account.id).unwrap().is_some());
+    }
+
+    /// Mở một connection **độc lập** tới file DB, bỏ qua khoá instance của store.
+    ///
+    /// Khoá instance (ADR 0011 §4) là khoá advisory trên file khoá riêng (`boom-server.lock`),
+    /// nên connection thô vẫn mở được file DB. Đó là điều cần cho ca `T4-A4`: hai lần đăng
+    /// nhập **đồng thời** phải chạy trên **hai connection khác nhau** thì mới là tranh chấp
+    /// thật; trên một connection thì các lời gọi phải tuần tự hoá theo `&mut self`.
+    fn open_raw(path: &std::path::Path) -> Connection {
+        let conn = Connection::open(path).expect("mở connection thô");
+        // Cùng cấu hình connection như store (ADR 0011 §3).
+        conn.pragma_update(None, "foreign_keys", true).unwrap();
+        conn.pragma_update(None, "synchronous", "FULL").unwrap();
+        conn.pragma_update(None, "busy_timeout", 5_000_u32).unwrap();
+        conn
+    }
+
+    /// `T4-A4` — **hai lần đăng nhập đồng thời** (race thật): hai connection độc lập tới
+    /// cùng một file DB tạo phiên cho **cùng một tài khoản** *cùng lúc* (hai thread +
+    /// barrier) ⇒ chỉ một phiên thắng, lần còn lại nhận `AccountHasActiveSession`; trong DB
+    /// chỉ có một hàng `revoked_at_ms IS NULL` cho tài khoản đó.
+    ///
+    /// Đây là ca **đồng thời thật**, không phải hai lời gọi tuần tự: unique partial index
+    /// `sessions_one_active_per_account` (ADR 0011 §4) và `BEGIN IMMEDIATE` của transaction
+    /// (ADR 0011 §6.1 bước 2) **cùng** giữ ràng buộc "một tài khoản một phiên hiệu lực" khi
+    /// tranh chấp.
+    #[test]
+    fn t4_a4_concurrent_logins_only_one_wins() {
+        let dir = TempDir::new().unwrap();
+        let path = db_path(&dir);
+        let account_id;
+        {
+            let mut store = open(&dir);
+            account_id = store.create_account(new_account("bomber")).unwrap().id;
+        }
+
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let handles: Vec<_> = (0..2_u8)
+            .map(|index| {
+                let path = path.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let mut conn = open_raw(&path);
+                    let session = new_session(account_id, &[index]);
+                    // Hai thread cùng chờ ở barrier rồi mới cùng tạo phiên ⇒ tranh chấp thật.
+                    barrier.wait();
+                    insert_session(&mut conn, &session)
+                })
+            })
+            .collect();
+
+        let results: Vec<_> = handles
+            .into_iter()
+            .map(|handle| handle.join().expect("thread không được panic"))
+            .collect();
+
+        // Đúng một phiên thắng, đúng một lần thua.
+        assert_eq!(
+            results.iter().filter(|result| result.is_ok()).count(),
+            1,
+            "đúng một phiên phải thắng: {results:?}"
+        );
+        for result in results.iter().filter(|result| result.is_err()) {
+            assert_eq!(
+                result.as_ref().unwrap_err(),
+                &StoreError::AccountHasActiveSession,
+                "lần thua phải nhận `AccountHasActiveSession`"
+            );
+        }
+
+        // Trong DB chỉ có một hàng `revoked_at_ms IS NULL` cho tài khoản đó.
+        let conn = open_raw(&path);
+        let active: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sessions WHERE account_id = ?1 AND revoked_at_ms IS NULL",
+                params![account_id.0],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(active, 1, "chỉ một phiên được giữ chỗ");
     }
 
     #[test]

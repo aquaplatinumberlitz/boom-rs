@@ -699,10 +699,17 @@ mod tests {
         assert_eq!(store.active_session_count(account_id).unwrap(), 1);
     }
 
-    /// `T4-A4` — **hai lần đăng nhập đồng thời** (race): chỉ một phiên thắng; lần còn lại nhận
-    /// `account_has_active_session`; trong DB chỉ có một hàng `revoked_at_ms IS NULL`.
+    /// `T4-A4` — **hai lần đăng nhập**: lần thứ hai bị từ chối với
+    /// `account_has_active_session`; trong DB chỉ có một hàng `revoked_at_ms IS NULL` và
+    /// phiên thắng vẫn hiệu lực.
+    ///
+    /// **Giới hạn của ca này:** hai lời gọi ở đây là **tuần tự**, nên đây **không phải** race
+    /// thật. Ca `T4-A4` *đồng thời thật* (hai thread + barrier trên hai connection độc lập
+    /// tới cùng file DB) nằm ở
+    /// `identity::sqlite::tests::t4_a4_concurrent_logins_only_one_wins` — cùng một đường
+    /// `INSERT` trong transaction `BEGIN IMMEDIATE` nên ràng buộc được kiểm ở cả hai nơi.
     #[test]
-    fn t4_a4_concurrent_logins_only_one_wins() {
+    fn t4_a4_sequential_logins_only_one_wins() {
         let dir = TempDir::new().unwrap();
         let mut store = open(&dir);
         let service = SessionService::new("instance-1");

@@ -14,6 +14,32 @@
 //! phiên. Bucket rate limit theo tên khóa theo `username_key` **đã chuẩn hóa** (không tra DB
 //! trước) nên `RateLimited` không thành oracle tồn tại tài khoản.
 //!
+//! # Quota đăng ký (ADR 0011 §9 dòng 12)
+//!
+//! `Register` có **quota riêng**, tách khỏi bộ đếm *lần đăng nhập sai*:
+//!
+//! | Bộ đếm | Đếm cái gì | Khi nào tăng |
+//! |---|---|---|
+//! | đăng nhập | lần verify mật khẩu **thất bại** | sau khi verify thất bại |
+//! | đăng ký | **lượt** đăng ký | **trước** bước băm Argon2id, kể cả lượt thất bại (tên trùng) |
+//!
+//! ⇒ một lượt đăng ký **không** tiêu tốn bộ ngân sách đăng nhập, và ngược lại.
+//!
+//! Quota tính theo **hai** bucket: `username_key` đã chuẩn hóa (không tra DB trước, nên
+//! `RateLimited` không thành oracle tồn tại tài khoản) và theo nguồn. Lượt đăng ký được đếm
+//! **trước phần công việc tốn kém** (băm Argon2id) ⇒ vượt ngưỡng thì bị từ chối mà không
+//! tốn công băm: chặn được cả **spam tài khoản** (đăng ký thành công) lẫn **probe/hash
+//! spam** (thử tên trùng, mỗi lần đều chạy Argon2id).
+//!
+//! **Giới hạn đã biết:** bucket theo nguồn là theo IP ⇒ nhiều máy sau cùng một NAT (phòng
+//! LAN) dùng chung một bộ ngân sách. V1 chấp nhận; muốn siết thì đổi
+//! [`AuthConfig::register_rate_limit_max_attempts`] trong config, không đổi thuật toán.
+//!
+//! **Giới hạn đã biết (theo tên):** giống bộ đếm đăng nhập, một tên bị khoá cửa sổ thì chính
+//! tên đó không đăng ký/đăng nhập được cho tới khi hết cửa sổ — kẻ tấn công dùng tên nạn
+//! nhân có thể khoá tài khoản nạn nhân. Đây là đánh đổi tiêu chuẩn của rate limit theo tài
+//! khoản; V1 chấp nhận.
+//!
 //! # Ranh giới với crate khác
 //!
 //! - **Giao thức** (`boom-proto`): biên độ dài `username`/`password`, mã lý do trả về.
@@ -95,7 +121,13 @@ pub struct AuthConfig {
     pub session_liveness_timeout_ms: i64,
     /// Số lần thất bại tối đa trong một cửa sổ, theo `username_key` và theo nguồn.
     pub rate_limit_max_failures: u32,
-    /// Cửa sổ tính rate limit (ms).
+    /// Số **lượt đăng ký** tối đa trong một cửa sổ, theo `username_key` và theo nguồn
+    /// (ADR 0011 §9 dòng 12: chặn tạo tài khoản hàng loạt và probe/hash spam).
+    ///
+    /// Tách khỏi [`Self::rate_limit_max_failures`]: một lượt đăng ký không tiêu tốn bộ ngân
+    /// sách đăng nhập, và ngược lại. Cửa sổ dùng chung [`Self::rate_limit_window_ms`].
+    pub register_rate_limit_max_attempts: u32,
+    /// Cửa sổ tính rate limit (ms) — dùng cho cả bộ đếm đăng nhập lẫn quota đăng ký.
     pub rate_limit_window_ms: i64,
     /// Tham số Argon2id.
     pub argon2: Argon2Settings,
@@ -114,6 +146,7 @@ impl Default for AuthConfig {
             session_ttl_ms: 24 * 60 * 60 * 1_000,
             session_liveness_timeout_ms: 30_000,
             rate_limit_max_failures: 5,
+            register_rate_limit_max_attempts: 5,
             rate_limit_window_ms: 5 * 60 * 1_000,
             argon2: Argon2Settings::default(),
             registration_open: true,
@@ -264,13 +297,13 @@ pub struct VerifyCounts {
     pub with_dummy: u64,
 }
 
-/// Cửa sổ đếm lỗi của một bucket rate limit.
+/// Cửa sổ đếm của một bucket rate limit.
 #[derive(Clone, Copy, Debug)]
 struct Window {
     /// Đầu cửa sổ (ms).
     start_ms: i64,
-    /// Số lần thất bại trong cửa sổ.
-    failures: u32,
+    /// Số lượt đã đếm trong cửa sổ.
+    count: u32,
 }
 
 /// Bộ giới hạn tần suất trong RAM (ADR 0011 §5).
@@ -278,18 +311,22 @@ struct Window {
 /// Hai bucket theo tài khoản (`username_key` đã chuẩn hóa) và theo nguồn (IP). Trạng thái
 /// **không** lưu xuống DB: mất thì mất, chấp nhận được (ADR 0011 §5 nói "giới hạn tần suất
 /// theo tài khoản và theo nguồn (IP)" mà không yêu cầu bền vững).
+///
+/// [`AuthService`] dùng **hai** bộ đếm **tách biệt**: bộ đếm lần đăng nhập sai và bộ đếm lượt
+/// đăng ký (xem doc đầu module).
 #[derive(Debug)]
 struct RateLimiter {
     window_ms: i64,
-    max_failures: u32,
+    /// Ngưỡng: số lượt tối đa trong một cửa sổ.
+    max_count: u32,
     buckets: HashMap<String, Window>,
 }
 
 impl RateLimiter {
-    fn new(window_ms: i64, max_failures: u32) -> Self {
+    fn new(window_ms: i64, max_count: u32) -> Self {
         Self {
             window_ms,
-            max_failures,
+            max_count,
             buckets: HashMap::new(),
         }
     }
@@ -297,26 +334,28 @@ impl RateLimiter {
     /// Còn được thử hay không.
     fn allows(&self, key: &str, now_ms: i64) -> bool {
         match self.buckets.get(key) {
-            Some(window) if self.in_window(window, now_ms) => window.failures < self.max_failures,
+            Some(window) if self.in_window(window, now_ms) => window.count < self.max_count,
             _ => true,
         }
     }
 
-    /// Ghi nhận một lần thất bại.
-    fn record_failure(&mut self, key: &str, now_ms: i64) {
+    /// Ghi nhận một lượt đã đếm: lần thất bại (bộ đếm đăng nhập) hoặc lượt đăng ký (quota đăng
+    /// ký). Lượt đã đếm thì **giữ nguyên** khi bị từ chối: lượt bị từ chối không tiêu tốn
+    /// ngân sách, nên kẻ tấn công không giữ được cửa sổ của nạn nhân mãi.
+    fn record_attempt(&mut self, key: &str, now_ms: i64) {
         let expired = match self.buckets.get(key) {
             Some(window) => !in_window(window, self.window_ms, now_ms),
             None => true,
         };
         let window = self.buckets.entry(key.to_string()).or_insert(Window {
             start_ms: now_ms,
-            failures: 0,
+            count: 0,
         });
         if expired {
             window.start_ms = now_ms;
-            window.failures = 0;
+            window.count = 0;
         }
-        window.failures = window.failures.saturating_add(1);
+        window.count = window.count.saturating_add(1);
     }
 
     /// `now_ms` còn nằm trong cửa sổ của `window` không.
@@ -358,12 +397,18 @@ pub struct AuthService {
     sessions: SessionService,
     /// Nguồn entropy — mặc định RNG của hệ điều hành, test thì tiêm nguồn lỗi được.
     random: Box<dyn RandomSource>,
-    /// Bộ giới hạn tần suất trong RAM.
+    /// Bộ đếm **lần đăng nhập sai** (theo `username_key` và theo nguồn).
     limiter: RateLimiter,
+    /// Bộ đếm **lượt đăng ký** (theo `username_key` và theo nguồn) — tách khỏi bộ đếm trên
+    /// (ADR 0011 §9 dòng 12).
+    register_limiter: RateLimiter,
     /// PHC giả, tính **một lần** rồi cache lại.
     dummy_hash: OnceLock<Result<String, String>>,
     /// Bộ đếm verify (để kiểm chứng đường verify thống nhất).
     verifies: VerifyCounts,
+    /// Số lần băm mật khẩu (Argon2id) đã thực hiện — để kiểm chứng quota chặn **trước**
+    /// phần công việc tốn kém.
+    hashes: u64,
 }
 
 impl AuthService {
@@ -387,14 +432,20 @@ impl AuthService {
             )
         })?;
         let limiter = RateLimiter::new(config.rate_limit_window_ms, config.rate_limit_max_failures);
+        let register_limiter = RateLimiter::new(
+            config.rate_limit_window_ms,
+            config.register_rate_limit_max_attempts,
+        );
         Ok(Self {
             config,
             params,
             sessions: SessionService::new(instance_id),
             random,
             limiter,
+            register_limiter,
             dummy_hash: OnceLock::new(),
             verifies: VerifyCounts::default(),
+            hashes: 0,
         })
     }
 
@@ -413,9 +464,26 @@ impl AuthService {
         self.verifies
     }
 
+    /// Số lần băm mật khẩu (Argon2id) đã thực hiện.
+    ///
+    /// Dùng để kiểm chứng rằng lượt đăng ký bị **từ chối vì quota** không tốn công băm:
+    /// quota được kiểm **trước** phần công việc tốn kém (ADR 0011 §9 dòng 12).
+    pub fn hashed_password_count(&self) -> u64 {
+        self.hashes
+    }
+
     /// Đăng ký tài khoản mới.
     ///
-    /// Thứ tự: biên → rate limit → cờ đăng ký → định dạng → băm → tạo tài khoản → cấp phiên.
+    /// Thứ tự: biên → **quota đăng ký** → cờ đăng ký → định dạng → **đếm lượt** → băm → tạo
+    /// tài khoản → cấp phiên.
+    ///
+    /// Quota được kiểm **trước** mọi việc tốn kém, và lượt đăng ký được **đếm trước** bước
+    /// băm Argon2id: lượt đăng ký thành công cũng bị đếm (chặn spam tài khoản), lượt thất bại
+    /// vì tên trùng cũng bị đếm (chặn probe/hash spam) — ADR 0011 §9 dòng 12.
+    ///
+    /// Lượt bị từ chối vì sai định dạng tên/mật khẩu **không** bị đếm: lượt đó không tốn
+    /// công băm, và đếm nó sẽ cho phép kẻ tấn công khoá cửa sổ của một tên bất kỳ chỉ bằng
+    /// input rác.
     ///
     /// `UsernameUnavailable` chỉ trả cho `Register` — đăng ký tự bản chất lộ tên đã có
     /// (ADR 0009 Addendum A §A.2).
@@ -429,9 +497,10 @@ impl AuthService {
         now_ms: i64,
     ) -> Result<AuthOutcome, AuthError> {
         self.check_bounds(username, password)?;
-        let user_bucket = user_bucket(username);
-        let source_bucket = source_bucket(source);
-        self.check_rate_limit(&user_bucket, &source_bucket, now_ms)?;
+        let user_bucket = register_user_bucket(username);
+        let source_bucket = register_source_bucket(source);
+        // Quota đăng ký: kiểm **trước** mọi việc tốn kém, **không** tra DB trước.
+        self.check_register_quota(&user_bucket, &source_bucket, now_ms)?;
 
         if !self.config.registration_open {
             return Err(AuthError::rejected(AuthFailure::RegistrationClosed));
@@ -439,6 +508,11 @@ impl AuthService {
         // Ràng buộc định dạng tên (ADR 0011 §4).
         username_key(username).map_err(|_| AuthError::rejected(AuthFailure::InvalidInput))?;
         self.check_password(password)?;
+
+        // Đếm lượt đăng ký **trước** bước băm: mọi lượt đi tới đây đều tốn công băm Argon2id,
+        // kể cả lượt thất bại vì tên đã có.
+        self.register_limiter.record_attempt(&user_bucket, now_ms);
+        self.register_limiter.record_attempt(&source_bucket, now_ms);
 
         let phc = self.hash_password(password)?;
         let account = store
@@ -466,11 +540,11 @@ impl AuthService {
         connection_id: &str,
         now_ms: i64,
     ) -> Result<AuthOutcome, AuthError> {
-        // (1) biên / rate limit — trước mọi việc khác, kể cả trước khi tra DB.
+        // (1) biên / quota đăng nhập — trước mọi việc khác, kể cả trước khi tra DB.
         self.check_bounds(username, password)?;
         let user_bucket = user_bucket(username);
         let source_bucket = source_bucket(source);
-        self.check_rate_limit(&user_bucket, &source_bucket, now_ms)?;
+        self.check_login_quota(&user_bucket, &source_bucket, now_ms)?;
 
         // Ràng buộc định dạng tên (ADR 0011 §4) — sai định dạng thì không có tài khoản nào
         // mang tên đó, nên trả `InvalidInput` thay vì `InvalidCredentials`.
@@ -492,8 +566,8 @@ impl AuthService {
             }
         };
         if !verified {
-            self.limiter.record_failure(&user_bucket, now_ms);
-            self.limiter.record_failure(&source_bucket, now_ms);
+            self.limiter.record_attempt(&user_bucket, now_ms);
+            self.limiter.record_attempt(&source_bucket, now_ms);
             return Err(AuthError::rejected(AuthFailure::InvalidCredentials));
         }
 
@@ -574,8 +648,8 @@ impl AuthService {
         Ok(())
     }
 
-    /// Kiểm tra rate limit theo tài khoản và theo nguồn (ADR 0011 §5).
-    fn check_rate_limit(
+    /// Kiểm quota **lần đăng nhập sai** theo tài khoản và theo nguồn (ADR 0011 §5).
+    fn check_login_quota(
         &self,
         user_bucket: &str,
         source_bucket: &str,
@@ -588,8 +662,27 @@ impl AuthService {
         Ok(())
     }
 
+    /// Kiểm **quota đăng ký** theo tài khoản và theo nguồn (ADR 0011 §9 dòng 12).
+    ///
+    /// Quota này **tách** khỏi bộ đếm lần đăng nhập sai: một lượt đăng ký không tiêu tốn bộ
+    /// ngân sách đăng nhập và ngược lại.
+    fn check_register_quota(
+        &self,
+        user_bucket: &str,
+        source_bucket: &str,
+        now_ms: i64,
+    ) -> Result<(), AuthError> {
+        if !self.register_limiter.allows(user_bucket, now_ms)
+            || !self.register_limiter.allows(source_bucket, now_ms)
+        {
+            return Err(AuthError::rejected(AuthFailure::RateLimited));
+        }
+        Ok(())
+    }
+
     /// Băm mật khẩu bằng Argon2id với salt **mới** từ RNG (ADR 0011 §5, §6).
     fn hash_password(&mut self, password: &str) -> Result<String, AuthError> {
+        self.hashes = self.hashes.saturating_add(1);
         let salt_len = self.config.argon2.salt_len;
         let mut salt = vec![0_u8; salt_len];
         if let Err(err) = self.random.fill(&mut salt) {
@@ -679,6 +772,17 @@ fn user_bucket(username: &str) -> String {
 /// Bucket rate limit theo nguồn (IP).
 fn source_bucket(source: &str) -> String {
     format!("source:{source}")
+}
+
+/// Bucket quota đăng ký theo tài khoản — chuẩn hóa như [`user_bucket`], **không** tra DB
+/// trước, để `RateLimited` không thành oracle tồn tại tài khoản.
+fn register_user_bucket(username: &str) -> String {
+    format!("reg-user:{}", username.trim().to_lowercase())
+}
+
+/// Bucket quota đăng ký theo nguồn (IP).
+fn register_source_bucket(source: &str) -> String {
+    format!("reg-source:{source}")
 }
 
 /// Dịch lỗi tầng lưu trữ sang lỗi miền.
@@ -999,6 +1103,322 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.reason, AuthFailure::RateLimited);
         assert_eq!(err.wire_reason(), AuthFailReason::RateLimited);
+    }
+
+    // --- Quota đăng ký (review PR #85, finding P1) ---------------------------------------
+    //
+    // `register()` trước đây **kiểm** bucket nhưng không **đếm** lượt nào: một nguồn chưa
+    // từng đăng nhập sai có thể tạo tài khoản liên tục, hoặc thử tên đăng ký liên tục (mỗi
+    // lần vẫn chạy Argon2id) mà không bao giờ nhận `RateLimited`.
+
+    /// Ngưỡng mặc định của quota đăng ký: 5 lượt / 5 phút, giống ngưỡng đăng nhập sai.
+    #[test]
+    fn register_quota_default_matches_documented_value() {
+        let config = AuthConfig::default();
+        assert_eq!(config.register_rate_limit_max_attempts, 5);
+        assert_eq!(config.rate_limit_max_failures, 5);
+        assert_eq!(config.rate_limit_window_ms, 5 * 60 * 1_000);
+    }
+
+    /// Tái hiện đúng ca review PR #85: cấu hình **mặc định**, cùng nguồn, cùng `now_ms` ⇒
+    /// lượt đăng ký vượt ngưỡng trả `RateLimited` (trước đây 6/6 đều thành công).
+    #[test]
+    fn register_quota_blocks_after_max_attempts_from_one_source() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let mut auth = default_service();
+        let max = auth.config().register_rate_limit_max_attempts;
+
+        for index in 0..max {
+            let username = format!("bomber{index}");
+            auth.register(
+                &mut store,
+                &username,
+                "matkhau123",
+                "10.0.0.1",
+                "conn-1",
+                NOW,
+            )
+            .unwrap();
+        }
+
+        let err = auth
+            .register(
+                &mut store,
+                "bomberx",
+                "matkhau123",
+                "10.0.0.1",
+                "conn-2",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::RateLimited);
+        assert_eq!(err.wire_reason(), AuthFailReason::RateLimited);
+        // Tài khoản bị chặn **không** được tạo.
+        assert!(store.account_by_username("bomberx").unwrap().is_none());
+    }
+
+    /// Quota tính theo **tên** (chuẩn hóa, không tra DB trước): nguồn khác cũng bị chặn.
+    #[test]
+    fn register_quota_by_username_blocks_other_sources() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let config = AuthConfig {
+            register_rate_limit_max_attempts: 1,
+            ..AuthConfig::default()
+        };
+        let mut auth = service(config);
+
+        auth.register(
+            &mut store,
+            "bomber",
+            "matkhau123",
+            "10.0.0.1",
+            "conn-1",
+            NOW,
+        )
+        .unwrap();
+
+        // Nguồn khác, cùng tên ⇒ bucket theo tên đã đầy ⇒ `RateLimited`.
+        let err = auth
+            .register(
+                &mut store,
+                "bomber",
+                "matkhau123",
+                "10.0.0.2",
+                "conn-2",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::RateLimited);
+
+        // Tên viết hoa cũng ăn cùng bucket đã chuẩn hóa.
+        let err = auth
+            .register(
+                &mut store,
+                "BOMBER",
+                "matkhau123",
+                "10.0.0.2",
+                "conn-3",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::RateLimited);
+
+        // Nguồn khác, tên khác ⇒ vẫn được (bucket theo tên và theo nguồn độc lập).
+        auth.register(&mut store, "khac", "matkhau123", "10.0.0.2", "conn-4", NOW)
+            .unwrap();
+    }
+
+    /// Quota chặn được probe/hash spam: lượt thử tên **trùng** cũng là lượt đăng ký (đã tốn
+    /// công băm) nên bị đếm — sau ngưỡng thì trả `RateLimited`, không phải
+    /// `UsernameUnavailable`.
+    #[test]
+    fn register_quota_counts_duplicate_name_probes() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let config = AuthConfig {
+            register_rate_limit_max_attempts: 2,
+            ..AuthConfig::default()
+        };
+        let mut auth = service(config);
+
+        auth.register(
+            &mut store,
+            "bomber",
+            "matkhau123",
+            "10.0.0.1",
+            "conn-1",
+            NOW,
+        )
+        .unwrap();
+
+        // Lượt thứ hai: tên đã có ⇒ vẫn bị đếm (đã chạy Argon2id).
+        let err = auth
+            .register(
+                &mut store,
+                "bomber",
+                "matkhau123",
+                "10.0.0.2",
+                "conn-2",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::UsernameUnavailable);
+
+        // Lượt thứ ba: bucket theo tên đã đầy ⇒ `RateLimited` (không phải
+        // `UsernameUnavailable` ⇒ đã chặn được probe/hash spam).
+        let err = auth
+            .register(
+                &mut store,
+                "bomber",
+                "matkhau123",
+                "10.0.0.3",
+                "conn-3",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::RateLimited);
+    }
+
+    /// Hết cửa sổ thì quota reset — đồng hồ **tiêm vào**, không sleep thật.
+    #[test]
+    fn register_quota_window_expires_with_injected_clock() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let config = AuthConfig {
+            register_rate_limit_max_attempts: 1,
+            rate_limit_window_ms: 60_000,
+            ..AuthConfig::default()
+        };
+        let mut auth = service(config);
+
+        auth.register(
+            &mut store,
+            "bomber1",
+            "matkhau123",
+            "10.0.0.1",
+            "conn-1",
+            NOW,
+        )
+        .unwrap();
+        let err = auth
+            .register(
+                &mut store,
+                "bomber2",
+                "matkhau123",
+                "10.0.0.1",
+                "conn-2",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::RateLimited);
+
+        // Qua cửa sổ ⇒ quota reset, đăng ký lại được (đồng hồ tiêm, không sleep).
+        auth.register(
+            &mut store,
+            "bomber3",
+            "matkhau123",
+            "10.0.0.1",
+            "conn-3",
+            NOW + 60_000,
+        )
+        .unwrap();
+    }
+
+    /// Quota được kiểm **trước** phần công việc tốn kém: lượt bị chặn không chạy Argon2id.
+    #[test]
+    fn rate_limited_register_does_not_hash_password() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let config = AuthConfig {
+            register_rate_limit_max_attempts: 1,
+            ..AuthConfig::default()
+        };
+        let mut auth = service(config);
+
+        auth.register(
+            &mut store,
+            "bomber1",
+            "matkhau123",
+            "10.0.0.1",
+            "conn-1",
+            NOW,
+        )
+        .unwrap();
+        assert_eq!(auth.hashed_password_count(), 1);
+
+        let err = auth
+            .register(
+                &mut store,
+                "bomber2",
+                "matkhau123",
+                "10.0.0.1",
+                "conn-2",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::RateLimited);
+        // Không có thêm lần băm nào ⇒ lượt bị chặn không tốn công Argon2id.
+        assert_eq!(auth.hashed_password_count(), 1);
+    }
+
+    /// Quota đăng ký **tách** khỏi bộ đếm lần đăng nhập sai: lượt đăng ký không tiêu tốn bộ
+    /// ngân sách đăng nhập và ngược lại.
+    #[test]
+    fn register_quota_is_separate_from_login_failure_budget() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let config = AuthConfig {
+            register_rate_limit_max_attempts: 1,
+            rate_limit_max_failures: 1,
+            ..AuthConfig::default()
+        };
+        let mut auth = service(config);
+
+        // Lượt đăng ký đầu tiên (hết quota đăng ký theo nguồn).
+        auth.register(
+            &mut store,
+            "bomber",
+            "matkhau123",
+            "10.0.0.1",
+            "conn-1",
+            NOW,
+        )
+        .unwrap();
+
+        // Đăng nhập sai **vẫn** được thử (bộ đếm đăng nhập chưa dùng lượt nào) ⇒
+        // `InvalidCredentials`, không phải `RateLimited`.
+        let err = auth
+            .login(
+                &mut store,
+                "bomber",
+                "saimatkhau",
+                "10.0.0.1",
+                "conn-2",
+                NOW,
+            )
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::InvalidCredentials);
+
+        // Lượt đăng ký thứ hai đã vượt quota đăng ký ⇒ `RateLimited` (bộ đếm đăng nhập
+        // không liên quan).
+        let err = auth
+            .register(&mut store, "khac", "matkhau123", "10.0.0.1", "conn-3", NOW)
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::RateLimited);
+    }
+
+    /// Lượt đăng ký bị từ chối vì sai định dạng **không** tốn công băm và **không** bị đếm
+    /// (nếu đếm, kẻ tấn công khoá được cửa sổ của một tên bất kỳ bằng input rác).
+    #[test]
+    fn invalid_registration_input_is_neither_counted_nor_hashed() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        let config = AuthConfig {
+            register_rate_limit_max_attempts: 1,
+            ..AuthConfig::default()
+        };
+        let mut auth = service(config);
+
+        // Sai định dạng: bị từ chối, không băm, không đếm.
+        let err = auth
+            .register(&mut store, "ab", "matkhau123", "10.0.0.1", "conn-1", NOW)
+            .unwrap_err();
+        assert_eq!(err.reason, AuthFailure::InvalidInput);
+        assert_eq!(auth.hashed_password_count(), 0);
+
+        // Lượt hợp lệ đầu tiên vẫn còn ngân sách ⇒ thành công.
+        auth.register(
+            &mut store,
+            "bomber",
+            "matkhau123",
+            "10.0.0.1",
+            "conn-2",
+            NOW,
+        )
+        .unwrap();
+        assert_eq!(auth.hashed_password_count(), 1);
     }
 
     #[test]
