@@ -13,6 +13,12 @@ quyết định, vị trí code và thứ tự task.
 | P2 — `health` không đọc được trạng thái tiến trình server đang chạy | §8.2 (tách health runtime qua admin IPC loopback khỏi offline check; exit code 0/1/2/3; artifact `health.json` chỉ để chẩn đoán), §9 dòng 15–16, §11 ca `T1-H1…T1-H7` |
 | Ghi chú — `rand` 0.10.3 không còn `OsRng` | §6 (dùng `getrandom` 0.4.3 + xử lý lỗi entropy, không fallback RNG yếu), §10 (bỏ `rand`, thêm `getrandom`/`fs4`), §12 (nguồn + ghi chú) |
 
+**Sửa lần 3 (2026-10-20) theo review PR #85** (task `issue-76`, T3):
+
+| Finding | Sửa ở đâu |
+|---|---|
+| P1 — quota đăng ký **không được đếm**: `register()` chỉ *kiểm* bucket mà không *ghi nhận* lượt nào ⇒ nguồn chưa từng đăng nhập sai tạo tài khoản / thử tên trùng liên tục mà không bao giờ nhận `RateLimited`, tức bỏ qua biện pháp chống tạo tài khoản hàng loạt ở §9 dòng 12 | §5 (hai bộ đếm **tách biệt**; quota đăng ký đếm **lượt** và được kiểm **trước** phần công việc tốn kém), §9 dòng 12, §14 (giới hạn NAT và bucket theo tên) |
+
 > Index `docs/decisions/README.md` và dòng "Persistence" ở
 > [ARCHITECTURE §8](../planning/ARCHITECTURE.md#8-quyết-định-còn-mở) do integrator cập nhật khi
 > duyệt ADR này (index ADR thuộc integrator theo AGENTS §5). ADR 0009 cũng cần một addendum cho
@@ -222,6 +228,19 @@ Quyết định kèm theo:
 - **Giới hạn tần suất**: theo tài khoản và theo nguồn (IP), số lần sai trong cửa sổ thời gian; vượt ngưỡng
   thì từ chối và log mã `auth.rate_limited`. Ngưỡng là **tham số vận hành trong config**, không phải
   luật chơi.
+- **Hai bộ đếm tách biệt** (làm rõ khi implement T3, review PR #85):
+  - (a) bộ đếm **lần đăng nhập sai** — chỉ tăng khi verify mật khẩu thất bại;
+  - (b) **quota đăng ký** — đếm **mọi lượt** đăng ký đi tới bước tốn kém (băm Argon2id), kể cả lượt
+    thất bại vì tên đã có ⇒ chặn được cả **spam tài khoản** (đăng ký thành công) lẫn **probe/hash
+    spam** (thử tên trùng, mỗi lần đều chạy Argon2id).
+  Quota (b) được **kiểm trước** phần công việc tốn kém ⇒ vượt ngưỡng thì bị từ chối mà **không tốn
+  công băm**; lượt bị từ chối vì sai định dạng tên/mật khẩu thì **không** đếm (lượt đó không tốn công
+  băm, và đếm nó cho phép khoá cửa sổ của một tên bất kỳ bằng input rác). Quota (b) **tách** khỏi
+  bộ đếm (a): một lượt đăng ký không tiêu tốn bộ ngân sách đăng nhập và ngược lại. Cả hai dùng chung
+  cửa sổ thời gian; ngưỡng là thông số vận hành trong config (`rate_limit_max_failures`,
+  `register_rate_limit_max_attempts`). Bucket theo tài khoản dùng `username_key` **đã chuẩn hóa** và
+  **không** tra DB trước, nên `RateLimited` không thành oracle tồn tại tài khoản (ADR 0009 Addendum A
+  §A.2).
 - Mật khẩu và PHC string **không bao giờ** vào log (§9).
 
 ## 6. Quyết định 4 — Session token
@@ -627,6 +646,11 @@ lần 2 theo review PR #57). Đây là nguồn cho **lựa chọn thiết kế**
 - **Không đồng bộ tùy chọn client** giữa thiết bị.
 - **SQLite không mã hóa file**; V1 không dùng SQLCipher.
 - **Bộ đếm rate limit nằm trong RAM tiến trình** → mất khi restart server (chấp nhận V1; xem §13).
+- **Quota đăng ký tính theo IP nguồn** ⇒ nhiều máy sau cùng một NAT (phòng LAN) dùng chung một bộ
+  ngân sách đăng ký; cần siết thì tăng `register_rate_limit_max_attempts` trong config, không đổi
+  thuật toán. Tương tự, bucket theo tài khoản có thể bị "khoá cửa sổ" của một tên bằng các lượt
+  sai (đăng nhập sai hoặc đăng ký trùng tên) — đánh đổi tiêu chuẩn của rate limit theo tài khoản; V1
+  chấp nhận.
 - **Không có trace server gốc cho auth/session**: toàn bộ ADR là DESIGN. Mọi khác biệt với hệ thống
   Nexon/NGM cũ là **có chủ ý** — V1 không port auth Nexon/NGM (SCOPE_V1 §8).
 - **Số trong ADR này là tham số vận hành/hiệu năng, không phải luật chơi**: TTL session, ngưỡng rate

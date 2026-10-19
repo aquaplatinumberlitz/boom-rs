@@ -11,6 +11,7 @@
 //! `health` runtime/offline.
 
 mod admin;
+pub mod auth;
 mod authority;
 mod config;
 pub mod identity;
