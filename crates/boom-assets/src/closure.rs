@@ -11,9 +11,9 @@
 //! - `data/maps/village00-kr.toml` — bảng phân loại ô của Village00 KR (PR #25).
 //! - `docs/evidence/inventory/kr_v1_content.json` — vai trò của 103 entry đã fingerprint.
 //! - [VN_LEGACY_SERVER_REFERENCE](../../../../docs/research/findings/VN_LEGACY_SERVER_REFERENCE.md)
-//!   §1 — quy tắc tra theme.
+//!   §1 — quy tắc tra theme (ở đó là `candidate` cho map chưa chạy).
 //!
-//! Quy tắc tra entry (RULES_V1 R-069, R-070):
+//! Quy tắc tra entry (RULES_V1 R-069, R-070, R-071):
 //!
 //! 1. ID tile và ID obj trong file `.map` là **chỉ số entry** của `fx/ObjectTable/ObjectTable`
 //!    của build tương ứng (KR và VN dùng chung quy tắc, chỉ khác số thứ tự).
@@ -22,6 +22,10 @@
 //!    không đổi sprite.
 //! 3. Theme của map là thư mục `Theme/*` dài nhất làm tiền tố tên map; entry theme là
 //!    `FxMap/Theme/<Theme>`, preview là `FxMap/Etc/<Map>_mm`, BGM là `FxSound/MP3/<Theme>`.
+//!    Quy tắc **tổng quát** này là R-071 (`candidate`: mới chỉ có bằng chứng VN legacy server
+//!    và 9 map VN chạy được). Trên pack KR nó khớp 914/1.151 map, nên phần chỉ dùng cho V1 là
+//!    kết quả đã xác nhận ở `Village00` (R-070: theme `Village`, preview `Village00_mm`,
+//!    BGM `Village`).
 //!
 //! Bảng chọn nội dung (nhân vật, item, vai trò) là **dữ liệu content** của V1, không phải
 //! hằng số luật chơi: nó kế thừa vai trò đã fingerprint ở `kr_v1_content.json` và phạm vi
@@ -209,7 +213,7 @@ impl ClosureManifest {
             out,
             "# Manifest closure một trận V1 — map {map} (build {build}).\n\
              # Sinh bởi `cargo run -p boom-assets --bin boom-closure -- <thư mục pack>`.\n\
-             # Quy tắc tra entry: RULES_V1 R-069, R-070.\n\
+             # Quy tắc tra entry: RULES_V1 R-069, R-070, R-071.\n\
              schema = {schema}\n\
              build = \"{build}\"\n\
              map = \"{map}\"\n\
@@ -366,11 +370,19 @@ pub fn theme_names(index: &PackIndex) -> Vec<String> {
 
 /// Theme của một map: thư mục `Theme/*` **dài nhất** làm tiền tố tên map.
 ///
-/// Quy tắc lấy từ server giả lập VN
+/// Đây là quy tắc **tổng quát** R-071, trạng thái `candidate`: nguồn là server giả lập VN
 /// ([VN_LEGACY_SERVER_REFERENCE](../../../../docs/research/findings/VN_LEGACY_SERVER_REFERENCE.md)
-/// §1, ở đó là `candidate` cho map chưa chạy) và kiểm lại trên pack KR: `Village00` → `Village`
-/// (142 theme trong `FxMap`, chỉ `Village` khớp tiền tố). Tiền tố `NXCL_`/`WS_`/
-/// `WinningStreak_` của VN được bỏ trước khi so.
+/// §1, ở đó cũng là `candidate` cho map chưa chạy) và 9 map VN chạy được
+/// ([VN_BATTLE_RUNTIME_REFERENCE](../../../../docs/research/findings/VN_BATTLE_RUNTIME_REFERENCE.md)
+/// VN-B04) — bằng chứng gián tiếp, chưa có trace client nào xác nhận chọn theme.
+///
+/// Đo trên pack KR 00967: `FxMap` có 142 thư mục `Theme/*` và 1.151 map; rule khớp 914 map
+/// (237 map không có thư mục theme nào làm tiền tố, legacy server dùng fallback
+/// `ThemeDefault`), và BGM `FxSound/MP3/<theme>` chỉ tồn tại cho 32/80 theme dùng được — nên
+/// phần BGM theo tên theme chỉ chắc ở `Village`.
+///
+/// Map V1 `Village00` đã được xác nhận riêng (R-070): `Village00` → `Village`.
+/// Tiền tố `NXCL_`/`WS_`/`WinningStreak_` của VN được bỏ trước khi so.
 #[must_use]
 pub fn resolve_theme(map_name: &str, themes: &[String]) -> Option<String> {
     let base = ["NXCL_", "WS_", "WinningStreak_"]
@@ -389,7 +401,8 @@ pub fn resolve_theme(map_name: &str, themes: &[String]) -> Option<String> {
 ///
 /// Vai trò lấy từ `docs/evidence/inventory/kr_v1_content.json`; nhân vật và item theo
 /// [SCOPE_V1](../../../../docs/planning/SCOPE_V1.md) §1. Entry theme, preview và BGM không
-/// khai ở đây: chúng suy từ quy tắc tra theme (xem [`resolve_theme`]). `Fire00` (lửa) và
+/// khai ở đây: chúng suy từ quy tắc tra theme (xem [`resolve_theme`], R-071 `candidate`;
+/// riêng map V1 `Village00` đã xác nhận ở R-070). `Fire00` (lửa) và
 /// `Bubble00` (bong bóng bị nhốt) chưa có bằng chứng consumer nên để `candidate`.
 const REQUIRED_ENTRIES: &[(&str, ClosureRole, Status)] = &[
     ("FxMap/Map/Village00", ClosureRole::Map, Status::Confirmed),
@@ -1050,6 +1063,7 @@ mod tests {
 
     #[test]
     fn theme_is_the_longest_matching_theme_folder() {
+        // Kiểm quy tắc R-071 (`candidate`): map V1 `Village00` đã xác nhận riêng ở R-070.
         let themes: Vec<String> = ["Village", "ExVillage", "Volcano"]
             .iter()
             .map(|t| (*t).to_owned())
