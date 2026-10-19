@@ -13,6 +13,9 @@ boom-proto = { path = "../boom-proto" }
 boom-net = { path = "../boom-net" }
 boom-sync = { path = "../boom-sync" }
 macroquad = { version = "=0.4.16", features = ["audio"] }
+# Tùy chọn client `options.toml` (ADR 0011 §7): đọc/ghi TOML + derive serde.
+serde.workspace = true
+toml.workspace = true
 
 [lints]
 workspace = true

@@ -67,6 +67,19 @@ impl Keybinds {
         }
     }
 
+    /// Dựng bộ keybind từ danh sách (hành động, phím) — dùng khi nạp `options.toml`.
+    ///
+    /// Không hoán đổi phím như [`Keybinds::rebind`]: nơi nạp options đã tự kiểm trùng phím và bỏ
+    /// hành động bị trùng ra khỏi danh sách, nên mỗi hành động xuất hiện tối đa một lần và hành
+    /// động không có trong danh sách giữ mặc định.
+    pub fn from_entries(entries: &[(InputAction, KeyCode)]) -> Self {
+        let mut binds = Self::default();
+        for &(action, key) in entries {
+            binds.set(action, key);
+        }
+        binds
+    }
+
     pub fn action_for(self, key: KeyCode) -> Option<InputAction> {
         InputAction::ALL
             .into_iter()
