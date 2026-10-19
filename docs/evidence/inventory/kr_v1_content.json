@@ -1,0 +1,720 @@
+{
+  "schema": 1,
+  "baseline": "KR-00967-V1-scope-1",
+  "required": {
+    "map": "FxMap/Map/Village00",
+    "preview": "FxMap/Etc/Village00_mm",
+    "theme": "FxMap/Theme/Village",
+    "music": "FxSound/MP3/Village",
+    "character_attr": "FxContents/Attr/BomberAttr",
+    "item_attr": "FxContents/Attr/ItemAttr",
+    "bomb_item": "fx/Item/Bomb",
+    "fire_item": "fx/Item/Fire",
+    "speed_item": "fx/Item/Roller",
+    "bomb_art": "FxDesktop/Bomb/Bomb00",
+    "explosion_art": "FxDesktop/Bomb/BombExplosion001",
+    "room_create": "FxStage/Lobby/LB_Bt_T_Create-NM",
+    "room_create_dialog": "FxStage/Lobby/Dlg_LB-NMCreate",
+    "ready": "FxMap/Prepare/PRE_Bt_Ready",
+    "start": "FxMap/Prepare/PRE_Bt_Start"
+  },
+  "selected_resources": [
+    {
+      "entry": "FxCharacter/Character/C00-Blink_ALayerAdjust",
+      "bytes": 4288,
+      "sha256": "320298ad09af249de1e58db2f877549158f3275f0f33c8ee58f849b8a2e9cb21",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Blink_ALayerStatic",
+      "bytes": 2847,
+      "sha256": "76203173a472b0e8baf406db613824391cd271526fea72f91f9275a902483308",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-BlinkSmall_ALayerAdjust",
+      "bytes": 3655,
+      "sha256": "966d84b20a1383b992c4719eccebdee68a7c384a32c7ca6dfbbf3d0526fe1534",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-BlinkSmall_ALayerStatic",
+      "bytes": 1863,
+      "sha256": "370b10e43838ab80758b34d8558a5bed1495b2d2d5687bd879fa6bbd031f16c5",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-DieLayerAdjust",
+      "bytes": 16654,
+      "sha256": "b4226b5eb4845a5fc4a7e972cb9355430269e7fe3aeff63e6d8cadf1311db101",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-DieLayerStatic",
+      "bytes": 11216,
+      "sha256": "0c67944243ee4f10577438f842be7bc4e1ab17164cc87f27ce12d12d6a66c0bb",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Dril_ALayerAdjust",
+      "bytes": 9773,
+      "sha256": "e8582e15998a5f2e1978026236120570a2fcc18255997688d5af99d87248a836",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Dril_ALayerStatic",
+      "bytes": 7561,
+      "sha256": "d7399e3585c30265de2e889a3e3c19935967acce597812935266eaa49badd407",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-FaintLayerAdjust",
+      "bytes": 3328,
+      "sha256": "359c53330122a6d2cbd833270ba6fbc2692470fffc561b194fc612fae80a75d5",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-FaintLayerStatic",
+      "bytes": 2624,
+      "sha256": "4476c160bf23b32cafcc1ee16c9f7986584cdf98e6827f181b67a9aea50c5440",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-GhostInOutLayerAdjust",
+      "bytes": 840,
+      "sha256": "071e0c7398cfd529363e63e3e8b80af0d81a5763fc0a2de37657e34d76afac19",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-GhostInOutLayerStatic",
+      "bytes": 16355,
+      "sha256": "69b6853f5c456924a1a607bba928a8f14a410ab341cf33873850cc7e791a9e43",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-GhostLayerAdjust",
+      "bytes": 2682,
+      "sha256": "11190e04fef27560147e74f4cb90ca8121528eb4fbce476f698d8038c99efbbf",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-GhostLayerStatic",
+      "bytes": 64236,
+      "sha256": "4d83f681d83c50d69f2c75be2508c78a04e2098bf880b57a3e72f2a27ff18510",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Hurrah_ALayerAdjust",
+      "bytes": 5643,
+      "sha256": "d8b1c5374bf3af0c25b2b40a4284f56d3054428be8b1e877697e703dd40787a7",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Hurrah_ALayerStatic",
+      "bytes": 4009,
+      "sha256": "f106cfafa1e55721afc6f8bc1bfcf9dc442475bb61ce9ec32526166029f10aea",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Portrait_ALayerAdjust",
+      "bytes": 1754,
+      "sha256": "bbdb7b04bed891511c46a1844a8c4956b22330cbaf5494530b81dfe926fe06b1",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Portrait_ALayerStatic",
+      "bytes": 809,
+      "sha256": "e9dcb870247f1bf9d9ec202bdf0a5e00a2bb784e915b6db75a5de66a3152c130",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-PortraitDie_ALayerAdjust",
+      "bytes": 3542,
+      "sha256": "bcab3dc393aef06d289062161db4cbb1e1b60b1b0fbb8472838ae6fbfa9f3c9e",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-PortraitDie_ALayerStatic",
+      "bytes": 2240,
+      "sha256": "bcb6bc2bbc632b7e98ce988faf5190f2c4b721b56cd703e964ffaeef5e23bedc",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideDown_ALayerAdjust",
+      "bytes": 5776,
+      "sha256": "a0c390f45bb4f16b6003c617cffc24ebaef9d1e3da513329162b2c7609df225e",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideDown_ALayerStatic",
+      "bytes": 3504,
+      "sha256": "7419114c5c6aa9723ef549044b045603479536f3a558e6b356bf9ad76dd19d61",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideLeft_ALayerAdjust",
+      "bytes": 5124,
+      "sha256": "59023ef0ae81a0f2adfbf9784d8ca6c75fc2deabc90a8b27389783735034d012",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideLeft_ALayerStatic",
+      "bytes": 3232,
+      "sha256": "b5e14523452e4700c3e08cfc44184ac5497baf759841170bd9d3e65b0add3c35",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideRight_ALayerAdjust",
+      "bytes": 4604,
+      "sha256": "2742e51487690b6bf31c66f7bd44f8956584bb5cdf2b7f65346212bf58e93755",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideRight_ALayerStatic",
+      "bytes": 3304,
+      "sha256": "3255fd4d6cca20f4837b21bdaa113224bef4c7370f4782e17bc01e974d504688",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideUp_ALayerAdjust",
+      "bytes": 5524,
+      "sha256": "0ab51fd2276b48a4885eae5ade91e4fc397066fd44b586941f09be0d1e09e492",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-RideUp_ALayerStatic",
+      "bytes": 1532,
+      "sha256": "da69e225a283d650a7cf1f7f73c7857d571a0a6b8a05f81184a6c840a2713aca",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-SlideJump_ALayerAdjust",
+      "bytes": 5253,
+      "sha256": "8ff8dd19851c58aa5e90e5eb1fa07828d5dc4407f4bd98d03f255eb12a9aa766",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-SlideJump_ALayerStatic",
+      "bytes": 2897,
+      "sha256": "5a66059bad248379b7fbc67518a67c9b823f167ab97e024510622a3751bc3e56",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-SlideRide_ALayerAdjust",
+      "bytes": 5253,
+      "sha256": "9d6824811abcc9a450ebd6cff94b3e71b2461f07548cb3e0412615caccba03f9",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-SlideRide_ALayerStatic",
+      "bytes": 2897,
+      "sha256": "761f0b1abcf123010c7055035f90169de3d82fb34145ec04ebd8aacc4a4fd594",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Start_ALayerAdjust",
+      "bytes": 11941,
+      "sha256": "58a0a0fbb9afc5f7edccb2dda9c53128aa094b2d86fcf32604187b404b01f664",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Start_ALayerStatic",
+      "bytes": 6995,
+      "sha256": "b3bb23a900696897d04c4e961e7a8b6ecc736930402e58e5141bccf340df24a5",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Throw_ALayerAdjust",
+      "bytes": 16874,
+      "sha256": "8a2d16f1e44c49b55ee20ee9671e1a66c23d0bad8366fd6c85158433ddfdb30c",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-Throw_ALayerStatic",
+      "bytes": 9188,
+      "sha256": "912d77f244982ff22c7c27643a95ee273f0d8a34554fb1dde2c7739c20b21674",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkDown_ALayerAdjust",
+      "bytes": 6828,
+      "sha256": "974f00c329324ca51de3d6377094a74694538d293c010a1421ff1c3fd51cab4e",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkDown_ALayerStatic",
+      "bytes": 4486,
+      "sha256": "576c88a5a56ea5f8aeb2161ebf141fc5d51640780e7a8f13274954b2aa7f0df2",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkLeft_ALayerAdjust",
+      "bytes": 6223,
+      "sha256": "30632ca9db78975ac798e304574dcbda02ab38bcf10206b943a3f13c359f546e",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkLeft_ALayerStatic",
+      "bytes": 3411,
+      "sha256": "4f1efa214d4f95b1d31606273ccd3c6d2c87c5c2879ed7c74805e6e91961fade",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkRight_ALayerAdjust",
+      "bytes": 5766,
+      "sha256": "7a4f9752caeed609185868946c2a80cd3f43b794726251cdd9d506d1dfef0c0c",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkRight_ALayerStatic",
+      "bytes": 8668,
+      "sha256": "0bcbea0640739955775ae41d32aa558b3d878bb483662653821194b3f1eea2c8",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkUp_ALayerAdjust",
+      "bytes": 6845,
+      "sha256": "03b45c85edb24b54eff26d52eba9a77b6eeb852e77cb3da8e396930a2e75d04a",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C00-WalkUp_ALayerStatic",
+      "bytes": 1936,
+      "sha256": "7eeb1366b5baac11f9d448c570d4005a6af2e3feeb65185b1fe04393ee859711",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Blink_ALayerAdjust",
+      "bytes": 4141,
+      "sha256": "1ad8619106c11d2ec1fa9433a5fff92ce396126bca8b9c2758730f61994f469b",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Blink_ALayerStatic",
+      "bytes": 3426,
+      "sha256": "b6de04c806e1d484c8b7a03657cfd6a7a1f6aefe94ab81a52c96cd10d28d7555",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-BlinkSmall_ALayerAdjust",
+      "bytes": 3427,
+      "sha256": "4c26fac744b480912328c6dd5f3a45a2e2c73c29cf01bc8c1fc5c4fa7a186aa6",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-BlinkSmall_ALayerStatic",
+      "bytes": 2448,
+      "sha256": "63078d8f096325a8b35154e7e1ea0b798fbea5c2d7bd62fca736608439efcb2a",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-DieLayerAdjust",
+      "bytes": 14741,
+      "sha256": "39fb1bd73fceac12884f1b4f4f193059338093347c1af4fa292e4294aa422a09",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-DieLayerStatic",
+      "bytes": 12762,
+      "sha256": "682fb9912b39f4548a94373fe06abe44d2815616e02a3d7ddf7d79d54e67d9dd",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Dril_ALayerAdjust",
+      "bytes": 9357,
+      "sha256": "0ce04d7dbcad2fdcc36d244cfdc25282c6777b425625b3a1db594cd26eded590",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Dril_ALayerStatic",
+      "bytes": 8539,
+      "sha256": "a2d00d792d01971d63d86644fb4fd59ff4a9b3b2343991a13a3ba17322664cd7",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-FaintLayerAdjust",
+      "bytes": 2851,
+      "sha256": "ac0efdd798d915d5fcc811ab9011eeb50fbba39811b333b2feafead50c90405c",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-FaintLayerStatic",
+      "bytes": 3114,
+      "sha256": "2ebb93439a5acc0a7668d89506585f8f4dd565bf1588c10dde624e960b8b4cfa",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-GhostInOutLayerAdjust",
+      "bytes": 877,
+      "sha256": "85d5d25ca4ce57d6094817c19bd3200a9a2d18f8dd54e056e4419dadf7e1ee6d",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-GhostInOutLayerStatic",
+      "bytes": 16235,
+      "sha256": "9b6a06b2a433e0fc129c05631bcbc5a508dc9cef0c06af5eaa7ea27c8eacfe0c",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-GhostLayerAdjust",
+      "bytes": 2173,
+      "sha256": "f1cd78eb0e8e86d6aca98af4c998640e988b8a09d050c38f1105b2b20fc8b46c",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-GhostLayerStatic",
+      "bytes": 63055,
+      "sha256": "a70c771f87a28797c5cd44083c879d05681f68b83452201edc741bb3019a7962",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Hurrah_ALayerAdjust",
+      "bytes": 5526,
+      "sha256": "a0d3c33348f049f547610e00b1f225bf7b683aed8bea8faab83c27c5857f46c8",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Hurrah_ALayerStatic",
+      "bytes": 5097,
+      "sha256": "65b5a58fd423574bb62ad8505348fa996b4dcedd80e099126dc497337c1cfecd",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Portrait_ALayerAdjust",
+      "bytes": 1782,
+      "sha256": "fc4f813bc942509db210c6209d18c37c09c5e4079c3d61fbdc16afefde06a1b1",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Portrait_ALayerStatic",
+      "bytes": 1043,
+      "sha256": "7f607f7f743bc6b9f151ec2d627646b26ff7de7757c16b92b30c6681ca901955",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-PortraitDie_ALayerAdjust",
+      "bytes": 3731,
+      "sha256": "9a8316fce7099748c0e2a707b912932ebf1e748625b6d2b508ed0b3530798841",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-PortraitDie_ALayerStatic",
+      "bytes": 2651,
+      "sha256": "db3ab57fc88b538db5c60f29dfad63896959b71a3e002b74ffe47f5590150a33",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideDown_ALayerAdjust",
+      "bytes": 5676,
+      "sha256": "4788bedfdd578d09091e06f0027dac01ab5b9736094715ab81f275ba43307f3a",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideDown_ALayerStatic",
+      "bytes": 4668,
+      "sha256": "72273018ae72127cb6cb1893a9a7c66febe2804d055931a310144db6d49fce86",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideLeft_ALayerAdjust",
+      "bytes": 4752,
+      "sha256": "20104edffddaa9cc49fb9efb7172605f56a525384082e5f97edfdb1ff36be7cf",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideLeft_ALayerStatic",
+      "bytes": 3080,
+      "sha256": "6d0aef4ac64243707aac900bcc87e0dfd97a7f07373473c6efcf02840aa4d224",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideRight_ALayerAdjust",
+      "bytes": 4796,
+      "sha256": "c724b7addc0bab65a4cb8ebcc4c6296d55d16d7574f8203624b19e3895b976f5",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideRight_ALayerStatic",
+      "bytes": 3100,
+      "sha256": "2368c53458cde944276192286c4aa31f146ac3b98553142df3c74e2321c7a489",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideUp_ALayerAdjust",
+      "bytes": 5316,
+      "sha256": "6d3fe6f30e5009d1b8242929b2456641e307e77678cbd08206b1909788553f2f",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-RideUp_ALayerStatic",
+      "bytes": 2320,
+      "sha256": "837b44bf4c72037ded434e2d7be6ae889725c79a08ddfce40fed7713b3e1165c",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-SlideJump_ALayerAdjust",
+      "bytes": 4982,
+      "sha256": "6f8f734234acf1fbd3276daaf485fbe1eaff9f4e3c13be4b03bdfdd1c3338871",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-SlideJump_ALayerStatic",
+      "bytes": 3440,
+      "sha256": "0d4d26853d50b7a8e580657a1b9b1e98df439740caece8ae9618fd7ffb7c57aa",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-SlideRide_ALayerAdjust",
+      "bytes": 4982,
+      "sha256": "b757ba06f946f131f5020892649326ada8dec8762e6b6cbfb0ff3a8ffb793691",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-SlideRide_ALayerStatic",
+      "bytes": 3440,
+      "sha256": "7dda66119790b0714c3080dc83f1f4002002e06947176393c8986cbdd3125c43",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Start_ALayerAdjust",
+      "bytes": 11252,
+      "sha256": "43c1579369499d356e7a5822328ec3da1349270d6d22453f6c7a2650555f36da",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Start_ALayerStatic",
+      "bytes": 8444,
+      "sha256": "c2a6f9c95092f9aab31bee184602e0a4997e12056f313931ac7a223b7ca742ab",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Throw_ALayerAdjust",
+      "bytes": 15039,
+      "sha256": "352df98396ba3cc668b6db9cd7fb215741fb706b831634a8843c1e7386e02e1a",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-Throw_ALayerStatic",
+      "bytes": 10698,
+      "sha256": "e2d04afbc68bbdbda90d3de1b7fa611ecd4f21edbc3b6a6682a01318eea5f32e",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkDown_ALayerAdjust",
+      "bytes": 6910,
+      "sha256": "b05efa49d277452dfe784162670856c25bceb78998bf86d7c2ff2e839af7bb12",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkDown_ALayerStatic",
+      "bytes": 5578,
+      "sha256": "e5d30a65100b9f82d9e2068a57d05cd5736380ae8610354e1bb8a58300c7631f",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkLeft_ALayerAdjust",
+      "bytes": 5489,
+      "sha256": "090cec1867b8c635ea803b3d43bf1fd5f290f66588d9e3843b56d925ed5a64d1",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkLeft_ALayerStatic",
+      "bytes": 3706,
+      "sha256": "346525ee097234a923f01948a557efced55a4c541314ae8b8d2234a7c8dc0b01",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkRight_ALayerAdjust",
+      "bytes": 5610,
+      "sha256": "4beae884812bbc5df3f8f55068fca91e40d0c75b98514d67b9af27ea7601f421",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkRight_ALayerStatic",
+      "bytes": 3650,
+      "sha256": "fc33f19f7b86df4a3019eac5295f4f1e82e4278832627878343f92acffd3d2a5",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkUp_ALayerAdjust",
+      "bytes": 6835,
+      "sha256": "c9caa35659725db971e133a204f01a1e38b4538b6dabbd053c83dafa7249e20e",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxCharacter/Character/C01-WalkUp_ALayerStatic",
+      "bytes": 2816,
+      "sha256": "31ba5d0492e0f9dc921aa02846360db00cd7b7749e83806d2377a62db0c641c7",
+      "role": "character_family_resource"
+    },
+    {
+      "entry": "FxContents/Attr/BomberAttr",
+      "bytes": 4087,
+      "sha256": "193e72b822939ac01f8fe7a15369c412da41bc2d9ada0e93fd3ba5c8ee260870",
+      "role": "character_attr"
+    },
+    {
+      "entry": "FxContents/Attr/ItemAttr",
+      "bytes": 25597,
+      "sha256": "a9b55540c85c21de108e8720b4148b2030a231d907f3709dcb06f7ef728fcdba",
+      "role": "item_attr"
+    },
+    {
+      "entry": "FxDesktop/Bomb/Bomb00",
+      "bytes": 7213,
+      "sha256": "6a00bafab7e39a2ee144498797cd3a91d3195d53b8545c34806a156bb5a793c0",
+      "role": "bomb_art"
+    },
+    {
+      "entry": "FxDesktop/Bomb/BombExplosion001",
+      "bytes": 5725,
+      "sha256": "d493f1f0c067a5f86e8b49e4cd99ca2df0f9ce23bc1f24de9993f81e7f8e602f",
+      "role": "explosion_art"
+    },
+    {
+      "entry": "FxMap/Etc/Village00_mm",
+      "bytes": 48089,
+      "sha256": "950b4576d50274092af68a7e20402489d61038f791288d5097562203b91600be",
+      "role": "preview"
+    },
+    {
+      "entry": "FxMap/Map/Village00",
+      "bytes": 1834,
+      "sha256": "bd34c418ecc33f126f2fee4c21549e78cdc5c31d7805a2af82bff0e635b67a07",
+      "role": "map"
+    },
+    {
+      "entry": "FxMap/Prepare/PRE_Bt_Ready",
+      "bytes": 53577,
+      "sha256": "bb54f8679940a1207fd0eb463ff811d731a9c85d916263598c438abf8518ceaa",
+      "role": "ready"
+    },
+    {
+      "entry": "FxMap/Prepare/PRE_Bt_Start",
+      "bytes": 54998,
+      "sha256": "6c23977cfa2ef6f5d3b6560fb1a4e261c761c0695325c43803ccf736fc6c2ecb",
+      "role": "start"
+    },
+    {
+      "entry": "FxMap/Theme/Village",
+      "bytes": 36275,
+      "sha256": "d2226fddc8a069a68c06f19867af329d7daccadc143f90cfd1924d0ab8e9a882",
+      "role": "theme"
+    },
+    {
+      "entry": "FxSound/MP3/Village",
+      "bytes": 270601,
+      "sha256": "7a34054f23a66a1f19cd1cd47b70705bda0c774b6d2afd094c4bd5b6d709038f",
+      "role": "music"
+    },
+    {
+      "entry": "FxStage/Lobby/Dlg_LB-NMCreate",
+      "bytes": 136784,
+      "sha256": "58128f51d3957619b27a34b934331a512b1b08a7f100aacb0af3f4ecad2e9fab",
+      "role": "room_create_dialog"
+    },
+    {
+      "entry": "FxStage/Lobby/LB_Bt_T_Create-NM",
+      "bytes": 66592,
+      "sha256": "888096089e247ecde5df66dadb07244766afc07f131ccca6ac318962f7c1aa65",
+      "role": "room_create"
+    },
+    {
+      "entry": "fx/Item/Bomb",
+      "bytes": 2304,
+      "sha256": "22e837e9d30e283d1d15bb2207bdc54be89e93fe45ba352af71fa5ed5e80c5c1",
+      "role": "bomb_item"
+    },
+    {
+      "entry": "fx/Item/Fire",
+      "bytes": 1559,
+      "sha256": "da59edac6112eb22b47382063c45350cfab930b56f24faa2490852947869a3a1",
+      "role": "fire_item"
+    },
+    {
+      "entry": "fx/Item/Roller",
+      "bytes": 2326,
+      "sha256": "496e364be87d92a948996941fd4322740d0ce8846090142fd898805e2ea7906b",
+      "role": "speed_item"
+    }
+  ],
+  "map_probe": {
+    "version": 1000,
+    "width": 15,
+    "height": 13,
+    "coordinate_offset": 80,
+    "spawn_coordinates": [
+      [
+        13,
+        11
+      ],
+      [
+        1,
+        11
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        13,
+        1
+      ]
+    ],
+    "native_drop_table": [
+      {
+        "name": "LucciBronze\u0000",
+        "weight": 50
+      },
+      {
+        "name": "LucciSilver\u0000",
+        "weight": 50
+      },
+      {
+        "name": "LucciGold\u0000",
+        "weight": 100
+      },
+      {
+        "name": "LucciPocketBronze\u0000",
+        "weight": 200
+      },
+      {
+        "name": "LucciPocketSilver\u0000",
+        "weight": 100
+      },
+      {
+        "name": "LucciPocketGold\u0000",
+        "weight": 30
+      }
+    ],
+    "trailing_dwords": [
+      100,
+      0,
+      0,
+      0,
+      0
+    ],
+    "contains_mapscript_marker": false
+  },
+  "policy": {
+    "mode": "battle_ffa",
+    "player_min": 2,
+    "player_max": 4,
+    "characters": [
+      "C00",
+      "C01"
+    ],
+    "item_allowlist": [
+      "Bomb",
+      "Fire",
+      "Roller"
+    ],
+    "drop_source": "DESIGN_V1_OVERRIDE_NOT_NATIVE_VILLAGE00"
+  },
+  "limitations": [
+    "Metadata probe only; tile/object collision and script consumer unresolved.",
+    "Dependencies not transitively resolved; not a shippable asset bundle.",
+    "Character family includes unused states; selection does not enable them.",
+    "Native coin drop table is preserved as evidence; V1 drops deliberately differ."
+  ]
+}

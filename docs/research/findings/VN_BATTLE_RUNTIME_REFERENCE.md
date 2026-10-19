@@ -1,0 +1,44 @@
+# Luật trận và runtime VN được chấp nhận cho bản viết lại
+
+Ngày nhập: 2026-10-19. [Chính sách trusted sources](../../decisions/0002-vn-kr-trusted-sources.md):
+VN được tin cậy ngang KR, dùng ngay cho luật chung; không cần chờ tái kiểm trên KR.
+
+Nguồn: repo `/home/admin/boom-re`, commit `4ccc8904cd907ce627f8a2cf6cf84bed190fd00d`,
+`docs/oc_e-game.md` mục “Cứu đồng đội / chọc vỡ bong bóng”, “Vật phẩm khi 2 người”,
+“Nhiều map và loại phòng”. Đây là kết quả runtime do phiên Opus thực hiện; lượt nhập docs này
+đọc artifact và lịch sử commit, không tự chạy lại client.
+Ảnh và script gốc lưu trong Git tại các commit bên dưới; không phụ thuộc việc đã push.
+Tra lại bằng `git -C /home/admin/boom-re show <commit>:<path>`.
+
+| Claim | Kết quả được dùng | Bằng chứng / commit | Giới hạn còn lại |
+|---|---|---|---|
+| VN-B01 | Chạm đồng đội bị nhốt thì cứu; chạm địch bị nhốt thì địch chết | `34e0910`: `docs/rescue_freed.png`, `docs/rescue_enemy_pop.png`; runtime 2 client `logs/duo/r4`, `r5` | Thời lượng trapped/fuse chính xác và xử lý đồng thời chưa chốt |
+| VN-B02 | Legacy client tự báo C→S120/12 cứu, /13 chết, server không cần đáp | `34e0910`, `docs/oc_e-game.md` | Chưa rõ đuôi packet có actor cứu/chọc; BẮT/CỨU kết quả vẫn00 |
+| VN-B03 | Item nền, item lộ sau phá gạch và pickup hiển thị đồng bộ hai máy | `0cce915`: `docs/duo_items_A_view.png`, `docs/duo_items_brick.png`; `logs/duo/i1` | Chưa thử hai người cùng nhặt; emulator hiện xác nhận mọi117, chưa chống trùng |
+| VN-B04 | Chạy được Village01, Ice01, Desert01, Tomb01, Factory01, Patrit01, Mine01, Ocean01, Pharaoh01 | `e0f9a49`: `docs/map_*.png`, `tools/map_loop.sh` | Mỗi map thử một người vào trận/đặt bom/bị nhốt; chưa test toàn map hay đủ mode |
+| VN-B05 | Loại phòng14/16/22/32/33 vào trận thường;17 có UI RPG và gửi120/21 khi trúng bom | `e0f9a49`: `docs/roomtype17_rpg.png`, `docs/roomtype32.png`, `tools/roomtype_loop.sh` | Chạy một người Village01; semantics mất HP của21 chưa chắc, server RPG chưa làm |
+| VN-B06 | C→S88 đầu khi vào phòng là lựa chọn tự gửi; không được ghi đè map host | `0e71e8a`: thay đổi server và docs | Bài học lifecycle, không bắt giao thức mới sao chép opcode cũ |
+
+## Đưa vào công việc hiện hành
+
+- **V1-020 / Q-006:** luật chạm địch làm vỡ bong bóng được chốt từ VN-B01; không RE lại chỉ vì khác region.
+  Đồng đội cứu nhau thuộc backlog Battle đội, không tự đưa vào V1 FFA.
+- **V1-016 / Q-007:** dùng VN-B03 làm scenario đồng bộ hiện/lộ/nhặt item. Vẫn phải chốt drop weight,
+  cap và race pickup; không lấy emulator hiện tại làm thiết kế chống trùng.
+- **V1-024/027:** server mới tự quyết damage/rescue/death/pickup, kiểm command; hành vi client tự báo
+  của legacy là nguồn hiểu cơ chế, không chuyển quyền quyết định sang client mới.
+- **V1-030:** tái dùng hiểu biết loader/theme từ chín map; vẫn giữ KR Village00 đã chọn.
+  Index map VN không phải ID map KR; map VN chạy được không tự hoàn thành content closure Village00.
+- **Later RPG:** giữ boundary mode/strategy và state HP/EXP/skill riêng; chưa có luật RPG đầy đủ.
+- **Q-009/Q-013:** dùng main mới làm mốc khảo sát legacy; không chép server snapshot cũ từ l10n đè main.
+
+## Hạ tầng và unknown
+
+Server thử đã sửa kết thúc phòng một đội: chỉ hết khi cả đội chết; đây là sửa emulator,
+không phải bằng chứng riêng về thuật toán server gốc. Bộ đếm bắt/cứu và actor attribution còn thiếu.
+
+Batch thử từng gặp server cũ giữ cổng sau timeout và Wine kẹt; lỗi đó có thể làm sai map/kết luận crash.
+Fixture sau này cần lưu PID/port, commit/config, kiểm server đúng lần chạy và cleanup theo phiên.
+Không chạy `wineserver -k` hoặc kill tiến trình chung trong phiên có người khác đang dùng Wine.
+Log runtime trong `logs/` là dữ liệu local có thể không đi cùng Git; ảnh/script/docs đã commit là
+artifact bền vững, chưa thay thế trace đầy đủ cho phép đo timing.

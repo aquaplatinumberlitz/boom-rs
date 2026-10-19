@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "client_exe_sha256": "a52545c14b1fea423de655c3163d6360b628d61c1cd472b46fdbc8a9ffe15f4e",
+  "packs": [
+    {
+      "pack": "CharTE",
+      "index_sha256": "9095e77f111420b6ca7a65ba93326c1e9e2a20cb52ba051b7a6a0f753beea13e",
+      "version": 15,
+      "entries": 20744,
+      "idd_bytes": 368661975,
+      "idd_sha256": "045cef30a9f0a6fd5d161875e05d93917403a687991752f68f7ab87e9f5fd8fc"
+    },
+    {
+      "pack": "EmoTE",
+      "index_sha256": "ae2702ae84fc9733013bdc1b7cb883cc6f4194e80684fb6593771f8c7153aa4c",
+      "version": 15,
+      "entries": 10040,
+      "idd_bytes": 275290407,
+      "idd_sha256": "256cb9277b22431c69f84eeb085eb91d706503bb888fadbce1b2efb5366e89cc"
+    },
+    {
+      "pack": "FxAsset",
+      "index_sha256": "44a55df7ccae641afe3cd7211fb37905c285af47adc1d27af892db34551fbd22",
+      "version": 15,
+      "entries": 11,
+      "idd_bytes": 155592,
+      "idd_sha256": "5f528247fecdb996215a1a1bf652409d99608980b7c39a4dd30e2c5d7590c28a"
+    },
+    {
+      "pack": "FxCharacter",
+      "index_sha256": "39dca93599a06129c60e4ceb1f2dfb9e79dd7b6910c53dffe44193b19119b3c1",
+      "version": 15,
+      "entries": 3571,
+      "idd_bytes": 40454613,
+      "idd_sha256": "cebfa9ddd7fe33847e451c538bba634a6af92c98137bc8cc6c0eda324f92e9fe"
+    },
+    {
+      "pack": "FxContents",
+      "index_sha256": "56ded9cd49079a528abed3b9d9fa7182a1ddb2b63648a835c22134850af52886",
+      "version": 15,
+      "entries": 873,
+      "idd_bytes": 59759874,
+      "idd_sha256": "1ea0b3eb8b96381cda23f41e9714f5b1ec32bbc3a36b6c5ca138a2075ce661dd"
+    },
+    {
+      "pack": "FxDesktop",
+      "index_sha256": "92b7f8b91aa926c29bef0b3af0dff7cdf79c38df96bc5ae87f5c6c44c474ee0c",
+      "version": 15,
+      "entries": 2077,
+      "idd_bytes": 54003285,
+      "idd_sha256": "fcc57c2cacc9f037ad6dda913d9ae7a2934f7a039d797bee5058c262b3334ccb"
+    },
+    {
+      "pack": "FxHiddenCatch",
+      "index_sha256": "3d6dccf3abe4dac92dce528d259666198d34d7b660e5a5c3ab9cc5b595ef6bfe",
+      "version": 15,
+      "entries": 303,
+      "idd_bytes": 40554490,
+      "idd_sha256": "63e6593bcb0b13625aa4bd8710cfd6529c4a0738943fc9c34ac80ef76d6c65ef"
+    },
+    {
+      "pack": "FxMap",
+      "index_sha256": "30fd16b63d13a4a474daeeae611cbd2329077fdc6d3c5846cd8d2ed02d490b9b",
+      "version": 15,
+      "entries": 3033,
+      "idd_bytes": 55897232,
+      "idd_sha256": "9ce6da28ec24901ee489bdffd024eaf93314e1194fe735bb97e1d2bdd2dd7222"
+    },
+    {
+      "pack": "FxMonster",
+      "index_sha256": "9522083b51eac71fe7edd6ac61bbf882118fcb8f0643f44c63999c8c814f7dba",
+      "version": 15,
+      "entries": 1403,
+      "idd_bytes": 79552572,
+      "idd_sha256": "6e15a7da569cf58c902d6dc033fee20dd2cd326bd90a049d99ef0e70289bdae9"
+    },
+    {
+      "pack": "FxSound",
+      "index_sha256": "ad7172b1feab63ec9338bc5edf28b57ec011cc57a491bce5eecb3b660e512d77",
+      "version": 15,
+      "entries": 797,
+      "idd_bytes": 155724894,
+      "idd_sha256": "be7336fda6bb2546c71b7624b57bb264fb32eb14a86ded535969e46bc6d3946b"
+    },
+    {
+      "pack": "FxStage",
+      "index_sha256": "4544d8d29a6b344cdd5a85773f20fed7a9aac4a1307d523749ff5b6af48bda46",
+      "version": 15,
+      "entries": 1274,
+      "idd_bytes": 64117525,
+      "idd_sha256": "4fb735df89e344a48f2253784d7c89190ec6fe12a12112ce1291d5f88d62f4c0"
+    },
+    {
+      "pack": "FxTile",
+      "index_sha256": "14f62d1bd283829cad5ee00d3c35f92696e949f2b283daecc8f8853c3050d361",
+      "version": 15,
+      "entries": 3248,
+      "idd_bytes": 84986763,
+      "idd_sha256": "dea930cab28aea52c950b65c985e0fe7c379a3778d846095c14f861ffc171232"
+    },
+    {
+      "pack": "fx",
+      "index_sha256": "bcf921cc1be51f1cbda081fa0077ea02cdb94a591c714253a3230b4447dc1ae5",
+      "version": 15,
+      "entries": 4093,
+      "idd_bytes": 87822170,
+      "idd_sha256": "4465e5250bb72c0b4bdebb5e65b769c9ec44153676b76cc91415561eddc02767"
+    }
+  ],
+  "total_entries": 51467,
+  "candidate_groups": 46,
+  "matched_entry_paths": 25828,
+  "unmatched_entry_paths": 25639,
+  "limitations": [
+    "Name signals only; groups overlap; not feature completeness.",
+    "Payloads not decoded; IDD hashes only when --hash-payloads is supplied.",
+    "No executable code analysis or runtime verification."
+  ]
+}

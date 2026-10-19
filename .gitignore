@@ -1,0 +1,8 @@
+/target/
+__pycache__/
+# Bản cào web thô, chỉ giữ local (xem docs/research/sources/README.md)
+docs/research/sources/raw-namu/
+# Dữ liệu game có bản quyền: không commit pack/map/ảnh trích xuất
+/local/
+*.idx
+*.idd

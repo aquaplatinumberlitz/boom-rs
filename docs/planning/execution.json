@@ -1,0 +1,257 @@
+{
+  "schema": 1,
+  "baseline": "KR-00967-V1-scope-1",
+  "plan": "docs/planning/REWRITE_PLAN.md",
+  "updated_at": "2026-10-19",
+  "readiness_phases": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "phases": [
+    {
+      "id": "P0",
+      "title": "Tổ chức docs/scope",
+      "status": "done",
+      "owner": "integrator",
+      "depends_on": [],
+      "deliverable": "Index, rules, registry, scope và migration",
+      "exit_gate": "Nguồn chuẩn/link/tool rõ, giữ bằng chứng",
+      "reviewer": "/root/architecture_docs",
+      "integration_commit": "0bdb02ca7f97ca96a80ef8f688b9fb01f4a035d5",
+      "evidence": [
+        "docs/README.md",
+        "docs/decisions/0001-project-baseline.md",
+        "git:0bdb02ca7f97ca96a80ef8f688b9fb01f4a035d5"
+      ],
+      "verification": "docs_check.py và kr_catalog.py --check đạt; reviewer độc lập xác nhận cấu trúc docs.",
+      "blocker": "",
+      "next_action": ""
+    },
+    {
+      "id": "P1",
+      "title": "Tìm thông tin còn thiếu",
+      "status": "in_progress",
+      "owner": "research",
+      "depends_on": [
+        "P0"
+      ],
+      "deliverable": "Claim/source/fixture và backlog câu hỏi",
+      "exit_gate": "Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": "Đọc QUESTIONS và nhận task nghiên cứu có scope/owner."
+    },
+    {
+      "id": "P2",
+      "title": "Cấu trúc dự án/interface",
+      "status": "in_progress",
+      "owner": "architecture",
+      "depends_on": [
+        "P0"
+      ],
+      "deliverable": "Architecture và contract draft/ADR",
+      "exit_gate": "Boundary/contracts review và giả định quan trọng được ghi nhận",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": "Review architecture-r0/contracts-r0 và xử lý quyết định còn mở."
+    },
+    {
+      "id": "P3",
+      "title": "Review sẵn sàng",
+      "status": "not_started",
+      "owner": "integrator",
+      "depends_on": [
+        "P1",
+        "P2"
+      ],
+      "deliverable": "Readiness và task prototype",
+      "exit_gate": "Checklist readiness trong REWRITE_PLAN có kết luận",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": ""
+    },
+    {
+      "id": "P4",
+      "title": "Nền móng/asset/oracle",
+      "status": "not_started",
+      "owner": "assets/RE",
+      "depends_on": [
+        "P3"
+      ],
+      "deliverable": "Workspace nhỏ, content resolver và oracle fixture",
+      "exit_gate": "Legacy vẫn chạy, content unknown rõ và schema phù hợp",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": ""
+    },
+    {
+      "id": "P5",
+      "title": "Core/offline",
+      "status": "not_started",
+      "owner": "core",
+      "depends_on": [
+        "P4"
+      ],
+      "deliverable": "Simulation/replay V1",
+      "exit_gate": "Rule scenarios/state hash tái lập và giới hạn nguồn rõ",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": ""
+    },
+    {
+      "id": "P6",
+      "title": "Client hình/tiếng/input",
+      "status": "not_started",
+      "owner": "client",
+      "depends_on": [
+        "P4"
+      ],
+      "deliverable": "Scene/animation/render/audio/input",
+      "exit_gate": "Content/presentation contract và acceptance tương ứng",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": ""
+    },
+    {
+      "id": "P7",
+      "title": "Authority/mạng/phòng",
+      "status": "not_started",
+      "owner": "net/backend",
+      "depends_on": [
+        "P5",
+        "P6"
+      ],
+      "deliverable": "Server/client round lifecycle",
+      "exit_gate": "Authority/convergence, lifecycle và mạng có fixture",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": ""
+    },
+    {
+      "id": "P8",
+      "title": "Tích hợp/QA/phát hành V1",
+      "status": "not_started",
+      "owner": "integrator/QA",
+      "depends_on": [
+        "P7"
+      ],
+      "deliverable": "V1 end-to-end trên3OS",
+      "exit_gate": "Tất cả37feature V1done và6gate releasepassed",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": ""
+    },
+    {
+      "id": "P9",
+      "title": "Mở rộng full feature",
+      "status": "not_started",
+      "owner": "integrator",
+      "depends_on": [
+        "P8"
+      ],
+      "deliverable": "Các đợt W1–W4 theo registry",
+      "exit_gate": "Toàn bộ112mục trong baseline hiện hành done; scope mới phải revision riêng",
+      "reviewer": "",
+      "integration_commit": "",
+      "evidence": [],
+      "verification": "",
+      "blocker": "",
+      "next_action": ""
+    }
+  ],
+  "release_gates": [
+    {
+      "id": "G1",
+      "title": "Content/map",
+      "status": "open",
+      "owner": "assets/RE",
+      "reviewer": "",
+      "evidence": [],
+      "verification": "",
+      "integration_commit": "",
+      "blocker": ""
+    },
+    {
+      "id": "G2",
+      "title": "Movement/stats",
+      "status": "open",
+      "owner": "RE/core",
+      "reviewer": "",
+      "evidence": [],
+      "verification": "",
+      "integration_commit": "",
+      "blocker": ""
+    },
+    {
+      "id": "G3",
+      "title": "Bomb/damage/items",
+      "status": "open",
+      "owner": "RE/core",
+      "reviewer": "",
+      "evidence": [],
+      "verification": "",
+      "integration_commit": "",
+      "blocker": ""
+    },
+    {
+      "id": "G4",
+      "title": "Protocol/state",
+      "status": "open",
+      "owner": "core/net",
+      "reviewer": "",
+      "evidence": [],
+      "verification": "",
+      "integration_commit": "",
+      "blocker": ""
+    },
+    {
+      "id": "G5",
+      "title": "UX/localization",
+      "status": "open",
+      "owner": "client/QA",
+      "reviewer": "",
+      "evidence": [],
+      "verification": "",
+      "integration_commit": "",
+      "blocker": ""
+    },
+    {
+      "id": "G6",
+      "title": "Release toàn bộ V1",
+      "status": "open",
+      "owner": "QA/integrator",
+      "reviewer": "",
+      "evidence": [],
+      "verification": "",
+      "integration_commit": "",
+      "blocker": ""
+    }
+  ],
+  "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"
+}

@@ -1,0 +1,47 @@
+group_id,title,scope,feature_ids,asset_matches,evidence_status
+KR-F001,Đăng nhập/chọn server,V1_subset,V1-001 | V1-002 | KR-F001-L01,41,asset_signal
+KR-F002,Sảnh/quảng trường,V1_subset,V1-003 | KR-F002-L01 | KR-F002-L02,1021,asset_signal
+KR-F003,Ghép trận/phòng,V1_subset,V1-004 | V1-005 | V1-006 | V1-008 | V1-023 | KR-F003-L01 | KR-F003-L02 | KR-F003-L03 | KR-F003-L04,318,asset_signal
+KR-F004,Trận Battle/bom,V1_subset,V1-010 | V1-011 | V1-012 | V1-013 | V1-014 | V1-015 | V1-016 | V1-017 | V1-018 | V1-019 | V1-020 | V1-021 | V1-030 | KR-F004-L01 | KR-F004-L02 | KR-F004-L03,82,asset_signal
+KR-F005,Chọn nhân vật,V1_subset,V1-007 | V1-031 | KR-F005-L01,67,asset_signal
+KR-F006,Shop,later,KR-F006-L01 | KR-F006-L02 | KR-F006-L03,412,asset_signal
+KR-F007,Hồ sơ/túi đồ,later,KR-F007-L01 | KR-F007-L02,237,asset_signal
+KR-F008,Chat/whisper,V1_subset,V1-009 | KR-F008-L01 | KR-F008-L02,17,asset_signal
+KR-F009,Guild,later,KR-F009-L01 | KR-F009-L02,26,asset_signal
+KR-F010,Couple/bạn bè,later,KR-F010-L01 | KR-F010-L02,51,asset_signal
+KR-F011,Quest/nhiệm vụ ngày,later,KR-F011-L01 | KR-F011-L02,81,asset_signal
+KR-F012,CAPass,later,KR-F012-L01,9,asset_signal
+KR-F013,Ladder/rating,later,KR-F013-L01 | KR-F013-L02,82,asset_signal
+KR-F014,Magic Market,later,KR-F014-L01 | KR-F014-L02 | KR-F014-L03,88,asset_signal
+KR-F015,Câu cá,later,KR-F015-L01 | KR-F015-L02,24,asset_signal
+KR-F016,Pet,later,KR-F016-L01 | KR-F016-L02,1356,asset_signal
+KR-F017,Tutorial,later,KR-F017-L01,74,asset_signal
+KR-F018,HiddenCatch,later,KR-F018-L01,303,asset_signal
+KR-F019,AI Battle,later,KR-F019-L01,11,asset_signal
+KR-F020,Airplane,later,KR-F020-L01,10,asset_signal
+KR-F021,Baseball,later,KR-F021-L01,37,asset_signal
+KR-F022,BigBattle,later,KR-F022-L01,47,asset_signal
+KR-F023,RPG/CAHero,later,KR-F023-L01 | KR-F023-L02,256,asset_signal
+KR-F024,Monster/campaign,later,KR-F024-L01 | KR-F024-L02,1801,asset_signal
+KR-F025,SandBox,later,KR-F025-L01,79,asset_signal
+KR-F026,DIYBomb,later,KR-F026-L01,9,asset_signal
+KR-F027,ConfusedFight,later,KR-F027-L01,50,asset_signal
+KR-F028,IamBoss,later,KR-F028-L01,4,asset_signal
+KR-F029,SnowyChamp/Antarctic,later,KR-F029-L01 | KR-F029-L02,21,asset_signal
+KR-F030,MineExplore/IamWriggle,later,KR-F030-L01 | KR-F030-L02,15,asset_signal
+KR-F031,ItemCollection,later,KR-F031-L01,27,asset_signal
+KR-F032,Event/reward,later,KR-F032-L01 | KR-F032-L02,54,asset_signal
+KR-F033,Trang phục/trang trí,later,KR-F033-L01 | KR-F033-L02,17469,asset_signal
+KR-F034,Emote/fanfare,later,KR-F034-L01,111,asset_signal
+KR-F035,Exchange,later,KR-F035-L01,13,asset_signal
+KR-F036,DTT/season shop,later,KR-F036-L01 | KR-F036-L02,43,asset_signal
+KR-F037,CustomMap/TileCustom,later,KR-F037-L01 | KR-F037-L02,281,asset_signal
+KR-F038,MonWars,later,KR-F038-L01,7,asset_signal
+KR-F039,Partners,later,KR-F039-L01,27,asset_signal
+KR-F040,GreenPC,drop_legacy,KR-F040-L01,10,asset_signal
+KR-F041,PC-room benefits,later,KR-F041-L01,16,asset_signal
+KR-F042,MissionPong/CAMission/GrowSprout,later,KR-F042-L01 | KR-F042-L02 | KR-F042-L03,73,asset_signal
+KR-F043,Tùy chọn/help/notice,V1_subset,V1-032 | V1-033 | V1-034 | V1-035 | KR-F043-L01,81,asset_signal
+KR-F044,Kết quả/vòng đời trận,V1_subset,V1-022 | KR-F044-L01,100,asset_signal
+KR-F045,Mount/trạng thái đặc biệt,later,KR-F045-L01 | KR-F045-L02,848,asset_signal
+KR-F046,Nội dung chiến dịch khác,later,KR-F046-L01 | KR-F046-L02 | KR-F046-L03,70,asset_signal
