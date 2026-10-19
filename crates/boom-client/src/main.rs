@@ -7,11 +7,16 @@
 //! Tùy chọn người dùng đọc/ghi từ `options.toml` (module [`options`], ADR 0011 §7): volume,
 //! mute và keybind. Keybind trong file **thay** hằng số phím mặc định; `--rebind` của dòng lệnh
 //! vẫn hoạt động và được ghi đè lên trên (đổi sau, thắng trước).
+//!
+//! Cờ `--connect <addr>` mở chế độ mạng: module [`net`] (handshake, gửi input, dự đoán và
+//! reconciliation theo ADR 0005/0009). Không có cờ thì giữ chế độ offline.
 
 mod input;
+mod net;
 mod options;
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use boom_content::map::{CellKind, Terrain};
 use boom_content::rules::RulesProfile;
@@ -164,6 +169,16 @@ fn main() {
             std::process::exit(2);
         }
     };
+    // Chế độ mạng: nối server và dùng module `net`; không có `--connect` thì giữ offline.
+    if let Some(addr) = opts.connect.clone() {
+        match net::connect(&addr) {
+            Ok(client) => game.net = Some(client),
+            Err(error) => {
+                eprintln!("không vào được chế độ mạng: {error}");
+                std::process::exit(2);
+            }
+        }
+    }
     for &(action, key) in &opts.rebinds {
         game.input.rebind(action, key);
     }
@@ -225,6 +240,17 @@ fn load_copy_material() -> Material {
     .expect("copy material")
 }
 
+/// Thông tin chế độ mạng hiển thị trên HUD: server xác nhận tới tick nào, client đang dự đoán
+/// tới tick nào, round hiện tại và số event server mới (đã dedup).
+#[derive(Clone, Copy, Debug, Default)]
+struct NetStatus {
+    confirmed_tick: u32,
+    predicted_tick: u32,
+    round: u32,
+    slot: u8,
+    events: usize,
+}
+
 struct Game {
     world: World,
     state: SimulationState,
@@ -232,6 +258,10 @@ struct Game {
     input: InputTracker,
     options: ClientOptions,
     logic_size: [u32; 2],
+    /// Chế độ mạng: server là authority, client chỉ dự đoán di chuyển của chính mình.
+    net: Option<net::NetClient<boom_net::TcpTransport>>,
+    /// Trạng thái chế độ mạng để hiện trên HUD.
+    net_status: Option<NetStatus>,
 }
 
 impl Game {
@@ -264,10 +294,35 @@ impl Game {
             input: InputTracker::new(options.keybinds),
             options,
             logic_size,
+            net: None,
+            net_status: None,
         })
     }
 
-    fn tick(&mut self) -> Result<(), boom_core::CoreError> {
+    fn tick(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(net) = self.net.as_mut() {
+            // Chế độ mạng: đọc message đang chờ (không chặn vòng render), dự đoán một bước
+            // của chính mình rồi gửi cửa sổ lệnh chưa ack. State hiển thị là state dự đoán.
+            net.pump(Duration::ZERO)?;
+            let input = PlayerInput {
+                dir: self.input.direction(),
+                place_bomb: self.input.take_bomb(),
+            };
+            net.predict(input)?;
+            let mut status = self.net_status.unwrap_or_default();
+            if let Some(state) = net.state() {
+                self.state = state.clone();
+                status.predicted_tick = state.tick;
+            }
+            status.confirmed_tick = net.confirmed_state().map_or(0, |state| state.tick);
+            status.round = net.round_id().unwrap_or(0);
+            status.slot = net.player_slot().unwrap_or(0);
+            // Event server mới (đã dedup theo `(round_id, EventId)`): presentation journal sẽ
+            // dùng, chưa gắn âm thanh/hiệu ứng ở task này.
+            status.events += net.take_events().len();
+            self.net_status = Some(status);
+            return Ok(());
+        }
         if self.state.phase != Phase::Playing {
             return Ok(());
         }
@@ -423,9 +478,24 @@ fn draw_scene(game: &Game, target: &RenderTarget, copy_material: &Material, scal
         HUD_HEIGHT,
         Color::new(0.03, 0.04, 0.06, 1.0),
     );
+    // Chế độ mạng: tick server đã xác nhận, tick client đang dự đoán, round và số event mới.
+    let (title, net_text) = match game.net_status {
+        Some(status) => (
+            "boom-client net",
+            format!(
+                "  net: round {} slot {}  server {} dự đoán {}  event {}",
+                status.round,
+                status.slot,
+                status.confirmed_tick,
+                status.predicted_tick,
+                status.events
+            ),
+        ),
+        None => ("boom-client offline", String::new()),
+    };
     draw_text(
         format!(
-            "boom-client offline  tick {}  {} Hz  {}x  vol {}/{}/{}{}  {}={:?}  {}={:?}  held {}  F2 focus",
+            "{title}  tick {}  {} Hz  {}x  vol {}/{}/{}{}  {}={:?}  {}={:?}  held {}  F2 focus{net_text}",
             game.state.tick,
             game.world.rules().ticks_per_second,
             scale,
@@ -510,6 +580,8 @@ struct Options {
     bgm_volume: Option<u8>,
     sfx_volume: Option<u8>,
     mute: Option<bool>,
+    /// Địa chỉ server để nối (chế độ mạng). Không có thì client chạy offline.
+    connect: Option<String>,
 }
 
 impl Default for Options {
@@ -526,6 +598,7 @@ impl Default for Options {
             bgm_volume: None,
             sfx_volume: None,
             mute: None,
+            connect: None,
         }
     }
 }
@@ -589,10 +662,14 @@ impl Options {
                 }
                 "--mute" => opts.mute = Some(true),
                 "--no-mute" => opts.mute = Some(false),
+                "--connect" => {
+                    opts.connect = Some(args.next().ok_or("--connect cần địa chỉ server")?);
+                }
                 "-h" | "--help" => {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
-                         \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]"
+                         \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
+                         \t  [--connect ĐỊA_CHỈ_SERVER]"
                     );
                     std::process::exit(0);
                 }

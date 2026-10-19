@@ -68,6 +68,8 @@ dependencies = [
  "boom-core",
  "boom-net",
  "boom-proto",
+ "boom-room",
+ "boom-server",
  "boom-sync",
  "macroquad",
  "serde",

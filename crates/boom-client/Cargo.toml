@@ -17,5 +17,11 @@ macroquad = { version = "=0.4.16", features = ["audio"] }
 serde.workspace = true
 toml.workspace = true
 
+[dev-dependencies]
+# Test end-to-end headless: client mạng đối diện `boom-server` qua `MemoryTransport`
+# (ADR 0005/0009). `boom-room` cần cho API phòng của server khi dựng lượt.
+boom-server = { path = "../boom-server" }
+boom-room = { path = "../boom-room" }
+
 [lints]
 workspace = true
