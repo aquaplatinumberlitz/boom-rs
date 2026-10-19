@@ -7,9 +7,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use boom_assets::closure::{ClosureRole, UnknownKind, build_village00_manifest};
+use boom_assets::closure::{
+    ClosureRole, UnknownKind, build_village00_manifest, resolve_theme, theme_names,
+};
 use boom_assets::legacy_map::{Build, parse as parse_map};
-use boom_assets::pack::Pack;
+use boom_assets::pack::{Pack, load_index};
 
 fn repo_path(relative: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -283,4 +285,62 @@ fn missing_pack_directory_is_reported_not_panicked() {
     let error = build_village00_manifest(Path::new("/tmp/boom-khong-ton-tai")).unwrap_err();
     let message = error.to_string();
     assert!(!message.is_empty());
+}
+
+/// Số liệu đo trên pack KR 00967 làm locator cho claim R-071 (quy tắc tra theme tổng quát,
+/// trạng thái `candidate`): rule khớp 914/1.151 map, còn BGM `FxSound/MP3/<theme>` chỉ tồn
+/// tại cho 32/80 theme dùng được.
+///
+/// Test bỏ qua khi thiếu `BOOM_KR_PACK_DIR`. Đổi pack thì số trong RULES_V1 R-071 phải sửa
+/// theo, hoặc claim phải được xác nhận lại.
+#[test]
+fn kr_pack_theme_rule_coverage_matches_recorded_evidence() {
+    let Some(root) = pack_root() else {
+        eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+        return;
+    };
+    let index = load_index(&root, "FxMap", Build::Kr).expect("FxMap");
+    let themes = theme_names(&index);
+    assert_eq!(themes.len(), 142, "số thư mục Theme/* của FxMap KR đã đổi");
+
+    let names: Vec<&str> = index.entries.iter().map(|e| e.name.as_str()).collect();
+    let maps: Vec<&str> = names
+        .iter()
+        .filter_map(|name| name.strip_prefix("Map/"))
+        .collect();
+    let previews: BTreeSet<&str> = names
+        .iter()
+        .filter_map(|name| name.strip_prefix("Etc/"))
+        .collect();
+    let sound = load_index(&root, "FxSound", Build::Kr).expect("FxSound");
+    let music: BTreeSet<&str> = sound
+        .entries
+        .iter()
+        .map(|e| e.name.as_str())
+        .filter(|name| name.starts_with("MP3/"))
+        .collect();
+
+    // Preview theo tên map: mọi map trong pack đều có entry `Etc/<Map>_mm`.
+    assert_eq!(previews.len(), maps.len(), "số entry Etc/* đã đổi");
+    let mut used: BTreeSet<String> = BTreeSet::new();
+    let mut matched = 0usize;
+    for map in &maps {
+        let preview = format!("{map}_mm");
+        assert!(
+            previews.contains(preview.as_str()),
+            "thiếu preview {preview}"
+        );
+        if let Some(theme) = resolve_theme(map, &themes) {
+            matched += 1;
+            used.insert(theme);
+        }
+    }
+    assert_eq!(maps.len(), 1151, "số map trong FxMap KR đã đổi");
+    assert_eq!(matched, 914, "số map khớp quy tắc theme đã đổi");
+    assert_eq!(used.len(), 80, "số theme dùng được đã đổi");
+    let with_music = used
+        .iter()
+        .filter(|theme| music.contains(format!("MP3/{theme}").as_str()))
+        .count();
+    assert_eq!(with_music, 32, "số theme có MP3/<theme> đã đổi");
 }
