@@ -132,23 +132,26 @@ Khi mở economy phải có transaction/idempotency, ownership và nguồn balan
 Bảng việc là issue của `aquaplatinumberlitz/boom-rs` (nhãn `wave:1`); quy trình nhận/bàn giao ở
 TEAM_WORKFLOW §5–6. Mọi task dưới đây chạy song song được; ràng buộc ghi trong từng issue.
 
-| Issue | Việc | Luồng | Phụ thuộc |
-|---|---|---|---|
-| #1 | Review độc lập chuyển repo, AGENTS, ADR 0002–0008 (đóng P0) | review | — |
-| #2 | Review contracts — **xong**: r1 trả 3 lỗi, r2 trả 1 lỗi, r3 approve | review core+net+QA | — |
-| #3 | V1-011/012 di chuyển: bom chặn, grace | core | contracts-r3 |
-| #4 | V1-013 đặt bom, hạn mức | core | contracts-r3 |
-| #5 | V1-014/015 nổ, lan lửa, dây chuyền | core | contracts-r3 |
-| #6 | V1-016 giấu item, phá khối, lộ item | core | contracts-r3 |
-| #7 | V1-017…019 nhặt item | core | contracts-r3 |
-| #8 | V1-020 nhốt/chết | core | contracts-r3 |
-| #9 | START-A / V1-030 phân loại ô Village, World từ Village00 KR | assets/RE | — |
-| #10 | P4 đọc pack trong `boom-assets` | assets | — |
-| #11 | START-B đo tick/speed/timer nhốt | RE | — |
-| #12 | Spike client stack (ADR 0007) | client | ảnh decode; #9 giúp dựng scene |
-| #13 | V1-004…008 máy trạng thái phòng (`boom-room`) | backend | — |
-| #14 | V1-024 thiết kế InputCommand/Snapshot/codec | net | #2 (đã xong) |
-| #15 | Q-012 tập chuỗi/ảnh UI V1 | l10n | — |
+| Issue | Việc | Phụ thuộc | Worker | Điều phối/review | Lượt |
+|---|---|---|---|---|---|
+| #1 | Review chuyển repo, AGENTS, ADR (đóng P0) — **xong** | — | Codex | — | — |
+| #2 | Review contracts — **xong** (r3 approve) | — | Codex | — | — |
+| #4 | V1-013 đặt bom, hạn mức | contracts-r3 | OpenCode | Claude | A |
+| #5 | V1-014/015 nổ, lan lửa, dây chuyền | contracts-r3 | OpenCode | Claude | A |
+| #8 | V1-020 nhốt/chết | contracts-r3 | OpenCode | Claude | A |
+| #3 | V1-011/012 di chuyển: bom chặn, grace | contracts-r3; grace merge sau #4 | OpenCode | Claude | A |
+| #6 | V1-016 giấu item, phá khối, lộ item | contracts-r3 | OpenCode | Claude | B |
+| #7 | V1-017…019 nhặt item | contracts-r3 | OpenCode | Claude | B |
+| #9 | START-A / V1-030 phân loại ô Village, World từ Village00 KR | — | dsh | Codex | A |
+| #11 | START-B đo tick/speed/timer nhốt (độc quyền Wine) | — | dsh | Codex | A |
+| #13 | V1-004…008 máy trạng thái phòng (`boom-room`) | — | dsh | Codex | A |
+| #14 | V1-024 thiết kế InputCommand/Snapshot/codec | #2 (xong) | dsh | Codex | A |
+| #10 | P4 đọc pack trong `boom-assets` | — | dsh | Codex | B |
+| #15 | Q-012 tập chuỗi/ảnh UI V1 | — | dsh | Codex | B |
+| #12 | Spike client stack (ADR 0007) | ảnh decode; #9 giúp dựng scene | dsh | Codex | B |
+
+Lượt A chạy ngay (mỗi worker 4 agent); task lượt B nhận khi một agent của worker đó rảnh.
+Phân công và quy tắc review/merge: TEAM_WORKFLOW §1.
 
 Sau đợt 1 (integrator lập đợt 2): `boom-proto`/`boom-net` theo ADR của #14, server trận (V1-010, V1-022…V1-024),
 client scene theo ADR của #12, animation (V1-031), replay/state hash qua mạng (V1-026).
