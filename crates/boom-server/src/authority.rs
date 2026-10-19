@@ -1,8 +1,8 @@
 //! Lõi authority thuần: `boom-room` → loading barrier → `boom-core` → kết quả → phòng.
 //!
 //! Không socket, không wall clock đọc trực tiếp: caller truyền `now_ms` và gọi `advance_to`.
-//! Phần 2 sẽ bọc lõi này bằng `boom-proto`/`boom-sync`/`boom-net`; kiểu `Internal*` ở đây chỉ là
-//! lệnh nội bộ, không phải DTO wire.
+//! `Server` bọc lõi này bằng `boom-proto`/`boom-sync`/`boom-net`; kiểu `Internal*` ở đây chỉ là
+//! lệnh nội bộ, không phải DTO wire (message phòng/loading/result đã có ở Addendum B).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -207,6 +207,8 @@ impl From<boom_net::NetError> for ServerError {
 pub struct MatchSetup {
     pub world: World,
     pub stats: CharacterStatsTable,
+    /// Tên map đã nạp, để `RoundStart` gửi client dựng cùng bản đồ. Không phải luật chơi.
+    pub map: String,
     /// Metadata để ghi replay; `None` dù `replay_dir` bật thì không ghi.
     pub replay: Option<ReplaySetup>,
 }
@@ -351,10 +353,24 @@ impl Authority {
         self.setup.world.rules().profile_hash
     }
 
+    pub fn mode_id(&self) -> &str {
+        self.setup.world.mode().id()
+    }
+
+    pub fn map_id(&self) -> &str {
+        &self.setup.map
+    }
+
+    /// Seed của round đang active; `None` khi chưa vào loading/playing.
+    pub fn round_seed(&self) -> Option<u64> {
+        self.active.as_ref().map(|m| m.seed)
+    }
+
+    /// Round ID **public** (đã ánh xạ ID nội bộ), khớp `RoomView.round.id`/wire.
     pub fn current_round_id(&self) -> Option<u32> {
-        self.active
-            .as_ref()
-            .and_then(|m| u32::try_from(m.round.0).ok())
+        self.room_view()
+            .and_then(|view| view.round)
+            .and_then(|round| u32::try_from(round.id.0).ok())
     }
 
     pub fn state_hash(&self) -> Option<u64> {
@@ -370,6 +386,19 @@ impl Authority {
             .find(|m| m.player == player)?
             .slot
             .0;
+        active
+            .state
+            .players
+            .iter()
+            .find(|p| p.id == slot)
+            .map(|p| p.life)
+    }
+
+    /// Life của người chơi trong roster round, kể cả người đã rời phòng sau Start (dùng cho
+    /// `RoundResult.alive`; khác `player_life` chỉ tìm trong members hiện tại).
+    pub fn round_player_life(&self, player: PlayerId) -> Option<Life> {
+        let active = self.active.as_ref()?;
+        let slot = active.members.iter().find(|m| m.player == player)?.slot.0;
         active
             .state
             .players
@@ -452,12 +481,8 @@ impl Authority {
         now_ms: u64,
     ) -> Result<RoomUpdate, ServerError> {
         self.advance_clock(now_ms)?;
-        if !matches!(self.phase, Lifecycle::Waiting | Lifecycle::Closed) {
-            return Err(ServerError::WrongPhase {
-                phase: self.phase(),
-            });
-        }
-
+        // Dedup trước kiểm phase: Start lặp cùng request sau khi đã chuyển Loading vẫn là
+        // duplicate idempotent, không phải WrongPhase (review #90).
         if let Some(&last) = self.last_external_request.get(&command.player) {
             if command.request == last {
                 return Ok(RoomUpdate {
@@ -473,6 +498,11 @@ impl Authority {
                     received: command.request,
                 }));
             }
+        }
+        if !matches!(self.phase, Lifecycle::Waiting | Lifecycle::Closed) {
+            return Err(ServerError::WrongPhase {
+                phase: self.phase(),
+            });
         }
 
         // Authority một phòng: không cho Create thứ hai ghi đè active room.
@@ -691,13 +721,15 @@ impl Authority {
         batch
             .check(&self.config.protocol_limits)
             .map_err(InputError::Proto)?;
+        let public_round =
+            self.current_round_id()
+                .ok_or_else(|| InputError::RoundIdOutOfRange {
+                    round: self.active.as_ref().expect("playing có match").round,
+                })?;
         let active = self.active.as_mut().expect("playing có match");
-        let round = u32::try_from(active.round.0).map_err(|_| InputError::RoundIdOutOfRange {
-            round: active.round,
-        })?;
-        if batch.round_id != round {
+        if batch.round_id != public_round {
             return Err(InputError::WrongRound {
-                expected: active.round,
+                expected: RoundId(u64::from(public_round)),
                 received: RoundId(u64::from(batch.round_id)),
             });
         }
