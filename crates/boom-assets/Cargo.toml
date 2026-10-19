@@ -10,6 +10,9 @@ publish.workspace = true
 boom-content.workspace = true
 # Inflate entry `_mm` (zlib 1.1.4) khi đọc pack; pure Rust, không cần C toolchain.
 miniz_oxide = "0.9"
+# Ghi PNG cho CLI `sprite-png` (soi ảnh bằng mắt); chỉ dùng ở tầng CLI, không nằm trên
+# đường giải mã runtime.
+png = "0.18"
 
 # Chỉ dùng cho test nghiệm thu dựng `World` từ Village00 (V1-030); không phải dependency runtime.
 [dev-dependencies]

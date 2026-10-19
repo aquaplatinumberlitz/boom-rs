@@ -3,13 +3,21 @@
 //! - `map-info <file.map> [--build kr|vn]`: kích thước, spawn, bảng rơi và lưới obj ID.
 //! - `pack-list <pack-dir> [stem] [--build kr|vn]`: liệt kê pack, hoặc entry của một pack.
 //! - `pack-extract <pack-dir> <stem> <entry> <out> [--build kr|vn]`: ghi payload đã giải mã.
+//! - `sprite-info <pack-dir> <stem> <entry> [--build kr|vn]`: header, kích thước ảnh và
+//!   frame của sprite `CDataI16Alpha` v2.
+//! - `sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]`: ghi mỗi ảnh của
+//!   sprite ra PNG để soi bằng mắt.
 
 use std::collections::BTreeMap;
+use std::error::Error;
+use std::fs::{self, File};
+use std::io::BufWriter;
 use std::path::Path;
 use std::process::ExitCode;
 
 use boom_assets::legacy_map::{Build, parse};
 use boom_assets::pack::{Pack, PackIndex, load_index};
+use boom_assets::sprite::{self, Sprite};
 
 struct Options {
     positional: Vec<String>,
@@ -21,7 +29,9 @@ fn usage() -> ExitCode {
         "dùng:\n  \
          boom-assets map-info <file.map> [--build kr|vn]\n  \
          boom-assets pack-list <pack-dir> [stem] [--build kr|vn]\n  \
-         boom-assets pack-extract <pack-dir> <stem> <entry> <out> [--build kr|vn]"
+         boom-assets pack-extract <pack-dir> <stem> <entry> <out> [--build kr|vn]\n  \
+         boom-assets sprite-info <pack-dir> <stem> <entry> [--build kr|vn]\n  \
+         boom-assets sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]"
     );
     ExitCode::from(2)
 }
@@ -56,6 +66,8 @@ fn main() -> ExitCode {
         Some("map-info") => map_info(&opts),
         Some("pack-list") => pack_list(&opts),
         Some("pack-extract") => pack_extract(&opts),
+        Some("sprite-info") => sprite_info(&opts),
+        Some("sprite-png") => sprite_png(&opts),
         _ => usage(),
     }
 }
@@ -199,6 +211,140 @@ fn describe(index: &PackIndex) -> String {
         .version
         .map_or_else(|| "index cũ".to_owned(), |v| format!("version {v}"));
     format!("{version}, {} entry", index.entries.len())
+}
+
+/// Nạp entry từ pack và parse thành sprite; báo lỗi rõ ràng rồi trả `None`.
+fn load_sprite(dir: &Path, stem: &str, entry: &str, build: Build) -> Option<Sprite> {
+    let pack = match Pack::open(dir, stem, build) {
+        Ok(pack) => pack,
+        Err(e) => {
+            eprintln!("{stem}: {e}");
+            return None;
+        }
+    };
+    let blob = match pack.read_named(entry) {
+        Ok(blob) => blob,
+        Err(e) => {
+            eprintln!("{stem}: {e}");
+            return None;
+        }
+    };
+    match sprite::parse(&blob) {
+        Ok(sprite) => Some(sprite),
+        Err(e) => {
+            eprintln!("{entry}: {e}");
+            None
+        }
+    }
+}
+
+/// `sprite-info`: header, kích thước ảnh và field frame (giữ nguyên số theo MAPS §3).
+fn sprite_info(opts: &Options) -> ExitCode {
+    let [dir, stem, entry] = opts.positional.as_slice() else {
+        return usage();
+    };
+    let Some(sprite) = load_sprite(Path::new(dir), stem, entry, opts.build) else {
+        return ExitCode::FAILURE;
+    };
+    println!(
+        "{entry}: {} frame, {} ảnh, unk {}",
+        sprite.frames.len(),
+        sprite.images.len(),
+        sprite.unk
+    );
+    for (index, image) in sprite.images.iter().enumerate() {
+        println!(
+            "  ảnh {index}: {}x{}, {} byte RLE",
+            image.width,
+            image.height,
+            image.data().len()
+        );
+    }
+    for (index, frame) in sprite.frames.iter().enumerate() {
+        println!(
+            "  frame {index}: offset=({},{}) flag={} ảnh={} src=({},{},{},{}) canvas={}x{} pivot=({},{})",
+            frame.offset_x,
+            frame.offset_y,
+            frame.flag,
+            frame.image_index,
+            frame.source.x0,
+            frame.source.y0,
+            frame.source.x1,
+            frame.source.y1,
+            frame.canvas.width,
+            frame.canvas.height,
+            frame.pivot.x,
+            frame.pivot.y
+        );
+    }
+    ExitCode::SUCCESS
+}
+
+/// `sprite-png`: ghi mỗi ảnh của sprite ra PNG để soi bằng mắt.
+fn sprite_png(opts: &Options) -> ExitCode {
+    let [dir, stem, entry, out_dir] = opts.positional.as_slice() else {
+        return usage();
+    };
+    let Some(sprite) = load_sprite(Path::new(dir), stem, entry, opts.build) else {
+        return ExitCode::FAILURE;
+    };
+    let out_dir = Path::new(out_dir);
+    if let Err(e) = fs::create_dir_all(out_dir) {
+        eprintln!("{}: {e}", out_dir.display());
+        return ExitCode::FAILURE;
+    }
+    let mut ok = true;
+    for index in 0..sprite.images.len() {
+        let image = &sprite.images[index];
+        if image.data().is_empty() || image.width == 0 || image.height == 0 {
+            continue;
+        }
+        let rgba = match sprite.decode_image(index) {
+            Ok(rgba) => rgba,
+            Err(e) => {
+                eprintln!("{entry}: ảnh {index}: {e}");
+                ok = false;
+                continue;
+            }
+        };
+        let path = out_dir.join(format!("{stem}_{}_{index}.png", file_stem(entry)));
+        match write_png(&path, &rgba, image.width, image.height) {
+            Ok(()) => println!("{} ({}x{})", path.display(), image.width, image.height),
+            Err(e) => {
+                eprintln!("{}: {e}", path.display());
+                ok = false;
+            }
+        }
+    }
+    if ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+/// Ghi RGBA ra PNG (8 bit, kênh RGBA).
+fn write_png(path: &Path, rgba: &[u8], width: u32, height: u32) -> Result<(), Box<dyn Error>> {
+    let file = File::create(path)?;
+    let mut encoder = png::Encoder::new(BufWriter::new(file), width, height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header()?;
+    writer.write_image_data(rgba)?;
+    Ok(())
+}
+
+/// Tên entry thành tên file an toàn (giữ chữ, số và gạch dưới).
+fn file_stem(name: &str) -> String {
+    name.chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn pack_stems(dir: &Path) -> std::io::Result<Vec<String>> {
