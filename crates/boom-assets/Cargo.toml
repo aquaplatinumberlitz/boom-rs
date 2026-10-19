@@ -1,0 +1,13 @@
+[package]
+name = "boom-assets"
+description = "Đọc định dạng dữ liệu legacy (map .map KR/VN) sang schema boom-content"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+boom-content.workspace = true
+
+[lints]
+workspace = true

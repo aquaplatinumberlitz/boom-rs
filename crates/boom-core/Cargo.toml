@@ -1,0 +1,13 @@
+[package]
+name = "boom-core"
+description = "Luật trận thuần, xác định: state, step, RNG, state hash (ADR 0004)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+boom-content.workspace = true
+
+[lints]
+workspace = true

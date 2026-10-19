@@ -1,0 +1,90 @@
+//! Di chuyển và va chạm ô (V1-011/V1-012, đang là skeleton).
+//!
+//! Căn trục khi rẽ và dừng ở tâm ô trước vật cản là `design` tạm (RULES_V1 §6) tới khi Q-005
+//! hiệu chuẩn bám góc và hitbox.
+
+use crate::event::{EventKind, EventSink};
+use crate::num::Mpx;
+use crate::sim::{Dir, Player, PlayerInput, SimulationState, World};
+use crate::system::System;
+
+#[derive(Debug)]
+pub struct Movement;
+
+pub static MOVEMENT: Movement = Movement;
+
+impl System for Movement {
+    fn name(&self) -> &'static str {
+        "movement"
+    }
+
+    fn run(
+        &self,
+        world: &World,
+        state: &mut SimulationState,
+        inputs: &[PlayerInput],
+        events: &mut EventSink<'_>,
+    ) {
+        for (player, input) in state.players.iter_mut().zip(inputs) {
+            if !player.alive || input.dir == Dir::None {
+                continue;
+            }
+            if player.facing != input.dir {
+                player.facing = input.dir;
+                events.emit(EventKind::PlayerTurned { player: player.id });
+            }
+            move_player(world, player, input.dir);
+        }
+    }
+}
+
+fn move_player(world: &World, p: &mut Player, dir: Dir) {
+    let (dx, dy) = dir.delta();
+    let speed = world.speed(p.speed_level);
+    if dx != 0 {
+        let row = world.cell_of(p.y);
+        let center = world.center(row);
+        if p.y != center {
+            p.y = approach(p.y, center, speed);
+            return;
+        }
+        p.x = advance(world, p.x, dx, speed, |c| world.walkable(c, row));
+    } else {
+        let col = world.cell_of(p.x);
+        let center = world.center(col);
+        if p.x != center {
+            p.x = approach(p.x, center, speed);
+            return;
+        }
+        p.y = advance(world, p.y, dy, speed, |c| world.walkable(col, c));
+    }
+}
+
+/// Tiến theo một trục; không vượt tâm ô khi ô phía trước bị chặn.
+fn advance(world: &World, pos: Mpx, sign: i32, speed: Mpx, open: impl Fn(i32) -> bool) -> Mpx {
+    let target = Mpx(pos.0 + sign * speed.0);
+    let here = world.cell_of(pos);
+    let there = world.cell_of(target);
+    for cell in [here, there] {
+        let center = world.center(cell);
+        if !open(cell + sign) && (target.0 - center.0) * sign > 0 {
+            return if (pos.0 - center.0) * sign > 0 {
+                pos
+            } else {
+                center
+            };
+        }
+        if here == there {
+            break;
+        }
+    }
+    target
+}
+
+fn approach(from: Mpx, to: Mpx, step: Mpx) -> Mpx {
+    if (to.0 - from.0).abs() <= step.0 {
+        to
+    } else {
+        Mpx(from.0 + step.0 * (to.0 - from.0).signum())
+    }
+}

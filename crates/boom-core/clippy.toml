@@ -1,0 +1,11 @@
+# Quy tắc determinism của boom-core (ADR 0004). Áp dụng cho crate này khi chạy clippy.
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "thứ tự duyệt không xác định; dùng BTreeMap hoặc Vec theo ID" },
+    { path = "std::collections::HashSet", reason = "thứ tự duyệt không xác định; dùng BTreeSet" },
+    { path = "std::time::Instant", reason = "core không đọc wall clock; thời gian là Tick" },
+    { path = "std::time::SystemTime", reason = "core không đọc wall clock; thời gian là Tick" },
+]
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "core không đọc wall clock" },
+    { path = "std::time::SystemTime::now", reason = "core không đọc wall clock" },
+]

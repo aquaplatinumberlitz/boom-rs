@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/boom-core",
+    "crates/boom-content",
+    "crates/boom-assets",
+    "crates/boom-replay",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[workspace.dependencies]
+boom-core = { path = "crates/boom-core" }
+boom-content = { path = "crates/boom-content" }
+boom-assets = { path = "crates/boom-assets" }
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# Tràn số trong mô phỏng phải dừng ngay, không wrap âm thầm (ADR 0004).
+[profile.release]
+overflow-checks = true

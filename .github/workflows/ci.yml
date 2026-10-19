@@ -1,0 +1,20 @@
+# Cổng CI ba OS (SCOPE_V1 nghiệm thu #8: replay cùng hash trên Windows/Linux/macOS).
+# Toolchain lấy từ rust-toolchain.toml. Cần remote GitHub để chạy (ADR 0003).
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: rustup show active-toolchain
+      - run: cargo xtask ci
