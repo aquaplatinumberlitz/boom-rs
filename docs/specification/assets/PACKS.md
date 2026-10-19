@@ -69,6 +69,28 @@ RLE (`CWriteRLE` 0xA2AC00, color 0xA29F90, alpha 0xA2C970):
 - Byte điều khiển: `run = b & 0x3F`; bit7 = trong suốt, bit6 = lặp 1 pixel, 00 = pixel liên tiếp.
 - Alpha stream cùng kiểu; giá trị là độ trong suốt (alpha thật = 255 − v).
 
+### Bộ giải mã Rust
+
+`crates/boom-assets/src/sprite.rs` giải blob này (CLI `boom-assets sprite-info` /
+`sprite-png`). Viết lại từ mô tả format và tool tham chiếu `boom-re-l10n/tools/i16.py`,
+không copy code legacy. Chi tiết đã **xác nhận** (2026-10-19):
+
+- Ảnh 24-bit BGR không alpha: byte đầu chỉ là marker, luồng màu bắt đầu ở byte 1.
+- Ảnh 24-bit BGR có alpha: byte đầu marker + `u32` offset alpha; luồng màu bắt đầu ở byte 5,
+  luồng alpha bắt đầu tại offset đó. Mỗi pixel của ảnh tiêu **một** giá trị alpha, kể cả
+  pixel thuộc run trong suốt của luồng màu.
+- Ảnh 16-bit RGB565: luồng màu bắt đầu ngay byte 0; màu `0xF81F` là pixel trong suốt.
+- Control byte có `run == 0` trong luồng alpha trả giá trị 0 (tức alpha 255) và đọc control
+  mới ở pixel kế tiếp. Luồng màu trong dữ liệu KR đã quét không có run rỗng.
+- Sau khi giải hết ảnh, phần màu luôn kết thúc đúng tại cuối ảnh (24-bit không alpha) hoặc
+  đúng tại offset alpha (24-bit có alpha); không có byte thừa.
+- Giới hạn kỹ thuật: cạnh ảnh không vượt 4096 (ảnh lớn nhất trong dữ liệu KR đã quét là
+  1198×1024) để blob hỏng không gây cấp phát bộ nhớ vô hạn.
+
+Đối chiếu: RGBA giải ra **khớp từng pixel** với `i16.py` trên `fx/Item/Bomb` và
+`FxCharacter/Character/C00-WalkDown_ALayerStatic`, và trên **374.719 ảnh** của 4 pack KR
+(`fx`, `FxCharacter`, `FxTile`, `CharTE`) — đủ cả ba chế độ màu. Lệnh so: xem PR task #33.
+
 ## Kết quả giải nén (`assets/`)
 
 | Loại | Số lượng |

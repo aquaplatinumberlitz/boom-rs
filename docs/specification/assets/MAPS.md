@@ -109,6 +109,13 @@ Mỗi frame = **12×i32**, validate trên 168.195 frame thật (fx/charte/emote)
 | f10, f11 | pivot (px,py), hay nằm đáy (`py≈h−1`: (0,39),(13,75),(13,99),(39,117)) | RedZone (0,39) góc trái-đáy; Dlg (0,0) góc trái-đỉnh hợp với ảnh nền dialog | trung bình |
 | — | **không** phải thời gian: f8–f11 hằng số theo sprite (trừ nhóm charte 3-canvas,疑似 3 anim gộp) | quét `set()` theo cột trên từng blob | trung bình |
 
+> **Bộ giải mã Rust (2026-10-19):** `crates/boom-assets/src/sprite.rs` đọc header, danh sách
+> ảnh (w,h) và frame 48 byte theo bảng trên; CLI `boom-assets sprite-info` in ra đúng các
+> field này. RGBA giải ra khớp từng pixel với `boom-re-l10n/tools/i16.py` (xem
+> [PACKS §Bộ giải mã Rust](PACKS.md#bộ-giải-mã-rust)). Field chưa rõ nghĩa vẫn giữ nguyên số:
+> tên field trong code theo bảng này, không suy diễn thêm (cột "Tin cậy" là mức bằng chứng
+> của chính bảng này, không phải kết luận mới).
+
 ## 4. Câu hỏi còn mở + đề xuất kiểm chứng động
 
 1. Nghĩa `d1/d2` (+4/+8), `skip8` (+68), `block7.b0` (1/7/500…), `A513F0..FC`,

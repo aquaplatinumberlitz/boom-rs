@@ -5,3 +5,4 @@
 
 pub mod legacy_map;
 pub mod pack;
+pub mod sprite;
