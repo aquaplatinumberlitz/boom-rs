@@ -84,10 +84,10 @@ pub enum RoomAction {
     Start,
 }
 
-/// `RoomCommand` (C→S, kind `0x0040`): lệnh phòng đã bind player + request ID.
+/// `RoomCommand` (C→S, kind `0x0040`): lệnh phòng + request ID. **Không** mang player: server
+/// bind player từ phiên đã `AuthOk` (ADR 0005, Addendum A).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomCommand {
-    pub player: u64,
     pub request: u64,
     pub action: RoomAction,
 }
@@ -168,6 +168,8 @@ pub struct RoundStart {
     pub content_sha256: [u8; 32],
     #[serde(deserialize_with = "de_name")]
     pub map: String,
+    #[serde(deserialize_with = "de_name")]
+    pub mode: String,
     #[serde(deserialize_with = "de_round_members")]
     pub roster: Vec<RoundMember>,
     pub start_tick: u32,
@@ -304,20 +306,14 @@ impl RoomState {
                 detail: "host phải là thành viên phòng".into(),
             });
         }
-        if let Some(round) = &self.round {
-            if round.members.len() > limits.max_players {
-                return Err(ProtoError::CountLimit {
-                    field: "room.round.members",
-                    len: round.members.len(),
-                    max: limits.max_players,
-                });
-            }
-            if !round.members.iter().all(|m| players.contains(&m.player)) {
-                return Err(ProtoError::Invalid {
-                    field: "room.round.members",
-                    detail: "roster phải là thành viên phòng".into(),
-                });
-            }
+        if let Some(round) = &self.round
+            && round.members.len() > limits.max_players
+        {
+            return Err(ProtoError::CountLimit {
+                field: "room.round.members",
+                len: round.members.len(),
+                max: limits.max_players,
+            });
         }
         Ok(())
     }
@@ -392,6 +388,7 @@ impl RoundStart {
     pub fn check(&self, limits: &ProtocolLimits) -> Result<(), ProtoError> {
         if self.rules_profile_id.len() > limits.max_name_bytes
             || self.map.len() > limits.max_name_bytes
+            || self.mode.len() > limits.max_name_bytes
         {
             return Err(ProtoError::Invalid {
                 field: "round_start.name",
@@ -505,7 +502,6 @@ mod tests {
     #[test]
     fn room_command_golden_bytes() {
         let cmd = RoomCommand {
-            player: 7,
             request: 42,
             action: RoomAction::Join {
                 room: 3,
@@ -513,7 +509,7 @@ mod tests {
             },
         };
         let bytes = encode_payload(&cmd).unwrap();
-        assert_eq!(bytes, vec![0x07, 0x2a, 0x01, 0x03, 0x01]);
+        assert_eq!(bytes, vec![0x2a, 0x01, 0x03, 0x01]);
         let decoded: RoomCommand = decode_payload(&bytes).unwrap();
         assert_eq!(decoded, cmd);
     }
@@ -521,7 +517,6 @@ mod tests {
     #[test]
     fn every_room_dto_round_trips() {
         round_trip(&RoomCommand {
-            player: 1,
             request: 2,
             action: RoomAction::Create {
                 character: RoomCharacter::C00,
@@ -557,6 +552,7 @@ mod tests {
             rules_hash: 3,
             content_sha256: [0; 32],
             map: "Village00".into(),
+            mode: "battle_ffa".into(),
             roster: vec![RoundMember {
                 player: 7,
                 slot: 0,
@@ -624,6 +620,28 @@ mod tests {
             .collect();
         state.host = 0;
         assert!(state.check(&limits).is_err());
+    }
+
+    #[test]
+    fn round_roster_may_include_player_who_left_after_start() {
+        let mut state = room_state();
+        state.round = Some(RoundInfo {
+            id: 1,
+            members: vec![
+                RoundMember {
+                    player: 7,
+                    slot: 0,
+                    character: RoomCharacter::C00,
+                },
+                RoundMember {
+                    player: 8,
+                    slot: 1,
+                    character: RoomCharacter::C01,
+                },
+            ],
+        });
+        // members hiện tại chỉ còn 7; roster lịch sử giữ 8 đã rời sau Start.
+        assert!(state.check(&ProtocolLimits::v1()).is_ok());
     }
 
     #[test]

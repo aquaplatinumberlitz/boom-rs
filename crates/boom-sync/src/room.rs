@@ -27,8 +27,6 @@ pub enum RoomSyncError {
     DuplicateSlot(u8),
     /// Hai thành viên trùng player ID.
     DuplicatePlayer(u64),
-    /// Roster round có người không còn trong phòng.
-    RoundMemberNotInRoom(u64),
 }
 
 impl fmt::Display for RoomSyncError {
@@ -38,9 +36,6 @@ impl fmt::Display for RoomSyncError {
             Self::HostNotMember(player) => write!(f, "host {player} không ở trong phòng"),
             Self::DuplicateSlot(slot) => write!(f, "slot {slot} bị trùng"),
             Self::DuplicatePlayer(player) => write!(f, "player {player} bị trùng"),
-            Self::RoundMemberNotInRoom(player) => {
-                write!(f, "player {player} trong roster không còn ở phòng")
-            }
         }
     }
 }
@@ -143,9 +138,6 @@ pub fn from_room_state(state: &RoomState) -> Result<RoomView, RoomSyncError> {
                 .members
                 .iter()
                 .map(|member| {
-                    if !players.contains(&member.player) {
-                        return Err(RoomSyncError::RoundMemberNotInRoom(member.player));
-                    }
                     Ok(RoundMember {
                         player: PlayerId(member.player),
                         slot: SlotId(member.slot),
@@ -165,19 +157,19 @@ pub fn from_room_state(state: &RoomState) -> Result<RoomView, RoomSyncError> {
     })
 }
 
-/// Đổi lệnh phòng core sang DTO.
+/// Đổi lệnh phòng core sang DTO. `player` **không** lên dây: server bind từ phiên `AuthOk`
+/// (ADR 0005, Addendum A).
 pub fn to_room_command(command: &RoomCommand) -> RoomCommandDto {
     RoomCommandDto {
-        player: command.player.0,
         request: command.request.0,
         action: action_to_dto(&command.action),
     }
 }
 
-/// Đổi lệnh phòng DTO về core; enum nhân vật đã được kiểm khi decode.
-pub fn from_room_command(command: &RoomCommandDto) -> RoomCommand {
+/// Đổi lệnh DTO về core với `player` do server bind; enum nhân vật đã được kiểm khi decode.
+pub fn from_room_command(command: &RoomCommandDto, player: PlayerId) -> RoomCommand {
     RoomCommand {
-        player: PlayerId(command.player),
+        player,
         request: RequestId(command.request),
         action: action_from_dto(&command.action),
     }
@@ -374,6 +366,83 @@ mod tests {
         assert_eq!(from_room_state(&dto).unwrap(), original);
     }
 
+    fn round_trip_frame(view: &RoomView) {
+        let dto = to_room_state(view);
+        let limits = boom_proto::ProtocolLimits::v1();
+        let frame = boom_proto::encode_frame(&dto, &limits).unwrap();
+        let decoded = boom_proto::decode_frame::<RoomState>(&frame, &limits).unwrap();
+        assert_eq!(from_room_state(&decoded).unwrap(), *view);
+    }
+
+    #[test]
+    fn round_roster_survives_leavers_after_start() {
+        let mut lobby = Lobby::new(RoomPolicy::new(4, 2).unwrap());
+        for (player, request, action) in [
+            (
+                7,
+                1,
+                RoomAction::Create {
+                    character: CharacterId::C00,
+                },
+            ),
+            (
+                8,
+                1,
+                RoomAction::Join {
+                    room: boom_room::RoomId(1),
+                    character: CharacterId::C01,
+                },
+            ),
+            (
+                9,
+                1,
+                RoomAction::Join {
+                    room: boom_room::RoomId(1),
+                    character: CharacterId::C00,
+                },
+            ),
+            (7, 2, RoomAction::SetReady { ready: true }),
+            (8, 2, RoomAction::SetReady { ready: true }),
+            (9, 2, RoomAction::SetReady { ready: true }),
+            (7, 3, RoomAction::Start),
+        ] {
+            lobby
+                .apply(RoomCommand {
+                    player: PlayerId(player),
+                    request: RequestId(request),
+                    action,
+                })
+                .unwrap();
+        }
+
+        // Một member thường rời round: members còn 2, roster lịch sử vẫn 3.
+        lobby
+            .apply(RoomCommand {
+                player: PlayerId(9),
+                request: RequestId(4),
+                action: RoomAction::Leave,
+            })
+            .unwrap();
+        let after_member_leave = lobby.room(boom_room::RoomId(1)).unwrap();
+        assert_eq!(after_member_leave.members.len(), 2);
+        assert_eq!(after_member_leave.round.as_ref().unwrap().members.len(), 3);
+        round_trip_frame(&after_member_leave);
+
+        // Host rời: host chuyển cho 8; roster vẫn 3.
+        lobby
+            .apply(RoomCommand {
+                player: PlayerId(7),
+                request: RequestId(5),
+                action: RoomAction::Leave,
+            })
+            .unwrap();
+        let after_host_leave = lobby.room(boom_room::RoomId(1)).unwrap();
+        assert_eq!(after_host_leave.host, PlayerId(8));
+        assert_eq!(after_host_leave.members.len(), 1);
+        assert_eq!(after_host_leave.round.as_ref().unwrap().members.len(), 3);
+        round_trip_frame(&after_host_leave);
+    }
+
     #[test]
     fn command_round_trip_through_dto() {
         let original = RoomCommand {
@@ -385,7 +454,7 @@ mod tests {
             },
         };
         let dto = to_room_command(&original);
-        assert_eq!(from_room_command(&dto), original);
+        assert_eq!(from_room_command(&dto, original.player), original);
 
         for action in [
             RoomAction::Create {
@@ -411,7 +480,7 @@ mod tests {
                 action,
             };
             assert_eq!(
-                from_room_command(&to_room_command(&command)),
+                from_room_command(&to_room_command(&command), command.player),
                 command,
                 "mọi RoomAction phải ánh xạ 1-1"
             );

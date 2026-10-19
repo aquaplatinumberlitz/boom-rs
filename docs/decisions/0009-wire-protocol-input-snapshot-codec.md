@@ -90,7 +90,7 @@ thuộc trận.
 | `0x0045` | `RoomChatMessage` | S→C | Chat đã nhận (Addendum B) |
 | `0x0046` | `LoadingAck` | C→S | Client sẵn sàng round (Addendum B) |
 | `0x0047` | `ResultAck` | C→S | Client đã nhận kết quả (Addendum B) |
-| `0x0048` | `RoundStart` | S→C | Seed/rules/map/roster (Addendum B) |
+| `0x0048` | `RoundStart` | S→C | Seed/rules/map/mode/roster (Addendum B) |
 | `0x0049` | `RoundResult` | S→C | Kết quả round (Addendum B) |
 | `0x004A` | `RoomRejected` | S→C | Lệnh phòng bị từ chối (Addendum B) |
 
@@ -684,7 +684,7 @@ trên kênh game **sau `AuthOk`** (Addendum A §A.1); trước đó server coi k
 | `0x0045` | `RoomChatMessage` | S→C | Chat đã nhận, có `from`/`from_name` |
 | `0x0046` | `LoadingAck` | C→S | Client đã sẵn sàng vào round |
 | `0x0047` | `ResultAck` | C→S | Client đã nhận kết quả |
-| `0x0048` | `RoundStart` | S→C | Seed/rules/map/roster bắt đầu round |
+| `0x0048` | `RoundStart` | S→C | Seed/rules/map/mode/roster bắt đầu round |
 | `0x0049` | `RoundResult` | S→C | Kết quả round (V1-022) |
 | `0x004A` | `RoomRejected` | S→C | Lý do lệnh phòng bị từ chối |
 
@@ -696,7 +696,7 @@ Không thêm kind nào ngoài dải `0x0040…0x004A`; `0x0050/0x0051` vẫn là
 Thứ tự field là thứ tự encode postcard; đổi thứ tự/kiểu là tăng `wire_schema` (Addendum B chưa đổi).
 
 ```text
-RoomCommand { player u64, request u64, action RoomAction }
+RoomCommand { request u64, action RoomAction }   # player do server bind từ AuthOk
 RoomAction =
   Create { character }
   Join { room u64, character }
@@ -722,7 +722,8 @@ RoomChatMessage { room_id u64, from u64, from_name String, text String }
 LoadingAck { round_id u64 }
 ResultAck { round_id u64 }
 RoundStart { round_id u64, seed u64, rules_profile_id String, rules_hash u64,
-             content_sha256 [u8;32], map String, roster Vec<RoundMember>, start_tick u32 }
+             content_sha256 [u8;32], map String, mode String,
+             roster Vec<RoundMember>, start_tick u32 }
 RoundResult { round_id u64, outcome RoomOutcome, results Vec<PlayerResult> }
 RoomOutcome = Draw | Winner(u64)
 PlayerResult { player u64, slot u8, rank u8, alive bool }
@@ -732,13 +733,19 @@ RoomRejectReason = PlayerAlreadyInRoom | PlayerNotInRoom | RoomNotFound | RoomFu
                  | NotEnoughPlayers | NotAllReady | StaleRequest | IdExhausted
 ```
 
-- `RoomCommand` ánh xạ **1-1** `boom_room::RoomCommand`: `player`/`request` giữ ID server đã bind;
-  `RoomAction` ánh xạ từng variant. Adapter `boom-sync::room` là nơi duy nhất đổi hai bên.
+- `RoomCommand` trên dây **không mang player**: client không được khai định danh (ADR 0005,
+  Addendum A). Server bind `player` từ phiên `AuthOk` rồi mới dựng `boom_room::RoomCommand`; vì vậy
+  ánh xạ 1-1 `RoomAction`/`request` là **sau khi bind**. Adapter `boom-sync::room` nhận `player` là
+  tham số riêng khi đổi DTO→core, không đọc từ payload.
 - `RoomState` ánh xạ `RoomView`; tên hiển thị từ account store không có trong `RoomView`, nên
   `LobbyRoom.name`/`RoomChatMessage.from_name` do server điền, adapter phòng để trống/không suy đoán.
 - `RoomRejected` giữ `request` để client bỏ dedup; lý do ánh xạ từ `RoomError`, không gộp lỗi.
 - `RoundStart`/`RoundResult` là thông báo **server→client**; client trả `LoadingAck`/`ResultAck`
-  theo round. `LoadingAck` chỉ là ack, không phải input trận.
+  theo round. `LoadingAck` chỉ là ack, không phải input trận. `RoundStart.mode` cho client biết mode
+  (`battle_ffa`) để dựng `World`/outcome; giới hạn `MAX_NAME_BYTES`.
+- `RoomView.round.members` là **roster lịch sử đã chốt lúc Start**; nó có thể còn người đã rời phòng
+  sau đó. Vì vậy `RoomState.round.members` **không** bắt buộc là subset của `RoomState.members`;
+  adapter/check không từ chối state hợp lệ sau `Start → Leave`.
 - Chat chỉ chuyển text; **không** chạy slash command. Rate/length do `ProtocolLimits` và server
   kiểm; DTO không chứa lệnh.
 
@@ -749,7 +756,7 @@ Các giá trị là **tham số giao thức**, không phải luật chơi:
 | Tên | V1 | Ý nghĩa |
 |---|---:|---|
 | `MAX_LOBBY_ROOMS` | 64 | Số phòng tối đa trong `LobbyList` |
-| `MAX_NAME_BYTES` | 64 | Tên phòng/`from_name`/`rules_profile_id`/`map` |
+| `MAX_NAME_BYTES` | 64 | Tên phòng/`from_name`/`rules_profile_id`/`map`/`mode` |
 | `MAX_CHAT_BYTES` | 512 | Một tin chat (byte UTF-8) |
 | `MAX_CHAT_PER_S` | 5 | Số tin chat/giây; server rate-limit, DTO chỉ kiểm độ dài |
 | `WIRE_MAX_LOBBY_ROOMS` | 256 | Trần định dạng length prefix danh sách phòng |
@@ -768,23 +775,24 @@ Check sau decode: số phòng, tên, `member_count`, chat, roster/result; lỗi 
 
 ### B.4 Golden byte `RoomCommand`
 
-`RoomCommand { player=7, request=42, action=Join { room=3, character=C01 } }` encode postcard
-(field order B.2):
+`RoomCommand { request=42, action=Join { room=3, character=C01 } }` encode postcard
+(field order B.2; **không** có player):
 
 ```text
-07 2a 01 03 01
+2a 01 03 01
 ```
 
-Giải thích: `07` player; `2a` request 42; `01` variant `Join` (Create=0, Join=1); `03` room; `01`
-C01. Không có envelope trong golden payload; khi gửi frame, envelope kind `0x0040` dài 16 byte được
-ghép trước. Test
+Giải thích: `2a` request 42; `01` variant `Join` (Create=0, Join=1); `03` room; `01` C01. Server
+bind player từ phiên `AuthOk` trước khi gọi `from_room_command(dto, player)`. Không có envelope
+trong golden payload; khi gửi frame, envelope kind `0x0040` dài 16 byte được ghép trước. Test
 `crates/boom-proto/src/dto/room.rs::room_command_golden_bytes` giữ vector này.
 
 ### B.5 Kiểm
 
 - Round-trip postcard cho **mọi** DTO B.2; golden `RoomCommand` ở trên.
-- Adapter `RoomView`→`RoomState`→`RoomView` giữ nguyên room/host/phase/members/round; test ở
-  `crates/boom-sync/src/room.rs`.
+- Adapter `RoomView`→`RoomState`→frame→`RoomView` giữ nguyên room/host/phase/members/round;
+  test `crates/boom-sync/src/room.rs`, gồm `Start → member leave` và `Start → host leave` (roster
+  lịch sử vẫn giữ người đã rời).
 - `RoomGate` trước `AuthOk` trả `RequiresAuth` cho `RoomCommand`/`RoomState`/các kind phòng; sau
   `AuthOk` cho qua.
 - Giới hạn chat/tên/số phòng/roster/result bị check với fixture vượt trần.

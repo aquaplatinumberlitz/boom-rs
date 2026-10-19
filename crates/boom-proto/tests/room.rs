@@ -44,7 +44,6 @@ fn state() -> RoomState {
 fn every_room_frame_round_trips() {
     round(
         RoomCommand {
-            player: 7,
             request: 42,
             action: RoomAction::Join {
                 room: 3,
@@ -93,6 +92,7 @@ fn every_room_frame_round_trips() {
             rules_hash: 3,
             content_sha256: [0; 32],
             map: "Village00".into(),
+            mode: "battle_ffa".into(),
             roster: vec![RoundMember {
                 player: 7,
                 slot: 0,
@@ -127,7 +127,6 @@ fn every_room_frame_round_trips() {
 #[test]
 fn room_command_golden_payload() {
     let command = RoomCommand {
-        player: 7,
         request: 42,
         action: RoomAction::Join {
             room: 3,
@@ -135,7 +134,7 @@ fn room_command_golden_payload() {
         },
     };
     let payload = boom_proto::encode_payload(&command).unwrap();
-    assert_eq!(payload, vec![0x07, 0x2a, 0x01, 0x03, 0x01]);
+    assert_eq!(payload, vec![0x2a, 0x01, 0x03, 0x01]);
     let frame = encode_frame(&command, &LIMITS).unwrap();
     assert_eq!(&frame[6..8], &[0x40, 0x00]);
     assert_eq!(&frame[16..], payload.as_slice());
