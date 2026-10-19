@@ -18,9 +18,7 @@ serde_json.workspace = true
 # không cần libsqlite3) và khóa instance độc quyền theo file (`boom-server.lock`).
 rusqlite.workspace = true
 fs4.workspace = true
-
-[dev-dependencies]
-# Test SQLite thật trên file tạm, không mock (ADR 0011 §10).
+# Ghi artifact health.json atomic (file tạm + replace; Windows dùng MoveFileExW).
 tempfile.workspace = true
 
 [lints]

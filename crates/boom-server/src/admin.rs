@@ -4,13 +4,13 @@
 //! Admin nói cùng envelope/frame của game, chỉ bind loopback, chỉ nhận `HealthRequest`; kind
 //! khác/peer không loopback bị đóng và log `server.health_rejected`. Không mở HTTP.
 
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use boom_net::{FrameLimits, read_frame, write_frame};
 use boom_proto::dto::health::{HealthRequest, HealthResponse, HealthStatus};
@@ -18,6 +18,7 @@ use boom_proto::kind::{Channel, Role};
 use boom_proto::message::decode_frame_on;
 use boom_proto::{ProtocolLimits, encode_frame};
 use serde_json::{Value, json};
+use tempfile::NamedTempFile;
 
 use crate::config::OperationalConfig;
 use crate::observability::{LogFields, Logger, hex, now_ms};
@@ -54,8 +55,16 @@ pub struct HealthState {
     admin_addr: Mutex<String>,
     last_error_ts: Mutex<Option<u64>>,
     db: Mutex<DbHealth>,
+    readiness: Mutex<Readiness>,
     accounts: AtomicU64,
     active_sessions: AtomicU64,
+}
+
+#[derive(Clone, Debug, Default)]
+struct Readiness {
+    game_bound: bool,
+    content_loaded: bool,
+    listen_addrs: Vec<String>,
 }
 
 impl HealthState {
@@ -68,6 +77,7 @@ impl HealthState {
             admin_addr: Mutex::new(admin_addr),
             last_error_ts: Mutex::new(None),
             db: Mutex::new(DbHealth::default()),
+            readiness: Mutex::new(Readiness::default()),
             accounts: AtomicU64::new(0),
             active_sessions: AtomicU64::new(0),
         }
@@ -95,6 +105,31 @@ impl HealthState {
 
     pub fn set_db(&self, db: DbHealth) {
         *self.db.lock().unwrap() = db;
+    }
+
+    /// Runtime thật đã bind game listener và nạp content xong; health mới được healthy.
+    pub fn mark_ready(&self, listen_addrs: Vec<String>) {
+        let mut readiness = self.readiness.lock().unwrap();
+        readiness.game_bound = true;
+        readiness.content_loaded = true;
+        readiness.listen_addrs = listen_addrs;
+    }
+
+    /// Chỉ mới bind game listener; content chưa nạp ⇒ vẫn unhealthy.
+    pub fn mark_game_bound(&self, listen_addrs: Vec<String>) {
+        let mut readiness = self.readiness.lock().unwrap();
+        readiness.game_bound = true;
+        readiness.listen_addrs = listen_addrs;
+    }
+
+    /// Content đã nạp; game listener vẫn phải bind thì mới healthy.
+    pub fn mark_content_loaded(&self) {
+        self.readiness.lock().unwrap().content_loaded = true;
+    }
+
+    pub fn is_ready(&self) -> bool {
+        let readiness = self.readiness.lock().unwrap();
+        readiness.game_bound && readiness.content_loaded
     }
 
     pub fn db(&self) -> DbHealth {
@@ -138,7 +173,14 @@ impl HealthState {
     /// `HealthResponse` đầy đủ từ tiến trình server hiện tại.
     pub fn response(&self, at_ms: u64) -> HealthResponse {
         let db = self.db.lock().unwrap().clone();
-        let problems = self.problems();
+        let readiness = self.readiness.lock().unwrap().clone();
+        let mut problems = self.problems();
+        if !readiness.game_bound {
+            problems.push("game_listener_not_bound".to_owned());
+        }
+        if !readiness.content_loaded {
+            problems.push("content_not_loaded".to_owned());
+        }
         let status = if problems.is_empty() && db.ok {
             HealthStatus::Healthy
         } else {
@@ -149,12 +191,7 @@ impl HealthState {
             uptime_ms: at_ms.saturating_sub(self.started_at_ms).max(1),
             started_at_ms: self.started_at_ms,
             instance_id: self.instance_id.clone(),
-            listen_addrs: self
-                .config
-                .listen_addrs
-                .iter()
-                .map(ToString::to_string)
-                .collect(),
+            listen_addrs: readiness.listen_addrs,
             admin_addr: self.admin_addr(),
             last_error_ts: self.last_error_ts(),
             db_ok: db.ok,
@@ -173,6 +210,7 @@ impl HealthState {
     /// Nội dung artifact `health.json`; chỉ để chẩn đoán, không phải nguồn sự thật.
     pub fn artifact(&self, at_ms: u64) -> Value {
         let response = self.response(at_ms);
+        let fp = self.config.fingerprint();
         json!({
             "instance_id": response.instance_id,
             "pid": std::process::id(),
@@ -181,6 +219,15 @@ impl HealthState {
             "listen_addrs": response.listen_addrs,
             "admin_addr": response.admin_addr,
             "status": response.status.name(),
+            "fingerprint": {
+                "server_version": fp.server_version,
+                "wire_schema": fp.wire_schema,
+                "state_schema": fp.state_schema,
+                "rules_profile_id": fp.rules_profile_id,
+                "rules_hash": fp.rules_hash,
+                "content_sha256": fp.content_sha256_hex(),
+                "protocol_limits_version": fp.protocol_limits_version,
+            },
         })
     }
 }
@@ -190,21 +237,13 @@ pub fn write_health_json(state: &HealthState, at_ms: u64) -> io::Result<()> {
     let data_dir = &state.config().data_dir;
     std::fs::create_dir_all(data_dir)?;
     let body = serde_json::to_vec(&state.artifact(at_ms)).map_err(io::Error::other)?;
-    let tmp = data_dir.join(format!(".health.json.{}.tmp", std::process::id()));
-    {
-        let mut file = std::fs::File::create(&tmp)?;
-        file.write_all(&body)?;
-        file.sync_all()?;
-    }
-    let dest = data_dir.join("health.json");
-    #[cfg(not(windows))]
-    std::fs::rename(&tmp, &dest)?;
-    #[cfg(windows)]
-    {
-        // Windows không thay thế file đích bằng `rename`; fallback vẫn đi qua file tạm.
-        let _ = std::fs::remove_file(&dest);
-        std::fs::rename(&tmp, &dest)?;
-    }
+    let mut tmp = NamedTempFile::new_in(data_dir)?;
+    tmp.write_all(&body)?;
+    tmp.as_file().sync_all()?;
+    // `persist` replace đích theo API atomic của từng OS (Unix rename; Windows MoveFileExW
+    // với MOVEFILE_REPLACE_EXISTING), không có khoảng trống xoá-rồi-đổi-tên.
+    tmp.persist(data_dir.join("health.json"))
+        .map_err(|err| err.error)?;
     Ok(())
 }
 
@@ -302,14 +341,8 @@ impl AdminServer {
         listener.set_nonblocking(true)?;
         let local_addr = listener.local_addr()?;
         state.set_admin_addr(local_addr);
-        logger.server_start(
-            &config
-                .listen_addrs
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-            &local_addr.to_string(),
-        );
+        let actual_listen = state.response(now_ms()).listen_addrs;
+        logger.server_start(&actual_listen, &local_addr.to_string());
         let stop = Arc::new(AtomicBool::new(false));
         let thread_stop = stop.clone();
         let thread_logger = logger.clone();
@@ -405,6 +438,46 @@ pub fn handle_admin_connection(
     logger.info("server.health", fields);
 }
 
+struct DeadlineStream {
+    inner: TcpStream,
+    deadline: Instant,
+}
+
+impl DeadlineStream {
+    fn new(inner: TcpStream, deadline: Instant) -> Self {
+        Self { inner, deadline }
+    }
+
+    fn remaining(&self) -> io::Result<Duration> {
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "health deadline đã hết",
+            ));
+        }
+        Ok(remaining)
+    }
+}
+
+impl Read for DeadlineStream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.set_read_timeout(Some(self.remaining()?))?;
+        self.inner.read(buf)
+    }
+}
+
+impl Write for DeadlineStream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.inner.set_write_timeout(Some(self.remaining()?))?;
+        self.inner.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 /// Kết quả CLI health: mã thoát + object JSON stdout.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HealthCliOutcome {
@@ -418,8 +491,8 @@ pub fn run_health_cli(config: &OperationalConfig, offline: bool) -> HealthCliOut
         return offline_health(config);
     }
     let timeout = Duration::from_millis(config.health_timeout_ms.max(1));
-    let addr = match admin_addr_for_cli(config) {
-        Ok(addr) => addr,
+    let artifact = match cli_artifact(config) {
+        Ok(artifact) => artifact,
         Err(message) => {
             return HealthCliOutcome {
                 code: 3,
@@ -427,23 +500,24 @@ pub fn run_health_cli(config: &OperationalConfig, offline: bool) -> HealthCliOut
             };
         }
     };
+    let addr = artifact.addr;
+    let deadline = Instant::now() + timeout;
     let stream = match TcpStream::connect_timeout(&addr, timeout) {
         Ok(stream) => stream,
         Err(err) => {
             return cli_failure(
                 config,
                 addr,
+                artifact.fingerprint.as_ref(),
                 HealthStatus::Unreachable,
                 &format!("không kết nối được: {err}"),
             );
         }
     };
-    let _ = stream.set_read_timeout(Some(timeout));
-    let _ = stream.set_write_timeout(Some(timeout));
-    let result = query_admin(stream);
+    let result = query_admin(DeadlineStream::new(stream, deadline));
     match result {
         Ok(response) => {
-            let body = runtime_json(config, &response);
+            let body = runtime_json(config, &response, artifact.fingerprint.as_ref());
             let code = if response.status == HealthStatus::Healthy && response.problems.is_empty() {
                 0
             } else {
@@ -454,62 +528,81 @@ pub fn run_health_cli(config: &OperationalConfig, offline: bool) -> HealthCliOut
         Err(HealthStatus::Timeout) => cli_failure(
             config,
             addr,
+            artifact.fingerprint.as_ref(),
             HealthStatus::Timeout,
             "server không trả lời trong timeout",
         ),
         Err(_) => cli_failure(
             config,
             addr,
+            artifact.fingerprint.as_ref(),
             HealthStatus::Unreachable,
             "admin port không trả lời hợp lệ",
         ),
     }
 }
 
-fn query_admin(mut stream: TcpStream) -> Result<HealthResponse, HealthStatus> {
+fn query_admin(mut stream: DeadlineStream) -> Result<HealthResponse, HealthStatus> {
     let payload = encode_frame(&HealthRequest {}, &ProtocolLimits::v1())
         .map_err(|_| HealthStatus::Unreachable)?;
-    write_frame(&mut stream, &payload, FrameLimits::V1).map_err(|_| HealthStatus::Unreachable)?;
+    write_frame(&mut stream, &payload, FrameLimits::V1).map_err(|err| {
+        if net_is_timeout(&err) {
+            HealthStatus::Timeout
+        } else {
+            HealthStatus::Unreachable
+        }
+    })?;
     let frame = match read_frame(&mut stream, FrameLimits::V1) {
         Ok(Some(frame)) => frame,
         Ok(None) => return Err(HealthStatus::Unreachable),
-        Err(boom_net::NetError::Io(io))
-            if matches!(
-                io.kind(),
-                io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-            ) =>
-        {
-            return Err(HealthStatus::Timeout);
-        }
+        Err(err) if net_is_timeout(&err) => return Err(HealthStatus::Timeout),
         Err(_) => return Err(HealthStatus::Unreachable),
     };
     decode_frame_on::<HealthResponse>(&frame, &ProtocolLimits::v1(), Channel::Admin, Role::Client)
         .map_err(|_| HealthStatus::Unreachable)
 }
 
+fn net_is_timeout(err: &boom_net::NetError) -> bool {
+    matches!(
+        err,
+        boom_net::NetError::Io(io)
+            if matches!(io.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut)
+    )
+}
+
 fn cli_failure(
     config: &OperationalConfig,
     addr: SocketAddr,
+    artifact_fingerprint: Option<&Value>,
     status: HealthStatus,
     error: &str,
 ) -> HealthCliOutcome {
+    let fp = artifact_fingerprint
+        .cloned()
+        .unwrap_or_else(|| fingerprint_json(config));
+    let source = if artifact_fingerprint.is_some() {
+        "server"
+    } else {
+        "cli_fallback"
+    };
+    let config_json = with_source(&fp, source);
     HealthCliOutcome {
         code: 2,
         body: json!({
             "status": status.name(),
             "scope": "runtime",
-            "server_version": config.server_version,
-            "wire_schema": config.wire_schema,
-            "state_schema": config.state_schema,
-            "rules_profile_id": config.rules_profile_id,
-            "rules_hash": config.rules_hash,
-            "content_sha256": hex(&config.content_sha256),
-            "protocol_limits_version": config.protocol_limits_version,
+            "server_version": fp["server_version"],
+            "wire_schema": fp["wire_schema"],
+            "state_schema": fp["state_schema"],
+            "rules_profile_id": fp["rules_profile_id"],
+            "rules_hash": fp["rules_hash"],
+            "content_sha256": fp["content_sha256"],
+            "protocol_limits_version": fp["protocol_limits_version"],
             "admin_addr": addr.to_string(),
             "error": error,
             "diagnosis": if status == HealthStatus::Timeout { "timeout" } else { "unreachable" },
             "artifact": artifact_diagnostic(config),
-            "config": fingerprint_json(config),
+            "config": config_json,
         }),
     }
 }
@@ -537,15 +630,20 @@ fn artifact_diagnostic(config: &OperationalConfig) -> Value {
 }
 
 fn offline_health(config: &OperationalConfig) -> HealthCliOutcome {
+    // T1 chưa tích hợp read-only identity. Không được coi "file tồn tại" là DB khỏe:
+    // offline chỉ đọc config + báo DB chưa kiểm tra cho tới khi có API read-only của identity.
     let db_configured = config.data_dir.join("boom-server.sqlite3").exists();
-    let problems: Vec<String> = Vec::new();
-    let status = "healthy";
-    let code = 0;
+    let problems: Vec<String> = if db_configured {
+        vec!["db_not_checked".to_owned()]
+    } else {
+        vec!["db_not_configured".to_owned()]
+    };
+    let code = 1;
     let fp = config.fingerprint();
     HealthCliOutcome {
         code,
         body: json!({
-            "status": status,
+            "status": "unhealthy",
             "scope": "offline",
             "runtime": "not_checked",
             "server_version": fp.server_version,
@@ -555,8 +653,8 @@ fn offline_health(config: &OperationalConfig) -> HealthCliOutcome {
             "rules_hash": fp.rules_hash,
             "content_sha256": fp.content_sha256_hex(),
             "protocol_limits_version": fp.protocol_limits_version,
-            "db": if db_configured { "configured" } else { "not_configured" },
-            "db_ok": db_configured,
+            "db": "not_configured",
+            "db_ok": false,
             "config": fingerprint_json(config),
             "problems": problems,
         }),
@@ -576,15 +674,33 @@ fn fingerprint_json(config: &OperationalConfig) -> Value {
     })
 }
 
-fn runtime_json(config: &OperationalConfig, response: &HealthResponse) -> Value {
-    let fp = config.fingerprint();
+fn with_source(fingerprint: &Value, source: &str) -> Value {
+    let mut object = fingerprint.as_object().cloned().unwrap_or_default();
+    object.insert("source".to_owned(), json!(source));
+    Value::Object(object)
+}
+
+fn runtime_json(
+    config: &OperationalConfig,
+    response: &HealthResponse,
+    artifact_fingerprint: Option<&Value>,
+) -> Value {
+    let fp = artifact_fingerprint
+        .cloned()
+        .unwrap_or_else(|| fingerprint_json(config));
+    let source = if artifact_fingerprint.is_some() {
+        "server"
+    } else {
+        "cli_fallback"
+    };
+    let config_json = with_source(&fp, source);
     json!({
         "status": response.status.name(),
         "scope": "runtime",
-        "server_version": fp.server_version,
-        "wire_schema": fp.wire_schema,
-        "state_schema": fp.state_schema,
-        "protocol_limits_version": fp.protocol_limits_version,
+        "server_version": fp["server_version"],
+        "wire_schema": fp["wire_schema"],
+        "state_schema": fp["state_schema"],
+        "protocol_limits_version": fp["protocol_limits_version"],
         "uptime_ms": response.uptime_ms,
         "started_at_ms": response.started_at_ms,
         "instance_id": response.instance_id,
@@ -602,14 +718,22 @@ fn runtime_json(config: &OperationalConfig, response: &HealthResponse) -> Value 
         "accounts": response.accounts,
         "active_sessions": response.active_sessions,
         "problems": response.problems,
-        "config": fingerprint_json(config),
+        "config": config_json,
     })
 }
 
-fn admin_addr_for_cli(config: &OperationalConfig) -> Result<SocketAddr, String> {
+struct CliArtifact {
+    addr: SocketAddr,
+    fingerprint: Option<Value>,
+}
+
+fn cli_artifact(config: &OperationalConfig) -> Result<CliArtifact, String> {
     let artifact = config.data_dir.join("health.json");
     if !artifact.exists() {
-        return Ok(config.admin_addr);
+        return Ok(CliArtifact {
+            addr: config.admin_addr,
+            fingerprint: None,
+        });
     }
     let body = std::fs::read_to_string(&artifact)
         .map_err(|e| format!("không đọc được health.json: {e}"))?;
@@ -618,8 +742,13 @@ fn admin_addr_for_cli(config: &OperationalConfig) -> Result<SocketAddr, String> 
         .get("admin_addr")
         .and_then(Value::as_str)
         .ok_or_else(|| "health.json thiếu admin_addr".to_owned())?;
-    addr.parse()
-        .map_err(|_| format!("health.json có admin_addr không hợp lệ: {addr}"))
+    let addr = addr
+        .parse()
+        .map_err(|_| format!("health.json có admin_addr không hợp lệ: {addr}"))?;
+    Ok(CliArtifact {
+        addr,
+        fingerprint: value.get("fingerprint").cloned(),
+    })
 }
 
 /// Kiểm peer có loopback; helper công khai để test không cần bind ngoài loopback.
@@ -681,6 +810,16 @@ mod tests {
         (Arc::new(logger), buffer)
     }
 
+    fn mark_ready(state: &HealthState, config: &OperationalConfig) {
+        state.mark_ready(
+            config
+                .listen_addrs
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+        );
+    }
+
     fn read_response(stream: &mut TcpStream) -> HealthResponse {
         let frame = read_frame(stream, FrameLimits::V1).unwrap().unwrap();
         decode_frame_on::<HealthResponse>(
@@ -695,13 +834,25 @@ mod tests {
     #[test]
     fn health_state_is_healthy_then_unhealthy_with_db_problem() {
         let config = config("state");
-        let state = HealthState::new(config, "boot".into(), 1_000);
+        let state = HealthState::new(config.clone(), "boot".into(), 1_000);
+        let unready = state.response(2_500);
+        assert_eq!(unready.status, HealthStatus::Unhealthy);
+        assert!(
+            unready
+                .problems
+                .iter()
+                .any(|p| p == "game_listener_not_bound")
+        );
+        assert!(unready.problems.iter().any(|p| p == "content_not_loaded"));
+        assert!(unready.listen_addrs.is_empty());
+        mark_ready(&state, &config);
         let healthy = state.response(2_500);
         assert_eq!(healthy.status, HealthStatus::Healthy);
         assert_eq!(healthy.uptime_ms, 1_500);
         assert!(healthy.problems.is_empty());
         assert!(healthy.db_ok);
 
+        mark_ready(&state, &config);
         state.set_db(DbHealth {
             configured: true,
             ok: false,
@@ -717,9 +868,32 @@ mod tests {
     }
 
     #[test]
+    fn runtime_without_game_listener_or_content_is_unhealthy() {
+        let config = config("not-ready");
+        let state = Arc::new(HealthState::new(
+            config.clone(),
+            "boot-not-ready".into(),
+            now_ms(),
+        ));
+        let (logger, _) = logger(&config);
+        let server = AdminServer::start(&config, state, logger).unwrap();
+        std::thread::sleep(Duration::from_millis(20));
+        let mut live = config.clone();
+        live.admin_addr = server.local_addr();
+        let outcome = run_health_cli(&live, false);
+        assert_eq!(outcome.code, 1);
+        assert_eq!(outcome.body["status"], "unhealthy");
+        assert_eq!(outcome.body["listen_addrs"], json!([]));
+        let problems = outcome.body["problems"].as_array().unwrap();
+        assert!(problems.iter().any(|p| p == "game_listener_not_bound"));
+        assert!(problems.iter().any(|p| p == "content_not_loaded"));
+    }
+
+    #[test]
     fn admin_listener_accepts_health_request_only() {
         let config = config("admin");
         let state = Arc::new(HealthState::new(config.clone(), "boot".into(), now_ms()));
+        mark_ready(&state, &config);
         let (logger, logs) = logger(&config);
         let server = AdminServer::start(&config, state, logger).unwrap();
         std::thread::sleep(Duration::from_millis(20));
@@ -792,6 +966,7 @@ mod tests {
             "boot-heartbeat".into(),
             now_ms(),
         ));
+        mark_ready(&state, &config);
         let (logger, _) = logger(&config);
         let heartbeat = Heartbeat::start(state.clone(), logger, 20).unwrap();
         std::thread::sleep(Duration::from_millis(80));
@@ -806,6 +981,22 @@ mod tests {
     }
 
     #[test]
+    fn offline_never_certifies_database_from_existence() {
+        let config = config("offline-garbage");
+        std::fs::write(
+            config.data_dir.join("boom-server.sqlite3"),
+            b"not a database",
+        )
+        .unwrap();
+        let outcome = run_health_cli(&config, true);
+        assert_eq!(outcome.code, 1);
+        assert_eq!(outcome.body["db"], "not_configured");
+        assert_eq!(outcome.body["db_ok"], false);
+        assert_eq!(outcome.body["status"], "unhealthy");
+        let _ = std::fs::remove_dir_all(&config.data_dir);
+    }
+
+    #[test]
     fn cli_runtime_unhealthy_is_exit_one() {
         let config = config("cli-unhealthy");
         let state = Arc::new(HealthState::new(
@@ -813,6 +1004,7 @@ mod tests {
             "boot-unhealthy".into(),
             now_ms(),
         ));
+        mark_ready(&state, &config);
         state.set_db(DbHealth {
             configured: true,
             ok: false,
@@ -821,6 +1013,7 @@ mod tests {
             integrity_check: "broken".into(),
             problems: vec!["forced_db_failure".into()],
         });
+        mark_ready(&state, &config);
         let (logger, _) = logger(&config);
         let server = AdminServer::start(&config, state, logger).unwrap();
         std::thread::sleep(Duration::from_millis(20));
@@ -837,23 +1030,33 @@ mod tests {
 
     #[test]
     fn cli_runtime_healthy_unreachable_timeout_and_offline() {
-        let config = config("cli");
+        let mut config = config("cli");
+        config.server_version = "server-real".to_owned();
         let state = Arc::new(HealthState::new(
             config.clone(),
             "boot-cli".into(),
             now_ms(),
         ));
+        mark_ready(&state, &config);
         let (logger, _) = logger(&config);
-        let server = AdminServer::start(&config, state, logger).unwrap();
-        std::thread::sleep(Duration::from_millis(20));
+        let server = AdminServer::start(&config, state.clone(), logger.clone()).unwrap();
+        let heartbeat = Heartbeat::start(state, logger, 10).unwrap();
+        std::thread::sleep(Duration::from_millis(30));
         let mut live = config.clone();
         live.admin_addr = server.local_addr();
+        // CLI cố tình mang fingerprint khác: runtime phải lấy fingerprint từ server/artifact.
+        live.server_version = "cli-wrong".to_owned();
         let healthy = run_health_cli(&live, false);
         assert_eq!(healthy.code, 0);
         assert_eq!(healthy.body["status"], "healthy");
         assert_eq!(healthy.body["scope"], "runtime");
+        assert_eq!(healthy.body["server_version"], "server-real");
+        assert_eq!(healthy.body["config"]["server_version"], "server-real");
+        assert_eq!(healthy.body["config"]["source"], "server");
         assert_eq!(healthy.body["config"]["rules_profile_id"], "test-rules");
+        drop(heartbeat);
         drop(server);
+        let _ = std::fs::remove_file(health_artifact_path(&config.data_dir));
 
         // Cổng trống đã đóng → connection refused, exit 2.
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -875,7 +1078,7 @@ mod tests {
         });
         let mut timeout = config.clone();
         timeout.admin_addr = timeout_addr;
-        timeout.health_timeout_ms = 50;
+        timeout.health_timeout_ms = 200;
         let begin = std::time::Instant::now();
         let timed = run_health_cli(&timeout, false);
         assert!(begin.elapsed() < Duration::from_secs(1));
@@ -883,11 +1086,41 @@ mod tests {
         assert_eq!(timed.body["status"], "timeout");
 
         let offline = run_health_cli(&config, true);
-        assert_eq!(offline.code, 0);
+        assert_eq!(offline.code, 1);
         assert_eq!(offline.body["scope"], "offline");
         assert_eq!(offline.body["runtime"], "not_checked");
         assert_eq!(offline.body["db"], "not_configured");
+        assert_eq!(offline.body["db_ok"], false);
+        assert_eq!(offline.body["status"], "unhealthy");
     }
+    #[test]
+    fn cli_health_deadline_covers_trickled_response() {
+        let config = config("trickle");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(&10u32.to_le_bytes());
+            bytes.extend_from_slice(&[0u8; 10]);
+            for byte in bytes {
+                if stream.write_all(&[byte]).is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(60));
+            }
+        });
+        let mut trickle = config.clone();
+        trickle.admin_addr = addr;
+        trickle.health_timeout_ms = 100;
+        let begin = std::time::Instant::now();
+        let outcome = run_health_cli(&trickle, false);
+        assert!(begin.elapsed() < Duration::from_millis(400));
+        assert_eq!(outcome.code, 2);
+        assert_eq!(outcome.body["status"], "timeout");
+        let _ = std::fs::remove_dir_all(&config.data_dir);
+    }
+
     #[test]
     fn admin_falls_back_to_free_port_when_configured_port_is_busy() {
         let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -898,6 +1131,7 @@ mod tests {
             "boot-busy".into(),
             now_ms(),
         ));
+        mark_ready(&state, &config);
         let (logger, _) = logger(&config);
         let server = AdminServer::start(&config, state.clone(), logger).unwrap();
         assert_ne!(server.local_addr(), config.admin_addr);

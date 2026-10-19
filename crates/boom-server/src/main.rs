@@ -16,16 +16,34 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("health") => health_command(&args),
-        None | Some("serve") => serve_command(),
+        None => serve_command(&[]),
+        Some("serve") => serve_command(&args[1..]),
         Some(other) => {
             eprintln!("lệnh không hỗ trợ: {other}; dùng boom-server health [--offline] | serve");
-            ExitCode::from(2)
+            ExitCode::from(3)
         }
     }
 }
 
+fn parse_health_args(args: &[String]) -> Result<bool, String> {
+    let mut offline = false;
+    for arg in args.iter().skip(1) {
+        match arg.as_str() {
+            "--offline" => offline = true,
+            other => return Err(format!("tham số health không hỗ trợ: {other}")),
+        }
+    }
+    Ok(offline)
+}
+
 fn health_command(args: &[String]) -> ExitCode {
-    let offline = args.iter().any(|arg| arg == "--offline");
+    let offline = match parse_health_args(args) {
+        Ok(offline) => offline,
+        Err(message) => {
+            eprintln!("{message}; dùng: boom-server health [--offline]");
+            return ExitCode::from(3);
+        }
+    };
     let config = match OperationalConfig::from_env() {
         Ok(config) => config,
         Err(err) => {
@@ -53,7 +71,11 @@ fn health_command(args: &[String]) -> ExitCode {
     ExitCode::from(u8::try_from(outcome.code).unwrap_or(3))
 }
 
-fn serve_command() -> ExitCode {
+fn serve_command(args: &[String]) -> ExitCode {
+    if let Some(other) = args.first() {
+        eprintln!("tham số serve không hỗ trợ: {other}; dùng: boom-server serve");
+        return ExitCode::from(3);
+    }
     let config = match OperationalConfig::from_env() {
         Ok(config) => config,
         Err(err) => {
@@ -91,5 +113,22 @@ fn serve_command() -> ExitCode {
     let _heartbeat = heartbeat;
     loop {
         std::thread::sleep(Duration::from_secs(1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    #[test]
+    fn health_args_reject_unknown_before_io() {
+        assert_eq!(parse_health_args(&args(&["health"])), Ok(false));
+        assert_eq!(parse_health_args(&args(&["health", "--offline"])), Ok(true));
+        assert!(parse_health_args(&args(&["health", "--bogus"])).is_err());
+        assert!(parse_health_args(&args(&["health", "--offline", "--bogus"])).is_err());
     }
 }
