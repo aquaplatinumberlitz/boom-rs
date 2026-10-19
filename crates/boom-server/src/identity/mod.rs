@@ -19,6 +19,11 @@
 //! Identity/persistence **không phải luật chơi**: ADR 0011 §1 nói rõ ADR đó không sinh mã
 //! claim `R-xxx` trong RULES_V1. Mọi ràng buộc ở đây là **design** của dự án, không phải
 //! thuật toán của server gốc.
+//!
+//! **Quyền file (POSIX, ADR 0011 §3):** file DB *và* mọi file bản sao (backup thủ công,
+//! backup trước migration) đều owner-only `0600`, quyền đặt **ngay từ lúc tạo file** —
+//! trước khi SQLite ghi dữ liệu vào. **Giới hạn Windows:** không có `0600` tương đương,
+//! bảo vệ dựa vào ACL của thư mục dữ liệu.
 
 mod secret;
 mod sqlite;
@@ -166,6 +171,11 @@ pub enum StoreError {
         /// Báo cáo của SQLite.
         report: String,
     },
+    /// File bản sao đích đã tồn tại ⇒ bản sao cũ **không** bị ghi đè (ADR 0011 §4).
+    BackupTargetExists {
+        /// Đường dẫn file bản sao đích.
+        path: String,
+    },
     /// Lỗi SQLite.
     Sqlite(String),
     /// Lỗi I/O khi đọc/ghi file.
@@ -188,6 +198,9 @@ impl std::fmt::Display for StoreError {
             Self::DatabaseLocked => write!(f, "file DB đang bị instance khác giữ khóa"),
             Self::IntegrityCheckFailed { report } => {
                 write!(f, "kiểm tra tính toàn vẹn thất bại: {report}")
+            }
+            Self::BackupTargetExists { path } => {
+                write!(f, "file bản sao đã tồn tại, không ghi đè: {path}")
             }
             Self::Sqlite(msg) => write!(f, "lỗi SQLite: {msg}"),
             Self::Io(msg) => write!(f, "lỗi I/O: {msg}"),

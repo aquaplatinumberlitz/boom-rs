@@ -8,6 +8,17 @@
 //! hằng tuple `(version, sql)`, mỗi bước chạy trong **một** transaction và bump
 //! `user_version` trong cùng transaction đó. DB có `user_version` cao hơn version binary hỗ
 //! trợ thì **từ chối khởi động**, không đoán và không downgrade.
+//!
+//! **Quyền file (POSIX, ADR 0011 §3):** file DB *và* mọi file bản sao (backup thủ công,
+//! backup trước migration) đều owner-only `0600`, và quyền đó được đặt **ngay từ lúc tạo
+//! file** — trước khi SQLite ghi bất kỳ byte dữ liệu nào vào. Bản sao chứa
+//! `accounts.password_hash` và `sessions.token_hash`, nên để `VACUUM INTO` tự tạo file
+//! (quyền theo umask của tiến trình ⇒ `0644` dưới umask 022) là lỗ hổng: user khác trên
+//! cùng máy đọc được bản sao trong khi file DB gốc đã được bảo vệ.
+//!
+//! **Giới hạn Windows:** Windows không có quyền POSIX `0600`. File được tạo với quyền
+//! mặc định của tiến trình; việc bảo vệ dựa vào **ACL của thư mục dữ liệu** (thư mục đặt
+//! owner-only) — biện pháp `0600` của ADR 0011 §3 chỉ áp dụng cho POSIX.
 
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -22,6 +33,13 @@ use super::{
 
 /// Tên file khóa instance trong thư mục dữ liệu (ADR 0011 §4).
 pub const LOCK_FILE_NAME: &str = "boom-server.lock";
+
+/// Quyền owner-only (`rw-------`) cho file DB và file bản sao trên POSIX (ADR 0011 §3).
+///
+/// Đặt **ngay từ lúc tạo file** (không phải chmod sau khi ghi) để không có khoảnh khắc
+/// nào dữ liệu nằm trong file đọc được bởi group/other.
+#[cfg(unix)]
+const OWNER_ONLY_MODE: u32 = 0o600;
 
 /// Schema v1 (ADR 0011 §4). Chỉ hai bảng — identity và session; **không** có bảng
 /// economy/inventory/ledger (V1 không thương mại, SCOPE_V1 §1).
@@ -141,6 +159,10 @@ impl SqliteAccountStore {
         // Tạo file DB (nếu chưa có) với quyền owner-only ngay từ đầu trên POSIX, trước khi
         // SQLite ghi bất kỳ dữ liệu nào vào (ADR 0011 §3).
         ensure_db_file(db_path)?;
+        // Chốt quyền owner-only **trước khi** mở connection: SQLite kế thừa quyền file
+        // chính cho các file `-wal`/`-shm` tạo kèm, nên phải siết quyền trước lúc mở
+        // (ADR 0011 §3, threat §9 dòng 7).
+        restrict_permissions(db_path)?;
 
         let mut conn = Connection::open(db_path).map_err(sqlite_err)?;
         // Kiểm tra version TRƯỚC khi đụng pragma: DB lạ thì bị từ chối mà không sửa file.
@@ -161,8 +183,6 @@ impl SqliteAccountStore {
             .map_err(sqlite_err)?;
         conn.pragma_update(None, "busy_timeout", options.busy_timeout_ms)
             .map_err(sqlite_err)?;
-        // ADR 0011 §3: file DB owner-only trên POSIX.
-        restrict_permissions(db_path)?;
 
         run_migrations(&mut conn, db_path, version)?;
 
@@ -186,7 +206,14 @@ impl SqliteAccountStore {
     /// Sao lưu file DB sang đường dẫn khác bằng `VACUUM INTO` (ADR 0011 §4).
     ///
     /// `VACUUM INTO` tạo bản sao tối giản (loại bỏ phần đã xoá) và **không** ghi đè file đã
-    /// có; SQLite sẽ trả lỗi nếu đích tồn tại.
+    /// có. Ở đây việc "không ghi đè" do [`StoreError::BackupTargetExists`] đảm nhiệm: file
+    /// đích được tạo trước (xem [`prepare_backup_target`]) nên SQLite không bao giờ phải tự
+    /// từ chối ghi đè.
+    ///
+    /// File bản sao chứa `accounts.password_hash` và `sessions.token_hash` ⇒ trên POSIX
+    /// nó được tạo với quyền owner-only `0600` **trước khi** SQLite ghi dữ liệu vào
+    /// (ADR 0011 §3). Trên Windows không có `0600` tương đương (xem giới hạn ở đầu
+    /// module).
     pub fn backup_to(&self, target: &Path) -> Result<(), StoreError> {
         vacuum_into(&self.conn, target)
     }
@@ -447,13 +474,59 @@ fn next_backup_path(db_path: &Path, from_version: i64) -> PathBuf {
 }
 
 /// `VACUUM INTO 'file'` — bản sao tối giản của DB (ADR 0011 §4).
+///
+/// File đích được chuẩn bị trước: xem [`prepare_backup_target`]. Nếu `VACUUM INTO` lỗi
+/// thì file đích dở dang bị xoá (SQLite không tự dọn) để không để lại bản sao nửa vời.
 fn vacuum_into(conn: &Connection, target: &Path) -> Result<(), StoreError> {
     let path = target
         .to_str()
         .ok_or_else(|| StoreError::Io(String::from("đường dẫn bản sao không phải UTF-8")))?;
-    conn.execute("VACUUM INTO ?1", [path])
-        .map(|_| ())
-        .map_err(sqlite_err)
+    // Tạo file đích owner-only **trước khi** SQLite ghi dữ liệu vào (ADR 0011 §3).
+    prepare_backup_target(target)?;
+    match conn.execute("VACUUM INTO ?1", [path]) {
+        Ok(_) => Ok(()),
+        Err(err) => {
+            // File này do `prepare_backup_target` tạo ⇒ xoá được, không đụng file có sẵn.
+            let _ = std::fs::remove_file(target);
+            Err(sqlite_err(err))
+        }
+    }
+}
+
+/// Chuẩn bị file đích cho `VACUUM INTO`: tạo file **rỗng** với quyền owner-only
+/// **trước khi** SQLite ghi dữ liệu vào (ADR 0011 §3, threat §9 dòng 7).
+///
+/// Vì sao không để `VACUUM INTO` tự tạo file: SQLite tạo file mới theo quyền mặc định
+/// `0666 & ~umask` ⇒ dưới umask 022 (thông thường) file bản sao là `0644`, tức user khác
+/// trên cùng máy đọc được `accounts.password_hash` và `sessions.token_hash` trong khi
+/// file DB gốc đã ở `0600`. Ở đây file đích được tạo trước (rỗng, `0600`) rồi mới cho
+/// SQLite ghi vào: SQLite chỉ từ chối khi file đích **không rỗng**, nên file rỗng
+/// owner-only vẫn là đích hợp lệ và giữ nguyên quyền `0600` sau khi ghi.
+///
+/// File đích đã tồn tại ⇒ **không ghi đè**, trả [`StoreError::BackupTargetExists`]
+/// (bản sao cũ là dữ liệu, không phải thư mục rác).
+fn prepare_backup_target(target: &Path) -> Result<(), StoreError> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(OWNER_ONLY_MODE);
+    }
+    match options.open(target) {
+        Ok(_) => {
+            // Chốt đúng `0600` bất kể umask: umask lạ (ví dụ `0177`) có thể cắt quyền ghi
+            // của owner ⇒ SQLite không ghi được. Vẫn làm **trước** khi SQLite ghi dữ liệu.
+            restrict_permissions(target)?;
+            Ok(())
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+            Err(StoreError::BackupTargetExists {
+                path: target.display().to_string(),
+            })
+        }
+        Err(err) => Err(io_err(err)),
+    }
 }
 
 /// `PRAGMA integrity_check` — `ok` nghĩa là file DB toàn vẹn (ADR 0011 §4).
@@ -501,17 +574,20 @@ fn ensure_db_file(path: &Path) -> Result<(), StoreError> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
+        options.mode(OWNER_ONLY_MODE);
     }
     options.open(path).map_err(io_err)?;
     Ok(())
 }
 
-/// File DB owner-only trên POSIX (ADR 0011 §3). Trên Windows không làm gì.
+/// File owner-only trên POSIX (ADR 0011 §3). Trên Windows không làm gì.
+///
+/// Windows không có `0600` tương đương: bảo vệ dựa vào ACL của thư mục dữ liệu
+/// (giới hạn đã biết, xem ADR 0011 §3).
 #[cfg(unix)]
 fn restrict_permissions(path: &Path) -> Result<(), StoreError> {
     use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).map_err(io_err)
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(OWNER_ONLY_MODE)).map_err(io_err)
 }
 
 /// File DB owner-only trên POSIX (ADR 0011 §3). Trên Windows không làm gì.
@@ -587,6 +663,79 @@ mod tests {
             expires_at_ms: 1_700_000_000_000 + 86_400_000,
             last_seen_at_ms: 1_700_000_000_000,
         }
+    }
+
+    /// Tìm đúng một file bản sao trong thư mục dữ liệu (tiền tố tên file).
+    fn find_backup_file(dir: &TempDir, prefix: &str) -> std::path::PathBuf {
+        let backups: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with(prefix))
+            .collect();
+        assert_eq!(backups.len(), 1, "phải có đúng một file bản sao `{prefix}`");
+        backups[0].path()
+    }
+
+    /// Quyền file (chỉ bit quyền) trên POSIX.
+    #[cfg(unix)]
+    fn file_mode(path: &std::path::Path) -> u32 {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(path).unwrap().permissions().mode() & 0o777
+    }
+
+    /// Biến môi trường đánh dấu "đang chạy ở tiến trình con" (xem
+    /// [`run_test_in_child_with_umask`]).
+    #[cfg(unix)]
+    const UMASK_CHILD_ENV: &str = "BOOM_IDENTITY_TEST_UMASK_CHILD";
+
+    /// `umask` là trạng thái **của tiến trình**: đổi nó trong tiến trình test đang chạy
+    /// song song sẽ làm hỏng test khác. Vì vậy ca cần umask xác định chạy ở **tiến trình
+    /// con**: tiến trình con tự đặt umask rồi chạy đúng một test (`--exact`).
+    #[cfg(unix)]
+    fn is_umask_child() -> bool {
+        std::env::var_os(UMASK_CHILD_ENV).is_some()
+    }
+
+    /// Tên đầy đủ của test trong test binary (đường dẫn tương đối crate, như libtest báo).
+    #[cfg(unix)]
+    fn test_path(name: &str) -> String {
+        let module = module_path!();
+        let crate_name = module.split("::").next().unwrap_or(module);
+        let relative = module
+            .strip_prefix(crate_name)
+            .map(|rest| rest.trim_start_matches("::"))
+            .unwrap_or(module);
+        format!("{relative}::{name}")
+    }
+
+    /// Chạy một test ở tiến trình con với umask chỉ định.
+    ///
+    /// Tiến trình cha **không** đổi umask của mình (test chạy song song); umask được đặt
+    /// trong tiến trình con, ngay trước khi nó chạy test.
+    #[cfg(unix)]
+    fn run_test_in_child_with_umask(test_name: &str, umask: &str) {
+        use std::process::Command;
+
+        let exe = std::env::current_exe().expect("đường dẫn test binary");
+        // `sh -c 'umask "$1"; shift; exec "$@"' sh <umask> <exe> <test> --exact --nocapture`
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg("umask \"$1\"; shift; exec \"$@\"")
+            .arg("sh")
+            .arg(umask)
+            .arg(exe)
+            .arg(test_name)
+            .arg("--exact")
+            .arg("--nocapture")
+            .env(UMASK_CHILD_ENV, "1")
+            .output()
+            .expect("chạy tiến trình test con");
+        assert!(
+            output.status.success(),
+            "test con `{test_name}` (umask {umask}) thất bại\n--- stdout ---\n{}\n--- stderr ---\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     #[test]
@@ -783,6 +932,123 @@ mod tests {
         store.integrity_check().unwrap();
     }
 
+    /// Bản sao thủ công phải owner-only **ngay từ lúc tạo**, kể cả dưới umask thông thường
+    /// (`022`): bản sao chứa `accounts.password_hash` và `sessions.token_hash` (review PR #68
+    /// P2 — trước đây file bản sao là `0644` do `VACUUM INTO` tự tạo theo umask).
+    #[cfg(unix)]
+    #[test]
+    fn backup_file_is_owner_only_under_typical_umask() {
+        let name = test_path("backup_file_is_owner_only_under_typical_umask");
+        if !is_umask_child() {
+            // Tiến trình cha: chạy lại đúng test này ở tiến trình con có umask `022`.
+            run_test_in_child_with_umask(&name, "022");
+            return;
+        }
+
+        // Tiến trình con: umask `022` ⇒ file tạo theo mặc định sẽ là `0644`.
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        store.create_account(new_account("bomber")).unwrap();
+        let target = dir.path().join("backup.sqlite");
+        store.backup_to(&target).unwrap();
+        assert_eq!(file_mode(&target), 0o600);
+    }
+
+    /// Backup trước migration cũng phải owner-only **ngay từ lúc tạo** (review PR #68 P2).
+    #[cfg(unix)]
+    #[test]
+    fn pre_migration_backup_file_is_owner_only_under_typical_umask() {
+        let name = test_path("pre_migration_backup_file_is_owner_only_under_typical_umask");
+        if !is_umask_child() {
+            run_test_in_child_with_umask(&name, "022");
+            return;
+        }
+
+        let dir = TempDir::new().unwrap();
+        let path = db_path(&dir);
+        {
+            // DB có sẵn bảng của app ở version 0 ⇒ migration phải sao lưu trước.
+            let conn = rusqlite::Connection::open(&path).unwrap();
+            conn.execute_batch("CREATE TABLE legacy_notes (id INTEGER PRIMARY KEY)")
+                .unwrap();
+        }
+
+        let _store = SqliteAccountStore::open(&path, SqliteOptions::default()).unwrap();
+        let backup = find_backup_file(&dir, "boom-server.sqlite.backup-v0");
+        assert_eq!(file_mode(&backup), 0o600);
+    }
+
+    /// Bản sao owner-only bất kể umask của tiến trình (quyền chốt đúng `0600`, không chỉ
+    /// `0600 & ~umask`).
+    #[cfg(unix)]
+    #[test]
+    fn backup_file_mode_is_exactly_owner_only() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        store.create_account(new_account("bomber")).unwrap();
+        let target = dir.path().join("backup.sqlite");
+        store.backup_to(&target).unwrap();
+        assert_eq!(file_mode(&target), 0o600);
+    }
+
+    /// Bản sao cũ không bao giờ bị ghi đè: file đích đã tồn tại ⇒ lỗi, nội dung cũ còn
+    /// nguyên (ADR 0011 §4).
+    #[test]
+    fn backup_refuses_to_overwrite_existing_file() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        store.create_account(new_account("bomber")).unwrap();
+
+        let target = dir.path().join("backup.sqlite");
+        let existed = b"ban sao cu khong duoc ghi de";
+        std::fs::write(&target, existed).unwrap();
+
+        let err = store.backup_to(&target).unwrap_err();
+        assert!(
+            matches!(err, StoreError::BackupTargetExists { .. }),
+            "lỗi lạ: {err}"
+        );
+        assert_eq!(std::fs::read(&target).unwrap(), existed);
+    }
+
+    /// File bản sao đã tồn tại nhưng **rỗng** cũng không bị dùng lại: cùng lý do "không ghi
+    /// đè" — bản sao là dữ liệu, không phải file rỗng để điền.
+    #[test]
+    fn backup_refuses_to_reuse_existing_empty_file() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        store.create_account(new_account("bomber")).unwrap();
+
+        let target = dir.path().join("backup.sqlite");
+        std::fs::write(&target, b"").unwrap();
+
+        let err = store.backup_to(&target).unwrap_err();
+        assert!(
+            matches!(err, StoreError::BackupTargetExists { .. }),
+            "lỗi lạ: {err}"
+        );
+        assert_eq!(std::fs::metadata(&target).unwrap().len(), 0);
+    }
+
+    /// Windows không có quyền POSIX `0600`: bản sao vẫn phải tạo được và mở lại được
+    /// (giới hạn: bảo vệ dựa vào ACL của thư mục, xem ADR 0011 §3).
+    #[cfg(not(unix))]
+    #[test]
+    fn backup_file_is_created_and_reopenable_without_posix_modes() {
+        let dir = TempDir::new().unwrap();
+        let mut store = open(&dir);
+        store.create_account(new_account("bomber")).unwrap();
+        let target = dir.path().join("backup.sqlite");
+        store.backup_to(&target).unwrap();
+        assert!(target.exists());
+
+        let conn = rusqlite::Connection::open(&target).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT count(*) FROM accounts", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
     #[test]
     fn migration_backs_up_existing_database_first() {
         let dir = TempDir::new().unwrap();
@@ -797,18 +1063,7 @@ mod tests {
         let store = SqliteAccountStore::open(&path, SqliteOptions::default()).unwrap();
         assert_eq!(store.schema_version().unwrap(), SUPPORTED_SCHEMA_VERSION);
 
-        let backups: Vec<_> = std::fs::read_dir(dir.path())
-            .unwrap()
-            .filter_map(Result::ok)
-            .filter(|entry| {
-                entry
-                    .file_name()
-                    .to_string_lossy()
-                    .starts_with("boom-server.sqlite.backup-v0")
-            })
-            .collect();
-        assert_eq!(backups.len(), 1);
-        let backup_path = backups[0].path();
+        let backup_path = find_backup_file(&dir, "boom-server.sqlite.backup-v0");
         let conn = rusqlite::Connection::open(&backup_path).unwrap();
         let legacy: i64 = conn
             .query_row("SELECT count(*) FROM legacy_notes", [], |row| row.get(0))
