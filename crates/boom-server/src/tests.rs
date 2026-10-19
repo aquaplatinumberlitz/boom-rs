@@ -328,6 +328,10 @@ fn disconnect_goes_neutral_then_eliminates_once() {
     assert_ne!(a.player_life(players[1]), Some(boom_core::Life::Dead));
     a.advance_to(10_001).unwrap();
     assert_eq!(a.player_life(players[1]), Some(boom_core::Life::Dead));
+    assert_eq!(
+        a.last_result().unwrap().outcome,
+        MatchOutcome::Winner(players[0])
+    );
 }
 
 #[test]
