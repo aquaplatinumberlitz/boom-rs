@@ -6,6 +6,7 @@
 
 mod authority;
 mod config;
+pub mod identity;
 mod input;
 #[cfg(test)]
 mod tests;

@@ -103,6 +103,17 @@ Cấu hình kết nối (mỗi connection, đặt lúc mở):
 
 File DB nằm trong thư mục dữ liệu của server, quyền file `0600` (owner-only) trên POSIX.
 
+**File bản sao** (backup thủ công và backup trước migration) cũng owner-only `0600` trên POSIX, và
+quyền đó phải được đặt **ngay từ lúc tạo file** — trước khi SQLite ghi dữ liệu vào. Lý do: bản sao
+chứa `accounts.password_hash` và `sessions.token_hash`; nếu để `VACUUM INTO` tự tạo file thì quyền
+là mặc định của tiến trình (`0666 & ~umask` ⇒ `0644` dưới umask `022`), tức group/other đọc được
+bản sao trong khi file DB gốc đã ở `0600`. Bản sao đích đã tồn tại thì **không ghi đè**.
+
+**Giới hạn Windows:** Windows không có quyền POSIX `0600`. File (DB và bản sao) được tạo với quyền
+mặc định của tiến trình, việc bảo vệ dựa vào **ACL của thư mục dữ liệu** (thư mục phải owner-only).
+Biện pháp `0600` ở §3 và threat §9 dòng 7 áp dụng cho POSIX; trên Windows đây là **giới hạn đã
+biết**, chấp nhận được ở V1.
+
 **Điều kiện đảo:** cần nhiều tiến trình/máy server, hoặc cần truy vấn phân tích/số liệu lớn → chuyển
 sang PostgreSQL (giữ nguyên logic schema và trait, chỉ đổi driver + runner migration), bằng ADR mới.
 
@@ -465,7 +476,7 @@ integrator (§11, T5).
 | 4 | Rò token qua mạng (TCP chưa mã hóa) | **Giới hạn đã biết**: V1 LAN/local; TLS bắt buộc trước phát hành ngoài mạng tin cậy | §11, T5 |
 | 5 | Cố định session (fixation) | Token **mới** sinh mỗi lần đăng nhập (token cũ không tái dùng); phiên cũ chỉ bị revoke theo vòng đời §6.1, không đuổi phiên còn sống | T4 (`T4-A1`) |
 | 6 | SQL injection | Chỉ prepared statement với tham số bind (`?1`), không nối chuỗi vào SQL | review + T2 |
-| 7 | Bị lấy file DB | Quyền file `0600`; trong file chỉ có hash mật khẩu và hash token | T2 |
+| 7 | Bị lấy file DB (hoặc file bản sao của nó) | Quyền file `0600` cho **cả** DB và bản sao, đặt ngay từ lúc tạo file; trong file chỉ có hash mật khẩu và hash token | T2 |
 | 8 | Hai lần đăng nhập cùng lúc (race) | Unique partial index + transaction ⇒ chỉ một phiên thắng | T4 (`T4-A4`) |
 | 9 | Client tự khai `account_id` | Server bind identity từ session, bỏ qua mọi trường identity của client (ADR 0005) | T4/T5 |
 | 10 | Crash giữa lúc ghi | Transaction + WAL + `synchronous = FULL` | T2/T4 |
