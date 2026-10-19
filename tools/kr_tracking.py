@@ -6,12 +6,16 @@ remain responsible for verifying the implementation and evidence at the recorded
 import datetime
 import hashlib
 import json
+import os
 import re
 import subprocess
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
+
+# Lệnh git chạy theo `root` được truyền vào, không theo GIT_DIR thừa hưởng (vd. từ hook).
+GIT_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 STATES = ("not_started", "in_progress", "blocked", "in_review", "done")
 LABELS = dict(not_started="Chưa làm", in_progress="Đang làm", blocked="Bị chặn",
@@ -23,7 +27,7 @@ def check_commit(root, commit):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("integration commit must be an immutable full SHA-1")
     result = subprocess.run(["git", "cat-file", "-t", commit], cwd=root,
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, env=GIT_ENV)
     if result.returncode or result.stdout.strip() != "commit":
         raise ValueError(f"commit does not exist in this checkout: {commit}")
 
@@ -31,7 +35,7 @@ def check_commit(root, commit):
 def check_integration(root, commit):
     check_commit(str(root), commit)
     result = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"],
-                            cwd=root, capture_output=True, text=True)
+                            cwd=root, capture_output=True, text=True, env=GIT_ENV)
     if result.returncode:
         raise ValueError(f"integration commit is not integrated into this checkout HEAD: {commit}")
 

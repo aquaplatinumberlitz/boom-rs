@@ -1,6 +1,7 @@
 """Completion-integrity tests; synthetic records never change the real registry."""
 import copy
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -10,6 +11,11 @@ from kr_tracking import check_commit, check_integration, metrics, validate_execu
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Biến GIT_* (vd. GIT_DIR khi chạy trong hook pre-push) làm `git -C <tmp>` thao tác lên repo thật:
+# lần trước đã đặt core.bare=true và tạo commit "fixture root" trên nhánh đang push. Repo fixture
+# phải chạy với môi trường đã gỡ mọi biến GIT_*.
+CLEAN_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
 class TrackingIntegrityTests(unittest.TestCase):
@@ -80,8 +86,11 @@ class TrackingIntegrityTests(unittest.TestCase):
             def git(*args, text=None):
                 return subprocess.run(["git", "-C", temp, "-c", "user.name=TrackingFixture",
                                        "-c", "user.email=fixture@example.invalid", *args],
-                                      input=text, text=True, capture_output=True, check=True).stdout.strip()
+                                      input=text, text=True, capture_output=True, check=True,
+                                      env=CLEAN_ENV).stdout.strip()
             git("init", "-q")
+            # Chặn hồi quy: repo fixture phải là repo riêng trong thư mục tạm, không phải repo dự án.
+            self.assertEqual(Path(git("rev-parse", "--show-toplevel")).resolve(), Path(temp).resolve())
             git("commit", "--allow-empty", "-qm", "fixture root")
             parent, tree = git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")
             unintegrated = git("commit-tree", tree, "-p", parent, text="unmerged fixture\n")

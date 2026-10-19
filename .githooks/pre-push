@@ -9,5 +9,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         exit 1
     fi
 done
+# Git đặt GIT_DIR... cho hook; gỡ để lệnh git trong test/tool không thao tác nhầm lên repo này.
+unset $(git rev-parse --local-env-vars)
 echo "pre-push: cargo xtask ci" >&2
 cargo xtask ci
