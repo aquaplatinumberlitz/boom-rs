@@ -5,6 +5,7 @@
 //! ID chưa phân loại thành [`CellKind::Unknown`] và core từ chối dựng thế giới chứa ô Unknown.
 
 use std::collections::BTreeMap;
+use std::collections::VecDeque;
 use std::fmt;
 
 use serde::Deserialize;
@@ -243,6 +244,99 @@ pub struct Terrain {
     pub spawns: Vec<(u16, u16)>,
 }
 
+/// Ô **đi được** ngay: nền trống.
+///
+/// `Breakable` là gạch phá được — phải phá trước khi đi qua nên không tính là đường
+/// đi tức thời; `Solid` là vật cản; `Unknown` là ô chưa phân loại.
+#[must_use]
+pub fn is_walkable(kind: CellKind) -> bool {
+    matches!(kind, CellKind::Floor)
+}
+
+/// Kết quả kiểm tra một spawn.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpawnInfo {
+    /// Toạ độ ô của spawn.
+    pub position: (u16, u16),
+    /// Loại ô nằm dưới spawn.
+    pub kind: CellKind,
+    /// Số ô trống đi được từ spawn (không tính ô của chính spawn).
+    pub reachable: u16,
+    /// Số ô trống cách ≥ khoảng cách tối thiểu.
+    pub far_enough: u16,
+    /// Khoảng cách lớn nhất tới ô trống từ spawn.
+    pub max_distance: u16,
+}
+
+/// Báo cáo kiểm tra spawn của một map.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpawnReport {
+    /// Khoảng cách tối thiểu mà nghiệm thu yêu cầu (ô).
+    pub min_distance: u16,
+    /// Kết quả từng spawn, theo thứ tự spawn của map.
+    pub spawns: Vec<SpawnInfo>,
+}
+
+/// Lỗi kiểm tra spawn.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SpawnError {
+    /// Spawn nằm ngoài lưới.
+    OutOfGrid {
+        /// Toạ độ spawn.
+        position: (u16, u16),
+    },
+    /// Hai spawn trùng nhau.
+    Duplicate {
+        /// Toạ độ spawn bị lặp.
+        position: (u16, u16),
+    },
+    /// Spawn nằm trên ô chặn (không phải nền trống).
+    Blocked {
+        /// Toạ độ spawn.
+        position: (u16, u16),
+        /// Loại ô nằm dưới spawn.
+        kind: CellKind,
+    },
+    /// Spawn không có đường đi tới ô trống đủ xa.
+    NoEscape {
+        /// Toạ độ spawn.
+        position: (u16, u16),
+        /// Số ô trống đi được từ spawn.
+        reachable: u16,
+        /// Khoảng cách lớn nhất tới ô trống.
+        max_distance: u16,
+    },
+}
+
+impl fmt::Display for SpawnError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OutOfGrid { position } => {
+                write!(f, "spawn ({}, {}) nằm ngoài lưới", position.0, position.1)
+            }
+            Self::Duplicate { position } => {
+                write!(f, "spawn ({}, {}) bị lặp", position.0, position.1)
+            }
+            Self::Blocked { position, kind } => write!(
+                f,
+                "spawn ({}, {}) nằm trên ô {kind:?} — không phải nền trống",
+                position.0, position.1
+            ),
+            Self::NoEscape {
+                position,
+                reachable,
+                max_distance,
+            } => write!(
+                f,
+                "spawn ({}, {}) không có ô trống đủ xa: đi được {reachable} ô, xa nhất {max_distance} ô",
+                position.0, position.1
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SpawnError {}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum TerrainError {
     Empty,
@@ -344,6 +438,97 @@ impl Terrain {
     pub fn has_unknown(&self) -> bool {
         self.kinds.contains(&CellKind::Unknown)
     }
+
+    /// Kiểm nghiệm thu spawn của map (gate G1 content/map).
+    ///
+    /// Mỗi spawn phải thỏa **bốn** điều kiện:
+    ///
+    /// 1. nằm trong lưới;
+    /// 2. không trùng spawn khác;
+    /// 3. không nằm trên ô chặn — ô dưới spawn phải là nền trống (`Floor`); gạch phá
+    ///    được (`Breakable`) và vật cản (`Solid`) đều không phải nơi đứng được ngay;
+    /// 4. có **đường thoát**: BFS trên lưới địa hình phải tới được ít nhất một ô trống
+    ///    cách ≥ `min_distance` ô (chỉ đi qua ô `Floor`).
+    ///
+    /// Lỗi đầu tiên trả về là lỗi của cả bản kiểm, kèm số đo để điều tra.
+    pub fn check_spawns(&self, min_distance: u16) -> Result<SpawnReport, SpawnError> {
+        let mut seen: Vec<(u16, u16)> = Vec::with_capacity(self.spawns.len());
+        let mut spawns = Vec::with_capacity(self.spawns.len());
+        for &(x, y) in &self.spawns {
+            let position = (x, y);
+            let kind = self
+                .kind(i32::from(x), i32::from(y))
+                .ok_or(SpawnError::OutOfGrid { position })?;
+            if seen.contains(&position) {
+                return Err(SpawnError::Duplicate { position });
+            }
+            seen.push(position);
+            if !is_walkable(kind) {
+                return Err(SpawnError::Blocked { position, kind });
+            }
+            let (reachable, far_enough, max_distance) = self.escape_from(x, y, min_distance);
+            if far_enough == 0 {
+                return Err(SpawnError::NoEscape {
+                    position,
+                    reachable,
+                    max_distance,
+                });
+            }
+            spawns.push(SpawnInfo {
+                position,
+                kind,
+                reachable,
+                far_enough,
+                max_distance,
+            });
+        }
+        Ok(SpawnReport {
+            min_distance,
+            spawns,
+        })
+    }
+
+    /// BFS từ một ô nền trống: (số ô trống đi được, số ô trống cách ≥ `min_distance`,
+    /// khoảng cách lớn nhất tới ô trống).
+    fn escape_from(&self, x: u16, y: u16, min_distance: u16) -> (u16, u16, u16) {
+        let width = usize::from(self.width);
+        let mut distance: Vec<u16> = vec![u16::MAX; self.kinds.len()];
+        let start = usize::from(y) * width + usize::from(x);
+        distance[start] = 0;
+        let mut queue: VecDeque<(i32, i32)> = VecDeque::new();
+        queue.push_back((i32::from(x), i32::from(y)));
+        let mut reachable = 0u16;
+        let mut far_enough = 0u16;
+        let mut max_distance = 0u16;
+        while let Some((cx, cy)) = queue.pop_front() {
+            let current = distance[usize::try_from(cy).expect("không âm") * width
+                + usize::try_from(cx).expect("không âm")];
+            for (dx, dy) in [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] {
+                let nx = cx + dx;
+                let ny = cy + dy;
+                let Some(kind) = self.kind(nx, ny) else {
+                    continue;
+                };
+                if !is_walkable(kind) {
+                    continue;
+                }
+                let index = usize::try_from(ny).expect("không âm") * width
+                    + usize::try_from(nx).expect("không âm");
+                if distance[index] != u16::MAX {
+                    continue;
+                }
+                let next = current + 1;
+                distance[index] = next;
+                reachable += 1;
+                if next >= min_distance {
+                    far_enough += 1;
+                }
+                max_distance = max_distance.max(next);
+                queue.push_back((nx, ny));
+            }
+        }
+        (reachable, far_enough, max_distance)
+    }
 }
 
 fn to_u16(v: usize) -> Result<u16, TerrainError> {
@@ -371,6 +556,110 @@ mod tests {
             Terrain::from_ascii(&["0.2"]),
             Err(TerrainError::MissingSpawn(1))
         );
+    }
+
+    /// Spawn có đường thoát: ô trống cách ≥ 2 ô ⇒ đạt nghiệm thu.
+    #[test]
+    fn spawn_with_a_free_cell_two_steps_away_passes() {
+        let terrain = Terrain::from_ascii(&["#####", "#0..#", "#####"]).unwrap();
+        let report = terrain.check_spawns(2).expect("spawn có đường thoát");
+        assert_eq!(report.min_distance, 2);
+        assert_eq!(report.spawns.len(), 1);
+        let spawn = &report.spawns[0];
+        assert_eq!(spawn.position, (1, 1));
+        assert_eq!(spawn.kind, CellKind::Floor);
+        assert_eq!(spawn.reachable, 2, "đi được hai ô trống");
+        assert_eq!(spawn.far_enough, 1, "một ô trống cách ≥ 2 ô");
+        assert_eq!(spawn.max_distance, 2);
+    }
+
+    /// Spawn bị chặn (ô dưới spawn là gạch) thì báo lỗi, không bỏ qua âm thầm.
+    #[test]
+    fn spawn_on_a_blocked_cell_is_rejected() {
+        let terrain = Terrain {
+            width: 3,
+            height: 3,
+            kinds: vec![
+                CellKind::Solid,
+                CellKind::Solid,
+                CellKind::Solid,
+                CellKind::Solid,
+                CellKind::Breakable,
+                CellKind::Solid,
+                CellKind::Solid,
+                CellKind::Solid,
+                CellKind::Solid,
+            ],
+            spawns: vec![(1, 1)],
+        };
+        assert_eq!(
+            terrain.check_spawns(2),
+            Err(SpawnError::Blocked {
+                position: (1, 1),
+                kind: CellKind::Breakable
+            })
+        );
+    }
+
+    /// Hai spawn trùng ô là lỗi.
+    #[test]
+    fn duplicate_spawns_are_rejected() {
+        let terrain = Terrain {
+            width: 3,
+            height: 3,
+            kinds: vec![CellKind::Floor; 9],
+            spawns: vec![(1, 1), (1, 1)],
+        };
+        assert_eq!(
+            terrain.check_spawns(2),
+            Err(SpawnError::Duplicate { position: (1, 1) })
+        );
+    }
+
+    /// Spawn không có ô trống đủ xa thì báo lỗi kèm số đo.
+    #[test]
+    fn spawn_without_an_escape_route_is_rejected() {
+        let terrain = Terrain::from_ascii(&["#####", "#0#.#", "#####"]).unwrap();
+        assert_eq!(
+            terrain.check_spawns(2),
+            Err(SpawnError::NoEscape {
+                position: (1, 1),
+                reachable: 0,
+                max_distance: 0
+            })
+        );
+    }
+
+    /// Spawn nằm ngoài lưới là lỗi.
+    #[test]
+    fn spawn_outside_the_grid_is_rejected() {
+        let terrain = Terrain {
+            width: 2,
+            height: 2,
+            kinds: vec![CellKind::Floor; 4],
+            spawns: vec![(5, 5)],
+        };
+        assert_eq!(
+            terrain.check_spawns(2),
+            Err(SpawnError::OutOfGrid { position: (5, 5) })
+        );
+    }
+
+    /// Bốn spawn ở bốn góc, mỗi góc có đường thoát: giống hình học Village00.
+    #[test]
+    fn four_spawns_at_the_corners_all_have_an_escape_route() {
+        let terrain = Terrain::from_ascii(&["0..1", "....", "....", "2..3"]).unwrap();
+        let report = terrain
+            .check_spawns(2)
+            .expect("cả bốn spawn đều có đường thoát");
+        assert_eq!(report.spawns.len(), 4);
+        for spawn in &report.spawns {
+            assert!(
+                spawn.far_enough >= 1,
+                "spawn {:?} không có ô trống đủ xa",
+                spawn.position
+            );
+        }
     }
 
     #[test]

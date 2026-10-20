@@ -1400,6 +1400,115 @@ mod tests {
         );
     }
 
+    /// Nghiệm thu V1-030 (issue #121): sau khi đối chiếu **bảng animation của client**
+    /// trong ODT, bundle thật không còn mục `unknown` nào, và nhãn bằng chứng của sprite
+    /// nhân vật phản ánh đúng bảng đó: `Blink`/`Faint` có trong bảng animation của
+    /// client ⇒ `confirmed`; `BlinkSmall` không có ⇒ `candidate` (client không dùng).
+    ///
+    /// Bảng ODT không nằm trong closure (là dữ liệu lúc dựng, không phải nội dung lúc
+    /// chơi) nhưng closure **đọc chính nó** để suy ra nhãn, nên nhãn phải khớp bảng.
+    #[test]
+    fn village00_bundle_has_no_unknown_and_carries_the_odt_evidence() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        assert!(
+            built.bundle.unknown.is_empty(),
+            "bundle còn mục unknown: {:?}",
+            built.bundle.unknown
+        );
+
+        let status_of = |role: &str, entry: &str| {
+            built
+                .bundle
+                .sprites
+                .iter()
+                .find(|sprite| sprite.role == role && sprite.entry == entry)
+                .unwrap_or_else(|| panic!("bundle thiếu sprite {entry}"))
+                .status
+                .as_str()
+                .to_owned()
+        };
+        for character in ["C00", "C01"] {
+            assert_eq!(
+                status_of(
+                    "character_idle",
+                    &format!("FxCharacter/Character/{character}-Blink_ALayerStatic")
+                ),
+                "confirmed",
+                "{character}: `Blink` có trong bảng animation của client"
+            );
+            assert_eq!(
+                status_of(
+                    "character_idle",
+                    &format!("FxCharacter/Character/{character}-BlinkSmall_ALayerStatic")
+                ),
+                "candidate",
+                "{character}: `BlinkSmall` không có trong bảng animation của client"
+            );
+            assert_eq!(
+                status_of(
+                    "character_trapped",
+                    &format!("FxCharacter/Character/{character}-FaintLayerStatic")
+                ),
+                "confirmed",
+                "{character}: `Faint` có trong bảng animation của client"
+            );
+        }
+
+        // Bảng ODT là nguồn bằng chứng của nhãn trên: nó không nằm trong closure
+        // (là dữ liệu lúc dựng, không phải nội dung lúc chơi) nhưng closure đọc chính
+        // nó để suy ra nhãn, nên nhãn phải khớp với bảng của client.
+    }
+    /// Nghiệm thu V1-030 (issue #121): bốn spawn của Village00 phải khác nhau, không nằm
+    /// trên ô chặn, và mỗi spawn phải có đường đi tới ít nhất một ô trống cách ≥ 2 ô
+    /// (BFS trên lưới địa hình).
+    #[test]
+    fn village00_spawns_are_distinct_unblocked_and_have_an_escape_route() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let profile = boom_content::map::MapProfile::from_toml(include_str!(
+            "../../../data/maps/village00-kr.toml"
+        ))
+        .expect("nạp bảng phân loại ô");
+        let terrain = profile
+            .classify(&built.bundle.map_grid())
+            .expect("phân loại ô của Village00");
+        assert_eq!(terrain.spawns.len(), 4, "Village00 có bốn spawn");
+
+        let report = terrain
+            .check_spawns(2)
+            .expect("bốn spawn của Village00 đều có đường thoát");
+        assert_eq!(report.spawns.len(), 4);
+        let mut seen: Vec<(u16, u16)> = Vec::new();
+        for spawn in &report.spawns {
+            assert!(
+                !seen.contains(&spawn.position),
+                "spawn bị lặp: {:?}",
+                spawn.position
+            );
+            seen.push(spawn.position);
+            assert_eq!(
+                spawn.kind,
+                boom_content::map::CellKind::Floor,
+                "spawn {:?} nằm trên ô chặn",
+                spawn.position
+            );
+            assert!(
+                spawn.far_enough >= 1,
+                "spawn {:?} không có ô trống cách ≥ 2 ô (đi được {} ô, xa nhất {})",
+                spawn.position,
+                spawn.reachable,
+                spawn.max_distance
+            );
+        }
+    }
+
     /// PNG trong suốt cùng kích thước — dùng để mô phỏng "thay toàn bộ atlas".
     fn transparent_png(width: u32, height: u32) -> Vec<u8> {
         let rgba = vec![0u8; (width as usize) * (height as usize) * 4];

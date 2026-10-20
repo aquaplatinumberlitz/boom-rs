@@ -363,11 +363,12 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Trang atlas | 1 trang 2048×1430 |
 | Audio V1 | 15 entry (1 BGM + 14 SFX), 496 KiB payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
+| Entry không phải ảnh | 4: BGM `FxSound/MP3/Village`, file map, 2 bảng chỉ số |
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
-| `unknown` | 4 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) |
-| `content_hash` | `27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2` |
+| `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng bảng animation của client trong ODT (§6.1) |
+| `content_hash` | `0dc6c953ca6a2141f7bfacd23d4ac656dd8b921c2a7b9f97b15187332209a443` |
 
 Cách kiểm lại:
 
@@ -376,6 +377,67 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
   cargo run -p boom-assets --bin boom-assets -- bundle --map Village00 --out /tmp/b
 # content_hash phải bằng giá trị trên; dựng hai lần cho cùng hash và cùng byte file.
 ```
+
+`content_hash` **băm cả byte file atlas**, nên đổi bộ mã PNG cũng đổi hash: giá trị ở
+trên gắn với bộ mã trong `Cargo.lock` hiện hành. Trước issue #121, giá trị ghi trong
+bảng này đã **stale** (đo trước khi bảng audio được thêm vào hash) nên không khớp với
+bundle dựng được; bảng được cập nhật lại theo lần đo mới.
+
+### 6.1. Bốn state `unknown` của bundle đã giải bằng bảng animation của client (issue #121)
+
+Trước issue #121, bundle có **4 mục `unknown`** loại `character_state`:
+`C00:idle`, `C01:idle`, `C00:trapped`, `C01:trapped` — "chưa có trace consumer xác nhận
+state nào dùng clip nào".
+
+**Đã giải bằng dữ liệu trong chính pack KR** (claim R-089): ODT
+`fx/ObjectTable/ObjectTable` không chỉ có bảng tên ô của map. Sau bảng tên là các
+**khối dữ liệu**, mỗi khối là bảng state của một đối tượng; khối
+`Character/<Id>_A` liệt kê state trình diễn của nhân vật:
+
+| nhãn | state | entry (tiền tố) | số frame theo bảng |
+|---|---|---|---|
+| `00 Blink` | `Blink` | `Character/C00-Blink_A` | 3 |
+| `01 Die` | `Die` | `Character/C00-Die` | 14 |
+| `02 Faint` | `Faint` | `Character/C00-Faint` | 3 |
+| `03 Hurrah` | `Hurrah` | `Character/C00-Hurrah_A` | 4 |
+| `12 Stop Left` … `15 Stop Down` | đứng yên theo hướng | `Character/C00-Walk<Dir>_A` (frame 0) | 5 |
+| `20 Walk Left` … `23 Walk Down` | đi theo hướng | `Character/C00-Walk<Dir>_A` | 5 |
+| `24 Start` | `Start` | `Character/C00-Start_A` | 10 |
+| `25 Locked In` (+ `52`…`56`) | bị khoá (bị nhốt) | `Character/C00-Die` (frame 0…1, giữ vô hạn) | 14 |
+
+Cột "số frame theo bảng" khớp **đúng** số frame của sprite trong pack
+(`C00-Blink_ALayerStatic` 3 frame, `C00-DieLayerStatic` 14 frame,
+`C00-FaintLayerStatic` 3 frame, `C00-Hurrah_ALayerStatic` 4 frame,
+`C00-WalkDown_ALayerStatic` 5 frame) ⇒ bảng ODT là bảng animation của chính build KR
+00967, không phải dữ liệu của build khác. Client ghép tên entry trong ODT với lớp
+`Layer` + `Static`/`Adjust` (đối chiếu client VN: `CGameObjectTemplateLib::LoadNameTable`
+tại `0x5C9741` nối `LayerStatic`/`LayerAdjust` và tách riêng nhánh `Die`/`Faint`).
+
+Kết quả trên bundle:
+
+| Mục | Trước | Sau | Căn cứ |
+|---|---|---|---|
+| `unknown` | 4 mục `character_state` | **0** | bảng ODT xác nhận state `Blink`/`Faint` và entry của chúng cho C00/C01 |
+| sprite `character_idle` `C0x-Blink_ALayer*` | `candidate` | `confirmed` | có trong bảng animation của client |
+| sprite `character_idle` `C0x-BlinkSmall_ALayer*` | `candidate` | `candidate` | **không** có trong bảng của nhân vật nào ⇒ client không dùng; V1 giữ trong bảng clip làm ứng viên nhưng không chọn |
+| sprite `character_trapped` `C0x-FaintLayer*` | `candidate` | `confirmed` | có trong bảng animation của client (`02 Faint`) |
+
+**Sai khác còn lại, đã ghi nhận (R-090, `candidate`):** client gốc dùng `Stop <hướng>`
+(frame 0 của `Walk<hướng>_A`) cho **tư thế đứng yên** và `Blink` làm overlay nháy mắt;
+state **bị nhốt** của client (`Locked In`) dùng frame 0…1 của `Die` giữ vô hạn, kèm bong
+bóng. V1 chọn khác (`idle` → clip `Blink`, `trapped` → clip `Faint`, R-086 `design`).
+Chưa có trace runtime nối state core của V1 với state của client, nên mức bằng chứng
+của *sai khác này* vẫn là `candidate`; việc đổi lựa chọn của V1 thuộc task client
+(V1-031), không thuộc issue này.
+
+Cơ chế "không bỏ qua âm thầm": closure **đọc bảng ODT lúc dựng manifest** và so
+state + entry của từng state V1 (`V1_CHARACTER_STATES`). Lệch thì manifest ghi mục
+`unknown` kèm lý do và ứng viên — xem `crates/boom-assets/src/closure.rs`.
+
+Bảng ODT **không** nằm trong closure: nó là dữ liệu lúc dựng (client đọc lúc chạy),
+không phải nội dung lúc chơi, nên không vào `[[assets]]` của bundle. SHA-256 của nó
+(2.391.729 B) là `a68fd5ffcc815b24b5c5199e9910f10d14f1ac6f30aba4c237a23f4e279608dc`
+— ghi ở claim R-089 để đối chiếu khi pack đổi.
 
 ## 7. Quy ước đặt ảnh của client (presentation — `design`)
 
