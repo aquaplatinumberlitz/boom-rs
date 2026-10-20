@@ -1154,7 +1154,11 @@ fn join_all(harness: &mut RoomHarness, count: usize) {
     for index in 0..count {
         harness.enable_auto(index, count);
         assert!(
-            harness.wait_for(index, |client| client.net.room().room().is_some(), ROOM_WAIT_STEPS),
+            harness.wait_for(
+                index,
+                |client| client.net.room().room().is_some(),
+                ROOM_WAIT_STEPS
+            ),
             "client {index} phải vào được phòng"
         );
     }
@@ -1162,7 +1166,11 @@ fn join_all(harness: &mut RoomHarness, count: usize) {
     // (SCOPE_V1 §3). Luồng tự động bật ready ngay khi vào phòng.
     assert!(
         harness.wait_for_all(
-            |client| client.net.room().my_member().is_some_and(|member| member.ready),
+            |client| client
+                .net
+                .room()
+                .my_member()
+                .is_some_and(|member| member.ready),
             ROOM_WAIT_STEPS
         ),
         "mọi client phải sẵn sàng"
@@ -1209,7 +1217,10 @@ fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHar
 
     // Mọi người ready → host start → `RoundStart` tới mọi client.
     assert!(
-        harness.wait_for_all(|client| client.net.room().round().is_some(), ROOM_WAIT_STEPS),
+        harness.wait_for_all(
+            |client| client.net.room().round().is_some(),
+            ROOM_WAIT_STEPS
+        ),
         "mọi client phải nhận RoundStart"
     );
     let round_id = harness
@@ -1286,12 +1297,11 @@ fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHar
             .result()
             .expect("phải nhận kết quả round")
             .clone();
-        assert_eq!(result.round_id, round_id, "kết quả phải của round đang chơi");
         assert_eq!(
-            result.results.len(),
-            count,
-            "kết quả phải có đủ người chơi"
+            result.round_id, round_id,
+            "kết quả phải của round đang chơi"
         );
+        assert_eq!(result.results.len(), count, "kết quả phải có đủ người chơi");
         assert_eq!(
             harness.client(index).net.room().result_acked(),
             Some(round_id),
@@ -1300,31 +1310,19 @@ fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHar
     }
 
     // Về phòng và vào được trận 2.
-    let ok = harness.wait_for_all(
-        |client| {
-            client
-                .net
-                .room()
-                .round()
-                .is_some_and(|plan| plan.round_id > round_id)
-        },
-        ROOM_WAIT_STEPS,
+    assert!(
+        harness.wait_for_all(
+            |client| {
+                client
+                    .net
+                    .room()
+                    .round()
+                    .is_some_and(|plan| plan.round_id > round_id)
+            },
+            ROOM_WAIT_STEPS
+        ),
+        "mọi client phải vào được trận 2"
     );
-    if !ok {
-        for index in 0..count {
-            let client = harness.client(index);
-            eprintln!(
-                "DEBUG client {index}: room={:?} ready={:?} round={:?} result={:?} reject={:?} err={:?}",
-                client.net.room().room().map(|r| (r.phase, r.members.len())),
-                client.net.room().my_member().map(|m| m.ready),
-                client.net.room().round().map(|p| p.round_id),
-                client.net.room().result().map(|r| r.round_id),
-                client.net.room().rejection().map(|r| r.reason),
-                client.net.room_error(),
-            );
-        }
-    }
-    assert!(ok, "mọi client phải vào được trận 2");
     harness
 }
 
@@ -1417,7 +1415,11 @@ fn request_lap_khong_ap_hai_lan() {
         .room()
         .expect("phải có phòng")
         .clone();
-    assert_eq!(room.members.len(), 1, "lệnh lặp không được tạo phòng thứ hai");
+    assert_eq!(
+        room.members.len(),
+        1,
+        "lệnh lặp không được tạo phòng thứ hai"
+    );
     assert!(
         harness.client(0).net.room().rejection().is_none(),
         "lệnh lặp cùng request ID không được bị từ chối"
@@ -1460,12 +1462,20 @@ fn chat_chi_toi_thanh_vien_phong() {
     // Hai client vào phòng; client thứ ba đứng ở sảnh (không vào phòng nào).
     harness.enable_auto(0, 2);
     assert!(
-        harness.wait_for(0, |client| client.net.room().room().is_some(), ROOM_WAIT_STEPS),
+        harness.wait_for(
+            0,
+            |client| client.net.room().room().is_some(),
+            ROOM_WAIT_STEPS
+        ),
         "client 0 phải vào được phòng"
     );
     harness.enable_auto(1, 2);
     assert!(
-        harness.wait_for(1, |client| client.net.room().room().is_some(), ROOM_WAIT_STEPS),
+        harness.wait_for(
+            1,
+            |client| client.net.room().room().is_some(),
+            ROOM_WAIT_STEPS
+        ),
         "client 1 phải vào được phòng"
     );
     assert!(

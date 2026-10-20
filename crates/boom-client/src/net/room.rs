@@ -20,7 +20,7 @@ use boom_content::map::Terrain;
 use boom_core::{Mode, Rules, World};
 use boom_proto::{
     LobbyList, RoomAction, RoomCharacter, RoomChat, RoomChatMessage, RoomCommand, RoomPhase,
-    RoomRejected, RoomState, RoundMember, RoundResult, RoundStart,
+    RoomRejectReason, RoomRejected, RoomState, RoundMember, RoundResult, RoundStart,
 };
 
 /// Số tin chat giữ lại phía client.
@@ -86,10 +86,16 @@ impl fmt::Display for RoomError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ProfileMismatch { expected, got } => {
-                write!(f, "profile rules của round khác: client {expected}, server {got}")
+                write!(
+                    f,
+                    "profile rules của round khác: client {expected}, server {got}"
+                )
             }
             Self::RulesMismatch { expected, got } => {
-                write!(f, "hash rules của round khác: client {expected}, server {got}")
+                write!(
+                    f,
+                    "hash rules của round khác: client {expected}, server {got}"
+                )
             }
             Self::ContentMismatch { expected, got } => {
                 write!(
@@ -103,7 +109,10 @@ impl fmt::Display for RoomError {
                 write!(f, "mode của round khác: client {expected}, server {got}")
             }
             Self::NotInRoster { round_id, slot } => {
-                write!(f, "client (slot {slot}) không có trong roster của round {round_id}")
+                write!(
+                    f,
+                    "client (slot {slot}) không có trong roster của round {round_id}"
+                )
             }
             Self::MapMissing { map } => {
                 write!(f, "client chưa có nội dung map {map} của round")
@@ -188,6 +197,23 @@ impl RoundPlan {
     }
 }
 
+/// Ack mà client đã gửi nhưng chưa thấy bằng chứng server đã nhận.
+///
+/// Mạng có thể mất frame, mà protocol V1 **không** có kind riêng để xác nhận ack
+/// (ADR 0009 Addendum B §B.2: `LoadingAck` và `ResultAck` là idempotent, gửi lại không đổi
+/// ý nghĩa). Vì vậy client gửi lại ack theo nhịp cho tới khi có bằng chứng:
+///
+/// - `LoadingAck`: bằng chứng là **snapshot đầu tiên** của round đó (server chỉ gửi snapshot
+///   khi lượt đã bắt đầu, tức là barrier đã qua).
+/// - `ResultAck`: bằng chứng là `RoomState` pha `Waiting` (server đã đưa phòng về chờ).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PendingAck {
+    /// `LoadingAck` của round; chờ snapshot đầu tiên của round đó.
+    Loading(u64),
+    /// `ResultAck` của round; chờ phòng quay lại `Waiting`.
+    Result(u64),
+}
+
 /// Trạng thái luồng phòng phía client.
 ///
 /// Chỉ giữ **dữ liệu server đã xác nhận** (hoặc lỗi kiểm fingerprint); client không tự suy
@@ -219,6 +245,8 @@ pub struct RoomFlow {
     loading_acked: Option<u64>,
     /// Round đã gửi `ResultAck`.
     result_acked: Option<u64>,
+    /// Ack đang chờ bằng chứng server đã nhận (client gửi lại theo nhịp).
+    pending_ack: Option<PendingAck>,
 }
 
 impl RoomFlow {
@@ -236,6 +264,7 @@ impl RoomFlow {
             error: None,
             loading_acked: None,
             result_acked: None,
+            pending_ack: None,
         }
     }
 
@@ -297,7 +326,13 @@ impl RoomFlow {
     }
 
     /// Nhận `RoomState` từ server.
+    ///
+    /// `RoomState` pha `Waiting` là bằng chứng server đã đưa phòng về chờ: ack kết quả của
+    /// lượt trước (nếu có) đã tới, và lượt đang chờ barrier thì đã bị hủy.
     pub fn on_room_state(&mut self, state: RoomState) {
+        if state.phase == RoomPhase::Waiting {
+            self.pending_ack = None;
+        }
         self.room = Some(state);
     }
 
@@ -347,7 +382,11 @@ impl RoomFlow {
                 got: start.mode.clone(),
             }));
         }
-        if start.roster.iter().all(|member| member.slot != self.my_slot) {
+        if start
+            .roster
+            .iter()
+            .all(|member| member.slot != self.my_slot)
+        {
             return Err(self.fail(RoomError::NotInRoster {
                 round_id: start.round_id,
                 slot: self.my_slot,
@@ -375,13 +414,35 @@ impl RoomFlow {
     }
 
     /// Ghi nhận đã gửi `LoadingAck` cho round `round_id`.
+    ///
+    /// Ack này **chưa** được xác nhận: client gửi lại cho tới khi nhận snapshot đầu tiên của
+    /// round (xem [`PendingAck`]).
     pub fn mark_loading_acked(&mut self, round_id: u64) {
         self.loading_acked = Some(round_id);
+        self.pending_ack = Some(PendingAck::Loading(round_id));
     }
 
     /// Ghi nhận đã gửi `ResultAck` cho round `round_id`.
+    ///
+    /// Ack này **chưa** được xác nhận: client gửi lại cho tới khi phòng quay lại `Waiting`
+    /// (xem [`PendingAck`]).
     pub fn mark_result_acked(&mut self, round_id: u64) {
         self.result_acked = Some(round_id);
+        self.pending_ack = Some(PendingAck::Result(round_id));
+    }
+
+    /// Ack đang chờ bằng chứng server đã nhận (client gửi lại theo nhịp).
+    pub fn pending_ack(&self) -> Option<PendingAck> {
+        self.pending_ack
+    }
+
+    /// Bằng chứng server đã nhận `LoadingAck`: snapshot đầu tiên của round `round_id`.
+    ///
+    /// Server chỉ gửi snapshot khi lượt đã bắt đầu, tức là loading barrier đã qua.
+    pub fn confirm_loading(&mut self, round_id: u64) {
+        if self.pending_ack == Some(PendingAck::Loading(round_id)) {
+            self.pending_ack = None;
+        }
     }
 
     /// Danh sách phòng sảnh gần nhất.
@@ -543,6 +604,24 @@ impl AutoAction {
 ///
 /// Dùng cho QA/test (`--auto-ready`): **mọi** bước là lệnh phòng thật trên dây, không giả lập
 /// state phía client. Luồng không tự quyết kết quả: `RoundResult` của server mới là kết quả.
+///
+/// ## Mô hình: hành động **mong muốn** + hành động **đang chờ xác nhận**
+///
+/// Luồng giữ hai khái niệm tách biệt:
+///
+/// - **Hành động mong muốn** ([`AutoRoomFlow::desired`]): client muốn làm gì với trạng thái
+///   server đã biết. Hàm thuần, chỉ đọc trạng thái.
+/// - **Hành động đang chờ** ([`AutoRoomFlow::pending`]): hành động đã gửi mà server **chưa**
+///   xác nhận. Client gửi lại đúng hành động này (cùng request ID → server dedup) theo nhịp,
+///   nên mất frame không làm kẹt client.
+///
+/// Hành động được xác nhận khi trạng thái server cho thấy đã xong: vào phòng (có mặt trong
+/// `RoomState`), ready (mình ready trong `RoomState`), start (nhận `RoundStart`), xin sảnh
+/// (nhận `LobbyList`).
+///
+/// Vì protocol V1 **không** có kind riêng để xin trạng thái phòng, gửi lại lệnh phòng là cách
+/// **duy nhất** để bắt server gửi lại `RoomState` (ADR 0009 Addendum B §B.2: request lặp →
+/// `Outcome::Duplicate`, không áp hai lần).
 #[derive(Clone, Debug)]
 pub struct AutoRoomFlow {
     /// Nhân vật chọn khi tạo/vào phòng.
@@ -553,21 +632,27 @@ pub struct AutoRoomFlow {
     /// (`min_players_to_start`) và từ chối `Start` khi chưa đủ người. Client dùng tham số này
     /// để *chờ* đủ người rồi mới start — ví dụ QA 4 client thì chờ 4 người vào phòng.
     min_players: usize,
-    /// Hành động đang chờ server xác nhận.
+    /// Hành động đã gửi mà server chưa xác nhận.
     pending: Option<AutoAction>,
-    /// Chữ ký của lần start gần nhất: `(phòng, số thành viên, tất cả ready)`.
+    /// Đã nhận `RoundStart` của lượt đang chơi.
     ///
-    /// Dùng để **không** gửi lại `Start` khi server đã từ chối và trạng thái phòng không đổi
-    /// (ví dụ `NotEnoughPlayers`): mỗi trạng thái mới mới thử lại.
-    last_start: Option<(u64, usize, bool)>,
-    /// Số lần xin lại danh sách phòng sau khi bị từ chối.
+    /// Khi còn `false`, luồng giữ hành động `Start` để **resync**: server gửi lại `RoundStart`
+    /// khi nhận lệnh `Start` lặp cùng request ID (ADR 0009 Addendum B §B.2).
+    round_started: bool,
+    /// Đã nhận `RoundResult` của lượt vừa xong: đang chờ phòng quay lại `Waiting`.
+    result_seen: bool,
+    /// Chữ ký lần `Start` bị server từ chối vì **chưa đủ điều kiện**: `(phòng, số thành viên,
+    /// tất cả ready)`.
     ///
-    /// **Tham số vận hành** (design): tránh lặp vô hạn khi lệnh phòng bị từ chối liên tục.
-    lobby_retries: u32,
+    /// Client không thử lại `Start` với cùng chữ ký cho tới khi trạng thái phòng đổi (thêm
+    /// người hoặc thêm người ready). Lý do "sai pha" (`NotWaiting`) **không** chặn: server còn
+    /// trong lượt thì thử lại được ngay.
+    start_blocked: Option<(u64, usize, bool)>,
+    /// ID phòng đã thử vào bị từ chối: luồng thử phòng khác thay vì lặp lại.
+    failed_rooms: Vec<u64>,
+    /// Phòng đang thử vào (dùng để đánh dấu phòng bị từ chối).
+    last_join: Option<u64>,
 }
-
-/// Số lần xin lại danh sách phòng tối đa (tham số vận hành, design).
-const LOBBY_RETRIES_MAX: u32 = 8;
 
 impl AutoRoomFlow {
     /// Dựng luồng tự động chờ tối thiểu `min_players` người trong phòng rồi mới start.
@@ -576,8 +661,11 @@ impl AutoRoomFlow {
             character,
             min_players,
             pending: None,
-            last_start: None,
-            lobby_retries: 0,
+            round_started: false,
+            result_seen: false,
+            start_blocked: None,
+            failed_rooms: Vec::new(),
+            last_join: None,
         }
     }
 
@@ -586,20 +674,68 @@ impl AutoRoomFlow {
         self.character
     }
 
-    /// Xử lý sự kiện phòng vừa tới và trả về hành động cần làm (nếu có).
+    /// Xử lý sự kiện phòng vừa tới và trả về hành động **cần gửi** (nếu có).
+    ///
+    /// Trả `None` khi hành động đang chờ chưa được xác nhận: caller **không** gửi lại ngay mà
+    /// để tầng mạng gửi lại theo nhịp (cùng request ID → server dedup).
     pub fn on_event(&mut self, event: RoomEvent, flow: &RoomFlow) -> Option<AutoAction> {
-        // Sự kiện này xác nhận lệnh đang chờ (nếu có) nên không cần gửi lại nữa.
-        if matches!(
-            event,
-            RoomEvent::LobbyList | RoomEvent::RoomState | RoomEvent::RoundStart
-        ) {
-            self.pending = None;
+        match event {
+            RoomEvent::RoundStart => {
+                self.round_started = true;
+                self.result_seen = false;
+                self.confirm(&AutoAction::Start);
+            }
+            RoomEvent::RoundResult => {
+                // Lượt vừa xong: server sẽ gửi `RoomState` (Waiting, ready reset). Client
+                // sẵn sàng lại cho vòng sau; `SetReady` cũng là cách bắt server gửi lại
+                // `RoomState` nếu frame đó bị mất trên đường.
+                self.result_seen = true;
+                self.round_started = false;
+            }
+            RoomEvent::RoomState => {
+                if flow
+                    .room()
+                    .is_some_and(|state| state.phase == RoomPhase::Waiting)
+                {
+                    // Đã về phòng chờ: server reset ready, vòng sau cần ready lại.
+                    self.result_seen = false;
+                }
+                self.confirm_by_state(flow);
+            }
+            RoomEvent::Rejected => {
+                if flow.room().is_none()
+                    && let Some(room) = self.last_join
+                {
+                    // Vào phòng bị từ chối (phòng đầy/đã bắt đầu): thử phòng khác.
+                    self.failed_rooms.push(room);
+                    self.last_join = None;
+                }
+                if flow.rejection().is_some_and(|rejected| {
+                    matches!(
+                        rejected.reason,
+                        RoomRejectReason::NotEnoughPlayers | RoomRejectReason::NotAllReady
+                    )
+                }) && let Some(state) = flow.room()
+                {
+                    // `Start` bị từ chối vì chưa đủ điều kiện: chờ trạng thái phòng đổi.
+                    let all_ready = state.members.iter().all(|member| member.ready);
+                    self.start_blocked = Some((state.room_id, state.members.len(), all_ready));
+                }
+            }
+            RoomEvent::LobbyList => {
+                self.confirm(&AutoAction::RequestLobby);
+            }
         }
-        let action = self.decide(event, flow);
-        if let Some(action) = &action {
-            self.pending = Some(action.clone());
+        let desired = self.desired(flow);
+        if desired == self.pending {
+            // Hành động đang chờ chưa được xác nhận: để tầng mạng gửi lại theo nhịp.
+            return None;
         }
-        action
+        self.pending = desired.clone();
+        if let Some(AutoAction::JoinRoom { room }) = &desired {
+            self.last_join = Some(*room);
+        }
+        desired
     }
 
     /// Hành động đang chờ server xác nhận (chưa có phản hồi).
@@ -610,62 +746,107 @@ impl AutoRoomFlow {
         self.pending.as_ref()
     }
 
-    /// Quyết định hành động theo sự kiện và trạng thái phòng hiện tại.
-    fn decide(&mut self, event: RoomEvent, flow: &RoomFlow) -> Option<AutoAction> {
-        match event {
-            RoomEvent::LobbyList => {
-                // Đã ở trong phòng thì không xin danh sách nữa.
-                if flow.room().is_some() {
-                    return None;
-                }
-                match flow.lobby().and_then(|list| list.rooms.first()) {
-                    Some(room) => Some(AutoAction::JoinRoom {
-                        room: room.room_id,
-                    }),
-                    None => Some(AutoAction::CreateRoom),
-                }
-            }
-            RoomEvent::RoomState => {
-                let state = flow.room()?;
-                if state.phase != RoomPhase::Waiting {
-                    return None;
-                }
-                let me = state
-                    .members
-                    .iter()
-                    .find(|member| member.slot == flow.my_slot())?;
-                if !me.ready {
-                    return Some(AutoAction::SetReady);
-                }
-                let all_ready = state.members.iter().all(|member| member.ready);
-                // Chỉ host mới start; server kiểm lại quyền (RoomRejectReason::NotHost).
-                if flow.is_host() && all_ready && state.members.len() >= self.min_players {
-                    let signature = (state.room_id, state.members.len(), all_ready);
-                    if self.last_start != Some(signature) {
-                        self.last_start = Some(signature);
-                        return Some(AutoAction::Start);
-                    }
-                }
+    /// Hành động client **muốn** làm với trạng thái server đã biết.
+    ///
+    /// Hàm thuần: chỉ đọc trạng thái phòng đã nhận, nên gọi lại bao nhiêu lần cũng cho cùng
+    /// kết quả. `None` = client không cần làm gì lúc này (server sẽ đẩy `RoomState` khi
+    /// trạng thái phòng đổi, ví dụ khi người khác bật ready).
+    pub fn desired(&self, flow: &RoomFlow) -> Option<AutoAction> {
+        if self.result_seen {
+            // Lượt vừa xong: chờ phòng quay lại `Waiting`. `SetReady` vừa sẵn sàng cho vòng
+            // sau, vừa bắt server gửi lại `RoomState` nếu frame đó bị mất.
+            return Some(AutoAction::SetReady);
+        }
+        let Some(state) = flow.room() else {
+            // Chưa ở trong phòng nào: vào phòng trong sảnh hoặc tạo phòng mới.
+            return Some(self.enter_action(flow));
+        };
+        if state.phase != RoomPhase::Waiting {
+            // Đang trong lượt: giữ `Start` để resync `RoundStart` nếu frame đó bị mất.
+            return if self.round_started {
                 None
+            } else {
+                Some(AutoAction::Start)
+            };
+        }
+        let Some(me) = state
+            .members
+            .iter()
+            .find(|member| member.slot == flow.my_slot())
+        else {
+            // Không thấy mình trong phòng (server vừa đổi phòng): xin lại danh sách.
+            return Some(self.enter_action(flow));
+        };
+        if !me.ready {
+            return Some(AutoAction::SetReady);
+        }
+        let all_ready = state.members.iter().all(|member| member.ready);
+        // Chỉ host mới start; server kiểm lại quyền (RoomRejectReason::NotHost).
+        if flow.is_host() && all_ready && state.members.len() >= self.min_players {
+            let signature = (state.room_id, state.members.len(), all_ready);
+            if self.start_blocked != Some(signature) {
+                return Some(AutoAction::Start);
             }
-            RoomEvent::RoundStart => None,
-            RoomEvent::RoundResult => {
-                // Về phòng: server gửi `RoomState` mới, luồng ready lại cho vòng sau.
-                self.last_start = None;
-                None
-            }
-            RoomEvent::Rejected => {
-                // Chưa vào phòng: xin lại danh sách để thử phòng khác (có giới hạn số lần).
-                if flow.room().is_none() && self.lobby_retries < LOBBY_RETRIES_MAX {
-                    self.lobby_retries += 1;
-                    return Some(AutoAction::RequestLobby);
-                }
-                None
-            }
+            // Server đã từ chối `Start` vì chưa đủ điều kiện: chờ trạng thái phòng đổi.
+            return None;
+        }
+        // Đã sẵn sàng nhưng phòng chưa đủ điều kiện start: server tự đẩy `RoomState` khi
+        // trạng thái phòng đổi nên client không cần hỏi thêm.
+        None
+    }
+
+    /// Hành động vào phòng khi client chưa ở trong phòng nào.
+    fn enter_action(&self, flow: &RoomFlow) -> AutoAction {
+        let Some(list) = flow.lobby() else {
+            // Chưa có danh sách phòng: xin sảnh.
+            return AutoAction::RequestLobby;
+        };
+        match list
+            .rooms
+            .iter()
+            .find(|room| !self.failed_rooms.contains(&room.room_id))
+        {
+            Some(room) => AutoAction::JoinRoom { room: room.room_id },
+            // Không còn phòng nào để thử (đều đầy hoặc đã bắt đầu): tạo phòng mới.
+            None => AutoAction::CreateRoom,
+        }
+    }
+
+    /// Xác nhận hành động đang chờ khi trạng thái phòng cho thấy đã xong.
+    fn confirm_by_state(&mut self, flow: &RoomFlow) {
+        let Some(state) = flow.room() else {
+            return;
+        };
+        let me = state
+            .members
+            .iter()
+            .find(|member| member.slot == flow.my_slot());
+        if me.is_some() {
+            // Đã có mặt trong phòng: lệnh vào phòng đã được chấp nhận.
+            self.confirm_enter();
+        }
+        if me.is_some_and(|member| member.ready) {
+            self.confirm(&AutoAction::SetReady);
+        }
+    }
+
+    /// Xác nhận lệnh vào phòng (tạo hoặc vào phòng có sẵn).
+    fn confirm_enter(&mut self) {
+        if matches!(
+            self.pending,
+            Some(AutoAction::CreateRoom) | Some(AutoAction::JoinRoom { .. })
+        ) {
+            self.pending = None;
+        }
+    }
+
+    /// Xác nhận hành động đang chờ nếu nó đúng bằng `action`.
+    fn confirm(&mut self, action: &AutoAction) {
+        if self.pending.as_ref() == Some(action) {
+            self.pending = None;
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

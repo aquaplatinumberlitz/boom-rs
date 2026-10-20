@@ -29,8 +29,8 @@ pub use prediction::{
     ALPHA_ONE, BombShadow, PredictError, Predictor, SnapshotOutcome, world_from_snapshot,
 };
 pub use room::{
-    AutoAction, AutoRoomFlow, LocalContent, RoomError, RoomEvent, RoomFlow, RoundExpectation,
-    RoundPlan, world_for_round,
+    AutoAction, AutoRoomFlow, LocalContent, PendingAck, RoomError, RoomEvent, RoomFlow,
+    RoundExpectation, RoundPlan, world_for_round,
 };
 pub use session::{ClientMessage, ClientSession, NetError};
 
@@ -145,11 +145,31 @@ pub struct NetClient<W: Transport> {
     last_auto: Option<(u64, AutoAction)>,
     /// Mốc gửi lần gần nhất của lệnh phòng trong luồng tự động.
     last_auto_send: Instant,
+    /// Khoảng cách tối thiểu giữa hai lần gửi lại lệnh phòng đang chờ phản hồi.
+    ///
+    /// Mặc định [`ROOM_RETRY_INTERVAL`]. Fixture đặt [`Duration::ZERO`] để gửi lại **mỗi** vòng
+    /// bơm: mạng ảo chạy theo đồng hồ ảo nên thời gian thật không được quyết định kết quả test.
+    room_retry_interval: Duration,
 }
 
 impl<W: Transport> NetClient<W> {
     /// Dựng client mạng trên một transport hai chiều.
     pub fn new(session: ClientSession<W>, rules: Rules, mode: &'static dyn Mode) -> Self {
+        Self::with_room_retry_interval(session, rules, mode, ROOM_RETRY_INTERVAL)
+    }
+
+    /// Dựng client mạng với khoảng cách gửi lại lệnh phòng tuỳ chọn.
+    ///
+    /// `interval` là **tham số vận hành** (design), không phải luật chơi: khoảng cách giữa hai
+    /// lần gửi lại lệnh phòng đang chờ phản hồi. Fixture đặt [`Duration::ZERO`] để gửi lại
+    /// **mỗi** vòng bơm: mạng ảo chạy theo đồng hồ ảo nên thời gian thật không được quyết định
+    /// kết quả test.
+    pub fn with_room_retry_interval(
+        session: ClientSession<W>,
+        rules: Rules,
+        mode: &'static dyn Mode,
+        interval: Duration,
+    ) -> Self {
         Self {
             session,
             rules,
@@ -169,6 +189,7 @@ impl<W: Transport> NetClient<W> {
             round_world: None,
             last_auto: None,
             last_auto_send: Instant::now(),
+            room_retry_interval: interval,
         }
     }
 
@@ -237,6 +258,8 @@ impl<W: Transport> NetClient<W> {
         }
         // Luồng tự động: lệnh phòng chưa được server xác nhận thì gửi lại (cùng request ID).
         self.auto_retry()?;
+        // Ack phòng chưa có bằng chứng server đã nhận thì gửi lại (idempotent).
+        self.ack_retry()?;
         Ok(())
     }
 
@@ -372,7 +395,11 @@ impl<W: Transport> NetClient<W> {
     /// Gửi lại lệnh phòng với **cùng** request ID (mạng mất frame chưa thấy phản hồi).
     ///
     /// Server dedup theo request ID nên lệnh không bị áp hai lần (ADR 0009 Addendum B §B.2).
-    pub fn resend_room_command(&mut self, request: u64, action: RoomAction) -> Result<(), NetError> {
+    pub fn resend_room_command(
+        &mut self,
+        request: u64,
+        action: RoomAction,
+    ) -> Result<(), NetError> {
         let command = self.room.command_with_request(request, action);
         self.session.send_room_command(&command)
     }
@@ -517,20 +544,16 @@ impl<W: Transport> NetClient<W> {
         };
         // Dựng `World` cho round: ưu tiên nội dung cục bộ của client, không có thì để
         // `World` dựng từ snapshot (server là authority về lưới ô).
-        match world_for_round(
-            &plan,
-            self.local_content.as_ref(),
-            &self.rules,
-            self.mode,
-        ) {
+        match world_for_round(&plan, self.local_content.as_ref(), &self.rules, self.mode) {
             Ok(world) => self.round_world = world,
             Err(error) => {
                 self.room.set_error(error);
                 return Ok(());
             }
         }
-        self.session
-            .send_loading_ack(&LoadingAck { round_id: plan.round_id })?;
+        self.session.send_loading_ack(&LoadingAck {
+            round_id: plan.round_id,
+        })?;
         self.room.mark_loading_acked(plan.round_id);
         self.drive_auto(RoomEvent::RoundStart)?;
         Ok(())
@@ -545,45 +568,51 @@ impl<W: Transport> NetClient<W> {
         let Some(action) = action else {
             return Ok(());
         };
-        let request = self.execute_auto(action.clone())?;
-        if request.is_some() {
-            self.last_auto = request.map(|request| (request, action));
-            self.last_auto_send = Instant::now();
-        }
-        Ok(())
+        self.execute_auto(action)
     }
 
     /// Thực hiện hành động của luồng tự động: đều là lệnh phòng thật trên dây.
-    ///
-    /// Trả về request ID đã dùng để caller gửi lại **cùng** lệnh khi chưa thấy phản hồi.
-    fn execute_auto(&mut self, action: AutoAction) -> Result<Option<u64>, NetError> {
+    fn execute_auto(&mut self, action: AutoAction) -> Result<(), NetError> {
         let Some(character) = self.auto.as_ref().map(AutoRoomFlow::character) else {
-            return Ok(None);
+            return Ok(());
         };
         let Some(room_action) = action.room_action(character) else {
-            self.request_lobby()?;
-            return Ok(None);
+            // `RequestLobby` không phải `RoomCommand`: xin danh sách phòng sảnh.
+            self.session.send_lobby_list_request()?;
+            self.last_auto_send = Instant::now();
+            return Ok(());
         };
         let request = self.room_command(room_action)?;
-        Ok(Some(request))
+        self.last_auto = Some((request, action));
+        self.last_auto_send = Instant::now();
+        Ok(())
     }
 
     /// Gửi lại lệnh phòng của luồng tự động khi chưa thấy phản hồi.
     ///
     /// Mạng có thể mất frame: client gửi lại **cùng** request ID nên server dedup, lệnh không
-    /// bị áp hai lần (ADR 0009 Addendum B §B.2). Chỉ luồng tự động (`--auto-ready`) tự gửi lại;
-    /// client có UI thì người dùng bấm lại.
+    /// bị áp hai lần (ADR 0009 Addendum B §B.2). Đây cũng là cách **duy nhất** để bắt server gửi
+    /// lại `RoomState` khi frame đó bị mất: protocol V1 không có kind riêng để xin trạng
+    /// thái phòng, mà server chỉ trả `RoomState` khi nhận lệnh phòng.
+    ///
+    /// Chỉ luồng tự động (`--auto-ready`) tự gửi lại; client có UI thì người dùng bấm lại.
     fn auto_retry(&mut self) -> Result<(), NetError> {
-        let Some(pending) = self.auto.as_ref().and_then(AutoRoomFlow::pending) else {
+        let Some(pending) = self.auto.as_ref().and_then(AutoRoomFlow::pending).cloned() else {
             return Ok(());
         };
+        if self.last_auto_send.elapsed() < self.room_retry_interval {
+            return Ok(());
+        }
+        if pending == AutoAction::RequestLobby {
+            // `LobbyListRequest` không mang request ID: xin lại danh sách phòng.
+            self.session.send_lobby_list_request()?;
+            self.last_auto_send = Instant::now();
+            return Ok(());
+        }
         let Some((request, action)) = self.last_auto.clone() else {
             return Ok(());
         };
-        if *pending != action {
-            return Ok(());
-        }
-        if self.last_auto_send.elapsed() < ROOM_RETRY_INTERVAL {
+        if action != pending {
             return Ok(());
         }
         let Some(character) = self.auto.as_ref().map(AutoRoomFlow::character) else {
@@ -593,6 +622,30 @@ impl<W: Transport> NetClient<W> {
             return Ok(());
         };
         self.resend_room_command(request, room_action)?;
+        self.last_auto_send = Instant::now();
+        Ok(())
+    }
+
+    /// Gửi lại ack phòng đang chờ bằng chứng server đã nhận.
+    ///
+    /// `LoadingAck`/`ResultAck` là idempotent (ADR 0009 Addendum B §B.2) nên gửi lại không đổi
+    /// ý nghĩa; nếu không gửi lại, một frame bị mất sẽ làm loading barrier timeout hoặc khiến
+    /// client chờ vô hạn ở màn kết quả.
+    fn ack_retry(&mut self) -> Result<(), NetError> {
+        let Some(pending) = self.room.pending_ack() else {
+            return Ok(());
+        };
+        if self.last_auto_send.elapsed() < self.room_retry_interval {
+            return Ok(());
+        }
+        match pending {
+            PendingAck::Loading(round_id) => {
+                self.session.send_loading_ack(&LoadingAck { round_id })?;
+            }
+            PendingAck::Result(round_id) => {
+                self.session.send_result_ack(&ResultAck { round_id })?;
+            }
+        }
         self.last_auto_send = Instant::now();
         Ok(())
     }
@@ -628,6 +681,9 @@ impl<W: Transport> NetClient<W> {
         // không được làm lùi `ack_snapshot`.
         if let SnapshotOutcome::Applied { .. } = outcome {
             self.last_snapshot_seq = snapshot.snapshot_seq;
+            // Snapshot của round = bằng chứng server đã nhận `LoadingAck` (server chỉ gửi
+            // snapshot khi lượt đã bắt đầu, tức là loading barrier đã qua).
+            self.room.confirm_loading(u64::from(snapshot.round_id));
         }
         Ok(())
     }

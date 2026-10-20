@@ -1124,6 +1124,9 @@ impl RoomHarness {
             u64::MAX,
         )
         .expect("dựng server");
+        // Hạn đăng nhập tắt: đồng hồ ảo của fixture chạy nhanh hơn thời gian thật (client
+        // handshake ở luồng riêng), nên hạn theo đồng hồ ảo sẽ đóng phiên sớm khi máy chậm.
+        server.set_auth_deadline_ms(u64::MAX);
         let hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
         let mut nets: Vec<(Arc<ScheduledNet>, Arc<ScheduledNet>)> = Vec::new();
         let mut handles = Vec::new();
@@ -1147,10 +1150,13 @@ impl RoomHarness {
             let credentials =
                 Credentials::register(format!("room-{index}"), ACCOUNT_PASSWORD.to_owned());
             handles.push(thread::spawn(move || {
-                let mut net = NetClient::new(
+                let mut net = NetClient::with_room_retry_interval(
                     ClientSession::new(client_reader, client_writer),
                     client_rules,
                     mode_by_id("battle_ffa").expect("mode"),
+                    // Gửi lại lệnh phòng **mỗi** vòng bơm: mạng ảo chạy theo đồng hồ ảo nên nhịp
+                    // gửi lại không được phụ thuộc thời gian thật (nếu không, test chậm máy sẽ đỏ).
+                    Duration::ZERO,
                 );
                 net.handshake(&client_hello).expect("handshake");
                 net.authenticate(&credentials).expect("auth");
@@ -1219,6 +1225,11 @@ impl RoomHarness {
         self.now_ms
     }
 
+    /// Tick hiện tại của server (authority).
+    pub fn server_tick(&self) -> Option<u32> {
+        self.server.authority().tick()
+    }
+
     /// Thời gian một lượt (ms), lấy từ rules profile.
     pub fn round_duration_ms(&self) -> u64 {
         self.round_duration_ms
@@ -1278,11 +1289,7 @@ impl RoomHarness {
     }
 
     /// Bơm tới khi **mọi** client thỏa điều kiện; trả về kết quả điều kiện.
-    pub fn wait_for_all(
-        &mut self,
-        condition: impl Fn(&RoomClient) -> bool,
-        steps: u32,
-    ) -> bool {
+    pub fn wait_for_all(&mut self, condition: impl Fn(&RoomClient) -> bool, steps: u32) -> bool {
         for _ in 0..steps {
             if self.clients.iter().all(&condition) {
                 return true;

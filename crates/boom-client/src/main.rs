@@ -1516,7 +1516,11 @@ fn room_status(net: &net::NetClient<boom_net::TcpTransport>) -> String {
     };
     let mut text = format!("  {phase} {members} người  {rooms} phòng");
     if let Some(member) = flow.my_member() {
-        text.push_str(if member.ready { "  ready" } else { "  chưa ready" });
+        text.push_str(if member.ready {
+            "  ready"
+        } else {
+            "  chưa ready"
+        });
     }
     if !flow.chat().is_empty() {
         text.push_str(&format!("  chat {}", flow.chat().len()));
