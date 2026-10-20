@@ -367,8 +367,8 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
-| `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng bảng animation của client trong ODT (§6.1) |
-| `content_hash` | `0dc6c953ca6a2141f7bfacd23d4ac656dd8b921c2a7b9f97b15187332209a443` |
+| `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
+| `content_hash` | `80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc` |
 
 Cách kiểm lại:
 
@@ -383,46 +383,58 @@ trên gắn với bộ mã trong `Cargo.lock` hiện hành. Trước issue #121,
 bảng này đã **stale** (đo trước khi bảng audio được thêm vào hash) nên không khớp với
 bundle dựng được; bảng được cập nhật lại theo lần đo mới.
 
-### 6.1. Bốn state `unknown` của bundle đã giải bằng bảng animation của client (issue #121)
+### 6.1. Bốn state `unknown` của bundle đã giải bằng bảng state của client (issue #121)
 
 Trước issue #121, bundle có **4 mục `unknown`** loại `character_state`:
 `C00:idle`, `C01:idle`, `C00:trapped`, `C01:trapped` — "chưa có trace consumer xác nhận
 state nào dùng clip nào".
 
-**Đã giải bằng dữ liệu trong chính pack KR** (claim R-089): ODT
-`fx/ObjectTable/ObjectTable` không chỉ có bảng tên ô của map. Sau bảng tên là các
-**khối dữ liệu**, mỗi khối là bảng state của một đối tượng; khối
-`Character/<Id>_A` liệt kê state trình diễn của nhân vật:
+**Nguồn trong chính pack KR** (claim R-094): ODT `fx/ObjectTable/ObjectTable` không chỉ
+có bảng tên ô của map. Sau bảng tên là các **khối dữ liệu**, mỗi khối là bảng state của
+một đối tượng. Khối `Character/<Id>_A` là **bảng state trình diễn của nhân vật**:
 
-| nhãn | state | entry (tiền tố) | số frame theo bảng |
+| nhãn | state | entry (tiền tố) | số frame khác nhau |
 |---|---|---|---|
 | `00 Blink` | `Blink` | `Character/C00-Blink_A` | 3 |
 | `01 Die` | `Die` | `Character/C00-Die` | 14 |
 | `02 Faint` | `Faint` | `Character/C00-Faint` | 3 |
 | `03 Hurrah` | `Hurrah` | `Character/C00-Hurrah_A` | 4 |
-| `12 Stop Left` … `15 Stop Down` | đứng yên theo hướng | `Character/C00-Walk<Dir>_A` (frame 0) | 5 |
+| `12 Stop Left` … `15 Stop Down` | đứng yên theo hướng | `Character/C00-Walk<Dir>_A` (frame 0) | 1 |
 | `20 Walk Left` … `23 Walk Down` | đi theo hướng | `Character/C00-Walk<Dir>_A` | 5 |
 | `24 Start` | `Start` | `Character/C00-Start_A` | 10 |
-| `25 Locked In` (+ `52`…`56`) | bị khoá (bị nhốt) | `Character/C00-Die` (frame 0…1, giữ vô hạn) | 14 |
+| `25 Locked In` (+ `52`…`56`) | bị khoá (bị nhốt) | `Character/C00-Die` (frame 0…1, giữ vô hạn) | 2 |
 
-Cột "số frame theo bảng" khớp **đúng** số frame của sprite trong pack
-(`C00-Blink_ALayerStatic` 3 frame, `C00-DieLayerStatic` 14 frame,
-`C00-FaintLayerStatic` 3 frame, `C00-Hurrah_ALayerStatic` 4 frame,
-`C00-WalkDown_ALayerStatic` 5 frame) ⇒ bảng ODT là bảng animation của chính build KR
-00967, không phải dữ liệu của build khác. Client ghép tên entry trong ODT với lớp
-`Layer` + `Static`/`Adjust` (đối chiếu client VN: `CGameObjectTemplateLib::LoadNameTable`
-tại `0x5C9741` nối `LayerStatic`/`LayerAdjust` và tách riêng nhánh `Die`/`Faint`).
+Cột "số frame khác nhau" là số chỉ số frame **khác nhau** dùng trong state (state lặp
+frame, ví dụ `Blink` có 7 cặp `(frame, thời lượng)` nhưng chỉ 3 frame ảnh khác nhau).
+Con số này khớp **đúng** số frame của sprite trong pack (`C00-Blink_ALayerStatic` 3 frame,
+`C00-DieLayerStatic` 14 frame, `C00-FaintLayerStatic` 3 frame,
+`C00-Hurrah_ALayerStatic` 4 frame, `C00-WalkDown_ALayerStatic` 5 frame) ⇒ bảng ODT là bảng
+state của chính build KR 00967, không phải dữ liệu của build khác. Client ghép tên entry
+trong ODT với lớp `Layer` + `Static`/`Adjust` (đối chiếu client VN:
+`CGameObjectTemplateLib::LoadNameTable` tại `0x5C9741` nối `LayerStatic`/`LayerAdjust` và
+tách riêng nhánh `Die`/`Faint`).
 
-Kết quả trên bundle:
+#### Hai tầng nhãn — đừng gộp
+
+Bảng ODT xác nhận **nhãn → entry** (dữ liệu của client). Nó **không** xác nhận state core
+của V1 dùng nhãn nào — việc đó là **quyết định của V1** (R-086 `design`). Nên bundle gắn
+nhãn theo đúng tầng:
 
 | Mục | Trước | Sau | Căn cứ |
 |---|---|---|---|
-| `unknown` | 4 mục `character_state` | **0** | bảng ODT xác nhận state `Blink`/`Faint` và entry của chúng cho C00/C01 |
-| sprite `character_idle` `C0x-Blink_ALayer*` | `candidate` | `confirmed` | có trong bảng animation của client |
-| sprite `character_idle` `C0x-BlinkSmall_ALayer*` | `candidate` | `candidate` | **không** có trong bảng của nhân vật nào ⇒ client không dùng; V1 giữ trong bảng clip làm ứng viên nhưng không chọn |
-| sprite `character_trapped` `C0x-FaintLayer*` | `candidate` | `confirmed` | có trong bảng animation của client (`02 Faint`) |
+| `unknown` | 4 mục `character_state` | **0** | bốn state được **chốt bằng quyết định của V1** (R-086 `design`) và đối chiếu bảng ODT (R-094); xem "Giới hạn" bên dưới |
+| sprite `character_walk` `C0x-Walk<Dir>_ALayer*` | `confirmed` | `confirmed` | tên entry + dãi frame đọc được trong pack (R-077) |
+| sprite `character_dead` `C0x-DieLayer*` | `confirmed` | `confirmed` | tên entry + dãi frame đọc được trong pack (R-077) |
+| sprite `character_idle` `C0x-Blink_ALayer*` | `candidate` | **`design`** | mapping `idle` → `Blink` là **quyết định của V1** (R-086); ODT chỉ xác nhận nhãn `Blink` → entry (R-094), **không** xác nhận state core V1 dùng nhãn đó |
+| sprite `character_trapped` `C0x-FaintLayer*` | `candidate` | **`design`** | mapping `trapped` → `Faint` là **quyết định của V1** (R-086); ODT chỉ xác nhận nhãn `Faint` → entry (R-094) |
+| sprite `character_idle` `C0x-BlinkSmall_ALayer*` | `candidate` | `candidate` | V1 **không chọn** họ này: bảng state `Character/<Id>_A` của C00/C01 **không** có state `BlinkSmall`. Họ sprite này **có** trong ODT ở khối `Character/<Id>_Display_A` ⇒ **không** kết luận là client không dùng |
 
-**Sai khác còn lại, đã ghi nhận (R-090, `candidate`):** client gốc dùng `Stop <hướng>`
+Nhãn `design` ở bảng `[[sprites]]` nói "**V1 chọn** họ entry này cho vai trò đó"; bảng
+`[[clips]]` vẫn giữ `idle`/`trapped` là `candidate` (R-078) vì claim của bảng clip là
+"client gốc có dùng clip này cho state nào", mà điều đó **chưa** có consumer nào xác nhận
+(Q-003). Hai bảng trả lời hai câu khác nhau — cùng một entry, hai claim khác nhau.
+
+**Sai khác còn lại, đã ghi nhận (R-095, `candidate`):** client gốc dùng `Stop <hướng>`
 (frame 0 của `Walk<hướng>_A`) cho **tư thế đứng yên** và `Blink` làm overlay nháy mắt;
 state **bị nhốt** của client (`Locked In`) dùng frame 0…1 của `Die` giữ vô hạn, kèm bong
 bóng. V1 chọn khác (`idle` → clip `Blink`, `trapped` → clip `Faint`, R-086 `design`).
@@ -430,14 +442,29 @@ Chưa có trace runtime nối state core của V1 với state của client, nên
 của *sai khác này* vẫn là `candidate`; việc đổi lựa chọn của V1 thuộc task client
 (V1-031), không thuộc issue này.
 
-Cơ chế "không bỏ qua âm thầm": closure **đọc bảng ODT lúc dựng manifest** và so
-state + entry của từng state V1 (`V1_CHARACTER_STATES`). Lệch thì manifest ghi mục
-`unknown` kèm lý do và ứng viên — xem `crates/boom-assets/src/closure.rs`.
+**Giới hạn đã biết** (AGENTS §4: không suy diễn quá bằng chứng):
+
+- Bảng ODT là bằng chứng cho **nhãn → entry**. Bốn state đã giải là **quyết định của
+  V1**, không phải consumer nào đã xác nhận; nhãn `design` trong bundle là để nói đúng
+  điều đó.
+- Phạm vi khảo sát: ODT có 189 khối `Character/*_A`; trong đó **63** khối
+  `Character/<Id>_A` là bảng state trình diễn (4 state đầu giống nhau ở mọi nhân vật),
+  `C00`/`C01` có **90** state. Bảng state của C00/C01 **không** có state `BlinkSmall`;
+  state `BlinkSmall` chỉ thấy ở khối `Character/<Id>_Display_A` (**25** nhân vật: C00…C13,
+  C17…C22, C25…C29) ⇒ họ sprite `BlinkSmall` **có** mặt trong ODT. Không thấy ở bảng
+  state **không** loại trừ consumer khác hay tạo tên entry trực tiếp.
+- Vì `BlinkSmall` **có** trong ODT, nhãn `candidate` của nó là "V1 giữ trong bảng clip
+  làm ứng viên nhưng **không chọn**", không phải "client không dùng".
+
+Cơ chế "không bỏ qua âm thầm": closure **đọc bảng ODT lúc dựng manifest** và kiểm
+(1) mọi họ entry mà V1 dùng đều có trong bảng state của nhân vật, (2) state mà V1 chọn
+(`V1_CHARACTER_STATES`) có đúng nhãn và đúng entry trong bảng đó. Lệch thì manifest ghi
+mục `unknown` kèm lý do và ứng viên — xem `crates/boom-assets/src/closure.rs`.
 
 Bảng ODT **không** nằm trong closure: nó là dữ liệu lúc dựng (client đọc lúc chạy),
 không phải nội dung lúc chơi, nên không vào `[[assets]]` của bundle. SHA-256 của nó
 (2.391.729 B) là `a68fd5ffcc815b24b5c5199e9910f10d14f1ac6f30aba4c237a23f4e279608dc`
-— ghi ở claim R-089 để đối chiếu khi pack đổi.
+— ghi ở claim R-094 để đối chiếu khi pack đổi.
 
 ## 7. Quy ước đặt ảnh của client (presentation — `design`)
 

@@ -43,7 +43,7 @@
 //! entry pack khi V1 dùng ảnh. `[[ui]]` của bundle trỏ tới `[[sprites]]` nên ảnh của
 //! phần tử không bị nhân bản trong atlas.
 //!
-//! # Bảng animation của client trong ODT (R-089)
+//! # Bảng state của client trong ODT (R-094)
 //!
 //! `fx/ObjectTable/ObjectTable` không chỉ chứa bảng tên ô của map: sau bảng tên còn là
 //! các **khối dữ liệu**, mỗi khối là bảng animation của một đối tượng. Khối
@@ -60,16 +60,22 @@
 //! | `24 Start` | `Start` | `Character/C00-Start_A` |
 //! | `25 Locked In` (+ `52`…`56`) | bị khoá (bị nhốt) | `Character/C00-Die` (frame 0…1, giữ vô hạn) |
 //!
-//! Mỗi state còn kèm danh sách `(chỉ số frame, thời lượng)`; danh sách này **khớp đúng**
-//! số frame của sprite trong pack (`Blink` 3 frame, `Die` 14 frame, `Faint` 3 frame,
-//! `Hurrah` 4 frame, `Walk<Dir>` 5 frame) nên bảng ODT là bảng animation của chính build
-//! KR 00967, không phải dữ liệu của build khác.
+//! Mỗi state còn kèm danh sách `(chỉ số frame, thời lượng)`; **số frame khác nhau** dùng
+//! trong state khớp **đúng** số frame của sprite trong pack (`Blink` 3 frame, `Die` 14
+//! frame, `Faint` 3 frame, `Hurrah` 4 frame, `Walk<Dir>` 5 frame) nên bảng ODT là bảng
+//! animation của chính build KR 00967, không phải dữ liệu của build khác.
 //!
 //! Tên entry trong ODT là **tiền tố** của entry pack: client ghép thêm `Layer` +
 //! `Static`/`Adjust` (`C00-Blink_A` → `C00-Blink_ALayerStatic`). Vì vậy closure dùng
-//! chính ODT để **kiểm** entry nhân vật mình khai, thay vì tin vào bảng cứng: entry nào
-//! có trong bảng animation của client thì `confirmed`, entry nào không có thì
-//! `candidate` (ví dụ `C0x-BlinkSmall_ALayer*` — client không dùng).
+//! chính ODT để **kiểm** entry nhân vật mình khai, thay vì tin vào bảng cứng.
+//!
+//! **Giới hạn của bảng ODT** (R-094, AGENTS §4): nó xác nhận **nhãn → entry**, **không**
+//! xác nhận state core của V1 dùng nhãn nào. Mapping `idle` → `Blink`, `trapped` →
+//! `Faint` là **quyết định của V1** (R-086 `design`) ⇒ closure gắn nhãn `design` cho hai
+//! sprite đó, **không** phải `confirmed`. Họ `BlinkSmall_A` **không** có trong bảng state
+//! `Character/<Id>_A` của C00/C01 ⇒ V1 **không chọn** họ này cho `idle`; họ sprite đó
+//! **có** trong ODT ở khối khác (`Character/<Id>_Display_A`) nên **không** kết luận là
+//! client không dùng.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -691,7 +697,7 @@ pub struct CharacterAnimation {
 /// Đọc bảng animation của client cho một nhân vật từ payload ODT.
 ///
 /// Khối dữ liệu của `Character/<Id>_A` trong `fx/ObjectTable/ObjectTable` là bảng
-/// animation của nhân vật đó (R-089). Định dạng:
+/// animation của nhân vật đó (R-094). Định dạng:
 ///
 /// ```text
 /// u32 số state
@@ -896,7 +902,7 @@ const CHARACTER_LAYERS: &[&str] = &["Static", "Adjust"];
 
 /// State trình diễn của V1 và cách V1 phục vụ, đối chiếu bảng animation của client.
 ///
-/// Bảng animation của client nằm trong ODT (R-089). Bảng dưới là **quyết định của V1**
+/// Bảng animation của client nằm trong ODT (R-094). Bảng dưới là **quyết định của V1**
 /// (design R-086) chỗ nào khác client gốc:
 ///
 /// | state V1 | state của client (ODT) | họ entry V1 dùng |
@@ -910,47 +916,103 @@ const CHARACTER_LAYERS: &[&str] = &["Static", "Adjust"];
 const V1_CHARACTER_STATES: &[(&str, &str, &str)] =
     &[("idle", "Blink", "Blink_A"), ("trapped", "Faint", "Faint")];
 
-/// Họ entry sprite nhân vật theo vai trò trong V1: (họ entry, vai trò closure).
+/// Một họ entry sprite nhân vật mà V1 khai trong closure.
+struct CharacterFamily {
+    /// Họ entry — **tiền tố** entry trong ODT (`Character/<Id>-<họ>`); entry pack đầy
+    /// đủ là `Character/<Id>-<họ>Layer<lớp>` vì client ghép thêm lớp
+    /// `Static`/`Adjust` (R-094).
+    family: &'static str,
+    /// Vai trò của entry trong closure.
+    role: ClosureRole,
+    /// Nhãn bằng chứng (AGENTS §4) cho vai trò đó.
+    status: Status,
+    /// V1 **dùng** họ này ⇒ closure kiểm nó có trong bảng state của client (ODT).
+    used_by_v1: bool,
+}
+
+/// Họ entry sprite nhân vật theo vai trò trong V1.
 ///
-/// Họ là **tiền tố** entry trong ODT (`Character/<Id>-<họ>`); entry pack đầy đủ là
-/// `Character/<Id>-<họ>Layer<lớp>` vì client ghép thêm lớp `Static`/`Adjust` (R-089).
-const CHARACTER_FAMILIES: &[(&str, ClosureRole)] = &[
-    ("WalkUp_A", ClosureRole::CharacterWalk),
-    ("WalkDown_A", ClosureRole::CharacterWalk),
-    ("WalkLeft_A", ClosureRole::CharacterWalk),
-    ("WalkRight_A", ClosureRole::CharacterWalk),
-    ("Die", ClosureRole::CharacterDead),
-    ("Blink_A", ClosureRole::CharacterIdle),
-    ("BlinkSmall_A", ClosureRole::CharacterIdle),
-    ("Faint", ClosureRole::CharacterTrapped),
+/// Nhãn bằng chứng chia theo **tầng** (AGENTS §4), đừng gộp:
+///
+/// - `Walk<Dir>_A` (đi) và `Die` (chết): vai trò **xác nhận** bằng tên entry và dãi
+///   frame đọc được trong pack (R-077) ⇒ `confirmed`. Bảng ODT (R-094) xác nhận thêm
+///   **nhãn → entry** cho hai họ này.
+/// - `Blink_A` (đứng yên) và `Faint` (bị nhốt): **mapping** state V1 → clip là quyết
+///   định của V1 (R-086 `design`). Bảng ODT xác nhận **nhãn → entry** (`Blink` →
+///   `Character/<Id>-Blink_A`) nhưng **không** xác nhận state core V1 dùng nhãn đó ⇒
+///   `design`, **không** phải `confirmed`.
+/// - `BlinkSmall_A`: ứng viên đứng yên mà V1 **không chọn** — bảng state
+///   `Character/<Id>_A` của C00/C01 không có state `BlinkSmall` ⇒ `candidate`. Họ sprite
+///   này **có** trong ODT ở khối `Character/<Id>_Display_A` nên **không** kết luận là
+///   client không dùng (R-094).
+const CHARACTER_FAMILIES: &[CharacterFamily] = &[
+    CharacterFamily {
+        family: "WalkUp_A",
+        role: ClosureRole::CharacterWalk,
+        status: Status::Confirmed,
+        used_by_v1: true,
+    },
+    CharacterFamily {
+        family: "WalkDown_A",
+        role: ClosureRole::CharacterWalk,
+        status: Status::Confirmed,
+        used_by_v1: true,
+    },
+    CharacterFamily {
+        family: "WalkLeft_A",
+        role: ClosureRole::CharacterWalk,
+        status: Status::Confirmed,
+        used_by_v1: true,
+    },
+    CharacterFamily {
+        family: "WalkRight_A",
+        role: ClosureRole::CharacterWalk,
+        status: Status::Confirmed,
+        used_by_v1: true,
+    },
+    CharacterFamily {
+        family: "Die",
+        role: ClosureRole::CharacterDead,
+        status: Status::Confirmed,
+        used_by_v1: true,
+    },
+    CharacterFamily {
+        family: "Blink_A",
+        role: ClosureRole::CharacterIdle,
+        status: Status::Design,
+        used_by_v1: true,
+    },
+    CharacterFamily {
+        family: "BlinkSmall_A",
+        role: ClosureRole::CharacterIdle,
+        status: Status::Candidate,
+        used_by_v1: false,
+    },
+    CharacterFamily {
+        family: "Faint",
+        role: ClosureRole::CharacterTrapped,
+        status: Status::Design,
+        used_by_v1: true,
+    },
 ];
 
 /// Entry sprite nhân vật cho các state V1.
 ///
-/// Trạng thái bằng chứng lấy từ bảng animation của client trong ODT: họ entry nào
-/// client thật sự dùng thì `confirmed`, họ nào không có trong bảng thì `candidate`
-/// (`BlinkSmall_A` — client không dùng họ này).
-fn character_entries(
-    animations: &BTreeMap<String, Vec<CharacterAnimation>>,
-) -> Vec<(String, ClosureRole, Status)> {
+/// Nhãn bằng chứng của mỗi họ là **nhãn của vai trò** (xem [`CHARACTER_FAMILIES`]),
+/// không phải kết quả của việc "có thấy tiền tố entry trong ODT hay không": bảng ODT
+/// xác nhận **nhãn → entry**, còn mapping state V1 → clip là quyết định của V1 (R-086).
+fn character_entries() -> Vec<(String, ClosureRole, Status)> {
     let mut out = Vec::new();
     for character in CHARACTERS {
-        let states = animations
-            .get(*character)
-            .map(Vec::as_slice)
-            .unwrap_or_default();
-        for (family, role) in CHARACTER_FAMILIES {
-            let prefix = format!("Character/{character}-{family}");
-            let status = if states.iter().any(|state| state.entry == prefix) {
-                Status::Confirmed
-            } else {
-                Status::Candidate
-            };
+        for family in CHARACTER_FAMILIES {
             for layer in CHARACTER_LAYERS {
                 out.push((
-                    format!("{CHARACTER_PACK}/Character/{character}-{family}Layer{layer}"),
-                    *role,
-                    status,
+                    format!(
+                        "{CHARACTER_PACK}/Character/{character}-{}Layer{layer}",
+                        family.family
+                    ),
+                    family.role,
+                    family.status,
                 ));
             }
         }
@@ -978,8 +1040,8 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
     let tile_index = load_index(pack_dir, TILE_PACK, Build::Kr)?;
     let sound_index = load_index(pack_dir, "FxSound", Build::Kr)?;
 
-    // Bảng animation của client cho hai nhân vật V1 (R-089): nguồn để gắn nhãn
-    // bằng chứng cho entry nhân vật và để giải state `idle`/`trapped`.
+    // Bảng animation của client cho hai nhân vật V1 (R-094): nguồn để **kiểm** entry
+    // nhân vật mà V1 khai và để đối chiếu mapping state V1 → state của client.
     let mut animations: BTreeMap<String, Vec<CharacterAnimation>> = BTreeMap::new();
     for character in CHARACTERS {
         animations.insert(
@@ -1119,7 +1181,7 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
             object_name: None,
         });
     }
-    for (entry, role, status) in character_entries(&animations) {
+    for (entry, role, status) in character_entries() {
         entries.push(ClosureEntry {
             entry,
             role,
@@ -1131,8 +1193,41 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
         });
     }
 
-    // State trình diễn của V1: đối chiếu bảng animation của client trong ODT. Khớp thì
-    // state đã giải (không còn unknown); lệch thì ghi rõ lý do và ứng viên.
+    // Bảng state của client (ODT, R-094) phải có **họ entry mà V1 dùng**; lệch thì ghi
+    // rõ lý do và ứng viên — không bỏ qua âm thầm.
+    for character in CHARACTERS {
+        let states = animations
+            .get(*character)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for family in CHARACTER_FAMILIES {
+            if !family.used_by_v1 {
+                continue;
+            }
+            let prefix = format!("Character/{character}-{}", family.family);
+            if states.iter().any(|state| state.entry == prefix) {
+                continue;
+            }
+            unknown.push(ClosureUnknown {
+                kind: UnknownKind::CharacterState,
+                id: format!("{character}:{}", family.family),
+                reason: format!(
+                    "bảng state của client trong ODT không có entry {prefix} mà V1 dùng cho \
+                     vai trò {}",
+                    family.role.as_str()
+                ),
+                candidates: states
+                    .iter()
+                    .map(|state| state.entry.clone())
+                    .take(8)
+                    .collect(),
+            });
+        }
+    }
+
+    // Mapping state V1 → clip: đối chiếu **nhãn** của client trong bảng ODT. Bảng xác
+    // nhận **nhãn → entry**; mapping state V1 → nhãn là **quyết định của V1** (R-086
+    // `design`), nên lệch ở đây là lệch giữa quyết định của V1 và dữ liệu của client.
     for character in CHARACTERS {
         let states = animations
             .get(*character)
@@ -1147,8 +1242,8 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
                     kind: UnknownKind::CharacterState,
                     id: format!("{character}:{v1_state}"),
                     reason: format!(
-                        "bảng animation của client trong ODT có state `{}` nhưng entry là {} \
-                         (V1 dùng họ {family})",
+                        "bảng state của client trong ODT có state `{}` nhưng entry là {} \
+                         (V1 chọn họ {family} theo R-086 `design`)",
                         client_state, state.entry
                     ),
                     candidates: vec![state.entry.clone()],
@@ -1157,8 +1252,8 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
                     kind: UnknownKind::CharacterState,
                     id: format!("{character}:{v1_state}"),
                     reason: format!(
-                        "bảng animation của client trong ODT không có state `{client_state}`; \
-                         V1 dùng họ {family}"
+                        "bảng state của client trong ODT không có state `{client_state}`; \
+                         V1 chọn họ {family} theo R-086 `design`"
                     ),
                     candidates: states
                         .iter()
@@ -1731,6 +1826,53 @@ mod tests {
             character_animations(&data, &table, "C01")
                 .expect("đọc bảng animation")
                 .is_empty()
+        );
+    }
+
+    /// Nhãn bằng chứng của sprite nhân vật phải **tách hai tầng** (AGENTS §4):
+    ///
+    /// - vai trò đã xác nhận bằng pack (đi, chết) ⇒ `confirmed`;
+    /// - vai trò mà V1 **chọn** theo mapping của mình (đứng yên, bị nhốt) ⇒ `design`,
+    ///   vì bảng ODT chỉ xác nhận **nhãn → entry**, không xác nhận state core V1 dùng
+    ///   nhãn đó;
+    /// - ứng viên mà V1 **không chọn** (`BlinkSmall`) ⇒ `candidate`.
+    ///
+    /// Không nhãn nào được nâng lên `confirmed` chỉ vì tiền tố entry có trong ODT.
+    #[test]
+    fn character_sprite_labels_separate_evidence_from_the_v1_choice() {
+        let status_of = |role: ClosureRole, family: &str| {
+            character_entries()
+                .into_iter()
+                .find(|(entry, entry_role, _)| {
+                    *entry_role == role && entry.contains(&format!("-{family}LayerStatic"))
+                })
+                .map(|(_, _, status)| status)
+        };
+
+        assert_eq!(
+            status_of(ClosureRole::CharacterWalk, "WalkDown_A"),
+            Some(Status::Confirmed),
+            "đi: xác nhận bằng tên entry và dãi frame trong pack (R-077)"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterDead, "Die"),
+            Some(Status::Confirmed),
+            "chết: xác nhận bằng tên entry và dãi frame trong pack (R-077)"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterIdle, "Blink_A"),
+            Some(Status::Design),
+            "đứng yên: mapping là quyết định của V1 (R-086), không phải bằng chứng client"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterTrapped, "Faint"),
+            Some(Status::Design),
+            "bị nhốt: mapping là quyết định của V1 (R-086), không phải bằng chứng client"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterIdle, "BlinkSmall_A"),
+            Some(Status::Candidate),
+            "ứng viên: V1 không chọn họ này cho đứng yên"
         );
     }
 

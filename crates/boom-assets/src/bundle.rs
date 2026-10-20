@@ -1400,13 +1400,22 @@ mod tests {
         );
     }
 
-    /// Nghiệm thu V1-030 (issue #121): sau khi đối chiếu **bảng animation của client**
-    /// trong ODT, bundle thật không còn mục `unknown` nào, và nhãn bằng chứng của sprite
-    /// nhân vật phản ánh đúng bảng đó: `Blink`/`Faint` có trong bảng animation của
-    /// client ⇒ `confirmed`; `BlinkSmall` không có ⇒ `candidate` (client không dùng).
+    /// Nghiệm thu V1-030 (issue #121): sau khi đối chiếu **bảng state của client** trong
+    /// ODT, bundle thật không còn mục `unknown` nào, và nhãn bằng chứng của sprite nhân vật
+    /// **tách hai tầng**:
+    ///
+    /// - `walk`/`dead`: `confirmed` — tên entry và dãi frame đọc được trong pack (R-077),
+    ///   bảng ODT xác nhận thêm nhãn → entry.
+    /// - `idle` (`Blink`) và `trapped` (`Faint`): `design` — bảng ODT chỉ xác nhận **nhãn →
+    ///   entry**, còn mapping state V1 → clip là **quyết định của V1** (R-086); không
+    ///   phải `confirmed` vì chưa có consumer nào xác nhận state core V1 dùng nhãn đó.
+    /// - `BlinkSmall`: `candidate` — V1 **không chọn** họ này cho `idle` (bảng state của
+    ///   C00/C01 không có state `BlinkSmall`). Không thấy trong bảng state **không** kết
+    ///   luận là client không dùng: họ sprite này có trong ODT ở khối
+    ///   `Character/<Id>_Display_A`.
     ///
     /// Bảng ODT không nằm trong closure (là dữ liệu lúc dựng, không phải nội dung lúc
-    /// chơi) nhưng closure **đọc chính nó** để suy ra nhãn, nên nhãn phải khớp bảng.
+    /// chơi) nhưng closure **đọc chính nó** để kiểm entry nhân vật mình khai.
     #[test]
     fn village00_bundle_has_no_unknown_and_carries_the_odt_evidence() {
         let Some(root) = pack_root() else {
@@ -1437,8 +1446,9 @@ mod tests {
                     "character_idle",
                     &format!("FxCharacter/Character/{character}-Blink_ALayerStatic")
                 ),
-                "confirmed",
-                "{character}: `Blink` có trong bảng animation của client"
+                "design",
+                "{character}: mapping `idle` → `Blink` là quyết định của V1 (R-086), \
+                 bảng ODT chỉ xác nhận nhãn → entry"
             );
             assert_eq!(
                 status_of(
@@ -1446,21 +1456,33 @@ mod tests {
                     &format!("FxCharacter/Character/{character}-BlinkSmall_ALayerStatic")
                 ),
                 "candidate",
-                "{character}: `BlinkSmall` không có trong bảng animation của client"
+                "{character}: `BlinkSmall` là ứng viên, V1 không chọn"
             );
             assert_eq!(
                 status_of(
                     "character_trapped",
                     &format!("FxCharacter/Character/{character}-FaintLayerStatic")
                 ),
+                "design",
+                "{character}: mapping `trapped` → `Faint` là quyết định của V1 (R-086)"
+            );
+            assert_eq!(
+                status_of(
+                    "character_walk",
+                    &format!("FxCharacter/Character/{character}-WalkDown_ALayerStatic")
+                ),
                 "confirmed",
-                "{character}: `Faint` có trong bảng animation của client"
+                "{character}: `Walk` xác nhận bằng tên entry và dãi frame trong pack (R-077)"
+            );
+            assert_eq!(
+                status_of(
+                    "character_dead",
+                    &format!("FxCharacter/Character/{character}-DieLayerStatic")
+                ),
+                "confirmed",
+                "{character}: `Die` xác nhận bằng tên entry và dãi frame trong pack (R-077)"
             );
         }
-
-        // Bảng ODT là nguồn bằng chứng của nhãn trên: nó không nằm trong closure
-        // (là dữ liệu lúc dựng, không phải nội dung lúc chơi) nhưng closure đọc chính
-        // nó để suy ra nhãn, nên nhãn phải khớp với bảng của client.
     }
     /// Nghiệm thu V1-030 (issue #121): bốn spawn của Village00 phải khác nhau, không nằm
     /// trên ô chặn, và mỗi spawn phải có đường đi tới ít nhất một ô trống cách ≥ 2 ô
