@@ -67,7 +67,7 @@ fn rejects_content_mismatch() {
 
 #[test]
 fn rejects_rules_mismatch() {
-    let text = fixture().replace("0x3faa77e6b1c76c15", "0x0000000000000000");
+    let text = fixture().replace("0x3f43f71d06488a95", "0x0000000000000000");
     reject("rules", &text, "định danh");
 }
 

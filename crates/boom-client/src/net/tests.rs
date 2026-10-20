@@ -20,16 +20,16 @@ use std::time::Duration;
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
-use boom_core::{CharacterStats, Dir, PlayerInput, Rules, Stat, World, mode_by_id};
+use boom_core::{
+    CharacterStats, CharacterStatsTable, Dir, PlayerInput, Rules, Stat, World, mode_by_id,
+};
 use boom_net::{MemoryConfig, MemoryFaults, MemoryTransport, Timing, Transport};
 use boom_proto::dto::auth::AuthFailReason;
 use boom_proto::{ProtocolLimits, RejectReason, RoundEvent, Welcome, decode_frame, encode_frame};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
 use boom_server::auth::{AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
-use boom_server::{
-    Authority, CharacterStatsTable, HandshakeConfig, MatchSetup, Server, ServerConfig,
-};
+use boom_server::{Authority, HandshakeConfig, MatchSetup, Server, ServerConfig};
 
 use super::fixture::{ACCOUNT_PASSWORD, LATE_THRESHOLD_MS, ScheduledFaults, ScheduledHarness};
 use super::{ClientSession, Credentials, NetClient, NetError, hello_for_profile};

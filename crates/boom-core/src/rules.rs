@@ -6,6 +6,7 @@
 use boom_content::rules::{ProfileError, RulesProfile};
 
 use crate::num::{Mpx, Tick, ms_to_ticks};
+use crate::state::CharacterStats;
 
 /// Hiệu ứng một item tác động lên chỉ số người chơi (ADR 0008 #6: item mới ghép từ hiệu ứng có sẵn).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,6 +46,26 @@ pub struct Rules {
     /// Bảng item V1, thứ tự cố định: Bomb, Fire, Roller.
     pub items: Vec<ItemDef>,
     pub profile_hash: u64,
+}
+
+/// Bảng chỉ số hai nhân vật V1 (C00/C01), đọc từ rules profile (`characters.*`, R-040/R-041).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CharacterStatsTable {
+    pub c00: CharacterStats,
+    pub c01: CharacterStats,
+}
+
+impl CharacterStatsTable {
+    /// Bảng chỉ số từ rules profile: `characters.c00.*` / `characters.c01.*`.
+    ///
+    /// Profile thiếu nhân vật hoặc có cấp hiện tại vượt trần ⇒ lỗi rõ (không tự đặt mặc định).
+    pub fn from_profile(p: &RulesProfile) -> Result<Self, ProfileError> {
+        let table = p.character_table()?;
+        Ok(Self {
+            c00: CharacterStats::from_spec(&table.c00),
+            c01: CharacterStats::from_spec(&table.c01),
+        })
+    }
 }
 
 impl Rules {
