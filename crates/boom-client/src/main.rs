@@ -735,7 +735,7 @@ impl Game {
             status.events += net.take_events().len();
             self.net_status = Some(status);
             self.net_snapshot_interval_ms = net.snapshot_interval_ms().max(1);
-// Trạng thái phòng (sảnh/phòng/trận/kết quả) để hiện trên HUD.
+            // Trạng thái phòng (sảnh/phòng/trận/kết quả) để hiện trên HUD.
             self.net_room = room_status(net);
             // Dọn hiệu ứng đã hết khoảng clip theo đồng hồ trình diễn.
             self.prune_presentation();
