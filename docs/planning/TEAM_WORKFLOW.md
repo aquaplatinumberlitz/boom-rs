@@ -20,8 +20,8 @@ Pha, hạn và việc tiếp theo ở [REWRITE_PLAN](REWRITE_PLAN.md) — không
 |---|---|---|
 | Claude (Claude Code) | Integrator chính | Điều phối + review luồng core (#3–#8); **người ghi duy nhất** sổ tiến độ (`features.json`, `execution.json`); giữ contract core, AGENTS, `.github/`; merge, push, commit trên repo |
 | Codex | Co-integrator | Điều phối + review các luồng còn lại (#9–#15); merge PR đã review của luồng mình; review mọi PR do Claude viết |
-| OpenCode | Worker, 2–4 agent | Mặc định nhận luồng core; mỗi agent đặt tên `opencode-N` |
-| dsh | Worker, 2 phiên cố định `dsh-A`, `dsh-B` | Mặc định nhận assets/RE/research/backend/net/l10n; xem quy tắc dsh dưới bảng |
+| OpenCode | Worker, tối đa 6 agent (`opencode-1`…`opencode-6`), chạy đồng thời 3–4 | Nhận mọi luồng (core, client, server, assets, docs) từ 2026-10-20; mỗi agent đặt tên `opencode-N` |
+| dsh | Worker, 2 phiên cố định `dsh-A`, `dsh-B` — **tạm dừng** từ 2026-10-20 (hết hạn mức; chủ dự án thay bằng `opencode-5`, `opencode-6`) | Khi chạy lại: nhận assets/RE/research/backend/net/l10n; xem quy tắc dsh dưới bảng |
 
 Quy tắc review và merge:
 
