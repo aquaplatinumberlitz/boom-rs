@@ -1,8 +1,10 @@
 # Phát hành V1 — bố cục gói, dựng bundle, yêu cầu hệ thống
 
-Phạm vi: **V1-036 phần 1** (GitHub issue #102). Nguồn chuẩn về *gói phát hành*; luật chơi vẫn ở
-[RULES_V1](gameplay/RULES_V1.md), bố cục engine ở [ARCHITECTURE](../planning/ARCHITECTURE.md),
-điều kiện nghiệm thu ở [SCOPE_V1](../planning/SCOPE_V1.md) §6 (gate G6).
+Phạm vi: **V1-036 phần 1** (GitHub issue #102) + **V1-036 phần 2** (GitHub issue #119:
+license thực tế + font trong gói, kiểm bộ đóng gói). Nguồn chuẩn về *gói phát hành*; luật
+chơi vẫn ở [RULES_V1](gameplay/RULES_V1.md), bố cục engine ở
+[ARCHITECTURE](../planning/ARCHITECTURE.md), điều kiện nghiệm thu ở
+[SCOPE_V1](../planning/SCOPE_V1.md) §6 (gate G6).
 
 > **Phần này chỉ mô tả cách đóng gói và chạy.** Build xanh **không** đồng nghĩa V1 xong:
 > gate G6 đòi cả 37 mục V1 đạt acceptance, còn đây mới là phần build 3 OS.
@@ -13,9 +15,13 @@ Phạm vi: **V1-036 phần 1** (GitHub issue #102). Nguồn chuẩn về *gói p
 |---|---|
 | Build `--release` `boom-client`, `boom-server`, `boom-assets` trên Windows/Linux/macOS trong CI | **Đã làm** (workflow `release.yml`) |
 | Bố cục gói: `bin/`, `data/rules/`, `data/l10n/`, README chạy nhanh, `LICENSES` | **Đã làm** |
+| `LICENSES` có **toàn văn** mỗi license SPDX dùng trong đồ thị phụ thuộc + bản quyền từng crate | **Đã làm** (phần 2, §2) |
+| Font OFL (`assets/fonts/`) kèm gói, kèm `OFL.txt` | **Đã làm** (phần 2, §2) |
+| Script kiểm bộ đóng gói (chặn pack/bundle/asset game, kiểm thành phần bắt buộc) | **Đã làm** (phần 2, §3) |
 | Không kèm pack/bundle/asset game trong gói | **Đã làm** (người dùng tự dựng bundle) |
 | Báo lỗi rõ (đường dẫn + cách sửa) khi thiếu file rules/bundle/l10n hoặc sai hash | **Đã làm** (client + `boom-server content`) |
 | Ký số artifact, installer, đo cấu hình máy tối thiểu | **Chưa làm** (ngoài phạm vi issue #102) |
+| License cho **chính crate của dự án** (`boom-*` chưa khai `license` trong `Cargo.toml`) | **Chưa làm** (cần integrator chọn, §9) |
 
 ## 2. Bố cục gói phát hành
 
@@ -28,8 +34,10 @@ boom-rs-<phiên bản>-<os>-<arch>/
 ├── data/
 │   ├── rules/v1-dev.toml      # rules profile (giá trị luật + claim)
 │   └── l10n/vi-v1.toml        # chuỗi UI V1 đã Việt hóa
+├── assets/
+│   └── fonts/                 # font OFL dùng cho chữ Việt + OFL.txt (không phải asset game)
 ├── README.md                  # README chạy nhanh (§8)
-└── LICENSES                   # crate phụ thuộc + license SPDX
+└── LICENSES                   # toàn văn license SPDX + bản quyền từng crate
 ```
 
 Quy tắc:
@@ -38,9 +46,22 @@ Quy tắc:
   bundle bằng `boom-assets` (§4) — repo `boom-rs` cũng không commit asset game.
 - `data/rules/` và `data/l10n/` là **file dữ liệu** của bản phát hành: client/server nạp
   từ đĩa khi được trỏ bằng `--rules`/`--l10n`; nếu không trỏ thì dùng bản nhúng trong binary.
-- `LICENSES` liệt kê **toàn bộ đồ thị phụ thuộc** (mọi nền tảng), sinh từ `cargo metadata`
-  lúc build: tên · phiên bản · license (SPDX) · kho mã nguồn. Đây là bảng SPDX + kho
-  mã nguồn, **không** phải toàn văn license.
+- `assets/fonts/` là **font mở** (SIL OFL 1.1, [assets/fonts](../../assets/fonts/README.md)),
+  **không** phải asset game: client nhúng font bằng `include_bytes!` nên không cần file lúc
+  chạy, nhưng gói phân phối font thì phải kèm `OFL.txt` (đã ở `assets/fonts/OFL.txt`).
+- `LICENSES` gồm 4 phần (sinh bởi `tools/check_package.py licenses`):
+  1. **Toàn văn** mỗi license SPDX dùng trong đồ thị phụ thuộc (MIT, Apache-2.0, …),
+     lấy nguyên văn từ file `LICENSE*`/`COPYING*` trong nguồn crate của cargo registry
+     lúc build (không tải mạng, không tự chép văn bản license);
+  2. **Bảng crate**: tên · phiên bản · license (SPDX) · license dùng khi phân phối ·
+     kho mã nguồn;
+  3. **Bản quyền từng crate**: file license crate đó kèm trong nguồn registry + các
+     dòng bản quyền trích từ đó;
+  4. **Ghi chú**: crate không kèm file license, biểu thức license dạng cũ `A/B`, vế OR
+     được chọn nhánh nào, license có trong biểu thức nhưng không kèm toàn văn.
+- Với biểu thức nhiều nhánh (`MIT OR Apache-2.0`), gói phân phối theo **một** nhánh có
+  toàn văn trong `LICENSES` (được phép theo điều khoản OR). Biểu thức có `AND` thì mọi
+  nhánh đều bắt buộc: thiếu toàn văn thì công cụ **báo lỗi và không sinh gói**.
 - `README.md` trong gói được trích nguyên văn từ §8 của tài liệu này (một nguồn chuẩn).
 
 ## 3. Workflow CI phát hành
@@ -51,12 +72,38 @@ Quy tắc:
 |---|---|
 | Chạy tay | `workflow_dispatch` (ô `version`) |
 | Chạy tự động | đẩy tag `v*` (phiên bản lấy từ tên tag, bỏ tiền tố `v`) |
-| Job `check` | `cargo xtask ci` trên ubuntu (cổng bàn giao [AGENTS §7](../../AGENTS.md)) |
+| Job `check` | `cargo xtask ci` trên ubuntu (cổng bàn giao [AGENTS §7](../../AGENTS.md)) · `python tools/check_package.py test` (tự kiểm công cụ đóng gói) |
 | Job `package` | ma trận 3 OS: `ubuntu-latest` (x86_64), `windows-latest` (x86_64), `macos-latest` (aarch64) |
+| Bước trong job | build release → gom gói (`bin/`, `data/`, `assets/fonts/`, README trích từ §8) → `cargo fetch` (nguồn crate **mọi** nền tảng) → sinh `LICENSES` → **kiểm bộ đóng gói** → kiểm binary → đóng gói |
 | Artifact | mỗi OS một artifact `boom-rs-<phiên bản>-<os>-<arch>` (zip cho Windows, tar.gz cho Linux/macOS) |
 | Kiểm trong job | `boom-server --help`, `boom-client --help` (exit 0) · `boom-server content` với file trong gói (exit 0) · thiếu file rules → exit khác 0 và thông điệp có đường dẫn |
 
 `workflow_dispatch` trên nhánh để thử: job `package` cần job `check` xanh trước.
+
+### 3.1 Công cụ đóng gói (`tools/check_package.py`)
+
+Một script, ba lệnh (offline, không gọi mạng):
+
+```bash
+python3 tools/check_package.py licenses --out <gói>/LICENSES   # sinh LICENSES
+python3 tools/check_package.py check <gói>                      # kiểm bộ đóng gói
+python3 tools/check_package.py test                             # tự kiểm script
+```
+
+`check` kiểm:
+
+- **thành phần bắt buộc**: `bin/` (đủ `boom-client`, `boom-server`, `boom-assets`),
+  `data/rules/*.toml`, `data/l10n/*.toml`, `assets/fonts/` (kèm `OFL.txt`), `README.md`,
+  `LICENSES` (đủ 4 phần ở §2);
+- **không có pack/bundle/asset game**: chặn thư mục `bundle/`, `bundles/`, `atlas/`,
+  `atlases/`, `pack/`, `packs/`, `sprites/`, `textures/`, `tilesets/`; file `bundle.toml`;
+  và các đuôi `.map` `.idx` `.idd` `.pak` `.bin` `.atlas` `.png` `.jpg` `.jpeg` `.bmp` `.gif`
+  `.webp` `.tga` `.wav` `.ogg` `.mp3` `.flac` `.opus`.
+  Font `.ttf` **không** nằm trong danh sách cấm (OFL, được kèm `OFL.txt`).
+
+Tự kiểm (`test`) dựng gói mẫu rồi kiểm: gói hợp lệ → đạt; thêm file cấm (atlas PNG,
+`.map`, `bundle.toml`) → **bắt được**, nêu đúng đường dẫn; thiếu `LICENSES`/`OFL.txt`/
+binary → báo thiếu.
 
 ## 4. Dựng bundle từ pack của bạn
 
@@ -136,8 +183,9 @@ Phần dưới nằm giữa hai marker `QUICKSTART`; workflow `release.yml` **tr
 <!-- QUICKSTART:START -->
 # boom-rs — V1 (phần 1)
 
-Gói phát hành gồm binary (`bin/`), file luật (`data/rules/`), file chuỗi (`data/l10n/`) và
-giấy phép crate phụ thuộc (`LICENSES`). **Không** kèm pack/bundle/asset game: bạn tự dựng
+Gói phát hành gồm binary (`bin/`), file luật (`data/rules/`), file chuỗi (`data/l10n/`), font
+chữ Việt (`assets/fonts/`, kèm `OFL.txt`) và giấy phép crate phụ thuộc (`LICENSES`: toàn văn
+license SPDX + bản quyền từng crate). **Không** kèm pack/bundle/asset game: bạn tự dựng
 bundle từ pack của mình.
 
 ## 1. Kiểm tra bộ nội dung
@@ -196,7 +244,16 @@ bin/boom-server --help    # danh sách lệnh
 
 - Chưa ký số artifact; người dùng phải tự kiểm nguồn gói.
 - Chưa có installer; gói là thư mục giải nén được, chạy bằng binary trong `bin/`.
-- `LICENSES` là bảng SPDX + kho mã nguồn, không phải toàn văn license.
+- `LICENSES` có **toàn văn** license SPDX của crate phụ thuộc, nhưng toàn văn được lấy
+  từ file license của crate nguồn lúc build (không tải mạng): phần đầu/bản quyền có thể
+  khác câu chữ so với bản SPDX chuẩn. Crate **của chính dự án** (`boom-*`) chưa khai
+  `license` trong `Cargo.toml` nên không có trong `LICENSES`; chọn license cho dự án là
+  việc của integrator, chưa làm ở V1-036 phần 2.
+- Với biểu thức license nhiều nhánh (`OR`), gói phân phối theo một nhánh; nhánh khác (vd
+  `LGPL-2.1-or-later` của `r-efi`) không kèm toàn văn trong gói — ghi rõ ở PHẦN 4 của
+  `LICENSES`.
+- `assets/fonts/` là font OFL do client nhúng sẵn; kèm trong gói để phân phối font hợp lệ
+  và để người dùng dùng lại cho giao diện riêng.
 - Profile rules trong gói là `kr00967-v1-dev` (`release = false`): còn giá trị
   `candidate`/`design` chưa review, nên **chưa** đủ điều kiện gate G6
   ([SCOPE_V1](../planning/SCOPE_V1.md) §6).
