@@ -26,10 +26,20 @@ cargo run -p boom-assets --bin boom-assets -- bundle --map Village00 --out /tmp/
 Kết quả in ra số sprite/ảnh/trang atlas/ô/unknown và `content_hash`.
 
 Nguồn của bundle là **manifest closure** (`crates/boom-assets/src/closure.rs`, task #34),
-**bộ giải mã sprite** `CDataI16Alpha` v2 (`crates/boom-assets/src/sprite.rs`, task #33),
-**bảng clip animation** (`crates/boom-assets/src/animation.rs`, task #52, RULES_V1
-R-077…R-079) và **bảng asset UI** của luồng V1 (`crates/boom-assets/src/closure.rs`,
-task #84, V1-032):
+**bộ giải mã sprite** `CDataI16Alpha` v2 (`crates/boom-assets/src/sprite.rs`, task #33) và
+**bốn bảng mapping** ở `data/assets/` (issue #123):
+
+| File data | Bảng | Nguồn trước đây |
+|---|---|---|
+| `data/assets/animation-v1.toml` | clip animation: state → entry pack | `boom-assets/src/animation.rs` |
+| `data/assets/ui-v1.toml` | asset UI: phần tử → entry pack | `boom-assets/src/closure.rs` |
+| `data/assets/audio-v1.toml` | âm thanh: event → entry `FxSound` | `boom-assets/src/audio.rs` |
+| `data/assets/closure-v1.toml` | closure: entry cố định, họ entry nhân vật, mapping state V1 → state client | `boom-assets/src/closure.rs` |
+
+Các bảng này là **data có nhãn bằng chứng** (AGENTS §4), giống `data/rules/*.toml`: mỗi dòng
+mang `source`, `status`, `claims` và ghi chú. Loader chung nằm ở
+`crates/boom-content/src/assets.rs` (`boom_content::assets`); `boom-assets bundle` dùng
+loader đó, nên **đổi mapping = sửa file data, không sửa code** (xem §1.1).
 
 - Entry nào cần có, vai trò, trạng thái bằng chứng, SHA-256 payload → từ closure.
 - Ảnh RGBA + frame 48 byte (12 × `i32`) → từ bộ giải mã sprite; nghĩa field frame theo
@@ -45,6 +55,34 @@ dung trận* (ô map, sprite, nhân vật, item), mỗi dòng là một entry pa
 UI là closure *luồng hiển thị*, mỗi dòng là một **phần tử** có màn hình, vai trò, trạng
 thái duyệt ảnh và lý do thay thế. `[[ui]]` trỏ tới `[[sprites]]` nên ảnh của phần tử
 không bị nhân bản trong atlas.
+
+### 1.1 Sửa mapping: quy trình và quy tắc loader
+
+Bốn bảng ở `data/assets/` là nguồn chuẩn duy nhất (một thông tin — một nguồn, AGENTS §3).
+Muốn đổi mapping (đổi entry của một state, đổi nhãn bằng chứng, thêm cue âm thanh…):
+
+1. Sửa file `.toml` tương ứng trong `data/assets/`.
+2. Chạy `cargo xtask ci` — loader từ chối dữ liệu sai (xem bảng lỗi bên dưới).
+3. Nếu đổi nội dung hiển thị thì `content_hash` **phải** đổi: test
+   `changing_one_mapping_changes_the_content_hash` (boom-assets) chặn trường hợp mapping
+   đổi mà hash không đổi.
+
+| Lỗi loader | Nghĩa |
+|---|---|
+| ID trùng trong một bảng | hai dòng cùng ID (clip/UI/cue/entry/họ/state) |
+| Thiếu trường bắt buộc | dòng thiếu `entry`, `pack`, `state`, `reason`… |
+| State/hướng không hợp lệ | `state` không thuộc state V1, hoặc hướng không hợp lệ |
+| `timing.unknown` mang giá trị | thời lượng `unknown` không được mang số (R-079) |
+| `timing.known` thiếu claim | thời lượng đã chốt phải có claim, kể cả nguồn `design` |
+| Nhãn sai | `design` không được mang `confirmed`/`candidate`; `confirmed` cần nguồn `kr_*`/`vn_*`; `web`/`oss`/`emu_choice` chỉ được là `candidate`/`design`; dòng mapping không được mang `unknown` |
+| Claim sai dạng | claim phải có dạng `R-<số>` |
+| Khoá lạ trong dòng | gõ sai tên trường bị từ chối (không bỏ qua âm thầm) |
+
+Ý nghĩa cột `source`/`status` **khác nhau theo bảng** và được ghi ở đầu mỗi file data:
+bảng clip nói về *mapping* state → entry, bảng UI nói về *sự tồn tại của asset*, bảng audio
+nói về *mapping* event → entry. Nhãn cũ được giữ nguyên khi chuyển sang data — mapping
+consumer **không** được nâng lên `confirmed` chỉ vì entry có trong pack (AGENTS §4).
+
 
 ## 2. Cấu trúc thư mục bundle
 
@@ -134,6 +172,8 @@ thứ tự blob để đối chiếu với pack. Clip chết cũng kết thúc b
 
 ### 3.2 Clip
 
+Nguồn: `data/assets/animation-v1.toml` (bảng state → entry của V1, có nhãn bằng chứng).
+
 ```toml
 [[clips]]
 id = "c00.walk.down.static"       # ID ổn định của clip
@@ -182,6 +222,8 @@ pivot_y = 66                      # f11
 
 ### 3.3 Phần tử UI
 
+Nguồn: `data/assets/ui-v1.toml` (bảng phần tử → entry của luồng V1, có nhãn bằng chứng).
+
 ```toml
 [[ui]]
 id = "lobby.create"                  # ID ổn định của phần tử UI
@@ -221,6 +263,8 @@ status = "confirmed"                 # trạng thái bằng chứng (AGENTS §4)
 
 
 ### 3.1 Bảng audio (schema 4)
+
+Nguồn: `data/assets/audio-v1.toml` (bảng event → entry của V1, có nhãn bằng chứng).
 
 Mỗi entry là một payload thô trong `audio/`, không decode:
 
@@ -382,6 +426,12 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
 trên gắn với bộ mã trong `Cargo.lock` hiện hành. Trước issue #121, giá trị ghi trong
 bảng này đã **stale** (đo trước khi bảng audio được thêm vào hash) nên không khớp với
 bundle dựng được; bảng được cập nhật lại theo lần đo mới.
+
+**Issue #123 (mapping → data):** giá trị `content_hash` ở trên **không đổi** khi bốn bảng
+mapping chuyển từ khai báo Rust sang `data/assets/*.toml` — bundle dựng từ data cho
+**cùng** hash và **cùng** byte file. Test `bundle_from_the_data_tables_matches_the_recorded_content_hash`
+chốt điều đó; test `changing_one_mapping_changes_the_content_hash` chặn trường hợp đổi
+mapping mà hash không đổi.
 
 ### 6.1. Bốn state `unknown` của bundle đã giải bằng bảng state của client (issue #121)
 
