@@ -123,6 +123,7 @@ Profile [`v1-dev`](../../../data/rules/v1-dev.toml) không dùng được cho ph
 | Fuse | 2,5 s (`design`, R-021…R-024) | Hai candidate độc lập trùng nhau; gốc unknown |
 | Lửa tồn tại | 0,5 s (`design`, R-023) | Chỉ có OSS |
 | Nhốt → chết | Packet 6,359 s (`confirmed`, R-026); profile 6,30 s (`design`, R-076) | 3 run, biên độ 9 ms; timer nội bộ unknown |
+| Chỉ số C00/C01 | Dãy số `BomberAttr` (`confirmed`, R-040/R-041); profile `candidate` | Nghĩa trường f2–f7 còn `candidate` (R-042) ⇒ giá trị dùng chưa đủ bằng chứng |
 | Tốc độ | Raw 5→6 px/tick (`candidate`, R-043/R-045); profile 33 px/s (`design`, R-075) | Checksum chưa xác thực; một run cấp 6 |
 | Trọng số rơi | 3650 : 2800 : 2000 (`confirmed`, R-051) | Dữ liệu client; vai trò bảng còn unknown |
 | Xác suất gạch có item | 35% (`design`, R-053) | Chỉ có OSS |

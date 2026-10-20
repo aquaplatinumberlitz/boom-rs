@@ -17,7 +17,7 @@
 //! hoặc file cấu hình (AGENTS §3).
 
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -45,6 +45,12 @@ const MODE_FFA: &str = "battle_ffa";
 
 /// Chu kỳ thăm listener khi không có kết nối mới (ms).
 const ACCEPT_POLL_MS: u64 = 10;
+
+/// Hạn chờ vòng accept kết thúc khi dừng server (ms).
+///
+/// Vượt hạn thì buông luồng accept thay vì chờ vô hạn: `main` vẫn thoát được, còn vòng
+/// tick đã dừng nên không còn việc gì cần luồng đó làm.
+const ACCEPT_JOIN_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Epoch content của phiên server (bộ đếm, không phải luật chơi).
 const CONTENT_EPOCH: u32 = 1;
@@ -306,8 +312,13 @@ fn parse_sha256_hex(value: &str) -> Option<[u8; 32]> {
 
 /// Kết nối game đã được chấp nhận, chờ vòng tick nhận vào `Server`.
 struct Accepted {
+    /// Định danh kết nối (khoá session trong `Server`).
     player: PlayerId,
-    slot: u8,
+    /// Định danh kết nối trong phiên (đưa vào `Welcome.player_id`).
+    ///
+    /// **Không phải** slot trận: slot lấy từ roster round theo `account_id`
+    /// (ADR 0009 Addendum B §B.2).
+    connection_id: u8,
     stream: TcpStream,
     peer: SocketAddr,
 }
@@ -415,6 +426,8 @@ impl ServeRuntime {
             message: err.to_string(),
         })?;
         server.set_auth_deadline_ms(config.auth_deadline_ms);
+        // Log JSON Lines của server (sự kiện input bị bỏ, v.v.).
+        server.set_logger(logger.clone());
 
         // Game listener: một kết nối TCP mỗi client (ADR 0006).
         let listen_addr =
@@ -519,7 +532,7 @@ impl ServeRuntime {
     }
 
     /// Chạy vòng tick cho tới khi có yêu cầu dừng; sau đó dừng sạch (xem [`Drop`]).
-    pub fn run(mut self) -> Result<(), ServeError> {
+    pub fn run(&mut self) -> Result<(), ServeError> {
         while !self.stop.is_requested() {
             self.accept_pending()?;
             let now = self.now_ms();
@@ -530,12 +543,17 @@ impl ServeRuntime {
         Ok(())
     }
 
+    /// Số batch input bị bỏ vì client khai slot khác slot server bind từ phiên.
+    pub fn input_slot_mismatch_count(&self) -> u64 {
+        self.server.input_slot_mismatch_count()
+    }
+
     /// Nhận các kết nối đã được chấp nhận vào `Server` (mỗi kết nối một `PlayerId`).
     fn accept_pending(&mut self) -> Result<(), ServeError> {
         while let Ok(accepted) = self.accept_rx.try_recv() {
             let Accepted {
                 player,
-                slot,
+                connection_id,
                 stream,
                 peer,
             } = accepted;
@@ -546,7 +564,7 @@ impl ServeRuntime {
             let mut shutdown = TcpTransport::from_stream(shutdown_stream)?;
             self.server.accept_with_shutdown(
                 player,
-                slot,
+                connection_id,
                 peer.ip(),
                 reader,
                 writer,
@@ -565,9 +583,9 @@ impl ServeRuntime {
         self.stop.request();
         // Vòng accept đang chờ trong `accept()` (listener blocking) ⇒ kết nối giả tới
         // chính listener để mở khóa nó, rồi mới join.
-        let _ = TcpStream::connect_timeout(&self.wakeup_addr(), Duration::from_millis(500));
+        self.wake_accept_loop();
         if let Some(handle) = self.accept_handle.take() {
-            let _ = handle.join();
+            self.join_accept_loop(handle);
         }
         // Thu hồi phiên của instance này (ADR 0011 §6.1): người chơi đăng nhập lại được.
         self.server.shutdown_sessions(self.now_ms());
@@ -579,12 +597,62 @@ impl ServeRuntime {
         }
     }
 
-    /// Địa chỉ dùng để mở khóa vòng accept: loopback khi listener bind mọi interface.
-    fn wakeup_addr(&self) -> SocketAddr {
-        if self.local_addr.ip().is_unspecified() {
-            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), self.local_addr.port())
-        } else {
-            self.local_addr
+    /// Mở khóa vòng accept bằng kết nối giả tới chính listener.
+    ///
+    /// Thử **cùng họ địa chỉ** với listener trước: socket IPv6-only (môi trường Windows)
+    /// không nhận kết nối IPv4, nên `127.0.0.1` sẽ hỏng và vòng accept treo vô hạn.
+    /// Thử cả hai họ để không bỏ sót trường hợp wildcard hai họ.
+    fn wake_accept_loop(&self) {
+        for addr in self.wakeup_addrs() {
+            if TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_ok() {
+                return;
+            }
+        }
+    }
+
+    /// Chờ vòng accept kết thúc, có hạn.
+    ///
+    /// `join` không có hạn ⇒ nếu kết nối giả thất bại (ví dụ listener đã đóng) thì server
+    /// treo. Ở đây chờ có giới hạn rồi **buông** luồng: tiến trình vẫn thoát được vì
+    /// `main` kết thúc, còn tick đã dừng nên không còn việc gì cần luồng đó làm.
+    fn join_accept_loop(&self, handle: JoinHandle<()>) {
+        let (tx, rx) = mpsc::channel::<()>();
+        thread::spawn(move || {
+            let _ = handle.join();
+            let _ = tx.send(());
+        });
+        if rx.recv_timeout(ACCEPT_JOIN_TIMEOUT).is_err() {
+            let mut fields = LogFields::new();
+            fields.insert("reason", serde_json::json!("accept_loop_join_timeout"));
+            self.logger.warn("server.stop", fields);
+        }
+    }
+
+    /// Địa chỉ loopback dùng để mở khóa vòng accept.
+    ///
+    /// Listener wildcard (`0.0.0.0`/`[::]`) không có IP cụ thể ⇒ dùng loopback **cùng họ**
+    /// với địa chỉ đã bind. Nếu bind một địa chỉ cụ thể thì dùng chính nó.
+    fn wakeup_addrs(&self) -> Vec<SocketAddr> {
+        let port = self.local_addr.port();
+        match self.local_addr.ip() {
+            IpAddr::V4(ip) => {
+                if ip.is_unspecified() {
+                    vec![SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port)]
+                } else {
+                    vec![self.local_addr]
+                }
+            }
+            IpAddr::V6(ip) => {
+                if ip.is_unspecified() {
+                    // Socket IPv6-only chỉ nhận `::1`; socket hai họ nhận cả hai.
+                    vec![
+                        SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), port),
+                        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+                    ]
+                } else {
+                    vec![self.local_addr]
+                }
+            }
         }
     }
 }
@@ -614,13 +682,15 @@ fn snapshot_interval_ms(rules: &Rules) -> u32 {
 /// non-blocking về blocking vẫn có thể trả `EAGAIN` cho lần đọc đầu ⇒ luồng đọc của
 /// session sẽ đóng kết nối ngay. Vòng accept vì vậy dừng bằng **kết nối giả** tới chính
 /// listener (xem [`ServeRuntime::shutdown`]), không bằng cờ non-blocking.
+///
+/// **Số thứ tự kết nối TCP không phải slot trận**: slot trận lấy từ roster round theo
+/// `account_id` (ADR 0009 Addendum B §B.2). Ở đây chỉ cấp định danh kết nối.
 fn spawn_accept_loop(
     listener: TcpListener,
     tx: Sender<Accepted>,
     stop: StopFlag,
 ) -> JoinHandle<()> {
-    let next_player = Arc::new(AtomicU64::new(1));
-    let next_slot = Arc::new(AtomicU64::new(0));
+    let next_connection = Arc::new(AtomicU64::new(1));
     thread::spawn(move || {
         while !stop.is_requested() {
             match listener.accept() {
@@ -630,12 +700,11 @@ fn spawn_accept_loop(
                         let _ = stream.shutdown(Shutdown::Both);
                         break;
                     }
-                    let id = next_player.fetch_add(1, Ordering::SeqCst);
-                    let slot =
-                        u8::try_from(next_slot.fetch_add(1, Ordering::SeqCst) % 256).unwrap_or(0);
+                    let id = next_connection.fetch_add(1, Ordering::SeqCst);
+                    let connection_id = u8::try_from(id % 256).unwrap_or(0);
                     let accepted = Accepted {
                         player: PlayerId(id),
-                        slot,
+                        connection_id,
                         stream,
                         peer,
                     };
@@ -654,7 +723,7 @@ fn spawn_accept_loop(
 
 /// Chạy `serve` tới khi có tín hiệu dừng; trả `Ok(())` khi dừng sạch.
 pub fn serve(config: OperationalConfig, stop: StopFlag) -> Result<(), ServeError> {
-    let runtime = ServeRuntime::start(config, stop).map_err(ServeError::Startup)?;
+    let mut runtime = ServeRuntime::start(config, stop).map_err(ServeError::Startup)?;
     runtime.run()
 }
 
@@ -674,9 +743,10 @@ mod tests {
     use boom_content::bundle::Cell;
     use boom_proto::dto::auth::{Auth, AuthOk, AuthOp};
     use boom_proto::{
-        Hello, LoadingAck, Message, MessageKind, RoomAction as RoomActionDto, RoomCharacter,
-        RoomCommand as RoomCommandDto, RoomState, RoundStart, Snapshot, Welcome, decode_frame,
-        encode_frame, limits::ProtocolLimits, read_envelope,
+        Hello, InputBatch, InputBits, InputCommand, LoadingAck, Message, MessageKind,
+        RoomAction as RoomActionDto, RoomCharacter, RoomCommand as RoomCommandDto, RoomState,
+        RoundStart, Snapshot, Welcome, decode_frame, encode_frame, limits::ProtocolLimits,
+        read_envelope,
     };
 
     use crate::admin::run_health_cli;
@@ -796,11 +866,21 @@ empty = "floor"
         write_test_env_with_rules(root, None)
     }
 
+    /// Dựng môi trường test với địa chỉ nghe tuỳ chỉnh (ví dụ `[::]:0`).
+    fn write_test_env_with_listen(root: &Path, listen: &str) -> PathBuf {
+        write_test_env_full(root, None, listen)
+    }
+
     /// Dựng môi trường test với rules profile tuỳ chỉnh.
     ///
     /// `rules_override`: nội dung thay cho profile chuẩn (`skeleton-test`) — dùng để kiểm
     /// lỗi khi profile thiếu/sai chỉ số nhân vật.
     fn write_test_env_with_rules(root: &Path, rules_override: Option<&str>) -> PathBuf {
+        write_test_env_full(root, rules_override, "127.0.0.1:0")
+    }
+
+    /// Dựng môi trường test đầy đủ: bundle, bảng phân loại ô, rules profile, file cấu hình.
+    fn write_test_env_full(root: &Path, rules_override: Option<&str>, listen: &str) -> PathBuf {
         let bundle_dir = root.join("bundle");
         std::fs::create_dir_all(&bundle_dir).expect("tạo thư mục bundle");
         write_test_bundle(&bundle_dir);
@@ -825,7 +905,7 @@ empty = "floor"
             "[server]\n\
              admin_addr = \"127.0.0.1:0\"\n\
              data_dir = \"{data_dir}\"\n\
-             listen_addrs = [\"127.0.0.1:0\"]\n\
+             listen_addrs = [\"{listen}\"]\n\
              heartbeat_interval_ms = 50\n\
              health_timeout_ms = 2000\n\
              bundle_dir = \"{bundle_dir}\"\n\
@@ -843,6 +923,7 @@ empty = "floor"
             rules = toml_path(&rules),
             map_path = toml_path(&map_path),
             db_path = toml_path(&data_dir.join("boom-server.sqlite3")),
+            listen = listen,
         );
         std::fs::write(&config_path, text).expect("ghi file cấu hình");
         config_path
@@ -853,6 +934,20 @@ empty = "floor"
         loop {
             let state: RoomState = client.recv_of(MessageKind::RoomState)?;
             if state.members.len() == members {
+                return Ok(state);
+            }
+        }
+    }
+
+    /// Chờ `RoomState` có đúng số thành viên **và tất cả đã ready**.
+    ///
+    /// Lệnh ready của hai client đi trên hai kết nối khác nhau ⇒ server có thể xử lý lệnh
+    /// `Start` trước khi nhận lệnh ready còn lại. Chờ state có mọi người ready bảo đảm
+    /// server đã xử lý xong lệnh ready trước khi client gửi `Start`.
+    fn recv_room_state_all_ready(client: &mut Client, members: usize) -> Result<RoomState, String> {
+        loop {
+            let state: RoomState = client.recv_of(MessageKind::RoomState)?;
+            if state.members.len() == members && state.members.iter().all(|member| member.ready) {
                 return Ok(state);
             }
         }
@@ -951,8 +1046,14 @@ empty = "floor"
                 }),
             )?;
         }
-        step("nhận RoomState (host)", recv_room_state(&mut host, 2))?;
-        step("nhận RoomState (guest)", recv_room_state(&mut guest, 2))?;
+        step(
+            "nhận RoomState (host, mọi người ready)",
+            recv_room_state_all_ready(&mut host, 2),
+        )?;
+        step(
+            "nhận RoomState (guest, mọi người ready)",
+            recv_room_state_all_ready(&mut guest, 2),
+        )?;
 
         step(
             "gửi Start",
@@ -980,6 +1081,495 @@ empty = "floor"
         )?;
 
         Ok(ClientOutcome { account_id })
+    }
+
+    // --- Acceptance: slot trận lấy từ roster theo `account_id`, không theo thứ tự TCP ---
+
+    /// Vị trí người chơi trong snapshot (mpx).
+    type Position = (i32, i32);
+
+    /// Kết quả acceptance của một client: slot trận và vị trí trước/sau khi gửi input.
+    struct MoveOutcome {
+        /// Slot trận lấy từ `RoundStart.roster` theo `account_id`.
+        slot: u8,
+        /// Vị trí của mình trước khi gửi input.
+        before: Position,
+        /// Vị trí của mình sau khi gửi input.
+        after: Position,
+    }
+
+    /// Slot trận của một account: `slot` của mục `RoundStart.roster` có `player == account_id`.
+    fn slot_in_roster(start: &RoundStart, account_id: u64) -> Result<u8, String> {
+        start
+            .roster
+            .iter()
+            .find(|member| member.player == account_id)
+            .map(|member| member.slot)
+            .ok_or_else(|| format!("roster không có người chơi account {account_id}"))
+    }
+
+    /// Vị trí của một người chơi trong snapshot (`id` của snapshot là slot trận).
+    fn player_position(snapshot: &Snapshot, slot: u8) -> Option<Position> {
+        snapshot
+            .players
+            .iter()
+            .find(|player| player.id == slot)
+            .map(|player| (player.x, player.y))
+    }
+
+    /// Handshake + đăng ký một client; trả `account_id` (định danh người chơi trong phòng).
+    fn handshake_and_register(
+        client: &mut Client,
+        config: &OperationalConfig,
+        username: &str,
+    ) -> Result<u64, String> {
+        step(
+            "gửi Hello",
+            client.send(&Hello {
+                wire_schema: 1,
+                state_schema: 1,
+                rules_profile_id: config.rules_profile_id.clone(),
+                rules_hash: config.rules_hash,
+                content_sha256: config.content_sha256,
+                client_build: "test".to_owned(),
+                capabilities: Vec::new(),
+            }),
+        )?;
+        let welcome: Welcome = step("nhận Welcome", client.recv_of(MessageKind::Welcome))?;
+        if welcome.rules_hash != config.rules_hash {
+            return Err("Welcome mang rules hash khác server".to_owned());
+        }
+        step(
+            "gửi Auth",
+            client.send(&Auth {
+                op: AuthOp::Register,
+                username: username.to_owned(),
+                password: "password123".to_owned(),
+            }),
+        )?;
+        let ok: AuthOk = step("nhận AuthOk", client.recv_of(MessageKind::AuthOk))?;
+        Ok(ok.account_id)
+    }
+
+    /// Đọc snapshot tới khi round đã chạy (tick > 0); trả tick và vị trí hai người chơi.
+    fn read_playing_snapshot(
+        client: &mut Client,
+        my_slot: u8,
+        other_slot: u8,
+    ) -> Result<(u32, Position, Position), String> {
+        for _ in 0..500 {
+            let snapshot: Snapshot = client.recv_of(MessageKind::Snapshot)?;
+            if snapshot.tick == 0 {
+                // Vẫn ở loading barrier: tick chưa chạy.
+                continue;
+            }
+            let mine = player_position(&snapshot, my_slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {my_slot}"))?;
+            let other = player_position(&snapshot, other_slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {other_slot}"))?;
+            return Ok((snapshot.tick, mine, other));
+        }
+        Err("round không chạy (tick vẫn 0)".to_owned())
+    }
+
+    /// Gửi một lệnh đi rồi chờ **nhân vật của mình** đổi vị trí trong snapshot.
+    ///
+    /// `claimed_slot` là slot client khai trong batch: nếu khác slot server bind thì batch
+    /// bị bỏ ⇒ nhân vật của mình **không** đổi vị trí (kiểm bằng `expect_move`).
+    fn send_move(
+        client: &mut Client,
+        round_id: u32,
+        claimed_slot: u8,
+        seq: u32,
+        target_tick: u32,
+        dir: u8,
+    ) -> Result<(), String> {
+        let batch = InputBatch {
+            round_id,
+            player: claimed_slot,
+            ack_snapshot: 0,
+            commands: vec![InputCommand {
+                seq,
+                target_tick,
+                bits: InputBits::new(dir, false).expect("hướng hợp lệ"),
+            }],
+        };
+        step("gửi InputBatch", client.send(&batch))
+    }
+
+    /// Chờ tới khi vị trí `slot` khác `before`; trả vị trí mới và vị trí người chơi khác.
+    fn wait_move(
+        client: &mut Client,
+        slot: u8,
+        other_slot: u8,
+        before: Position,
+    ) -> Result<(Position, Position), String> {
+        for _ in 0..500 {
+            let snapshot: Snapshot = client.recv_of(MessageKind::Snapshot)?;
+            let mine = player_position(&snapshot, slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {slot}"))?;
+            if mine == before {
+                continue;
+            }
+            let other = player_position(&snapshot, other_slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {other_slot}"))?;
+            return Ok((mine, other));
+        }
+        Err(format!("nhân vật slot {slot} không di chuyển"))
+    }
+
+    /// Luồng acceptance: một probe + hai client thật, **join ngược thứ tự kết nối**.
+    ///
+    /// Mỗi client lấy slot của mình từ `RoundStart.roster` theo `account_id` (không suy từ
+    /// `Welcome.player_id`), gửi input và kiểm **nhân vật của mình** di chuyển.
+    fn drive_two_clients_reversed(
+        addr: SocketAddr,
+        config: &OperationalConfig,
+    ) -> Result<(MoveOutcome, MoveOutcome), String> {
+        // Probe: kết nối rồi đóng trước hai client thật ⇒ thứ tự kết nối TCP lệch với
+        // thứ tự slot trong phòng (đúng lỗi của `next_slot` cũ).
+        {
+            let probe = TcpStream::connect(addr).map_err(|err| format!("probe connect: {err}"))?;
+            drop(probe);
+        }
+
+        // `first` kết nối trước, `second` kết nối sau; vào phòng thì ngược lại.
+        let mut first = Client::connect(addr)?;
+        let mut second = Client::connect(addr)?;
+        let first_account = handshake_and_register(&mut first, config, "player-first")?;
+        let second_account = handshake_and_register(&mut second, config, "player-second")?;
+
+        step(
+            "gửi Create (second)",
+            second.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Create {
+                    character: RoomCharacter::C00,
+                },
+            }),
+        )?;
+        let state = step("nhận RoomState (second)", recv_room_state(&mut second, 1))?;
+        let room = state.room_id;
+        step(
+            "gửi Join (first)",
+            first.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Join {
+                    room,
+                    character: RoomCharacter::C01,
+                },
+            }),
+        )?;
+        step("nhận RoomState (first)", recv_room_state(&mut first, 2))?;
+        step("nhận RoomState (second)", recv_room_state(&mut second, 2))?;
+
+        for (client, name) in [(&mut first, "first"), (&mut second, "second")] {
+            step(
+                &format!("gửi SetReady ({name})"),
+                client.send(&RoomCommandDto {
+                    request: 2,
+                    action: RoomActionDto::SetReady { ready: true },
+                }),
+            )?;
+        }
+        step(
+            "nhận RoomState (first, mọi người ready)",
+            recv_room_state_all_ready(&mut first, 2),
+        )?;
+        step(
+            "nhận RoomState (second, mọi người ready)",
+            recv_room_state_all_ready(&mut second, 2),
+        )?;
+
+        step(
+            "gửi Start (second)",
+            second.send(&RoomCommandDto {
+                request: 3,
+                action: RoomActionDto::Start,
+            }),
+        )?;
+        let start_first: RoundStart = step(
+            "nhận RoundStart (first)",
+            first.recv_of(MessageKind::RoundStart),
+        )?;
+        let start_second: RoundStart = step(
+            "nhận RoundStart (second)",
+            second.recv_of(MessageKind::RoundStart),
+        )?;
+        let round =
+            u32::try_from(start_first.round_id).map_err(|_| "round id vượt u32".to_owned())?;
+        // Slot lấy từ roster theo `account_id` — **không** suy từ `Welcome.player_id`.
+        let slot_first = slot_in_roster(&start_first, first_account)?;
+        let slot_second = slot_in_roster(&start_second, second_account)?;
+        if slot_first == slot_second {
+            return Err("hai người chơi phải có slot khác nhau".to_owned());
+        }
+
+        for client in [&mut first, &mut second] {
+            step(
+                "gửi LoadingAck",
+                client.send(&LoadingAck {
+                    round_id: start_first.round_id,
+                }),
+            )?;
+        }
+
+        // Mỗi client đi theo **hướng khác nhau**: điều này chứng minh đúng nhân vật di
+        // chuyển (đi ngang làm `x` đổi, đi dọc làm `y` đổi) chứ không chỉ "có ai đó đi".
+        let (tick_first, before_first, _) =
+            read_playing_snapshot(&mut first, slot_first, slot_second)?;
+        send_move(&mut first, round, slot_first, 1, tick_first + 1, 4)?;
+        let (after_first, _) = wait_move(&mut first, slot_first, slot_second, before_first)?;
+
+        let (tick_second, before_second, _) =
+            read_playing_snapshot(&mut second, slot_second, slot_first)?;
+        send_move(&mut second, round, slot_second, 1, tick_second + 1, 2)?;
+        let (after_second, _) = wait_move(&mut second, slot_second, slot_first, before_second)?;
+
+        Ok((
+            MoveOutcome {
+                slot: slot_first,
+                before: before_first,
+                after: after_first,
+            },
+            MoveOutcome {
+                slot: slot_second,
+                before: before_second,
+                after: after_second,
+            },
+        ))
+    }
+
+    #[test]
+    fn serve_binds_round_slot_from_roster_not_tcp_order() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+
+        let stop = StopFlag::default();
+        let mut runtime =
+            ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
+        let addr = runtime.local_addr();
+        let effective = runtime.config().clone();
+
+        let client_stop = stop.clone();
+        let client_config = effective.clone();
+        let handle = thread::spawn(move || {
+            let _guard = StopOnDrop(client_stop);
+            drive_two_clients_reversed(addr, &client_config)
+        });
+
+        runtime.run().expect("vòng tick dừng sạch");
+        let (first, second) = handle
+            .join()
+            .expect("luồng client không panic")
+            .expect("probe + hai client: input, di chuyển đúng nhân vật");
+
+        // Slot trận lấy từ **phòng** (người tạo phòng trước), không theo thứ tự kết nối TCP:
+        // `second` kết nối sau nhưng tạo phòng trước ⇒ slot 0; `first` vào sau ⇒ slot 1.
+        assert_eq!(second.slot, 0, "người tạo phòng phải có slot 0");
+        assert_eq!(first.slot, 1, "người vào sau phải có slot 1");
+
+        // Mỗi người di chuyển **đúng nhân vật của mình**: đi ngang ⇒ `x` đổi, `y` giữ;
+        // đi dọc ⇒ `y` đổi, `x` giữ.
+        assert!(
+            first.after.0 > first.before.0 && first.after.1 == first.before.1,
+            "client thứ nhất phải đi sang phải: {:?} → {:?}",
+            first.before,
+            first.after
+        );
+        assert!(
+            second.after.1 > second.before.1 && second.after.0 == second.before.0,
+            "client thứ hai phải đi xuống: {:?} → {:?}",
+            second.before,
+            second.after
+        );
+    }
+
+    #[test]
+    fn serve_drops_input_that_claims_another_players_slot() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+
+        let stop = StopFlag::default();
+        let mut runtime =
+            ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
+        let addr = runtime.local_addr();
+        let effective = runtime.config().clone();
+
+        let client_stop = stop.clone();
+        let client_config = effective.clone();
+        let handle = thread::spawn(move || {
+            let _guard = StopOnDrop(client_stop);
+            drive_two_clients_claiming_other_slot(addr, &client_config)
+        });
+
+        runtime.run().expect("vòng tick dừng sạch");
+        let outcome = handle
+            .join()
+            .expect("luồng client không panic")
+            .expect("batch khai slot của người khác phải bị bỏ");
+        assert_eq!(outcome, 1, "phải đếm đúng một batch bị bỏ");
+        assert_eq!(
+            runtime.input_slot_mismatch_count(),
+            1,
+            "server phải đếm batch input khai sai slot"
+        );
+    }
+
+    /// Client gửi batch khai **slot của người chơi khác**: server phải bỏ batch, không
+    /// áp dụng cho ai (ADR 0009 Addendum B §B.2 — không tin client khai).
+    fn drive_two_clients_claiming_other_slot(
+        addr: SocketAddr,
+        config: &OperationalConfig,
+    ) -> Result<u32, String> {
+        let mut first = Client::connect(addr)?;
+        let mut second = Client::connect(addr)?;
+        let first_account = handshake_and_register(&mut first, config, "player-first")?;
+        let second_account = handshake_and_register(&mut second, config, "player-second")?;
+
+        step(
+            "gửi Create (first)",
+            first.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Create {
+                    character: RoomCharacter::C00,
+                },
+            }),
+        )?;
+        let state = step("nhận RoomState (first)", recv_room_state(&mut first, 1))?;
+        let room = state.room_id;
+        step(
+            "gửi Join (second)",
+            second.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Join {
+                    room,
+                    character: RoomCharacter::C01,
+                },
+            }),
+        )?;
+        step("nhận RoomState (second)", recv_room_state(&mut second, 2))?;
+        step("nhận RoomState (first)", recv_room_state(&mut first, 2))?;
+
+        for (client, name) in [(&mut first, "first"), (&mut second, "second")] {
+            step(
+                &format!("gửi SetReady ({name})"),
+                client.send(&RoomCommandDto {
+                    request: 2,
+                    action: RoomActionDto::SetReady { ready: true },
+                }),
+            )?;
+        }
+        step(
+            "nhận RoomState (first, mọi người ready)",
+            recv_room_state_all_ready(&mut first, 2),
+        )?;
+        step(
+            "nhận RoomState (second, mọi người ready)",
+            recv_room_state_all_ready(&mut second, 2),
+        )?;
+
+        step(
+            "gửi Start (first)",
+            first.send(&RoomCommandDto {
+                request: 3,
+                action: RoomActionDto::Start,
+            }),
+        )?;
+        let start_first: RoundStart = step(
+            "nhận RoundStart (first)",
+            first.recv_of(MessageKind::RoundStart),
+        )?;
+        let start_second: RoundStart = step(
+            "nhận RoundStart (second)",
+            second.recv_of(MessageKind::RoundStart),
+        )?;
+        let round =
+            u32::try_from(start_first.round_id).map_err(|_| "round id vượt u32".to_owned())?;
+        let slot_first = slot_in_roster(&start_first, first_account)?;
+        let slot_second = slot_in_roster(&start_second, second_account)?;
+
+        for client in [&mut first, &mut second] {
+            step(
+                "gửi LoadingAck",
+                client.send(&LoadingAck {
+                    round_id: start_first.round_id,
+                }),
+            )?;
+        }
+
+        let (tick_first, before_first, _) =
+            read_playing_snapshot(&mut first, slot_first, slot_second)?;
+        let (tick_second, before_second, _) =
+            read_playing_snapshot(&mut second, slot_second, slot_first)?;
+
+        // `first` khai slot của `second` ⇒ batch phải bị bỏ, không ai di chuyển.
+        send_move(&mut first, round, slot_second, 1, tick_first + 1, 4)?;
+        // `second` gửi lệnh hợp lệ của mình: nó vẫn phải di chuyển.
+        send_move(&mut second, round, slot_second, 1, tick_second + 1, 2)?;
+        let (after_second, _) = wait_move(&mut second, slot_second, slot_first, before_second)?;
+
+        // Chờ thêm vài snapshot rồi kiểm `first` **không** di chuyển.
+        let mut first_moved = false;
+        for _ in 0..20 {
+            let snapshot: Snapshot = first.recv_of(MessageKind::Snapshot)?;
+            if let Some(position) = player_position(&snapshot, slot_first)
+                && position != before_first
+            {
+                first_moved = true;
+                break;
+            }
+        }
+        if first_moved {
+            return Err(
+                "batch khai slot của người khác không được làm người khai di chuyển".to_owned(),
+            );
+        }
+        if after_second == before_second {
+            return Err("người gửi slot đúng phải di chuyển".to_owned());
+        }
+        Ok(1)
+    }
+
+    #[test]
+    fn serve_shutdown_finishes_with_ipv6_wildcard_listener() {
+        // OS không có IPv6 thì bỏ qua (không phải lỗi của server).
+        if TcpListener::bind("[::]:0").is_err() {
+            eprintln!("bỏ qua: OS không hỗ trợ IPv6");
+            return;
+        }
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env_with_listen(dir.path(), "[::]:0");
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+
+        let stop = StopFlag::default();
+        // Luồng riêng yêu cầu dừng sau một nhịp: vòng tick phải thoát, rồi `Drop` dọn dẹp.
+        let stopper = stop.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(200));
+            stopper.request();
+        });
+
+        let started = Instant::now();
+        {
+            let mut runtime =
+                ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
+            assert!(
+                runtime.local_addr().is_ipv6(),
+                "listener phải là IPv6: {:?}",
+                runtime.local_addr()
+            );
+            runtime.run().expect("vòng tick dừng sạch");
+        }
+        // Shutdown (kết nối giả + join có hạn) phải xong trong hạn: socket IPv6-only không
+        // nhận kết nối giả IPv4 ⇒ vòng accept phải dừng được theo cả hai họ loopback.
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "server không dừng trong hạn với listener IPv6: {:?}",
+            started.elapsed()
+        );
     }
 
     /// Socket của `accept()` phải là blocking trên mọi OS.
@@ -1089,23 +1679,27 @@ empty = "floor"
         let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
 
         let stop = StopFlag::default();
-        let runtime = ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
-        let addr = runtime.local_addr();
-        let effective = runtime.config().clone();
+        let outcome = {
+            let mut runtime =
+                ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
+            let addr = runtime.local_addr();
+            let effective = runtime.config().clone();
 
-        // Client chạy ở luồng riêng; vòng tick chạy ở luồng chính của test.
-        let client_stop = stop.clone();
-        let client_config = effective.clone();
-        let handle = thread::spawn(move || {
-            let _guard = StopOnDrop(client_stop);
-            drive_two_clients(addr, &client_config)
-        });
+            // Client chạy ở luồng riêng; vòng tick chạy ở luồng chính của test.
+            let client_stop = stop.clone();
+            let client_config = effective.clone();
+            let handle = thread::spawn(move || {
+                let _guard = StopOnDrop(client_stop);
+                drive_two_clients(addr, &client_config)
+            });
 
-        runtime.run().expect("vòng tick dừng sạch");
-        let outcome = handle
-            .join()
-            .expect("luồng client không panic")
-            .expect("client đăng ký → phòng → start → snapshot");
+            runtime.run().expect("vòng tick dừng sạch");
+            handle
+                .join()
+                .expect("luồng client không panic")
+                .expect("client đăng ký → phòng → start → snapshot")
+            // Runtime thả ở đây ⇒ nhả khoá instance DB trước khi mở lại DB kiểm phiên.
+        };
 
         // Health runtime trả 0 khi server đang chạy (đã kiểm trong luồng client).
         // Dừng sạch ⇒ DB không còn phiên hiệu lực của instance này.
@@ -1124,7 +1718,8 @@ empty = "floor"
         let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
 
         let stop = StopFlag::default();
-        let runtime = ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
+        let mut runtime =
+            ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
         let effective = runtime.config().clone();
 
         let health_stop = stop.clone();

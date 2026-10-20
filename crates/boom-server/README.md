@@ -11,8 +11,11 @@ Quy tắc chung của dự án: [AGENTS.md](../../AGENTS.md). Kiến trúc crate
 ## Chạy thử nhanh (LAN, 2–4 client)
 
 ```bash
-# 1. Dựng bundle map (cần pack KR đã giải — xem crates/boom-assets)
-cargo run -p boom-assets -- bundle --map <đường dẫn Village00.map> --out data/bundle/village00
+# 1. Dựng bundle map (cần pack KR đã giải — xem crates/boom-assets).
+#    `--map` nhận TÊN map (V1 chỉ có `Village00`), thư mục pack lấy từ `--pack-dir`
+#    hoặc biến môi trường `BOOM_KR_PACK_DIR`.
+cargo run -p boom-assets -- bundle --map Village00 --out data/bundle/village00 \
+  --pack-dir /duong/dan/pack-kr
 
 # 2. Tạo file cấu hình theo mẫu ở mục "File cấu hình" bên dưới, ví dụ `server.toml`
 
@@ -109,26 +112,45 @@ Lệnh `boom-server content --rules <file>` cũng kiểm bảng chỉ số này.
 
 Giá trị `5,7 / 1,10 / 1,7` (C00) và `4,8 / 2,7 / 1,9` (C01) là số đọc được trong
 `BomberAttr` của pack KR 00967 (RULES_V1 R-040/R-041) và nằm ở
-[`data/rules/v1-dev.toml`](../../data/rules/v1-dev.toml). Bảng `BomberAttr` **chưa** được giải
-vào content — gate G2 của SCOPE_V1 §6 còn mở — nên V1 đọc chỉ số từ rules profile.
+[`data/rules/v1-dev.toml`](../../data/rules/v1-dev.toml). Vì **nghĩa trường** f2–f7 còn là
+`candidate` (R-042), giá trị dùng trong profile ghi `status = "candidate"`: dãy số đã đối
+chiếu nhưng chưa có bằng chứng rằng f2–f7 mang đúng nghĩa speed/bombs/range (AGENTS §4).
+Bảng `BomberAttr` **chưa** được giải vào content — gate G2 của SCOPE_V1 §6 còn mở — nên V1
+đọc chỉ số từ rules profile.
 
 ## Chạy cùng client
 
 Server đã sẵn sàng cho client LAN: handshake `Hello`/`Welcome`, auth `Auth`/`AuthOk`, phòng
 `RoomCommand`/`RoomState`, `LoadingAck`, `Snapshot` (ADR 0009 Addendum A/B).
 
-**Giới hạn hiện tại:** `boom-client` **chưa** có chế độ mạng (`--connect` chưa tồn tại — client
-vẫn chạy mô phỏng offline trong `crates/boom-client`). Luồng client↔server thật hiện được
-kiểm bằng test tích hợp `crates/boom-server/src/runtime.rs` (client TCP thật dùng
-`boom_net::TcpTransport` + DTO của `boom-proto`). Khi client có `--connect`, chạy:
+`boom-client` **có** chế độ mạng: `--connect <địa-chỉ>` kèm `--user`/`--password` (hoặc biến
+môi trường `BOOM_USER`/`BOOM_PASSWORD`) và `--register` để tự đăng ký tài khoản mới.
 
 ```bash
-boom-client --connect 127.0.0.1:17889
+# Client phải dùng CÙNG rules profile và CÙNG bundle với server:
+#  - handshake so `rules_profile_id` + `rules_hash` + `content_sha256`
+#    (ADR 0009 §1) ⇒ lệch thì server từ chối trước khi vào sảnh;
+#  - `content_sha256` lấy từ trường `content_hash` trong `bundle.toml` của bundle.
+CONTENT_SHA=$(sed -n 's/^content_hash = "\(.*\)"/\1/p' data/bundle/village00/bundle.toml)
+
+BOOM_CONTENT_SHA256="$CONTENT_SHA" \
+BOOM_USER=player1 BOOM_PASSWORD='matkhau123' \
+cargo run -p boom-client -- --connect 127.0.0.1:17889 \
+  --bundle data/bundle/village00 --register
 ```
 
-Client phải dùng **cùng** rules profile và **cùng** bundle với server: fingerprint
-(`rules_profile_id`, `rules_hash`, `content_sha256`) được kiểm ở `Hello`, lệch thì server từ
-chối trước khi vào sảnh.
+Giới hạn hiện tại của client (theo đúng contract ở ADR 0009 Addendum B §B.2):
+
+- Chế độ mạng dùng rules profile **`data/rules/v1-dev.toml` nhúng trong binary** (cờ `--rules`
+  chỉ áp dụng cho phần offline); server vì vậy phải chạy với đúng profile đó.
+- Client lấy `content_sha256` từ biến `BOOM_CONTENT_SHA256`; thiếu biến thì client khai
+  toàn 0 và server từ chối handshake (`ContentMismatch`).
+- **Slot trận của client là `slot` trong `RoundStart.roster` có `player == account_id`** (server
+  bind slot của input từ phiên; `Welcome.player_id` chỉ là định danh kết nối, **không** phải
+  slot). Client hiện tại vẫn gửi `Welcome.player_id` trong batch input nên server **bỏ** các
+  batch đó và đếm (`input.slot_mismatch`); client sẽ lấy slot từ roster ở issue #114.
+- Luồng client↔server thật được kiểm bằng test tích hợp `crates/boom-server/src/runtime.rs`
+  (client TCP thật dùng `boom_net::TcpTransport` + DTO của `boom-proto`).
 
 ## Dừng sạch
 
