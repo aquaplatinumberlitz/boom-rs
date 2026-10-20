@@ -67,8 +67,10 @@ pub enum RoomError {
     NotInRoster {
         /// ID round.
         round_id: u64,
-        /// Slot của client.
-        slot: u8,
+        /// Định danh người chơi của client (`AuthOk.account_id`).
+        ///
+        /// `None` = client chưa `AuthOk` nên chưa biết mình là ai ⇒ chưa thể tra roster.
+        player: Option<u64>,
     },
     /// Client chưa có nội dung map mà round yêu cầu.
     MapMissing {
@@ -108,12 +110,16 @@ impl fmt::Display for RoomError {
             Self::ModeMismatch { expected, got } => {
                 write!(f, "mode của round khác: client {expected}, server {got}")
             }
-            Self::NotInRoster { round_id, slot } => {
-                write!(
+            Self::NotInRoster { round_id, player } => match player {
+                Some(player) => write!(
                     f,
-                    "client (slot {slot}) không có trong roster của round {round_id}"
-                )
-            }
+                    "client (player {player}) không có trong roster của round {round_id}"
+                ),
+                None => write!(
+                    f,
+                    "client chưa đăng nhập nên chưa biết mình có trong roster của round {round_id}"
+                ),
+            },
             Self::MapMissing { map } => {
                 write!(f, "client chưa có nội dung map {map} của round")
             }
@@ -219,12 +225,23 @@ pub enum PendingAck {
 /// Chỉ giữ **dữ liệu server đã xác nhận** (hoặc lỗi kiểm fingerprint); client không tự suy
 /// diễn trạng thái phòng, không tự kết luận thắng/thua.
 pub struct RoomFlow {
-    /// Slot của chính client: id người chơi trong state trận.
+    /// Định danh người chơi trong phòng/round: `AuthOk.account_id`.
     ///
-    /// Server bind slot khi người chơi vào phòng và dùng chính slot đó làm `id` của người chơi
-    /// trong state trận (`boom-server` dựng roster từ `member.slot`), nên slot là định danh
-    /// mà client dùng được ở cả phòng lẫn trận.
-    my_slot: u8,
+    /// Mọi trường `player` trên dây (`RoomState`, `RoundStart.roster`, `RoomChatMessage`,
+    /// `RoundResult`) mang giá trị này: server bind từ phiên đã `AuthOk`, không tin client khai
+    /// (ADR 0009 Addendum B §B.2).
+    my_player: Option<u64>,
+    /// Slot **trận** của chính client.
+    ///
+    /// Slot trận là `slot` của mục `RoundStart.roster` có `player == my_player`
+    /// (ADR 0009 Addendum B §B.2): server bind slot khi người chơi vào phòng và lấy chính
+    /// slot đó làm `id` của người chơi trong state trận (`boom-server` dựng roster từ
+    /// `member.slot`).
+    ///
+    /// **Không** lấy từ `Welcome.player_id`: đó là định danh **kết nối**, không phải slot
+    /// trận. Cũng không lấy từ `RoomState.members`: đó là slot **phòng**, còn slot trận là
+    /// slot trong roster đã chốt lúc `Start`.
+    my_slot: Option<u8>,
     /// Request ID tăng dần cho lệnh phòng và chat.
     next_request: u64,
     /// Danh sách phòng sảnh gần nhất.
@@ -250,10 +267,11 @@ pub struct RoomFlow {
 }
 
 impl RoomFlow {
-    /// Dựng luồng phòng cho client ở slot `my_slot`.
-    pub fn new(my_slot: u8) -> Self {
+    /// Dựng luồng phòng cho client (chưa biết định danh người chơi cho tới `AuthOk`).
+    pub fn new() -> Self {
         Self {
-            my_slot,
+            my_player: None,
+            my_slot: None,
             next_request: 1,
             lobby: None,
             room: None,
@@ -268,14 +286,20 @@ impl RoomFlow {
         }
     }
 
-    /// Slot của chính client.
-    pub fn my_slot(&self) -> u8 {
-        self.my_slot
+    /// Đặt định danh người chơi trong phòng/round (`AuthOk.account_id`).
+    ///
+    /// Mọi thứ client biết về "mình là ai" đều tra theo giá trị này: thành viên trong
+    /// `RoomState`, mục trong `RoundStart.roster`, kết quả trong `RoundResult`.
+    pub fn set_my_player(&mut self, player: u64) {
+        self.my_player = Some(player);
     }
 
-    /// Đặt slot của chính client (server cấp trong `Welcome`).
-    pub fn set_my_slot(&mut self, slot: u8) {
-        self.my_slot = slot;
+    /// Slot **trận** của chính client (lấy từ `RoundStart.roster` theo `account_id`).
+    ///
+    /// `None` = client chưa biết slot của mình: chưa `AuthOk`, hoặc chưa nhận `RoundStart`
+    /// mà mình có mặt trong roster.
+    pub fn my_slot(&self) -> Option<u8> {
+        self.my_slot
     }
 
     /// Ghi lỗi của luồng phòng để caller hiện ra ngoài.
@@ -382,16 +406,22 @@ impl RoomFlow {
                 got: start.mode.clone(),
             }));
         }
-        if start
-            .roster
-            .iter()
-            .all(|member| member.slot != self.my_slot)
-        {
+        let Some(player) = self.my_player else {
+            // Chưa `AuthOk` thì client chưa biết mình là ai ⇒ không có mục nào trong roster
+            // là của mình.
             return Err(self.fail(RoomError::NotInRoster {
                 round_id: start.round_id,
-                slot: self.my_slot,
+                player: None,
             }));
-        }
+        };
+        // Slot trận của client: mục roster có `player == account_id`.
+        let Some(member) = start.roster.iter().find(|member| member.player == player) else {
+            return Err(self.fail(RoomError::NotInRoster {
+                round_id: start.round_id,
+                player: Some(player),
+            }));
+        };
+        self.my_slot = Some(member.slot);
         let plan = RoundPlan {
             round_id: start.round_id,
             seed: start.seed,
@@ -436,10 +466,19 @@ impl RoomFlow {
         self.pending_ack
     }
 
-    /// Bằng chứng server đã nhận `LoadingAck`: snapshot đầu tiên của round `round_id`.
+    /// Bằng chứng server đã nhận `LoadingAck`: snapshot cho thấy lượt **đã chạy**.
     ///
-    /// Server chỉ gửi snapshot khi lượt đã bắt đầu, tức là loading barrier đã qua.
-    pub fn confirm_loading(&mut self, round_id: u64) {
+    /// `tick > 0` ⇒ server đã chạy ít nhất một tick của round ⇒ loading barrier đã qua ⇒
+    /// server đã nhận `LoadingAck` của mọi thành viên.
+    ///
+    /// Snapshot **trước lượt** (`tick == 0`, server gửi khi phòng còn ở loading) *không*
+    /// phải bằng chứng: nếu coi nó là bằng chứng thì client ngừng gửi lại `LoadingAck`
+    /// ngay cả khi frame đầu bị mất ⇒ lượt không bao giờ bắt đầu (loading barrier chờ
+    /// mãi). `LoadingAck` là idempotent nên gửi lại không đổi ý nghĩa.
+    pub fn confirm_loading(&mut self, round_id: u64, tick: u32) {
+        if tick == 0 {
+            return;
+        }
         if self.pending_ack == Some(PendingAck::Loading(round_id)) {
             self.pending_ack = None;
         }
@@ -490,20 +529,18 @@ impl RoomFlow {
         self.result_acked
     }
 
-    /// Thành viên phòng tương ứng với chính client (theo slot).
+    /// Thành viên phòng tương ứng với chính client (theo `account_id`).
     pub fn my_member(&self) -> Option<&boom_proto::RoomMember> {
         let state = self.room.as_ref()?;
-        state
-            .members
-            .iter()
-            .find(|member| member.slot == self.my_slot)
+        let player = self.my_player?;
+        state.members.iter().find(|member| member.player == player)
     }
 
     /// `PlayerId` của chính client trong phòng (server bind, ADR 0009 Addendum B).
     ///
-    /// Chỉ có được khi client đã nhận `RoomState` và tìm thấy thành viên có slot của mình.
+    /// Đây là `AuthOk.account_id` — giá trị mà server ghi vào mọi trường `player` trên dây.
     pub fn my_player(&self) -> Option<u64> {
-        self.my_member().map(|member| member.player)
+        self.my_player
     }
 
     /// Client có phải host của phòng hiện tại không.
@@ -769,11 +806,7 @@ impl AutoRoomFlow {
                 Some(AutoAction::Start)
             };
         }
-        let Some(me) = state
-            .members
-            .iter()
-            .find(|member| member.slot == flow.my_slot())
-        else {
+        let Some(me) = flow.my_member() else {
             // Không thấy mình trong phòng (server vừa đổi phòng): xin lại danh sách.
             return Some(self.enter_action(flow));
         };
@@ -814,18 +847,12 @@ impl AutoRoomFlow {
 
     /// Xác nhận hành động đang chờ khi trạng thái phòng cho thấy đã xong.
     fn confirm_by_state(&mut self, flow: &RoomFlow) {
-        let Some(state) = flow.room() else {
+        let Some(me) = flow.my_member() else {
             return;
         };
-        let me = state
-            .members
-            .iter()
-            .find(|member| member.slot == flow.my_slot());
-        if me.is_some() {
-            // Đã có mặt trong phòng: lệnh vào phòng đã được chấp nhận.
-            self.confirm_enter();
-        }
-        if me.is_some_and(|member| member.ready) {
+        // Đã có mặt trong phòng: lệnh vào phòng đã được chấp nhận.
+        self.confirm_enter();
+        if me.ready {
             self.confirm(&AutoAction::SetReady);
         }
     }
@@ -882,9 +909,39 @@ mod tests {
         }
     }
 
+    /// Luồng phòng của client đã `AuthOk` với `account_id` = 1.
+    fn flow_of_player() -> RoomFlow {
+        let mut flow = RoomFlow::new();
+        flow.set_my_player(1);
+        flow
+    }
+
+    #[test]
+    fn snapshot_truoc_luot_khong_phai_bang_chung_loading_ack() {
+        // Server gửi snapshot *trước lượt* (tick 0) khi phòng còn ở loading: nó **không**
+        // phải bằng chứng server đã nhận `LoadingAck` — client phải gửi lại `LoadingAck` tới
+        // khi thấy lượt đã chạy, nếu không thì frame `LoadingAck` đầu bị mất là lượt không
+        // bao giờ bắt đầu (loading barrier chờ mãi).
+        let mut flow = RoomFlow::new();
+        flow.mark_loading_acked(3);
+        assert_eq!(flow.pending_ack(), Some(PendingAck::Loading(3)));
+        flow.confirm_loading(3, 0);
+        assert_eq!(
+            flow.pending_ack(),
+            Some(PendingAck::Loading(3)),
+            "snapshot trước lượt không được bỏ việc gửi lại `LoadingAck`"
+        );
+        flow.confirm_loading(3, 1);
+        assert_eq!(
+            flow.pending_ack(),
+            None,
+            "snapshot cho thấy lượt đã chạy là bằng chứng server đã nhận `LoadingAck`"
+        );
+    }
+
     #[test]
     fn round_start_khop_fingerprint_thi_nhan_round() {
-        let mut flow = RoomFlow::new(0);
+        let mut flow = flow_of_player();
         let plan = flow
             .on_round_start(round_start(), &expectation())
             .expect("fingerprint phải khớp");
@@ -898,7 +955,7 @@ mod tests {
 
     #[test]
     fn round_start_lech_rules_thi_bao_lo_va_khong_nhan_round() {
-        let mut flow = RoomFlow::new(0);
+        let mut flow = flow_of_player();
         let mut start = round_start();
         start.rules_hash = 8;
         let error = flow
@@ -917,7 +974,7 @@ mod tests {
 
     #[test]
     fn round_start_lech_content_thi_bao_lo() {
-        let mut flow = RoomFlow::new(0);
+        let mut flow = flow_of_player();
         let mut start = round_start();
         start.content_sha256 = [2; 32];
         let error = flow
@@ -928,7 +985,7 @@ mod tests {
 
     #[test]
     fn round_start_lech_mode_thi_bao_lo() {
-        let mut flow = RoomFlow::new(0);
+        let mut flow = flow_of_player();
         let mut start = round_start();
         start.mode = "battle_team".into();
         let error = flow
@@ -939,7 +996,9 @@ mod tests {
 
     #[test]
     fn client_khong_trong_roster_thi_bao_lo() {
-        let mut flow = RoomFlow::new(5);
+        // Client có `account_id` = 9 nhưng roster chỉ có player 1 ⇒ không có mục nào của mình.
+        let mut flow = RoomFlow::new();
+        flow.set_my_player(9);
         let error = flow
             .on_round_start(round_start(), &expectation())
             .expect_err("client không có trong roster phải bị từ chối");
@@ -947,14 +1006,89 @@ mod tests {
             error,
             RoomError::NotInRoster {
                 round_id: 3,
-                slot: 5
+                player: Some(9)
             }
         );
     }
 
     #[test]
+    fn client_chua_dang_nhap_thi_bao_lo() {
+        // Chưa `AuthOk` thì client chưa biết mình là ai ⇒ không tra được roster.
+        let mut flow = RoomFlow::new();
+        let error = flow
+            .on_round_start(round_start(), &expectation())
+            .expect_err("client chưa đăng nhập phải bị từ chối");
+        assert_eq!(
+            error,
+            RoomError::NotInRoster {
+                round_id: 3,
+                player: None
+            }
+        );
+    }
+
+    #[test]
+    fn slot_tran_lay_tu_roster_theo_account_id() {
+        // Roster có hai người; client là player 2 ⇒ slot của client là slot 1 (không phải
+        // `Welcome.player_id`, vốn chỉ là định danh kết nối).
+        let mut flow = RoomFlow::new();
+        flow.set_my_player(2);
+        let mut start = round_start();
+        start.roster = vec![
+            RoundMember {
+                player: 1,
+                slot: 0,
+                character: RoomCharacter::C00,
+            },
+            RoundMember {
+                player: 2,
+                slot: 1,
+                character: RoomCharacter::C01,
+            },
+        ];
+        flow.on_round_start(start, &expectation())
+            .expect("phải nhận round");
+        assert_eq!(flow.my_slot(), Some(1));
+        assert_eq!(flow.my_player(), Some(2));
+    }
+
+    #[test]
+    fn room_state_chi_dung_de_tim_thanh_vien_theo_account_id() {
+        // Slot **trận** chỉ lấy từ `RoundStart.roster`; `RoomState.members` chỉ cho biết
+        // thành viên nào là mình (theo `account_id`).
+        let mut flow = RoomFlow::new();
+        flow.set_my_player(7);
+        flow.on_room_state(RoomState {
+            room_id: 1,
+            host: 3,
+            phase: RoomPhase::Waiting,
+            members: vec![
+                RoomMember {
+                    player: 3,
+                    slot: 0,
+                    character: RoomCharacter::C00,
+                    ready: true,
+                },
+                RoomMember {
+                    player: 7,
+                    slot: 1,
+                    character: RoomCharacter::C01,
+                    ready: false,
+                },
+            ],
+            round: None,
+        });
+        assert_eq!(flow.my_member().map(|member| member.player), Some(7));
+        assert_eq!(
+            flow.my_slot(),
+            None,
+            "chưa có `RoundStart` thì client chưa biết slot trận của mình"
+        );
+    }
+
+    #[test]
     fn request_id_tang_dan_va_gui_lai_duoc_dung_id() {
-        let mut flow = RoomFlow::new(0);
+        let mut flow = RoomFlow::new();
         let first = flow.command(RoomAction::Start);
         let second = flow.command(RoomAction::SetReady { ready: true });
         assert!(second.request > first.request, "request ID phải tăng dần");
@@ -965,7 +1099,7 @@ mod tests {
 
     #[test]
     fn chat_giu_toi_phan_tram() {
-        let mut flow = RoomFlow::new(0);
+        let mut flow = RoomFlow::new();
         for index in 0..(CHAT_HISTORY + 5) {
             flow.on_chat(RoomChatMessage {
                 room_id: 1,
@@ -984,7 +1118,8 @@ mod tests {
 
     #[test]
     fn is_host_dung_theo_host_cua_server() {
-        let mut flow = RoomFlow::new(0);
+        let mut flow = RoomFlow::new();
+        flow.set_my_player(9);
         assert!(!flow.is_host(), "chưa có phòng thì không phải host");
         flow.on_room_state(RoomState {
             room_id: 1,

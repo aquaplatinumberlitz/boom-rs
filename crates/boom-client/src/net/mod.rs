@@ -110,8 +110,16 @@ pub struct NetClient<W: Transport> {
     rules: Rules,
     mode: &'static dyn Mode,
     predictor: Option<Predictor>,
-    /// Slot người chơi do server cấp trong `Welcome`.
+    /// Slot trận của client: lấy từ mục `RoundStart.roster` có `player == account_id`.
+    ///
+    /// **Không** lấy từ `Welcome.player_id`: đó là định danh **kết nối**, không phải slot
+    /// trận (ADR 0009 Addendum B §B.2).
     player_slot: Option<u8>,
+    /// Định danh kết nối trong phiên (`Welcome.player_id`).
+    ///
+    /// Chỉ là thông tin nhận diện phiên: **không** dùng làm slot trận, không dùng làm định
+    /// danh người chơi trong phòng (đó là `AuthOk.account_id`).
+    connection_id: Option<u8>,
     /// `Welcome` nhận được (giữ `server_version`/`content_sha256` của server, ADR 0011 §8.3).
     welcome: Option<Welcome>,
     /// Kết quả `AuthOk`: tên hiển thị và hạn token (token không log, ADR 0011 §6).
@@ -176,12 +184,13 @@ impl<W: Transport> NetClient<W> {
             mode,
             predictor: None,
             player_slot: None,
+            connection_id: None,
             welcome: None,
             account: None,
             last_snapshot_seq: 0,
             snapshot_interval_ms: 0,
             events: Vec::new(),
-            room: RoomFlow::new(0),
+            room: RoomFlow::new(),
             local_content: None,
             auto: None,
             content_sha256: [0; 32],
@@ -196,14 +205,15 @@ impl<W: Transport> NetClient<W> {
     /// Handshake với server.
     pub fn handshake(&mut self, hello: &Hello) -> Result<Welcome, NetError> {
         let welcome = self.session.handshake(hello)?;
-        self.player_slot = Some(welcome.player_id);
+        // `Welcome.player_id` là **định danh kết nối** trong phiên, không phải slot trận:
+        // slot trận lấy từ `RoundStart.roster` theo `AuthOk.account_id`
+        // (ADR 0009 Addendum B §B.2).
+        self.connection_id = Some(welcome.player_id);
         self.snapshot_interval_ms = u64::from(welcome.snapshot_interval_ms.max(1));
         self.welcome = Some(welcome.clone());
         // Fingerprint client dùng để kiểm `RoundStart`: đúng những gì client khai ở handshake.
         self.content_sha256 = hello.content_sha256;
         self.profile_id = hello.rules_profile_id.clone();
-        // Slot của client do server cấp: cùng id người chơi trong state trận.
-        self.room.set_my_slot(welcome.player_id);
         Ok(welcome)
     }
 
@@ -219,6 +229,9 @@ impl<W: Transport> NetClient<W> {
         };
         let ok = self.session.authenticate(&auth)?;
         self.account = Some(ok.clone());
+        // Định danh người chơi trong phòng/round: `account_id` (server bind mọi trường `player`
+        // trên dây từ giá trị này — ADR 0009 Addendum B §B.2).
+        self.room.set_my_player(ok.account_id);
         Ok(ok)
     }
 
@@ -409,6 +422,32 @@ impl<W: Transport> NetClient<W> {
         self.session.send_lobby_list_request()
     }
 
+    /// Xin server gửi snapshot đầy đủ kế tiếp để **đồng bộ state** (ADR 0009 §4.3).
+    ///
+    /// Client dùng khi state confirmed có thể đã cũ hơn state server: vừa vào lượt (server
+    /// đã chạy qua vài tick trước khi client nhận `RoundStart`), vừa đổi phòng, hoặc nghi
+    /// ngờ lệch. Server trả snapshot của state hiện tại; client áp nó làm gốc dự đoán mới.
+    ///
+    /// `Err` khi client chưa biết round nào để xin (chưa có `RoundStart` lẫn snapshot).
+    ///
+    /// `#[allow(dead_code)]`: tầng UI chưa có nút resync; test end-to-end dùng để đồng bộ
+    /// gốc dự đoán của client với state hiện tại của server trước khi chơi.
+    #[allow(dead_code)]
+    pub fn request_snapshot(&mut self) -> Result<(), NetError> {
+        let round_id = self.current_round().or_else(|| {
+            self.room
+                .round()
+                .and_then(|plan| u32::try_from(plan.round_id).ok())
+        });
+        let Some(round_id) = round_id else {
+            return Err(NetError::Unexpected(
+                "chưa biết round nào để xin snapshot".into(),
+            ));
+        };
+        self.session
+            .request_snapshot(round_id, self.last_snapshot_seq)
+    }
+
     /// Gửi chat phòng; trả request ID đã dùng.
     ///
     /// Chat chỉ chuyển text, không chạy slash command (ADR 0009 Addendum B §B.2).
@@ -428,9 +467,23 @@ impl<W: Transport> NetClient<W> {
         self.current_round()
     }
 
-    /// Slot người chơi do server cấp.
+    /// Slot trận của client (mục `RoundStart.roster` có `player == account_id`).
+    ///
+    /// `None` = client chưa nhận `RoundStart` nên chưa biết slot của mình.
     pub fn player_slot(&self) -> Option<u8> {
         self.player_slot
+    }
+
+    /// Định danh kết nối trong phiên (`Welcome.player_id`).
+    ///
+    /// **Không** phải slot trận: slot trận lấy từ roster theo `account_id`
+    /// (ADR 0009 Addendum B §B.2).
+    ///
+    /// `#[allow(dead_code)]`: accessor này chỉ dùng để **chứng minh** client không lấy slot
+    /// từ `Welcome` (test end-to-end); tầng UI chưa cần hiển thị định danh kết nối.
+    #[allow(dead_code)]
+    pub fn connection_id(&self) -> Option<u8> {
+        self.connection_id
     }
 
     /// Round hiện tại: lấy từ predictor (nguồn duy nhất của state đã áp).
@@ -542,6 +595,9 @@ impl<W: Transport> NetClient<W> {
                 return Ok(());
             }
         };
+        // Slot trận của client: mục roster có `player == account_id` (không phải
+        // `Welcome.player_id` — đó là định danh kết nối).
+        self.player_slot = self.room.my_slot();
         // Dựng `World` cho round: ưu tiên nội dung cục bộ của client, không có thì để
         // `World` dựng từ snapshot (server là authority về lưới ô).
         match world_for_round(&plan, self.local_content.as_ref(), &self.rules, self.mode) {
@@ -651,6 +707,22 @@ impl<W: Transport> NetClient<W> {
     }
 
     fn apply_snapshot(&mut self, snapshot: boom_proto::Snapshot) -> Result<(), NetError> {
+        // Client chỉ áp snapshot của **round mình đã nhận `RoundStart`**:
+        //
+        // - Chưa có `RoundStart` ⇒ client chưa biết slot trận của mình (slot lấy từ
+        //   `RoundStart.roster` theo `account_id`, ADR 0009 Addendum B §B.2) ⇒ bỏ.
+        // - `round_id` khác round của kế hoạch ⇒ snapshot thuộc round khác (round cũ, hoặc
+        //   round mới mà `RoundStart` chưa tới) ⇒ bỏ.
+        //
+        // Bỏ chứ không phải lỗi: server gửi `RoundStart` rồi mới gửi snapshot, nhưng mạng có
+        // thể đảo thứ tự (`RoundStart` tới sau snapshot) và server còn gửi snapshot khi phòng
+        // chưa vào lượt. Client chờ snapshot kế tiếp của round mình đang chơi.
+        let Some(plan) = self.room.round() else {
+            return Ok(());
+        };
+        if u64::from(snapshot.round_id) != plan.round_id {
+            return Ok(());
+        }
         // Round mới: dựng lại predictor để `World` khớp content của round đó; snapshot của
         // round cũ tới trễ thì predictor tự bỏ (`SnapshotOutcome::OldRound`).
         let current_round = self.predictor.as_ref().and_then(Predictor::round_id);
@@ -661,7 +733,7 @@ impl<W: Transport> NetClient<W> {
         if rebuild {
             let Some(player) = self.player_slot else {
                 return Err(NetError::Unexpected(
-                    "chưa handshake nên chưa biết slot người chơi".into(),
+                    "chưa nhận RoundStart nên chưa biết slot người chơi trong trận".into(),
                 ));
             };
             // `World` từ nội dung cục bộ nếu có; không có thì dựng từ snapshot (map chưa có
@@ -681,9 +753,11 @@ impl<W: Transport> NetClient<W> {
         // không được làm lùi `ack_snapshot`.
         if let SnapshotOutcome::Applied { .. } = outcome {
             self.last_snapshot_seq = snapshot.snapshot_seq;
-            // Snapshot của round = bằng chứng server đã nhận `LoadingAck` (server chỉ gửi
-            // snapshot khi lượt đã bắt đầu, tức là loading barrier đã qua).
-            self.room.confirm_loading(u64::from(snapshot.round_id));
+            // Snapshot cho thấy lượt đã chạy là bằng chứng server đã nhận `LoadingAck`
+            // (loading barrier đã qua). Snapshot *trước lượt* (`tick == 0`) không phải bằng
+            // chứng: xem [`RoomFlow::confirm_loading`].
+            self.room
+                .confirm_loading(u64::from(snapshot.round_id), snapshot.tick);
         }
         Ok(())
     }

@@ -27,8 +27,9 @@ use boom_core::{
 use boom_net::{NetError, Transport};
 use boom_proto::dto::auth::{Auth, AuthOk};
 use boom_proto::{
-    Hello, InputBatch, InputRejectReason, InputRejected, ProtocolLimits, RoundEvent, Welcome,
-    decode_frame, encode_frame,
+    Hello, InputBatch, InputRejectReason, InputRejected, MessageKind, ProtocolLimits,
+    RoomCharacter, RoundEvent, RoundMember, RoundStart, Welcome, decode_frame, encode_frame,
+    read_envelope,
 };
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
 use boom_server::auth::{AuthConfig, AuthService};
@@ -417,9 +418,14 @@ fn round_duration_ms(rules: &Rules) -> u64 {
 pub struct ScheduledClient {
     /// Client mạng (đọc snapshot, gửi input).
     pub net: NetClient<ScheduledTransport>,
-    /// Người chơi trên server.
+    /// Định danh người chơi trong phòng/round (= `AuthOk.account_id`).
+    ///
+    /// Server bind mọi trường `player` trên dây từ giá trị này
+    /// (ADR 0009 Addendum B §B.2).
     pub player: PlayerId,
-    /// Slot của người chơi (id trong state).
+    /// Slot trận của người chơi (id trong state).
+    ///
+    /// Lấy từ `RoundStart.roster` theo `account_id` (xem [`ScheduledHarness::tick`]).
     pub slot: u8,
     /// Endpoint phía server của chiều client→server (nhận input).
     out_server: ScheduledTransport,
@@ -455,6 +461,10 @@ pub struct ScheduledHarness {
     start_positions: BTreeMap<PlayerId, (i32, i32)>,
     /// Mốc thời gian lúc lượt bắt đầu.
     origin_ms: u64,
+    /// Tên profile rules mà client khai ở handshake (đưa vào `RoundStart`).
+    profile_id: String,
+    /// Hash rules mà client khai ở handshake (đưa vào `RoundStart`).
+    rules_hash: u64,
     /// Số tick server đã chạy.
     ticks: u64,
     /// Tần số tick lấy từ rules profile.
@@ -524,7 +534,7 @@ impl ScheduledHarness {
         .expect("dịch vụ auth");
         let mut clients = Vec::new();
         let hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
-        for (index, player) in [PlayerId(1), PlayerId(2)].into_iter().enumerate() {
+        for index in 0..2 {
             let slot = u8::try_from(index).expect("slot");
             // Hai chiều tách riêng: client→server và server→client.
             let (client_writer, mut server_reader) =
@@ -589,6 +599,9 @@ impl ScheduledHarness {
                 thread::sleep(Duration::from_millis(1));
             };
             let auth_in: Auth = decode_frame(&frame, &ProtocolLimits::v1()).expect("decode auth");
+            // Đăng ký tài khoản thật (Argon2id + SQLite) rồi trả `AuthOk`: `account_id` cấp
+            // bởi store là **định danh người chơi trong phòng/round** mà server ghi vào mọi
+            // trường `player` trên dây (ADR 0009 Addendum B §B.2).
             let outcome = auth
                 .register(
                     &mut store,
@@ -601,11 +614,13 @@ impl ScheduledHarness {
                 .expect("đăng ký tài khoản");
             let success = outcome.success();
             let auth_ok = AuthOk {
-                account_id: u64::try_from(success.account_id.0).unwrap_or(0),
+                account_id: u64::try_from(success.account_id.0).expect("account id"),
                 display_name: success.display_name.clone(),
                 token: success.token.expose().clone(),
                 expires_at_ms: u64::try_from(success.expires_at_ms).unwrap_or(u64::MAX),
             };
+            // Định danh người chơi trong phòng/round = `account_id` (server bind từ phiên).
+            let player = PlayerId(auth_ok.account_id);
             server_writer
                 .send_frame(&encode_frame(&auth_ok, &ProtocolLimits::v1()).expect("encode auth ok"))
                 .expect("gửi auth ok");
@@ -638,6 +653,8 @@ impl ScheduledHarness {
             predicted_positions: BTreeMap::new(),
             start_positions: BTreeMap::new(),
             origin_ms: 0,
+            profile_id: profile.profile_id.clone(),
+            rules_hash: rules.profile_hash,
             ticks: 0,
             hz,
             snapshot_seq: 0,
@@ -653,7 +670,10 @@ impl ScheduledHarness {
 
     /// Dựng phòng, ready, start và qua loading barrier: lượt bắt đầu ở tick 0.
     pub fn start_round(&mut self) {
-        let host = PlayerId(1);
+        // Định danh người chơi trong phòng/round = `account_id` (server bind từ phiên),
+        // nên lấy đúng từ client đã đăng nhập.
+        let host = self.clients[0].player;
+        let guest = self.clients[1].player;
         let now = 0;
         self.authority
             .room_command(
@@ -671,7 +691,7 @@ impl ScheduledHarness {
         self.authority
             .room_command(
                 RoomCommand {
-                    player: PlayerId(2),
+                    player: guest,
                     request: RequestId(2),
                     action: RoomAction::Join {
                         room,
@@ -681,7 +701,7 @@ impl ScheduledHarness {
                 now,
             )
             .expect("join");
-        for (index, player) in [host, PlayerId(2)].into_iter().enumerate() {
+        for (index, player) in [host, guest].into_iter().enumerate() {
             self.authority
                 .room_command(
                     RoomCommand {
@@ -703,7 +723,11 @@ impl ScheduledHarness {
                 now,
             )
             .expect("start");
-        for player in [host, PlayerId(2)] {
+        // Gửi `RoundStart` cho mọi client **trước** khi qua loading barrier (server thật gửi
+        // `RoundStart` rồi mới chờ `LoadingAck`): client lấy slot trận của mình từ roster
+        // theo `account_id` (ADR 0009 Addendum B §B.2).
+        self.send_round_start();
+        for player in [host, guest] {
             self.authority
                 .ack_loading(player, now)
                 .expect("ack loading");
@@ -713,6 +737,46 @@ impl ScheduledHarness {
             if let Some(position) = self.authority.player_position(client.player) {
                 self.start_positions.insert(client.player, position);
             }
+        }
+    }
+
+    /// Gửi `RoundStart` (giống server thật) cho mọi client trong fixture.
+    ///
+    /// Roster lấy từ phòng của authority: `player` là **định danh người chơi** (`account_id`),
+    /// `slot` là slot trận do server bind.
+    fn send_round_start(&mut self) {
+        let view = self.authority.room_view().expect("có phòng");
+        let round = view.round.as_ref().expect("đã start");
+        let roster: Vec<RoundMember> = round
+            .members
+            .iter()
+            .map(|member| RoundMember {
+                player: member.player.0,
+                slot: member.slot.0,
+                character: match member.character {
+                    CharacterId::C00 => RoomCharacter::C00,
+                    CharacterId::C01 => RoomCharacter::C01,
+                },
+            })
+            .collect();
+        let start = RoundStart {
+            round_id: round.id.0,
+            seed: self.authority.round_seed().expect("có seed"),
+            rules_profile_id: self.profile_id.clone(),
+            rules_hash: self.rules_hash,
+            content_sha256: [0; 32],
+            map: "skeleton-test".to_owned(),
+            mode: "battle_ffa".to_owned(),
+            roster,
+            start_tick: self.authority.tick().unwrap_or(0),
+        };
+        let limits = ProtocolLimits::v1();
+        let frame = encode_frame(&start, &limits).expect("encode round start");
+        for client in &mut self.clients {
+            client
+                .in_server
+                .send_frame(&frame)
+                .expect("gửi round start");
         }
     }
 
@@ -728,6 +792,11 @@ impl ScheduledHarness {
             let confirmed_before = client.net.confirmed_state().map_or(0, |state| state.tick);
             client.net.pump(PUMP_TIMEOUT).expect("bơm message");
             client.events.extend(client.net.take_events());
+            // Slot trận của client: lấy từ `RoundStart.roster` theo `account_id` (client tự
+            // suy ra từ roster, không phải fixture gán sẵn — ADR 0009 Addendum B §B.2).
+            if let Some(slot) = client.net.player_slot() {
+                client.slot = slot;
+            }
             let confirmed_after = client.net.confirmed_state().map_or(0, |state| state.tick);
             if confirmed_after != confirmed_before && pending_before > 0 {
                 // Snapshot tới khi còn lệnh chưa ack: client phải tính lại dự đoán (correction).
@@ -767,6 +836,10 @@ impl ScheduledHarness {
             for client in &mut self.clients {
                 client.net.pump(PUMP_TIMEOUT).expect("bơm message");
                 client.events.extend(client.net.take_events());
+                // Slot trận của client lấy từ roster (xem [`ScheduledHarness::tick`]).
+                if let Some(slot) = client.net.player_slot() {
+                    client.slot = slot;
+                }
                 // Client không sinh lệnh mới nhưng vẫn gửi lại cửa sổ chưa ack (ADR 0009 §3.2).
                 client.net.resend().expect("gửi lại cửa sổ");
             }
@@ -887,6 +960,12 @@ impl ScheduledHarness {
         let limits = ProtocolLimits::v1();
         for client in &mut self.clients {
             while let Some(frame) = client.out_server.try_recv() {
+                // Client gửi nhiều kind trên cùng kênh (kể cả `LoadingAck` sau
+                // `RoundStart`): chỉ `InputBatch` mới là input trận, kind khác bỏ qua.
+                let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+                if envelope.kind != MessageKind::InputBatch {
+                    continue;
+                }
                 let batch: InputBatch = decode_frame(&frame, &limits).expect("decode input batch");
                 self.input_batches += 1;
                 for command in &batch.commands {
@@ -1017,14 +1096,27 @@ const ROOM_PUMP_TIMEOUT: Duration = Duration::from_millis(2);
 /// IP nguồn giả của kết nối trong fixture phòng (bucket rate limit theo nguồn, ADR 0011 §5).
 const ROOM_TEST_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
+/// Gốc định danh **kết nối** trong fixture phòng.
+///
+/// Fixture cố tình tách định danh kết nối khỏi định danh người chơi (`account_id`) để test
+/// chứng minh client không lấy slot trận từ `Welcome.player_id`
+/// (ADR 0009 Addendum B §B.2).
+const CONNECTION_ID_BASE: u64 = 1_000;
+
 /// Một client trong fixture phòng.
 pub struct RoomClient {
     /// Client mạng (đọc snapshot, gửi input, điều khiển phòng).
     pub net: NetClient<ScheduledTransport>,
-    /// Người chơi trên server.
+    /// Người chơi trên server = `AuthOk.account_id`.
+    ///
+    /// Đây là **định danh người chơi trong phòng/round**: mọi trường `player` trên dây
+    /// (`RoomState`, `RoundStart.roster`, `RoundResult`) mang giá trị này
+    /// (ADR 0009 Addendum B §B.2).
     pub player: PlayerId,
-    /// Slot của client (id người chơi trong state trận).
-    pub slot: u8,
+    /// Định danh **kết nối** trong phiên (khoá session phía server).
+    ///
+    /// **Không** phải slot trận: slot lấy từ `RoundStart.roster` theo `player`.
+    pub connection: PlayerId,
     /// Mạng chiều client→server (điều khiển đồng hồ).
     out_net: Arc<ScheduledNet>,
     /// Mạng chiều server→client (điều khiển đồng hồ).
@@ -1037,6 +1129,21 @@ impl RoomClient {
     /// Event đã nhận của client.
     pub fn events(&self) -> &[RoundEvent] {
         &self.events
+    }
+
+    /// Slot trận của client: mục `RoundStart.roster` có `player == account_id`.
+    ///
+    /// `None` = client chưa nhận `RoundStart` (chưa vào lượt).
+    pub fn slot(&self) -> Option<u8> {
+        self.net.player_slot()
+    }
+
+    /// Định danh kết nối trong phiên (`Welcome.player_id`).
+    ///
+    /// **Không** phải slot trận: slot lấy từ roster theo `account_id`
+    /// (ADR 0009 Addendum B §B.2).
+    pub fn connection_id(&self) -> Option<u8> {
+        self.net.connection_id()
     }
 }
 
@@ -1132,8 +1239,13 @@ impl RoomHarness {
         let mut handles = Vec::new();
         let mut identities = Vec::new();
         for index in 0..count {
-            let slot = u8::try_from(index).expect("slot");
-            let player = PlayerId(u64::try_from(index).expect("id") + 1);
+            // Định danh **kết nối** trong phiên: server dùng làm khoá session, **không** phải
+            // slot trận (ADR 0009 Addendum B §B.2).
+            let connection = PlayerId(u64::try_from(index).expect("id") + CONNECTION_ID_BASE);
+            // `Welcome.player_id` là định danh kết nối: fixture cố tình chọn giá trị **khác**
+            // slot trận (server bind slot từ roster theo `account_id`) để chứng minh client
+            // không lấy slot từ `Welcome`.
+            let connection_id = u8::try_from(index).expect("id") + 1;
             // Hai chiều tách riêng: client→server và server→client (giống cách server chia).
             let (client_writer, server_reader) =
                 ScheduledTransport::pair(seed.wrapping_add(index as u64));
@@ -1143,7 +1255,13 @@ impl RoomHarness {
             let in_net = client_reader.net();
             nets.push((Arc::clone(&out_net), Arc::clone(&in_net)));
             server
-                .accept(player, slot, ROOM_TEST_IP, server_reader, server_writer)
+                .accept(
+                    connection,
+                    connection_id,
+                    ROOM_TEST_IP,
+                    server_reader,
+                    server_writer,
+                )
                 .expect("accept");
             let client_rules = rules.clone();
             let client_hello = hello.clone();
@@ -1162,7 +1280,7 @@ impl RoomHarness {
                 net.authenticate(&credentials).expect("auth");
                 net
             }));
-            identities.push((player, slot));
+            identities.push(connection);
         }
         // Vòng IO của server phải chạy để trả `Welcome`/`AuthOk` cho client.
         let mut now_ms = 0u64;
@@ -1179,12 +1297,15 @@ impl RoomHarness {
         let mut clients = Vec::new();
         for (index, handle) in handles.into_iter().enumerate() {
             let net = handle.join().expect("join luồng client");
-            let (player, slot) = identities[index];
+            let connection = identities[index];
             let (out_net, in_net) = nets[index].clone();
+            // Định danh người chơi trong phòng/round = `AuthOk.account_id`: server bind mọi
+            // trường `player` trên dây từ giá trị này (ADR 0009 Addendum B §B.2).
+            let account_id = net.account().expect("client đã đăng nhập").account_id;
             clients.push(RoomClient {
                 net,
-                player,
-                slot,
+                player: PlayerId(account_id),
+                connection,
                 out_net,
                 in_net,
                 events: Vec::new(),
