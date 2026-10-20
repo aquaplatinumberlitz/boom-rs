@@ -50,9 +50,9 @@ use boom_content::bundle::{Bundle, BundleError, Clip, Frame, ROLE_OBJECT, ROLE_T
 use boom_content::map::{
     CellClassifier, CellIds, CellKind, MapGrid, MapProfile, MapProfileError, Terrain,
 };
-use boom_core::{Cell, SimulationState, World};
+use boom_core::{Cell, Life, SimulationState, World};
 
-use crate::anim::{self, FrameClock};
+use crate::anim::{self, PresentationClock};
 
 /// Hình chữ nhật pixel trong không gian logic của client.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -403,26 +403,32 @@ pub struct Plan {
 /// `clock` là nhịp phát frame: frame tiến theo **tick mô phỏng**, không theo đồng hồ
 /// wall clock (ADR 0004).
 ///
-/// `explosions` là sổ trình diễn: các vụ nổ core đã báo (`bomb_exploded`). Trong khoảng
+/// `journal` là sổ trình diễn (R-089): hiệu ứng nổ, chết, nhốt và mở đầu lượt. Trong khoảng
 /// clip, ô của bom vẽ clip nổ `explosion.main` đè lên lửa; hết khoảng clip thì ô đó
-/// về lại `flame.main` (BUNDLES §7.1, R-088).
+/// về lại `flame.main` (BUNDLES §7.1, R-088). Chuỗi chết phát trọn clip rồi giữ khung
+/// cuối có ảnh.
+///
+/// `clock` là **đồng hồ trình diễn**: tick của nó bằng `state.tick` khi mô phỏng còn chạy,
+/// và **tiến nốt** sau khi lượt kết thúc để chuỗi chết phát trọn clip (R-089). Frame chọn
+/// theo đồng hồ này, không theo đồng hồ wall clock (ADR 0004).
 ///
 /// # Panics
 ///
-/// Không panic: bundle thiếu clip hoặc frame không có ảnh thì đối tượng tương ứng
-/// được vẽ bằng ô màu thay thế và ID clip được ghi vào [`Plan::missing_clips`].
+/// Không panic: bundle thiếu clip thì đối tượng tương ứng được vẽ bằng ô màu thay thế và
+/// ID clip được ghi vào [`Plan::missing_clips`]; frame **có** clip nhưng không có ảnh
+/// (ảnh rỗng 0×0) thì đối tượng **không** được vẽ.
 #[must_use]
 pub fn presentation_plan(
     bundle: &Bundle,
     scene: &Scene,
     state: &SimulationState,
     world: &World,
-    clock: &FrameClock,
+    clock: &PresentationClock,
     previous: &BTreeMap<u8, (i32, i32)>,
-    explosions: &anim::ExplosionJournal,
+    journal: &anim::PresentationJournal,
 ) -> Plan {
     let tile_px = scene.tile_px;
-    let tick = state.tick;
+    let frames = frame_counts(bundle);
     let mut missing: Vec<String> = Vec::new();
     // (hàng, cột, thứ tự trong ô, lệnh vẽ)
     let mut items: Vec<(u16, u16, u8, PlanItem)> = Vec::new();
@@ -444,21 +450,18 @@ pub fn presentation_plan(
             .clips
             .iter()
             .find(|clip| clip.id == anim::FLAME_CLIP)
-            .map(|clip| anim::flame_frame(tick, clock, clip.frames.len()));
-        items.push((
-            row,
+            .map(|clip| anim::flame_frame(clock, clip.frames.len()));
+        if let Some(item) = clip_plan_item(
+            bundle,
+            anim::FLAME_CLIP,
+            frame,
             column,
-            ORDER_FLAME,
-            clip_plan_item(
-                bundle,
-                anim::FLAME_CLIP,
-                frame,
-                column,
-                row,
-                tile_px,
-                &mut missing,
-            ),
-        ));
+            row,
+            tile_px,
+            &mut missing,
+        ) {
+            items.push((row, column, ORDER_FLAME, item));
+        }
     }
 
     for bomb in &state.bombs {
@@ -467,70 +470,97 @@ pub fn presentation_plan(
             .clips
             .iter()
             .find(|clip| clip.id == anim::BOMB_CLIP)
-            .map(|clip| anim::bomb_frame(tick, clock, clip.frames.len()));
-        items.push((
-            row,
+            .map(|clip| anim::bomb_frame(clock, clip.frames.len()));
+        if let Some(item) = clip_plan_item(
+            bundle,
+            anim::BOMB_CLIP,
+            frame,
             column,
-            ORDER_BOMB,
-            clip_plan_item(
-                bundle,
-                anim::BOMB_CLIP,
-                frame,
-                column,
-                row,
-                tile_px,
-                &mut missing,
-            ),
-        ));
+            row,
+            tile_px,
+            &mut missing,
+        ) {
+            items.push((row, column, ORDER_BOMB, item));
+        }
     }
 
     for player in &state.players {
         let cell = world.cell_at(player.x, player.y);
         let (column, row) = cell_u16(cell.x, cell.y);
         let moving = anim::is_moving((player.x.0, player.y.0), previous.get(&player.id).copied());
-        let clip_id = anim::character_clip(
-            anim::character_of(player.id),
-            player.life,
-            player.facing,
-            moving,
-        );
-        let frame = bundle
-            .clips
-            .iter()
-            .find(|clip| clip.id == clip_id)
-            .map(|clip| anim::character_frame(player.life, tick, clock, clip.frames.len()));
-        items.push((
-            row,
-            column,
-            ORDER_CHARACTER,
-            clip_plan_item(bundle, &clip_id, frame, column, row, tile_px, &mut missing),
-        ));
+        let subject = anim::Subject::Player(player.id);
+        // Hiệu ứng đang phát trong sổ trình diễn (chết/nhốt/mở đầu lượt) được ưu tiên
+        // hơn clip theo state: chuỗi chết phát trọn clip rồi mới giữ khung cuối (R-089).
+        let (clip_id, frame) = match journal.active_for(subject, clock, &frames) {
+            Some(active) => {
+                let clip = anim::presentation_clip(active.kind, subject).unwrap_or_else(|| {
+                    anim::character_clip(
+                        anim::character_of(player.id),
+                        player.life,
+                        player.facing,
+                        moving,
+                    )
+                });
+                (clip, Some(active.frame))
+            }
+            None => {
+                let clip = anim::character_clip(
+                    anim::character_of(player.id),
+                    player.life,
+                    player.facing,
+                    moving,
+                );
+                let frame = match player.life {
+                    // Nhân vật **chết**: giữ khung cuối **có ảnh** của clip chết. Khung
+                    // cuối của clip chết trỏ ảnh rỗng 0×0 (dữ liệu thật của client gốc)
+                    // nên nhân vật chết **không được vẽ** thành ô màu (R-089, BUNDLES §7.1).
+                    Life::Dead => last_visible_frame(bundle, &clip),
+                    // Còn sống (đi/đứng) hoặc bị nhốt: frame lặp theo tick mô phỏng.
+                    _ => {
+                        let count = clip_frame_count(bundle, &clip);
+                        (count > 0).then(|| anim::character_loop_frame(clock, count))
+                    }
+                };
+                (clip, frame)
+            }
+        };
+        if let Some(item) =
+            clip_plan_item(bundle, &clip_id, frame, column, row, tile_px, &mut missing)
+        {
+            items.push((row, column, ORDER_CHARACTER, item));
+        }
     }
 
     // Hiệu ứng nổ: phát tại ô bom khi core báo nổ (`bomb_exploded`), trong khoảng
     // clip; hết khoảng clip thì ô đó về lại lửa. Đẩy **sau** lửa nên vẽ đè lên lửa
     // ở cùng ô (BUNDLES §7.1, R-088).
-    if let Some(clip) = bundle
+    //
+    // Bundle không có clip nổ ⇒ không có hiệu ứng nổ để vẽ (không vẽ ô màu: ô đó
+    // vẫn có lửa, đúng R-088).
+    if bundle
         .clips
         .iter()
-        .find(|clip| clip.id == anim::EXPLOSION_CLIP)
+        .any(|clip| clip.id == anim::EXPLOSION_CLIP)
     {
-        for (cell, frame) in explosions.active(tick, clock, clip.frames.len()) {
+        for active in journal.active(clock, &frames) {
+            if active.kind != anim::PresentationKind::Explosion {
+                continue;
+            }
+            let anim::Subject::Cell(cell) = active.subject else {
+                continue;
+            };
             let (column, row) = cell_u16(cell.x, cell.y);
-            items.push((
-                row,
+            if let Some(item) = clip_plan_item(
+                bundle,
+                anim::EXPLOSION_CLIP,
+                Some(active.frame),
                 column,
-                ORDER_FLAME,
-                clip_plan_item(
-                    bundle,
-                    anim::EXPLOSION_CLIP,
-                    Some(frame),
-                    column,
-                    row,
-                    tile_px,
-                    &mut missing,
-                ),
-            ));
+                row,
+                tile_px,
+                &mut missing,
+            ) {
+                items.push((row, column, ORDER_FLAME, item));
+            }
         }
     }
 
@@ -546,6 +576,11 @@ pub fn presentation_plan(
 }
 
 /// Lệnh vẽ của một clip tại ô; ô màu thay thế khi bundle thiếu clip.
+///
+/// `None` khi **không có gì để vẽ**: clip có trong bundle nhưng frame được chọn không
+/// có ảnh (ảnh rỗng 0×0) — đối tượng **không** được vẽ thành ô màu (BUNDLES §7.1,
+/// R-089). Clip **thiếu** trong bundle thì vẽ ô màu thay thế và ghi tên clip vào
+/// [`Plan::missing_clips`] để client cảnh báo.
 fn clip_plan_item(
     bundle: &Bundle,
     clip_id: &str,
@@ -554,34 +589,22 @@ fn clip_plan_item(
     row: u16,
     tile_px: u32,
     missing: &mut Vec<String>,
-) -> PlanItem {
-    let Some(index) = frame else {
-        note_missing(clip_id, missing);
-        return PlanItem::Fallback {
-            clip: clip_id.to_owned(),
-            rect: fallback_rect(column, row, tile_px),
-        };
-    };
+) -> Option<PlanItem> {
     let Some(clip) = bundle.clips.iter().find(|clip| clip.id == clip_id) else {
         note_missing(clip_id, missing);
-        return PlanItem::Fallback {
+        return Some(PlanItem::Fallback {
             clip: clip_id.to_owned(),
             rect: fallback_rect(column, row, tile_px),
-        };
+        });
     };
-    match clip_frame_item(bundle, clip, index, column, row, tile_px) {
-        Some(item) => PlanItem::Sprite {
-            clip: clip_id.to_owned(),
-            frame: index,
-            item,
-        },
-        // Frame không có ảnh (ảnh rỗng 0×0) thì không có gì để vẽ, nhưng clip vẫn có
-        // mặt nên không coi là thiếu.
-        None => PlanItem::Fallback {
-            clip: clip_id.to_owned(),
-            rect: fallback_rect(column, row, tile_px),
-        },
-    }
+    let index = frame?;
+    // Frame không có ảnh (ảnh rỗng 0×0) thì không có gì để vẽ, nhưng clip vẫn có
+    // mặt nên không coi là thiếu.
+    clip_frame_item(bundle, clip, index, column, row, tile_px).map(|item| PlanItem::Sprite {
+        clip: clip_id.to_owned(),
+        frame: index,
+        item,
+    })
 }
 
 /// Ghi lại clip thiếu (không trùng lặp) để client cảnh báo.
@@ -650,10 +673,60 @@ fn cell_u16(x: i32, y: i32) -> (u16, u16) {
     )
 }
 
+/// Số frame của mỗi clip trong bundle — bảng tra của sổ trình diễn.
+///
+/// Sổ trình diễn không biết bundle: caller đưa vào bảng số frame theo clip ID, nên đổi
+/// bundle không phải sửa sổ (R-089).
+#[must_use]
+pub fn frame_counts(bundle: &Bundle) -> anim::FrameCounts {
+    let mut counts = anim::FrameCounts::default();
+    for clip in &bundle.clips {
+        counts.set(&clip.id, clip.frames.len());
+    }
+    counts
+}
+
+/// Số frame của một clip trong bundle (0 nếu bundle không có clip đó).
+#[must_use]
+pub fn clip_frame_count(bundle: &Bundle, clip_id: &str) -> usize {
+    bundle
+        .clips
+        .iter()
+        .find(|clip| clip.id == clip_id)
+        .map_or(0, |clip| clip.frames.len())
+}
+
+/// Khung cuối **có ảnh** của một clip; `None` nếu clip không có trong bundle hoặc
+/// mọi frame đều trỏ ảnh rỗng 0×0.
+///
+/// Clip chết của pack KR 00967 kết thúc bằng **ảnh rỗng 0×0** (dữ liệu thật của
+/// client gốc), nên nhân vật chết giữ khung cuối **có ảnh** để còn thấy xác, không
+/// vẽ thành ô màu (R-089, BUNDLES §7.1).
+#[must_use]
+pub fn last_visible_frame(bundle: &Bundle, clip_id: &str) -> Option<usize> {
+    let clip = bundle.clips.iter().find(|clip| clip.id == clip_id)?;
+    let sprite = bundle
+        .sprites
+        .iter()
+        .find(|sprite| sprite.id == clip.sprite)?;
+    clip.frames
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(index, frame)| {
+            let image = sprite.images.get(frame.image as usize)?;
+            if image.width == 0 || image.height == 0 {
+                return None;
+            }
+            image.page?;
+            Some(index)
+        })
+}
+
 /// Clip V1 mà client cần; bundle thiếu thì client vẽ ô màu thay thế.
 ///
 /// Danh sách lấy từ bảng clip của V1 (R-077/R-078) cho hai nhân vật C00/C01, cộng
-/// clip bom, clip lửa và clip nổ.
+/// clip bom, clip lửa và clip của sổ trình diễn (nổ, chết, nhốt, mở đầu lượt — R-089).
 #[must_use]
 pub fn required_clip_ids() -> Vec<String> {
     let mut ids = Vec::new();
@@ -663,12 +736,11 @@ pub fn required_clip_ids() -> Vec<String> {
             ids.push(format!("{key}.walk.{direction}.static"));
         }
         ids.push(format!("{key}.idle.blink.static"));
-        ids.push(format!("{key}.trapped.static"));
-        ids.push(format!("{key}.dead.static"));
     }
+    // Clip của sổ trình diễn: chết, nhốt, mở đầu lượt và nổ.
+    ids.extend(anim::presentation_clip_ids());
     ids.push(anim::BOMB_CLIP.to_owned());
     ids.push(anim::FLAME_CLIP.to_owned());
-    ids.push(anim::EXPLOSION_CLIP.to_owned());
     ids
 }
 
@@ -807,14 +879,14 @@ mod tests {
     };
     use boom_content::rules::Source;
     use boom_core::{
-        Bomb, CharacterStats, EntityId, Flame, PlayerSetup, Rules, SimulationState, Stat, World,
-        mode_by_id,
+        Bomb, CharacterStats, EntityId, EventId, EventKind, Flame, PlayerSetup, Rules,
+        SimulationEvent, SimulationState, Stat, World, mode_by_id,
     };
 
     const TILE: u32 = 40;
 
     /// Nhịp test: 33 Hz, frame 100 ms (như profile dev V1).
-    const CLOCK: FrameClock = FrameClock {
+    const CLOCK: crate::anim::FrameClock = crate::anim::FrameClock {
         frame_ms: 100,
         ticks_per_second: 33,
     };
@@ -1229,9 +1301,41 @@ mod tests {
         SimulationState::new_round(world, &roster, 7).expect("lượt")
     }
 
-    /// Sổ trình diễn rỗng: chưa có vụ nổ nào.
-    fn empty_journal() -> anim::ExplosionJournal {
-        anim::ExplosionJournal::default()
+    /// Đồng hồ trình diễn tại tick của state test.
+    fn clock_at(tick: u32) -> PresentationClock {
+        PresentationClock::new(CLOCK, tick)
+    }
+
+    /// Sổ trình diễn rỗng: chưa có hiệu ứng nào.
+    fn empty_journal() -> anim::PresentationJournal {
+        anim::PresentationJournal::new(0)
+    }
+
+    /// Event server đã xác nhận (nổ/chết/nhốt) để đưa vào sổ trình diễn.
+    fn event(tick: u32, seq: u16, kind: EventKind) -> SimulationEvent {
+        SimulationEvent {
+            id: EventId { tick, seq },
+            kind,
+        }
+    }
+
+    /// Vụ nổ của bom ở `cell`.
+    fn explosion_event(tick: u32, seq: u16, cell: boom_core::Cell) -> SimulationEvent {
+        event(
+            tick,
+            seq,
+            EventKind::BombExploded {
+                bomb: EntityId(1),
+                owner: 0,
+                cell,
+                chained: false,
+            },
+        )
+    }
+
+    /// Nhân vật `player` chết.
+    fn died_event(tick: u32, seq: u16, player: u8) -> SimulationEvent {
+        event(tick, seq, EventKind::PlayerDied { player, by: None })
     }
 
     /// Nghiệm thu V1-031 (không GPU): state core → clip/frame đúng cho đi, đứng,
@@ -1251,7 +1355,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &previous,
             &empty_journal(),
         );
@@ -1274,7 +1378,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &empty_journal(),
         );
@@ -1306,7 +1410,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &previous,
             &empty_journal(),
         );
@@ -1351,7 +1455,7 @@ mod tests {
         });
         // Core báo nổ ở tick 10 ⇒ hiệu ứng nổ bắt đầu từ tick đó.
         let mut journal = empty_journal();
-        journal.record(bomb_cell, 10);
+        assert!(journal.record_event(&explosion_event(10, 0, bomb_cell)));
 
         // Tick ngay sau event: ô đó vẽ clip nổ (đè lên lửa) và vẫn vẽ lửa.
         state.tick = 11;
@@ -1360,7 +1464,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1404,7 +1508,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1440,7 +1544,7 @@ mod tests {
             owner: 0,
         });
         let mut journal = empty_journal();
-        journal.record(bomb_cell, 10);
+        assert!(journal.record_event(&explosion_event(10, 0, bomb_cell)));
         state.tick = 11;
 
         let plan = presentation_plan(
@@ -1448,7 +1552,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1485,7 +1589,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &empty_journal(),
         );
@@ -1508,6 +1612,144 @@ mod tests {
                 width: TILE,
                 height: TILE
             }
+        );
+    }
+
+    /// Bundle có clip chết của pack: khung cuối trỏ **ảnh rỗng 0×0**.
+    ///
+    /// Dữ liệu thật của client gốc (R-086) — nhân vật chết phải giữ khung cuối **có
+    /// ảnh**, không phải ô màu.
+    fn bundle_with_dead_clip() -> Bundle {
+        let mut bundle = clip_bundle();
+        let sprite = bundle
+            .sprites
+            .iter_mut()
+            .find(|sprite| sprite.id == "c00")
+            .expect("sprite c00");
+        sprite.images.push(SpriteImage {
+            index: 1,
+            page: Some(0),
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            pixel_sha256: "22".repeat(32),
+        });
+        let dead = bundle
+            .clips
+            .iter_mut()
+            .find(|clip| clip.id == "c00.dead.static")
+            .expect("clip chết");
+        dead.frames.last_mut().expect("khung cuối").image = 1;
+        bundle
+    }
+
+    /// Nghiệm thu V1-031 (không GPU): chuỗi chết phát trọn clip rồi nhân vật chết giữ
+    /// khung cuối **có ảnh** (không vẽ thành ô màu) — R-089.
+    #[test]
+    fn plan_plays_the_death_clip_then_holds_the_last_visible_frame() {
+        let bundle = bundle_with_dead_clip();
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        // Nhân vật chết (core đã báo event `player_died`).
+        state.players[0].life = Life::Dead;
+        // Sổ trình diễn có event chết ở tick 10 ⇒ chuỗi chết bắt đầu từ tick đó.
+        let mut journal = empty_journal();
+        assert!(journal.record_event(&died_event(10, 0, 0)));
+
+        let frame_of_dead = |plan: &Plan| {
+            plan.items.iter().find_map(|item| match item {
+                PlanItem::Sprite { clip, frame, .. } if clip == "c00.dead.static" => Some(*frame),
+                _ => None,
+            })
+        };
+        let has_fallback_of_dead = |plan: &Plan| {
+            plan.items.iter().any(
+                |item| matches!(item, PlanItem::Fallback { clip, .. } if clip == "c00.dead.static"),
+            )
+        };
+
+        // Trong khoảng clip: nhân vật chết vẽ clip chết theo frame của sổ trình diễn.
+        state.tick = 11;
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &clock_at(state.tick),
+            &BTreeMap::new(),
+            &journal,
+        );
+        assert_eq!(
+            frame_of_dead(&plan),
+            Some(0),
+            "chuỗi chết bắt đầu ở frame 0"
+        );
+        assert!(!has_fallback_of_dead(&plan), "nhân vật chết không vẽ ô màu");
+
+        // Hết khoảng clip (14 frame × 100 ms ≈ 14 × 3,3 tick): giữ khung cuối **có
+        // ảnh** của clip chết (khung cuối trong pack là ảnh rỗng 0×0).
+        state.tick = 10 + 14 * 4;
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &clock_at(state.tick),
+            &BTreeMap::new(),
+            &journal,
+        );
+        assert_eq!(
+            frame_of_dead(&plan),
+            Some(12),
+            "giữ khung cuối có ảnh của clip chết"
+        );
+        assert!(!has_fallback_of_dead(&plan), "nhân vật chết không vẽ ô màu");
+    }
+
+    /// Nhân vật chết mà clip chết **không có** khung nào có ảnh ⇒ không vẽ gì
+    /// (không phải ô màu) — BUNDLES §7.1.
+    #[test]
+    fn dead_character_without_any_visible_frame_is_not_drawn() {
+        let mut bundle = bundle_with_dead_clip();
+        // Mọi khung của clip chết trỏ ảnh rỗng.
+        let dead = bundle
+            .clips
+            .iter_mut()
+            .find(|clip| clip.id == "c00.dead.static")
+            .expect("clip chết");
+        for frame in &mut dead.frames {
+            frame.image = 1;
+        }
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        state.players[0].life = Life::Dead;
+        state.tick = 11;
+
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &clock_at(state.tick),
+            &BTreeMap::new(),
+            &empty_journal(),
+        );
+        let dead_items: Vec<&PlanItem> = plan
+            .items
+            .iter()
+            .filter(|item| match item {
+                PlanItem::Sprite { clip, .. } | PlanItem::Fallback { clip, .. } => {
+                    clip == "c00.dead.static"
+                }
+                PlanItem::Object(_) => false,
+            })
+            .collect();
+        assert!(
+            dead_items.is_empty(),
+            "nhân vật chết không có ảnh thì không vẽ: {dead_items:?}"
         );
     }
 }
