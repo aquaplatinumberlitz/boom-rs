@@ -52,8 +52,8 @@ Quy tắc:
 - `LICENSES` gồm 4 phần (sinh bởi `tools/check_package.py licenses`):
   1. **Toàn văn** mỗi license SPDX dùng trong đồ thị phụ thuộc (MIT, Apache-2.0, …),
      lấy nguyên văn từ file `LICENSE*`/`COPYING*` trong nguồn crate của cargo registry
-     lúc build (không tải mạng, không tự chép văn bản license); file nguồn phải **đủ
-     điều khoản** của license đó mới được coi là toàn văn (không chỉ tin tên file);
+     lúc build (không tải mạng, không tự chép văn bản license); file nguồn phải khớp
+     **mẫu toàn văn chuẩn** của license đó ở mọi điều khoản (không chỉ tin tên file);
   2. **Bảng crate**: tên · phiên bản · license (SPDX) · license dùng khi phân phối ·
      kho mã nguồn;
   3. **Bản quyền từng crate**: file license crate đó kèm trong nguồn registry + các
@@ -105,10 +105,18 @@ python3 tools/check_package.py test                             # tự kiểm sc
 
 `licenses` kiểm nguồn trước khi sinh `LICENSES`:
 
-- **xác minh toàn văn theo nội dung**: một file chỉ là toàn văn license khi nội dung có
-  đủ điều khoản của license đó (đối chiếu văn bản SPDX chuẩn, xem `LICENSE_CLAUSES`
-  trong `tools/check_package.py`); so khớp bỏ qua khác biệt xuống dòng. Tên file chỉ
-  dùng để **đối chiếu**, không đủ để kết luận;
+- **xác minh toàn văn theo nội dung**: một file chỉ là toàn văn license khi nội dung khớp
+  **mẫu toàn văn chuẩn** của license đó ở **mọi điều khoản** (đối chiếu từng câu, xem
+  `LICENSE_TEMPLATES` trong `tools/check_package.py`; mẫu nằm ở
+  `tools/fixtures/licenses/`); so khớp bỏ qua khác biệt xuống dòng, dấu câu, hoa/thường.
+  Tên file chỉ dùng để **đối chiếu**, không đủ để kết luận. Vì đối chiếu **toàn văn**:
+  - file **mất một điều khoản** (vd MIT bỏ câu `shall be included in all copies or
+    substantial portions of the Software.`) → **không** còn là toàn văn;
+  - file chỉ có **tiêu đề mục** (vd Apache-2.0 chỉ có `1. Definitions.` …) → **không**
+    phải toàn văn;
+  - **biến thể hợp lệ** vẫn được chấp nhận: crate thêm/bớt ít từ so với văn bản chuẩn
+    (vd mục 3 BSD-3-Clause thay `the copyright holder` bằng tên chủ bản quyền thật, MIT
+    thêm `(including the next paragraph)`) → vẫn là toàn văn;
 - **bác bỏ file không xác minh được**: file rỗng, file bị cắt cụt, file tên khai
   `LICENSE-MIT` nhưng chứa license khác → công cụ in lỗi (nêu crate + tên file) và
   **không sinh gói**; không dùng văn bản tự chép để lấp chỗ trống;
@@ -120,8 +128,8 @@ Tự kiểm (`test`) dựng gói mẫu rồi kiểm: gói hợp lệ → đạt;
 `.map`, `bundle.toml`) → **bắt được**, nêu đúng đường dẫn; thiếu `LICENSES`/`OFL.txt`/
 binary → báo thiếu; toàn văn license đủ điều khoản → nhận đúng; file rỗng/cụt/sai nhãn →
 **bị bác bỏ** và báo lỗi; dòng bản quyền không ghi năm → còn trong `LICENSES`. Toàn văn
-license dùng làm dữ liệu vào nằm ở `tools/fixtures/licenses/` (nguyên văn, có SHA-256
-trong README của thư mục).
+license dùng làm **mẫu đối chiếu** và dữ liệu vào nằm ở `tools/fixtures/licenses/`
+(nguyên văn, có SHA-256 + nguồn trong README của thư mục).
 
 ## 4. Dựng bundle từ pack của bạn
 
@@ -264,8 +272,9 @@ bin/boom-server --help    # danh sách lệnh
 - Chưa có installer; gói là thư mục giải nén được, chạy bằng binary trong `bin/`.
 - `LICENSES` có **toàn văn** license SPDX của crate phụ thuộc, nhưng toàn văn được lấy
   từ file license của crate nguồn lúc build (không tải mạng): phần đầu/bản quyền có thể
-  khác câu chữ so với bản SPDX chuẩn. File nguồn được xác minh **đủ điều khoản** của
-  license tương ứng (không chỉ tin tên file); file không xác minh được thì công cụ báo
+  khác câu chữ so với bản SPDX chuẩn. File nguồn được xác minh bằng cách khớp **mẫu
+  toàn văn chuẩn** ở mọi điều khoản (không chỉ tin tên file, không chỉ khớp câu đầu hay
+  tiêu đề mục); file không xác minh được thì công cụ báo
   lỗi và không sinh gói. Crate **của chính dự án** (`boom-*`) chưa khai `license` trong
   `Cargo.toml` nên không có trong `LICENSES`; chọn license cho dự án là việc của
   integrator, chưa làm ở V1-036 phần 2.
