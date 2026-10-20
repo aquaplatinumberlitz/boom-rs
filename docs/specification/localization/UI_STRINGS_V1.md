@@ -253,11 +253,19 @@ review ảnh có cả `kr` và `vn`); phần chưa đọc rõ thì ghi rõ là c
 tên** ghi `diff_bytes` là phép so **byte** của hai build — byte khác **không** chứng minh chữ
 khác, nên không dùng phép này để suy ra ngôn ngữ hay nghĩa của chữ.
 
+Ảnh nền đọc ở §3 nằm trong cache review ảnh nhưng là **JPEG** (không phải sprite I16), nên
+đã đối chiếu thêm: PNG cache **giống hệt pixel** blob trích từ pack (đo 2026-10-20, đối chiếu
+lại 2026-10-21: 6/6 ảnh khớp từng pixel, RGB 800×600, cả KR lẫn VN —
+`boom-assets pack-extract /home/admin/boomkr-full <stem> <entry> <out>`
+với `/home/admin/boom-re/assets/fx/{LoginStage,Lobby,Prepare}/CAStage.bin`; ảnh lấy theo
+`l10n/.cache/image-review/manifest.json`). Vì vậy chữ đọc trên ảnh cache là bằng chứng cho
+blob trong pack, không phải cho ảnh của cache.
+
 | Asset (pack:entry) | Kích thước | Trạng thái dùng | Chữ trên ảnh (bằng chứng) | VN cùng tên | Ghi chú review |
 |---|---|---|---|---|---|
-| `FxDesktop:LoginStage/CAStage` | 800×600 JPEG | `excluded` (`login.background`) | KR: lời thoại tiếng Hàn + huy hiệu Nexon (ô "N" góc trên); VN: logo Boom + dòng bản quyền "Copyright (C) 2001 Nexon Networks, All Rights Reserved" (tiếng Anh, **không** có chữ Việt) | `diff_bytes` | **Không dùng nguyên trạng**: nền là JPEG nên bộ giải mã bundle không đọc được, và ảnh có huy hiệu Nexon/bản quyền → V1 dựng nền bằng màu, chữ lấy từ catalog |
-| `FxStage:Lobby/CAStage` | 800×600 JPEG | `excluded` (`lobby.background`) | KR: hai tab "대결 모드" / "상이 모드" + nhãn "레벨"; VN: "ĐẠI CHIẾN" / "NHIỆM VỤ" + "NGƯỜI CHƠI" | `diff_bytes` | Chữ nằm trong ảnh nền; tab chế độ ngoài scope V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
-| `FxMap:Prepare/CAStage` | 800×600 JPEG | `excluded` (`room.background`) | KR: nhãn "방" (phòng), "던전" (dungeon), "게임디테일" (game detail) và nút "자동 준비" (auto-ready); VN: "NHÂN VẬT", "CHỌN ĐỔI", "BẢN ĐỒ" và nút "TỰ ĐỒNG" | `diff_bytes` | Auto-ready ngoài scope FFA V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxDesktop:LoginStage/CAStage` | 800×600 JPEG | `excluded` (`login.background`) | KR: lời thoại tiếng Hàn + biểu tượng "ALL"/"전체이용가" (góc trên phải); VN: logo Boom + dòng bản quyền tiếng Anh ở góc dưới phải (ghi "NexonKorea Corporation"; **không** có chữ Việt) | `diff_bytes` | **Không dùng nguyên trạng**: nền là JPEG nên bộ giải mã bundle không đọc được, và ảnh có bản quyền/lời thoại → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxStage:Lobby/CAStage` | 800×600 JPEG | `excluded` (`lobby.background`) | KR: hai tab "대전 모드" / "몬스터 모드" + nhãn "레벨"; VN: "ĐẠI CHIẾN" / "NHIỆM VỤ" + "NGƯỜI CHƠI" | `diff_bytes` | Chữ nằm trong ảnh nền; tab chế độ ngoài scope V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxMap:Prepare/CAStage` | 800×600 JPEG | `excluded` (`room.background`) | KR: nhãn "캐릭터선택" (chọn nhân vật), "팀선택" (chọn đội), "맵" (bản đồ) và nút "자동 준비" (auto-ready); VN: "NHÂN VẬT", "CHỌN ĐỔI", "BẢN ĐỒ" và nút "TỰ ĐỒNG" | `diff_bytes` | Auto-ready ngoài scope FFA V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
 | `FxStage:Lobby/LB_Bt_T_Create-NM` | 92×495 (9 frame) | `needs_review_text` (`lobby.create`) | Có chữ Hàn (방만들기); VN: "TẠO PHÒNG" | `diff_bytes` | Ảnh nút có chữ; nếu dùng phải duyệt `translated`, nếu không thì render text từ catalog |
 | `FxStage:Lobby/Dlg_LB-NMCreate` | 414×455 | `needs_review_text` (`lobby.create_dialog`) | Tiêu đề "방만들기" nằm trong ảnh; VN: "TẠO PHÒNG" | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
 | `FxMap:Prepare/PRE_Bt_Ready` | 193×342 (6 frame) | `needs_review_text` (`room.ready`) | Có chữ Hàn (준비); VN: "SẴN SÀNG" | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
@@ -424,7 +432,7 @@ Số đếm khóa thiếu text do tool sinh nằm ở [§6.1](#61-báo-cáo-khó
 | Fallback chain chưa bundle (`Noto Sans`, `Noto Sans KR`) | Placeholder `⟨khóa⟩` hiện hộp báo thiếu ở `⟨`/`⟩`; tên riêng chữ Hàn chưa vẽ được | Bundle thêm font fallback (OFL) hoặc chốt hiển thị thay thế; chưa có task |
 | Chưa có golden ảnh theo khung 800×600/1920×1080 | Chưa chứng minh được UI scale ở các độ phân giải | Thuộc phần UI (#103): golden layout đã có ở `boom-client::text`, còn golden theo khung cần màn hình |
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
-| Nền login/lobby/prepare là JPEG 800×600 có chữ và nhãn ngoài scope | V1-032 không đưa nền vào atlas: bộ giải mã bundle chỉ đọc sprite I16, và ảnh có huy hiệu Nexon/tab chế độ/auto-ready | V1 dựng nền bằng màu, chữ lấy từ catalog (đã ghi ở §3); muốn dùng ảnh nền thì cần bộ giải mã JPEG + bản ảnh đã che chữ (quyết định kiến trúc, thuộc integrator) |
+| Nền login/lobby/prepare là JPEG 800×600 có chữ và nhãn ngoài scope | V1-032 không đưa nền vào atlas: bộ giải mã bundle chỉ đọc sprite I16, và ảnh có tab chế độ/auto-ready | V1 dựng nền bằng màu, chữ lấy từ catalog (đã ghi ở §3); muốn dùng ảnh nền thì cần bộ giải mã JPEG + bản ảnh đã che chữ (quyết định kiến trúc, thuộc integrator) |
 | Màn kết quả chỉ có art `Win/Lose/Draw` (đều `needs_review_text`) và icon ngón cái | V1-032 không dead end ở result: cột Hạng/Người chơi/Kết quả vẽ bằng text từ catalog | Duyệt ảnh kết quả; nếu cần art khác thì bổ sung asset vào evidence trước khi dùng |
 | Golden focus/scale chưa có | Chưa chứng minh được V1-035 cho focus và scale | Golden layout (wrap ở 1×/2×) đã có ở `boom-client::text` (§5.2.1); còn golden ảnh theo khung và focus → tạo sau khi client có renderer |
 
