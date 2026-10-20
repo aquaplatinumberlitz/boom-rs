@@ -1,8 +1,8 @@
-# Ca biên R-049: đi lại trong ô bom nhưng chưa vượt biên thì chưa mất grace,
+# Ca biên R-107: đi lại trong ô bom mà hộp vẫn chồng ô bom thì chưa mất `grace`,
 # nên vẫn đi ra được ở lần đi tiếp theo.
-name = "Grace chỉ mất khi rời hẳn ô bom"
+name = "Grace chỉ mất khi hộp rời hẳn ô bom"
 features = ["V1-012"]
-claims = ["R-049"]
+claims = ["R-049", "R-107"]
 status = "active"
 ticks = 70
 map = [
@@ -39,7 +39,7 @@ tick = 10
 player = 0
 dir = "right"
 
-# Đi qua lại trong ô (1,1) rồi về tâm ô, chưa rời ô nên grace còn.
+# Đi qua lại trong ô (1,1) rồi về tâm ô, hộp vẫn chồng ô bom nên grace còn.
 [[expect]]
 tick = 10
 player = 0
@@ -50,7 +50,8 @@ tick = 10
 at = [1, 1]
 bomb = true
 
-# Vẫn rời ô được sau đó và tới tâm ô (4,1).
+# Vẫn rời ô được sau đó và tới x = 180 px (hộp đã rời hẳn ô bom nên grace mất, nhưng
+# người chơi đã ở ngoài ô bom).
 [[expect]]
 tick = 70
 player = 0

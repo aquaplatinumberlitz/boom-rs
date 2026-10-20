@@ -1,0 +1,43 @@
+# R-107: lệch quá phạm vi bám góc (`player.corner_assist_px` = 12 px) thì không bám: người chơi
+# lệch 14 px dưới tâm hàng 1 bị khối cứng (2,2) chặn và đứng yên.
+#
+# Hàng 1 có tâm ở y = 60 px; người chơi đi xuống 7 tick (2 px/tick) nên lệch 14 px (y = 74 px).
+name = "Lệch quá phạm vi bám góc thì đứng yên, không trượt qua khối cứng"
+features = ["V1-011", "V1-012"]
+claims = ["R-107"]
+status = "active"
+ticks = 40
+map = [
+    "#####",
+    "#0..#",
+    "#.##.",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+dir = "down"
+
+[[input]]
+tick = 7
+player = 0
+dir = "right"
+
+# Lệch 14 px dưới tâm hàng 1: vượt phạm vi assist.
+[[expect]]
+tick = 7
+player = 0
+pos_mpx = [60000, 74000]
+
+# Sang phải tới mép hộp của cột 2 rồi bị khối cứng (2,2) chặn; không bám góc nên đứng yên.
+[[expect]]
+tick = 40
+player = 0
+pos_mpx = [66000, 74000]
