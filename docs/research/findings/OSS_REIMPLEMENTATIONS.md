@@ -3,7 +3,7 @@
 **Ngày truy cập**: 2026-10-19. **Target**: KR build 00967 (các repo dưới đây **không phải** build đó).
 
 Mục đích: tìm implementation độc lập để **đối chiếu hằng số gameplay** khi không có tài liệu chính thức.
-Đây là nguồn **third-party**, có thể đã cân bằng lại; mọi số là `candidate`, **không** thay spec/pack.
+Đây là nguồn **third-party**, có thể đã cân bằng lại; bằng chứng OSS vẫn là `candidate`; lựa chọn profile V1 theo ADR 0012 là `design`, không sửa pack.
 
 ## 1. Danh sách repo
 
@@ -150,3 +150,32 @@ server emulator có bảng chỉ số gốc. Các bài "service端 emulator / �
 | [SCNU-A225/CrazyArcade](https://github.com/SCNU-A225/CrazyArcade) | Java | đồ án, config tự đặt |
 | [dengzx7/BNB_Crazy_Arcade](https://github.com/dengzx7/BNB_Crazy_Arcade) | Python | đồ án pygame, không nêu nguồn số |
 | [h3llowoori/CrazyArcade](https://github.com/h3llowoori/CrazyArcade) | C++ | mô phỏng 2 tuần, không có bảng số |
+
+## 8. Đối chiếu lại và lựa chọn V1 — 2026-10-21
+
+Đã đọc lại clone chỉ đọc `/home/admin/boom-team/tmp/bnb`, `git rev-parse HEAD` =
+`5c108e8ad3ea07684d4666f60e6eec6c2f3e569e`.
+Nguồn ghim: [BnB tại SHA này](https://github.com/tpoisonooo/BnB/tree/5c108e8ad3ea07684d4666f60e6eec6c2f3e569e).
+Bản khảo sát 2026-10-19 không có SHA, không thể khẳng định repo không đổi giữa hai ngày.
+
+- `server/game.js:12–32`: tick 30 Hz, fuse 75, flame 15, trap 120, round 5400,
+  warmup 90 tick; drop 0,35; shoe +24 px/s; half=13, assist=12 px. Khớp số đã trích §2.
+- `server/map.js:7–9`: 40 px, 15×13. Layout là 海盗14, **không phải Village00**;
+  không nhập layout/spawn/mount vào V1.
+- `server/characters.js:17–27`: **giá trị chạy**, khác comment archive §4:
+  baobao speed 144→240, range 1→7, bombs 1→6;
+  haidao speed 120→216, range 2→7, bombs 1→8. 24 px/s/level ở dòng 15.
+- `server/game.js:401–451`: chain queue FIFO, hoãn xóa gạch tới hết queue,
+  lửa phá item cũ; roll khi phá gạch, không pre-roll đầu trận; lửa mới giảm TTL cùng tick.
+- `server/game.js:433–446`: potion/bubble/shoe = 28/20/16% trên **toàn** bảng.
+  V1 chỉ giữ ba loại, trọng số Bomb:Fire:Roller 20:28:16 (31,25/43,75/25% có điều kiện).
+- `server/game.js:540–595,616–646`: trap đứng yên, timer giảm cả tick vừa nhốt;
+  timeout trước touch strict <28 px mỗi trục; cap vẫn nhặt; warmup đóng băng;
+  checkOver trước timeout. Không suy trapped slow movement từ nguồn web.
+
+Chủ dự án 2026-10-21 chọn các giá trị này thành **`oss` / `design`** cho V1, kể cả khi
+khác KR/VN confirmed. [ADR 0012](../../decisions/0012-v1-rules-from-bnb.md) là quyết định
+hiện hành, thay khuyến nghị không dùng giá trị tuyệt đối ở §7 cho profile V1;
+không biến thông số này thành oracle client gốc. Claim R-090…R-099 và task #130–#133
+phân biệt thông số đã nạp với cơ chế chưa triển khai. Presentation clip KR và policy vận hành
+không có tương đương trực tiếp BnB nên giữ quyết định V1 hiện có.
