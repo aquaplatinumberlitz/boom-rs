@@ -9,8 +9,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use boom_core::{
-    CharacterStats, CoreError, Life, Outcome as CoreOutcome, Phase as CorePhase, PlayerInput,
-    PlayerSetup, SimulationEvent, SimulationState, Tick, World,
+    CharacterStats, CharacterStatsTable, CoreError, Life, Outcome as CoreOutcome,
+    Phase as CorePhase, PlayerInput, PlayerSetup, SimulationEvent, SimulationState, Tick, World,
 };
 use boom_proto::{InputBatch, Snapshot};
 use boom_room::{
@@ -20,7 +20,7 @@ use boom_room::{
 use boom_scenario::setup::{AuthorityAction, AuthorityEntry, apply_authority};
 use boom_sync::{SnapshotContext, input_ack, to_snapshot};
 
-use crate::config::{CharacterStatsTable, InputTicks, ReplaySetup, ServerConfig};
+use crate::config::{InputTicks, ReplaySetup, ServerConfig};
 use crate::input::{InputAck, InputError, InputTrack};
 use crate::observability::{LogFields, Logger};
 

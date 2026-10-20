@@ -6,13 +6,12 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
-use boom_core::{CharacterStats, Dir, Life, Stat, World, mode_by_id};
+use boom_core::{CharacterStats, CharacterStatsTable, Dir, Life, Stat, World, mode_by_id};
 use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
 use crate::{
-    Authority, CharacterStatsTable, InputError, MatchOutcome, MatchSetup, ReplaySetup,
-    ServerConfig, ServerPhase,
+    Authority, InputError, MatchOutcome, MatchSetup, ReplaySetup, ServerConfig, ServerPhase,
 };
 
 const RULES: &str = include_str!("../../../fixtures/rules/skeleton-test.toml");

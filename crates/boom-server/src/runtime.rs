@@ -2,8 +2,8 @@
 //!
 //! `serve` nối các mảnh đã có sẵn thành một tiến trình chạy được cho 2–4 client trong LAN:
 //!
-//! 1. **Nạp content** — rules profile + bundle map + bảng phân loại ô + chỉ số nhân vật.
-//!    Thiếu/sai ⇒ lỗi rõ ràng, không panic (exit ≠ 0).
+//! 1. **Nạp content** — rules profile (+ bảng chỉ số nhân vật trong profile) + bundle map
+//!    + bảng phân loại ô. Thiếu/sai ⇒ lỗi rõ ràng, không panic (exit ≠ 0).
 //! 2. **Mở DB** có khóa instance (ADR 0011 §4) và dựng `Server` với auth thật.
 //! 3. **Bind game listener** + admin listener + heartbeat; `HealthState` báo ready khi
 //!    đã bind và nạp content xong (ADR 0011 §8.2).
@@ -28,16 +28,14 @@ use std::time::{Duration, Instant};
 use boom_content::bundle::Bundle;
 use boom_content::map::{CellIds, MapGrid, MapProfile, Terrain};
 use boom_content::rules::RulesProfile;
-use boom_core::{Rules, World, mode_by_id};
+use boom_core::{CharacterStatsTable, Rules, World, mode_by_id};
 use boom_net::{TcpTransport, Transport};
 use boom_room::PlayerId;
 
 use crate::admin::{AdminServer, Heartbeat, probe_database, write_health_json};
 use crate::auth::AuthService;
 use crate::authority::{Authority, MatchSetup, ServerError};
-use crate::config::{
-    CharacterStatsTable, HandshakeConfig, OperationalConfig, ReplaySetup, ServerConfig,
-};
+use crate::config::{HandshakeConfig, OperationalConfig, ReplaySetup, ServerConfig};
 use crate::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use crate::observability::{LogFields, Logger, new_instance_id, now_ms};
 use crate::server::Server;
@@ -78,8 +76,8 @@ pub enum StartupError {
     MapProfile { path: String, message: String },
     /// Không nạp được bundle.
     Bundle { path: String, message: String },
-    /// Thiếu/sai chỉ số nhân vật.
-    Characters { message: String },
+    /// Không dựng được thế giới (địa hình/mode).
+    World { message: String },
     /// Không mở được DB identity.
     Database { message: String },
     /// Không bind được game listener.
@@ -100,7 +98,7 @@ impl std::fmt::Display for StartupError {
                 write!(f, "không nạp được bảng phân loại ô {path}: {message}")
             }
             Self::Bundle { path, message } => write!(f, "không nạp được bundle {path}: {message}"),
-            Self::Characters { message } => write!(f, "chỉ số nhân vật không dùng được: {message}"),
+            Self::World { message } => write!(f, "không dựng được thế giới: {message}"),
             Self::Database { message } => write!(f, "không mở được DB identity: {message}"),
             Self::Listen { addr, message } => {
                 write!(f, "không bind được game listener {addr}: {message}")
@@ -158,6 +156,10 @@ impl From<boom_net::NetError> for ServeError {
 }
 
 /// Nội dung đã nạp: rules + map + chỉ số nhân vật.
+///
+/// Chỉ số nhân vật đọc từ rules profile (`characters.c00_*` / `characters.c01_*`), không từ
+/// file cấu hình: mọi người chạy server dùng cùng một nguồn và `rules_hash` phản ánh chỉ số
+/// (AGENTS §3).
 #[derive(Clone, Debug)]
 pub struct LoadedContent {
     /// Rules đã đổi sang đơn vị mô phỏng.
@@ -226,15 +228,12 @@ pub fn load_content(config: &OperationalConfig) -> Result<LoadedContent, Startup
                 message: err.to_string(),
             })?;
 
-    // 4. Chỉ số nhân vật (xem `CharacterConfig`): `serve` không tự đặt giá trị luật.
-    let characters = config.characters.ok_or_else(|| StartupError::Characters {
-        message: "thiếu mục `[characters]` trong file cấu hình (C00/C01)".to_owned(),
+    // 4. Chỉ số nhân vật: đọc từ rules profile (`characters.c00_*` / `characters.c01_*`,
+    //    R-040/R-041) — server không tự đặt giá trị luật, và `rules_hash` phản ánh chỉ số.
+    let stats = CharacterStatsTable::from_profile(&profile).map_err(|err| StartupError::Rules {
+        path: rules_path.display().to_string(),
+        message: err.to_string(),
     })?;
-    let stats = characters
-        .stats_table()
-        .map_err(|err| StartupError::Characters {
-            message: err.to_string(),
-        })?;
 
     let content_sha256 =
         parse_sha256_hex(&bundle.content_hash).ok_or_else(|| StartupError::Bundle {
@@ -372,13 +371,13 @@ impl ServeRuntime {
 
         // World: địa hình từ bundle + rules từ profile + mode FFA.
         let Some(mode) = mode_by_id(MODE_FFA) else {
-            return Err(StartupError::Characters {
+            return Err(StartupError::World {
                 message: format!("không có mode {MODE_FFA}"),
             });
         };
         let world =
             World::new(content.terrain.clone(), content.rules.clone(), mode).map_err(|err| {
-                StartupError::Characters {
+                StartupError::World {
                     message: format!("không dựng được thế giới: {err}"),
                 }
             })?;
@@ -794,6 +793,14 @@ empty = "floor"
     /// Dựng môi trường test: bundle + bảng phân loại ô + file cấu hình.
     /// Trả về đường dẫn file cấu hình.
     fn write_test_env(root: &Path) -> PathBuf {
+        write_test_env_with_rules(root, None)
+    }
+
+    /// Dựng môi trường test với rules profile tuỳ chỉnh.
+    ///
+    /// `rules_override`: nội dung thay cho profile chuẩn (`skeleton-test`) — dùng để kiểm
+    /// lỗi khi profile thiếu/sai chỉ số nhân vật.
+    fn write_test_env_with_rules(root: &Path, rules_override: Option<&str>) -> PathBuf {
         let bundle_dir = root.join("bundle");
         std::fs::create_dir_all(&bundle_dir).expect("tạo thư mục bundle");
         write_test_bundle(&bundle_dir);
@@ -804,6 +811,14 @@ empty = "floor"
         let rules =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/rules/skeleton-test.toml");
         let rules = rules.canonicalize().expect("đường dẫn rules profile");
+        let rules = match rules_override {
+            Some(text) => {
+                let path = root.join("rules.toml");
+                std::fs::write(&path, text).expect("ghi rules profile");
+                path
+            }
+            None => rules,
+        };
         let data_dir = root.join("data");
         let config_path = root.join("server.toml");
         let text = format!(
@@ -822,23 +837,7 @@ empty = "floor"
              auth_deadline_ms = 30000\n\
              \n\
              [auth]\n\
-             registration_open = true\n\
-             \n\
-             [characters.c00]\n\
-             speed_value = 5\n\
-             speed_max = 7\n\
-             bombs_value = 1\n\
-             bombs_max = 10\n\
-             range_value = 1\n\
-             range_max = 7\n\
-             \n\
-             [characters.c01]\n\
-             speed_value = 4\n\
-             speed_max = 8\n\
-             bombs_value = 2\n\
-             bombs_max = 7\n\
-             range_value = 1\n\
-             range_max = 9\n",
+             registration_open = true\n",
             data_dir = toml_path(&data_dir),
             bundle_dir = toml_path(&bundle_dir),
             rules = toml_path(&rules),
@@ -1005,6 +1004,82 @@ empty = "floor"
         let read = stream.read(&mut buf).expect("đọc phải chờ dữ liệu");
         assert_eq!(read, 1, "phải đọc được byte client gửi");
         sender.join().expect("luồng client");
+    }
+
+    #[test]
+    fn serve_reads_character_stats_from_rules_profile() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+        let content = load_content(&config).expect("nạp content");
+
+        // Chỉ số đến từ rules profile (`characters.*`), không từ file cấu hình.
+        assert_eq!(content.stats.c00.speed.value, 5);
+        assert_eq!(content.stats.c00.speed.max, 7);
+        assert_eq!(content.stats.c00.bombs.value, 1);
+        assert_eq!(content.stats.c00.bombs.max, 10);
+        assert_eq!(content.stats.c00.range.value, 1);
+        assert_eq!(content.stats.c00.range.max, 7);
+        assert_eq!(content.stats.c01.speed.value, 4);
+        assert_eq!(content.stats.c01.speed.max, 8);
+        assert_eq!(content.stats.c01.bombs.value, 2);
+        assert_eq!(content.stats.c01.bombs.max, 7);
+        assert_eq!(content.stats.c01.range.value, 1);
+        assert_eq!(content.stats.c01.range.max, 9);
+    }
+
+    #[test]
+    fn serve_reports_clear_error_when_profile_lacks_characters() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        // Profile không có bảng chỉ số nhân vật ⇒ lỗi rõ, không tự đặt mặc định.
+        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml")
+            .split("[characters.c01_range]")
+            .next()
+            .expect("còn phần C00")
+            .to_owned();
+        let config_path = write_test_env_with_rules(dir.path(), Some(&profile));
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+        let error = load_content(&config).expect_err("profile thiếu nhân vật phải lỗi");
+        let message = error.to_string();
+        assert!(message.contains("characters.c01"), "{message}");
+    }
+
+    #[test]
+    fn serve_reports_clear_error_when_profile_character_value_above_max() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        // Cấp hiện tại vượt trần ⇒ lỗi rõ, không tự sửa.
+        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml").replace(
+            "[characters.c00_speed]\nvalue = 5",
+            "[characters.c00_speed]\nvalue = 8",
+        );
+        let config_path = write_test_env_with_rules(dir.path(), Some(&profile));
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+        let error = load_content(&config).expect_err("giá trị vượt trần phải lỗi");
+        let message = error.to_string();
+        assert!(message.contains("vượt trần"), "{message}");
+    }
+
+    #[test]
+    fn rules_hash_changes_when_character_stats_change() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+        let base = load_content(&config).expect("nạp content");
+
+        // Đổi chỉ số trong profile ⇒ `rules_hash` đổi ⇒ handshake bắt được lệch.
+        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml").replace(
+            "[characters.c00_speed]\nvalue = 5",
+            "[characters.c00_speed]\nvalue = 6",
+        );
+        let other_dir = tempfile::tempdir().expect("thư mục tạm");
+        let other_path = write_test_env_with_rules(other_dir.path(), Some(&profile));
+        let other_config =
+            OperationalConfig::from_file_with_env(&other_path).expect("đọc cấu hình");
+        let other = load_content(&other_config).expect("nạp content");
+
+        assert_ne!(base.rules_hash, other.rules_hash);
+        assert_eq!(other.stats.c00.speed.value, 6);
+        assert_eq!(base.stats.c00.speed.value, 5);
     }
 
     #[test]

@@ -113,6 +113,12 @@ Profile TOML ở `data/rules/` (overlay ở `RulesOverlay`, ADR 0008) gồm `pro
 Định danh profile là hash `fnv1a64-v0` của encoding chuẩn các rule (không phải hash file thô, để CRLF/LF
 không đổi định danh). Replay ghi định danh này và từ chối profile khác.
 
+Bảng chỉ số nhân vật C00/C01 là **giá trị luật** nên nằm trong profile (`characters.c00_*`,
+`characters.c01_*`; RULES_V1 R-040/R-041), không phải trong file cấu hình server: mọi người chạy
+server phải dùng cùng một nguồn, và chỉ số nằm trong định danh nên `rules_hash` đổi khi chỉ số
+đổi ⇒ handshake bắt được lệch (AGENTS §3). `boom-content` đọc và kiểm bảng chỉ số (đủ hai
+nhân vật, cấp hiện tại ≤ trần); thiếu hoặc sai thì `serve` báo lỗi rõ, không tự đặt mặc định.
+
 Map runtime (`boom-content::MapGrid`) gồm kích thước, ô `(tile_id, obj_id)` theo build và spawn.
 Loại ô (đi được, khối cứng, khối mềm) là bảng phân loại riêng theo build; ID chưa có trong bảng là
 `Unknown`, và core **từ chối** dựng thế giới có ô Unknown thay vì đoán. Fixture tự viết dùng bản đồ ASCII

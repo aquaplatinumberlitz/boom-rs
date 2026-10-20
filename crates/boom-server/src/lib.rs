@@ -33,8 +33,8 @@ pub use authority::{
     ServerError, ServerPhase,
 };
 pub use config::{
-    CharacterConfig, CharacterSpec, CharacterStatsTable, ConfigError, ConfigFingerprint,
-    HandshakeConfig, InputLimits, OperationalConfig, PolicyConfig, ReplaySetup, ServerConfig,
+    ConfigError, ConfigFingerprint, HandshakeConfig, InputLimits, OperationalConfig, PolicyConfig,
+    ReplaySetup, ServerConfig,
 };
 pub use input::{InputAck, InputError};
 pub use observability::{

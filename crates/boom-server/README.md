@@ -86,41 +86,31 @@ argon2_t_cost = 2
 argon2_p_cost = 1
 argon2_output_len = 32
 argon2_salt_len = 16
-
-# Chỉ số nhân vật C00/C01 — xem mục kế bên.
-[characters.c00]
-speed_value = 5
-speed_max = 7
-bombs_value = 1
-bombs_max = 10
-range_value = 1
-range_max = 7
-
-[characters.c01]
-speed_value = 4
-speed_max = 8
-bombs_value = 2
-bombs_max = 7
-range_value = 1
-range_max = 9
 ```
 
-### Chỉ số nhân vật (`[characters]`)
+### Chỉ số nhân vật: ở rules profile, không ở file cấu hình
 
-`serve` **bắt buộc** có mục này: thiếu thì báo lỗi rõ và thoát ≠ 0 (không tự đặt giá trị).
-Lệnh `boom-server config` xuất cấu hình hiệu lực với mục `[characters]` **rỗng** (chỉ số là giá
-trị luật, không phải tham số vận hành) — điền hai nhân vật trước khi chạy `serve`.
+Chỉ số C00/C01 là **giá trị luật** (RULES_V1 R-040/R-041) nên nằm trong rules profile
+(`rules_path`), không phải trong file cấu hình: mọi người chạy server phải dùng cùng một
+nguồn, và `rules_hash` phản ánh chỉ số để handshake bắt được lệch (AGENTS §3). Vì vậy mục
+`[characters]` **không còn** trong file cấu hình — file còn mục đó bị từ chối khi đọc, kèm
+thông điệp chỉ cách sửa (đọc chỉ số từ rules profile).
 
-| Trường | Nghĩa | Nguồn |
+Profile phải có đủ mười hai khóa `characters.c00_*` / `characters.c01_*`; thiếu nhân vật
+hoặc cấp hiện tại vượt trần thì `serve` báo lỗi rõ và thoát ≠ 0 (không tự đặt mặc định).
+Lệnh `boom-server content --rules <file>` cũng kiểm bảng chỉ số này.
+
+| Khóa | Nghĩa | Nguồn |
 |---|---|---|
-| `speed_value` / `speed_max` | Cấp tốc độ hiện tại / trần (`BomberAttr` f2/f3) | RULES_V1 R-040/R-041 (`confirmed`), nghĩa trường R-042 (`candidate`) |
-| `bombs_value` / `bombs_max` | Số bom đặt cùng lúc (f4/f5) | như trên |
-| `range_value` / `range_max` | Tầm nổ (f6/f7) | như trên |
+| `characters.c00_speed` / `_speed_max` | Cấp tốc độ hiện tại / trần (`BomberAttr` f2/f3) | RULES_V1 R-040 (`confirmed`), nghĩa trường R-042 (`candidate`) |
+| `characters.c00_bombs` / `_bombs_max` | Số bom đặt cùng lúc (f4/f5) | như trên |
+| `characters.c00_range` / `_range_max` | Tầm nổ (f6/f7) | như trên |
+| `characters.c01_*` | Cùng bộ nghĩa cho C01 | R-041 (`confirmed`) |
 
 Giá trị `5,7 / 1,10 / 1,7` (C00) và `4,8 / 2,7 / 1,9` (C01) là số đọc được trong
-`BomberAttr` của pack KR 00967 (RULES_V1 R-040/R-041). Bảng `BomberAttr` **chưa** được giải
-vào content — gate G2 của SCOPE_V1 §6 còn mở — nên V1 đọc chỉ số từ file cấu hình thay vì
-hard-code trong code. Khi G2 mở, giá trị này chuyển sang `data/rules` + claim trong RULES_V1.
+`BomberAttr` của pack KR 00967 (RULES_V1 R-040/R-041) và nằm ở
+[`data/rules/v1-dev.toml`](../../data/rules/v1-dev.toml). Bảng `BomberAttr` **chưa** được giải
+vào content — gate G2 của SCOPE_V1 §6 còn mở — nên V1 đọc chỉ số từ rules profile.
 
 ## Chạy cùng client
 

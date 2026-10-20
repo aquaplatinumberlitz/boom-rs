@@ -393,6 +393,16 @@ fn content_exit(args: &[String]) -> u8 {
         profile.identity_hash(),
         profile.rules.len()
     );
+    // Bảng chỉ số nhân vật là một phần của profile: thiếu/sai thì `serve` không chạy được.
+    if let Err(error) = profile.character_table() {
+        eprintln!(
+            "file rules không dùng được: {} ({error})\n  \
+             sửa: profile phải có bảng chỉ số nhân vật `characters.c00_*` và `characters.c01_*` \
+             (xem docs/specification/gameplay/RULES_V1.md)",
+            rules_path.display()
+        );
+        return 2;
+    }
 
     if let Some(dir) = bundle_dir.as_deref() {
         let loaded = match bundle::load(dir) {
@@ -684,5 +694,32 @@ mod tests {
             content_exit(&args(&["--rules", "/khong/ton/tai/rules.toml"])),
             2
         );
+    }
+
+    /// `content` với profile thiếu bảng chỉ số nhân vật → mã thoát 2 + thông điệp rõ.
+    #[test]
+    fn content_command_rejects_profile_without_character_table() {
+        let dir = TempDir::new().expect("thư mục tạm");
+        let path = dir.path().join("rules.toml");
+        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml")
+            .split("[characters.c01_range]")
+            .next()
+            .expect("còn phần C00")
+            .to_owned();
+        std::fs::write(&path, profile).expect("ghi profile");
+        assert_eq!(content_exit(&args(&["--rules", path.to_str().unwrap()])), 2);
+    }
+
+    /// `content` với profile có đủ bảng chỉ số → mã thoát 0.
+    #[test]
+    fn content_command_accepts_profile_with_character_table() {
+        let dir = TempDir::new().expect("thư mục tạm");
+        let path = dir.path().join("rules.toml");
+        std::fs::write(
+            &path,
+            include_str!("../../../fixtures/rules/skeleton-test.toml"),
+        )
+        .expect("ghi profile");
+        assert_eq!(content_exit(&args(&["--rules", path.to_str().unwrap()])), 0);
     }
 }

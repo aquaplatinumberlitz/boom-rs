@@ -14,18 +14,17 @@
 //! Cấu hình là **tham số vận hành** (ADR 0011 §5, §14), không phải luật chơi: không có giá
 //! trị nào ở đây nằm trong `data/rules` và không sinh claim `R-xxx`.
 //!
-//! # Ngoại lệ: chỉ số nhân vật (`[characters]`)
+//! # Chỉ số nhân vật: ở rules profile, không ở đây
 //!
-//! `boom-server serve` cần chỉ số C00/C01 để dựng trận. Bảng `BomberAttr` **chưa** được
-//! giải vào content (gate G2 của SCOPE_V1 §6 còn mở), nên V1 lấy chỉ số từ **file cấu hình**
-//! thay vì hard-code trong code (AGENTS §3: không có hằng số luật trong code). Giá trị V1
-//! lấy từ `BomberAttr` KR (RULES_V1 R-040/R-041, `confirmed`; nghĩa trường theo R-042,
-//! `candidate`) và được ghi trong `crates/boom-server/README.md`. Khi G2 mở, giá trị này
-//! chuyển sang `data/rules` + claim mới trong RULES_V1.
+//! Chỉ số C00/C01 là **giá trị luật** (RULES_V1 R-040/R-041) nên nằm trong rules profile
+//! (`data/rules/*.toml`, khóa `characters.c00_*` / `characters.c01_*`) chứ không phải trong
+//! file cấu hình: mọi người chạy server phải dùng cùng một nguồn, và `rules_hash` phải
+//! phản ánh chỉ số để handshake bắt được lệch (AGENTS §3). `boom-server serve` đọc bảng
+//! chỉ số từ profile qua [`crate::runtime::load_content`].
 
 use std::path::{Path, PathBuf};
 
-use boom_core::{CharacterStats, Rules, Stat, Tick, ms_to_ticks};
+use boom_core::{Rules, Tick, ms_to_ticks};
 use boom_proto::ProtocolLimits;
 use boom_room::RoomPolicy;
 use serde::{Deserialize, Serialize};
@@ -141,74 +140,6 @@ impl InputTicks {
     }
 }
 
-/// Chỉ số khởi đầu của hai template C00/C01, do caller nạp từ content.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CharacterStatsTable {
-    pub c00: CharacterStats,
-    pub c01: CharacterStats,
-}
-
-/// Chỉ số một nhân vật trong file cấu hình: cấp hiện tại và trần của từng nhóm.
-///
-/// Nguồn: `BomberAttr` KR — giá trị `f2…f7` là `confirmed` (RULES_V1 R-040/R-041), nghĩa
-/// trường (`f2–f3` tốc độ, `f4–f5` số bom, `f6–f7` tầm) là `candidate` (R-042). Bảng Attr
-/// chưa được giải vào content (gate G2 còn mở) nên V1 đọc chỉ số từ **file cấu hình**;
-/// không có hằng số luật trong code (AGENTS §3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CharacterSpec {
-    /// Cấp tốc độ hiện tại (f2).
-    pub speed_value: u8,
-    /// Trần cấp tốc độ (f3).
-    pub speed_max: u8,
-    /// Số bom đặt cùng lúc hiện tại (f4).
-    pub bombs_value: u8,
-    /// Trần số bom (f5).
-    pub bombs_max: u8,
-    /// Tầm nổ hiện tại (f6).
-    pub range_value: u8,
-    /// Trần tầm nổ (f7).
-    pub range_max: u8,
-}
-
-impl CharacterSpec {
-    /// Chỉ số cho core; `value` không được vượt trần.
-    pub fn stats(&self) -> Result<CharacterStats, ConfigError> {
-        let stat = |name: &str, value: u8, max: u8| -> Result<Stat, ConfigError> {
-            if value > max {
-                return Err(ConfigError::Character {
-                    name: name.to_owned(),
-                    message: format!("cấp hiện tại {value} vượt trần {max}"),
-                });
-            }
-            Ok(Stat::new(value, max))
-        };
-        Ok(CharacterStats {
-            speed: stat("speed", self.speed_value, self.speed_max)?,
-            bombs: stat("bombs", self.bombs_value, self.bombs_max)?,
-            range: stat("range", self.range_value, self.range_max)?,
-        })
-    }
-}
-
-/// Chỉ số C00/C01 cho server (file cấu hình, mục `[characters]`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CharacterConfig {
-    pub c00: CharacterSpec,
-    pub c01: CharacterSpec,
-}
-
-impl CharacterConfig {
-    /// Bảng chỉ số cho [`crate::MatchSetup`].
-    pub fn stats_table(&self) -> Result<CharacterStatsTable, ConfigError> {
-        Ok(CharacterStatsTable {
-            c00: self.c00.stats()?,
-            c01: self.c01.stats()?,
-        })
-    }
-}
-
 /// Định danh server dùng để chấp nhận `Hello` (ADR 0009 §1, V1-002).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HandshakeConfig {
@@ -252,8 +183,6 @@ pub struct OperationalConfig {
     pub replay_dir: Option<std::path::PathBuf>,
     /// Các tick cần ghi checkpoint hash trong replay (V1-026).
     pub replay_checkpoints: Vec<u32>,
-    /// Chỉ số C00/C01; `serve` **bắt buộc** có (xem [`CharacterConfig`]).
-    pub characters: Option<CharacterConfig>,
     /// Build id hiển thị trong log/health fingerprint.
     pub server_version: String,
     /// Chu kỳ heartbeat + ghi `health.json`, ms (ADR 0011 §8.1/§8.2.3).
@@ -336,7 +265,6 @@ impl Default for OperationalConfig {
             map_profile_path: PathBuf::from(DEFAULT_MAP_PROFILE_PATH),
             replay_dir: None,
             replay_checkpoints: Vec::new(),
-            characters: None,
             server_version: env!("CARGO_PKG_VERSION").to_owned(),
             heartbeat_interval_ms: DEFAULT_HEARTBEAT_INTERVAL_MS,
             health_timeout_ms: DEFAULT_HEALTH_TIMEOUT_MS,
@@ -378,8 +306,8 @@ pub enum ConfigError {
     File { path: String, message: String },
     /// File cấu hình không parse được (TOML sai hoặc có trường lạ).
     Toml { path: String, message: String },
-    /// Chỉ số nhân vật sai (cấp hiện tại vượt trần, hoặc thiếu một trong hai nhân vật).
-    Character { name: String, message: String },
+    /// File cấu hình còn mục đã bỏ (`[characters]`).
+    Characters { message: String },
 }
 
 impl std::fmt::Display for ConfigError {
@@ -392,8 +320,8 @@ impl std::fmt::Display for ConfigError {
             Self::Toml { path, message } => {
                 write!(f, "file cấu hình {path} sai định dạng: {message}")
             }
-            Self::Character { name, message } => {
-                write!(f, "chỉ số nhân vật {name} sai: {message}")
+            Self::Characters { message } => {
+                write!(f, "mục `[characters]` không còn được chấp nhận: {message}")
             }
         }
     }
@@ -724,29 +652,15 @@ impl OperationalConfig {
             config.argon2.salt_len = value;
         }
 
-        // Chỉ số nhân vật: cần **cả hai** nhân vật, thiếu một thì báo lỗi rõ.
-        let characters = file.characters;
-        match (characters.c00, characters.c01) {
-            (None, None) => {}
-            (Some(c00), Some(c01)) => {
-                let value = CharacterConfig { c00, c01 };
-                // Kiểm cấp hiện tại ≤ trần ngay khi đọc file.
-                value.stats_table()?;
-                config.characters = Some(value);
-            }
-            (Some(_), None) => {
-                return Err(ConfigError::Character {
-                    name: "c01".to_owned(),
-                    message: "thiếu chỉ số cho C01 (mục `[characters]`)".to_owned(),
-                });
-            }
-            (None, Some(_)) => {
-                return Err(ConfigError::Character {
-                    name: "c00".to_owned(),
-                    message: "thiếu chỉ số cho C00 (mục `[characters]`)".to_owned(),
-                });
-            }
+        // Mục `[characters]` đã bỏ: chỉ số nhân vật là giá trị luật nên nằm ở rules profile.
+        if file.characters.is_some() {
+            return Err(ConfigError::Characters {
+                message: "chỉ số C00/C01 đọc từ rules profile (khóa `characters.c00_*` / \
+                          `characters.c01_*` trong file rules); bỏ mục này khỏi file cấu hình"
+                    .to_owned(),
+            });
         }
+
         Ok(config)
     }
 }
@@ -814,8 +728,10 @@ struct ConfigFile {
     identity: IdentitySection,
     #[serde(default)]
     auth: AuthSection,
-    #[serde(default)]
-    characters: CharacterSection,
+    /// Mục `[characters]` **đã bỏ**: giữ tên để báo lỗi rõ (kèm cách sửa) thay vì lỗi
+    /// "unknown field" của serde.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    characters: Option<toml::Value>,
 }
 
 /// Phần `[server]` của file cấu hình.
@@ -862,16 +778,6 @@ struct IdentitySection {
     session_ping_interval_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     session_liveness_timeout_ms: Option<u64>,
-}
-
-/// Phần `[characters]` của file cấu hình: chỉ số C00/C01 (xem [`CharacterConfig`]).
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct CharacterSection {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    c00: Option<CharacterSpec>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    c01: Option<CharacterSpec>,
 }
 
 /// Phần `[auth]` của file cấu hình.
@@ -952,10 +858,7 @@ impl ConfigFile {
                 argon2_output_len: Some(config.argon2.output_len),
                 argon2_salt_len: Some(config.argon2.salt_len),
             },
-            characters: CharacterSection {
-                c00: config.characters.map(|value| value.c00),
-                c01: config.characters.map(|value| value.c01),
-            },
+            characters: None,
         }
     }
 }
@@ -1099,7 +1002,7 @@ mod tests {
     }
 
     #[test]
-    fn config_file_reads_content_paths_and_characters() {
+    fn config_file_reads_content_paths() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("server.toml");
         std::fs::write(
@@ -1112,23 +1015,7 @@ mod tests {
              replay_checkpoints = [1, 16, 32]\n\
              \n\
              [identity]\n\
-             auth_deadline_ms = 12345\n\
-             \n\
-             [characters.c00]\n\
-             speed_value = 5\n\
-             speed_max = 7\n\
-             bombs_value = 1\n\
-             bombs_max = 10\n\
-             range_value = 1\n\
-             range_max = 7\n\
-             \n\
-             [characters.c01]\n\
-             speed_value = 4\n\
-             speed_max = 8\n\
-             bombs_value = 2\n\
-             bombs_max = 7\n\
-             range_value = 1\n\
-             range_max = 9\n",
+             auth_deadline_ms = 12345\n",
         )
         .expect("ghi file");
         let config = OperationalConfig::from_file(&path).expect("đọc file cấu hình");
@@ -1141,16 +1028,11 @@ mod tests {
         assert_eq!(config.replay_dir, Some(PathBuf::from("data/replay")));
         assert_eq!(config.replay_checkpoints, vec![1, 16, 32]);
         assert_eq!(config.auth_deadline_ms, 12_345);
-        let characters = config.characters.expect("có chỉ số nhân vật");
-        assert_eq!(characters.c00.speed_max, 7);
-        assert_eq!(characters.c01.bombs_value, 2);
-        let stats = characters.stats_table().expect("chỉ số hợp lệ");
-        assert_eq!(stats.c00.speed.value, 5);
-        assert_eq!(stats.c01.range.max, 9);
     }
 
     #[test]
-    fn config_file_rejects_missing_character() {
+    fn config_file_rejects_characters_section() {
+        // Chỉ số nhân vật là **giá trị luật**: nằm ở rules profile, không phải ở file cấu hình.
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("server.toml");
         std::fs::write(
@@ -1162,28 +1044,9 @@ mod tests {
         )
         .expect("ghi file");
         let error = OperationalConfig::from_file(&path).unwrap_err();
-        assert!(matches!(error, ConfigError::Character { .. }), "{error:?}");
-    }
-
-    #[test]
-    fn config_file_rejects_character_value_above_max() {
-        let dir = TempDir::new().unwrap();
-        let path = dir.path().join("server.toml");
-        std::fs::write(
-            &path,
-            "[characters.c00]\n\
-             speed_value = 8\nspeed_max = 7\n\
-             bombs_value = 1\nbombs_max = 10\n\
-             range_value = 1\nrange_max = 7\n\
-             \n\
-             [characters.c01]\n\
-             speed_value = 4\nspeed_max = 8\n\
-             bombs_value = 2\nbombs_max = 7\n\
-             range_value = 1\nrange_max = 9\n",
-        )
-        .expect("ghi file");
-        let error = OperationalConfig::from_file(&path).unwrap_err();
-        assert!(matches!(error, ConfigError::Character { .. }), "{error:?}");
+        assert!(matches!(error, ConfigError::Characters { .. }), "{error:?}");
+        // Thông điệp phải chỉ ra cách sửa (đọc từ rules profile).
+        assert!(error.to_string().contains("rules profile"), "{error}");
     }
 
     #[test]

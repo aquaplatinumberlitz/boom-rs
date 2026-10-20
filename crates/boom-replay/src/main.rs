@@ -328,7 +328,7 @@ content_sha256 = "{}"
 ticks = 1
 checkpoints = [1]
 rules = '{rules}'
-profile_hash = "0x3faa77e6b1c76c15"
+profile_hash = "0x3f43f71d06488a95"
 seed = 1
 map = ["#####", "#0..#", "#####"]
 
@@ -391,7 +391,7 @@ range = [1, 7]
         let zeros = "0".repeat(64);
         let text = fixture()
             .replace(&zeros, &hash)
-            .replace("0x3faa77e6b1c76c15", "0x0000000000000000");
+            .replace("0x3f43f71d06488a95", "0x0000000000000000");
         let err = match run_text("rules", &text) {
             Ok(_) => panic!("rules sai phải bị từ chối"),
             Err(e) => e.to_string(),

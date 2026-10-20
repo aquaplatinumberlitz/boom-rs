@@ -20,7 +20,9 @@ use std::time::Duration;
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
-use boom_core::{CharacterStats, Dir, PlayerInput, Rules, Stat, World, mode_by_id};
+use boom_core::{
+    CharacterStats, CharacterStatsTable, Dir, PlayerInput, Rules, Stat, World, mode_by_id,
+};
 use boom_net::{NetError, Transport};
 use boom_proto::dto::auth::{Auth, AuthOk};
 use boom_proto::{
@@ -30,7 +32,7 @@ use boom_proto::{
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
 use boom_server::auth::{AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
-use boom_server::{Authority, CharacterStatsTable, InputError, MatchSetup, ServerConfig};
+use boom_server::{Authority, InputError, MatchSetup, ServerConfig};
 
 use super::{ClientSession, Credentials, NetClient, hello_for_profile};
 
