@@ -59,7 +59,7 @@ Entry mã hoá: `Map/*`, `Attr/*` (chỉ số nhân vật, vật phẩm, nhóm m
 ```
 u32 nFrames, u32 version=2, u32 nImages, u32 ?
 nImages × (u32 height, u32 width)
-nFrames × 48 byte          frame record (chưa giải)
+nFrames × 48 byte          frame record (12 × `i32` — nghĩa field ở [MAPS §3](MAPS.md))
 nImages × (u32 len, RLE data)
 ```
 RLE (`CWriteRLE` 0xA2AC00, color 0xA29F90, alpha 0xA2C970):
@@ -130,9 +130,10 @@ bằng chứng của [MAPS §3](MAPS.md).
 
 `crates/boom-assets/src/bundle.rs` dựng **bundle** cho client từ pack: ảnh đã giải mã
 đóng gói thành trang atlas PNG, kèm metadata ô của map (ID tile/obj → sprite/frame, kích
-thước, canvas, pivot) và `content_hash` ổn định. Kiểu đọc nằm ở
+thước, canvas, pivot), **clip animation**, **bảng phần tử UI** và **bảng âm thanh** (BGM + SFX)
+cùng `content_hash` ổn định. Kiểu đọc nằm ở
 `crates/boom-content/src/bundle.rs` để client dùng được mà không cần bộ giải mã pack.
-Định dạng và cách đo: [BUNDLES](BUNDLES.md).
+Định dạng và cách đo: [BUNDLES](BUNDLES.md) (schema hiện hành: 4).
 
 ## Kết quả giải nén (`assets/`)
 
@@ -143,7 +144,10 @@ thước, canvas, pivot) và `content_hash` ổn định. Kiểu đọc nằm �
 | map (`.map`, version 1000/1001) | 965 |
 | khác (`.bin`: `Attr/*`, script, bảng…) | 512 |
 
-Chưa làm:
-- Frame record 48 byte (toạ độ, thời gian animation).
-- Cấu trúc `.map`: loader là `CGamePlayMap__Load` (0x7354FD), pseudocode ở `decomp/CGamePlayMap__Load.c`.
+Chưa làm ở bộ giải nén legacy `tools/idf.py` (nguồn chuẩn đã giải ở [MAPS](MAPS.md)):
+- Frame record 48 byte: **đã** giải (12 × `i32`: offset, index ảnh, rect, canvas, pivot) ở
+  [MAPS §3](MAPS.md); pack **không** mang thời gian animation (R-079) — bộ giải nén legacy
+  không in ra các field này.
+- Cấu trúc `.map`: **đã** giải ở [MAPS §1](MAPS.md) (loader `CGamePlayMap__Load` 0x7354FD,
+  pseudocode ở `decomp/CGamePlayMap__Load.c`); bộ giải nén legacy chỉ xuất file thô.
 - Cấu trúc `Attr/*`: dạng `u32 len + chuỗi` xen số u32, đọc được bằng mắt.

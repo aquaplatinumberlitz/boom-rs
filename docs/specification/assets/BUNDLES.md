@@ -74,6 +74,7 @@ không bị nhân bản trong atlas.
 | `[[unknown]]` | bảng | Phần chưa xác định: `kind`, `id`, `reason`, `candidates` (tuỳ chọn) |
 | `[[clips]]` | bảng | Clip animation của V1, xem §3.2 |
 | `[[ui]]` | bảng | Phần tử UI của luồng V1, xem §3.3 |
+| `[[audio]]` | bảng | Cue âm thanh của V1 (BGM + SFX), xem §3.4; **chỉ schema 4** |
 
 ### 3.1 Sprite
 
@@ -220,7 +221,7 @@ status = "confirmed"                 # trạng thái bằng chứng (AGENTS §4)
   (mới biết entry trỏ tới pack KR, chưa xác nhận được payload).
 
 
-### 3.1 Bảng audio (schema 4)
+### 3.4 Bảng audio (schema 4)
 
 Mỗi entry là một payload thô trong `audio/`, không decode:
 
@@ -361,13 +362,13 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Sprite trong bundle | 70 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, vụ nổ, **9 ảnh UI**) |
 | Ảnh | 299 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1430 |
-| Audio V1 | 15 entry (1 BGM + 14 SFX), 496 KiB payload thô trong `audio/` (không commit) |
+| Audio V1 | 15 entry (1 BGM + 14 SFX), 467.063 byte (456,1 KiB) payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
 | `unknown` | 4 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) |
-| `content_hash` | `27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2` |
+| `content_hash` | `6d74ad4f0462b87bf458d65d369bfb24d8a9923ad164f98c9008b7063ce87dc0` (schema 4, **có** audio) |
 
 Cách kiểm lại:
 
@@ -376,6 +377,13 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
   cargo run -p boom-assets --bin boom-assets -- bundle --map Village00 --out /tmp/b
 # content_hash phải bằng giá trị trên; dựng hai lần cho cùng hash và cùng byte file.
 ```
+
+Giá trị `content_hash` ở trên đo lại ngày 2026-10-20 trên `main` @ `32a6d81` (schema 4, có bảng
+`[[audio]]`): hai lần dựng cho **cùng hash và cùng byte file** (atlas `page-000.png` 2048×1430,
+665.372 byte). Hash **phụ thuộc byte file atlas/audio** nên đổi bộ mã PNG (đổi phiên bản thư viện
+`png`) là đổi hash dù pixel không đổi — xem §8. Giá trị hash của schema 3 (bundle chưa có audio)
+là `27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2`; **không** dùng lại giá trị
+đó cho schema 4.
 
 ## 7. Quy ước đặt ảnh của client (presentation — `design`)
 
@@ -415,7 +423,7 @@ Giới hạn đã biết:
 
 Ngoài quy ước đặt ảnh, client V1 còn phải chọn **clip nào** cho state core nào và
 **frame nào** trong clip đó. Đây là quyết định **design** của V1 (RULES_V1
-[R-085…R-088](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r088)),
+[R-085…R-088](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r-085r-088)),
 ghi ở đây để client, reviewer và công cụ đo dùng chung một công thức.
 
 1. **Chọn clip theo state core** (R-086):
@@ -492,8 +500,15 @@ Giới hạn đã biết:
 - **Lớp `Static`/`Adjust` chỉ ghi lại.** Thứ tự vẽ và cách blend của hai lớp chưa có
   consumer xác nhận (Q-003); bundle chỉ ghi lớp nào là lớp nào.
 - **`f2` chưa chốt.** Ngữ nghĩa field `flag` vẫn chưa biết; bundle giữ nguyên số.
-- **Không có BGM hay bảng chỉ số.** Entry không phải ảnh được ghi ở `[[assets]]` kèm lý do
-  để không bị bỏ qua âm thầm.
+- **BGM và SFX đã có trong bundle (schema 4).** 15 entry V1 nằm ở bảng `[[audio]]` (§3.4) với
+  payload thô trong `audio/<id>.<format>`: 1 BGM (`MP3/Village`) + 14 SFX — xem
+  [AUDIO_V1](AUDIO_V1.md). Entry **không phải ảnh còn lại** (file map, bảng chỉ số `Attr/*`) nằm ở
+  `[[assets]]` kèm lý do để không bị bỏ qua âm thầm.
+  Lưu ý: entry BGM của closure (`FxSound/MP3/Village`, vai trò `music`) **vẫn** được liệt kê ở
+  `[[assets]]` với lý do ghi sẵn của builder ("âm thanh nền: không phải ảnh, chưa đưa vào bundle") —
+  câu chữ đó **không còn đúng** vì payload BGM đã nằm ở `[[audio]]`/`audio/bgm_loop.ogg`
+  (đo 2026-10-20 trên `main` @ `32a6d81`). Sửa câu chữ trong builder sẽ **đổi `content_hash`**,
+  nên tách task code riêng; ở đây chỉ ghi nhận là giới hạn đã biết.
 - **Atlas đóng gói bằng thuật toán kệ (shelf).** Không tối ưu chặt chẽ; một trang 2048×2048
   chứa được toàn bộ ảnh Village00. Ảnh vượt trần 2048 px thì báo lỗi thay vì cắt.
 - **Chưa có bước kiểm pixel của client.** Bộ giải mã sprite đã khớp từng pixel với tool

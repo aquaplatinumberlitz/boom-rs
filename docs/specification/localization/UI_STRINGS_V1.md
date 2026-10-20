@@ -1,6 +1,7 @@
 # Chuỗi và ảnh UI cho luồng V1 (Q-012)
 
-Cập nhật: 2026-10-20 (V1-035 phần 2: chốt font Be Vietnam Pro 1.002 + bundle `assets/fonts/`;
+Cập nhật: 2026-10-20 (sửa docs stale: bundle **schema 4** ở §3; golden wrap đã có ở §6).
+Trước đó: 2026-10-20 (V1-035 phần 2: chốt font Be Vietnam Pro 1.002 + bundle `assets/fonts/`;
 §5.1.1 nguồn/giấy phép/SHA-256, §5.2.1 quy tắc layout của `boom-client::text`).
 Trước đó: 2026-10-20 (V1-035 phần 1: xuất chuỗi V1 → `data/l10n/vi-v1.toml` bằng
 `tools/l10n_export.py`, loader `boom-content::l10n`; §6.1 có báo cáo khóa thiếu do tool sinh).
@@ -226,7 +227,7 @@ host (`PremiumSlotRoomTicket`, `BannedBySuper`, `ChiefBanned`).
 
 Cột **Trạng thái dùng** là quyết định của dự án cho V1-032, lấy từ bảng asset UI của
 closure (`crates/boom-assets/src/closure.rs`) và được ghi vào mục `[[ui]]` của bundle
-(schema 3, xem [BUNDLES §3.3](../assets/BUNDLES.md)). Ba trạng thái:
+(schema 4, xem [BUNDLES §3.3](../assets/BUNDLES.md)). Ba trạng thái:
 
 | Trạng thái | Nghĩa | Ảnh trong atlas | Hiển thị được |
 |---|---|---|---|
@@ -418,7 +419,7 @@ Số đếm khóa thiếu text do tool sinh nằm ở [§6.1](#61-báo-cáo-khó
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
 | Nền login/lobby/prepare là JPEG 800×600 có chữ và nhãn ngoài scope | V1-032 không đưa nền vào atlas: bộ giải mã bundle chỉ đọc sprite I16, và ảnh có huy hiệu Nexon/tab chế độ/auto-ready | V1 dựng nền bằng màu, chữ lấy từ catalog (đã ghi ở §3); muốn dùng ảnh nền thì cần bộ giải mã JPEG + bản ảnh đã che chữ (quyết định kiến trúc, thuộc integrator) |
 | Màn kết quả chỉ có art `Win/Lose/Draw` (đều `needs_review_text`) và icon ngón cái | V1-032 không dead end ở result: cột Hạng/Người chơi/Kết quả vẽ bằng text từ catalog | Duyệt ảnh kết quả; nếu cần art khác thì bổ sung asset vào evidence trước khi dùng |
-| Chưa có golden wrap/scale/focus | Không chứng minh được V1-035 | Tạo golden ảnh + test glyph sau khi client có renderer |
+| Golden focus/scale chưa có | Chưa chứng minh được V1-035 cho focus và scale | Golden layout (wrap ở 1×/2×) đã có ở `boom-client::text` (§5.2.1); còn golden ảnh theo khung và focus → tạo sau khi client có renderer |
 
 Không thêm claim luật chơi mới trong tài liệu này. Các giá trị thời gian nhắc ở §2 (120 s, 10 s, 5 s, 15 s)
 đã có trong [RULES_V1](../gameplay/RULES_V1.md) R-010 và [SCOPE_V1](../../planning/SCOPE_V1.md) §3; UI chỉ
