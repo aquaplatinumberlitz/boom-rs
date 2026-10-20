@@ -141,6 +141,31 @@ Mỗi frame = **12×i32**, validate trên 168.195 frame thật (fx/charte/emote)
 5. Giới hạn bảng rect 20 entry trên stack (`[ebp−0xB0]`, vòng lặp không kẹp C):
    xác nhận crash với C>20 bằng bản build test (nhóm động).
 
+## 5. Kiểm spawn của map (V1-030, issue #121)
+
+Gate G1 (content/map) đòi hỏi bốn spawn của `Village00` **khác nhau**, **không nằm trên ô
+chặn** và **có đường thoát**. Kiểm nằm ở `boom_content::map::Terrain::check_spawns`
+(BFS trên lưới địa hình) và được chạy trên **bundle thật**:
+`crates/boom-assets/src/bundle.rs`, test
+`village00_spawns_are_distinct_unblocked_and_have_an_escape_route`.
+
+| Điều kiện | Cách kiểm | Kết quả trên Village00 KR 00967 |
+|---|---|---|
+| Spawn trong lưới, không trùng nhau | so toạ độ từng cặp | 4 spawn `(13,11)`, `(1,11)`, `(1,1)`, `(13,1)` — khác nhau |
+| Spawn không nằm trên ô chặn | loại ô theo `data/maps/village00-kr.toml` | cả 4 nằm trên ô nền (`floor`) |
+| Có đường thoát | BFS qua ô nền, cần ô trống cách ≥ 2 ô | mỗi spawn đi được **3** ô nền, ô trống xa nhất cách **2** ô |
+
+Hai điểm cần nói rõ để không đọc sai kết quả:
+
+- **Ô chặn** = mọi ô không phải nền trống: gạch phá được (`breakable`) **và** vật cản
+  (`solid`) đều không phải nơi đứng được ngay. Gạch phá được vẫn là lối thoát *sau khi
+  phá*, nên không tính vào BFS của bước kiểm này.
+- **Đường thoát** của `Village00` ngắn: mỗi spawn nằm trong túi **3 ô nền** ở góc map
+  nên ô trống xa nhất chỉ cách 2 ô. Bốn túi góc nối với nhau qua các ô gạch — xem test
+  `every_spawn_has_two_adjacent_empty_cells_and_an_escape`
+  (`crates/boom-assets/tests/village00_world.rs`), kiểm đường thoát tính cả gạch phá
+  được (claim R-007).
+
 ## Phụ lục: cách tái hiện (chỉ đọc)
 
 - Disasm loader: `objdump -d --start-address=0x7354fd --stop-address=0x736c27
