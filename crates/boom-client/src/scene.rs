@@ -52,7 +52,7 @@ use boom_content::map::{
 };
 use boom_core::{Cell, Life, SimulationState, World};
 
-use crate::anim::{self, FrameClock};
+use crate::anim::{self, PresentationClock};
 
 /// Hình chữ nhật pixel trong không gian logic của client.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -408,6 +408,10 @@ pub struct Plan {
 /// về lại `flame.main` (BUNDLES §7.1, R-088). Chuỗi chết phát trọn clip rồi giữ khung
 /// cuối có ảnh.
 ///
+/// `clock` là **đồng hồ trình diễn**: tick của nó bằng `state.tick` khi mô phỏng còn chạy,
+/// và **tiến nốt** sau khi lượt kết thúc để chuỗi chết phát trọn clip (R-089). Frame chọn
+/// theo đồng hồ này, không theo đồng hồ wall clock (ADR 0004).
+///
 /// # Panics
 ///
 /// Không panic: bundle thiếu clip thì đối tượng tương ứng được vẽ bằng ô màu thay thế và
@@ -419,12 +423,11 @@ pub fn presentation_plan(
     scene: &Scene,
     state: &SimulationState,
     world: &World,
-    clock: &FrameClock,
+    clock: &PresentationClock,
     previous: &BTreeMap<u8, (i32, i32)>,
     journal: &anim::PresentationJournal,
 ) -> Plan {
     let tile_px = scene.tile_px;
-    let tick = state.tick;
     let frames = frame_counts(bundle);
     let mut missing: Vec<String> = Vec::new();
     // (hàng, cột, thứ tự trong ô, lệnh vẽ)
@@ -447,7 +450,7 @@ pub fn presentation_plan(
             .clips
             .iter()
             .find(|clip| clip.id == anim::FLAME_CLIP)
-            .map(|clip| anim::flame_frame(tick, clock, clip.frames.len()));
+            .map(|clip| anim::flame_frame(clock, clip.frames.len()));
         if let Some(item) = clip_plan_item(
             bundle,
             anim::FLAME_CLIP,
@@ -467,7 +470,7 @@ pub fn presentation_plan(
             .clips
             .iter()
             .find(|clip| clip.id == anim::BOMB_CLIP)
-            .map(|clip| anim::bomb_frame(tick, clock, clip.frames.len()));
+            .map(|clip| anim::bomb_frame(clock, clip.frames.len()));
         if let Some(item) = clip_plan_item(
             bundle,
             anim::BOMB_CLIP,
@@ -488,7 +491,7 @@ pub fn presentation_plan(
         let subject = anim::Subject::Player(player.id);
         // Hiệu ứng đang phát trong sổ trình diễn (chết/nhốt/mở đầu lượt) được ưu tiên
         // hơn clip theo state: chuỗi chết phát trọn clip rồi mới giữ khung cuối (R-089).
-        let (clip_id, frame) = match journal.active_for(subject, tick, clock, &frames) {
+        let (clip_id, frame) = match journal.active_for(subject, clock, &frames) {
             Some(active) => {
                 let clip = anim::presentation_clip(active.kind, subject).unwrap_or_else(|| {
                     anim::character_clip(
@@ -515,7 +518,7 @@ pub fn presentation_plan(
                     // Còn sống (đi/đứng) hoặc bị nhốt: frame lặp theo tick mô phỏng.
                     _ => {
                         let count = clip_frame_count(bundle, &clip);
-                        (count > 0).then(|| anim::character_loop_frame(tick, clock, count))
+                        (count > 0).then(|| anim::character_loop_frame(clock, count))
                     }
                 };
                 (clip, frame)
@@ -539,7 +542,7 @@ pub fn presentation_plan(
         .iter()
         .any(|clip| clip.id == anim::EXPLOSION_CLIP)
     {
-        for active in journal.active(tick, clock, &frames) {
+        for active in journal.active(clock, &frames) {
             if active.kind != anim::PresentationKind::Explosion {
                 continue;
             }
@@ -883,7 +886,7 @@ mod tests {
     const TILE: u32 = 40;
 
     /// Nhịp test: 33 Hz, frame 100 ms (như profile dev V1).
-    const CLOCK: FrameClock = FrameClock {
+    const CLOCK: crate::anim::FrameClock = crate::anim::FrameClock {
         frame_ms: 100,
         ticks_per_second: 33,
     };
@@ -1298,6 +1301,11 @@ mod tests {
         SimulationState::new_round(world, &roster, 7).expect("lượt")
     }
 
+    /// Đồng hồ trình diễn tại tick của state test.
+    fn clock_at(tick: u32) -> PresentationClock {
+        PresentationClock::new(CLOCK, tick)
+    }
+
     /// Sổ trình diễn rỗng: chưa có hiệu ứng nào.
     fn empty_journal() -> anim::PresentationJournal {
         anim::PresentationJournal::new(0)
@@ -1347,7 +1355,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &previous,
             &empty_journal(),
         );
@@ -1370,7 +1378,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &empty_journal(),
         );
@@ -1402,7 +1410,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &previous,
             &empty_journal(),
         );
@@ -1456,7 +1464,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1500,7 +1508,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1544,7 +1552,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1581,7 +1589,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &empty_journal(),
         );
@@ -1669,7 +1677,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1688,7 +1696,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &journal,
         );
@@ -1725,7 +1733,7 @@ mod tests {
             &scene,
             &state,
             &world,
-            &CLOCK,
+            &clock_at(state.tick),
             &BTreeMap::new(),
             &empty_journal(),
         );

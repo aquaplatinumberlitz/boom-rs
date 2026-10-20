@@ -485,15 +485,20 @@ chưa có consumer gốc xác nhận (Q-003).
    mục **không** có khoá; khi event xác nhận của cùng đối tượng tới thì mục dự đoán bị
    **thay** và chuỗi phát lại từ tick của event.
 4. **Phát một lần**: hiệu ứng chạy trong khoảng clip (số frame của clip ×
-   `presentation.frame_duration_ms`), frame chọn theo **tick mô phỏng** tính từ tick của
-   event; hết khoảng clip thì mục bị **dọn** khỏi sổ (khoá event **vẫn giữ** ⇒ event lặp
-   sau đó không tạo mục mới; khoá chỉ bỏ khi đổi lượt).
+   `presentation.frame_duration_ms`), frame chọn theo **đồng hồ trình diễn** tính từ
+   tick của event; hết khoảng clip thì mục bị **dọn** khỏi sổ (khoá event **vẫn giữ** ⇒
+   event lặp sau đó không tạo mục mới; khoá chỉ bỏ khi đổi lượt).
 5. **Nhân vật chết**: chuỗi chết phát trọn clip rồi nhân vật giữ **khung cuối có ảnh**
    của clip chết (khung cuối trong pack là ảnh rỗng 0×0). Nếu clip chết không có khung
    nào có ảnh thì nhân vật chết **không được vẽ** — không vẽ ô màu. Ô màu chỉ dùng khi
    bundle **thiếu clip** (§7.1 §5).
 6. **Sổ không biết bundle**: client đưa vào sổ bảng số frame theo clip ID, nên đổi bundle
    không phải sửa sổ.
+7. **Đồng hồ trình diễn**: client chọn frame theo **đồng hồ trình diễn** của nó, không
+   theo đồng hồ wall clock (ADR 0004). Đồng hồ này **bám** tick mô phỏng khi lượt còn
+   chạy và **tiến nốt** (cùng nhịp `sim.ticks_per_second`) sau khi lượt **kết thúc** và
+   mô phỏng dừng — nếu không, chuỗi chết của lượt cuối (một người chết là lượt hai
+   người kết thúc) sẽ kẹt ở frame đầu, không bao giờ tới khung cuối có ảnh (R-089).
 
 ## 8. Giới hạn đã biết
 

@@ -14,7 +14,9 @@
 //!
 //! **Không** có hằng số luật chơi trong module: thời lượng frame đọc từ rules profile
 //! (`presentation.frame_duration_ms`) và tần số tick từ `sim.ticks_per_second`; frame
-//! tiến theo **tick mô phỏng**, không theo đồng hồ wall clock (ADR 0004).
+//! tiến theo **đồng hồ trình diễn**, không theo đồng hồ wall clock (ADR 0004). Đồng hồ
+//! trình diễn bám tick mô phỏng khi lượt còn chạy và **tiến nốt** sau khi lượt kết thúc
+//! (R-089).
 
 use std::collections::BTreeSet;
 use std::ops::RangeInclusive;
@@ -139,6 +141,44 @@ impl FrameClock {
             return None;
         }
         Some((elapsed / frame_ms) as usize)
+    }
+}
+
+/// Đồng hồ trình diễn: nhịp phát frame + **tick trình diễn** hiện tại.
+///
+/// Tick trình diễn **bám** tick mô phỏng khi lượt còn chạy và **tiến nốt** (cùng nhịp
+/// `sim.ticks_per_second`) sau khi lượt **kết thúc** và mô phỏng dừng. Nhờ vậy công thức
+/// chọn frame (R-085) vẫn đúng và chuỗi chết của lượt cuối vẫn phát **trọn clip**
+/// thay vì kẹt ở frame đầu (R-089).
+///
+/// Vẫn **không** theo đồng hồ wall clock: cùng tick trình diễn ⇒ cùng hình (ADR 0004).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PresentationClock {
+    /// Nhịp phát frame (đọc từ rules profile).
+    pub frame: FrameClock,
+    /// Tick trình diễn hiện tại.
+    pub tick: u32,
+}
+
+impl PresentationClock {
+    /// Đồng hồ mới: nhịp frame `frame`, tick trình diễn `tick`.
+    #[must_use]
+    pub fn new(frame: FrameClock, tick: u32) -> Self {
+        Self { frame, tick }
+    }
+
+    /// Chỉ số frame **lặp** của clip tại tick hiện tại.
+    #[must_use]
+    pub fn looping_frame(&self, frame_count: usize) -> usize {
+        self.frame.looping_frame(self.tick, frame_count)
+    }
+
+    /// Chỉ số frame **phát một lần** của clip tính từ `start`.
+    ///
+    /// `None` khi hết khoảng clip (số frame × `presentation.frame_duration_ms`).
+    #[must_use]
+    pub fn once_frame(&self, start: u32, frame_count: usize) -> Option<usize> {
+        self.frame.once_frame(start, self.tick, frame_count)
     }
 }
 
@@ -403,12 +443,11 @@ impl PresentationJournal {
     pub fn active_for(
         &self,
         subject: Subject,
-        tick: u32,
-        clock: &FrameClock,
+        clock: &PresentationClock,
         frames: &FrameCounts,
     ) -> Option<ActivePresentation> {
-        let item = self.items.iter().find(|item| item.subject == subject)?;
-        let frame = frame_of(item, tick, clock, frames)?;
+        let item = self.item_for(subject)?;
+        let frame = frame_of(item, clock, frames)?;
         Some(ActivePresentation {
             kind: item.kind,
             subject: item.subject,
@@ -417,18 +456,26 @@ impl PresentationJournal {
         })
     }
 
-    /// Các hiệu ứng đang phát tại `tick`.
+    /// Mục của sổ cho `subject`: `None` nếu đối tượng không có hiệu ứng.
+    ///
+    /// Mục còn trong sổ dù đã hết khoảng clip (chưa dọn) vẫn trả về `Some` — dùng để
+    /// đọc khoá event của mục đã xác nhận.
+    #[must_use]
+    pub fn item_for(&self, subject: Subject) -> Option<&Presentation> {
+        self.items.iter().find(|item| item.subject == subject)
+    }
+
+    /// Các hiệu ứng đang phát tại tick trình diễn hiện tại.
     #[must_use]
     pub fn active(
         &self,
-        tick: u32,
-        clock: &FrameClock,
+        clock: &PresentationClock,
         frames: &FrameCounts,
     ) -> Vec<ActivePresentation> {
         self.items
             .iter()
             .filter_map(|item| {
-                let frame = frame_of(item, tick, clock, frames)?;
+                let frame = frame_of(item, clock, frames)?;
                 Some(ActivePresentation {
                     kind: item.kind,
                     subject: item.subject,
@@ -445,22 +492,17 @@ impl PresentationJournal {
     /// lặp sau đó không tạo mục mới; khoá chỉ bỏ khi đổi lượt.
     ///
     /// Bundle không có clip cần ⇒ mục bị bỏ: không có clip thì không có gì để phát.
-    pub fn prune(&mut self, tick: u32, clock: &FrameClock, frames: &FrameCounts) {
+    pub fn prune(&mut self, clock: &PresentationClock, frames: &FrameCounts) {
         self.items
-            .retain(|item| frame_of(item, tick, clock, frames).is_some());
+            .retain(|item| frame_of(item, clock, frames).is_some());
     }
 }
 
-/// Chỉ số frame của một mục tại `tick`; `None` nếu hết khoảng clip hoặc thiếu clip.
-fn frame_of(
-    item: &Presentation,
-    tick: u32,
-    clock: &FrameClock,
-    frames: &FrameCounts,
-) -> Option<usize> {
+/// Chỉ số frame của một mục tại tick trình diễn; `None` nếu hết khoảng clip hoặc thiếu clip.
+fn frame_of(item: &Presentation, clock: &PresentationClock, frames: &FrameCounts) -> Option<usize> {
     let clip = presentation_clip(item.kind, item.subject)?;
     let count = frames.get(&clip)?;
-    clock.once_frame(item.start_tick, tick, count)
+    clock.once_frame(item.start_tick, count)
 }
 
 /// Clip ID của nhân vật theo state core.
@@ -492,8 +534,8 @@ pub fn character_clip(character: Character, life: Life, facing: Dir, moving: boo
 /// chết phát **một lần** theo sổ trình diễn rồi giữ khung cuối có ảnh (R-089) — biết
 /// khung nào có pixel cần đọc bundle nên phần đó nằm ở [`crate::scene`].
 #[must_use]
-pub fn character_loop_frame(tick: u32, clock: &FrameClock, frame_count: usize) -> usize {
-    clock.looping_frame(tick, frame_count)
+pub fn character_loop_frame(clock: &PresentationClock, frame_count: usize) -> usize {
+    clock.looping_frame(frame_count)
 }
 
 /// Nhân vật **đang đi** khi vị trí đổi so với tick trước.
@@ -511,19 +553,19 @@ pub fn is_moving(current: (i32, i32), previous: Option<(i32, i32)>) -> bool {
 
 /// Chỉ số frame của bom đang chờ: lặp trong clip (tia lửa xoay, R-086).
 #[must_use]
-pub fn bomb_frame(tick: u32, clock: &FrameClock, frame_count: usize) -> usize {
-    clock.looping_frame(tick, frame_count)
+pub fn bomb_frame(clock: &PresentationClock, frame_count: usize) -> usize {
+    clock.looping_frame(frame_count)
 }
 
 /// Chỉ số frame của lửa trên ô: lặp trong dải frame lõi của clip lửa (R-087).
 #[must_use]
-pub fn flame_frame(tick: u32, clock: &FrameClock, frame_count: usize) -> usize {
+pub fn flame_frame(clock: &PresentationClock, frame_count: usize) -> usize {
     let start = *FLAME_FRAMES.start();
     let count = (FLAME_FRAMES.end() - FLAME_FRAMES.start() + 1).min(frame_count);
     if count == 0 {
         return 0;
     }
-    start + clock.looping_frame(tick, count)
+    start + clock.looping_frame(count)
 }
 
 /// Khoá hướng dạng `snake_case` — trùng tên state trong bundle.
@@ -549,6 +591,11 @@ mod tests {
         frame_ms: 100,
         ticks_per_second: 33,
     };
+
+    /// Đồng hồ trình diễn tại `tick`.
+    fn clock_at(tick: u32) -> PresentationClock {
+        PresentationClock::new(CLOCK, tick)
+    }
 
     #[test]
     fn character_clip_follows_the_core_state() {
@@ -615,33 +662,33 @@ mod tests {
     #[test]
     fn dead_character_uses_the_journal_not_the_loop() {
         // Nhân vật còn sống thì frame lặp theo tick.
-        assert_eq!(character_loop_frame(4, &CLOCK, 5), 1);
-        assert_eq!(character_loop_frame(4, &CLOCK, 3), 1);
+        assert_eq!(character_loop_frame(&clock_at(4), 5), 1);
+        assert_eq!(character_loop_frame(&clock_at(4), 3), 1);
     }
 
     #[test]
     fn flame_frame_stays_inside_the_core_range() {
         for tick in [0_u32, 1, 7, 33, 100, 999] {
-            let frame = flame_frame(tick, &CLOCK, 100);
+            let frame = flame_frame(&clock_at(tick), 100);
             assert!(
                 (28..=59).contains(&frame),
                 "frame lửa {frame} nằm ngoài dải lõi"
             );
         }
         // Lặp trong dải: sau 32 frame lặp lại từ đầu dải.
-        assert_eq!(flame_frame(0, &CLOCK, 100), 28);
+        assert_eq!(flame_frame(&clock_at(0), 100), 28);
         let period_ticks = 32 * 100 * 33 / 1000 + 1;
         assert_eq!(
-            flame_frame(period_ticks, &CLOCK, 100),
-            flame_frame(0, &CLOCK, 100)
+            flame_frame(&clock_at(period_ticks), 100),
+            flame_frame(&clock_at(0), 100)
         );
     }
 
     #[test]
     fn bomb_frame_loops_over_the_fuse_clip() {
-        assert_eq!(bomb_frame(0, &CLOCK, 4), 0);
-        assert_eq!(bomb_frame(4, &CLOCK, 4), 1);
-        assert_eq!(bomb_frame(16, &CLOCK, 4), 0);
+        assert_eq!(bomb_frame(&clock_at(0), 4), 0);
+        assert_eq!(bomb_frame(&clock_at(4), 4), 1);
+        assert_eq!(bomb_frame(&clock_at(16), 4), 0);
     }
 
     /// Nhân vật đang đi khi vị trí đổi so với tick trước.
@@ -656,8 +703,8 @@ mod tests {
     #[test]
     fn empty_clip_has_no_frame() {
         assert_eq!(CLOCK.looping_frame(10, 0), 0);
-        assert_eq!(character_loop_frame(10, &CLOCK, 0), 0);
-        assert_eq!(flame_frame(10, &CLOCK, 0), 0);
+        assert_eq!(character_loop_frame(&clock_at(10), 0), 0);
+        assert_eq!(flame_frame(&clock_at(10), 0), 0);
         assert_eq!(CLOCK.once_frame(0, 10, 0), None);
     }
 
@@ -720,33 +767,33 @@ mod tests {
     fn journal_keeps_one_explosion_per_cell_until_the_clip_ends() {
         let mut journal = PresentationJournal::new(3);
         let frames = counts();
-        assert!(journal.active(0, &CLOCK, &frames).is_empty());
+        assert!(journal.active(&clock_at(0), &frames).is_empty());
         let cell = Cell::new(2, 3);
         assert!(journal.record_event(&explosion_event(10, 0, cell)));
         // Vụ nổ mới ở cùng ô thay vụ cũ.
         assert!(journal.record_event(&explosion_event(20, 0, cell)));
-        let active = journal.active(21, &CLOCK, &frames);
+        let active = journal.active(&clock_at(21), &frames);
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].subject, Subject::Cell(cell));
         assert_eq!(active[0].frame, 0);
         // Ô khác: không có hiệu ứng.
         assert!(
             !journal
-                .active(21, &CLOCK, &frames)
+                .active(&clock_at(21), &frames)
                 .iter()
                 .any(|item| item.subject == Subject::Cell(Cell::new(0, 0)))
         );
         // Hết khoảng clip (10 frame × 100 ms) ⇒ không còn hiệu ứng ở ô đó.
-        assert!(journal.active(54, &CLOCK, &frames).is_empty());
+        assert!(journal.active(&clock_at(54), &frames).is_empty());
         // Dọn sổ: vụ nổ đã hết bị bỏ.
-        journal.prune(54, &CLOCK, &frames);
-        assert!(journal.active(54, &CLOCK, &frames).is_empty());
+        journal.prune(&clock_at(54), &frames);
+        assert!(journal.active(&clock_at(54), &frames).is_empty());
         assert!(journal.record_event(&explosion_event(60, 0, cell)));
-        journal.prune(61, &CLOCK, &frames);
-        assert_eq!(journal.active(61, &CLOCK, &frames).len(), 1);
+        journal.prune(&clock_at(61), &frames);
+        assert_eq!(journal.active(&clock_at(61), &frames).len(), 1);
         // Bundle không có clip nổ ⇒ không có gì để phát ⇒ sổ bị dọn hết.
-        journal.prune(62, &CLOCK, &FrameCounts::default());
-        assert!(journal.active(62, &CLOCK, &frames).is_empty());
+        journal.prune(&clock_at(62), &FrameCounts::default());
+        assert!(journal.active(&clock_at(62), &frames).is_empty());
     }
 
     /// Event lặp (reconcile/snapshot gửi lại event cũ) không tạo mục mới.
@@ -780,14 +827,14 @@ mod tests {
         // Client dự đoán nhân vật chết (chưa có event server).
         assert!(journal.record_local(PresentationKind::Death, subject, 10));
         let active = journal
-            .active_for(subject, 11, &CLOCK, &frames)
+            .active_for(subject, &clock_at(11), &frames)
             .expect("mục dự đoán đang phát");
         assert_eq!(active.source, PresentationSource::Local);
         assert_eq!(active.frame, 0);
         // Event xác nhận tới ⇒ thay mục dự đoán, và bắt đầu lại từ tick của event.
         assert!(journal.record_event(&died_event(12, 1, 0)));
         let active = journal
-            .active_for(subject, 12, &CLOCK, &frames)
+            .active_for(subject, &clock_at(12), &frames)
             .expect("mục xác nhận đang phát");
         assert_eq!(active.source, PresentationSource::Confirmed);
         assert_eq!(active.frame, 0);
@@ -805,7 +852,7 @@ mod tests {
         // Clip chết 14 frame × 100 ms: mỗi frame ~3,3 tick.
         let mut seen = Vec::new();
         for tick in 10..10 + 14 * 4 {
-            if let Some(active) = journal.active_for(subject, tick, &CLOCK, &frames) {
+            if let Some(active) = journal.active_for(subject, &clock_at(tick), &frames) {
                 seen.push((tick, active.frame));
             }
         }
@@ -826,15 +873,15 @@ mod tests {
         // Hết khoảng clip thì không còn hiệu ứng nào để phát.
         assert!(
             journal
-                .active_for(subject, 10 + 14 * 4, &CLOCK, &frames)
+                .active_for(subject, &clock_at(10 + 14 * 4), &frames)
                 .is_none()
         );
         // Dọn sổ: mục hết khoảng clip bị bỏ, nhưng khoá event **giữ** ⇒ event lặp vẫn
         // không tạo mục mới.
-        journal.prune(10 + 14 * 4, &CLOCK, &frames);
+        journal.prune(&clock_at(10 + 14 * 4), &frames);
         assert!(
             journal
-                .active_for(subject, 10 + 14 * 4, &CLOCK, &frames)
+                .active_for(subject, &clock_at(10 + 14 * 4), &frames)
                 .is_none()
         );
         assert!(!journal.record_event(&died_event(10, 0, 0)));
@@ -849,7 +896,7 @@ mod tests {
         assert!(journal.record_event(&explosion_event(2, 1, Cell::new(1, 1))));
         assert!(journal.record_local(PresentationKind::Start, Subject::Player(1), 3));
         let kinds: Vec<PresentationKind> = journal
-            .active(3, &CLOCK, &frames)
+            .active(&clock_at(3), &frames)
             .iter()
             .map(|item| item.kind)
             .collect();

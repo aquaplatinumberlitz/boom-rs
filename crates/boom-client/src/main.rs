@@ -271,11 +271,8 @@ fn main() {
             }
         }
     }
-    if (opts.demo || opts.demo_death)
-        && let Err(error) = game.enable_demo(opts.demo_death)
-    {
-        eprintln!("không bật được kịch bản demo: {error}");
-        std::process::exit(2);
+    if opts.demo || opts.demo_death {
+        game.enable_demo(opts.demo_death);
     }
     for &(action, key) in &opts.rebinds {
         game.input.rebind(action, key);
@@ -453,15 +450,17 @@ struct Game {
     bundle_dir: Option<PathBuf>,
     /// Bundle đã nạp: chứa clip animation để vẽ nhân vật, bom và lửa.
     bundle: Option<Bundle>,
-    /// Nhịp phát frame: thời lượng một frame và tần số tick mô phỏng.
-    frame_clock: FrameClock,
+    /// **Đồng hồ trình diễn**: nhịp phát frame (từ rules profile) + tick trình diễn.
+    ///
+    /// Tick trình diễn bám `state.tick` khi mô phỏng còn chạy và **tiến nốt** cùng nhịp
+    /// tick khi lượt **kết thúc** (core dừng), để chuỗi chết phát trọn clip rồi mới giữ
+    /// khung cuối có ảnh (R-089).
+    clock: anim::PresentationClock,
     /// Sổ trình diễn: hiệu ứng nổ, chết, nhốt và mở đầu lượt, gắn với event server
     /// đã xác nhận (R-089).
     journal: anim::PresentationJournal,
     /// ID lượt hiện tại của client; tăng khi lượt mới bắt đầu.
     round_id: u32,
-    /// Seed của lượt (dùng khi dựng lại state cho kịch bản demo chết).
-    seed: u64,
     /// Tick của lượt trước — phát hiện lượt mới (state được dựng lại, tick về 0).
     last_tick: u32,
     /// Vị trí nhân vật ở tick trước (để biết nhân vật đang đi hay đứng yên).
@@ -517,6 +516,8 @@ impl Game {
             )?)?,
             ticks_per_second: rules.ticks_per_second,
         };
+        // Đồng hồ trình diễn: nhịp frame từ profile, tick trình diễn bắt đầu từ 0.
+        let clock = anim::PresentationClock::new(frame_clock, 0);
 
         // Scene: bundle content nếu có, không thì địa hình placeholder.
         let (terrain, scene, bundle) = match bundle_dir {
@@ -602,11 +603,10 @@ impl Game {
             scene,
             bundle_dir: bundle_dir.map(Path::to_path_buf),
             bundle,
-            frame_clock,
+            clock,
             journal,
             round_id: ROUND_ID,
             last_tick: 0,
-            seed,
             previous_positions,
             demo: None,
             audio_state: audio::AudioState::new(0),
@@ -621,56 +621,22 @@ impl Game {
     /// Bật kịch bản demo offline (chỉ đẩy input, không sửa state).
     ///
     /// `death` = kịch bản **chết**: người chơi đặt bom rồi đứng yên nên bị lửa bắt và
-    /// chết — dùng để chụp ảnh chuỗi chết (R-089). Kịch bản này dựng lại lượt với
-    /// **4** người chơi (bản đồ V1 có 4 spawn) để lượt **còn tiếp** sau khi một người
-    /// chết: nếu chỉ có hai người thì lượt kết thúc ngay lúc chết và chuỗi chết bị
-    /// cắt.
-    fn enable_demo(&mut self, death: bool) -> Result<(), boom_core::CoreError> {
-        if death {
-            let roster = [
-                PlayerSetup {
-                    id: 0,
-                    stats: DEMO_STATS,
-                },
-                PlayerSetup {
-                    id: 1,
-                    stats: DEMO_STATS,
-                },
-                PlayerSetup {
-                    id: 2,
-                    stats: DEMO_STATS,
-                },
-                PlayerSetup {
-                    id: 3,
-                    stats: DEMO_STATS,
-                },
-            ];
-            self.state = SimulationState::new_round(&self.world, &roster, self.seed)?;
-            self.previous_positions = self
-                .state
-                .players
-                .iter()
-                .map(|player| (player.id, (player.x.0, player.y.0)))
-                .collect();
-            // Lượt mới ⇒ hiệu ứng mở đầu lượt của **cả** roster mới (người chơi thêm
-            // vào cũng có tư thế mở đầu lượt).
-            record_round_start(&mut self.journal, &self.state);
-        }
+    /// chết — dùng để chụp ảnh chuỗi chết (R-089). Với roster mặc định **hai** người,
+    /// lượt **kết thúc** ngay lúc chết; chuỗi chết vẫn phát trọn clip vì đồng hồ
+    /// trình diễn tiến nốt sau khi mô phỏng dừng (xem [`Game::tick`]).
+    fn enable_demo(&mut self, death: bool) {
         self.demo = Some(Demo::new(&self.world, &self.state, death));
-        Ok(())
     }
 
     /// Chuỗi **chết** đang phát ở frame `frame` (dùng để chụp ảnh local).
+    ///
+    /// Đồng hồ **trình diễn** (không phải `state.tick`): sau khi lượt kết thúc mô phỏng
+    /// dừng nhưng chuỗi chết vẫn phát nốt (R-089).
     fn death_ready(&self, frame: usize) -> bool {
         let frames = self.frame_counts();
         self.state.players.iter().any(|player| {
             self.journal
-                .active_for(
-                    anim::Subject::Player(player.id),
-                    self.state.tick,
-                    &self.frame_clock,
-                    &frames,
-                )
+                .active_for(anim::Subject::Player(player.id), &self.clock, &frames)
                 .is_some_and(|active| {
                     active.kind == anim::PresentationKind::Death && active.frame == frame
                 })
@@ -684,12 +650,7 @@ impl Game {
             player.life == Life::Dead
                 && self
                     .journal
-                    .active_for(
-                        anim::Subject::Player(player.id),
-                        self.state.tick,
-                        &self.frame_clock,
-                        &frames,
-                    )
+                    .active_for(anim::Subject::Player(player.id), &self.clock, &frames)
                     .is_none()
         })
     }
@@ -723,6 +684,8 @@ impl Game {
                     .collect();
                 self.state = state.clone();
                 status.predicted_tick = state.tick;
+                // Đồng hồ trình diễn bám tick của state server (đã xác nhận/dự đoán).
+                self.clock.tick = state.tick;
             }
             // Người chơi khác được **nội suy** giữa hai snapshot gần nhất (ADR 0005): alpha chạy
             // từ snapshot cũ tới snapshot mới theo thời gian đã trôi, clamp ở snapshot cuối
@@ -748,9 +711,16 @@ impl Game {
             status.events += net.take_events().len();
             self.net_status = Some(status);
             self.net_snapshot_interval_ms = net.snapshot_interval_ms().max(1);
+            // Dọn hiệu ứng đã hết khoảng clip theo đồng hồ trình diễn.
+            self.prune_presentation();
             return Ok(());
         }
         if self.state.phase != Phase::Playing {
+            // Lượt đã **kết thúc**: mô phỏng dừng (core trả `RoundOver` nếu bước thêm)
+            // nhưng **hiệu ứng trình diễn** phải chạy nốt — chuỗi chết phát trọn clip rồi
+            // mới giữ khung cuối có ảnh (R-089). Đồng hồ trình diễn tiến **cùng nhịp
+            // tick** nên chuỗi chết không bị kẹt ở frame đầu.
+            self.advance_presentation();
             return Ok(());
         }
         // Lượt mới (state được dựng lại, tick về 0) ⇒ ID lượt tăng, sổ trình diễn dọn
@@ -792,14 +762,30 @@ impl Game {
         }
         // Presentation: đọc event để phát hiệu ứng nổ/chết/nhốt (R-088, R-089).
         self.absorb_events();
+        // Đồng hồ trình diễn bám `state.tick` khi mô phỏng còn chạy.
+        self.clock.tick = self.state.tick;
         // Bỏ hiệu ứng đã hết khoảng clip.
-        let frames = self.frame_counts();
-        self.journal
-            .prune(self.state.tick, &self.frame_clock, &frames);
+        self.prune_presentation();
         // Event đã đọc xong: xóa để không phình bộ nhớ trong chế độ offline.
         self.events.clear();
         self.last_tick = self.state.tick;
         Ok(())
+    }
+
+    /// Tiến **đồng hồ trình diễn** khi mô phỏng đã dừng (lượt kết thúc) và dọn hiệu ứng
+    /// hết khoảng clip.
+    ///
+    /// Nhịp tiến **cùng** nhịp tick mô phỏng (`sim.ticks_per_second`), nên công thức chọn
+    /// frame của R-085 vẫn đúng sau khi lượt kết thúc.
+    fn advance_presentation(&mut self) {
+        self.clock.tick = self.clock.tick.saturating_add(1);
+        self.prune_presentation();
+    }
+
+    /// Dọn mục sổ đã hết khoảng clip (khoá event **vẫn giữ** — R-089).
+    fn prune_presentation(&mut self) {
+        let frames = self.frame_counts();
+        self.journal.prune(&self.clock, &frames);
     }
 
     /// Đọc event của tick vừa chạy: nổ → hiệu ứng nổ, chết/nhốt → chuỗi chết/nhốt.
@@ -1098,13 +1084,16 @@ async fn run(mut game: Game, opts: Options) {
         if opts.demo_death {
             // Chế độ demo chết: chạy tới khi chuỗi chết đang phát ở frame cần chụp
             // (hoặc đã hết, nếu `--death-hold`), hoặc hết lượt.
+            //
+            // Vòng lặp chạy theo **đồng hồ trình diễn**: lượt hai người **kết thúc** ngay
+            // lúc chết nên mô phỏng dừng, nhưng đồng hồ trình diễn vẫn tiến để chuỗi
+            // chết phát trọn clip (R-089).
             let limit = game.world.rules().round_ticks;
             while !(if opts.death_hold {
                 game.death_hold_ready()
             } else {
                 game.death_ready(opts.death_frame)
-            }) && game.state.tick < limit
-                && game.state.phase == Phase::Playing
+            }) && game.clock.tick < limit
             {
                 if let Err(error) = game.tick() {
                     eprintln!("demo chết: không chạy được tick: {error}");
@@ -1214,7 +1203,7 @@ async fn run(mut game: Game, opts: Options) {
                 path.display(),
                 game.logic_size[0] * scale,
                 game.logic_size[1] * scale,
-                game.state.tick
+                game.clock.tick
             );
             std::process::exit(0);
         }
@@ -1290,7 +1279,7 @@ fn draw_scene(
             game.scene
                 .as_ref()
                 .map_or_else(|| "placeholder".to_owned(), |scene| scene.map.clone()),
-            game.state.tick,
+            game.clock.tick,
             game.world.rules().ticks_per_second,
             scale,
             game.options.effective_master(),
@@ -1378,7 +1367,7 @@ fn draw_map_from_bundle(game: &Game, scene: &Scene, atlas: &Atlas) {
         scene,
         &game.state,
         &game.world,
-        &game.frame_clock,
+        &game.clock,
         &game.previous_positions,
         &game.journal,
     );
@@ -1722,7 +1711,10 @@ fn parse_volume(value: &str) -> Result<u8, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use boom_core::{Dir, EventKind};
+    use boom_content::animation::{FrameTiming, PresentationState};
+    use boom_content::bundle::{Clip, EvidenceStatus, Frame, Sprite, SpriteImage};
+    use boom_content::rules::Source;
+    use boom_core::{Dir, EventKind, SimulationEvent};
 
     /// Rules profile nhúng trong binary (dùng cho test không cần file ngoài).
     fn embedded_profile() -> RulesProfile {
@@ -1887,16 +1879,14 @@ mod tests {
         // Sổ trình diễn không biết bundle: caller đưa vào bảng số frame theo clip ID.
         let mut frames = anim::FrameCounts::default();
         frames.set(anim::EXPLOSION_CLIP, 10);
-        let active = game.journal.active(tick + 1, &game.frame_clock, &frames);
+        let clock = anim::PresentationClock::new(game.clock.frame, tick + 1);
+        let active = game.journal.active(&clock, &frames);
         assert_eq!(active.len(), 1, "hiệu ứng nổ ở ô bom, frame đầu tiên");
         assert_eq!(active[0].subject, anim::Subject::Cell(bomb_cell));
         assert_eq!(active[0].frame, 0);
         // Hết khoảng clip thì không còn hiệu ứng.
-        assert!(
-            game.journal
-                .active(tick + 33, &game.frame_clock, &frames)
-                .is_empty()
-        );
+        let clock = anim::PresentationClock::new(game.clock.frame, tick + 33);
+        assert!(game.journal.active(&clock, &frames).is_empty());
     }
 
     /// Nhân vật chết: chuỗi chết vào sổ trình diễn, phát **đủ frame** rồi kết thúc (R-089).
@@ -1940,8 +1930,9 @@ mod tests {
         // Chuỗi chết phát đủ frame, mỗi frame đúng một lần.
         let played: Vec<usize> = (tick..tick + 14 * 4)
             .filter_map(|at| {
+                let clock = anim::PresentationClock::new(game.clock.frame, at);
                 game.journal
-                    .active_for(subject, at, &game.frame_clock, &frames)
+                    .active_for(subject, &clock, &frames)
                     .map(|active| active.frame)
             })
             .collect();
@@ -1957,13 +1948,218 @@ mod tests {
             "chuỗi chết phát đủ frame, mỗi frame đúng một lần"
         );
         // Hết khoảng clip thì không còn hiệu ứng để phát.
-        assert!(
-            game.journal
-                .active_for(subject, tick + 14 * 4, &game.frame_clock, &frames)
-                .is_none()
-        );
+        let clock = anim::PresentationClock::new(game.clock.frame, tick + 14 * 4);
+        assert!(game.journal.active_for(subject, &clock, &frames).is_none());
         // Event lặp (reconcile gửi lại event cũ) không tạo mục mới.
         assert!(!game.journal.record_event(&died));
+    }
+
+    /// Bundle tối thiểu cho clip chết: 14 frame, khung cuối trỏ **ảnh rỗng 0×0**.
+    ///
+    /// Dữ liệu thật của client gốc (R-086): khung cuối của clip chết không có pixel, nên
+    /// nhân vật chết phải giữ khung cuối **có ảnh** (khung 12) thay vì ô màu.
+    fn death_bundle() -> Bundle {
+        let mut frames = Vec::new();
+        for _ in 0..14 {
+            frames.push(Frame {
+                image: 0,
+                offset_x: 0,
+                offset_y: 39,
+                flag: -1,
+                x0: 0,
+                y0: 0,
+                x1: 40,
+                y1: 40,
+                canvas_width: 40,
+                canvas_height: 40,
+                pivot_x: 0,
+                pivot_y: 39,
+            });
+        }
+        // Khung cuối trỏ ảnh rỗng (0×0) như dữ liệu thật.
+        frames[13].image = 1;
+        Bundle {
+            schema: boom_content::bundle::SCHEMA,
+            build: "kr".to_owned(),
+            map: "Village00".to_owned(),
+            tileset: "Tile00".to_owned(),
+            width: 0,
+            height: 0,
+            spawns: Vec::new(),
+            content_hash: String::new(),
+            atlas: Vec::new(),
+            sprites: vec![Sprite {
+                id: "c00".to_owned(),
+                entry: "Character/C00-DieLayerStatic".to_owned(),
+                role: "character_walk".to_owned(),
+                status: EvidenceStatus::Confirmed,
+                source_sha256: "00".repeat(32),
+                map_id: None,
+                object_name: None,
+                images: vec![
+                    SpriteImage {
+                        index: 0,
+                        page: Some(0),
+                        x: 0,
+                        y: 0,
+                        width: 40,
+                        height: 40,
+                        pixel_sha256: "11".repeat(32),
+                    },
+                    // Ảnh rỗng: 0×0, không đặt trong atlas.
+                    SpriteImage {
+                        index: 1,
+                        page: None,
+                        x: 0,
+                        y: 0,
+                        width: 0,
+                        height: 0,
+                        pixel_sha256: "22".repeat(32),
+                    },
+                ],
+                frames: Vec::new(),
+            }],
+            assets: Vec::new(),
+            cells: Vec::new(),
+            unknown: Vec::new(),
+            clips: vec![Clip {
+                id: "c00.dead.static".to_owned(),
+                state: PresentationState::Dead,
+                pack: "FxCharacter".to_owned(),
+                entry: "Character/C00-DieLayerStatic".to_owned(),
+                layer: None,
+                sprite_unk: 0,
+                sprite: "c00".to_owned(),
+                source: Source::KrStatic,
+                status: EvidenceStatus::Confirmed,
+                claims: vec!["R-077".to_owned()],
+                note: None,
+                timing: FrameTiming::Unknown {
+                    reason: "chưa có nguồn".to_owned(),
+                },
+                frames,
+            }],
+            ui: Vec::new(),
+            audio: Vec::new(),
+        }
+    }
+
+    /// Chuỗi chết khi **lượt kết thúc**: vẫn phát trọn clip rồi giữ khung cuối có ảnh.
+    ///
+    /// Roster mặc định **hai** người: một người chết thì lượt kết thúc ngay
+    /// (`Phase::Ended`) và mô phỏng dừng. Chuỗi chết phải **chạy nốt** nhờ đồng hồ
+    /// trình diễn tiến sau khi mô phỏng dừng, rồi nhân vật chết giữ khung cuối **có
+    /// ảnh** của clip chết (R-089).
+    ///
+    /// Test đi qua **đường thật**: `Game::tick()` (update) rồi `scene::presentation_plan`
+    /// (render), không truyền tick tương lai vào sổ.
+    #[test]
+    fn death_chain_finishes_after_the_round_ended() {
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        // Client thật luôn nạp bundle; test gắn bundle **dựng sẵn** (không có asset game)
+        // để sổ trình diễn có clip chết và để bước render biết clip nào có ảnh.
+        let bundle = death_bundle();
+        game.bundle = Some(bundle.clone());
+        // Kịch bản chết: người chơi 0 đặt bom rồi đứng yên ⇒ bị lửa bắt ⇒ chết.
+        game.enable_demo(true);
+        // Chạy tới khi lượt kết thúc (người chơi 0 chết, chỉ còn một người sống).
+        let mut guard = 0;
+        while game.state.phase == Phase::Playing {
+            game.tick().expect("tick mô phỏng");
+            guard += 1;
+            assert!(guard < 10_000, "lượt phải kết thúc");
+        }
+        assert!(
+            matches!(game.state.phase, Phase::Ended(_)),
+            "một người chết thì lượt hai người phải kết thúc"
+        );
+        let subject = anim::Subject::Player(0);
+        // Khoá event của mục đã xác nhận: dùng để kiểm tra event gửi lại không phát lại.
+        let key = game
+            .journal
+            .item_for(subject)
+            .and_then(|item| item.key)
+            .expect("mục chết phải có khoá event");
+        // Sổ trình diễn không biết bundle: caller đưa vào bảng số frame theo clip ID.
+        let frames = scene::frame_counts(&bundle);
+        // Chuỗi chết phải chạy nốt sau khi lượt kết thúc: đồng hồ trình diễn tiến mỗi
+        // tick client, mô phỏng thì đã dừng.
+        let mut played: Vec<usize> = Vec::new();
+        for _ in 0..200 {
+            game.tick().expect("tick trình diễn");
+            if let Some(active) = game.journal.active_for(subject, &game.clock, &frames) {
+                played.push(active.frame);
+            }
+        }
+        assert!(
+            played.windows(2).all(|pair| pair[0] <= pair[1]),
+            "chuỗi chết không lặp về đầu: {played:?}"
+        );
+        let mut unique = played.clone();
+        unique.dedup();
+        assert_eq!(
+            unique,
+            (0..14).collect::<Vec<usize>>(),
+            "chuỗi chết phát đủ frame sau khi lượt kết thúc"
+        );
+        // Hết khoảng clip ⇒ mục bị dọn khỏi sổ.
+        assert!(
+            game.journal.item_for(subject).is_none(),
+            "mục hết khoảng clip phải bị dọn"
+        );
+        // Render: nhân vật chết giữ **khung cuối có ảnh** của clip chết (khung 12),
+        // không vẽ ô màu.
+        let scene = scene::Scene::from_bundle(&bundle, &classifier(), 40).expect("dựng scene");
+        let plan = scene::presentation_plan(
+            &bundle,
+            &scene,
+            &game.state,
+            &game.world,
+            &game.clock,
+            &game.previous_positions,
+            &game.journal,
+        );
+        let dead_items: Vec<&scene::PlanItem> =
+            plan.items
+                .iter()
+                .filter(|item| match item {
+                    scene::PlanItem::Sprite { clip, .. }
+                    | scene::PlanItem::Fallback { clip, .. } => clip == "c00.dead.static",
+                    scene::PlanItem::Object(_) => false,
+                })
+                .collect();
+        assert_eq!(dead_items.len(), 1, "chỉ một mục cho nhân vật chết");
+        assert!(
+            matches!(
+                dead_items[0],
+                scene::PlanItem::Sprite {
+                    clip,
+                    frame: 12,
+                    ..
+                } if clip == "c00.dead.static"
+            ),
+            "nhân vật chết giữ khung cuối có ảnh, không vẽ ô màu: {dead_items:?}"
+        );
+        // Event gửi lại (reconcile) không tạo mục mới ⇒ không phát lại chuỗi chết.
+        let repeated = SimulationEvent {
+            id: key.event_id,
+            kind: EventKind::PlayerDied {
+                player: 0,
+                by: None,
+            },
+        };
+        assert!(
+            !game.journal.record_event(&repeated),
+            "event gửi lại không được tạo mục mới"
+        );
+        assert!(game.journal.item_for(subject).is_none());
+    }
+
+    /// Bảng phân loại ô (bundle test không có ô nào nên bảng mặc định là đủ).
+    fn classifier() -> boom_content::map::CellClassifier {
+        boom_content::map::CellClassifier::default()
     }
 
     #[test]
