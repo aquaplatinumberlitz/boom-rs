@@ -1300,19 +1300,31 @@ fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHar
     }
 
     // Về phòng và vào được trận 2.
-    assert!(
-        harness.wait_for_all(
-            |client| {
-                client
-                    .net
-                    .room()
-                    .round()
-                    .is_some_and(|plan| plan.round_id > round_id)
-            },
-            ROOM_WAIT_STEPS
-        ),
-        "mọi client phải vào được trận 2"
+    let ok = harness.wait_for_all(
+        |client| {
+            client
+                .net
+                .room()
+                .round()
+                .is_some_and(|plan| plan.round_id > round_id)
+        },
+        ROOM_WAIT_STEPS,
     );
+    if !ok {
+        for index in 0..count {
+            let client = harness.client(index);
+            eprintln!(
+                "DEBUG client {index}: room={:?} ready={:?} round={:?} result={:?} reject={:?} err={:?}",
+                client.net.room().room().map(|r| (r.phase, r.members.len())),
+                client.net.room().my_member().map(|m| m.ready),
+                client.net.room().round().map(|p| p.round_id),
+                client.net.room().result().map(|r| r.round_id),
+                client.net.room().rejection().map(|r| r.reason),
+                client.net.room_error(),
+            );
+        }
+    }
+    assert!(ok, "mọi client phải vào được trận 2");
     harness
 }
 
