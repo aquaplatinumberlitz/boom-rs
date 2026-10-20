@@ -248,23 +248,28 @@ bundle, khớp với `frame_count` của cache review ảnh. Tất cả trạng 
 `pending`; muốn dùng phải import `images_review.csv` qua quy trình
 [IMAGE_REVIEW](IMAGE_REVIEW.md).
 
+Chữ ghi trong cột **Chữ trên ảnh** là chữ **đã đọc trực tiếp** trên PNG của build đó (cache
+review ảnh có cả `kr` và `vn`); phần chưa đọc rõ thì ghi rõ là chưa xác nhận. Cột **VN cùng
+tên** ghi `diff_bytes` là phép so **byte** của hai build — byte khác **không** chứng minh chữ
+khác, nên không dùng phép này để suy ra ngôn ngữ hay nghĩa của chữ.
+
 | Asset (pack:entry) | Kích thước | Trạng thái dùng | Chữ trên ảnh (bằng chứng) | VN cùng tên | Ghi chú review |
 |---|---|---|---|---|---|
-| `FxDesktop:LoginStage/CAStage` | 800×600 JPEG | `excluded` (`login.background`) | KR: lời thoại tiếng Hàn + huy hiệu Nexon (ô "N" góc trên); VN: logo Boom + dòng bản quyền "Copyright (C) 2001 Nexon" | `diff_bytes` | **Không dùng nguyên trạng**: nền là JPEG nên bộ giải mã bundle không đọc được, và ảnh có huy hiệu Nexon/bản quyền → V1 dựng nền bằng màu, chữ lấy từ catalog |
-| `FxStage:Lobby/CAStage` | 800×600 JPEG | `excluded` (`lobby.background`) | KR: hai tab "대결 모드" / "상이 모드" + nhãn "레벨"; VN: "ĐẠI CHIẾN" / "NHIỆM VỤ" | `diff_bytes` | Chữ nằm trong ảnh nền; tab chế độ ngoài scope V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
-| `FxMap:Prepare/CAStage` | 800×600 JPEG | `excluded` (`room.background`) | KR: nhãn "방" (phòng), "던전" (dungeon), "게임디테일" (game detail) và nút "자동 준비" (auto-ready); VN có chữ Việt ở các nhãn | `diff_bytes` | Auto-ready ngoài scope FFA V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
-| `FxStage:Lobby/LB_Bt_T_Create-NM` | 92×495 (9 frame) | `needs_review_text` (`lobby.create`) | Có chữ Hàn (방만들기); VN: có chữ Việt | `diff_bytes` | Ảnh nút có chữ; nếu dùng phải duyệt `translated`, nếu không thì render text từ catalog |
-| `FxStage:Lobby/Dlg_LB-NMCreate` | 414×455 | `needs_review_text` (`lobby.create_dialog`) | Tiêu đề "방만들기" nằm trong ảnh; VN: có chữ Việt | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
-| `FxMap:Prepare/PRE_Bt_Ready` | 193×342 (6 frame) | `needs_review_text` (`room.ready`) | Có chữ Hàn (준비); VN: có chữ Việt | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
-| `FxMap:Prepare/PRE_Bt_Start` | 193×342 (6 frame) | `needs_review_text` (`room.start`) | Có chữ Hàn (시작); VN: có chữ Việt | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
+| `FxDesktop:LoginStage/CAStage` | 800×600 JPEG | `excluded` (`login.background`) | KR: lời thoại tiếng Hàn + huy hiệu Nexon (ô "N" góc trên); VN: logo Boom + dòng bản quyền "Copyright (C) 2001 Nexon Networks, All Rights Reserved" (tiếng Anh, **không** có chữ Việt) | `diff_bytes` | **Không dùng nguyên trạng**: nền là JPEG nên bộ giải mã bundle không đọc được, và ảnh có huy hiệu Nexon/bản quyền → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxStage:Lobby/CAStage` | 800×600 JPEG | `excluded` (`lobby.background`) | KR: hai tab "대결 모드" / "상이 모드" + nhãn "레벨"; VN: "ĐẠI CHIẾN" / "NHIỆM VỤ" + "NGƯỜI CHƠI" | `diff_bytes` | Chữ nằm trong ảnh nền; tab chế độ ngoài scope V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxMap:Prepare/CAStage` | 800×600 JPEG | `excluded` (`room.background`) | KR: nhãn "방" (phòng), "던전" (dungeon), "게임디테일" (game detail) và nút "자동 준비" (auto-ready); VN: "NHÂN VẬT", "CHỌN ĐỔI", "BẢN ĐỒ" và nút "TỰ ĐỒNG" | `diff_bytes` | Auto-ready ngoài scope FFA V1 → V1 dựng nền bằng màu, chữ lấy từ catalog |
+| `FxStage:Lobby/LB_Bt_T_Create-NM` | 92×495 (9 frame) | `needs_review_text` (`lobby.create`) | Có chữ Hàn (방만들기); VN: "TẠO PHÒNG" | `diff_bytes` | Ảnh nút có chữ; nếu dùng phải duyệt `translated`, nếu không thì render text từ catalog |
+| `FxStage:Lobby/Dlg_LB-NMCreate` | 414×455 | `needs_review_text` (`lobby.create_dialog`) | Tiêu đề "방만들기" nằm trong ảnh; VN: "TẠO PHÒNG" | `diff_bytes` | Tiêu đề dialog nằm trong ảnh; phần thân là ô trống, nhãn do client vẽ |
+| `FxMap:Prepare/PRE_Bt_Ready` | 193×342 (6 frame) | `needs_review_text` (`room.ready`) | Có chữ Hàn (준비); VN: "SẴN SÀNG" | `diff_bytes` | Nút ready có chữ; cần duyệt ảnh hoặc render text từ catalog |
+| `FxMap:Prepare/PRE_Bt_Start` | 193×342 (6 frame) | `needs_review_text` (`room.start`) | Có chữ Hàn (시작); VN: "BẮT ĐẦU" | `diff_bytes` | Nút start có chữ; cần duyệt ảnh hoặc render text từ catalog |
 | `FxMap:Prepare/PRE_Bt_Roominfo` | 100×110 (5 frame) | `excluded` (`room.info_label`) | KR: "방정보변경" (đổi thông tin phòng); VN: "THÔNG TIN" (thông tin) | `diff_bytes` | Ảnh KR/VN khác nghĩa; V1 vẽ nhãn từ catalog, không tự chọn/sửa nhãn |
 | `FxMap:Prepare/Dlg_PRE-NMRoominfo` | 414×455 | `needs_review_text` (`room.info_dialog`) | Tiêu đề KR "방정보변경" còn VN "THÔNG TIN" — khác nghĩa | `diff_bytes` | Như trên; nếu dùng thì lấy nhãn từ catalog, không tự chọn/sửa nhãn trong ảnh |
 | `FxStage:Lobby/LB_Bt_T_ShowAllRenew` | 99×423 (9 frame) | `excluded` (`lobby.show_all`) | KR: "모든방보기" (xem mọi phòng); VN: "TOÀN BỘ" (tất cả) | `diff_bytes` | VN ngắn hơn nên có thể mất nghĩa "xem mọi phòng"; V1 không cần filter, vẽ nút bằng text từ catalog |
 | `FxStage:Lobby/LB_Bt_T_WaitRoomRenew` | 99×423 (9 frame) | `excluded` (`lobby.wait_room`) | KR: "대기방보기" (xem phòng chờ); VN: "PHÒNG CHỜ" (danh từ) | `diff_bytes` | VN không phải hành động "xem phòng chờ"; V1 vẽ nút bằng text từ catalog |
 | `FxStage:Lobby/ReadyBox` | 127×176 | `excluded` (`room.ready_indicator`) | KR: "준비중" (đang chuẩn bị); VN: "ĐẠI CHIẾN" | `diff_bytes` | **Sai nghĩa**: không dùng làm indicator ready; V1 vẽ trạng thái ready bằng text và màu, cần asset/key khác ở boom-re-l10n |
-| `FxStage:Game/Win` | 243×59 (4 frame) | `needs_review_text` (`result.win`) | Chữ Latin "WIN!!" ghép trong ảnh; VN cần kiểm đủ chữ | `diff_bytes` | Ảnh động nhiều frame; duyệt cả chuỗi frame và xác nhận đủ chữ, không chỉ frame 0 |
-| `FxStage:Game/Lose` | 317×59 (5 frame) | `needs_review_text` (`result.lose`) | Chữ Latin "LOSE!!" ghép trong ảnh; VN chưa đọc rõ | `diff_bytes` | Chuỗi frame VN không đọc ra từ rõ ràng; đánh dấu `check`, cần người duyệt xem đủ frame |
-| `FxStage:Game/Draw` | 366×59 (5 frame) | `needs_review_text` (`result.draw`) | Chữ Latin "DRAW!!" ghép trong ảnh; VN cần kiểm dấu | `diff_bytes` | Dấu có thể nằm ở frame khác; duyệt cả frame và kiểm dấu |
+| `FxStage:Game/Win` | 243×59 (4 frame) | `needs_review_text` (`result.win`) | Chữ Latin "WIN!!" ghép trong ảnh; VN frame 0 chỉ đọc được "THN", chuỗi frame chưa ghép đủ ⇒ **chưa xác nhận** | `diff_bytes` | Ảnh động nhiều frame; duyệt cả chuỗi frame và xác nhận đủ chữ, không chỉ frame 0 |
+| `FxStage:Game/Lose` | 317×59 (5 frame) | `needs_review_text` (`result.lose`) | Chữ Latin "LOSE!!" ghép trong ảnh; VN frame 0 chỉ đọc được "SC" ⇒ **chưa đọc rõ** | `diff_bytes` | Chuỗi frame VN không đọc ra từ rõ ràng; đánh dấu `check`, cần người duyệt xem đủ frame |
+| `FxStage:Game/Draw` | 366×59 (5 frame) | `needs_review_text` (`result.draw`) | Chữ Latin "DRAW!!" ghép trong ảnh; VN frame 0 chỉ đọc được "HO" ⇒ **chưa đọc rõ** | `diff_bytes` | Dấu có thể nằm ở frame khác; duyệt cả frame và kiểm dấu |
 | `FxStage:Game/ResultInfoBar` | 356×288 (6 ảnh) | `excluded` (`result.info_bar`) | Spritesheet trộn nhãn KR/EN và cột EXP/LUCCI; VN có bản tương ứng | `diff_bytes` | Không dùng cả sheet: V1 không có tiền/EXP và chỉ cần cột `Hạng/Người chơi/Kết quả` → vẽ bằng text từ catalog |
 | `FxStage:Game/ResultInfoGood` | 98×144 (4 frame) | `selected` (`result.info_good`) | Chỉ icon bàn tay (ngón cái), không thấy chữ | `no` | Đã đọc trực tiếp PNG giải mã (pack KR 00967, 2026-10-20): chỉ có icon ngón cái, không thấy chữ nên không cần duyệt text |
 
