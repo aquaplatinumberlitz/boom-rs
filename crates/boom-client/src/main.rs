@@ -11,19 +11,34 @@
 //! Tùy chọn người dùng đọc/ghi từ `options.toml` (module [`options`], ADR 0011 §7): volume,
 //! mute và keybind. Keybind trong file **thay** hằng số phím mặc định; `--rebind` của dòng lệnh
 //! vẫn hoạt động và được ghi đè lên trên (đổi sau, thắng trước).
+//!
+//! Cờ `--connect <addr>` mở chế độ mạng: module [`net`] (handshake, auth, gửi input, dự đoán và
+//! reconciliation theo ADR 0005/0009). Server chặn mọi kind trước `AuthOk` (ADR 0009 Addendum A
+//! §A.1) nên chế độ mạng cần `--user`/`--password` (hoặc biến môi trường `BOOM_USER`/
+//! `BOOM_PASSWORD`). Không có cờ thì giữ chế độ offline.
+//!
+//! Nội dung chạy được nạp từ đĩa khi được trỏ: `--rules <file>` (rules profile) và
+//! `--l10n <file>` (chuỗi UI V1); không trỏ thì dùng bản nhúng trong binary. Thiếu file
+//! hoặc sai hash → thông điệp có **đường dẫn** và **cách sửa**, exit code khác 0, không
+//! panic (V1-036).
 
 mod anim;
 mod audio;
 mod input;
+mod net;
 mod options;
 mod render;
 mod scene;
+mod text;
 mod ui;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use boom_content::bundle::Bundle;
+use boom_content::l10n::L10n;
 use boom_content::map::{CellKind, MapProfile, Terrain};
 use boom_content::rules::RulesProfile;
 use boom_core::{
@@ -206,13 +221,56 @@ fn main() {
     if let Some(mute) = opts.mute {
         client_options.mute = mute;
     }
-    let mut game = match Game::new(opts.seed, client_options, opts.bundle.as_deref()) {
-        Ok(game) => game,
+    // Nội dung: rules profile và bộ chuỗi UI. Mặc định dùng bản nhúng trong binary;
+    // `--rules`/`--l10n` trỏ sang file của gói phát hành (V1-036).
+    let profile = match load_rules(&opts.rules) {
+        Ok(profile) => profile,
         Err(error) => {
-            eprintln!("không dựng được scene offline: {error}");
+            eprintln!("{error}");
             std::process::exit(2);
         }
     };
+    let l10n = match load_l10n(&opts.l10n) {
+        Ok(l10n) => l10n,
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(2);
+        }
+    };
+    eprintln!(
+        "nội dung: rules {} · chuỗi {} ({} khóa)",
+        profile.profile_id,
+        l10n.locale(),
+        l10n.len()
+    );
+    let mut game = match Game::new(opts.seed, client_options, opts.bundle.as_deref(), &profile) {
+        Ok(game) => game,
+        Err(error) => {
+            eprintln!("không dựng được client: {error}");
+            std::process::exit(2);
+        }
+    };
+    // Chế độ mạng: nối server và dùng module `net`; không có `--connect` thì giữ offline.
+    if let Some(addr) = opts.connect.clone() {
+        let credentials = match net_credentials(
+            &opts,
+            std::env::var("BOOM_USER").ok(),
+            std::env::var("BOOM_PASSWORD").ok(),
+        ) {
+            Ok(credentials) => credentials,
+            Err(error) => {
+                eprintln!("không lấy được thông tin đăng nhập: {error}");
+                std::process::exit(2);
+            }
+        };
+        match net::connect(&addr, &credentials) {
+            Ok(client) => game.net = Some(client),
+            Err(error) => {
+                eprintln!("không vào được chế độ mạng: {error}");
+                std::process::exit(2);
+            }
+        }
+    }
     if (opts.demo || opts.demo_death)
         && let Err(error) = game.enable_demo(opts.demo_death)
     {
@@ -243,9 +301,111 @@ fn main() {
     macroquad::Window::from_config(conf, run(game, opts));
 }
 
+/// Lỗi nạp file nội dung (rules/bundle/l10n).
+///
+/// Thông điệp **luôn** kèm đường dẫn và cách sửa: người dùng phải biết sửa ở đâu,
+/// không chỉ biết "có lỗi" (V1-036: thiếu file hoặc sai hash → báo rõ đường dẫn +
+/// cách sửa, exit code khác 0, không panic).
+#[derive(Debug)]
+struct ContentError(String);
+
+impl fmt::Display for ContentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ContentError {}
+
+/// Rules profile: file trên đĩa nếu có, không thì bản nhúng trong binary.
+fn load_rules(path: &Option<PathBuf>) -> Result<RulesProfile, ContentError> {
+    match path {
+        Some(path) => load_rules_file(path),
+        None => RulesProfile::from_toml(include_str!("../../../data/rules/v1-dev.toml")).map_err(
+            |error| {
+                ContentError(format!(
+                    "bản rules nhúng trong binary không dùng được: {error}"
+                ))
+            },
+        ),
+    }
+}
+
+/// Nạp rules profile từ file; lỗi kèm đường dẫn và cách sửa.
+fn load_rules_file(path: &Path) -> Result<RulesProfile, ContentError> {
+    let text = std::fs::read_to_string(path).map_err(|error| {
+        ContentError(format!(
+            "không đọc được file rules: {} ({error})\n  \
+             sửa: file phải tồn tại và đọc được; gói phát hành đặt rules ở data/rules/ \
+             (ví dụ data/rules/v1-dev.toml)",
+            path.display()
+        ))
+    })?;
+    RulesProfile::from_toml(&text).map_err(|error| {
+        ContentError(format!(
+            "file rules không dùng được: {} ({error})\n  \
+             sửa: file phải là rules profile TOML hợp lệ \
+             (xem docs/specification/gameplay/RULES_V1.md)",
+            path.display()
+        ))
+    })
+}
+
+/// Bộ chuỗi UI: file trên đĩa nếu có, không thì bản nhúng trong binary.
+fn load_l10n(path: &Option<PathBuf>) -> Result<L10n, ContentError> {
+    match path {
+        Some(path) => load_l10n_file(path),
+        None => L10n::from_toml(include_str!("../../../data/l10n/vi-v1.toml")).map_err(|error| {
+            ContentError(format!(
+                "bản chuỗi nhúng trong binary không dùng được: {error}"
+            ))
+        }),
+    }
+}
+
+/// Nạp bộ chuỗi UI từ file; lỗi kèm đường dẫn và cách sửa.
+fn load_l10n_file(path: &Path) -> Result<L10n, ContentError> {
+    let bytes = std::fs::read(path).map_err(|error| {
+        ContentError(format!(
+            "không đọc được file chuỗi: {} ({error})\n  \
+             sửa: file phải tồn tại; gói phát hành đặt chuỗi ở data/l10n/ \
+             (ví dụ data/l10n/vi-v1.toml)",
+            path.display()
+        ))
+    })?;
+    L10n::from_bytes(&bytes).map_err(|error| {
+        ContentError(format!(
+            "file chuỗi không dùng được: {} ({error})\n  \
+             sửa: file phải là file chuỗi UI V1 hợp lệ \
+             (sinh bằng tools/l10n_export.py, \
+             xem docs/specification/localization/UI_STRINGS_V1.md)",
+            path.display()
+        ))
+    })
+}
+
+/// Lỗi nạp bundle: kèm thư mục bundle và cách dựng lại từ pack.
+fn bundle_error(dir: &Path, error: &dyn fmt::Display) -> ContentError {
+    ContentError(format!(
+        "không nạp được bundle: {}\n  lỗi: {error}\n  \
+         sửa: dựng lại bundle từ pack của bạn: \
+         `boom-assets bundle --map Village00 --out <dir> --pack-dir <thư mục pack>`",
+        dir.display()
+    ))
+}
+
 fn window_conf(game: &Game, opts: &Options) -> macroquad::miniquad::conf::Conf {
+    // Chế độ mạng: tiêu đề cửa sổ mang build id của server (fingerprint ADR 0011 §8.3).
+    let title = game
+        .net
+        .as_ref()
+        .and_then(net::NetClient::server_version)
+        .map_or_else(
+            || "boom-rs client — offline".to_owned(),
+            |version| format!("boom-rs client — {version}"),
+        );
     macroquad::miniquad::conf::Conf {
-        window_title: "boom-rs client — offline".to_owned(),
+        window_title: title,
         window_width: (game.logic_size[0] * opts.scale) as i32,
         window_height: (game.logic_size[1] * opts.scale) as i32,
         window_resizable: false,
@@ -312,6 +472,29 @@ struct Game {
     audio_state: audio::AudioState,
     /// Cue tích luỹ giữa các tick trong một frame; `take` sau khi phát.
     audio_plan: audio::AudioPlan,
+    /// Chế độ mạng: server là authority, client chỉ dự đoán di chuyển của chính mình.
+    net: Option<net::NetClient<boom_net::TcpTransport>>,
+    /// Trạng thái chế độ mạng để hiện trên HUD.
+    net_status: Option<NetStatus>,
+    /// Thời điểm (đồng hồ render) nhận snapshot mới nhất: gốc của alpha nội suy.
+    net_snapshot_at: f64,
+    /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`.
+    net_snapshot_interval_ms: u64,
+}
+
+/// Thông tin chế độ mạng hiển thị trên HUD: server xác nhận tới tick nào, client đang dự đoán
+/// tới tick nào, round hiện tại và số event server mới (đã dedup).
+#[derive(Clone, Copy, Debug, Default)]
+struct NetStatus {
+    confirmed_tick: u32,
+    predicted_tick: u32,
+    round: u32,
+    slot: u8,
+    events: usize,
+    /// Lượt đã kết thúc (kết quả do server quyết).
+    ended: bool,
+    /// Số lệnh input chưa được server ack.
+    pending: u32,
 }
 
 impl Game {
@@ -319,9 +502,9 @@ impl Game {
         seed: u64,
         options: ClientOptions,
         bundle_dir: Option<&Path>,
+        profile: &RulesProfile,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let profile = RulesProfile::from_toml(include_str!("../../../data/rules/v1-dev.toml"))?;
-        let rules = Rules::from_profile(&profile)?;
+        let rules = Rules::from_profile(profile)?;
         let mode = mode_by_id("battle_ffa").ok_or("mode battle_ffa chưa đăng ký")?;
         let tile_px = u32::try_from(rules.tile.0 / 1000)?;
         // Nhịp phát frame: thời lượng frame lấy từ profile (không hard-code trong code).
@@ -341,7 +524,8 @@ impl Game {
                 // Phân loại ô nằm ở bảng chuẩn `data/maps/`, không nhân bản trong bundle.
                 let map_profile =
                     MapProfile::from_toml(include_str!("../../../data/maps/village00-kr.toml"))?;
-                let loaded = scene::load(dir, &map_profile, tile_px)?;
+                let loaded = scene::load(dir, &map_profile, tile_px)
+                    .map_err(|error| bundle_error(dir, &error))?;
                 // Không bỏ qua phần chưa xác định một cách âm thầm (AGENTS §4).
                 for unknown in &loaded.bundle.unknown {
                     eprintln!(
@@ -427,6 +611,10 @@ impl Game {
             demo: None,
             audio_state: audio::AudioState::new(0),
             audio_plan: audio::AudioPlan::default(),
+            net: None,
+            net_status: None,
+            net_snapshot_at: 0.0,
+            net_snapshot_interval_ms: 1,
         })
     }
 
@@ -506,7 +694,62 @@ impl Game {
         })
     }
 
-    fn tick(&mut self) -> Result<(), boom_core::CoreError> {
+    /// Một tick của client: lỗi core (chế độ offline) hoặc lỗi mạng (chế độ mạng).
+    fn tick(&mut self) -> Result<(), TickError> {
+        if let Some(net) = self.net.as_mut() {
+            // Chế độ mạng: đọc message đang chờ (không chặn vòng render), dự đoán một bước
+            // của chính mình rồi gửi cửa sổ lệnh chưa ack. State hiển thị là state dự đoán.
+            net.pump(Duration::ZERO)?;
+            let input = PlayerInput {
+                dir: self.input.direction(),
+                place_bomb: self.input.take_bomb(),
+            };
+            // Lượt đã kết thúc thì `predict` không sinh lệnh và `resend` không gửi: kết quả do
+            // server quyết, client giữ state confirmed và vẫn nhận message.
+            net.predict(input)?;
+            net.resend()?;
+            let mut status = self.net_status.unwrap_or_default();
+            let confirmed_tick = net.confirmed_state().map_or(0, |state| state.tick);
+            if confirmed_tick != status.confirmed_tick {
+                // Snapshot mới: đặt lại gốc thời gian của alpha nội suy.
+                self.net_snapshot_at = get_time();
+            }
+            if let Some(state) = net.state() {
+                // Vị trí ở tick trước để animation biết nhân vật đang đi hay đứng yên.
+                self.previous_positions = state
+                    .players
+                    .iter()
+                    .map(|player| (player.id, (player.x.0, player.y.0)))
+                    .collect();
+                self.state = state.clone();
+                status.predicted_tick = state.tick;
+            }
+            // Người chơi khác được **nội suy** giữa hai snapshot gần nhất (ADR 0005): alpha chạy
+            // từ snapshot cũ tới snapshot mới theo thời gian đã trôi, clamp ở snapshot cuối
+            // (không ngoại suy). Chính mình thì dùng state dự đoán (movement-only).
+            let own_slot = net.player_slot();
+            let alpha = net_alpha(self.net_snapshot_at, self.net_snapshot_interval_ms);
+            for player in &mut self.state.players {
+                if Some(player.id) == own_slot {
+                    continue;
+                }
+                if let Some((x, y)) = net.interpolated_position(player.id, alpha) {
+                    player.x = boom_core::Mpx(x);
+                    player.y = boom_core::Mpx(y);
+                }
+            }
+            status.confirmed_tick = confirmed_tick;
+            status.round = net.round_id().unwrap_or(0);
+            status.slot = net.player_slot().unwrap_or(0);
+            status.ended = matches!(net.phase(), Some(Phase::Ended(_)));
+            status.pending = u32::try_from(net.pending_len()).unwrap_or(u32::MAX);
+            // Event server mới (đã dedup theo `(round_id, EventId)`): presentation journal sẽ
+            // dùng, chưa gắn âm thanh/hiệu ứng ở task này.
+            status.events += net.take_events().len();
+            self.net_status = Some(status);
+            self.net_snapshot_interval_ms = net.snapshot_interval_ms().max(1);
+            return Ok(());
+        }
         if self.state.phase != Phase::Playing {
             return Ok(());
         }
@@ -590,6 +833,77 @@ impl Game {
     /// Lấy cue tích luỹ để phần phát xử lý; gọi sau mỗi frame.
     fn take_audio_plan(&mut self) -> audio::AudioPlan {
         std::mem::take(&mut self.audio_plan)
+    }
+
+    /// Toạ độ vẽ của người chơi: chính mình dùng state dự đoán, người khác dùng **nội suy**
+    /// giữa hai snapshot gần nhất (ADR 0005).
+    fn draw_position(&self, player: &Player) -> (f32, f32) {
+        let own_slot = self.net.as_ref().and_then(net::NetClient::player_slot);
+        if Some(player.id) == own_slot {
+            return (player.x.0 as f32 / 1000.0, player.y.0 as f32 / 1000.0);
+        }
+        let alpha = net_alpha(self.net_snapshot_at, self.net_snapshot_interval_ms);
+        match self
+            .net
+            .as_ref()
+            .and_then(|net| net.interpolated_position(player.id, alpha))
+        {
+            Some((x, y)) => (x as f32 / 1000.0, y as f32 / 1000.0),
+            None => (player.x.0 as f32 / 1000.0, player.y.0 as f32 / 1000.0),
+        }
+    }
+}
+
+/// Alpha nội suy hiện tại (đơn vị 1/65536): `0` = snapshot cũ, `ALPHA_ONE` = snapshot mới.
+///
+/// Thời gian đã trôi kể từ snapshot mới nhất (`snapshot_at`, đồng hồ render) chia cho chu kỳ
+/// snapshot do server khai (`interval_ms`); kết quả clamp ở `ALPHA_ONE` để **không ngoại suy**
+/// (ADR 0005).
+fn net_alpha(snapshot_at: f64, interval_ms: u64) -> u32 {
+    let elapsed_ms = ((get_time() - snapshot_at) * 1000.0).max(0.0) as u64;
+    let interval = interval_ms.max(1);
+    let scaled = elapsed_ms.saturating_mul(u64::from(net::ALPHA_ONE)) / interval;
+    u32::try_from(scaled)
+        .unwrap_or(net::ALPHA_ONE)
+        .min(net::ALPHA_ONE)
+}
+
+/// Lỗi của một tick client: lỗi core (chế độ offline) hoặc lỗi mạng (chế độ mạng).
+#[derive(Debug)]
+enum TickError {
+    /// Lỗi mô phỏng của `boom-core`.
+    Core(boom_core::CoreError),
+    /// Lỗi mạng của module `net` (handshake, codec, transport).
+    Net(net::NetError),
+}
+
+impl fmt::Display for TickError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Core(error) => write!(f, "{error}"),
+            Self::Net(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for TickError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Core(error) => Some(error),
+            Self::Net(error) => Some(error),
+        }
+    }
+}
+
+impl From<boom_core::CoreError> for TickError {
+    fn from(value: boom_core::CoreError) -> Self {
+        Self::Core(value)
+    }
+}
+
+impl From<net::NetError> for TickError {
+    fn from(value: net::NetError) -> Self {
+        Self::Net(value)
     }
 }
 
@@ -930,6 +1244,20 @@ fn draw_scene(
         _ => draw_placeholder_map(game),
     }
 
+    // Bóng bom chờ xác nhận: dữ liệu presentation, tách khỏi state dự đoán (ADR 0005). Bom thật
+    // hiện theo event/snapshot của server.
+    if let Some(net) = game.net.as_ref() {
+        for shadow in net.bomb_shadows() {
+            draw_rectangle(
+                shadow.x as f32 / 1000.0 - 10.0,
+                HUD_HEIGHT + shadow.y as f32 / 1000.0 - 10.0,
+                20.0,
+                20.0,
+                Color::from_rgba(245, 245, 245, 140),
+            );
+        }
+    }
+
     draw_rectangle(
         0.0,
         0.0,
@@ -937,9 +1265,28 @@ fn draw_scene(
         HUD_HEIGHT,
         Color::new(0.03, 0.04, 0.06, 1.0),
     );
+    // Chế độ mạng: tick server đã xác nhận, tick client đang dự đoán, round và số event mới.
+    let net_text = match game.net_status {
+        Some(status) => format!(
+            "  net: round {} slot {}  server {} dự đoán {}  chờ ack {}  event {}{}{}",
+            status.round,
+            status.slot,
+            status.confirmed_tick,
+            status.predicted_tick,
+            status.pending,
+            status.events,
+            if status.ended { "  kết quả" } else { "" },
+            // Tên hiển thị của tài khoản đã `AuthOk` (ADR 0011 §4).
+            game.net
+                .as_ref()
+                .and_then(net::NetClient::account)
+                .map_or_else(String::new, |account| format!("  {}", account.display_name)),
+        ),
+        None => String::new(),
+    };
     draw_text(
         format!(
-            "boom-client {}  tick {}  {} Hz  {}x  vol {}/{}/{}{}  {}={:?}  {}={:?}  held {}  F2 focus",
+            "boom-client {}  tick {}  {} Hz  {}x  vol {}/{}/{}{}  {}={:?}  {}={:?}  held {}  F2 focus{net_text}",
             game.scene
                 .as_ref()
                 .map_or_else(|| "placeholder".to_owned(), |scene| scene.map.clone()),
@@ -1005,9 +1352,15 @@ fn draw_placeholder_map(game: &Game) {
     }
 
     for player in &game.state.players {
-        let x = player.x.0 as f32 / 1000.0;
-        let y = HUD_HEIGHT + player.y.0 as f32 / 1000.0;
-        draw_rectangle(x - 12.0, y - 12.0, 24.0, 24.0, player_color(player));
+        // Chính mình dùng state dự đoán; người khác dùng nội suy giữa hai snapshot (ADR 0005).
+        let (x, y) = game.draw_position(player);
+        draw_rectangle(
+            x - 12.0,
+            HUD_HEIGHT + y - 12.0,
+            24.0,
+            24.0,
+            player_color(player),
+        );
     }
 }
 
@@ -1105,6 +1458,10 @@ struct Options {
     mute: Option<bool>,
     /// Thư mục bundle content (`boom-assets bundle`); không có thì scene placeholder.
     bundle: Option<PathBuf>,
+    /// File rules profile (TOML) thay cho bản nhúng trong binary.
+    rules: Option<PathBuf>,
+    /// File chuỗi UI V1 (TOML) thay cho bản nhúng trong binary.
+    l10n: Option<PathBuf>,
     /// Chạy kịch bản demo offline (đặt bom, đi ra xa, đặt bom thứ hai) để chụp ảnh.
     demo: bool,
     /// Kịch bản demo **chết** (đặt bom rồi đứng yên) để chụp ảnh chuỗi chết.
@@ -1113,6 +1470,14 @@ struct Options {
     death_frame: usize,
     /// Chụp trạng thái **sau** chuỗi chết (nhân vật giữ khung cuối có ảnh).
     death_hold: bool,
+    /// Địa chỉ server để nối (chế độ mạng). Không có thì client chạy offline.
+    connect: Option<String>,
+    /// Tên đăng nhập cho chế độ mạng (fallback: biến môi trường `BOOM_USER`).
+    user: Option<String>,
+    /// Mật khẩu cho chế độ mạng (fallback: biến môi trường `BOOM_PASSWORD`).
+    password: Option<String>,
+    /// Đăng ký tài khoản mới thay vì đăng nhập tài khoản có sẵn.
+    register: bool,
     /// Chạy chế độ demo UI V1 (đăng nhập → sảnh → phòng → trận → kết quả), không cần server.
     ui_demo: bool,
     /// Nhảy thẳng tới một màn UI rồi chụp ảnh (dùng cho QA ảnh local).
@@ -1134,10 +1499,16 @@ impl Default for Options {
             sfx_volume: None,
             mute: None,
             bundle: None,
+            rules: None,
+            l10n: None,
             demo: false,
             demo_death: false,
             death_frame: 0,
             death_hold: false,
+            connect: None,
+            user: None,
+            password: None,
+            register: false,
             ui_demo: false,
             ui_shot: None,
         }
@@ -1206,6 +1577,16 @@ impl Options {
                 "--bundle" => {
                     opts.bundle = Some(args.next().ok_or("--bundle cần thư mục bundle")?.into())
                 }
+                "--rules" => {
+                    opts.rules = Some(
+                        args.next()
+                            .ok_or("--rules cần đường dẫn file rules")?
+                            .into(),
+                    )
+                }
+                "--l10n" => {
+                    opts.l10n = Some(args.next().ok_or("--l10n cần đường dẫn file chuỗi")?.into())
+                }
                 "--demo" => opts.demo = true,
                 "--demo-death" => opts.demo_death = true,
                 "--death-frame" => {
@@ -1216,6 +1597,16 @@ impl Options {
                         .map_err(|_| "--death-frame cần số")?;
                 }
                 "--death-hold" => opts.death_hold = true,
+                "--connect" => {
+                    opts.connect = Some(args.next().ok_or("--connect cần địa chỉ server")?);
+                }
+                "--user" => {
+                    opts.user = Some(args.next().ok_or("--user cần tên đăng nhập")?);
+                }
+                "--password" => {
+                    opts.password = Some(args.next().ok_or("--password cần mật khẩu")?);
+                }
+                "--register" => opts.register = true,
                 "--ui-demo" => opts.ui_demo = true,
                 "--ui-shot" => {
                     let screen = args
@@ -1227,7 +1618,17 @@ impl Options {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
-                         \t  [--bundle DIR] [--demo] [--demo-death] [--death-frame N] [--death-hold] [--ui-demo] [--ui-shot SCREEN]"
+                         \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--demo-death] [--death-frame N] [--death-hold] [--ui-demo] [--ui-shot SCREEN]\n\
+                         \t  [--connect ĐỊA_CHỈ_SERVER] [--user TÊN] [--password MẬT_KHẨU] [--register]\n\
+                         \n\
+                         \t  --bundle DIR   thư mục bundle content (dựng bằng `boom-assets bundle`)\n\
+                         \t  --rules FILE   file rules profile TOML (mặc định: bản nhúng)\n\
+                         \t  --l10n FILE    file chuỗi UI V1 TOML (mặc định: bản nhúng)\n\
+                         \t  --demo-death   kịch bản offline chết (đặt bom rồi đứng yên) để chụp ảnh\n\
+                         \t  --death-frame N  frame của chuỗi chết cần chụp (dùng cùng --demo-death)\n\
+                         \t  --death-hold   chụp sau khi chuỗi chết hết (nhân vật giữ khung cuối có ảnh)\n\
+                         chế độ mạng cần tên/mật khẩu: --user/--password, hoặc biến môi trường BOOM_USER/BOOM_PASSWORD\n\
+                         (nên đặt mật khẩu qua biến môi trường: cờ dòng lệnh lộ trong danh sách tiến trình)."
                     );
                     std::process::exit(0);
                 }
@@ -1239,6 +1640,40 @@ impl Options {
         }
         Ok(opts)
     }
+}
+
+/// Thông tin đăng nhập cho chế độ mạng: cờ dòng lệnh trước, biến môi trường sau.
+///
+/// Server chặn mọi kind trước `AuthOk` (ADR 0009 Addendum A §A.1) nên chế độ mạng **bắt
+/// buộc** có tên/mật khẩu; thiếu thì báo lỗi rõ thay vì đoán. Biến môi trường
+/// (`BOOM_USER`/`BOOM_PASSWORD`) an toàn hơn cờ dòng lệnh: cờ lộ trong danh sách tiến trình.
+///
+/// `env_user`/`env_password` là giá trị biến môi trường do caller đọc và truyền vào để hàm này
+/// không phụ thuộc môi trường lúc test.
+fn net_credentials(
+    opts: &Options,
+    env_user: Option<String>,
+    env_password: Option<String>,
+) -> Result<net::Credentials, String> {
+    let username = opts
+        .user
+        .clone()
+        .or(env_user)
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+        .ok_or("cần tên đăng nhập: --user TÊN hoặc biến môi trường BOOM_USER")?;
+    // Mật khẩu **không** trim: khoảng trắng có thể là phần của mật khẩu.
+    let password = opts
+        .password
+        .clone()
+        .or(env_password)
+        .filter(|value| !value.is_empty())
+        .ok_or("cần mật khẩu: --password MẬT_KHẨU hoặc biến môi trường BOOM_PASSWORD")?;
+    Ok(if opts.register {
+        net::Credentials::register(username, password)
+    } else {
+        net::Credentials::login(username, password)
+    })
 }
 
 fn parse_action(value: &str) -> Result<InputAction, String> {
@@ -1289,6 +1724,11 @@ mod tests {
     use super::*;
     use boom_core::{Dir, EventKind};
 
+    /// Rules profile nhúng trong binary (dùng cho test không cần file ngoài).
+    fn embedded_profile() -> RulesProfile {
+        RulesProfile::from_toml(include_str!("../../../data/rules/v1-dev.toml")).expect("rules")
+    }
+
     #[test]
     fn rebind_spec_parses_actions_and_keys() {
         assert_eq!(parse_action("up").unwrap(), InputAction::Up);
@@ -1310,6 +1750,55 @@ mod tests {
     }
 
     #[test]
+    fn net_credentials_can_come_from_flags_or_env() {
+        // Cờ dòng lệnh trước, biến môi trường sau.
+        let opts = Options {
+            user: Some("tu-flag".to_owned()),
+            password: Some("matkhau-flag".to_owned()),
+            ..Options::default()
+        };
+        let credentials = net_credentials(
+            &opts,
+            Some("tu-env".to_owned()),
+            Some("matkhau-env".to_owned()),
+        )
+        .expect("lấy được thông tin đăng nhập");
+        assert_eq!(credentials.username, "tu-flag");
+        assert_eq!(credentials.password, "matkhau-flag");
+        assert_eq!(credentials.op, boom_proto::dto::auth::AuthOp::Login);
+
+        // Không có cờ thì lấy từ biến môi trường.
+        let credentials = net_credentials(
+            &Options::default(),
+            Some("tu-env".to_owned()),
+            Some("matkhau-env".to_owned()),
+        )
+        .expect("lấy được thông tin đăng nhập từ biến môi trường");
+        assert_eq!(credentials.username, "tu-env");
+        assert_eq!(credentials.password, "matkhau-env");
+    }
+
+    #[test]
+    fn net_credentials_bao_loi_khi_thieu_ten_hoac_mat_khau() {
+        // Server chặn mọi kind trước `AuthOk` nên thiếu thông tin là lỗi rõ, không phải đoán.
+        assert!(net_credentials(&Options::default(), None, Some("matkhau".to_owned())).is_err());
+        assert!(net_credentials(&Options::default(), Some("ten".to_owned()), None).is_err());
+        assert!(net_credentials(&Options::default(), None, None).is_err());
+    }
+
+    #[test]
+    fn net_credentials_dang_ky_theo_co_register() {
+        let opts = Options {
+            register: true,
+            ..Options::default()
+        };
+        let credentials =
+            net_credentials(&opts, Some("ten".to_owned()), Some("matkhau".to_owned()))
+                .expect("lấy được thông tin đăng nhập");
+        assert_eq!(credentials.op, boom_proto::dto::auth::AuthOp::Register);
+    }
+
+    #[test]
     fn placeholder_terrain_has_floor_spawns() {
         let terrain = placeholder_terrain();
         assert_eq!((terrain.width, terrain.height), (MAP_WIDTH, MAP_HEIGHT));
@@ -1324,7 +1813,9 @@ mod tests {
 
     #[test]
     fn offline_tick_advances_core_without_window() {
-        let mut game = Game::new(7, ClientOptions::default(), None).expect("scene offline");
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
         assert_eq!(game.state.tick, 0);
         for _ in 0..10 {
             game.tick().expect("tick core");
@@ -1337,9 +1828,10 @@ mod tests {
 
     #[test]
     fn game_uses_keybinds_from_options() {
+        let profile = embedded_profile();
         let mut options = ClientOptions::default();
         options.keybinds.up = KeyCode::W;
-        let game = Game::new(3, options, None).expect("scene offline");
+        let game = Game::new(3, options, None, &profile).expect("scene offline");
         assert_eq!(game.input.binds().up, KeyCode::W);
         assert_eq!(game.input.binds().bomb, KeyCode::Space);
     }
@@ -1350,7 +1842,9 @@ mod tests {
     /// vụ nổ đúng ô bom và đúng tick event.
     #[test]
     fn bomb_explosion_event_reaches_the_presentation_journal() {
-        let mut game = Game::new(7, ClientOptions::default(), None).expect("scene offline");
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
         // Ô đặt bom: ô spawn của người chơi đầu.
         let bomb_cell = game
             .world
@@ -1411,7 +1905,9 @@ mod tests {
     /// `player_died` vào sổ trình diễn và chuỗi chết phát một lần hết đúng khoảng clip.
     #[test]
     fn death_event_plays_the_whole_death_clip_once() {
-        let mut game = Game::new(7, ClientOptions::default(), None).expect("scene offline");
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
         let inputs = [
             PlayerInput {
                 dir: Dir::None,
@@ -1472,15 +1968,88 @@ mod tests {
 
     #[test]
     fn missing_bundle_directory_is_reported_not_panicking() {
+        let profile = embedded_profile();
         let error = match Game::new(
             7,
             ClientOptions::default(),
             Some(Path::new("/khong/ton/tai/bundle")),
+            &profile,
         ) {
             Ok(_) => panic!("thư mục bundle không tồn tại phải báo lỗi"),
             Err(error) => error,
         };
-        assert!(error.to_string().contains("bundle"));
+        let message = error.to_string();
+        assert!(message.contains("bundle"));
+        // V1-036: thông điệp phải có đường dẫn và cách sửa.
+        assert!(
+            message.contains("/khong/ton/tai/bundle"),
+            "thông điệp phải nêu đường dẫn: {message}"
+        );
+        assert!(
+            message.contains("boom-assets bundle"),
+            "thông điệp phải nêu cách dựng lại bundle: {message}"
+        );
+    }
+
+    /// Thiếu file rules → thông điệp có đường dẫn và cách sửa, không panic.
+    #[test]
+    fn missing_rules_file_reports_path_and_fix() {
+        let error = load_rules_file(Path::new("/khong/ton/tai/rules.toml")).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("/khong/ton/tai/rules.toml"),
+            "thông điệp phải nêu đường dẫn: {message}"
+        );
+        assert!(
+            message.contains("sửa:"),
+            "thông điệp phải nêu cách sửa: {message}"
+        );
+    }
+
+    /// File rules sai cú pháp → thông điệp có đường dẫn và cách sửa.
+    #[test]
+    fn broken_rules_file_reports_path_and_fix() {
+        let dir = std::env::temp_dir().join(format!("boom-client-rules-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("tạo thư mục tạm");
+        let path = dir.join("rules.toml");
+        std::fs::write(&path, "schema = 1\nprofile_id = \"x\"\n").expect("ghi file");
+        let error = load_rules_file(&path).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains(path.to_str().unwrap()),
+            "thông điệp phải nêu đường dẫn: {message}"
+        );
+        assert!(
+            message.contains("sửa:"),
+            "thông điệp phải nêu cách sửa: {message}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Thiếu file chuỗi → thông điệp có đường dẫn và cách sửa, không panic.
+    #[test]
+    fn missing_l10n_file_reports_path_and_fix() {
+        let error = load_l10n_file(Path::new("/khong/ton/tai/vi-v1.toml")).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("/khong/ton/tai/vi-v1.toml"),
+            "thông điệp phải nêu đường dẫn: {message}"
+        );
+        assert!(
+            message.contains("sửa:"),
+            "thông điệp phải nêu cách sửa: {message}"
+        );
+    }
+
+    /// Bản nhúng (không có `--rules`/`--l10n`) phải nạp được: gói phát hành không bắt
+    /// buộc người dùng có file bên ngoài.
+    #[test]
+    fn embedded_content_loads_without_files() {
+        let profile = load_rules(&None).expect("rules nhúng");
+        assert!(!profile.profile_id.is_empty());
+        let l10n = load_l10n(&None).expect("chuỗi nhúng");
+        assert_eq!(l10n.locale(), "vi-VN");
     }
 
     /// Gạch phá được phải biến mất khỏi scene sau khi nổ (review #81).
@@ -1548,5 +2117,7 @@ mod tests {
         assert!(opts.options_path.is_none());
         assert!(!opts.save_options);
         assert!(opts.bundle.is_none());
+        assert!(opts.rules.is_none());
+        assert!(opts.l10n.is_none());
     }
 }
