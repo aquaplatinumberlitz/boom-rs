@@ -14,6 +14,7 @@
 //! §5–§6, §10), nên client phải `Auth` sau `Welcome` và nhận `AuthOk` như với server thật.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -30,7 +31,9 @@ use boom_proto::{
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
 use boom_server::auth::{AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
-use boom_server::{Authority, CharacterStatsTable, InputError, MatchSetup, ServerConfig};
+use boom_server::{
+    Authority, CharacterStatsTable, HandshakeConfig, InputError, MatchSetup, Server, ServerConfig,
+};
 
 use super::{ClientSession, Credentials, NetClient, hello_for_profile};
 
@@ -401,6 +404,13 @@ pub fn terrain() -> Terrain {
         "############",
     ];
     Terrain::from_ascii(&rows).expect("địa hình")
+}
+
+/// Thời gian một lượt (ms) từ rules profile (`round.duration_ms` qua `round_ticks`).
+fn round_duration_ms(rules: &Rules) -> u64 {
+    let ticks = u64::from(rules.round_ticks);
+    let hz = u64::from(rules.ticks_per_second).max(1);
+    ticks.saturating_mul(1_000) / hz
 }
 
 /// Một client trong fixture.
@@ -987,5 +997,328 @@ fn reject_for(
         first_seq: batch.commands.first().map_or(0, |command| command.seq),
         command_count: u8::try_from(batch.commands.len()).unwrap_or(u8::MAX),
         server_tick,
+    }
+}
+
+// --- Fixture phòng end-to-end: server thật + nhiều client qua mạng có lịch giao. ---
+
+/// Tên map của fixture (server gửi trong `RoundStart.map`).
+pub const ROOM_MAP_ID: &str = "skeleton-test";
+
+/// Bước đồng hồ ảo (ms) của fixture phòng: 16 ms = một tick ở 60 Hz.
+const ROOM_STEP_MS: u64 = 16;
+
+/// Thời gian chờ message khi bơm hàng đợi đọc trong fixture phòng (ms).
+///
+/// Ngắn hơn [`PUMP_TIMEOUT`] vì fixture phòng bơm nhiều lần; kết quả không phụ thuộc thời gian
+/// thực vì mọi thứ đi qua đồng hồ ảo của mạng.
+const ROOM_PUMP_TIMEOUT: Duration = Duration::from_millis(2);
+
+/// IP nguồn giả của kết nối trong fixture phòng (bucket rate limit theo nguồn, ADR 0011 §5).
+const ROOM_TEST_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+
+/// Một client trong fixture phòng.
+pub struct RoomClient {
+    /// Client mạng (đọc snapshot, gửi input, điều khiển phòng).
+    pub net: NetClient<ScheduledTransport>,
+    /// Người chơi trên server.
+    pub player: PlayerId,
+    /// Slot của client (id người chơi trong state trận).
+    pub slot: u8,
+    /// Mạng chiều client→server (điều khiển đồng hồ).
+    out_net: Arc<ScheduledNet>,
+    /// Mạng chiều server→client (điều khiển đồng hồ).
+    in_net: Arc<ScheduledNet>,
+    /// Event đã nhận (đã dedup theo `(round_id, EventId)`).
+    events: Vec<RoundEvent>,
+}
+
+impl RoomClient {
+    /// Event đã nhận của client.
+    pub fn events(&self) -> &[RoundEvent] {
+        &self.events
+    }
+}
+
+/// Fixture phòng end-to-end: server thật (`boom_server::Server`) + N client qua mạng có lịch
+/// giao theo đồng hồ ảo.
+///
+/// Khác [`ScheduledHarness`] (chạy lõi `Authority` trực tiếp), fixture này chạy **vòng IO thật**
+/// của server nên message sảnh/phòng/chat/loading/result đi đúng đường wire
+/// (ADR 0009 Addendum B). Mỗi client **đăng nhập thật** (Argon2id + SQLite tempfile) nên phải
+/// đi đúng bước `Welcome` → `Auth` → `AuthOk` trước khi dùng lệnh phòng.
+pub struct RoomHarness {
+    /// Server thật (vòng IO + authority + auth).
+    server: Server,
+    /// Client trong fixture.
+    clients: Vec<RoomClient>,
+    /// Đồng hồ ảo (ms): vừa là thời gian server vừa là mốc giao của mạng.
+    now_ms: u64,
+    /// Thời gian một lượt (ms), lấy từ rules profile (`round.duration_ms`).
+    round_duration_ms: u64,
+    /// Thư mục tạm chứa DB auth: phải sống suốt đời fixture thì file DB còn tồn tại.
+    _db_dir: tempfile::TempDir,
+}
+
+impl RoomHarness {
+    /// Dựng server + `count` client đã đăng nhập thật.
+    ///
+    /// `out_faults` áp cho chiều client→server, `in_faults` cho chiều server→client. Lỗi mạng
+    /// **bật sau handshake**: mất `Hello`/`Welcome` là hỏng phiên chứ không phải lỗi mạng.
+    pub fn new(
+        count: usize,
+        out_faults: ScheduledFaults,
+        in_faults: ScheduledFaults,
+        seed: u64,
+    ) -> Self {
+        let profile = RulesProfile::from_toml(RULES).expect("profile rules");
+        let rules = Rules::from_profile(&profile).expect("rules");
+        let world = World::new(
+            terrain(),
+            rules.clone(),
+            mode_by_id("battle_ffa").expect("mode"),
+        )
+        .expect("world");
+        let authority = Authority::new(
+            ServerConfig::v1(),
+            MatchSetup {
+                world,
+                stats: CharacterStatsTable {
+                    c00: stats(),
+                    c01: stats(),
+                },
+                // Tên map cho client dựng bản đồ; test không ghi replay.
+                map: ROOM_MAP_ID.to_owned(),
+                replay: None,
+            },
+        );
+        let handshake = HandshakeConfig {
+            rules_profile_id: profile.profile_id.clone(),
+            rules_hash: rules.profile_hash,
+            content_sha256: [0; 32],
+            content_epoch: 1,
+            snapshot_interval_ms: SNAPSHOT_INTERVAL_MS as u32,
+        };
+        // Auth thật: SQLite trên file tạm + `AuthService` của server (ADR 0011 §5–§6, §10).
+        let db_dir = tempfile::tempdir().expect("tempdir");
+        let store = SqliteAccountStore::open(
+            &db_dir.path().join("auth.sqlite3"),
+            SqliteOptions::default(),
+        )
+        .expect("mở store");
+        let auth = AuthService::new(
+            AuthConfig::default(),
+            "room-fixture-instance",
+            Box::new(OsRandomSource),
+        )
+        .expect("dịch vụ auth");
+        // Ping/liveness tắt (`u64::MAX`): fixture nhảy thời gian ảo theo bước lớn, không muốn
+        // server đóng phiên chỉ vì client chưa kịp trả `Pong`.
+        let mut server = Server::with_auth_and_timers(
+            authority,
+            handshake,
+            auth,
+            Box::new(store),
+            0,
+            u64::MAX,
+            u64::MAX,
+        )
+        .expect("dựng server");
+        let hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
+        let mut nets: Vec<(Arc<ScheduledNet>, Arc<ScheduledNet>)> = Vec::new();
+        let mut handles = Vec::new();
+        let mut identities = Vec::new();
+        for index in 0..count {
+            let slot = u8::try_from(index).expect("slot");
+            let player = PlayerId(u64::try_from(index).expect("id") + 1);
+            // Hai chiều tách riêng: client→server và server→client (giống cách server chia).
+            let (client_writer, server_reader) =
+                ScheduledTransport::pair(seed.wrapping_add(index as u64));
+            let (server_writer, client_reader) =
+                ScheduledTransport::pair(seed.wrapping_add(index as u64));
+            let out_net = client_writer.net();
+            let in_net = client_reader.net();
+            nets.push((Arc::clone(&out_net), Arc::clone(&in_net)));
+            server
+                .accept(player, slot, ROOM_TEST_IP, server_reader, server_writer)
+                .expect("accept");
+            let client_rules = rules.clone();
+            let client_hello = hello.clone();
+            let credentials =
+                Credentials::register(format!("room-{index}"), ACCOUNT_PASSWORD.to_owned());
+            handles.push(thread::spawn(move || {
+                let mut net = NetClient::new(
+                    ClientSession::new(client_reader, client_writer),
+                    client_rules,
+                    mode_by_id("battle_ffa").expect("mode"),
+                );
+                net.handshake(&client_hello).expect("handshake");
+                net.authenticate(&credentials).expect("auth");
+                net
+            }));
+            identities.push((player, slot));
+        }
+        // Vòng IO của server phải chạy để trả `Welcome`/`AuthOk` cho client.
+        let mut now_ms = 0u64;
+        while handles.iter().any(|handle| !handle.is_finished()) {
+            now_ms += 1;
+            for (out_net, in_net) in &nets {
+                out_net.advance_to(now_ms);
+                in_net.advance_to(now_ms);
+            }
+            let _ = server
+                .poll(now_ms, Duration::from_millis(1))
+                .expect("server poll lúc handshake");
+        }
+        let mut clients = Vec::new();
+        for (index, handle) in handles.into_iter().enumerate() {
+            let net = handle.join().expect("join luồng client");
+            let (player, slot) = identities[index];
+            let (out_net, in_net) = nets[index].clone();
+            clients.push(RoomClient {
+                net,
+                player,
+                slot,
+                out_net,
+                in_net,
+                events: Vec::new(),
+            });
+        }
+        // Lỗi mạng chỉ bật **sau** handshake: mất `Hello`/`Welcome` là hỏng phiên chứ không
+        // phải lỗi mạng. Cùng bộ lỗi áp cho mọi client và cả hai chiều.
+        for (out_net, in_net) in &nets {
+            out_net.set_faults(out_faults);
+            in_net.set_faults(in_faults);
+        }
+        Self {
+            server,
+            clients,
+            now_ms,
+            round_duration_ms: round_duration_ms(&rules),
+            _db_dir: db_dir,
+        }
+    }
+
+    /// Số client trong fixture.
+    pub fn client_count(&self) -> usize {
+        self.clients.len()
+    }
+
+    /// Client thứ `index`.
+    pub fn client(&self, index: usize) -> &RoomClient {
+        &self.clients[index]
+    }
+
+    /// Client thứ `index` (mutable).
+    pub fn client_mut(&mut self, index: usize) -> &mut RoomClient {
+        &mut self.clients[index]
+    }
+
+    /// Đồng hồ ảo hiện tại (ms).
+    pub fn now_ms(&self) -> u64 {
+        self.now_ms
+    }
+
+    /// Thời gian một lượt (ms), lấy từ rules profile.
+    pub fn round_duration_ms(&self) -> u64 {
+        self.round_duration_ms
+    }
+
+    /// Bật luồng tự động (`--auto-ready`) cho client thứ `index`: client tự xin danh sách phòng,
+    /// vào phòng, ready, start (nếu là host) và ack loading/kết quả.
+    ///
+    /// `min_players` là số người tối thiểu trong phòng để host start (tham số kịch bản QA).
+    pub fn enable_auto(&mut self, index: usize, min_players: usize) {
+        self.clients[index]
+            .net
+            .enable_auto_flow(boom_proto::RoomCharacter::C00, min_players)
+            .expect("bật luồng tự động");
+    }
+
+    /// Bơm mạng `steps` bước: giao frame đến hạn, server xử lý, client nhận message.
+    pub fn pump(&mut self, steps: u32) {
+        for _ in 0..steps {
+            self.now_ms += ROOM_STEP_MS;
+            self.advance_network();
+            let _ = self
+                .server
+                .poll(self.now_ms, Duration::from_millis(1))
+                .expect("server poll");
+            self.pump_clients();
+        }
+    }
+
+    /// Nhảy đồng hồ tới `now_ms`: giao frame đến hạn và server chạy tới mốc mới.
+    ///
+    /// Dùng để chạy hết thời gian lượt mà không phải bơm từng tick: mọi tick đến hạn được
+    /// server chạy trong một lần `poll` (đồng hồ ảo, không phụ thuộc thời gian thực).
+    pub fn advance_to(&mut self, now_ms: u64) {
+        self.now_ms = self.now_ms.max(now_ms);
+        self.advance_network();
+        let _ = self
+            .server
+            .poll(self.now_ms, Duration::from_millis(1))
+            .expect("server poll");
+    }
+
+    /// Bơm tới khi điều kiện của client `index` thành hiện thực; trả về kết quả điều kiện.
+    pub fn wait_for(
+        &mut self,
+        index: usize,
+        condition: impl Fn(&RoomClient) -> bool,
+        steps: u32,
+    ) -> bool {
+        for _ in 0..steps {
+            if condition(&self.clients[index]) {
+                return true;
+            }
+            self.pump(1);
+        }
+        condition(&self.clients[index])
+    }
+
+    /// Bơm tới khi **mọi** client thỏa điều kiện; trả về kết quả điều kiện.
+    pub fn wait_for_all(
+        &mut self,
+        condition: impl Fn(&RoomClient) -> bool,
+        steps: u32,
+    ) -> bool {
+        for _ in 0..steps {
+            if self.clients.iter().all(&condition) {
+                return true;
+            }
+            self.pump(1);
+        }
+        self.clients.iter().all(&condition)
+    }
+
+    /// Client đã vào phòng và có `RoomState` chưa.
+    pub fn in_room(&self, index: usize) -> bool {
+        self.clients[index].net.room().room().is_some()
+    }
+
+    /// Client đã sẵn sàng (ready) trong phòng chưa.
+    pub fn is_ready(&self, index: usize) -> bool {
+        self.clients[index]
+            .net
+            .room()
+            .my_member()
+            .is_some_and(|member| member.ready)
+    }
+
+    /// Giao frame đến hạn trên mọi chiều.
+    fn advance_network(&self) {
+        for client in &self.clients {
+            client.out_net.advance_to(self.now_ms);
+            client.in_net.advance_to(self.now_ms);
+        }
+    }
+
+    /// Bơm hàng đợi đọc của mọi client.
+    fn pump_clients(&mut self) {
+        for client in &mut self.clients {
+            client.net.pump(ROOM_PUMP_TIMEOUT).expect("bơm message");
+            client.events.extend(client.net.take_events());
+        }
     }
 }

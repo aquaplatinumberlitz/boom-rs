@@ -18,9 +18,10 @@ use boom_proto::dto::auth::{Auth, AuthFail, AuthFailReason, AuthOk};
 use boom_proto::kind::{Channel, MessageKind, Role};
 use boom_proto::message::decode_frame_on;
 use boom_proto::{
-    EventId, Hello, InputBatch, InputRejected, LobbyList, Message, Ping, Pong, ProtoError,
-    ProtocolLimits, Reject, RoomChatMessage, RoomRejected, RoomState, RoundEvent, RoundEvents,
-    RoundResult, RoundStart, Snapshot, SnapshotRequest, Welcome, encode_frame, read_envelope,
+    EventId, Hello, InputBatch, InputRejected, LoadingAck, LobbyList, LobbyListRequest, Message,
+    Ping, Pong, ProtoError, ProtocolLimits, Reject, ResultAck, RoomChat, RoomChatMessage,
+    RoomCommand, RoomRejected, RoomState, RoundEvent, RoundEvents, RoundResult, RoundStart,
+    Snapshot, SnapshotRequest, Welcome, encode_frame, read_envelope,
 };
 
 /// Số frame chờ tối đa trong hàng đợi đọc phía client.
@@ -62,11 +63,21 @@ pub enum ClientMessage {
     Ping(Ping),
     /// Pong của server.
     Pong(Pong),
-    /// Message của nhóm phòng/sảnh (ADR 0009 Addendum B) mà client chưa dùng.
+    /// Message của nhóm phòng/sảnh (ADR 0009 Addendum B).
     ///
-    /// Kind này **đã định nghĩa** trong `boom-proto` và server gửi khi phòng đổi, nhưng tính
-    /// năng sảnh/phòng ngoài phạm vi #80: client bỏ qua (không đoán, không đóng kết nối).
-    Room(MessageKind),
+    /// Kind này **đã định nghĩa** trong `boom-proto`; mỗi message được decode thành DTO để
+    /// tầng phòng ([`super::room`]) xử lý. Không đoán payload: kind lạ mới đóng kết nối.
+    RoomState(RoomState),
+    /// Danh sách phòng sảnh.
+    LobbyList(LobbyList),
+    /// Chat phòng đã được server nhận.
+    RoomChatMessage(RoomChatMessage),
+    /// Round bắt đầu: seed/rules/map/roster.
+    RoundStart(RoundStart),
+    /// Kết quả round.
+    RoundResult(RoundResult),
+    /// Lệnh phòng bị từ chối.
+    RoomRejected(RoomRejected),
     /// Kind lạ hoặc chiều không hợp lệ: phải đóng kết nối, không đoán (ADR 0009 §2).
     UnknownKind(u16),
 }
@@ -265,6 +276,35 @@ impl<W: Transport> ClientSession<W> {
         })
     }
 
+    /// Gửi lệnh phòng (ADR 0009 Addendum B).
+    ///
+    /// `RoomCommand` **không** mang player: server bind player từ phiên đã `AuthOk`
+    /// (ADR 0005). `request` là request ID của client: server dedup lệnh gửi lại, nên client
+    /// gửi lại **cùng** request ID khi không thấy phản hồi (xem [`super::room`]).
+    pub fn send_room_command(&mut self, command: &RoomCommand) -> Result<(), NetError> {
+        self.send(command)
+    }
+
+    /// Xin danh sách phòng sảnh.
+    pub fn send_lobby_list_request(&mut self) -> Result<(), NetError> {
+        self.send(&LobbyListRequest {})
+    }
+
+    /// Gửi chat phòng; server bind room/player từ phiên (ADR 0009 Addendum B).
+    pub fn send_room_chat(&mut self, chat: &RoomChat) -> Result<(), NetError> {
+        self.send(chat)
+    }
+
+    /// Báo đã sẵn sàng vào round (loading barrier, SCOPE_V1 §3).
+    pub fn send_loading_ack(&mut self, ack: &LoadingAck) -> Result<(), NetError> {
+        self.send(ack)
+    }
+
+    /// Báo đã nhận kết quả round (SCOPE_V1 §3: ack hoặc 5 giây thì về phòng).
+    pub fn send_result_ack(&mut self, ack: &ResultAck) -> Result<(), NetError> {
+        self.send(ack)
+    }
+
     /// Đọc message tiếp theo; `Ok(None)` khi hết thời gian chờ.
     pub fn next_message(&mut self, timeout: Duration) -> Result<Option<ClientMessage>, NetError> {
         let raw = match self.inbound.recv_timeout(timeout) {
@@ -326,31 +366,24 @@ impl<W: Transport> ClientSession<W> {
             }
             MessageKind::Ping => ClientMessage::Ping(self.decode_payload::<Ping>(frame)?),
             MessageKind::Pong => ClientMessage::Pong(self.decode_payload::<Pong>(frame)?),
-            // Nhóm phòng/sảnh (ADR 0009 Addendum B): kind đã định nghĩa nhưng client chưa dùng
-            // (ngoài phạm vi #80) nên bỏ qua — **không** phải kind lạ, không đóng kết nối.
+            // Nhóm phòng/sảnh (ADR 0009 Addendum B): decode thành DTO để tầng phòng xử lý.
             MessageKind::RoomState => {
-                self.decode_payload::<RoomState>(frame)?;
-                ClientMessage::Room(kind)
+                ClientMessage::RoomState(self.decode_payload::<RoomState>(frame)?)
             }
             MessageKind::LobbyList => {
-                self.decode_payload::<LobbyList>(frame)?;
-                ClientMessage::Room(kind)
+                ClientMessage::LobbyList(self.decode_payload::<LobbyList>(frame)?)
             }
             MessageKind::RoomChatMessage => {
-                self.decode_payload::<RoomChatMessage>(frame)?;
-                ClientMessage::Room(kind)
+                ClientMessage::RoomChatMessage(self.decode_payload::<RoomChatMessage>(frame)?)
             }
             MessageKind::RoundStart => {
-                self.decode_payload::<RoundStart>(frame)?;
-                ClientMessage::Room(kind)
+                ClientMessage::RoundStart(self.decode_payload::<RoundStart>(frame)?)
             }
             MessageKind::RoundResult => {
-                self.decode_payload::<RoundResult>(frame)?;
-                ClientMessage::Room(kind)
+                ClientMessage::RoundResult(self.decode_payload::<RoundResult>(frame)?)
             }
             MessageKind::RoomRejected => {
-                self.decode_payload::<RoomRejected>(frame)?;
-                ClientMessage::Room(kind)
+                ClientMessage::RoomRejected(self.decode_payload::<RoomRejected>(frame)?)
             }
             // Kind lạ hoặc chiều không hợp lệ (ADR 0009 §2): caller đóng kết nối, không đoán.
             _ => ClientMessage::UnknownKind(kind.code()),
@@ -563,10 +596,10 @@ mod tests {
         );
     }
 
-    /// Kind của nhóm phòng/sảnh (ADR 0009 Addendum B) là kind **đã định nghĩa**: client chưa
-    /// dùng thì bỏ qua, không coi là kind lạ (kind lạ mới đóng kết nối, ADR 0009 §2).
+    /// Kind của nhóm phòng/sảnh (ADR 0009 Addendum B) là kind **đã định nghĩa**: client decode
+    /// thành DTO để tầng phòng xử lý, không coi là kind lạ (kind lạ mới đóng kết nối, ADR 0009 §2).
     #[test]
-    fn kind_phong_bo_qua_khong_phai_loi_giao_thuc() {
+    fn kind_phong_duoc_decode_vao_dto() {
         let (_server_side, client_side) = MemoryTransport::pair(MemoryConfig::default());
         let (mut server_writer, client_reader) = MemoryTransport::pair(MemoryConfig::default());
         let mut session = ClientSession::new(client_reader, client_side);
@@ -592,11 +625,13 @@ mod tests {
             .next_message(Duration::from_millis(500))
             .expect("nhận message")
             .expect("có message");
-        assert_eq!(
-            message,
-            ClientMessage::Room(MessageKind::RoomState),
-            "kind phòng phải được bỏ qua, không phải kind lạ"
-        );
+        match message {
+            ClientMessage::RoomState(state) => {
+                assert_eq!(state.room_id, 1);
+                assert_eq!(state.members.len(), 1);
+            }
+            other => panic!("phải nhận RoomState, thấy {other:?}"),
+        }
         handle.join().unwrap();
     }
 }

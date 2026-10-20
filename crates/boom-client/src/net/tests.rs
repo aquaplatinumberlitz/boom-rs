@@ -1137,3 +1137,362 @@ fn duplicate_input_thuc_su_den_server_va_khong_ap_hai_lan() {
         );
     }
 }
+
+// --- Luồng phòng end-to-end với server thật (ADR 0009 Addendum B) ---
+
+use super::fixture::{ROOM_MAP_ID, RoomHarness};
+use boom_proto::{RoomAction as RoomActionDto, RoomCharacter, RoomRejectReason};
+
+/// Số bước bơm tối đa khi chờ một mốc trạng thái phòng.
+const ROOM_WAIT_STEPS: u32 = 600;
+
+/// Bật luồng tự động cho từng client **theo thứ tự** và chờ mỗi client vào được phòng.
+///
+/// Bật tuần tự (không bật cả lô) để thứ tự vào phòng khớp thứ tự kết nối: server cấp slot
+/// phòng theo thứ tự vào, mà slot phòng cũng là id người chơi trong state trận.
+fn join_all(harness: &mut RoomHarness, count: usize) {
+    for index in 0..count {
+        harness.enable_auto(index, count);
+        assert!(
+            harness.wait_for(index, |client| client.net.room().room().is_some(), ROOM_WAIT_STEPS),
+            "client {index} phải vào được phòng"
+        );
+    }
+    // Mọi client sẵn sàng: phòng chỉ start khi đủ người **và** mọi người ready
+    // (SCOPE_V1 §3). Luồng tự động bật ready ngay khi vào phòng.
+    assert!(
+        harness.wait_for_all(
+            |client| client.net.room().my_member().is_some_and(|member| member.ready),
+            ROOM_WAIT_STEPS
+        ),
+        "mọi client phải sẵn sàng"
+    );
+    for index in 0..count {
+        assert!(harness.is_ready(index), "client {index} phải sẵn sàng");
+    }
+}
+
+/// Chơi thật trong lượt: client gửi input (dự đoán + gửi cửa sổ lệnh chưa ack).
+fn play(harness: &mut RoomHarness, count: usize, steps: u32) {
+    for step in 0..steps {
+        for index in 0..count {
+            let dir = if step % 8 < 4 { Dir::Right } else { Dir::Down };
+            let client = harness.client_mut(index);
+            client
+                .net
+                .predict(PlayerInput {
+                    dir,
+                    place_bomb: false,
+                })
+                .expect("dự đoán");
+            client.net.resend().expect("gửi cửa sổ lệnh");
+        }
+        harness.pump(1);
+    }
+}
+
+/// Nhảy tới hết thời gian lượt để server tự quyết kết quả.
+///
+/// Thời gian lượt lấy từ rules profile (`round.duration_ms`), không hard-code trong test.
+fn run_out_round(harness: &mut RoomHarness) {
+    let duration_ms = harness.round_duration_ms();
+    let now = harness.now_ms();
+    harness.advance_to(now + duration_ms + 10_000);
+    harness.pump(40);
+}
+
+/// Chạy trọn luồng V1: vào phòng → ready → start → `RoundStart` → chơi → `RoundResult` → ack →
+/// về phòng → trận 2.
+fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHarness {
+    let mut harness = RoomHarness::new(count, faults, faults, seed);
+    join_all(&mut harness, count);
+
+    // Mọi người ready → host start → `RoundStart` tới mọi client.
+    assert!(
+        harness.wait_for_all(|client| client.net.room().round().is_some(), ROOM_WAIT_STEPS),
+        "mọi client phải nhận RoundStart"
+    );
+    let round_id = harness
+        .client(0)
+        .net
+        .room()
+        .round()
+        .expect("có kế hoạch round")
+        .round_id;
+    // Mọi client cùng nhận một round: cùng ID, cùng seed, cùng map/mode.
+    for index in 0..count {
+        let plan = harness
+            .client(index)
+            .net
+            .room()
+            .round()
+            .expect("có kế hoạch round")
+            .clone();
+        assert_eq!(plan.round_id, round_id, "mọi client phải cùng round");
+        assert_eq!(plan.map, ROOM_MAP_ID);
+        assert_eq!(plan.mode, "battle_ffa");
+        assert_eq!(plan.roster.len(), count, "roster phải đủ người chơi");
+        assert!(
+            harness.client(index).net.room().loading_acked() == Some(round_id),
+            "client {index} phải ack loading"
+        );
+    }
+    let seed = harness
+        .client(0)
+        .net
+        .room()
+        .round()
+        .expect("có kế hoạch round")
+        .seed;
+    for index in 1..count {
+        assert_eq!(
+            harness
+                .client(index)
+                .net
+                .room()
+                .round()
+                .expect("có kế hoạch round")
+                .seed,
+            seed,
+            "mọi client phải cùng seed"
+        );
+    }
+
+    // Chơi thật trong lượt rồi để server quyết kết quả.
+    play(&mut harness, count, 20);
+    run_out_round(&mut harness);
+
+    // Event của round đến client và không bị phát lại (dedup theo `(round_id, EventId)`).
+    for index in 0..count {
+        let events = harness.client(index).events();
+        assert!(
+            !events.is_empty(),
+            "client {index} phải nhận event của round (đổi hướng lần đầu)"
+        );
+        let mut seen: Vec<(u32, u16)> = Vec::new();
+        for event in events {
+            let key = (event.id.tick, event.id.seq);
+            assert!(!seen.contains(&key), "event bị phát hai lần: {key:?}");
+            seen.push(key);
+        }
+    }
+
+    // Kết quả do server quyết: mọi client cùng nhận và cùng ack.
+    for index in 0..count {
+        let result = harness
+            .client(index)
+            .net
+            .room()
+            .result()
+            .expect("phải nhận kết quả round")
+            .clone();
+        assert_eq!(result.round_id, round_id, "kết quả phải của round đang chơi");
+        assert_eq!(
+            result.results.len(),
+            count,
+            "kết quả phải có đủ người chơi"
+        );
+        assert_eq!(
+            harness.client(index).net.room().result_acked(),
+            Some(round_id),
+            "client {index} phải ack kết quả"
+        );
+    }
+
+    // Về phòng và vào được trận 2.
+    assert!(
+        harness.wait_for_all(
+            |client| {
+                client
+                    .net
+                    .room()
+                    .round()
+                    .is_some_and(|plan| plan.round_id > round_id)
+            },
+            ROOM_WAIT_STEPS
+        ),
+        "mọi client phải vào được trận 2"
+    );
+    harness
+}
+
+#[test]
+fn hai_client_trong_luong_phong_day_du() {
+    let harness = chay_luong_phong(2, ScheduledFaults::none(), 20261020);
+    assert_eq!(harness.client_count(), 2);
+    assert!(
+        harness.client(0).net.room().is_host(),
+        "client tạo phòng phải là host"
+    );
+    assert!(!harness.client(1).net.room().is_host());
+}
+
+#[test]
+fn bon_client_trong_luong_phong_day_du() {
+    let harness = chay_luong_phong(4, ScheduledFaults::none(), 20261021);
+    assert_eq!(harness.client_count(), 4);
+    for index in 0..4 {
+        let client = harness.client(index);
+        let room = client.net.room().room().expect("client phải ở trong phòng");
+        assert_eq!(room.members.len(), 4, "phòng phải đủ 4 người");
+        // Slot phòng là id người chơi trong state trận: thành viên của client phải khớp
+        // slot/player mà server cấp.
+        let player = client.player.0;
+        assert!(
+            room.members
+                .iter()
+                .any(|member| member.slot == client.slot && member.player == player),
+            "client {index} phải có mặt trong phòng với slot/player của mình"
+        );
+        let plan = client.net.room().round().expect("có kế hoạch round");
+        assert!(
+            plan.roster
+                .iter()
+                .any(|member| member.slot == client.slot && member.player == player),
+            "roster của round phải chứa client {index}"
+        );
+    }
+}
+
+#[test]
+fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
+    // Mạng có trễ, mất, trùng và đảo thứ tự: luồng phải vẫn chạy trọn vẹn nhờ client gửi lại
+    // lệnh phòng (cùng request ID → server dedup).
+    let faults = ScheduledFaults {
+        loss_permille: 50,
+        duplicate_permille: 50,
+        reorder_permille: 100,
+        delay_ms: 20,
+        jitter_ms: 30,
+        reorder_window_ms: 10,
+    };
+    let harness = chay_luong_phong(2, faults, 20261022);
+    assert!(
+        harness.client(0).net.room().result().is_some(),
+        "phải nhận kết quả dù mạng mất frame"
+    );
+}
+
+#[test]
+fn request_lap_khong_ap_hai_lan() {
+    let mut harness = RoomHarness::new(2, ScheduledFaults::none(), ScheduledFaults::none(), 4242);
+    // Client 0 tạo phòng rồi gửi lại **cùng** request ID: server dedup nên không tạo phòng
+    // thứ hai và không báo từ chối.
+    let request = harness
+        .client_mut(0)
+        .net
+        .room_command(RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        })
+        .expect("tạo phòng");
+    harness.pump(20);
+    harness
+        .client_mut(0)
+        .net
+        .resend_room_command(
+            request,
+            RoomActionDto::Create {
+                character: RoomCharacter::C00,
+            },
+        )
+        .expect("gửi lại lệnh");
+    harness.pump(20);
+
+    let room = harness
+        .client(0)
+        .net
+        .room()
+        .room()
+        .expect("phải có phòng")
+        .clone();
+    assert_eq!(room.members.len(), 1, "lệnh lặp không được tạo phòng thứ hai");
+    assert!(
+        harness.client(0).net.room().rejection().is_none(),
+        "lệnh lặp cùng request ID không được bị từ chối"
+    );
+
+    // Cùng hành động nhưng request ID **mới** thì server từ chối (đã có phòng): chứng minh
+    // lệnh lặp ở trên thực sự được dedup, không phải vì lệnh bị bỏ qua.
+    harness
+        .client_mut(0)
+        .net
+        .room_command(RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        })
+        .expect("tạo phòng lần hai");
+    harness.pump(20);
+    let rejection = *harness
+        .client(0)
+        .net
+        .room()
+        .rejection()
+        .expect("lệnh mới phải bị từ chối");
+    assert_eq!(rejection.reason, RoomRejectReason::AlreadyStarted);
+    assert_eq!(
+        harness
+            .client(0)
+            .net
+            .room()
+            .room()
+            .expect("phải có phòng")
+            .members
+            .len(),
+        1,
+        "phòng vẫn chỉ có một người"
+    );
+}
+
+#[test]
+fn chat_chi_toi_thanh_vien_phong() {
+    let mut harness = RoomHarness::new(3, ScheduledFaults::none(), ScheduledFaults::none(), 777);
+    // Hai client vào phòng; client thứ ba đứng ở sảnh (không vào phòng nào).
+    harness.enable_auto(0, 2);
+    assert!(
+        harness.wait_for(0, |client| client.net.room().room().is_some(), ROOM_WAIT_STEPS),
+        "client 0 phải vào được phòng"
+    );
+    harness.enable_auto(1, 2);
+    assert!(
+        harness.wait_for(1, |client| client.net.room().room().is_some(), ROOM_WAIT_STEPS),
+        "client 1 phải vào được phòng"
+    );
+    assert!(
+        !harness.in_room(2),
+        "client 2 không được vào phòng khi chưa bật luồng tự động"
+    );
+
+    // Client ngoài phòng gửi chat: server từ chối, không có tin nào phát ra.
+    harness
+        .client_mut(2)
+        .net
+        .send_chat("ngoi phong")
+        .expect("gửi chat");
+    harness.pump(20);
+    assert!(
+        harness.client(2).net.room().chat().is_empty(),
+        "chat của người ngoài phòng không được phát ra"
+    );
+    assert!(
+        harness.client(2).net.room().rejection().is_some(),
+        "server phải từ chối chat của người không ở trong phòng"
+    );
+
+    // Chat của thành viên trong phòng tới mọi thành viên trong phòng.
+    harness
+        .client_mut(0)
+        .net
+        .send_chat("xin chao")
+        .expect("gửi chat");
+    harness.pump(20);
+    for index in 0..2 {
+        let chat = harness.client(index).net.room().chat();
+        assert!(
+            chat.iter().any(|message| message.text == "xin chao"),
+            "client {index} phải nhận chat của phòng"
+        );
+    }
+    assert!(
+        harness.client(2).net.room().chat().is_empty(),
+        "chat của phòng không được tới client ngoài phòng"
+    );
+}

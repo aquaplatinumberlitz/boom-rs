@@ -257,7 +257,25 @@ fn main() {
             }
         };
         match net::connect(&addr, &credentials) {
-            Ok(client) => game.net = Some(client),
+            Ok(mut client) => {
+                // Nội dung cục bộ (map + địa hình) để dựng `World` cho round: có bundle thì
+                // dùng map của bundle, không có thì `World` dựng từ snapshot của server.
+                if let Some(content) = local_content(&game) {
+                    client.set_local_content(content);
+                }
+                // `--auto-ready`: chạy trọn luồng phòng tự động (vào phòng, ready, start,
+                // ack loading/kết quả) để test/QA không cần bấm tay.
+                if opts.auto_ready {
+                    let min_players = opts.auto_players.unwrap_or(1);
+                    if let Err(error) =
+                        client.enable_auto_flow(boom_proto::RoomCharacter::C00, min_players)
+                    {
+                        eprintln!("không bật được luồng tự động: {error}");
+                        std::process::exit(2);
+                    }
+                }
+                game.net = Some(client);
+            }
             Err(error) => {
                 eprintln!("không vào được chế độ mạng: {error}");
                 std::process::exit(2);
@@ -459,6 +477,8 @@ struct Game {
     net: Option<net::NetClient<boom_net::TcpTransport>>,
     /// Trạng thái chế độ mạng để hiện trên HUD.
     net_status: Option<NetStatus>,
+    /// Mô tả ngắn trạng thái phòng (sảnh/phòng/trận/kết quả) cho HUD.
+    net_room: String,
     /// Thời điểm (đồng hồ render) nhận snapshot mới nhất: gốc của alpha nội suy.
     net_snapshot_at: f64,
     /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`.
@@ -589,6 +609,7 @@ impl Game {
             audio_plan: audio::AudioPlan::default(),
             net: None,
             net_status: None,
+            net_room: String::new(),
             net_snapshot_at: 0.0,
             net_snapshot_interval_ms: 1,
         })
@@ -653,6 +674,8 @@ impl Game {
             status.events += net.take_events().len();
             self.net_status = Some(status);
             self.net_snapshot_interval_ms = net.snapshot_interval_ms().max(1);
+            // Trạng thái phòng (sảnh/phòng/trận/kết quả) để hiện trên HUD.
+            self.net_room = room_status(net);
             return Ok(());
         }
         if self.state.phase != Phase::Playing {
@@ -1093,7 +1116,7 @@ fn draw_scene(
     // Chế độ mạng: tick server đã xác nhận, tick client đang dự đoán, round và số event mới.
     let net_text = match game.net_status {
         Some(status) => format!(
-            "  net: round {} slot {}  server {} dự đoán {}  chờ ack {}  event {}{}{}",
+            "  net: round {} slot {}  server {} dự đoán {}  chờ ack {}  event {}{}{}{}",
             status.round,
             status.slot,
             status.confirmed_tick,
@@ -1106,6 +1129,7 @@ fn draw_scene(
                 .as_ref()
                 .and_then(net::NetClient::account)
                 .map_or_else(String::new, |account| format!("  {}", account.display_name)),
+            game.net_room,
         ),
         None => String::new(),
     };
@@ -1301,6 +1325,10 @@ struct Options {
     ui_demo: bool,
     /// Nhảy thẳng tới một màn UI rồi chụp ảnh (dùng cho QA ảnh local).
     ui_shot: Option<ShotScreen>,
+    /// Chạy trọn luồng phòng tự động (vào phòng, ready, start, ack) cho test/QA.
+    auto_ready: bool,
+    /// Số người tối thiểu trong phòng để host start khi `--auto-ready` (tham số kịch bản QA).
+    auto_players: Option<usize>,
 }
 
 impl Default for Options {
@@ -1327,6 +1355,8 @@ impl Default for Options {
             register: false,
             ui_demo: false,
             ui_shot: None,
+            auto_ready: false,
+            auto_players: None,
         }
     }
 }
@@ -1421,18 +1451,30 @@ impl Options {
                         .ok_or("--ui-shot cần tên màn (login|lobby|room|match|result)")?;
                     opts.ui_shot = Some(parse_shot_screen(&screen)?);
                 }
+                "--auto-ready" => opts.auto_ready = true,
+                "--auto-players" => {
+                    opts.auto_players = Some(
+                        args.next()
+                            .ok_or("--auto-players cần số người")?
+                            .parse()
+                            .map_err(|_| "--auto-players cần số người")?,
+                    );
+                }
                 "-h" | "--help" => {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
                          \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--ui-demo] [--ui-shot SCREEN]\n\
                          \t  [--connect ĐỊA_CHỈ_SERVER] [--user TÊN] [--password MẬT_KHẨU] [--register]\n\
+                         \t  [--auto-ready] [--auto-players N]\n\
                          \n\
                          \t  --bundle DIR   thư mục bundle content (dựng bằng `boom-assets bundle`)\n\
                          \t  --rules FILE   file rules profile TOML (mặc định: bản nhúng)\n\
                          \t  --l10n FILE    file chuỗi UI V1 TOML (mặc định: bản nhúng)\n\
                          chế độ mạng cần tên/mật khẩu: --user/--password, hoặc biến môi trường BOOM_USER/BOOM_PASSWORD\n\
-                         (nên đặt mật khẩu qua biến môi trường: cờ dòng lệnh lộ trong danh sách tiến trình)."
+                         (nên đặt mật khẩu qua biến môi trường: cờ dòng lệnh lộ trong danh sách tiến trình).\n\
+                         --auto-ready chạy trọn luồng phòng tự động (vào phòng, ready, start, ack) cho test/QA;\n\
+                         --auto-players N là số người tối thiểu trong phòng để host start (mặc định: start ngay)."
                     );
                     std::process::exit(0);
                 }
@@ -1444,6 +1486,61 @@ impl Options {
         }
         Ok(opts)
     }
+}
+
+/// Mô tả ngắn trạng thái phòng cho HUD: sảnh / phòng chờ / trận / kết quả.
+///
+/// Màn hình đầy đủ (đăng nhập/sảnh/phòng/kết quả) thuộc task UI (#103); ở đây chỉ hiện trạng
+/// thái để QA `--auto-ready` quan sát được luồng.
+fn room_status(net: &net::NetClient<boom_net::TcpTransport>) -> String {
+    let flow = net.room();
+    let members = flow.room().map_or(0, |state| state.members.len());
+    let rooms = flow.lobby().map_or(0, |list| list.rooms.len());
+    let phase = match (net.round_plan(), flow.result()) {
+        (Some(plan), _) => {
+            if flow.loading_acked() == Some(plan.round_id) {
+                "trận (đã ack)"
+            } else {
+                "trận (chờ ack)"
+            }
+        }
+        (None, Some(result)) => {
+            if flow.result_acked() == Some(result.round_id) {
+                "kết quả (đã ack)"
+            } else {
+                "kết quả"
+            }
+        }
+        (None, None) if flow.room().is_some() => "phòng",
+        (None, None) => "sảnh",
+    };
+    let mut text = format!("  {phase} {members} người  {rooms} phòng");
+    if let Some(member) = flow.my_member() {
+        text.push_str(if member.ready { "  ready" } else { "  chưa ready" });
+    }
+    if !flow.chat().is_empty() {
+        text.push_str(&format!("  chat {}", flow.chat().len()));
+    }
+    if let Some(rejection) = flow.rejection() {
+        text.push_str(&format!("  bị từ chối: {:?}", rejection.reason));
+    }
+    if let Some(error) = net.room_error() {
+        // Lỗi kiểm fingerprint: client không chơi được lượt này (không ack loading).
+        text.push_str(&format!("  LỖI: {error}"));
+    }
+    text
+}
+
+/// Nội dung cục bộ cho client mạng: map của bundle + địa hình đang dùng.
+///
+/// `None` khi client không có bundle: khi đó `World` của round dựng từ snapshot của server
+/// (server là authority về lưới ô) và client **không** coi là đã kiểm content cục bộ.
+fn local_content(game: &Game) -> Option<net::LocalContent> {
+    let bundle = game.bundle.as_ref()?;
+    Some(net::LocalContent {
+        map: bundle.map.clone(),
+        terrain: game.world.terrain().clone(),
+    })
 }
 
 /// Thông tin đăng nhập cho chế độ mạng: cờ dòng lệnh trước, biến môi trường sau.
