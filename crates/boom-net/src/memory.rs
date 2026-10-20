@@ -133,6 +133,8 @@ struct Shared {
     packets: Vec<Packet>,
     /// Endpoint nào đã đóng.
     closed: [bool; 2],
+    /// Số frame đã gửi đi nhưng bị mạng nuốt, tính theo endpoint **gửi** (index = endpoint gửi).
+    dropped: [u64; 2],
 }
 
 /// Mạng ảo dùng chung cho hai endpoint.
@@ -201,6 +203,23 @@ impl MemoryTransport {
     /// Đồng hồ ảo hiện tại (ms ảo).
     pub fn clock_ms(&self) -> u64 {
         self.network.inner.lock().expect("khoá mạng ảo").clock_ms
+    }
+
+    /// Số frame **endpoint này gửi đi** đã bị mạng nuốt (mất).
+    ///
+    /// Quyết định mất lấy từ PRNG theo seed nên **tức thì** và giống nhau trên mọi OS:
+    /// test biết chính xác frame vừa gửi có tới nơi không, thay vì đoán theo hạn thời gian
+    /// thật (hạn thời gian phụ thuộc tốc độ máy và độ phân giải timer của hệ điều hành).
+    pub fn dropped_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").dropped[self.endpoint.index()]
+    }
+
+    /// Số frame **đối phương gửi đi** đã bị mạng nuốt (mất) — chiều ngược lại.
+    ///
+    /// Dùng để biết câu trả lời từ server có bị mất không (khác với [`Self::dropped_frames`]
+    /// là câu hỏi của chiều gửi đi).
+    pub fn peer_dropped_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").dropped[self.endpoint.peer().index()]
     }
 
     /// Đã thấy EOF từ đối phương chưa (đối phương đóng và đã giao hết frame).
@@ -315,6 +334,8 @@ impl Transport for MemoryTransport {
         let delay = u64::from(self.faults.delay_ms) + jitter + reorder_extra;
         if lost {
             // Mạng nuốt frame: ứng dụng gửi vẫn thành công, giống mạng thật.
+            let mut net = self.network.inner.lock().expect("khoá mạng ảo");
+            net.dropped[self.endpoint.index()] += 1;
             return Ok(());
         }
         {
