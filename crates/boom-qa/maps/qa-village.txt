@@ -1,0 +1,14 @@
+; Bản đồ QA (ASCII) — dùng cho harness V1-027.
+;
+; Ký tự trong dòng bản đồ: `#` khối cứng, `+` khối mềm, `.` nền, `0`–`3` điểm spawn
+; (đánh số liên tục từ 0). Dòng bắt đầu bằng `;` là chú thích, không phải dòng bản đồ.
+;
+; Bản đồ này là **fixture kiểm thử**, không phải map KR đã xác nhận: SCOPE_V1 §1 chọn
+; `FxMap/Map/Village00` làm map V1, còn harness QA chỉ cần một lưới có 4 spawn để chạy được
+; 2–4 bot. Không suy ra gì về map gốc từ file này.
+#########
+#0.1.2.3#
+#..+..+.#
+#...+...#
+#..+..+.#
+#########

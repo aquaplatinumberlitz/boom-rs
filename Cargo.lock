@@ -170,6 +170,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "boom-qa"
+version = "0.0.0"
+dependencies = [
+ "boom-content",
+ "boom-core",
+ "boom-net",
+ "boom-proto",
+ "boom-room",
+ "boom-server",
+ "boom-sync",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "boom-replay"
 version = "0.0.0"
 dependencies = [
