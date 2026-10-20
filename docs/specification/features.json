@@ -19,27 +19,31 @@
       "acceptance": "Tạo/đăng nhập tài khoản test; thông tin sai bị từ chối; một phiên hoạt động mỗi tài khoản.",
       "open_questions": "Thiết kế mới, không tái tạo auth Nexon/NGM.",
       "tracking": {
-        "assignee": "opencode-1",
-        "reviewer": "Codex",
+        "assignee": "opencode-1/dsh-b",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [
           "docs/decisions/0011-identity-persistence-log-v1.md",
-          "git:06058297ddd97285354a428069ff539c24671301"
+          "git:06058297ddd97285354a428069ff539c24671301",
+          "crates/boom-server/src/auth.rs",
+          "git:14e359ce795466e95d8fcd736adf554de820c4ba",
+          "git:c8b14a81e1e5ff4bd17ab1d9614f6a39f6f5ebff",
+          "git:8759e037c64778b0a231f166b78acf0ead567dbe"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #57 và trên main sau merge"
+          "result": "xanh ở PR #57, #66, #85, #97 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #57"
+          "result": "Comment APPROVE trên PR #57, #66, #85, #97"
         },
         "blocker": "",
-        "next_action": "ADR 0011 đã merge (PR #57); wire auth ở #63, storage #61, tiếp theo T3/T4/T5."
+        "next_action": "Logic auth/phiên (#85, #97) và auth trên wire (#107) đã tích hợp. Còn: client gửi Auth (PR #89 / #80) và chạy trong `serve` thật (#108 / PR #117)."
       }
     },
     {
@@ -58,27 +62,29 @@
       "acceptance": "Client khác protocol hoặc rules/content hash bị từ chối trước khi vào sảnh.",
       "open_questions": "Chốt schema và cách phân phối manifest.",
       "tracking": {
-        "assignee": "dsh-a",
-        "reviewer": "Codex",
+        "assignee": "dsh-a/dsh-b",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [
           "crates/boom-proto/src/dto/handshake.rs",
-          "git:e627112e5fe52dd69fa1903b6d6fefe004ac41d9"
+          "git:e627112e5fe52dd69fa1903b6d6fefe004ac41d9",
+          "crates/boom-server/src/server.rs",
+          "git:ab4eb5a148a1c186fefada8854d728660bc62c94"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #56 và trên main sau merge"
+          "result": "xanh ở PR #56, #60 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #56"
+          "result": "Comment APPROVE trên PR #56, #60"
         },
         "blocker": "",
-        "next_action": "DTO Hello/Welcome/Reject đã merge (PR #56); handshake server ở PR #60; Welcome thêm ngón tay cấu hình theo ADR 0009 Addendum A (PR #59, T5)."
+        "next_action": "Handshake + Welcome fingerprint đã tích hợp (#60, #107). Còn: client kiểm fingerprint/hiện lỗi cập nhật (PR #89) và `serve` nạp content thật (PR #117)."
       }
     },
     {
@@ -88,7 +94,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "backend",
       "depends_on": [
         "V1-001",
@@ -98,24 +104,29 @@
       "acceptance": "Đăng nhập tới một kênh; thấy phòng và số người cập nhật khi tạo/vào/rời.",
       "open_questions": "Không yêu cầu quảng trường đi bộ/NPC.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "assignee": "dsh-b",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "crates/boom-server/src/server.rs",
+          "crates/boom-sync/src/room.rs",
+          "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #83, #90 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #83, #90"
         },
         "blocker": "",
-        "next_action": ""
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -125,7 +136,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "backend",
       "depends_on": [
         "V1-003"
@@ -134,27 +145,31 @@
       "acceptance": "Một tài khoản chỉ ở một phòng; phòng có ID duy nhất và tối đa 4 slot.",
       "open_questions": "Tên phòng/giới hạn ký tự theo spec dự án.",
       "tracking": {
-        "assignee": "dsh-3",
-        "reviewer": "Codex",
-        "updated_at": "2026-10-19",
+        "assignee": "dsh-b",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
-        "accepted_spec": "contracts-r3",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
         "evidence": [
           "crates/boom-room/src/lib.rs",
-          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+          "crates/boom-server/src/server.rs",
+          "crates/boom-sync/src/room.rs",
+          "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23 và trên main sau merge"
+          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23"
+          "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -164,7 +179,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "backend",
       "depends_on": [
         "V1-004"
@@ -173,27 +188,31 @@
       "acceptance": "Join đồng thời không vượt 4 người; không late-join khi đang đấu; rời dọn đúng slot.",
       "open_questions": "Không có password/private/spectator trong V1.",
       "tracking": {
-        "assignee": "dsh-3",
-        "reviewer": "Codex",
-        "updated_at": "2026-10-19",
+        "assignee": "dsh-b",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
-        "accepted_spec": "contracts-r3",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
         "evidence": [
           "crates/boom-room/src/lib.rs",
-          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+          "crates/boom-server/src/server.rs",
+          "crates/boom-sync/src/room.rs",
+          "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23 và trên main sau merge"
+          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23"
+          "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -203,7 +222,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "backend",
       "depends_on": [
         "V1-005"
@@ -212,27 +231,31 @@
       "acceptance": "Chủ rời phòng thì người vào sớm nhất còn lại làm chủ; non-host không kick/start.",
       "open_questions": "Host rời giữa trận không dừng mô phỏng server.",
       "tracking": {
-        "assignee": "dsh-3",
-        "reviewer": "Codex",
-        "updated_at": "2026-10-19",
+        "assignee": "dsh-b",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
-        "accepted_spec": "contracts-r3",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
         "evidence": [
           "crates/boom-room/src/lib.rs",
-          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+          "crates/boom-server/src/server.rs",
+          "crates/boom-sync/src/room.rs",
+          "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23 và trên main sau merge"
+          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23"
+          "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -251,27 +274,31 @@
       "acceptance": "Mỗi người chọn một trong hai template; đổi lựa chọn được đồng bộ và hủy ready.",
       "open_questions": "Tên hiển thị và chỉ số nối với BomberAttr; chưa suy từ tên VN.",
       "tracking": {
-        "assignee": "dsh-3",
-        "reviewer": "Codex",
-        "updated_at": "2026-10-19",
+        "assignee": "dsh-b",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
-        "accepted_spec": "contracts-r3",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [
           "crates/boom-room/src/lib.rs",
-          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+          "crates/boom-server/src/server.rs",
+          "crates/boom-sync/src/room.rs",
+          "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23 và trên main sau merge"
+          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23"
+          "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Phần server (chọn nhân vật, hủy ready) có ở PR #23; còn UI chọn C00/C01 phía client."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -281,7 +308,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "backend",
       "depends_on": [
         "V1-007"
@@ -290,27 +317,31 @@
       "acceptance": "2–4 người, mọi người ready mới start; đổi roster/selection hủy toàn bộ ready; command lặp chỉ start một lần.",
       "open_questions": "Host cũng phải ready; đây là policy V1.",
       "tracking": {
-        "assignee": "dsh-3",
-        "reviewer": "Codex",
-        "updated_at": "2026-10-19",
+        "assignee": "dsh-b",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
-        "accepted_spec": "contracts-r3",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
         "evidence": [
           "crates/boom-room/src/lib.rs",
-          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c"
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+          "crates/boom-server/src/server.rs",
+          "crates/boom-sync/src/room.rs",
+          "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23 và trên main sau merge"
+          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23"
+          "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Máy trạng thái phòng thuần đã merge (PR #23); đặt done khi auth/sảnh (V1-001…003) và server bọc nó done."
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -320,7 +351,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "backend",
       "depends_on": [
         "V1-005"
@@ -329,24 +360,30 @@
       "acceptance": "Chỉ thành viên phòng nhận chat; giới hạn chiều dài/tần suất; chữ Việt đúng; không thực thi slash command.",
       "open_questions": "Không chat trận/kênh/whisper trong V1.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "assignee": "dsh-b",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "crates/boom-server/src/server.rs",
+          "crates/boom-sync/src/room.rs",
+          "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+          "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": ""
+        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
       }
     },
     {
@@ -356,7 +393,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "net",
       "depends_on": [
         "V1-008",
@@ -366,27 +403,31 @@
       "acceptance": "Server gửi cùng seed/rules/map/roster; chỉ bắt đầu khi tất cả ack loaded trong 15s; timeout hủy về phòng.",
       "open_questions": "Village00 có 4 tọa độ; thứ tự gán slot là DESIGN.",
       "tracking": {
-        "assignee": "dsh-a",
-        "reviewer": "Codex",
+        "assignee": "dsh-a/dsh-b",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ae70eaec72bc9f11e308d352d96b6240bdf683ec",
         "evidence": [
           "crates/boom-server/src/lib.rs",
-          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e"
+          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
+          "crates/boom-server/src/authority.rs",
+          "crates/boom-server/src/server.rs",
+          "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #53 và trên main sau merge"
+          "result": "xanh ở PR #53, #60, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #53"
+          "result": "Comment APPROVE trên PR #53, #60, #90"
         },
         "blocker": "",
-        "next_action": "Lõi authority (start barrier, kết quả, disconnect) đã merge (PR #53); IO thật qua boom-net + test memory transport ở PR #60."
+        "next_action": "Server authority qua wire đạt (test 2/4 client, delay/loss seed); done khi dependency done."
       }
     },
     {
@@ -837,7 +878,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-021"
@@ -846,27 +887,31 @@
       "acceptance": "Mọi client cùng kết quả; ack hoặc sau5s về phòng; vòng sau reset ready/bom/item; packet kết quả/snapshot round cũ bị bỏ, không auto-ready.",
       "open_questions": "Không exp/rank/tiền thưởng V1.",
       "tracking": {
-        "assignee": "dsh-a",
-        "reviewer": "Codex",
+        "assignee": "dsh-a/dsh-b",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ae70eaec72bc9f11e308d352d96b6240bdf683ec",
         "evidence": [
           "crates/boom-server/src/lib.rs",
-          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e"
+          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
+          "crates/boom-server/src/authority.rs",
+          "crates/boom-server/src/server.rs",
+          "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #53 và trên main sau merge"
+          "result": "xanh ở PR #53, #60, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #53"
+          "result": "Comment APPROVE trên PR #53, #60, #90"
         },
         "blocker": "",
-        "next_action": "Lõi authority (start barrier, kết quả, disconnect) đã merge (PR #53); IO thật qua boom-net + test memory transport ở PR #60."
+        "next_action": "Server authority qua wire đạt (test 2/4 client, delay/loss seed); done khi dependency done."
       }
     },
     {
@@ -876,7 +921,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "net",
       "depends_on": [
         "V1-022"
@@ -885,27 +930,31 @@
       "acceptance": "Rời trận chủ động loại ngay; disconnect chơi neutral rồi quá10s bị loại một lần; loading mất thành viên hủy start; không mid-round rejoin; room rỗng bị xóa và round bị hủy không tạo winner vắng mặt.",
       "open_questions": "DESIGN thời hạn 10s, không phải luật KR.",
       "tracking": {
-        "assignee": "dsh-a",
-        "reviewer": "Codex",
+        "assignee": "dsh-a/dsh-b",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ae70eaec72bc9f11e308d352d96b6240bdf683ec",
         "evidence": [
           "crates/boom-server/src/lib.rs",
-          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e"
+          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
+          "crates/boom-server/src/authority.rs",
+          "crates/boom-server/src/server.rs",
+          "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #53 và trên main sau merge"
+          "result": "xanh ở PR #53, #60, #90 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #53"
+          "result": "Comment APPROVE trên PR #53, #60, #90"
         },
         "blocker": "",
-        "next_action": "Lõi authority (start barrier, kết quả, disconnect) đã merge (PR #53); IO thật qua boom-net + test memory transport ở PR #60."
+        "next_action": "Server authority qua wire đạt (test 2/4 client, delay/loss seed); done khi dependency done."
       }
     },
     {
@@ -924,8 +973,8 @@
       "acceptance": "Client tự khai tọa độ/kill/item/win không thay đổi state; command lặp/quá hạn bị xử lý đúng spec.",
       "open_questions": "BLOCKER: wire/input contract có revision trước triển khai.",
       "tracking": {
-        "assignee": "dsh-a",
-        "reviewer": "Codex",
+        "assignee": "dsh-a/opencode-2",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
@@ -938,19 +987,20 @@
           "crates/boom-sync/src/lib.rs",
           "git:2af995d8def92e80eb18f15199feaed99129544e",
           "git:e627112e5fe52dd69fa1903b6d6fefe004ac41d9",
-          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e"
+          "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
+          "git:ab4eb5a148a1c186fefada8854d728660bc62c94"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #24, #50, #56, #53 và trên main sau merge"
+          "result": "xanh ở PR #50, #56, #53, #60 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #24, #50, #56, #53"
+          "result": "Comment APPROVE trên PR #50, #56, #53, #60"
         },
         "blocker": "",
-        "next_action": "boom-proto/boom-net/boom-sync + lõi authority server đã merge (PR #50, #56, #53); IO server qua boom-net ở PR #60 (#46 phần 2)."
+        "next_action": "Server xong; client mạng PR #89 (#80) đang sửa review."
       }
     },
     {
@@ -996,7 +1046,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "not_started",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-024"
@@ -1005,24 +1055,29 @@
       "acceptance": "Cùng initial state/seed/input cho cùng hash trên 3 OS; khác rules/content bị từ chối replay.",
       "open_questions": "Đây là tính tất định của engine mới, chưa chứng minh parity KR.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
-        "integration_commit": "",
-        "evidence": [],
+        "assignee": "dsh-b/dsh-a",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
+        "integration_commit": "956d54b37fb4ec42c7c63a73661850b17ec186d2",
+        "evidence": [
+          "crates/boom-replay/src/main.rs",
+          "crates/boom-server/src/replay_log.rs",
+          "git:5bcafa0f35471a9a6ce9f5584fbb11efc72ba1d2",
+          "git:956d54b37fb4ec42c7c63a73661850b17ec186d2"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #72, #88 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #72, #88"
         },
         "blocker": "",
-        "next_action": ""
+        "next_action": "Replay cùng hash 3 OS (CI), từ chối lệch rules/content, server ghi replay round thật kể cả disconnect; done khi V1-024 done."
       }
     },
     {
@@ -1069,7 +1124,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-001"
@@ -1078,27 +1133,33 @@
       "acceptance": "Restart server giữ identity; restart client giữ volume/keybind; room/trận đang chạy không cần phục hồi.",
       "open_questions": "Chọn DB tối thiểu qua ADR, không ép Postgres/SQLite hai engine.",
       "tracking": {
-        "assignee": "opencode-1",
-        "reviewer": "Codex",
+        "assignee": "opencode-1/opencode-2",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "c8b14a81e1e5ff4bd17ab1d9614f6a39f6f5ebff",
         "evidence": [
           "docs/decisions/0011-identity-persistence-log-v1.md",
-          "git:06058297ddd97285354a428069ff539c24671301"
+          "git:06058297ddd97285354a428069ff539c24671301",
+          "crates/boom-server/src/identity/sqlite.rs",
+          "crates/boom-client/src/options.rs",
+          "git:53aabbfb9023992d3e4af9d5d2d108ac78762634",
+          "git:c8b14a81e1e5ff4bd17ab1d9614f6a39f6f5ebff",
+          "git:bf5ca50b338fb36447108633b7712441bb6cb8de",
+          "git:a3a78b0ec85b4a3608f7ad62ccb9f34ea6c709df"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #57 và trên main sau merge"
+          "result": "xanh ở PR #68, #85, #69, #77 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #57"
+          "result": "Comment APPROVE trên PR #68, #85, #69, #77"
         },
         "blocker": "",
-        "next_action": "ADR 0011 đã merge (PR #57); storage identity #61, options client #62."
+        "next_action": "Identity bền qua restart + options client đạt; done khi V1-001 done."
       }
     },
     {
@@ -1108,34 +1169,38 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [],
       "server_responsibility": "Config endpoint, health và log cấu trúc.",
       "acceptance": "Có version/rules hash, round ID, lý do disconnect, lỗi load; không log password/session token.",
       "open_questions": "V1 là bản chơi thử không thương mại; chưa liveops/economy.",
       "tracking": {
-        "assignee": "dsh-a",
-        "reviewer": "Codex",
+        "assignee": "dsh-a/opencode-1",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "8759e037c64778b0a231f166b78acf0ead567dbe",
         "evidence": [
           "docs/decisions/0011-identity-persistence-log-v1.md",
-          "git:06058297ddd97285354a428069ff539c24671301"
+          "git:06058297ddd97285354a428069ff539c24671301",
+          "crates/boom-server/src/admin.rs",
+          "crates/boom-server/src/observability.rs",
+          "git:8ffc64ed242194989542e86a6605b099388c1f45",
+          "git:8759e037c64778b0a231f166b78acf0ead567dbe"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #57 và trên main sau merge"
+          "result": "xanh ở PR #79, #97 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #57"
+          "result": "Comment APPROVE trên PR #79, #97"
         },
         "blocker": "",
-        "next_action": "ADR 0011 đã merge (PR #57); T1 log/health/admin giao sau khi PR #59, #60 merge."
+        "next_action": "Log JSON/health/heartbeat/CLI đạt T1-H1…H7; done khi chạy trong serve thật (#108)."
       }
     },
     {
@@ -1153,11 +1218,11 @@
       "open_questions": "BLOCKER: giải object/tile semantics; fixture mới xác nhận header, chưa runtime.",
       "tracking": {
         "assignee": "opencode-4",
-        "reviewer": "Codex",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "4ec8acf9e133e45d351b589d2089bae446248e8f",
         "evidence": [
           "docs/specification/gameplay/RULES_V1.md",
           "git:243d230fd7f04524b7dc7794f597237cf4d4454d",
@@ -1165,19 +1230,23 @@
           "crates/boom-assets/src/sprite.rs",
           "git:9372f2074939e6cd6d4d2699f28026020a0a84c3",
           "git:fd2e5d21725157ddb420ebe5ccdf0bbb3851f456",
-          "git:282a051a5ce754a689d7e95ef4dccac446b80a3c"
+          "git:282a051a5ce754a689d7e95ef4dccac446b80a3c",
+          "crates/boom-client/src/scene.rs",
+          "git:abae61bba75252fcea83bf9b6da80e322722dfe3",
+          "git:b3d4d068a3a78a4c4b40a0bb76e28bc410893f7a",
+          "git:4ec8acf9e133e45d351b589d2089bae446248e8f"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #25, #36, #38, #39 và trên main sau merge"
+          "result": "xanh ở PR #36, #38, #39, #55, #81, #91 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #25, #36, #38, #39"
+          "result": "Comment APPROVE trên PR #36, #38, #39, #55, #81, #91"
         },
         "blocker": "",
-        "next_action": "Closure Village00 + giải mã sprite đã merge (PR #36, #38, #39); bundle ở PR #55 (#49) đang re-review."
+        "next_action": "Closure + bundle + client vẽ Village00 đã tích hợp (#36, #38, #39, #55, #81, #91). Còn acceptance: 4 mục `unknown` của bundle và test 4 spawn không trùng/không bị chặn/có đường thoát — issue #121."
       }
     },
     {
@@ -1196,27 +1265,31 @@
       "acceptance": "Walk4 hướng, idle/blink/start/trapped/dead và bomb/flame đúng frame/pivot theo spec.",
       "open_questions": "BLOCKER: resolve mọi state/pivot/timing còn thiếu.",
       "tracking": {
-        "assignee": "opencode-3",
-        "reviewer": "Codex",
+        "assignee": "opencode-3/opencode-4",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [
           "crates/boom-assets/src/animation.rs",
-          "git:389b6ce78fc1b00d6857a25f144981c73e559567"
+          "git:389b6ce78fc1b00d6857a25f144981c73e559567",
+          "crates/boom-client/src/anim.rs",
+          "git:5242e48f61272d2c6ce5c1b3386d123e5e6688f4",
+          "git:40fb031334dd70caa7d13ee725f8c7890fd85505",
+          "git:93288f1f300a249da7b723f91acfa4d8a1f1325b"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #52 và trên main sau merge"
+          "result": "xanh ở PR #52, #82, #100, #105 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #52"
+          "result": "Comment APPROVE trên PR #52, #82, #100, #105"
         },
         "blocker": "",
-        "next_action": "Schema animation + bộ trích entry→clip đã merge (PR #52, R-077…R-079); còn phát clip trong client từ bundle."
+        "next_action": "Clip + phát theo tick đạt; còn presentation journal (chuỗi chết) và clip nổ ở client (#101)."
       }
     },
     {
@@ -1226,7 +1299,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "client",
       "depends_on": [
         "V1-022"
@@ -1235,24 +1308,27 @@
       "acceptance": "Login→sảnh→phòng→trận→kết quả→phòng không dead end; ngoài scope ẩn, không mở màn hỏng.",
       "open_questions": "Không cần quảng trường đi bộ hoặc sao chép auth Nexon.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "assignee": "opencode-3",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "crates/boom-assets/src/closure.rs",
+          "git:4ec8acf9e133e45d351b589d2089bae446248e8f"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #91 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #91"
         },
         "blocker": "",
-        "next_action": "Issue #15 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Asset UI trong bundle (#91) + màn UI offline (#115) đã tích hợp. Còn: nối UiBackend mạng (#114) và thay text UI bằng API font #116 (task sau)."
       }
     },
     {
@@ -1262,34 +1338,37 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "client",
       "depends_on": [],
       "server_responsibility": "Từ chối input movement mới khi session chưa in-match.",
       "acceptance": "Keybind mặc định mũi tên+Space; rebind được; native framebuffer integer scale; mất focus release tất cả phím.",
       "open_questions": "Native resolution phải đo, không lấy size cửa sổ làm chuẩn.",
       "tracking": {
-        "assignee": "dsh-b",
-        "reviewer": "Codex",
+        "assignee": "dsh-b/opencode-2",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "a3a78b0ec85b4a3608f7ad62ccb9f34ea6c709df",
         "evidence": [
           "crates/boom-client/src/input.rs",
-          "git:0c5df165ffabfab961876538b43c8b1842990d8b"
+          "git:0c5df165ffabfab961876538b43c8b1842990d8b",
+          "crates/boom-client/src/options.rs",
+          "git:bf5ca50b338fb36447108633b7712441bb6cb8de",
+          "git:a3a78b0ec85b4a3608f7ad62ccb9f34ea6c709df"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #51 và trên main sau merge"
+          "result": "xanh ở PR #51, #69, #77 và trên main sau merge"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #51"
+          "result": "Comment APPROVE trên PR #51, #69, #77"
         },
         "blocker": "",
-        "next_action": "Input mặc định/integer scale/release khi mất focus đã merge (PR #51); còn rebind qua options.toml (#62)."
+        "next_action": "Done: mặc định mũi tên+Space (#51), rebind qua options.toml (#69, #77), integer scale + nhả phím khi mất focus (#51); reviewer độc lập Codex; không có dependency."
       }
     },
     {
@@ -1299,7 +1378,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "client",
       "depends_on": [
         "V1-025",
@@ -1309,24 +1388,29 @@
       "acceptance": "Village BGM và SFX theo event; mute/volume hoạt động; reconcile không phát trùng.",
       "open_questions": "BLOCKER: event→SFX và chính sách chồng tiếng.",
       "tracking": {
-        "assignee": "dsh-b",
-        "reviewer": "Codex",
+        "assignee": "dsh-b/dsh-a",
+        "reviewer": "Claude/Codex",
         "updated_at": "2026-10-20",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
-        "evidence": [],
+        "integration_commit": "aace7988256b384bf2f8d6a4d4454dcbe54401bf",
+        "evidence": [
+          "crates/boom-client/src/audio.rs",
+          "docs/specification/assets/AUDIO_V1.md",
+          "git:6dfdac10040cd124fc1558140ef6f3d591f0afb6",
+          "git:aace7988256b384bf2f8d6a4d4454dcbe54401bf"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #67, #106 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #67, #106"
         },
         "blocker": "",
-        "next_action": "Phần 1 (event→SFX, giải mã FxSound) ở #64."
+        "next_action": "BGM/SFX theo event, volume/mute, dedup reconcile đạt; done khi V1-025 và V1-031 done."
       }
     },
     {
@@ -1336,7 +1420,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "client",
       "depends_on": [
         "V1-032"
@@ -1345,24 +1429,28 @@
       "acceptance": "Mọi chuỗi đường đi V1 có dấu/placeholder/wrap đúng; không dùng 23 pending review làm text đã chốt.",
       "open_questions": "Ảnh có chữ phải có quyết định review trước dùng; font Unicode dùng golden riêng.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "assignee": "opencode-3",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "data/l10n/vi-v1.toml",
+          "crates/boom-content/src/l10n.rs",
+          "git:71d36a66cd644832dc9ce014cfed21d3c4641e31"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #98 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #98"
         },
         "blocker": "",
-        "next_action": "Issue #15 (đợt 1); nhận việc theo TEAM_WORKFLOW §5."
+        "next_action": "Chuỗi V1 từ catalog; 42 khóa unknown + 15 review chờ boom-re-l10n; font chưa chọn."
       }
     },
     {
@@ -1372,7 +1460,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "release",
       "depends_on": [
         "V1-027",
@@ -1382,24 +1470,24 @@
       "acceptance": "Build/cài và chạy trên3OS; thiếu pack/rules báo rõ; build xanh không đồng nghĩa V1done, release gate đòi toàn bộ37mục.",
       "open_questions": "Chưa xác định cấu hình máy tối thiểu; phải đo trước phát hành.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "assignee": "opencode-1",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR  và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR "
         },
         "blocker": "",
-        "next_action": ""
+        "next_action": "Build phát hành 3 OS ở #102."
       }
     },
     {
@@ -1409,7 +1497,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "qa",
       "depends_on": [
         "V1-026",
@@ -1419,24 +1507,27 @@
       "acceptance": "Có fixture VN/original và golden V1 riêng; báo sai khác theo nguồn; không cam kết pixel100% KR chưa chạy.",
       "open_questions": "Báo cáo theo nhãn nguồn/trạng thái AGENTS §4 (confirmed/candidate/design); generic 99.5% pixel chưa đủ.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "assignee": "dsh-a",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-20",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "docs/research/findings/VN_ENGINE_DIFF.md",
+          "git:440bc8fd5648bb8f748e9f54a057803a82de48b1"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh ở PR #96 và trên main sau merge"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Comment APPROVE trên PR #96"
         },
         "blocker": "",
-        "next_action": ""
+        "next_action": "Phần 1 đối chiếu server VN xong; còn fixture original/golden riêng."
       }
     },
     {
