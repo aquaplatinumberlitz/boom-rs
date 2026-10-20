@@ -379,11 +379,12 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
 ```
 
 Giá trị `content_hash` ở trên đo lại ngày 2026-10-20 trên `main` @ `32a6d81` (schema 4, có bảng
-`[[audio]]`): hai lần dựng cho **cùng hash và cùng byte file** (atlas `page-000.png` 2048×1430,
-665.372 byte). Hash **phụ thuộc byte file atlas/audio** nên đổi bộ mã PNG (đổi phiên bản thư viện
-`png`) là đổi hash dù pixel không đổi — xem §8. Giá trị hash của schema 3 (bundle chưa có audio)
-là `27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2`; **không** dùng lại giá trị
-đó cho schema 4.
+`[[audio]]`) và **tái lập lại y hệt** sau khi gộp `main` @ `f545f24` (builder không đổi): hai lần
+dựng cho **cùng hash và cùng byte file** (atlas `page-000.png` 2048×1430, 665.372 byte).
+Hash **phụ thuộc byte file atlas/audio** nên đổi bộ mã PNG (đổi phiên bản thư viện `png`) là đổi
+hash dù pixel không đổi — xem §8. Giá trị hash của schema 3 (bundle chưa có audio) là
+`27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2`; **không** dùng lại giá trị đó
+cho schema 4.
 
 ## 7. Quy ước đặt ảnh của client (presentation — `design`)
 
@@ -423,7 +424,7 @@ Giới hạn đã biết:
 
 Ngoài quy ước đặt ảnh, client V1 còn phải chọn **clip nào** cho state core nào và
 **frame nào** trong clip đó. Đây là quyết định **design** của V1 (RULES_V1
-[R-085…R-088](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r-085r-088)),
+[R-085…R-089](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r-085r-089)),
 ghi ở đây để client, reviewer và công cụ đo dùng chung một công thức.
 
 1. **Chọn clip theo state core** (R-086):
@@ -433,7 +434,7 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    | Nhân vật **đang đi** (vị trí đổi so với tick trước) | `c0x.walk.{up,down,left,right}.static` | R-077 `confirmed` |
    | Nhân vật **đứng yên** | `c0x.idle.blink.static` | R-078 `candidate` |
    | Nhân vật **bị nhốt** | `c0x.trapped.static` | R-078 `candidate` |
-   | Nhân vật **chết** | `c0x.dead.static` (khung cuối là ảnh 0×0 ⇒ **không vẽ**) | R-077 `confirmed` |
+   | Nhân vật **chết** | `c0x.dead.static` (chuỗi chết phát trọn clip rồi giữ khung cuối **có ảnh** — §7.2) | R-077 `confirmed` |
    | Bom đang chờ nổ | `bomb.fuse` | R-077 `confirmed` |
    | Lửa trên ô | `flame.main`, **dải frame lõi 28..=59** | R-078 `candidate` (R-087) |
    | Vụ nổ (core báo event `bomb_exploded`) | `explosion.main` tại ô bom | R-084 `confirmed` (R-088) |
@@ -474,9 +475,42 @@ Giới hạn đã biết:
 - Thứ tự vẽ **nổ đè lên lửa** và cách client gốc vẽ nổ là `design` của V1 (R-088):
   chưa có consumer gốc xác nhận (Q-003); test của client chỉ là regression theo quy
   ước đã chốt.
-- V1 chưa có presentation journal nên **không** phát lại chuỗi chết: nhân vật chết
-  dùng khung cuối của clip (ảnh rỗng 0×0) nên **không được vẽ**. Chuỗi chết sẽ phát
-  khi có journal (P7).
+- Chuỗi chết phát theo **sổ trình diễn** (§7.2, R-089) — quyết định `design` của V1:
+  chưa có consumer gốc xác nhận (Q-003).
+
+### 7.2 Sổ trình diễn (V1)
+
+Sổ trình diễn (presentation journal) của client gom mọi hiệu ứng đang chạy: **nổ**,
+**chết**, **bị nhốt** và **mở đầu lượt** (R-089). Đây là quyết định `design` của V1:
+chưa có consumer gốc xác nhận (Q-003).
+
+1. **Mỗi đối tượng một mục**: đối tượng là ô bản đồ (vụ nổ) hoặc nhân vật (chết, nhốt,
+   mở đầu lượt). Mục mới của cùng đối tượng **thay** mục cũ (một ô chỉ có một vụ nổ;
+   nhân vật chết thay chuỗi nhốt).
+2. **Khoá event**: mục từ event server đã xác nhận gắn `(round_id, EventId)`. Event
+   **lặp** (reconcile/snapshot gửi lại event cũ) **không** tạo mục mới ⇒ hiệu ứng không
+   phát lại (ADR 0005, ARCHITECTURE §6).
+3. **Mục client tự sinh**: hiệu ứng chưa có event server (mở đầu lượt) hoặc dự đoán thì
+   mục **không** có khoá; khi event xác nhận của cùng đối tượng tới thì mục dự đoán bị
+   **thay** và chuỗi phát lại từ tick của event.
+4. **Phát một lần**: hiệu ứng chạy trong khoảng clip (số frame của clip ×
+   `presentation.frame_duration_ms`), frame chọn theo **đồng hồ trình diễn** tính từ
+   tick của event; hết khoảng clip thì mục bị **dọn** khỏi sổ (khoá event **vẫn giữ** ⇒
+   event lặp sau đó không tạo mục mới; khoá chỉ bỏ khi đổi lượt).
+5. **Nhân vật chết**: chuỗi chết phát trọn clip rồi nhân vật giữ **khung cuối có ảnh**
+   của clip chết (khung cuối trong pack là ảnh rỗng 0×0). Nếu clip chết không có khung
+   nào có ảnh thì nhân vật chết **không được vẽ** — không vẽ ô màu. Ô màu chỉ dùng khi
+   bundle **thiếu clip** (§7.1 §5).
+6. **Sổ không biết bundle**: client đưa vào sổ bảng số frame theo clip ID, nên đổi bundle
+   không phải sửa sổ.
+7. **Đồng hồ trình diễn**: client chọn frame theo **đồng hồ trình diễn** của nó, không
+   theo đồng hồ wall clock (ADR 0004). Đồng hồ này **bám** tick mô phỏng khi lượt còn
+   chạy và **tiến nốt** (cùng nhịp `sim.ticks_per_second`) sau khi lượt **kết thúc** và
+   mô phỏng dừng — nếu không, chuỗi chết của lượt cuối (một người chết là lượt hai
+   người kết thúc) sẽ kẹt ở frame đầu, không bao giờ tới khung cuối có ảnh (R-089).
+   Quy tắc này áp dụng cho **cả hai** chế độ (offline và mạng: khi lượt kết thúc thì
+   đồng hồ **tiến nốt** thay vì bám tick của state). Ở chế độ mạng client chưa nối
+   event server vào sổ trình diễn (#114) nên **chưa có** chuỗi chết để phát.
 
 ## 8. Giới hạn đã biết
 
@@ -507,8 +541,9 @@ Giới hạn đã biết:
   Lưu ý: entry BGM của closure (`FxSound/MP3/Village`, vai trò `music`) **vẫn** được liệt kê ở
   `[[assets]]` với lý do ghi sẵn của builder ("âm thanh nền: không phải ảnh, chưa đưa vào bundle") —
   câu chữ đó **không còn đúng** vì payload BGM đã nằm ở `[[audio]]`/`audio/bgm_loop.ogg`
-  (đo 2026-10-20 trên `main` @ `32a6d81`). Sửa câu chữ trong builder sẽ **đổi `content_hash`**,
-  nên tách task code riêng; ở đây chỉ ghi nhận là giới hạn đã biết.
+  (đo 2026-10-20 trên `main` @ `32a6d81`, tái lập sau khi gộp `main` @ `f545f24`). Sửa câu chữ
+  trong builder sẽ **đổi `content_hash`**, nên tách task code riêng; ở đây chỉ ghi nhận là giới
+  hạn đã biết.
 - **Atlas đóng gói bằng thuật toán kệ (shelf).** Không tối ưu chặt chẽ; một trang 2048×2048
   chứa được toàn bộ ảnh Village00. Ảnh vượt trần 2048 px thì báo lỗi thay vì cắt.
 - **Chưa có bước kiểm pixel của client.** Bộ giải mã sprite đã khớp từng pixel với tool

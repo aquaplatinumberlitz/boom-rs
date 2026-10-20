@@ -166,6 +166,7 @@ không phải luật chơi; giá trị luật của V1 vẫn nằm ở `data/rul
 | R-086 | Chọn clip theo state core (quyết định trình diễn của V1): nhân vật **đang đi** (vị trí đổi so với tick trước) → clip `walk` theo hướng đang quay; **đứng yên** → clip `idle`; **bị nhốt** → clip `trapped`; **chết** → clip `dead`; bom đang chờ → clip `bomb.fuse`; lửa trên ô → clip `flame.main`. Clip `idle`/`trapped` là R-078 **candidate** (chưa có consumer gốc xác nhận), còn `walk`/`dead`/`bomb.fuse` là R-077 `confirmed`. State core V1 chưa mang trường nhân vật nên V1 ghép `id` người chơi với `C00`/`C01` theo thứ tự | — | `design` / design | Issue #92; `crates/boom-client/src/anim.rs` (`character_clip`, `is_moving`); `crates/boom-client/src/scene.rs` (`presentation_plan`); BUNDLES §7 |
 | R-087 | Hình lửa trên một ô: V1 dùng **dải frame lõi** của clip `flame.main` (index 28..=59 trên pack KR 00967 — 32 frame ảnh đơn 40×40, hình lửa đứng giữa ô). Phần thân/đuôi/nhánh theo hướng **không** dùng: state core V1 không mang hướng lửa (`Flame` chỉ có ô và hạn), nên mọi ô lửa vẽ cùng một frame của dải này | — | `design` / design (quan sát dải frame: `kr_static`) | Issue #92; `crates/boom-client/src/anim.rs` (`FLAME_FRAMES`); BUNDLES §7; Q-003 |
 | R-088 | Hiệu ứng nổ của client V1: khi core báo event `bomb_exploded` (ô của bom) thì client phát clip `explosion.main` tại **ô bom** — pack chỉ có **một** clip nổ (R-084) nên không có clip riêng theo tâm/nhánh/đuôi. Hiệu ứng **phát một lần**: dài bằng số frame của clip × `presentation.frame_duration_ms` (R-085), frame chọn theo **tick mô phỏng** tính từ tick của event (không theo đồng hồ wall clock, ADR 0004); hết khoảng clip thì ô đó **về lại** `flame.main` (lửa trong state core). Clip nổ **vẽ đè lên lửa** ở cùng ô (z-order: vật cản → lửa → nổ → bom → nhân vật) | — | `design` / design (quyết định trình diễn của V1; chưa có consumer gốc xác nhận thứ tự vẽ nổ với lửa — Q-003) | Issue #101; `crates/boom-client/src/anim.rs` (`ExplosionJournal`, `FrameClock::once_frame`); `crates/boom-client/src/scene.rs` (`presentation_plan`); `crates/boom-client/src/main.rs` (`absorb_events`); BUNDLES §7.1; R-084 |
+| R-089 | **Sổ trình diễn** (presentation journal) của client V1: mỗi hiệu ứng (nổ, chết, bị nhốt, mở đầu lượt) là **một mục** trong sổ, mỗi đối tượng (ô bom / nhân vật) chỉ có một mục đang chạy. Mục **đã xác nhận** gắn khoá `(round_id, EventId)` ⇒ event **lặp** (reconcile/snapshot gửi lại event cũ) **không** tạo mục mới; mục **client tự sinh** (mở đầu lượt, dự đoán) **không** có khoá và bị **thay** khi event xác nhận của cùng đối tượng tới (ADR 0005). Clip **chết** phát **trọn** một lần (số frame của clip × `presentation.frame_duration_ms`, frame theo **đồng hồ trình diễn** tính từ tick của event), hết khoảng clip thì nhân vật chết giữ **khung cuối có ảnh** của clip chết (khung cuối trong pack là ảnh rỗng 0×0 nên **không** vẽ ô màu) — còn `trapped`/`start` là clip **candidate** (R-078). **Đồng hồ trình diễn** của client bằng tick mô phỏng khi lượt còn chạy và **tiến nốt** (cùng nhịp `sim.ticks_per_second`) sau khi lượt **kết thúc** và mô phỏng dừng, để chuỗi chết vẫn phát trọn clip thay vì kẹt ở frame đầu | — | `design` / design (quyết định trình diễn của V1; chưa có consumer gốc xác nhận — Q-003) | Issue #118; `crates/boom-client/src/anim.rs` (`PresentationJournal`, `PresentationKey`, `presentation_of`); `crates/boom-client/src/scene.rs` (`presentation_plan`, `last_visible_frame`); `crates/boom-client/src/main.rs` (`absorb_events`, `Game::tick`); BUNDLES §7.2; ADR 0005 |
 
 R-079 là `unknown` nên **không** mang giá trị (AGENTS §4). Schema
 `boom-content::animation::FrameTiming` đã có sẵn hai nhánh: `Known` (giá trị + nguồn +
@@ -184,9 +185,9 @@ Lớp sprite `Static`/`Adjust` của nhân vật được ghi lại theo entry, 
 cách blend chưa xác nhận** (Q-003); quyết định của V1 cho phần này thuộc task client P6
 và cần claim riêng — chưa có ở đây.
 
-### 8.1 Quyết định trình diễn của client V1 (R-085…R-088)
+### 8.1 Quyết định trình diễn của client V1 (R-085…R-089)
 
-Bốn claim cuối §8 là quyết định **design** của dự án cho client V1, không phải luật
+Năm claim cuối §8 là quyết định **design** của dự án cho client V1, không phải luật
 chơi và không phải suy ra từ client gốc:
 
 - **Nhịp (R-085)**: 100 ms mỗi frame cho mọi clip. Frame tiến theo **tick mô phỏng**
@@ -199,8 +200,9 @@ chơi và không phải suy ra từ client gốc:
     core được giữ qua lệnh `Dir::None` (movement bỏ qua người chơi không giữ phím nên
     `facing` không về `None`).
   - *Chết*: khung cuối của clip chết là ảnh rỗng 0×0 (dữ liệu thật của client gốc).
-    V1 chưa có presentation journal nên **không** phát lại chuỗi chết; dùng khung cuối
-    ⇒ nhân vật chết **không được vẽ**. Chuỗi chết sẽ phát khi có journal (P7).
+    Chuỗi chết **phát trọn clip** theo sổ trình diễn (R-089) rồi nhân vật chết giữ
+    **khung cuối có ảnh**; nếu không có khung nào có ảnh thì nhân vật chết **không
+    được vẽ** (không vẽ ô màu).
 - **Hình lửa (R-087)**: clip `flame.main` là một blob 100 frame gộp thân/đuôi/nhánh
   (R-078) và state core không mang hướng lửa, nên V1 chỉ dùng dải frame lõi
   (28..=59) cho mọi ô lửa. Đây là **giới hạn đã biết**, ghi ở
@@ -210,8 +212,23 @@ chơi và không phải suy ra từ client gốc:
   `presentation.frame_duration_ms`), frame chọn theo tick mô phỏng tính từ tick của
   event, rồi ô đó **về lại** `flame.main`. Clip nổ vẽ **đè lên lửa** ở cùng ô; thứ tự
   vẽ này là quyết định của V1, chưa có consumer gốc xác nhận (Q-003).
+- **Sổ trình diễn (R-089)**: sổ gom mọi hiệu ứng (nổ, chết, nhốt, mở đầu lượt) và
+  phân biệt **event đã xác nhận** với **event client tự sinh** (ADR 0005):
+  - mục đã xác nhận gắn khoá `(round_id, EventId)` ⇒ event lặp **không** phát lại;
+  - mục client tự sinh (mở đầu lượt) bị **thay** khi event xác nhận của cùng đối
+    tượng tới;
+  - chuỗi chết phát **trọn** clip một lần rồi nhân vật giữ khung cuối **có ảnh**.
+  - **Đồng hồ trình diễn** bám tick mô phỏng khi lượt còn chạy và **tiến nốt** sau khi
+    lượt kết thúc (core dừng): nếu không, chuỗi chết của lượt cuối (một người chết là
+    lượt hai người kết thúc) sẽ kẹt ở frame đầu và không bao giờ tới khung cuối có
+    ảnh.
+  - **Giới hạn đã biết**: quy tắc đồng hồ áp dụng cho **cả hai** chế độ — offline và
+    mạng đều **tiến nốt** khi lượt kết thúc (mạng: đồng hồ không bám tick của state
+    server nữa). Nhưng ở chế độ mạng client **chưa** nối event server vào sổ trình
+    diễn (việc của #114) nên **chưa có** chuỗi chết để phát; sẽ phát khi #114 nối
+    event.
 
-Cả bốn giá trị đều nằm ở nguồn chuẩn: quy ước đặt ảnh và chọn frame ở
+Cả năm giá trị đều nằm ở nguồn chuẩn: quy ước đặt ảnh và chọn frame ở
 [BUNDLES §7](../assets/BUNDLES.md), giá trị nhịp ở `data/rules/v1-dev.toml`.
 
 ## 9. Input
