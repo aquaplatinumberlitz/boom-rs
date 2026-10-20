@@ -1,7 +1,8 @@
-# 2 px/tick ở cấp 5 (profile test); 80 px tới ô (3,1) mất 40 tick.
-name = "Đi tới tường thì dừng ở tâm ô cuối"
+# R-107 (ADR 0012): người chơi là hộp 26×26 px, dừng ở mép hộp khi gặp tường, không dừng ở
+# tâm ô như mô hình điểm tâm. Tường cột 4 bắt đầu ở x = 160 px nên mép hộp dừng ở 146 px.
+name = "Đi tới tường thì dừng ở mép hộp"
 features = ["V1-011", "V1-012"]
-claims = ["R-001"]
+claims = ["R-001", "R-107"]
 status = "active"
 ticks = 100
 map = [
@@ -21,14 +22,16 @@ tick = 0
 player = 0
 dir = "right"
 
+# 2 px/tick: sau 40 tick người chơi ở x = 140 px (vẫn trong ô (3,1)).
 [[expect]]
 tick = 40
 player = 0
 pos_mpx = [140000, 60000]
 
+# Tiếp tục đi thì bị chặn ở mép hộp: x = 146 px, ô vẫn là (3,1).
 [[expect]]
 tick = 100
 player = 0
 cell = [3, 1]
-pos_mpx = [140000, 60000]
+pos_mpx = [146000, 60000]
 facing = "right"

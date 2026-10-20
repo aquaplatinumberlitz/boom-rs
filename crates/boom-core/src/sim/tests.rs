@@ -94,15 +94,17 @@ fn pipeline_order_is_the_contract() {
 }
 
 #[test]
-fn walks_until_wall_and_stops_at_cell_center() {
+fn walks_until_wall_and_stops_at_box_edge() {
     let w = world(&["#####", "#0..#", "#####"]);
     let mut s = solo(&w);
     assert_eq!((s.players[0].x, s.players[0].y), (Mpx(60_000), Mpx(60_000)));
-    // 2 px/tick; hai ô = 80 px → 40 tick; thêm tick không vượt tường.
+    // 2 px/tick. Hộp nửa 13 px nên mép hộp chạm tường ở x = 160 px và người chơi dừng ở
+    // 146 px, không dừng ở tâm ô (140 px) như mô hình điểm tâm (R-107).
     run(&w, &mut s, Dir::Right, 100);
-    assert_eq!(s.players[0].x, Mpx(140_000));
+    assert_eq!(s.players[0].x, Mpx(146_000));
     run(&w, &mut s, Dir::Up, 10);
-    assert_eq!(s.players[0].y, Mpx(60_000));
+    // Mép hộp chạm hàng 0 (40 px) nên dừng ở 54 px, không ở tâm hàng (60 px).
+    assert_eq!(s.players[0].y, Mpx(54_000));
     assert_eq!(s.players[0].facing, Dir::Up);
 }
 
@@ -110,20 +112,22 @@ fn walks_until_wall_and_stops_at_cell_center() {
 fn breakable_blocks_like_solid() {
     let w = world(&["0+."]);
     let mut s = solo(&w);
+    // Khối mềm ở cột 1 (40…80 px); mép hộp chạm khối ở x = 27 px nên dừng ở 26 px.
     run(&w, &mut s, Dir::Right, 50);
-    assert_eq!(s.players[0].x, Mpx(20_000));
+    assert_eq!(s.players[0].x, Mpx(26_000));
 }
 
 #[test]
-fn aligns_before_turning() {
+fn turns_without_aligning_to_cell_center() {
+    // Mô hình hộp (R-107): đổi hướng không căn về tâm ô; chỉ khi bị chặn mới bám góc.
     let w = world(&["0..", "...", "..."]);
     let mut s = solo(&w);
     run(&w, &mut s, Dir::Down, 5); // lệch 10 px khỏi tâm hàng 0, tâm vẫn trong ô hàng 0
     assert_eq!(s.players[0].y, Mpx(30_000));
-    run(&w, &mut s, Dir::Right, 5); // căn 10 px về tâm ô đang đứng, chưa đi ngang
-    assert_eq!((s.players[0].x, s.players[0].y), (Mpx(20_000), Mpx(20_000)));
+    run(&w, &mut s, Dir::Right, 5); // rẽ ngay, không căn trục
+    assert_eq!((s.players[0].x, s.players[0].y), (Mpx(30_000), Mpx(30_000)));
     run(&w, &mut s, Dir::Right, 1);
-    assert_eq!(s.players[0].x, Mpx(22_000));
+    assert_eq!(s.players[0].x, Mpx(32_000));
 }
 
 #[test]
