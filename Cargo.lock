@@ -127,10 +127,13 @@ dependencies = [
  "boom-core",
  "boom-net",
  "boom-proto",
+ "boom-room",
+ "boom-server",
  "boom-sync",
  "macroquad",
  "png 0.18.1",
  "serde",
+ "tempfile",
  "toml",
  "unicode-segmentation",
 ]
