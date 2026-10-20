@@ -684,8 +684,11 @@ impl Game {
                     .collect();
                 self.state = state.clone();
                 status.predicted_tick = state.tick;
-                // Đồng hồ trình diễn bám tick của state server (đã xác nhận/dự đoán).
-                self.clock.tick = state.tick;
+                // Đồng hồ trình diễn bám tick của state server (đã xác nhận/dự đoán) khi
+                // lượt còn chạy; khi lượt **kết thúc** thì tick của state đứng yên nên
+                // đồng hồ **tiến nốt** — nếu không, chuỗi chết của lượt cuối kẹt ở frame
+                // đầu (R-089).
+                self.clock.tick = presentation_tick(self.clock.tick, state.phase, state.tick);
             }
             // Người chơi khác được **nội suy** giữa hai snapshot gần nhất (ADR 0005): alpha chạy
             // từ snapshot cũ tới snapshot mới theo thời gian đã trôi, clamp ở snapshot cuối
@@ -852,6 +855,20 @@ fn net_alpha(snapshot_at: f64, interval_ms: u64) -> u32 {
     u32::try_from(scaled)
         .unwrap_or(net::ALPHA_ONE)
         .min(net::ALPHA_ONE)
+}
+
+/// Tick trình diễn sau khi state của server vừa tới (R-089).
+///
+/// Lượt **còn chạy** ⇒ đồng hồ trình diễn **bám** tick của state (đã xác nhận/dự đoán).
+/// Lượt **kết thúc** ⇒ tick của state đứng yên, nên đồng hồ **tiến nốt** mỗi lần
+/// client tick: hiệu ứng trình diễn (chuỗi chết) vẫn chạy trọn clip thay vì kẹt ở
+/// frame đầu. Lượt mới thì tick của state về lại từ đầu và đồng hồ **bám** lại
+/// (nhịp phát frame không đổi).
+fn presentation_tick(clock_tick: u32, phase: Phase, state_tick: u32) -> u32 {
+    match phase {
+        Phase::Playing => state_tick,
+        Phase::Ended(_) => clock_tick.saturating_add(1),
+    }
 }
 
 /// Lỗi của một tick client: lỗi core (chế độ offline) hoặc lỗi mạng (chế độ mạng).
@@ -2042,6 +2059,24 @@ mod tests {
             ui: Vec::new(),
             audio: Vec::new(),
         }
+    }
+
+    /// Đồng hồ trình diễn: **bám** tick của state khi lượt còn chạy, **tiến nốt** khi
+    /// lượt đã kết thúc (R-089).
+    ///
+    /// Đây là quy tắc của nhánh **mạng** (state từ server); nhánh offline tiến đồng hồ
+    /// trong [`Game::advance_presentation`] theo cùng nhịp.
+    #[test]
+    fn presentation_clock_follows_the_state_then_keeps_going() {
+        // Lượt còn chạy: đồng hồ bám tick của state.
+        assert_eq!(presentation_tick(10, Phase::Playing, 11), 11);
+        assert_eq!(presentation_tick(10, Phase::Playing, 12), 12);
+        // Lượt kết thúc: tick của state đứng yên ⇒ đồng hồ tiến nốt (không kẹt).
+        let ended = Phase::Ended(boom_core::Outcome::Winner(0));
+        assert_eq!(presentation_tick(42, ended, 42), 43);
+        assert_eq!(presentation_tick(43, ended, 42), 44);
+        // Lượt mới: tick của state về đầu ⇒ đồng hồ bám lại.
+        assert_eq!(presentation_tick(500, Phase::Playing, 0), 0);
     }
 
     /// Chuỗi chết khi **lượt kết thúc**: vẫn phát trọn clip rồi giữ khung cuối có ảnh.

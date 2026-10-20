@@ -499,6 +499,9 @@ chưa có consumer gốc xác nhận (Q-003).
    chạy và **tiến nốt** (cùng nhịp `sim.ticks_per_second`) sau khi lượt **kết thúc** và
    mô phỏng dừng — nếu không, chuỗi chết của lượt cuối (một người chết là lượt hai
    người kết thúc) sẽ kẹt ở frame đầu, không bao giờ tới khung cuối có ảnh (R-089).
+   Quy tắc này áp dụng cho **cả hai** chế độ (offline và mạng: khi lượt kết thúc thì
+   đồng hồ **tiến nốt** thay vì bám tick của state). Ở chế độ mạng client chưa nối
+   event server vào sổ trình diễn (#114) nên **chưa có** chuỗi chết để phát.
 
 ## 8. Giới hạn đã biết
 

@@ -222,6 +222,11 @@ chơi và không phải suy ra từ client gốc:
     lượt kết thúc (core dừng): nếu không, chuỗi chết của lượt cuối (một người chết là
     lượt hai người kết thúc) sẽ kẹt ở frame đầu và không bao giờ tới khung cuối có
     ảnh.
+  - **Giới hạn đã biết**: quy tắc đồng hồ áp dụng cho **cả hai** chế độ — offline và
+    mạng đều **tiến nốt** khi lượt kết thúc (mạng: đồng hồ không bám tick của state
+    server nữa). Nhưng ở chế độ mạng client **chưa** nối event server vào sổ trình
+    diễn (việc của #114) nên **chưa có** chuỗi chết để phát; sẽ phát khi #114 nối
+    event.
 
 Cả năm giá trị đều nằm ở nguồn chuẩn: quy ước đặt ảnh và chọn frame ở
 [BUNDLES §7](../assets/BUNDLES.md), giá trị nhịp ở `data/rules/v1-dev.toml`.
