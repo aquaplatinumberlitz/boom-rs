@@ -13,6 +13,11 @@ Nguyên tắc:
   (cargo fetch đã tải về lúc build). Không tự viết lại toàn văn license và không
   suy diễn license mà không có file nguồn: license không tìm thấy toàn văn thì
   phần phát hành báo lỗi, không lấp chỗ trống bằng văn bản tự chế.
+- **Xác minh nội dung, không tin tên file.** Một file chỉ là *toàn văn* license khi
+  nội dung có **đủ điều khoản** của license đó (`LICENSE_CLAUSES`, trích từ văn bản
+  SPDX chuẩn), không chỉ nhờ tên file hay câu đầu. File rỗng/cụt, file tên khai
+  license nhưng chứa license khác, hay file có tên nhưng nội dung không xác minh
+  được → công cụ **báo lỗi và không sinh gói**.
 - **Một nguồn chuẩn.** `docs/specification/RELEASE.md` là nơi mô tả bố cục gói;
   danh sách file/thư mục cấm trong script phải khớp với mô tả đó.
 - **Không asset game trong gói.** `check` chặn pack/bundle/atlas/ảnh/âm thanh theo
@@ -79,28 +84,162 @@ LICENSE_FILE_RE = re.compile(r"^(licen[sc]e|copying|notice|unlicense)", re.IGNOR
 #: Đuôi file cần bỏ khi đối chiếu tên file license với SPDX id.
 LICENSE_STEM_RE = re.compile(r"^(license|licence|copying|unlicense|notice)(.*)$", re.IGNORECASE)
 
-#: Tên file license → SPDX id (định nghĩa chuẩn của crate, không suy từ nội dung).
-FILE_NAME_IDS = {
-    "license-mit": "MIT",
-    "license-apache": "Apache-2.0",
-    "license-0bsd": "0BSD",
-    "license-zlib": "Zlib",
-    "license-unicode": "Unicode-3.0",
-    "license-unlicense": "Unlicense",
-    "unlicense": "Unlicense",
-    "license-bsd": "BSD-3-Clause",
-    "license-lgpl": "LGPL-2.1-or-later",
-    "license-apache-2.0_with_llvm-exception": "Apache-2.0 WITH LLVM-exception",
+#: Họ license (SPDX id → họ). File tên theo họ (`LICENSE-BSD`) không sai nhãn khi nội dung
+#: là biến thể khác cùng họ (`BSD-2-Clause` trong file `LICENSE-BSD`).
+LICENSE_FAMILY = {
+    "MIT": "MIT",
+    "Apache-2.0": "Apache",
+    "Apache-2.0 WITH LLVM-exception": "Apache",
+    "BSD-2-Clause": "BSD",
+    "BSD-3-Clause": "BSD",
+    "0BSD": "0BSD",
+    "Zlib": "Zlib",
+    "Unlicense": "Unlicense",
+    "Unicode-3.0": "Unicode",
+    "LGPL-2.1-or-later": "LGPL",
 }
 
-#: Dòng *ghi* bản quyền trong file license (không phải câu trong điều khoản).
-COPYRIGHT_LINE_RE = re.compile(
-    r"^\s*(?:\(c\)|©|copyright\b)\s*(?:\(c\)|©)?\s*(?:\d{4}|\[|<)", re.IGNORECASE)
+#: Tên file license → **họ** license mà tên đó khai (định nghĩa chuẩn của crate, không suy
+#: từ nội dung). Chỉ dùng để *đối chiếu*, không đủ để kết luận file là toàn văn license.
+FILE_NAME_FAMILIES = {
+    "mit": "MIT",
+    "apache": "Apache",
+    "apache-2.0": "Apache",
+    "apache-2.0_with_llvm-exception": "Apache",
+    "0bsd": "0BSD",
+    "zlib": "Zlib",
+    "unicode": "Unicode",
+    "unlicense": "Unlicense",
+    "bsd": "BSD",
+    "lgpl": "LGPL",
+}
 
-#: Dòng bản quyền còn là placeholder của SPDX (`<year>`, `[yyyy]`, `[name of copyright owner]`).
+#: Điều khoản bắt buộc của từng license SPDX (trích từ văn bản SPDX chuẩn).
+#:
+#: Một file chỉ được coi là **toàn văn** license khi nội dung nó có **đủ** các điều khoản
+#: dưới đây — không suy từ tên file và không chỉ nhìn câu đầu. So khớp bỏ qua khác biệt
+#: xuống dòng và hoa/thường (nguồn crate trong registry xuống dòng khác nhau), nên một
+#: file bị cắt cụt sẽ thiếu điều khoản và bị bác bỏ.
+LICENSE_CLAUSES: dict[str, tuple[str, ...]] = {
+    "MIT": (
+        "permission is hereby granted, free of charge, to any person obtaining a copy "
+        "of this software and associated documentation files",
+        "to deal in the software without restriction",
+        "the above copyright notice and this permission notice",
+        "without warranty of any kind",
+        "in no event shall the authors or copyright holders be liable for any claim",
+    ),
+    "0BSD": (
+        "permission to use, copy, modify, and/or distribute this software for any purpose "
+        "with or without fee is hereby granted",
+        "the author disclaims all warranties with regard to this software including all "
+        "implied warranties of merchantability and fitness",
+        "in no event shall the author be liable for any special, direct, indirect, or "
+        "consequential damages",
+    ),
+    "Zlib": (
+        "without any express or implied warranty",
+        "permission is granted to anyone to use this software for any purpose",
+        "the origin of this software must not be misrepresented",
+        "altered source versions must be plainly marked as such",
+        "this notice may not be removed or altered from any source distribution",
+    ),
+    "Unlicense": (
+        "this is free and unencumbered software released into the public domain",
+        "anyone is free to copy, modify, publish, use, compile, sell, or distribute this "
+        "software",
+        "without warranty of any kind",
+        "for more information, please refer to",
+    ),
+    "BSD-3-Clause": (
+        "redistribution and use in source and binary forms, with or without modification, "
+        "are permitted provided that the following conditions are met",
+        "redistributions of source code must retain the above copyright notice",
+        "neither the name of",
+        "this software is provided by the copyright holders and contributors",
+    ),
+    "BSD-2-Clause": (
+        "redistribution and use in source and binary forms, with or without modification, "
+        "are permitted provided that the following conditions are met",
+        "redistributions of source code must retain the above copyright notice",
+        "this software is provided by the copyright holders",
+    ),
+    "Unicode-3.0": (
+        "unicode license v3",
+        "copyright and permission notice",
+        "permission is hereby granted, free of charge, to any person obtaining a copy of "
+        "data files",
+        "without warranty of any kind",
+        "except as contained in this notice, the name of a copyright holder shall not be "
+        "used in advertising",
+    ),
+    "Apache-2.0 WITH LLVM-exception": (
+        "apache license",
+        "version 2.0, january 2004",
+        "llvm exceptions to the apache 2.0 license",
+        "1. definitions.",
+        "4. redistribution.",
+        "7. disclaimer of warranty.",
+        "end of terms and conditions",
+    ),
+    "Apache-2.0": (
+        "apache license",
+        "version 2.0, january 2004",
+        "terms and conditions for use, reproduction, and distribution",
+        "1. definitions.",
+        "2. grant of copyright license.",
+        "3. grant of patent license.",
+        "4. redistribution.",
+        "5. submission of contributions.",
+        "6. trademarks.",
+        "7. disclaimer of warranty.",
+        "8. limitation of liability.",
+        "9. accepting warranty or additional liability.",
+        "end of terms and conditions",
+    ),
+    "LGPL-2.1-or-later": (
+        "gnu lesser general public license",
+        "version 2.1, february 1999",
+        "additional definitions",
+        "exception to section 3",
+        "granting of further permissions",
+        "granting the library license",
+        "restrictions on modification and distribution",
+        "restrictions on linked applications",
+        "distributions in object form",
+        "modifications as exception",
+        "end of terms and conditions",
+    ),
+}
+
+#: Cụm từ bắt buộc của **thông báo** license (file chỉ trỏ tới toàn văn ở nơi khác).
+#: File như vậy không phải toàn văn nên không dùng làm nguồn toàn văn, nhưng vẫn hợp lệ.
+LICENSE_NOTICE_CLAUSES: dict[str, tuple[str, ...]] = {
+    "Apache-2.0": (
+        "licensed under the apache license, version 2.0",
+        "apache.org/licenses/license-2.0",
+    ),
+}
+
+#: Dòng bắt đầu bằng dấu bản quyền (`Copyright`, `(c)`, `©`).
+COPYRIGHT_MARKER_RE = re.compile(r"^\s*(?:\(c\)|©|copyright\b)", re.IGNORECASE)
+
+#: Năm trong dòng bản quyền (`2019`, `1993,2004`, `2016--2023`).
+COPYRIGHT_YEAR_RE = re.compile(r"\b(?:1\d{3}|20\d{2})\b")
+
+#: Chủ bản quyền ghi rõ bằng email hoặc tên trong ngoặc nhọn (`<a@b.c>`).
+COPYRIGHT_HOLDER_RE = re.compile(r"@|<[^>]+>")
+
+#: Tên riêng viết hoa ở đầu dòng bản quyền (`Microsoft Corporation`, `Individual
+#: contributors`); tên viết HOA ĐỦ (`AND PERMISSION NOTICE`) không phải tên riêng.
+COPYRIGHT_NAME_RE = re.compile(r"[A-Z][a-z]")
+
+#: Dòng bản quyền còn là placeholder của SPDX (`<year>`, `[yyyy]`, `{yyyy}`,
+#: `[name of copyright owner]`).
 PLACEHOLDER_RE = re.compile(
-    r"<[^>]*(?:year|copyright|name)[^>]*>"
-    r"|\[\s*(?:yyyy|yyyy-mm-dd|name of copyright owner|copyright owner)\s*\]",
+    r"<\s*(?:year|copyright [a-z ]*|name of copyright [a-z ]*|owner)\s*>"
+    r"|\[\s*(?:yyyy|yyyy-mm-dd|name of copyright owner|copyright owner)\s*\]"
+    r"|\{\s*(?:yyyy|name of copyright owner|copyright owner)\s*\}",
     re.IGNORECASE)
 
 
@@ -131,8 +270,9 @@ class LicenseFile:
 
     path: Path
     ident: str | None  # SPDX id (None nếu không nhận ra)
-    kind: str  # "full" | "notice" | "other"
+    kind: str  # "full" | "notice" | "mislabeled" | "invalid" | "other"
     text: str
+    claimed: str | None = None  # họ license mà *tên file* khai
 
 
 @dataclass
@@ -297,67 +437,72 @@ def expression_or_options(node) -> list[str]:
 # --------------------------------------------------------------------------------------
 
 
+def normalize_for_match(text: str) -> str:
+    """Chuẩn hoá văn bản để so khớp: gộp khoảng trắng và hạ chữ thường.
+
+    Nguồn crate trong registry xuống dòng khác nhau; điều khoản license thì không.
+    """
+    return " ".join(text.split()).lower()
+
+
+def clauses_present(clauses: tuple[str, ...], flat: str) -> bool:
+    """Đủ tất cả điều khoản `clauses` trong văn bản đã chuẩn hoá `flat` không."""
+    return all(normalize_for_match(clause) in flat for clause in clauses)
+
+
 def detect_by_content(text: str) -> tuple[str | None, str]:
-    """Nhận diện SPDX id từ nội dung file license.
+    """Nhận diện SPDX id từ **nội dung** file license.
 
     Trả về `(spdx_id, kind)` với `kind`:
-    - `full`: toàn văn license,
-    - `notice`: chỉ là thông báo "xem license ở đường dẫn khác",
-    - `other`: không phải văn bản license.
+    - `full`: toàn văn license — nội dung có **đủ** điều khoản của license đó
+      ([LICENSE_CLAUSES](tools/check_package.py)), không chỉ câu đầu;
+    - `notice`: thông báo "xem license ở đường dẫn khác" (không phải toàn văn);
+    - `other`: không nhận ra nội dung này là license nào.
     """
-    # Dấu xuống dòng trong file license là ngắt dòng văn bản: so khớp trên bản gộp
-    # khoảng trắng để không phụ thuộc cách xuống dòng của crate.
-    flat = " ".join(text.split())
-    if "UNICODE LICENSE V3" in flat or "Unicode License V3" in flat:
-        return "Unicode-3.0", "full"
-    if "Apache License" in flat and "Version 2.0, January 2004" in flat:
-        ident = "Apache-2.0"
-        if "LLVM Exceptions to the Apache 2.0 License" in flat:
-            ident = "Apache-2.0 WITH LLVM-exception"
-        full = ("TERMS AND CONDITIONS FOR USE" in flat
-                and "END OF TERMS AND CONDITIONS" in flat)
-        return ident, "full" if full else "notice"
-    if "Licensed under the Apache License, Version 2.0" in flat:
-        return "Apache-2.0", "notice"
-    if ("Permission to use, copy, modify, and/or distribute this software for any purpose "
-            "with or without fee is hereby granted") in flat:
-        return "0BSD", "full"
-    if "Permission is granted to anyone to use this software for any purpose" in flat:
-        return "Zlib", "full"
-    if "Permission is hereby granted, free of charge" in flat:
-        return "MIT", "full"
-    if "This is free and unencumbered software released into the public domain" in flat:
-        return "Unlicense", "full"
-    if "Redistribution and use in source and binary forms" in flat:
-        return ("BSD-3-Clause" if "Neither the name" in flat else "BSD-2-Clause"), "full"
-    if "GNU LESSER GENERAL PUBLIC LICENSE" in flat:
-        return "LGPL-2.1-or-later", "full"
+    flat = normalize_for_match(text)
+    for ident, clauses in LICENSE_CLAUSES.items():
+        if clauses_present(clauses, flat):
+            return ident, "full"
+    for ident, clauses in LICENSE_NOTICE_CLAUSES.items():
+        if clauses_present(clauses, flat):
+            return ident, "notice"
     return None, "other"
 
 
+def claimed_family(path: Path) -> str | None:
+    """Họ license mà **tên file** khai (không suy từ nội dung); `None` nếu tên không nói."""
+    stem = path.stem.lower()
+    if stem in FILE_NAME_FAMILIES:
+        return FILE_NAME_FAMILIES[stem]
+    match = LICENSE_STEM_RE.match(stem)
+    if not match:
+        return None
+    suffix = match.group(2).strip("-_ ")
+    return FILE_NAME_FAMILIES.get(suffix)
+
+
 def classify_license_file(path: Path) -> LicenseFile:
-    """Đọc một file license và nhận diện SPDX id của nó."""
+    """Đọc một file license và phân loại theo **nội dung**, đối chiếu tên file.
+
+    - nội dung là toàn văn license → `full` (tên file sai họ thì `mislabeled`);
+    - nội dung là thông báo trỏ tới license → `notice`;
+    - tên file khai là license nhưng nội dung không xác minh được (rỗng, cụt, license
+      khác) → `invalid` (không dùng làm nguồn toàn văn, và báo lỗi khi sinh LICENSES);
+    - không nhận ra → `other`.
+    """
     raw = path.read_bytes()
     text = raw.decode("utf-8", errors="replace")
-    ident: str | None = None
-    kind = "other"
-    stem = path.stem.lower()
-    if stem in FILE_NAME_IDS:
-        ident = FILE_NAME_IDS[stem]
-        kind = "full"
-    else:
-        match = LICENSE_STEM_RE.match(stem)
-        suffix = (match.group(2) if match else "").lower()
-        if suffix in FILE_NAME_IDS:
-            ident = FILE_NAME_IDS[suffix]
-            kind = "full"
-    if ident is None or kind != "full":
-        detected, detected_kind = detect_by_content(text)
-        if ident is None:
-            ident = detected
-        if kind != "full":
-            kind = detected_kind
-    return LicenseFile(path=path, ident=ident, kind=kind, text=text)
+    claimed = claimed_family(path)
+    detected, kind = detect_by_content(text)
+    if kind in ("full", "notice"):
+        detected_family = LICENSE_FAMILY.get(detected or "", detected or "")
+        if claimed and claimed != detected_family:
+            return LicenseFile(path=path, ident=detected, kind="mislabeled",
+                               text=text, claimed=claimed)
+        return LicenseFile(path=path, ident=detected, kind=kind, text=text, claimed=claimed)
+    if claimed:
+        return LicenseFile(path=path, ident=None, kind="invalid", text=text, claimed=claimed)
+    return LicenseFile(path=path, ident=None, kind="other", text=text, claimed=claimed)
 
 
 def license_files(directory: Path) -> list[Path]:
@@ -380,19 +525,33 @@ def copyright_lines(text: str) -> list[str]:
 
     Dòng bị ngắt giữa chừng trong file (văn bản wrap) được nối lại; dòng còn là
     placeholder của SPDX thì bỏ (không phải ghi bản quyền thật).
+
+    Dòng bản quyền phải có **chủ** thật: có năm, có email/tên trong ngoặc nhọn, hoặc
+    (với dòng bắt đầu bằng chữ `Copyright`) tên riêng viết hoa. Nhờ vậy thông báo
+    bản quyền **không ghi năm** — vd `Copyright (c) Microsoft Corporation.` — vẫn được
+    giữ, còn câu văn trong điều khoản license (vd `copyright notice that is included
+    in or attached to the work`) thì không bị lấy nhầm.
     """
     result: list[str] = []
     lines = text.splitlines()
     index = 0
     while index < len(lines):
-        if not COPYRIGHT_LINE_RE.match(lines[index]):
+        line = lines[index]
+        match = COPYRIGHT_MARKER_RE.match(line)
+        if not match:
             index += 1
             continue
-        collected = " ".join(lines[index].split())
+        rest = line[match.end():].strip()
+        # Bỏ dấu `(c)`/`©` đứng sau marker ("Copyright (c) …").
+        rest = re.sub(r"^(?:\(c\)|©)\s*", "", rest, flags=re.IGNORECASE).strip()
+        if not _has_copyright_holder(rest, line):
+            index += 1
+            continue
+        collected = " ".join(line.split())
         # Nối dòng kế tiếp khi dòng hiện tại bị cắt giữa câu.
         while collected.endswith((" or", " and", ",", "of")) and index + 1 < len(lines):
             following = lines[index + 1].strip()
-            if not following or COPYRIGHT_LINE_RE.match(following):
+            if not following or COPYRIGHT_MARKER_RE.match(following):
                 break
             collected += " " + " ".join(following.split())
             index += 1
@@ -402,6 +561,22 @@ def copyright_lines(text: str) -> list[str]:
         if collected not in result:
             result.append(collected)
     return result
+
+
+def _has_copyright_holder(rest: str, line: str) -> bool:
+    """Phần sau marker có đủ dấu hiệu của chủ bản quyền thật không.
+
+    - có năm (`2019`), email/tên trong ngoặc nhọn (`<a@b.c>`) → chắc chắn là thông báo
+      bản quyền, kể cả không ghi năm;
+    - dòng bắt đầu bằng chữ `Copyright` và phần còn lại bắt đầu bằng tên riêng viết
+      hoa (`Microsoft Corporation`, `Individual contributors`) → thông báo bản quyền;
+    - còn lại (vd `(c) You must retain, …` — mục điều khoản, không phải bản quyền) → không.
+    """
+    if COPYRIGHT_YEAR_RE.search(rest) or COPYRIGHT_HOLDER_RE.search(rest):
+        return True
+    if not line.lstrip().lower().startswith("copyright"):
+        return False
+    return bool(COPYRIGHT_NAME_RE.match(rest))
 
 
 def has_filled_copyright(text: str) -> bool:
@@ -463,6 +638,17 @@ def build_report(crates: list[Crate]) -> Report:
                 report.problems.append(f"không đọc được file license {path}: {error}")
                 continue
             files.append(classified)
+            if classified.kind == "invalid":
+                report.problems.append(
+                    f"crate {crate.key}: file license `{classified.path.name}` khai "
+                    f"{classified.claimed} nhưng nội dung không xác minh được toàn văn "
+                    f"license (rỗng/cụt/không đúng license) — không dùng làm nguồn")
+                continue
+            if classified.kind == "mislabeled":
+                report.problems.append(
+                    f"crate {crate.key}: file license `{classified.path.name}` tên khai "
+                    f"{classified.claimed} nhưng nội dung là {classified.ident} (sai nhãn)")
+                continue
             if classified.ident and classified.kind == "full":
                 candidates.setdefault(classified.ident, []).append(LicenseText(
                     ident=classified.ident,
@@ -543,9 +729,11 @@ def render_licenses(report: Report) -> str:
     out.append(RULE)
     out.append("")
     out.append("Mỗi mục là toàn văn một license SPDX của crate phụ thuộc, lấy nguyên văn từ")
-    out.append("file license của crate nguồn (nguồn ghi ở đầu mục). Dòng \"Copyright (c) …\"")
+    out.append("file license của crate nguồn (nguồn ghi ở đầu mục); file đó đã được xác")
+    out.append("minh đủ điều khoản của license, không chỉ tin tên file. Dòng \"Copyright (c) …\"")
     out.append("nếu có thuộc crate nguồn đó; theo SPDX, dòng ấy là \"<year> <copyright")
-    out.append("holders>\". Bản quyền từng crate nằm ở PHẦN 3.")
+    out.append("holders>\", nhưng crate nhiều khi ghi không có năm. Bản quyền từng crate nằm ở")
+    out.append("PHẦN 3.")
     out.append("")
     for ident in sorted(report.texts):
         text = report.texts[ident]
@@ -593,8 +781,13 @@ def render_licenses(report: Report) -> str:
             else:
                 out.append("    file license trong nguồn: (nguồn crate chưa có trong registry)")
         for item in files:
-            ident = item.ident or "không nhận ra"
-            out.append(f"    file license trong nguồn: `{item.path.name}` ({ident})")
+            if item.kind == "full":
+                label = item.ident or "không nhận ra"
+            elif item.kind == "notice":
+                label = f"{item.ident} — thông báo trỏ tới toàn văn (không phải toàn văn)"
+            else:
+                label = "không nhận ra"
+            out.append(f"    file license trong nguồn: `{item.path.name}` ({label})")
         lines: list[str] = []
         for item in files:
             for line in copyright_lines(item.text):
@@ -790,19 +983,23 @@ def _metadata(crates: list[tuple[Crate, Path]]) -> dict:
     return {"packages": packages}
 
 
-MIT_TEXT = """Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction.
-"""
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "licenses"
 
-APACHE_HEAD = """                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
 
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+def _fixture(name: str) -> str:
+    """Đọc một fixture toàn văn license (nguyên văn, xem `tools/fixtures/licenses/`)."""
+    return (FIXTURE_DIR / name).read_text(encoding="utf-8")
 
-   END OF TERMS AND CONDITIONS
-"""
+
+#: Toàn văn MIT chuẩn của SPDX (có placeholder `<year> <copyright holders>`).
+MIT_TEXT = _fixture("mit-spdx.txt")
+
+#: Toàn văn Apache-2.0 (nguyên văn trong crate `ab_glyph 0.2.32`).
+APACHE_TEXT = _fixture("apache-2.0.txt")
+
+#: File `license-mit` nguyên văn của crate `windows-link 0.2.1` (thông báo bản quyền
+#: **không ghi năm**); `windows-sys 0.61.2` có file giống hệt.
+WINDOWS_MIT_TEXT = _fixture("windows-link-0.2.1-license-mit.txt")
 
 
 class PackageToolTests(unittest.TestCase):
@@ -869,7 +1066,7 @@ class PackageToolTests(unittest.TestCase):
             alpha = _make_crate(root, "alpha", "1.0.0", {
                 "LICENSE-MIT": "Copyright (c) 2020 Alpha\n\n" + MIT_TEXT})
             beta = _make_crate(root, "beta", "2.0.0", {
-                "LICENSE-APACHE": APACHE_HEAD})
+                "LICENSE-APACHE": APACHE_TEXT})
             crates = [
                 Crate("alpha", "1.0.0", "MIT", None, "https://example.invalid/alpha", alpha),
                 Crate("beta", "2.0.0", "Apache-2.0", None, "https://example.invalid/beta", beta),
@@ -922,6 +1119,88 @@ class PackageToolTests(unittest.TestCase):
             self.assertEqual(len(crates), 1)
             self.assertEqual(crates[0].key, "eps 1.2.3")
             self.assertEqual(build_report(crates).problems, [])
+
+    # -- Nhận diện toàn văn license: đủ điều khoản, không tin tên file ------------------
+
+    def test_detect_by_content_needs_all_clauses(self):
+        """Chỉ file **đủ điều khoản** mới là toàn văn license."""
+        self.assertEqual(detect_by_content(MIT_TEXT), ("MIT", "full"))
+        self.assertEqual(detect_by_content(APACHE_TEXT), ("Apache-2.0", "full"))
+        self.assertEqual(detect_by_content(WINDOWS_MIT_TEXT), ("MIT", "full"))
+        # File cụt (chỉ còn câu đầu của MIT) không phải toàn văn.
+        truncated = MIT_TEXT.split("\n\n")[2]
+        self.assertNotEqual(detect_by_content(truncated)[1], "full")
+        # File rỗng không phải license nào.
+        self.assertEqual(detect_by_content(""), (None, "other"))
+        # Thông báo trỏ tới toàn văn thì không phải toàn văn.
+        notice = (
+            'Licensed under the Apache License, Version 2.0 (the "License");\n'
+            "you may not use this file except in compliance with the License.\n"
+            "You may obtain a copy of the License at\n\n"
+            "    http://www.apache.org/licenses/LICENSE-2.0\n"
+        )
+        self.assertEqual(detect_by_content(notice), ("Apache-2.0", "notice"))
+
+    def test_classify_rejects_empty_truncated_and_mislabeled(self):
+        """File rỗng/cụt/sai nhãn: không được coi là toàn văn, và phải báo lỗi."""
+        cases = {
+            "file rỗng": "",
+            "file cụt": "truncated license",
+            "thiếu điều khoản miễn trừ bảo đảm": MIT_TEXT.split("THE SOFTWARE IS PROVIDED")[0],
+            "sai nhãn (Apache trong file MIT)": APACHE_TEXT,
+        }
+        for label, content in cases.items():
+            with self.subTest(label=label), _TempDir() as root:
+                root = Path(root)
+                crate_dir = _make_crate(root, "eta", "1.0.0", {"LICENSE-MIT": content})
+                crates = [Crate("eta", "1.0.0", "MIT", None, None, crate_dir)]
+                report = build_report(crates)
+                self.assertTrue(report.problems, f"phải báo lỗi: {label}")
+                self.assertNotIn("MIT", report.texts,
+                                 f"không được dùng làm toàn văn: {label}")
+                self.assertNotIn("Apache-2.0", report.texts,
+                                 f"không được dùng làm toàn văn: {label}")
+
+    def test_classify_accepts_full_text_by_content(self):
+        """Ca dương: file toàn văn hợp lệ thì nhận đúng license, không cần tên file."""
+        with _TempDir() as root:
+            root = Path(root)
+            crate_dir = _make_crate(root, "theta", "1.0.0", {"LICENSE": MIT_TEXT})
+            classified = classify_license_file(crate_dir / "LICENSE")
+            self.assertEqual(classified.kind, "full")
+            self.assertEqual(classified.ident, "MIT")
+
+    # -- Dòng bản quyền: giữ cả thông báo không ghi năm ------------------------------
+
+    def test_copyright_keeps_notice_without_year(self):
+        """Thông báo bản quyền không ghi năm vẫn phải được giữ (review #128)."""
+        self.assertEqual(copyright_lines(WINDOWS_MIT_TEXT),
+                         ["Copyright (c) Microsoft Corporation."])
+
+    def test_copyright_ignores_license_terms(self):
+        """Câu trong điều khoản license không phải dòng bản quyền."""
+        self.assertEqual(copyright_lines(APACHE_TEXT), [])
+        lines = copyright_lines(APACHE_TEXT + "\n(c) You must retain, in the Source form.\n")
+        self.assertEqual(lines, [])
+
+    def test_licenses_keep_copyright_without_year(self):
+        """Regression review #128: windows-link/windows-sys giữ dòng bản quyền không năm."""
+        with _TempDir() as root:
+            root = Path(root)
+            crates = []
+            for name, version in (("windows-link", "0.2.1"), ("windows-sys", "0.61.2")):
+                directory = _make_crate(root, name, version, {
+                    "license-mit": WINDOWS_MIT_TEXT,
+                    "license-apache-2.0": APACHE_TEXT,
+                })
+                crates.append(Crate(name, version, "MIT OR Apache-2.0", None,
+                                    f"https://example.invalid/{name}", directory))
+            report = build_report(crates)
+            self.assertEqual(report.problems, [])
+            text = render_licenses(report)
+            self.assertIn("Copyright (c) Microsoft Corporation.", text)
+            self.assertIn("windows-link 0.2.1", text)
+            self.assertIn("windows-sys 0.61.2", text)
 
 
 class _TempDir:

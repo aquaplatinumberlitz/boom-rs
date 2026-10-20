@@ -52,11 +52,13 @@ Quy tắc:
 - `LICENSES` gồm 4 phần (sinh bởi `tools/check_package.py licenses`):
   1. **Toàn văn** mỗi license SPDX dùng trong đồ thị phụ thuộc (MIT, Apache-2.0, …),
      lấy nguyên văn từ file `LICENSE*`/`COPYING*` trong nguồn crate của cargo registry
-     lúc build (không tải mạng, không tự chép văn bản license);
+     lúc build (không tải mạng, không tự chép văn bản license); file nguồn phải **đủ
+     điều khoản** của license đó mới được coi là toàn văn (không chỉ tin tên file);
   2. **Bảng crate**: tên · phiên bản · license (SPDX) · license dùng khi phân phối ·
      kho mã nguồn;
   3. **Bản quyền từng crate**: file license crate đó kèm trong nguồn registry + các
-     dòng bản quyền trích từ đó;
+     dòng bản quyền trích từ đó (kể cả dòng **không ghi năm**, vd `Copyright (c)
+     Microsoft Corporation.`);
   4. **Ghi chú**: crate không kèm file license, biểu thức license dạng cũ `A/B`, vế OR
      được chọn nhánh nào, license có trong biểu thức nhưng không kèm toàn văn.
 - Với biểu thức nhiều nhánh (`MIT OR Apache-2.0`), gói phân phối theo **một** nhánh có
@@ -101,9 +103,25 @@ python3 tools/check_package.py test                             # tự kiểm sc
   `.webp` `.tga` `.wav` `.ogg` `.mp3` `.flac` `.opus`.
   Font `.ttf` **không** nằm trong danh sách cấm (OFL, được kèm `OFL.txt`).
 
+`licenses` kiểm nguồn trước khi sinh `LICENSES`:
+
+- **xác minh toàn văn theo nội dung**: một file chỉ là toàn văn license khi nội dung có
+  đủ điều khoản của license đó (đối chiếu văn bản SPDX chuẩn, xem `LICENSE_CLAUSES`
+  trong `tools/check_package.py`); so khớp bỏ qua khác biệt xuống dòng. Tên file chỉ
+  dùng để **đối chiếu**, không đủ để kết luận;
+- **bác bỏ file không xác minh được**: file rỗng, file bị cắt cụt, file tên khai
+  `LICENSE-MIT` nhưng chứa license khác → công cụ in lỗi (nêu crate + tên file) và
+  **không sinh gói**; không dùng văn bản tự chép để lấp chỗ trống;
+- **giữ dòng bản quyền không ghi năm**: `Copyright (c) Microsoft Corporation.` (của
+  `windows-link`/`windows-sys`) vẫn vào PHẦN 3; câu văn trong điều khoản license
+  (vd `copyright notice that is included in or attached to the work`) không bị lấy nhầm.
+
 Tự kiểm (`test`) dựng gói mẫu rồi kiểm: gói hợp lệ → đạt; thêm file cấm (atlas PNG,
 `.map`, `bundle.toml`) → **bắt được**, nêu đúng đường dẫn; thiếu `LICENSES`/`OFL.txt`/
-binary → báo thiếu.
+binary → báo thiếu; toàn văn license đủ điều khoản → nhận đúng; file rỗng/cụt/sai nhãn →
+**bị bác bỏ** và báo lỗi; dòng bản quyền không ghi năm → còn trong `LICENSES`. Toàn văn
+license dùng làm dữ liệu vào nằm ở `tools/fixtures/licenses/` (nguyên văn, có SHA-256
+trong README của thư mục).
 
 ## 4. Dựng bundle từ pack của bạn
 
@@ -246,9 +264,11 @@ bin/boom-server --help    # danh sách lệnh
 - Chưa có installer; gói là thư mục giải nén được, chạy bằng binary trong `bin/`.
 - `LICENSES` có **toàn văn** license SPDX của crate phụ thuộc, nhưng toàn văn được lấy
   từ file license của crate nguồn lúc build (không tải mạng): phần đầu/bản quyền có thể
-  khác câu chữ so với bản SPDX chuẩn. Crate **của chính dự án** (`boom-*`) chưa khai
-  `license` trong `Cargo.toml` nên không có trong `LICENSES`; chọn license cho dự án là
-  việc của integrator, chưa làm ở V1-036 phần 2.
+  khác câu chữ so với bản SPDX chuẩn. File nguồn được xác minh **đủ điều khoản** của
+  license tương ứng (không chỉ tin tên file); file không xác minh được thì công cụ báo
+  lỗi và không sinh gói. Crate **của chính dự án** (`boom-*`) chưa khai `license` trong
+  `Cargo.toml` nên không có trong `LICENSES`; chọn license cho dự án là việc của
+  integrator, chưa làm ở V1-036 phần 2.
 - Với biểu thức license nhiều nhánh (`OR`), gói phân phối theo một nhánh; nhánh khác (vd
   `LGPL-2.1-or-later` của `r-efi`) không kèm toàn văn trong gói — ghi rõ ở PHẦN 4 của
   `LICENSES`.
