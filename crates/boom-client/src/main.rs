@@ -42,7 +42,7 @@ use boom_content::l10n::L10n;
 use boom_content::map::{CellKind, MapProfile, Terrain};
 use boom_content::rules::RulesProfile;
 use boom_core::{
-    Cell, CharacterStats, Dir, EventKind, Life, Phase, Player, PlayerInput, PlayerSetup, Rules,
+    Cell, CharacterStats, Dir, Life, Phase, Player, PlayerInput, PlayerSetup, Rules,
     SimulationEvent, SimulationState, Stat, World, mode_by_id,
 };
 use macroquad::material::{
@@ -63,6 +63,13 @@ const MAP_WIDTH: u16 = 15;
 const MAP_HEIGHT: u16 = 13;
 const DEFAULT_TICKS: u32 = 60;
 const DEFAULT_SEED: u64 = 0xC0FFEE;
+
+/// ID lượt của client offline.
+///
+/// Client V1 chạy **một** lượt mỗi phiên nên ID lượt cố định; sổ trình diễn dùng
+/// `(round_id, EventId)` làm khoá chống event lặp (ADR 0005, R-089). Khi nối server
+/// (P7) ID lượt lấy từ đầu bài, không hard-code.
+const ROUND_ID: u32 = 0;
 
 // Placeholder cho tới khi có bundle content (task bundle). Không phải giá trị cân bằng/gameplay:
 // chỉ đủ để dựng 2 người và kiểm input/scale/focus. Thay bằng CharacterStats từ content ở P6.
@@ -264,8 +271,8 @@ fn main() {
             }
         }
     }
-    if opts.demo {
-        game.enable_demo();
+    if opts.demo || opts.demo_death {
+        game.enable_demo(opts.demo_death);
     }
     for &(action, key) in &opts.rebinds {
         game.input.rebind(action, key);
@@ -443,10 +450,19 @@ struct Game {
     bundle_dir: Option<PathBuf>,
     /// Bundle đã nạp: chứa clip animation để vẽ nhân vật, bom và lửa.
     bundle: Option<Bundle>,
-    /// Nhịp phát frame: thời lượng một frame và tần số tick mô phỏng.
-    frame_clock: FrameClock,
-    /// Sổ trình diễn: các vụ nổ core đã báo, để phát clip nổ (R-088).
-    explosions: anim::ExplosionJournal,
+    /// **Đồng hồ trình diễn**: nhịp phát frame (từ rules profile) + tick trình diễn.
+    ///
+    /// Tick trình diễn bám `state.tick` khi mô phỏng còn chạy và **tiến nốt** cùng nhịp
+    /// tick khi lượt **kết thúc** (core dừng), để chuỗi chết phát trọn clip rồi mới giữ
+    /// khung cuối có ảnh (R-089).
+    clock: anim::PresentationClock,
+    /// Sổ trình diễn: hiệu ứng nổ, chết, nhốt và mở đầu lượt, gắn với event server
+    /// đã xác nhận (R-089).
+    journal: anim::PresentationJournal,
+    /// ID lượt hiện tại của client; tăng khi lượt mới bắt đầu.
+    round_id: u32,
+    /// Tick của lượt trước — phát hiện lượt mới (state được dựng lại, tick về 0).
+    last_tick: u32,
     /// Vị trí nhân vật ở tick trước (để biết nhân vật đang đi hay đứng yên).
     previous_positions: BTreeMap<u8, (i32, i32)>,
     /// Kịch bản demo offline (`--demo`); `None` = người chơi điều khiển.
@@ -500,6 +516,8 @@ impl Game {
             )?)?,
             ticks_per_second: rules.ticks_per_second,
         };
+        // Đồng hồ trình diễn: nhịp frame từ profile, tick trình diễn bắt đầu từ 0.
+        let clock = anim::PresentationClock::new(frame_clock, 0);
 
         // Scene: bundle content nếu có, không thì địa hình placeholder.
         let (terrain, scene, bundle) = match bundle_dir {
@@ -555,6 +573,10 @@ impl Game {
             },
         ];
         let state = SimulationState::new_round(&world, &roster, seed)?;
+        // Sổ trình diễn của lượt: hiệu ứng mở đầu lượt là **client tự sinh** (core V1
+        // chưa có event mở đầu lượt), còn nổ/chết/nhốt gắn với event server (R-089).
+        let mut journal = anim::PresentationJournal::new(ROUND_ID);
+        record_round_start(&mut journal, &state);
         // Kích thước logic: bản đồ theo bundle (hoặc theo địa hình placeholder) + HUD.
         let map_size = scene.as_ref().map_or_else(
             || {
@@ -581,8 +603,10 @@ impl Game {
             scene,
             bundle_dir: bundle_dir.map(Path::to_path_buf),
             bundle,
-            frame_clock,
-            explosions: anim::ExplosionJournal::default(),
+            clock,
+            journal,
+            round_id: ROUND_ID,
+            last_tick: 0,
             previous_positions,
             demo: None,
             audio_state: audio::AudioState::new(0),
@@ -595,8 +619,40 @@ impl Game {
     }
 
     /// Bật kịch bản demo offline (chỉ đẩy input, không sửa state).
-    fn enable_demo(&mut self) {
-        self.demo = Some(Demo::new(&self.world, &self.state));
+    ///
+    /// `death` = kịch bản **chết**: người chơi đặt bom rồi đứng yên nên bị lửa bắt và
+    /// chết — dùng để chụp ảnh chuỗi chết (R-089). Với roster mặc định **hai** người,
+    /// lượt **kết thúc** ngay lúc chết; chuỗi chết vẫn phát trọn clip vì đồng hồ
+    /// trình diễn tiến nốt sau khi mô phỏng dừng (xem [`Game::tick`]).
+    fn enable_demo(&mut self, death: bool) {
+        self.demo = Some(Demo::new(&self.world, &self.state, death));
+    }
+
+    /// Chuỗi **chết** đang phát ở frame `frame` (dùng để chụp ảnh local).
+    ///
+    /// Đồng hồ **trình diễn** (không phải `state.tick`): sau khi lượt kết thúc mô phỏng
+    /// dừng nhưng chuỗi chết vẫn phát nốt (R-089).
+    fn death_ready(&self, frame: usize) -> bool {
+        let frames = self.frame_counts();
+        self.state.players.iter().any(|player| {
+            self.journal
+                .active_for(anim::Subject::Player(player.id), &self.clock, &frames)
+                .is_some_and(|active| {
+                    active.kind == anim::PresentationKind::Death && active.frame == frame
+                })
+        })
+    }
+
+    /// Chuỗi chết đã **hết**: nhân vật chết giữ khung cuối **có ảnh** của clip chết.
+    fn death_hold_ready(&self) -> bool {
+        let frames = self.frame_counts();
+        self.state.players.iter().any(|player| {
+            player.life == Life::Dead
+                && self
+                    .journal
+                    .active_for(anim::Subject::Player(player.id), &self.clock, &frames)
+                    .is_none()
+        })
     }
 
     /// Một tick của client: lỗi core (chế độ offline) hoặc lỗi mạng (chế độ mạng).
@@ -628,6 +684,11 @@ impl Game {
                     .collect();
                 self.state = state.clone();
                 status.predicted_tick = state.tick;
+                // Đồng hồ trình diễn bám tick của state server (đã xác nhận/dự đoán) khi
+                // lượt còn chạy; khi lượt **kết thúc** thì tick của state đứng yên nên
+                // đồng hồ **tiến nốt** — nếu không, chuỗi chết của lượt cuối kẹt ở frame
+                // đầu (R-089).
+                self.clock.tick = presentation_tick(self.clock.tick, state.phase, state.tick);
             }
             // Người chơi khác được **nội suy** giữa hai snapshot gần nhất (ADR 0005): alpha chạy
             // từ snapshot cũ tới snapshot mới theo thời gian đã trôi, clamp ở snapshot cuối
@@ -653,10 +714,25 @@ impl Game {
             status.events += net.take_events().len();
             self.net_status = Some(status);
             self.net_snapshot_interval_ms = net.snapshot_interval_ms().max(1);
+            // Dọn hiệu ứng đã hết khoảng clip theo đồng hồ trình diễn.
+            self.prune_presentation();
             return Ok(());
         }
         if self.state.phase != Phase::Playing {
+            // Lượt đã **kết thúc**: mô phỏng dừng (core trả `RoundOver` nếu bước thêm)
+            // nhưng **hiệu ứng trình diễn** phải chạy nốt — chuỗi chết phát trọn clip rồi
+            // mới giữ khung cuối có ảnh (R-089). Đồng hồ trình diễn tiến **cùng nhịp
+            // tick** nên chuỗi chết không bị kẹt ở frame đầu.
+            self.advance_presentation();
             return Ok(());
+        }
+        // Lượt mới (state được dựng lại, tick về 0) ⇒ ID lượt tăng, sổ trình diễn dọn
+        // mục cũ và quên event của lượt trước: khoá event là `(round_id, EventId)`
+        // nên event lượt cũ không lặp lại được ở lượt mới (R-089).
+        if self.state.tick < self.last_tick {
+            self.round_id += 1;
+            self.journal.set_round(self.round_id);
+            record_round_start(&mut self.journal, &self.state);
         }
         // Lưu vị trí trước bước: state core không có cờ "đang đi" nên client tự so
         // vị trí giữa hai tick (module `anim`).
@@ -687,42 +763,49 @@ impl Game {
             self.audio_plan.cues.extend(plan.cues);
             self.audio_plan.start_bgm |= plan.start_bgm;
         }
-        // Presentation: đọc event nổ để phát hiệu ứng nổ tại ô bom (R-088).
+        // Presentation: đọc event để phát hiệu ứng nổ/chết/nhốt (R-088, R-089).
         self.absorb_events();
-        // Bỏ hiệu ứng nổ đã hết khoảng clip.
-        self.explosions.prune(
-            self.state.tick,
-            &self.frame_clock,
-            self.explosion_frame_count(),
-        );
+        // Đồng hồ trình diễn bám `state.tick` khi mô phỏng còn chạy.
+        self.clock.tick = self.state.tick;
+        // Bỏ hiệu ứng đã hết khoảng clip.
+        self.prune_presentation();
         // Event đã đọc xong: xóa để không phình bộ nhớ trong chế độ offline.
         self.events.clear();
+        self.last_tick = self.state.tick;
         Ok(())
     }
 
-    /// Đọc event của tick vừa chạy: vụ nổ của bom → hiệu ứng nổ trong sổ trình diễn.
+    /// Tiến **đồng hồ trình diễn** khi mô phỏng đã dừng (lượt kết thúc) và dọn hiệu ứng
+    /// hết khoảng clip.
     ///
-    /// Chỉ `bomb_exploded` có hiệu ứng: chuỗi chết chưa phát (V1 chưa có presentation
-    /// journal đầy đủ, R-086).
+    /// Nhịp tiến **cùng** nhịp tick mô phỏng (`sim.ticks_per_second`), nên công thức chọn
+    /// frame của R-085 vẫn đúng sau khi lượt kết thúc.
+    fn advance_presentation(&mut self) {
+        self.clock.tick = self.clock.tick.saturating_add(1);
+        self.prune_presentation();
+    }
+
+    /// Dọn mục sổ đã hết khoảng clip (khoá event **vẫn giữ** — R-089).
+    fn prune_presentation(&mut self) {
+        let frames = self.frame_counts();
+        self.journal.prune(&self.clock, &frames);
+    }
+
+    /// Đọc event của tick vừa chạy: nổ → hiệu ứng nổ, chết/nhốt → chuỗi chết/nhốt.
+    ///
+    /// Sổ trình diễn tự loại event **lặp** (cùng `(round_id, EventId)`) nên reconcile
+    /// không phát lại hiệu ứng (ADR 0005, R-089).
     fn absorb_events(&mut self) {
         for event in &self.events {
-            if let EventKind::BombExploded { cell, .. } = &event.kind {
-                self.explosions.record(*cell, event.id.tick);
-            }
+            self.journal.record_event(event);
         }
     }
 
-    /// Số frame của clip nổ trong bundle (0 nếu bundle không có clip nổ).
-    fn explosion_frame_count(&self) -> usize {
+    /// Số frame của mỗi clip trong bundle (bảng tra của sổ trình diễn).
+    fn frame_counts(&self) -> anim::FrameCounts {
         self.bundle
             .as_ref()
-            .and_then(|bundle| {
-                bundle
-                    .clips
-                    .iter()
-                    .find(|clip| clip.id == anim::EXPLOSION_CLIP)
-            })
-            .map_or(0, |clip| clip.frames.len())
+            .map_or_else(anim::FrameCounts::default, scene::frame_counts)
     }
 
     /// Scene đã đủ để chụp ảnh demo: nhân vật sống, bom đang chờ và lửa.
@@ -774,6 +857,20 @@ fn net_alpha(snapshot_at: f64, interval_ms: u64) -> u32 {
         .min(net::ALPHA_ONE)
 }
 
+/// Tick trình diễn sau khi state của server vừa tới (R-089).
+///
+/// Lượt **còn chạy** ⇒ đồng hồ trình diễn **bám** tick của state (đã xác nhận/dự đoán).
+/// Lượt **kết thúc** ⇒ tick của state đứng yên, nên đồng hồ **tiến nốt** mỗi lần
+/// client tick: hiệu ứng trình diễn (chuỗi chết) vẫn chạy trọn clip thay vì kẹt ở
+/// frame đầu. Lượt mới thì tick của state về lại từ đầu và đồng hồ **bám** lại
+/// (nhịp phát frame không đổi).
+fn presentation_tick(clock_tick: u32, phase: Phase, state_tick: u32) -> u32 {
+    match phase {
+        Phase::Playing => state_tick,
+        Phase::Ended(_) => clock_tick.saturating_add(1),
+    }
+}
+
 /// Lỗi của một tick client: lỗi core (chế độ offline) hoặc lỗi mạng (chế độ mạng).
 #[derive(Debug)]
 enum TickError {
@@ -813,6 +910,21 @@ impl From<net::NetError> for TickError {
     }
 }
 
+/// Ghi hiệu ứng **mở đầu lượt** cho từng nhân vật vào sổ trình diễn.
+///
+/// Mở đầu lượt là **client tự sinh**: core V1 chưa có event mở đầu lượt, nên mục này
+/// **không** có khoá event (ADR 0005, R-089). Khi event server xác nhận cùng đối
+/// tượng tới thì mục dự đoán bị thay.
+fn record_round_start(journal: &mut anim::PresentationJournal, state: &SimulationState) {
+    for player in &state.players {
+        journal.record_local(
+            anim::PresentationKind::Start,
+            anim::Subject::Player(player.id),
+            state.tick,
+        );
+    }
+}
+
 /// Kịch bản demo offline: mỗi người chơi đặt một bom rồi đi ra xa.
 ///
 /// Kịch bản **chỉ đẩy input** vào core như người chơi, không sửa state: mọi thứ trong
@@ -822,6 +934,9 @@ impl From<net::NetError> for TickError {
 /// bom đặt lệch nhau: bom của người thứ nhất nổ tạo lửa, bom của người thứ hai còn
 /// chờ nên ảnh có cả bom lẫn lửa. Người chơi đi ra xa ít nhất hai ô nên không bị lửa
 /// của bom mình chạm tới.
+///
+/// Kịch bản **chết** (`death`): người chơi đặt bom rồi **đứng yên** nên bị lửa bắt và
+/// chết — dùng để chụp ảnh chuỗi chết (R-089).
 struct Demo {
     /// Hướng đi của từng người chơi (chọn theo địa hình: có ô trống phía trước).
     dirs: BTreeMap<u8, Dir>,
@@ -831,6 +946,10 @@ struct Demo {
     last_cells: BTreeMap<u8, Cell>,
     /// Người chơi đặt bom ngay (bom của họ nổ sớm, tạo lửa).
     place_now: BTreeSet<u8>,
+    /// Kịch bản **chết**: đặt bom rồi đứng yên để bị lửa bắt.
+    death: bool,
+    /// Người chơi **nạn nhân** của kịch bản chết (đặt bom rồi đứng yên).
+    victim: Option<u8>,
 }
 
 impl Demo {
@@ -838,13 +957,30 @@ impl Demo {
     ///
     /// Người chơi đầu tiên đặt bom ngay; người chơi sau đặt bom khi vừa bước sang ô
     /// mới, nên bom của họ nổ muộn hơn và còn chờ được khi ảnh được chụp.
-    fn new(world: &World, state: &SimulationState) -> Self {
+    ///
+    /// Kịch bản `death`: chỉ **một** người chơi (người đầu) đặt bom rồi đứng yên nên
+    /// bị lửa bắt và chết; người khác đứng yên xa nên lượt còn tiếp và chuỗi chết phát
+    /// trọn clip — dùng để chụp ảnh chuỗi chết (R-089).
+    fn new(world: &World, state: &SimulationState, death: bool) -> Self {
         let mut dirs = BTreeMap::new();
         let mut place_now = BTreeSet::new();
+        let mut victim = None;
         for (index, player) in state.players.iter().enumerate() {
             let cell = world.cell_at(player.x, player.y);
-            dirs.insert(player.id, choose_demo_direction(world, cell));
-            if index == 0 {
+            dirs.insert(
+                player.id,
+                if death {
+                    Dir::None
+                } else {
+                    choose_demo_direction(world, cell)
+                },
+            );
+            if death {
+                if index == 0 {
+                    place_now.insert(player.id);
+                    victim = Some(player.id);
+                }
+            } else if index == 0 {
                 place_now.insert(player.id);
             }
         }
@@ -853,6 +989,8 @@ impl Demo {
             bomb_cells: BTreeMap::new(),
             last_cells: BTreeMap::new(),
             place_now,
+            death,
+            victim,
         }
     }
 
@@ -860,12 +998,25 @@ impl Demo {
     ///
     /// Bom đặt một lần: người đặt ngay thì đặt ở tick đầu, người còn lại đặt khi vừa
     /// bước sang ô mới. Sau đó người chơi chỉ đi theo hướng đã chọn.
+    ///
+    /// Kịch bản `death`: chỉ nạn nhân đặt bom một lần rồi **đứng yên** để bị lửa bắt
+    /// và chết; người khác đứng yên.
     fn input_for(&mut self, id: u8, state: &SimulationState, world: &World) -> PlayerInput {
         let Some(player) = state.player(id) else {
             return PlayerInput::default();
         };
-        let dir = self.dirs.get(&id).copied().unwrap_or(Dir::Right);
         let cell = world.cell_at(player.x, player.y);
+        if self.death {
+            let place_bomb = self.victim == Some(id) && !self.bomb_cells.contains_key(&id);
+            if place_bomb {
+                self.bomb_cells.insert(id, cell);
+            }
+            return PlayerInput {
+                dir: Dir::None,
+                place_bomb,
+            };
+        }
+        let dir = self.dirs.get(&id).copied().unwrap_or(Dir::Right);
         let moved = self
             .last_cells
             .insert(id, cell)
@@ -947,7 +1098,37 @@ async fn run(mut game: Game, opts: Options) {
     };
 
     if let Some(path) = &opts.snapshot {
-        if opts.demo {
+        if opts.demo_death {
+            // Chế độ demo chết: chạy tới khi chuỗi chết đang phát ở frame cần chụp
+            // (hoặc đã hết, nếu `--death-hold`), hoặc hết lượt.
+            //
+            // Vòng lặp chạy theo **đồng hồ trình diễn**: lượt hai người **kết thúc** ngay
+            // lúc chết nên mô phỏng dừng, nhưng đồng hồ trình diễn vẫn tiến để chuỗi
+            // chết phát trọn clip (R-089).
+            let limit = game.world.rules().round_ticks;
+            while !(if opts.death_hold {
+                game.death_hold_ready()
+            } else {
+                game.death_ready(opts.death_frame)
+            }) && game.clock.tick < limit
+            {
+                if let Err(error) = game.tick() {
+                    eprintln!("demo chết: không chạy được tick: {error}");
+                    std::process::exit(2);
+                }
+            }
+            let ready = if opts.death_hold {
+                game.death_hold_ready()
+            } else {
+                game.death_ready(opts.death_frame)
+            };
+            if !ready {
+                eprintln!(
+                    "demo chết: hết lượt mà chuỗi chết chưa tới trạng thái cần chụp (frame {})",
+                    opts.death_frame
+                );
+            }
+        } else if opts.demo {
             // Chế độ demo: chạy tới khi scene đủ nhân vật + bom + lửa (hoặc hết lượt).
             let limit = game.world.rules().round_ticks;
             while !game.demo_ready()
@@ -1039,7 +1220,7 @@ async fn run(mut game: Game, opts: Options) {
                 path.display(),
                 game.logic_size[0] * scale,
                 game.logic_size[1] * scale,
-                game.state.tick
+                game.clock.tick
             );
             std::process::exit(0);
         }
@@ -1115,7 +1296,7 @@ fn draw_scene(
             game.scene
                 .as_ref()
                 .map_or_else(|| "placeholder".to_owned(), |scene| scene.map.clone()),
-            game.state.tick,
+            game.clock.tick,
             game.world.rules().ticks_per_second,
             scale,
             game.options.effective_master(),
@@ -1203,9 +1384,9 @@ fn draw_map_from_bundle(game: &Game, scene: &Scene, atlas: &Atlas) {
         scene,
         &game.state,
         &game.world,
-        &game.frame_clock,
+        &game.clock,
         &game.previous_positions,
-        &game.explosions,
+        &game.journal,
     );
     for item in &plan.ground {
         atlas.draw(item, origin);
@@ -1289,6 +1470,12 @@ struct Options {
     l10n: Option<PathBuf>,
     /// Chạy kịch bản demo offline (đặt bom, đi ra xa, đặt bom thứ hai) để chụp ảnh.
     demo: bool,
+    /// Kịch bản demo **chết** (đặt bom rồi đứng yên) để chụp ảnh chuỗi chết.
+    demo_death: bool,
+    /// Frame của chuỗi chết cần chụp (dùng cùng `--demo-death`).
+    death_frame: usize,
+    /// Chụp trạng thái **sau** chuỗi chết (nhân vật giữ khung cuối có ảnh).
+    death_hold: bool,
     /// Địa chỉ server để nối (chế độ mạng). Không có thì client chạy offline.
     connect: Option<String>,
     /// Tên đăng nhập cho chế độ mạng (fallback: biến môi trường `BOOM_USER`).
@@ -1321,6 +1508,9 @@ impl Default for Options {
             rules: None,
             l10n: None,
             demo: false,
+            demo_death: false,
+            death_frame: 0,
+            death_hold: false,
             connect: None,
             user: None,
             password: None,
@@ -1404,6 +1594,15 @@ impl Options {
                     opts.l10n = Some(args.next().ok_or("--l10n cần đường dẫn file chuỗi")?.into())
                 }
                 "--demo" => opts.demo = true,
+                "--demo-death" => opts.demo_death = true,
+                "--death-frame" => {
+                    opts.death_frame = args
+                        .next()
+                        .ok_or("--death-frame cần số")?
+                        .parse()
+                        .map_err(|_| "--death-frame cần số")?;
+                }
+                "--death-hold" => opts.death_hold = true,
                 "--connect" => {
                     opts.connect = Some(args.next().ok_or("--connect cần địa chỉ server")?);
                 }
@@ -1425,12 +1624,15 @@ impl Options {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
-                         \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--ui-demo] [--ui-shot SCREEN]\n\
+                         \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--demo-death] [--death-frame N] [--death-hold] [--ui-demo] [--ui-shot SCREEN]\n\
                          \t  [--connect ĐỊA_CHỈ_SERVER] [--user TÊN] [--password MẬT_KHẨU] [--register]\n\
                          \n\
                          \t  --bundle DIR   thư mục bundle content (dựng bằng `boom-assets bundle`)\n\
                          \t  --rules FILE   file rules profile TOML (mặc định: bản nhúng)\n\
                          \t  --l10n FILE    file chuỗi UI V1 TOML (mặc định: bản nhúng)\n\
+                         \t  --demo-death   kịch bản offline chết (đặt bom rồi đứng yên) để chụp ảnh\n\
+                         \t  --death-frame N  frame của chuỗi chết cần chụp (dùng cùng --demo-death)\n\
+                         \t  --death-hold   chụp sau khi chuỗi chết hết (nhân vật giữ khung cuối có ảnh)\n\
                          chế độ mạng cần tên/mật khẩu: --user/--password, hoặc biến môi trường BOOM_USER/BOOM_PASSWORD\n\
                          (nên đặt mật khẩu qua biến môi trường: cờ dòng lệnh lộ trong danh sách tiến trình)."
                     );
@@ -1526,7 +1728,10 @@ fn parse_volume(value: &str) -> Result<u8, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use boom_core::Dir;
+    use boom_content::animation::{FrameTiming, PresentationState};
+    use boom_content::bundle::{Clip, EvidenceStatus, Frame, Sprite, SpriteImage};
+    use boom_content::rules::Source;
+    use boom_core::{Dir, EventKind, SimulationEvent};
 
     /// Rules profile nhúng trong binary (dùng cho test không cần file ngoài).
     fn embedded_profile() -> RulesProfile {
@@ -1688,18 +1893,308 @@ mod tests {
         // Client đọc event của tick vừa chạy ⇒ vụ nổ vào sổ trình diễn.
         game.events = events;
         game.absorb_events();
-        let active = game.explosions.active(tick + 1, &game.frame_clock, 10);
-        assert_eq!(
-            active,
-            vec![(bomb_cell, 0)],
-            "hiệu ứng nổ ở ô bom, frame đầu tiên"
-        );
+        // Sổ trình diễn không biết bundle: caller đưa vào bảng số frame theo clip ID.
+        let mut frames = anim::FrameCounts::default();
+        frames.set(anim::EXPLOSION_CLIP, 10);
+        let clock = anim::PresentationClock::new(game.clock.frame, tick + 1);
+        let active = game.journal.active(&clock, &frames);
+        assert_eq!(active.len(), 1, "hiệu ứng nổ ở ô bom, frame đầu tiên");
+        assert_eq!(active[0].subject, anim::Subject::Cell(bomb_cell));
+        assert_eq!(active[0].frame, 0);
         // Hết khoảng clip thì không còn hiệu ứng.
+        let clock = anim::PresentationClock::new(game.clock.frame, tick + 33);
+        assert!(game.journal.active(&clock, &frames).is_empty());
+    }
+
+    /// Nhân vật chết: chuỗi chết vào sổ trình diễn, phát **đủ frame** rồi kết thúc (R-089).
+    ///
+    /// Chạy `boom-core` thật (không GPU): đặt bom rồi đứng yên ⇒ bị nhốt ⇒ chết; event
+    /// `player_died` vào sổ trình diễn và chuỗi chết phát một lần hết đúng khoảng clip.
+    #[test]
+    fn death_event_plays_the_whole_death_clip_once() {
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        let inputs = [
+            PlayerInput {
+                dir: Dir::None,
+                place_bomb: true,
+            },
+            PlayerInput::default(),
+        ];
+        let mut events = Vec::new();
+        let mut died = None;
+        for _ in 0..600 {
+            game.state
+                .step(&game.world, &inputs, &mut events)
+                .expect("tick mô phỏng");
+            if let Some(event) = events
+                .iter()
+                .find(|event| matches!(event.kind, EventKind::PlayerDied { .. }))
+            {
+                died = Some(event.clone());
+                break;
+            }
+        }
+        let died = died.expect("nhân vật phải chết trong lượt");
+        let tick = died.id.tick;
+        game.events = events;
+        game.absorb_events();
+        // Clip chết của pack có 14 frame.
+        let mut frames = anim::FrameCounts::default();
+        frames.set("c00.dead.static", 14);
+        let subject = anim::Subject::Player(0);
+        // Chuỗi chết phát đủ frame, mỗi frame đúng một lần.
+        let played: Vec<usize> = (tick..tick + 14 * 4)
+            .filter_map(|at| {
+                let clock = anim::PresentationClock::new(game.clock.frame, at);
+                game.journal
+                    .active_for(subject, &clock, &frames)
+                    .map(|active| active.frame)
+            })
+            .collect();
         assert!(
-            game.explosions
-                .active(tick + 33, &game.frame_clock, 10)
-                .is_empty()
+            played.windows(2).all(|pair| pair[0] <= pair[1]),
+            "chuỗi chết không lặp về đầu: {played:?}"
         );
+        let mut unique = played.clone();
+        unique.dedup();
+        assert_eq!(
+            unique,
+            (0..14).collect::<Vec<usize>>(),
+            "chuỗi chết phát đủ frame, mỗi frame đúng một lần"
+        );
+        // Hết khoảng clip thì không còn hiệu ứng để phát.
+        let clock = anim::PresentationClock::new(game.clock.frame, tick + 14 * 4);
+        assert!(game.journal.active_for(subject, &clock, &frames).is_none());
+        // Event lặp (reconcile gửi lại event cũ) không tạo mục mới.
+        assert!(!game.journal.record_event(&died));
+    }
+
+    /// Bundle tối thiểu cho clip chết: 14 frame, khung cuối trỏ **ảnh rỗng 0×0**.
+    ///
+    /// Dữ liệu thật của client gốc (R-086): khung cuối của clip chết không có pixel, nên
+    /// nhân vật chết phải giữ khung cuối **có ảnh** (khung 12) thay vì ô màu.
+    fn death_bundle() -> Bundle {
+        let mut frames = Vec::new();
+        for _ in 0..14 {
+            frames.push(Frame {
+                image: 0,
+                offset_x: 0,
+                offset_y: 39,
+                flag: -1,
+                x0: 0,
+                y0: 0,
+                x1: 40,
+                y1: 40,
+                canvas_width: 40,
+                canvas_height: 40,
+                pivot_x: 0,
+                pivot_y: 39,
+            });
+        }
+        // Khung cuối trỏ ảnh rỗng (0×0) như dữ liệu thật.
+        frames[13].image = 1;
+        Bundle {
+            schema: boom_content::bundle::SCHEMA,
+            build: "kr".to_owned(),
+            map: "Village00".to_owned(),
+            tileset: "Tile00".to_owned(),
+            width: 0,
+            height: 0,
+            spawns: Vec::new(),
+            content_hash: String::new(),
+            atlas: Vec::new(),
+            sprites: vec![Sprite {
+                id: "c00".to_owned(),
+                entry: "Character/C00-DieLayerStatic".to_owned(),
+                role: "character_walk".to_owned(),
+                status: EvidenceStatus::Confirmed,
+                source_sha256: "00".repeat(32),
+                map_id: None,
+                object_name: None,
+                images: vec![
+                    SpriteImage {
+                        index: 0,
+                        page: Some(0),
+                        x: 0,
+                        y: 0,
+                        width: 40,
+                        height: 40,
+                        pixel_sha256: "11".repeat(32),
+                    },
+                    // Ảnh rỗng: 0×0, không đặt trong atlas.
+                    SpriteImage {
+                        index: 1,
+                        page: None,
+                        x: 0,
+                        y: 0,
+                        width: 0,
+                        height: 0,
+                        pixel_sha256: "22".repeat(32),
+                    },
+                ],
+                frames: Vec::new(),
+            }],
+            assets: Vec::new(),
+            cells: Vec::new(),
+            unknown: Vec::new(),
+            clips: vec![Clip {
+                id: "c00.dead.static".to_owned(),
+                state: PresentationState::Dead,
+                pack: "FxCharacter".to_owned(),
+                entry: "Character/C00-DieLayerStatic".to_owned(),
+                layer: None,
+                sprite_unk: 0,
+                sprite: "c00".to_owned(),
+                source: Source::KrStatic,
+                status: EvidenceStatus::Confirmed,
+                claims: vec!["R-077".to_owned()],
+                note: None,
+                timing: FrameTiming::Unknown {
+                    reason: "chưa có nguồn".to_owned(),
+                },
+                frames,
+            }],
+            ui: Vec::new(),
+            audio: Vec::new(),
+        }
+    }
+
+    /// Đồng hồ trình diễn: **bám** tick của state khi lượt còn chạy, **tiến nốt** khi
+    /// lượt đã kết thúc (R-089).
+    ///
+    /// Đây là quy tắc của nhánh **mạng** (state từ server); nhánh offline tiến đồng hồ
+    /// trong [`Game::advance_presentation`] theo cùng nhịp.
+    #[test]
+    fn presentation_clock_follows_the_state_then_keeps_going() {
+        // Lượt còn chạy: đồng hồ bám tick của state.
+        assert_eq!(presentation_tick(10, Phase::Playing, 11), 11);
+        assert_eq!(presentation_tick(10, Phase::Playing, 12), 12);
+        // Lượt kết thúc: tick của state đứng yên ⇒ đồng hồ tiến nốt (không kẹt).
+        let ended = Phase::Ended(boom_core::Outcome::Winner(0));
+        assert_eq!(presentation_tick(42, ended, 42), 43);
+        assert_eq!(presentation_tick(43, ended, 42), 44);
+        // Lượt mới: tick của state về đầu ⇒ đồng hồ bám lại.
+        assert_eq!(presentation_tick(500, Phase::Playing, 0), 0);
+    }
+
+    /// Chuỗi chết khi **lượt kết thúc**: vẫn phát trọn clip rồi giữ khung cuối có ảnh.
+    ///
+    /// Roster mặc định **hai** người: một người chết thì lượt kết thúc ngay
+    /// (`Phase::Ended`) và mô phỏng dừng. Chuỗi chết phải **chạy nốt** nhờ đồng hồ
+    /// trình diễn tiến sau khi mô phỏng dừng, rồi nhân vật chết giữ khung cuối **có
+    /// ảnh** của clip chết (R-089).
+    ///
+    /// Test đi qua **đường thật**: `Game::tick()` (update) rồi `scene::presentation_plan`
+    /// (render), không truyền tick tương lai vào sổ.
+    #[test]
+    fn death_chain_finishes_after_the_round_ended() {
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        // Client thật luôn nạp bundle; test gắn bundle **dựng sẵn** (không có asset game)
+        // để sổ trình diễn có clip chết và để bước render biết clip nào có ảnh.
+        let bundle = death_bundle();
+        game.bundle = Some(bundle.clone());
+        // Kịch bản chết: người chơi 0 đặt bom rồi đứng yên ⇒ bị lửa bắt ⇒ chết.
+        game.enable_demo(true);
+        // Chạy tới khi lượt kết thúc (người chơi 0 chết, chỉ còn một người sống).
+        let mut guard = 0;
+        while game.state.phase == Phase::Playing {
+            game.tick().expect("tick mô phỏng");
+            guard += 1;
+            assert!(guard < 10_000, "lượt phải kết thúc");
+        }
+        assert!(
+            matches!(game.state.phase, Phase::Ended(_)),
+            "một người chết thì lượt hai người phải kết thúc"
+        );
+        let subject = anim::Subject::Player(0);
+        // Khoá event của mục đã xác nhận: dùng để kiểm tra event gửi lại không phát lại.
+        let key = game
+            .journal
+            .item_for(subject)
+            .and_then(|item| item.key)
+            .expect("mục chết phải có khoá event");
+        // Sổ trình diễn không biết bundle: caller đưa vào bảng số frame theo clip ID.
+        let frames = scene::frame_counts(&bundle);
+        // Chuỗi chết phải chạy nốt sau khi lượt kết thúc: đồng hồ trình diễn tiến mỗi
+        // tick client, mô phỏng thì đã dừng.
+        let mut played: Vec<usize> = Vec::new();
+        for _ in 0..200 {
+            game.tick().expect("tick trình diễn");
+            if let Some(active) = game.journal.active_for(subject, &game.clock, &frames) {
+                played.push(active.frame);
+            }
+        }
+        assert!(
+            played.windows(2).all(|pair| pair[0] <= pair[1]),
+            "chuỗi chết không lặp về đầu: {played:?}"
+        );
+        let mut unique = played.clone();
+        unique.dedup();
+        assert_eq!(
+            unique,
+            (0..14).collect::<Vec<usize>>(),
+            "chuỗi chết phát đủ frame sau khi lượt kết thúc"
+        );
+        // Hết khoảng clip ⇒ mục bị dọn khỏi sổ.
+        assert!(
+            game.journal.item_for(subject).is_none(),
+            "mục hết khoảng clip phải bị dọn"
+        );
+        // Render: nhân vật chết giữ **khung cuối có ảnh** của clip chết (khung 12),
+        // không vẽ ô màu.
+        let scene = scene::Scene::from_bundle(&bundle, &classifier(), 40).expect("dựng scene");
+        let plan = scene::presentation_plan(
+            &bundle,
+            &scene,
+            &game.state,
+            &game.world,
+            &game.clock,
+            &game.previous_positions,
+            &game.journal,
+        );
+        let dead_items: Vec<&scene::PlanItem> =
+            plan.items
+                .iter()
+                .filter(|item| match item {
+                    scene::PlanItem::Sprite { clip, .. }
+                    | scene::PlanItem::Fallback { clip, .. } => clip == "c00.dead.static",
+                    scene::PlanItem::Object(_) => false,
+                })
+                .collect();
+        assert_eq!(dead_items.len(), 1, "chỉ một mục cho nhân vật chết");
+        assert!(
+            matches!(
+                dead_items[0],
+                scene::PlanItem::Sprite {
+                    clip,
+                    frame: 12,
+                    ..
+                } if clip == "c00.dead.static"
+            ),
+            "nhân vật chết giữ khung cuối có ảnh, không vẽ ô màu: {dead_items:?}"
+        );
+        // Event gửi lại (reconcile) không tạo mục mới ⇒ không phát lại chuỗi chết.
+        let repeated = SimulationEvent {
+            id: key.event_id,
+            kind: EventKind::PlayerDied {
+                player: 0,
+                by: None,
+            },
+        };
+        assert!(
+            !game.journal.record_event(&repeated),
+            "event gửi lại không được tạo mục mới"
+        );
+        assert!(game.journal.item_for(subject).is_none());
+    }
+
+    /// Bảng phân loại ô (bundle test không có ô nào nên bảng mặc định là đủ).
+    fn classifier() -> boom_content::map::CellClassifier {
+        boom_content::map::CellClassifier::default()
     }
 
     #[test]

@@ -6,108 +6,116 @@ profile_id = "kr00967-v1-dev"
 release = false
 
 [sim.ticks_per_second]
-value = 33
+value = 30
 unit = "Hz"
-source = "design"
+source = "oss"
 status = "design"
-claims = ["R-013", "R-074"]
-note = "Đo 30 ms/bước (R-013); 33 Hz là lựa chọn nguyên 1000/30 (design R-074), sai lệch ≈1%"
+claims = ["R-100"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [grid.tile_px]
 value = 40
 unit = "px"
-source = "vn_static"
-status = "confirmed"
-claims = ["R-001"]
+source = "oss"
+status = "design"
+claims = ["R-101"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [round.duration_ms]
-value = 120000
+value = 180000
 unit = "ms"
-source = "vn_runtime"
-status = "confirmed"
-claims = ["R-010"]
+source = "oss"
+status = "design"
+claims = ["R-100"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [player.speed_px_per_s_per_level]
-value = 33
+value = 24
 unit = "px/s"
-source = "design"
+source = "oss"
 status = "design"
-claims = ["R-043", "R-045", "R-075"]
-note = "Quan sát thô 5 px/tick base, 6 px/tick sau Roller (R-043/R-045 candidate, checksum chưa xác thực); 33 px/s là lựa chọn nguyên 1000/30 (design R-075)"
+claims = ["R-102"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [player.trap_to_death_ms]
-value = 6300
+value = 4000
 unit = "ms"
-source = "design"
+source = "oss"
 status = "design"
-tolerance = 100
-claims = ["R-026", "R-076"]
-note = "Ba lần đo packet 120/11→120/13 = 6,355/6,364/6,358 s (R-026); 6,30 s/210 tick là lựa chọn design (R-076), timer nội bộ/literal chưa xác định"
+claims = ["R-103"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [bomb.fuse_ms]
 value = 2500
 unit = "ms"
-source = "design"
+source = "oss"
 status = "design"
-claims = ["R-021", "R-022", "R-023", "R-024"]
-note = "Fuse gốc unknown; hai candidate độc lập trùng 2,5 s"
+claims = ["R-103"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [bomb.flame_ms]
 value = 500
 unit = "ms"
-source = "design"
+source = "oss"
 status = "design"
-claims = ["R-023"]
+claims = ["R-103"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [item.fire_range_delta]
 value = 1
 unit = "cell"
-source = "vn_runtime"
-status = "confirmed"
-claims = ["R-025"]
+source = "oss"
+status = "design"
+claims = ["R-104"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [item.bomb_capacity_delta]
 value = 1
 unit = "bomb"
-source = "vn_runtime"
-status = "confirmed"
-claims = ["R-025"]
+source = "oss"
+status = "design"
+claims = ["R-104"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [item.roller_speed_delta]
 value = 1
 unit = "level"
-source = "web"
-status = "candidate"
-claims = ["R-045"]
+source = "oss"
+status = "design"
+claims = ["R-104"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.brick_item_chance]
 value = 350
 unit = "permille"
-source = "design"
+source = "oss"
 status = "design"
-claims = ["R-053"]
-note = "Chỉ có số OSS 0,35; Q-007"
+claims = ["R-106"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.weight_bomb]
-value = 3650
+value = 20
 unit = "weight"
-source = "vn_static"
-status = "confirmed"
-claims = ["R-051"]
+source = "oss"
+status = "design"
+claims = ["R-106"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.weight_fire]
-value = 2800
+value = 28
 unit = "weight"
-source = "vn_static"
-status = "confirmed"
-claims = ["R-051"]
+source = "oss"
+status = "design"
+claims = ["R-106"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.weight_roller]
-value = 2000
+value = 16
 unit = "weight"
-source = "vn_static"
-status = "confirmed"
-claims = ["R-051"]
+source = "oss"
+status = "design"
+claims = ["R-106"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 # Thời lượng một frame animation của client (presentation, không phải luật chơi).
 # R-079: pack client gốc không mang trường thời gian, nên V1 **chọn** nhịp riêng
@@ -119,3 +127,32 @@ source = "design"
 status = "design"
 claims = ["R-085"]
 note = "Nhịp 10 frame/s cho mọi clip V1: 100 ms/frame là lựa chọn design của V1 (R-085); nguồn gốc chưa có (R-079 vẫn unknown)"
+
+# Thông số cơ chế đã chốt; engine sẽ tiêu thụ trong issue #130/#132.
+[player.collision_half_px]
+value = 13
+unit = "px"
+source = "oss"
+status = "design"
+claims = ["R-107"]
+
+[player.corner_assist_px]
+value = 12
+unit = "px"
+source = "oss"
+status = "design"
+claims = ["R-107"]
+
+[player.trap_touch_distance_px]
+value = 28
+unit = "px"
+source = "oss"
+status = "design"
+claims = ["R-108"]
+
+[round.warmup_ms]
+value = 3000
+unit = "ms"
+source = "oss"
+status = "design"
+claims = ["R-100"]
