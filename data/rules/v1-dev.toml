@@ -10,7 +10,7 @@ value = 30
 unit = "Hz"
 source = "oss"
 status = "design"
-claims = ["R-090"]
+claims = ["R-100"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [grid.tile_px]
@@ -18,7 +18,7 @@ value = 40
 unit = "px"
 source = "oss"
 status = "design"
-claims = ["R-091"]
+claims = ["R-101"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [round.duration_ms]
@@ -26,7 +26,7 @@ value = 180000
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-090"]
+claims = ["R-100"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [player.speed_px_per_s_per_level]
@@ -34,7 +34,7 @@ value = 24
 unit = "px/s"
 source = "oss"
 status = "design"
-claims = ["R-092"]
+claims = ["R-102"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [player.trap_to_death_ms]
@@ -42,7 +42,7 @@ value = 4000
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-093"]
+claims = ["R-103"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [bomb.fuse_ms]
@@ -50,7 +50,7 @@ value = 2500
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-093"]
+claims = ["R-103"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [bomb.flame_ms]
@@ -58,7 +58,7 @@ value = 500
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-093"]
+claims = ["R-103"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [item.fire_range_delta]
@@ -66,7 +66,7 @@ value = 1
 unit = "cell"
 source = "oss"
 status = "design"
-claims = ["R-094"]
+claims = ["R-104"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [item.bomb_capacity_delta]
@@ -74,7 +74,7 @@ value = 1
 unit = "bomb"
 source = "oss"
 status = "design"
-claims = ["R-094"]
+claims = ["R-104"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [item.roller_speed_delta]
@@ -82,7 +82,7 @@ value = 1
 unit = "level"
 source = "oss"
 status = "design"
-claims = ["R-094"]
+claims = ["R-104"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.brick_item_chance]
@@ -90,7 +90,7 @@ value = 350
 unit = "permille"
 source = "oss"
 status = "design"
-claims = ["R-096"]
+claims = ["R-106"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.weight_bomb]
@@ -98,7 +98,7 @@ value = 20
 unit = "weight"
 source = "oss"
 status = "design"
-claims = ["R-096"]
+claims = ["R-106"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.weight_fire]
@@ -106,7 +106,7 @@ value = 28
 unit = "weight"
 source = "oss"
 status = "design"
-claims = ["R-096"]
+claims = ["R-106"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [drop.weight_roller]
@@ -114,7 +114,7 @@ value = 16
 unit = "weight"
 source = "oss"
 status = "design"
-claims = ["R-096"]
+claims = ["R-106"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 # Thời lượng một frame animation của client (presentation, không phải luật chơi).
@@ -134,25 +134,25 @@ value = 13
 unit = "px"
 source = "oss"
 status = "design"
-claims = ["R-097"]
+claims = ["R-107"]
 
 [player.corner_assist_px]
 value = 12
 unit = "px"
 source = "oss"
 status = "design"
-claims = ["R-097"]
+claims = ["R-107"]
 
 [player.trap_touch_distance_px]
 value = 28
 unit = "px"
 source = "oss"
 status = "design"
-claims = ["R-098"]
+claims = ["R-108"]
 
 [round.warmup_ms]
 value = 3000
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-090"]
+claims = ["R-100"]

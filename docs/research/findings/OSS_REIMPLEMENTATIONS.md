@@ -176,6 +176,6 @@ Bản khảo sát 2026-10-19 không có SHA, không thể khẳng định repo k
 Chủ dự án 2026-10-21 chọn các giá trị này thành **`oss` / `design`** cho V1, kể cả khi
 khác KR/VN confirmed. [ADR 0012](../../decisions/0012-v1-rules-from-bnb.md) là quyết định
 hiện hành, thay khuyến nghị không dùng giá trị tuyệt đối ở §7 cho profile V1;
-không biến thông số này thành oracle client gốc. Claim R-090…R-099 và task #130–#133
+không biến thông số này thành oracle client gốc. Claim R-100…R-109 và task #130–#133
 phân biệt thông số đã nạp với cơ chế chưa triển khai. Presentation clip KR và policy vận hành
 không có tương đương trực tiếp BnB nên giữ quyết định V1 hiện có.

@@ -13,7 +13,7 @@ SHA **`5c108e8ad3ea07684d4666f60e6eec6c2f3e569e`**, đọc lại 2026-10-21 tạ
 đọc các nhánh mount/kick/death-loot để xác định ranh giới scope. Đây là remake CN đã cân bằng lại,
 không phải client KR 00967 hay server gốc. Không copy code vào `crates/`.
 Locator/giá trị chi tiết: [OSS_REIMPLEMENTATIONS](../research/findings/OSS_REIMPLEMENTATIONS.md) §8,
-[RULES_V1](../specification/gameplay/RULES_V1.md) §10 (R-090…R-099).
+[RULES_V1](../specification/gameplay/RULES_V1.md) §10 (R-100…R-109).
 Bản khảo sát 2026-10-19 không ghi SHA nên không chứng minh được diff giữa hai ngày.
 
 ## Quyết định
@@ -66,7 +66,7 @@ Bản khảo sát 2026-10-19 không ghi SHA nên không chứng minh được di
 | Lửa/item | Lửa không phá item R-068 | Đốt item cũ trước sinh drop mới (`game.js:417–430`) | [#131](https://github.com/aquaplatinumberlitz/boom-rs/issues/131) |
 | Pickup tại cap/tranh item | Không nhặt tại cap R-058; id nhỏ thắng | Tại cap vẫn xóa item (`game.js:569–589`); V1 giữ id nhỏ thay insertion order, không thêm eaten/death-loot ngoài scope | [#131](https://github.com/aquaplatinumberlitz/boom-rs/issues/131) |
 | Warmup/kết quả | V1 clock sau loading; resolve gameplay trước timeout | Thêm 90 tick warmup đóng băng trước clock; checkOver trước timeout; trapped vẫn alive (`game.js:600–646`). FFA 2–4 người thật, disconnect grace 10 s giữ policy V1, không đổi sang kill ngay của BnB | [#132](https://github.com/aquaplatinumberlitz/boom-rs/issues/132) |
-| Chỉ số nhân vật | #117 đang mở, sở hữu loader/profile | Hai template BnB theo R-095 sau khi #117 merge; không sửa file của PR đang mở | [#133](https://github.com/aquaplatinumberlitz/boom-rs/issues/133) |
+| Chỉ số nhân vật | #117 đang mở, sở hữu loader/profile | Hai template BnB theo R-105 sau khi #117 merge; không sửa file của PR đang mở | [#133](https://github.com/aquaplatinumberlitz/boom-rs/issues/133) |
 
 ## Hệ quả và điều kiện đảo
 
