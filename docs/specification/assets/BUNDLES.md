@@ -554,11 +554,14 @@ chưa có consumer gốc xác nhận (Q-003).
   chỉ đọc sprite I16, và ảnh còn có chữ/nhãn ngoài scope V1. Các nền này ở trạng thái
   `excluded` kèm lý do; V1 dựng nền bằng màu, chữ lấy từ catalog. Muốn đưa nền vào
   bundle thì cần bộ giải mã JPEG (và bản ảnh đã che chữ) — quyết định kiến trúc, thuộc
-  integrator.
+  integrator. Claim: R-090 (nền là JPEG 800×600, `confirmed`) và R-091 (quyết định V1,
+  `design`) ở [RULES_V1 §11](../gameplay/RULES_V1.md#11-nền-và-ảnh-ui-của-client-v1).
 - **Ảnh có chữ chưa được duyệt.** 8/9 ảnh UI trong atlas có chữ, nên ở trạng thái
   `needs_review_text`: client chỉ hiển thị khi có quyết định duyệt ảnh
   ([IMAGE_REVIEW](../localization/IMAGE_REVIEW.md)), tới lúc đó vẽ text từ catalog. Bundle
-  **không** có trạng thái "đã duyệt" nên không thể vô tình hiển thị ảnh chưa duyệt.
+  **không** có trạng thái "đã duyệt" nên không thể vô tình hiển thị ảnh chưa duyệt. Claim:
+  R-092 (ảnh có chữ trong ảnh, `confirmed`) và R-093 (quyết định V1, `design`) ở
+  [RULES_V1 §11](../gameplay/RULES_V1.md#11-nền-và-ảnh-ui-của-client-v1).
 - **Bảng UI là quyết định của dự án.** Nó ghi trạng thái dùng và cách thay thế, không
   phải luật chơi; nhãn nguồn/trạng thái theo AGENTS §4 (`kr_static`/`confirmed` cho
   asset có thật, `design`/`design` cho phần tử không dùng asset nào).

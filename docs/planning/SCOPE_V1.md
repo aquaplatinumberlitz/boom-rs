@@ -178,8 +178,9 @@ Sổ **không đổi scope** và **không tạo feature**: nó ghi lại điều
 và để báo cáo sai khác (V1-037) có một danh sách chuẩn. Mọi mục "chờ đo" nằm trong
 [QUESTIONS](../research/QUESTIONS.md); kế hoạch lấy oracle và phương pháp đo ở **Q-009**.
 
-Nguồn của mỗi mục là claim trong [RULES_V1](../specification/gameplay/RULES_V1.md) hoặc ADR;
-mức bằng chứng ghi theo [AGENTS §4](../../AGENTS.md#4-bằng-chứng).
+Mỗi mục có ít nhất một claim trong [RULES_V1](../specification/gameplay/RULES_V1.md) hoặc ADR dẫn
+tới; mức bằng chứng của claim ghi theo [AGENTS §4](../../AGENTS.md#4-bằng-chứng). Mục nào cần
+thêm dẫn spec (phần đó không có claim riêng) thì ghi spec đó kèm theo ở cột *Nguồn*.
 
 ### 10.1 Sai khác chấp thuận cho V1
 
@@ -188,8 +189,8 @@ mức bằng chứng ghi theo [AGENTS §4](../../AGENTS.md#4-bằng-chứng).
 | D-01 | Bảng rơi item của map | `Village00` rơi **6 loại Lucci** | Profile riêng: chỉ **Bomb/Fire/Roller**; giữ nguyên map asset làm bằng chứng | R-055, R-067 ([RULES_V1 §5](../specification/gameplay/RULES_V1.md#5-item-rơi-và-nhặt)); SCOPE_V1 §2 |
 | D-02 | Chủ phòng và ready | Chủ phòng **không** bấm ready | Chủ phòng **cũng phải** ready | R-063 ([RULES_V1 §7](../specification/gameplay/RULES_V1.md#7-vòng-đời-trận-và-phòng-legacy-vn)); SCOPE_V1 §3 |
 | D-03 | Ai quyết kết quả và vị trí người chơi | Client tự mô phỏng di chuyển, đồng bộ P2P qua UDP; server gốc thất lạc | Server authoritative; client chỉ dự đoán di chuyển của mình, state đồng bộ bằng snapshot | [ADR 0005](../decisions/0005-authority-and-prediction.md); R-047, R-066; SCOPE_V1 §1 |
-| D-04 | Nền màn hình (JPEG) | Nền login/lobby/prepare là JPEG 800×600 có chữ (KR) | Không đưa nền vào atlas; dựng nền bằng màu, chữ lấy từ catalog | [BUNDLES §8](../specification/assets/BUNDLES.md#8-giới-hạn-đã-biết); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
-| D-05 | Ảnh UI có chữ | Ảnh nút/hộp thoại có chữ Hàn (bản VN có chữ Việt) | Ảnh `needs_review_text` chưa duyệt ⇒ client **vẽ text từ catalog** thay | [BUNDLES §3.3](../specification/assets/BUNDLES.md#33-phần-tử-ui); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+| D-04 | Nền màn hình (JPEG) | Nền login/lobby/prepare là JPEG 800×600 có chữ (KR) | Không đưa nền vào atlas; dựng nền bằng màu, chữ lấy từ catalog | R-090 (`kr_static`+`vn_static` / confirmed), R-091 (`design` / design) ([RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-nền-và-ảnh-ui-của-client-v1)); [BUNDLES §8](../specification/assets/BUNDLES.md#8-giới-hạn-đã-biết); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+| D-05 | Ảnh UI có chữ | Ảnh nút/hộp thoại có chữ Hàn (bản VN có chữ Việt) | Ảnh `needs_review_text` chưa duyệt ⇒ client **vẽ text từ catalog** thay | R-092 (`kr_static`+`vn_static` / confirmed), R-093 (`design` / design) ([RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-nền-và-ảnh-ui-của-client-v1)); [BUNDLES §3.3](../specification/assets/BUNDLES.md#33-phần-tử-ui); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
 | D-06 | Mô hình phòng và cách xếp kết quả | 16 slot trạng thái, đội, kết quả theo hạng mỗi slot và cột bắt/cứu/EXP/tiền | FFA 2–4 người, một kết quả mỗi lượt, hòa khi hết giờ | R-062, R-065 ([RULES_V1 §7](../specification/gameplay/RULES_V1.md#7-vòng-đời-trận-và-phòng-legacy-vn)); [VN_ENGINE_DIFF](../research/findings/VN_ENGINE_DIFF.md) |
 | D-07 | Số map chơi được | 1.151 map trong pack KR, nhiều mode | Một map cố định `Village00` | R-002, R-070, R-071 ([RULES_V1 §1](../specification/gameplay/RULES_V1.md#1-lưới-và-map)); SCOPE_V1 §1 |
 
@@ -207,7 +208,7 @@ mức bằng chứng ghi theo [AGENTS §4](../../AGENTS.md#4-bằng-chứng).
 | G-08 | Người bị nhốt có di chuyển không | "Đi rất chậm" (`web`/`candidate`), chưa có px/s | Đứng yên (`design`) | R-029, R-036 | Q-005 |
 | G-09 | Xác suất gạch có item | Chưa biết (`unknown`); OSS dùng 0,35 (`candidate`) | 35% (`design`) | R-053, R-067 ([RULES_V1 §5](../specification/gameplay/RULES_V1.md#5-item-rơi-và-nhặt)) | Q-007 |
 | G-10 | Âm thanh event→entry | Chưa có trace consumer; A10 của `features.md` còn "chưa điều tra" | Mapping event→entry và policy chồng tiếng là `design` | R-082, R-083 ([RULES_V1 §10](../specification/gameplay/RULES_V1.md#10-âm-thanh)); [AUDIO_V1](../specification/assets/AUDIO_V1.md) | Q-015 |
-| G-11 | Ảnh UI đã Việt hóa | Bản VN có ảnh chữ Việt, chưa có quyết định duyệt nào | 3.038 ảnh `pending`; 8 ảnh của luồng V1 chờ duyệt | [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1), [IMAGE_REVIEW](../specification/localization/IMAGE_REVIEW.md) | Q-012 |
+| G-11 | Ảnh UI đã Việt hóa | Bản VN có ảnh chữ Việt (`vn_static` / confirmed), chưa có quyết định duyệt nào | 3.038 ảnh `pending`; 8 ảnh của luồng V1 chờ duyệt | R-092 (`kr_static`+`vn_static` / confirmed), R-093 (`design` / design) ([RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-nền-và-ảnh-ui-của-client-v1)); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1); [IMAGE_REVIEW](../specification/localization/IMAGE_REVIEW.md) | Q-012 |
 
 Các mục "chờ đo" **không** phải lỗi đã biết: phần lớn là chỗ V1 tự chọn giá trị khi client gốc
 chưa có bằng chứng. Việc đo client gốc **đang hoãn** (chủ dự án sẽ lấy oracle sau: client BnB
