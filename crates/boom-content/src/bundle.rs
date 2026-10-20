@@ -42,6 +42,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::animation::{FrameTiming, PresentationState, SpriteLayer, source_name, status_name};
+use crate::map::{CellIds, MapGrid};
 use crate::rules::{Source, Status};
 
 /// Schema hiện hành của bundle nội dung (có clip animation, bảng UI và audio V1).
@@ -712,6 +713,27 @@ impl Bundle {
     #[must_use]
     pub fn compute_content_hash(&self) -> String {
         sha256_hex(&self.canonical_bytes())
+    }
+
+    /// Lưới ô của map theo đúng thứ tự file nguồn.
+    ///
+    /// Dùng để phân loại ô bằng [`crate::map::MapProfile`] rồi kiểm spawn
+    /// ([`crate::map::Terrain::check_spawns`]); bundle không nhân bản loại ô (AGENTS §3).
+    #[must_use]
+    pub fn map_grid(&self) -> MapGrid {
+        MapGrid {
+            width: self.width,
+            height: self.height,
+            cells: self
+                .cells
+                .iter()
+                .map(|cell| CellIds {
+                    tile: cell.tile,
+                    obj: cell.object,
+                })
+                .collect(),
+            spawns: self.spawns.clone(),
+        }
     }
 
     /// Kiểm mọi tham chiếu trong metadata.
