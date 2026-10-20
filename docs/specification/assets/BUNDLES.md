@@ -363,11 +363,12 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Trang atlas | 1 trang 2048×1430 |
 | Audio V1 | 15 entry (1 BGM + 14 SFX), 496 KiB payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
+| Entry không phải ảnh | 4: BGM `FxSound/MP3/Village`, file map, 2 bảng chỉ số |
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
-| `unknown` | 4 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) |
-| `content_hash` | `27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2` |
+| `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
+| `content_hash` | `80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc` |
 
 Cách kiểm lại:
 
@@ -376,6 +377,94 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
   cargo run -p boom-assets --bin boom-assets -- bundle --map Village00 --out /tmp/b
 # content_hash phải bằng giá trị trên; dựng hai lần cho cùng hash và cùng byte file.
 ```
+
+`content_hash` **băm cả byte file atlas**, nên đổi bộ mã PNG cũng đổi hash: giá trị ở
+trên gắn với bộ mã trong `Cargo.lock` hiện hành. Trước issue #121, giá trị ghi trong
+bảng này đã **stale** (đo trước khi bảng audio được thêm vào hash) nên không khớp với
+bundle dựng được; bảng được cập nhật lại theo lần đo mới.
+
+### 6.1. Bốn state `unknown` của bundle đã giải bằng bảng state của client (issue #121)
+
+Trước issue #121, bundle có **4 mục `unknown`** loại `character_state`:
+`C00:idle`, `C01:idle`, `C00:trapped`, `C01:trapped` — "chưa có trace consumer xác nhận
+state nào dùng clip nào".
+
+**Nguồn trong chính pack KR** (claim R-094): ODT `fx/ObjectTable/ObjectTable` không chỉ
+có bảng tên ô của map. Sau bảng tên là các **khối dữ liệu**, mỗi khối là bảng state của
+một đối tượng. Khối `Character/<Id>_A` là **bảng state trình diễn của nhân vật**:
+
+| nhãn | state | entry (tiền tố) | số frame khác nhau |
+|---|---|---|---|
+| `00 Blink` | `Blink` | `Character/C00-Blink_A` | 3 |
+| `01 Die` | `Die` | `Character/C00-Die` | 14 |
+| `02 Faint` | `Faint` | `Character/C00-Faint` | 3 |
+| `03 Hurrah` | `Hurrah` | `Character/C00-Hurrah_A` | 4 |
+| `12 Stop Left` … `15 Stop Down` | đứng yên theo hướng | `Character/C00-Walk<Dir>_A` (frame 0) | 1 |
+| `20 Walk Left` … `23 Walk Down` | đi theo hướng | `Character/C00-Walk<Dir>_A` | 5 |
+| `24 Start` | `Start` | `Character/C00-Start_A` | 10 |
+| `25 Locked In` (+ `52`…`56`) | bị khoá (bị nhốt) | `Character/C00-Die` (frame 0…1, giữ vô hạn) | 2 |
+
+Cột "số frame khác nhau" là số chỉ số frame **khác nhau** dùng trong state (state lặp
+frame, ví dụ `Blink` có 7 cặp `(frame, thời lượng)` nhưng chỉ 3 frame ảnh khác nhau).
+Con số này khớp **đúng** số frame của sprite trong pack (`C00-Blink_ALayerStatic` 3 frame,
+`C00-DieLayerStatic` 14 frame, `C00-FaintLayerStatic` 3 frame,
+`C00-Hurrah_ALayerStatic` 4 frame, `C00-WalkDown_ALayerStatic` 5 frame) ⇒ bảng ODT là bảng
+state của chính build KR 00967, không phải dữ liệu của build khác. Client ghép tên entry
+trong ODT với lớp `Layer` + `Static`/`Adjust` (đối chiếu client VN:
+`CGameObjectTemplateLib::LoadNameTable` tại `0x5C9741` nối `LayerStatic`/`LayerAdjust` và
+tách riêng nhánh `Die`/`Faint`).
+
+#### Hai tầng nhãn — đừng gộp
+
+Bảng ODT xác nhận **nhãn → entry** (dữ liệu của client). Nó **không** xác nhận state core
+của V1 dùng nhãn nào — việc đó là **quyết định của V1** (R-086 `design`). Nên bundle gắn
+nhãn theo đúng tầng:
+
+| Mục | Trước | Sau | Căn cứ |
+|---|---|---|---|
+| `unknown` | 4 mục `character_state` | **0** | bốn state được **chốt bằng quyết định của V1** (R-086 `design`) và đối chiếu bảng ODT (R-094); xem "Giới hạn" bên dưới |
+| sprite `character_walk` `C0x-Walk<Dir>_ALayer*` | `confirmed` | `confirmed` | tên entry + dãi frame đọc được trong pack (R-077) |
+| sprite `character_dead` `C0x-DieLayer*` | `confirmed` | `confirmed` | tên entry + dãi frame đọc được trong pack (R-077) |
+| sprite `character_idle` `C0x-Blink_ALayer*` | `candidate` | **`design`** | mapping `idle` → `Blink` là **quyết định của V1** (R-086); ODT chỉ xác nhận nhãn `Blink` → entry (R-094), **không** xác nhận state core V1 dùng nhãn đó |
+| sprite `character_trapped` `C0x-FaintLayer*` | `candidate` | **`design`** | mapping `trapped` → `Faint` là **quyết định của V1** (R-086); ODT chỉ xác nhận nhãn `Faint` → entry (R-094) |
+| sprite `character_idle` `C0x-BlinkSmall_ALayer*` | `candidate` | `candidate` | V1 **không chọn** họ này: bảng state `Character/<Id>_A` của C00/C01 **không** có state `BlinkSmall`. Họ sprite này **có** trong ODT ở khối `Character/<Id>_Display_A` ⇒ **không** kết luận là client không dùng |
+
+Nhãn `design` ở bảng `[[sprites]]` nói "**V1 chọn** họ entry này cho vai trò đó"; bảng
+`[[clips]]` vẫn giữ `idle`/`trapped` là `candidate` (R-078) vì claim của bảng clip là
+"client gốc có dùng clip này cho state nào", mà điều đó **chưa** có consumer nào xác nhận
+(Q-003). Hai bảng trả lời hai câu khác nhau — cùng một entry, hai claim khác nhau.
+
+**Sai khác còn lại, đã ghi nhận (R-095, `candidate`):** client gốc dùng `Stop <hướng>`
+(frame 0 của `Walk<hướng>_A`) cho **tư thế đứng yên** và `Blink` làm overlay nháy mắt;
+state **bị nhốt** của client (`Locked In`) dùng frame 0…1 của `Die` giữ vô hạn, kèm bong
+bóng. V1 chọn khác (`idle` → clip `Blink`, `trapped` → clip `Faint`, R-086 `design`).
+Chưa có trace runtime nối state core của V1 với state của client, nên mức bằng chứng
+của *sai khác này* vẫn là `candidate`; việc đổi lựa chọn của V1 thuộc task client
+(V1-031), không thuộc issue này.
+
+**Giới hạn đã biết** (AGENTS §4: không suy diễn quá bằng chứng):
+
+- Bảng ODT là bằng chứng cho **nhãn → entry**. Bốn state đã giải là **quyết định của
+  V1**, không phải consumer nào đã xác nhận; nhãn `design` trong bundle là để nói đúng
+  điều đó.
+- Phạm vi khảo sát: ODT có 189 khối `Character/*_A`; trong đó **63** khối
+  `Character/<Id>_A` là bảng state trình diễn (4 state đầu giống nhau ở mọi nhân vật),
+  `C00`/`C01` có **90** state. Bảng state của C00/C01 **không** có state `BlinkSmall`;
+  state `BlinkSmall` chỉ thấy ở khối `Character/<Id>_Display_A` (**25** nhân vật: C00…C13,
+  C17…C22, C25…C29) ⇒ họ sprite `BlinkSmall` **có** mặt trong ODT. Không thấy ở bảng
+  state **không** loại trừ consumer khác hay tạo tên entry trực tiếp.
+- Vì `BlinkSmall` **có** trong ODT, nhãn `candidate` của nó là "V1 giữ trong bảng clip
+  làm ứng viên nhưng **không chọn**", không phải "client không dùng".
+
+Cơ chế "không bỏ qua âm thầm": closure **đọc bảng ODT lúc dựng manifest** và kiểm
+(1) mọi họ entry mà V1 dùng đều có trong bảng state của nhân vật, (2) state mà V1 chọn
+(`V1_CHARACTER_STATES`) có đúng nhãn và đúng entry trong bảng đó. Lệch thì manifest ghi
+mục `unknown` kèm lý do và ứng viên — xem `crates/boom-assets/src/closure.rs`.
+
+Bảng ODT **không** nằm trong closure: nó là dữ liệu lúc dựng (client đọc lúc chạy),
+không phải nội dung lúc chơi, nên không vào `[[assets]]` của bundle. SHA-256 của nó
+(2.391.729 B) là `a68fd5ffcc815b24b5c5199e9910f10d14f1ac6f30aba4c237a23f4e279608dc`
+— ghi ở claim R-094 để đối chiếu khi pack đổi.
 
 ## 7. Quy ước đặt ảnh của client (presentation — `design`)
 
@@ -415,7 +504,7 @@ Giới hạn đã biết:
 
 Ngoài quy ước đặt ảnh, client V1 còn phải chọn **clip nào** cho state core nào và
 **frame nào** trong clip đó. Đây là quyết định **design** của V1 (RULES_V1
-[R-085…R-088](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r088)),
+[R-085…R-089](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r089)),
 ghi ở đây để client, reviewer và công cụ đo dùng chung một công thức.
 
 1. **Chọn clip theo state core** (R-086):
@@ -425,7 +514,7 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    | Nhân vật **đang đi** (vị trí đổi so với tick trước) | `c0x.walk.{up,down,left,right}.static` | R-077 `confirmed` |
    | Nhân vật **đứng yên** | `c0x.idle.blink.static` | R-078 `candidate` |
    | Nhân vật **bị nhốt** | `c0x.trapped.static` | R-078 `candidate` |
-   | Nhân vật **chết** | `c0x.dead.static` (khung cuối là ảnh 0×0 ⇒ **không vẽ**) | R-077 `confirmed` |
+   | Nhân vật **chết** | `c0x.dead.static` (chuỗi chết phát trọn clip rồi giữ khung cuối **có ảnh** — §7.2) | R-077 `confirmed` |
    | Bom đang chờ nổ | `bomb.fuse` | R-077 `confirmed` |
    | Lửa trên ô | `flame.main`, **dải frame lõi 28..=59** | R-078 `candidate` (R-087) |
    | Vụ nổ (core báo event `bomb_exploded`) | `explosion.main` tại ô bom | R-084 `confirmed` (R-088) |
@@ -466,9 +555,42 @@ Giới hạn đã biết:
 - Thứ tự vẽ **nổ đè lên lửa** và cách client gốc vẽ nổ là `design` của V1 (R-088):
   chưa có consumer gốc xác nhận (Q-003); test của client chỉ là regression theo quy
   ước đã chốt.
-- V1 chưa có presentation journal nên **không** phát lại chuỗi chết: nhân vật chết
-  dùng khung cuối của clip (ảnh rỗng 0×0) nên **không được vẽ**. Chuỗi chết sẽ phát
-  khi có journal (P7).
+- Chuỗi chết phát theo **sổ trình diễn** (§7.2, R-089) — quyết định `design` của V1:
+  chưa có consumer gốc xác nhận (Q-003).
+
+### 7.2 Sổ trình diễn (V1)
+
+Sổ trình diễn (presentation journal) của client gom mọi hiệu ứng đang chạy: **nổ**,
+**chết**, **bị nhốt** và **mở đầu lượt** (R-089). Đây là quyết định `design` của V1:
+chưa có consumer gốc xác nhận (Q-003).
+
+1. **Mỗi đối tượng một mục**: đối tượng là ô bản đồ (vụ nổ) hoặc nhân vật (chết, nhốt,
+   mở đầu lượt). Mục mới của cùng đối tượng **thay** mục cũ (một ô chỉ có một vụ nổ;
+   nhân vật chết thay chuỗi nhốt).
+2. **Khoá event**: mục từ event server đã xác nhận gắn `(round_id, EventId)`. Event
+   **lặp** (reconcile/snapshot gửi lại event cũ) **không** tạo mục mới ⇒ hiệu ứng không
+   phát lại (ADR 0005, ARCHITECTURE §6).
+3. **Mục client tự sinh**: hiệu ứng chưa có event server (mở đầu lượt) hoặc dự đoán thì
+   mục **không** có khoá; khi event xác nhận của cùng đối tượng tới thì mục dự đoán bị
+   **thay** và chuỗi phát lại từ tick của event.
+4. **Phát một lần**: hiệu ứng chạy trong khoảng clip (số frame của clip ×
+   `presentation.frame_duration_ms`), frame chọn theo **đồng hồ trình diễn** tính từ
+   tick của event; hết khoảng clip thì mục bị **dọn** khỏi sổ (khoá event **vẫn giữ** ⇒
+   event lặp sau đó không tạo mục mới; khoá chỉ bỏ khi đổi lượt).
+5. **Nhân vật chết**: chuỗi chết phát trọn clip rồi nhân vật giữ **khung cuối có ảnh**
+   của clip chết (khung cuối trong pack là ảnh rỗng 0×0). Nếu clip chết không có khung
+   nào có ảnh thì nhân vật chết **không được vẽ** — không vẽ ô màu. Ô màu chỉ dùng khi
+   bundle **thiếu clip** (§7.1 §5).
+6. **Sổ không biết bundle**: client đưa vào sổ bảng số frame theo clip ID, nên đổi bundle
+   không phải sửa sổ.
+7. **Đồng hồ trình diễn**: client chọn frame theo **đồng hồ trình diễn** của nó, không
+   theo đồng hồ wall clock (ADR 0004). Đồng hồ này **bám** tick mô phỏng khi lượt còn
+   chạy và **tiến nốt** (cùng nhịp `sim.ticks_per_second`) sau khi lượt **kết thúc** và
+   mô phỏng dừng — nếu không, chuỗi chết của lượt cuối (một người chết là lượt hai
+   người kết thúc) sẽ kẹt ở frame đầu, không bao giờ tới khung cuối có ảnh (R-089).
+   Quy tắc này áp dụng cho **cả hai** chế độ (offline và mạng: khi lượt kết thúc thì
+   đồng hồ **tiến nốt** thay vì bám tick của state). Ở chế độ mạng client chưa nối
+   event server vào sổ trình diễn (#114) nên **chưa có** chuỗi chết để phát.
 
 ## 8. Giới hạn đã biết
 

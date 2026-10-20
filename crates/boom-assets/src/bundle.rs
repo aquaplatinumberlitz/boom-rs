@@ -1400,6 +1400,137 @@ mod tests {
         );
     }
 
+    /// Nghiệm thu V1-030 (issue #121): sau khi đối chiếu **bảng state của client** trong
+    /// ODT, bundle thật không còn mục `unknown` nào, và nhãn bằng chứng của sprite nhân vật
+    /// **tách hai tầng**:
+    ///
+    /// - `walk`/`dead`: `confirmed` — tên entry và dãi frame đọc được trong pack (R-077),
+    ///   bảng ODT xác nhận thêm nhãn → entry.
+    /// - `idle` (`Blink`) và `trapped` (`Faint`): `design` — bảng ODT chỉ xác nhận **nhãn →
+    ///   entry**, còn mapping state V1 → clip là **quyết định của V1** (R-086); không
+    ///   phải `confirmed` vì chưa có consumer nào xác nhận state core V1 dùng nhãn đó.
+    /// - `BlinkSmall`: `candidate` — V1 **không chọn** họ này cho `idle` (bảng state của
+    ///   C00/C01 không có state `BlinkSmall`). Không thấy trong bảng state **không** kết
+    ///   luận là client không dùng: họ sprite này có trong ODT ở khối
+    ///   `Character/<Id>_Display_A`.
+    ///
+    /// Bảng ODT không nằm trong closure (là dữ liệu lúc dựng, không phải nội dung lúc
+    /// chơi) nhưng closure **đọc chính nó** để kiểm entry nhân vật mình khai.
+    #[test]
+    fn village00_bundle_has_no_unknown_and_carries_the_odt_evidence() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        assert!(
+            built.bundle.unknown.is_empty(),
+            "bundle còn mục unknown: {:?}",
+            built.bundle.unknown
+        );
+
+        let status_of = |role: &str, entry: &str| {
+            built
+                .bundle
+                .sprites
+                .iter()
+                .find(|sprite| sprite.role == role && sprite.entry == entry)
+                .unwrap_or_else(|| panic!("bundle thiếu sprite {entry}"))
+                .status
+                .as_str()
+                .to_owned()
+        };
+        for character in ["C00", "C01"] {
+            assert_eq!(
+                status_of(
+                    "character_idle",
+                    &format!("FxCharacter/Character/{character}-Blink_ALayerStatic")
+                ),
+                "design",
+                "{character}: mapping `idle` → `Blink` là quyết định của V1 (R-086), \
+                 bảng ODT chỉ xác nhận nhãn → entry"
+            );
+            assert_eq!(
+                status_of(
+                    "character_idle",
+                    &format!("FxCharacter/Character/{character}-BlinkSmall_ALayerStatic")
+                ),
+                "candidate",
+                "{character}: `BlinkSmall` là ứng viên, V1 không chọn"
+            );
+            assert_eq!(
+                status_of(
+                    "character_trapped",
+                    &format!("FxCharacter/Character/{character}-FaintLayerStatic")
+                ),
+                "design",
+                "{character}: mapping `trapped` → `Faint` là quyết định của V1 (R-086)"
+            );
+            assert_eq!(
+                status_of(
+                    "character_walk",
+                    &format!("FxCharacter/Character/{character}-WalkDown_ALayerStatic")
+                ),
+                "confirmed",
+                "{character}: `Walk` xác nhận bằng tên entry và dãi frame trong pack (R-077)"
+            );
+            assert_eq!(
+                status_of(
+                    "character_dead",
+                    &format!("FxCharacter/Character/{character}-DieLayerStatic")
+                ),
+                "confirmed",
+                "{character}: `Die` xác nhận bằng tên entry và dãi frame trong pack (R-077)"
+            );
+        }
+    }
+    /// Nghiệm thu V1-030 (issue #121): bốn spawn của Village00 phải khác nhau, không nằm
+    /// trên ô chặn, và mỗi spawn phải có đường đi tới ít nhất một ô trống cách ≥ 2 ô
+    /// (BFS trên lưới địa hình).
+    #[test]
+    fn village00_spawns_are_distinct_unblocked_and_have_an_escape_route() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let profile = boom_content::map::MapProfile::from_toml(include_str!(
+            "../../../data/maps/village00-kr.toml"
+        ))
+        .expect("nạp bảng phân loại ô");
+        let terrain = profile
+            .classify(&built.bundle.map_grid())
+            .expect("phân loại ô của Village00");
+        assert_eq!(terrain.spawns.len(), 4, "Village00 có bốn spawn");
+
+        let report = terrain
+            .check_spawns(2)
+            .expect("bốn spawn của Village00 đều có đường thoát");
+        assert_eq!(report.spawns.len(), 4);
+        let mut seen: Vec<(u16, u16)> = Vec::new();
+        for spawn in &report.spawns {
+            assert!(
+                !seen.contains(&spawn.position),
+                "spawn bị lặp: {:?}",
+                spawn.position
+            );
+            seen.push(spawn.position);
+            assert_eq!(
+                spawn.kind,
+                boom_content::map::CellKind::Floor,
+                "spawn {:?} nằm trên ô chặn",
+                spawn.position
+            );
+            assert!(
+                spawn.far_enough >= 1,
+                "spawn {:?} không có ô trống cách ≥ 2 ô (đi được {} ô, xa nhất {})",
+                spawn.position,
+                spawn.reachable,
+                spawn.max_distance
+            );
+        }
+    }
+
     /// PNG trong suốt cùng kích thước — dùng để mô phỏng "thay toàn bộ atlas".
     fn transparent_png(width: u32, height: u32) -> Vec<u8> {
         let rgba = vec![0u8; (width as usize) * (height as usize) * 4];
