@@ -22,6 +22,7 @@ use boom_content::map::CellKind;
 
 use crate::event::{EventKind, EventSink};
 use crate::num::{Cell, Mpx};
+use crate::scratch::TickScratch;
 use crate::sim::{Dir, PlayerInput, World};
 use crate::state::{Bomb, Field, Life, Player, SimulationState};
 use crate::system::System;
@@ -42,6 +43,7 @@ impl System for Movement {
         state: &mut SimulationState,
         inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
+        _scratch: &mut TickScratch,
     ) {
         let SimulationState {
             players,

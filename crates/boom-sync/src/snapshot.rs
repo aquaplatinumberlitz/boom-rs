@@ -305,9 +305,6 @@ pub fn from_snapshot(snapshot: &Snapshot, world: &World) -> Result<SimulationSta
         field,
         bombs,
         flames,
-        // Kênh blast trong tick (xem `SimulationState::blasts`): rỗng ở mọi mốc tick nên
-        // không cần mang theo trong DTO — state khôi phục giống hệt state gốc.
-        blasts: Vec::new(),
         items,
     };
     state

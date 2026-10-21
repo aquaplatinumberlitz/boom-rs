@@ -26,7 +26,7 @@
 //! bomb = [{ cell = [2, 1], owner = 0, range = 2, fuse = 10, grace = [] }]  # fuse: tick nổ
 //! item = [{ cell = [3, 1], kind = "Fire" }]
 //! flame = [{ cell = [2, 1], ticks = 5, owner = 0 }]
-//! blast = [{ cell = [2, 1] }]        # ô vừa bị vụ nổ phủ (bước `blocks` phá khối mềm)
+//! blast = [{ cell = [2, 1] }]        # ô vừa bị vụ nổ phủ (kênh blast của tick: `blocks` phá khối mềm)
 //! hidden = [{ cell = [3, 2], kind = "Bomb" }]   # item giấu trong khối mềm
 //! ```
 
@@ -36,7 +36,8 @@ use boom_content::map::{CellKind, Terrain};
 use boom_content::rules::{RulesOverlay, RulesProfile};
 use boom_core::{
     Bomb, Cell, CharacterStats, Dir, EntityId, Flame, FloorItem, ItemKind, Life, Outcome, Phase,
-    PlayerInput, PlayerSetup, Rules, SimulationEvent, SimulationState, Stat, World, mode_by_id,
+    PlayerInput, PlayerSetup, Rules, SimulationEvent, SimulationState, Stat, TickScratch, World,
+    mode_by_id,
 };
 use serde::Deserialize;
 
@@ -151,8 +152,12 @@ pub struct FlameEntry {
     pub owner: u8,
 }
 
-/// Ô vừa bị vụ nổ phủ (`SimulationState::blasts`): kênh để bước `blocks` phá khối mềm mà
+/// Ô vừa bị vụ nổ phủ (kênh blast của tick): để bước `blocks` phá khối mềm mà
 /// không cần system `explosion` (giống `flame` dựng sẵn cho bước `life`).
+///
+/// Kênh blast **không nằm trong state** (`SimulationState`): nó là dữ liệu của một tick nên
+/// fixture này đi qua đường `SimulationState::step_with_scratch`; đường gameplay dùng `step`
+/// với scratch rỗng, nên kết quả tick luôn suy ra từ state.
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BlastEntry {
@@ -301,6 +306,9 @@ pub struct Match {
     next_authority: usize,
     next_input: usize,
     held: Vec<PlayerInput>,
+    /// Kênh blast của tick (dữ liệu trong tick, không nằm trong state). Chỉ có khi fixture
+    /// dựng sẵn `[[blast]]`; `blocks` đọc rồi xóa nên nó rỗng sau tick đầu.
+    scratch: TickScratch,
 }
 
 impl Match {
@@ -343,10 +351,14 @@ impl Match {
             })
             .collect();
         let mut state = SimulationState::new_round(&world, &roster, setup.seed.unwrap_or(1))?;
-        Self::apply_prestate(setup, &world, &mut state)?;
+        let mut scratch = TickScratch::new();
+        Self::apply_prestate(setup, &world, &mut state, &mut scratch)?;
         state
             .check_invariants(&world)
             .map_err(|e| format!("state dựng sẵn sai contract: {e}"))?;
+        scratch
+            .check(&world)
+            .map_err(|e| format!("kênh blast dựng sẵn sai contract: {e}"))?;
         let mut inputs = setup.input.clone();
         inputs.sort_by_key(|i| i.tick);
         let mut authority = setup.authority.clone();
@@ -361,10 +373,16 @@ impl Match {
             next_authority: 0,
             next_input: 0,
             held,
+            scratch,
         })
     }
 
-    fn apply_prestate(setup: &Setup, world: &World, s: &mut SimulationState) -> Result<(), Error> {
+    fn apply_prestate(
+        setup: &Setup,
+        world: &World,
+        s: &mut SimulationState,
+        scratch: &mut TickScratch,
+    ) -> Result<(), Error> {
         for p in &setup.player {
             let player = s
                 .players
@@ -420,7 +438,8 @@ impl Match {
         let mut blasts: Vec<Cell> = setup.blast.iter().map(|b| cell(b.cell)).collect();
         blasts.sort_unstable();
         blasts.dedup();
-        s.blasts = blasts;
+        // Kênh blast là dữ liệu của tick, không phải state: dựng sẵn vào scratch của tick.
+        scratch.merge_blasts(blasts);
         for h in &setup.hidden {
             let c = cell(h.cell);
             if s.field.kind(c) != Some(CellKind::Breakable) {
@@ -455,10 +474,24 @@ impl Match {
             self.held[idx].place_bomb |= i.bomb;
             self.next_input += 1;
         }
-        self.state.step(&self.world, &self.held, &mut self.events)?;
+        if self.scratch.blasts().is_empty() {
+            // Đường gameplay: state là nguồn duy nhất của tick (scratch rỗng, do `step` tự tạo).
+            self.state.step(&self.world, &self.held, &mut self.events)?;
+        } else {
+            // Đường fixture: kênh blast dựng sẵn (`[[blast]]`) để test riêng system `blocks`.
+            self.state.step_with_scratch(
+                &self.world,
+                &self.held,
+                &mut self.events,
+                &mut self.scratch,
+            )?;
+        }
         self.state
             .check_invariants(&self.world)
             .map_err(|e| format!("tick {tick}: vi phạm contract: {e}"))?;
+        self.scratch
+            .check(&self.world)
+            .map_err(|e| format!("tick {tick}: kênh blast vi phạm contract: {e}"))?;
         Ok(())
     }
 

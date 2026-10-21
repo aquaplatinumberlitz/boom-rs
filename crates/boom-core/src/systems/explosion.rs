@@ -26,7 +26,9 @@
 //!
 //! **Blast ≠ lửa:** BnB phá gạch ngay lúc nổ (`server/game.js:401–431`), tức **trước** bước
 //! giảm TTL, nên `flame_ticks = 1` vẫn phá gạch. V1 tách hai ý: `flames` là lửa còn sống
-//! (sát thương + hình), `state.blasts` là ô vừa bị vụ nổ phủ (kênh để `blocks` phá gạch).
+//! (sát thương + hình), kênh blast của tick (`TickScratch`) là ô vừa bị vụ nổ phủ (phá gạch).
+//! Kênh này nằm **ngoài state**: nó chỉ sống trong tick, nên không vào state hash và không
+//! vào snapshot — state là nguồn duy nhất của tick (xem `scratch.rs`).
 //!
 //! Quyền ghi và event được phép: bảng trong `systems/mod.rs`. Kịch bản nghiệm thu:
 //! `fixtures/scenarios/explosion/` (`active`). Giá trị luật lấy từ `World::rules()`.
@@ -35,6 +37,7 @@ use boom_content::map::CellKind;
 
 use crate::event::{EventKind, EventSink};
 use crate::num::Cell;
+use crate::scratch::TickScratch;
 use crate::sim::{PlayerInput, World};
 use crate::state::{Bomb, EntityId, Field, Flame, SimulationState};
 use crate::system::System;
@@ -58,6 +61,7 @@ impl System for Explosion {
         state: &mut SimulationState,
         _inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
+        scratch: &mut TickScratch,
     ) {
         let tick = state.tick;
         let flame_ticks = world.rules().flame_ticks;
@@ -139,11 +143,11 @@ impl System for Explosion {
             }
         }
         state.bombs.retain(|b| !exploding.contains(&b.id));
-        // Kênh blast: `blocks` đọc để phá khối mềm rồi xóa. Không có bom nổ thì kênh giữ
-        // nguyên (hàng chờ rỗng sau tick trước).
-        blasted.sort_unstable();
-        blasted.dedup();
-        state.blasts = blasted;
+        // Kênh blast của tick: `blocks` đọc để phá khối mềm rồi xóa. Kênh nằm ở scratch của
+        // tick chứ không ở state, nên không vào state hash và không vào snapshot. Không có bom
+        // nổ thì kênh giữ nguyên (hàng chờ rỗng sau tick trước, hoặc phần fixture dựng sẵn).
+        // `merge_blasts` sắp theo ô và mỗi ô một lần.
+        scratch.merge_blasts(blasted);
         state.flames.append(&mut new_flames);
         state.flames.sort_by_key(|f| f.cell);
         state.flames.dedup_by(|later, earlier| {
@@ -194,6 +198,7 @@ mod tests {
     use crate::mode::mode_by_id;
     use crate::num::Cell;
     use crate::rules::Rules;
+    use crate::scratch::TickScratch;
     use crate::sim::{PlayerInput, PlayerSetup, World};
     use crate::state::SimulationState;
     use crate::state::{Bomb, CharacterStats, EntityId, Flame, Stat};
@@ -445,7 +450,8 @@ mod tests {
         let w = world_with(rules_with_flame_ticks(1), &["0+..", "...."]);
         let mut s = solo(&w);
         add_bomb(&mut s, Cell::new(0, 0), 2, 0);
-        step(&w, &mut s);
+        let mut scratch = TickScratch::new();
+        step_with_scratch(&w, &mut s, &mut scratch);
 
         assert!(s.flames.is_empty(), "flame_ticks = 1: không còn ô lửa");
         assert_eq!(
@@ -454,8 +460,89 @@ mod tests {
             "gạch trong blast vẫn vỡ"
         );
         assert!(
-            s.blasts.is_empty(),
+            scratch.blasts().is_empty(),
             "kênh blast rỗng ở mốc tick: `blocks` đã đọc và xóa"
+        );
+    }
+
+    /// Chạy một tick với scratch do test giữ, để kiểm kênh blast ở biên tick.
+    fn step_with_scratch(
+        w: &World,
+        s: &mut SimulationState,
+        scratch: &mut TickScratch,
+    ) -> Vec<SimulationEvent> {
+        let mut events = Vec::new();
+        s.step_with_scratch(w, &[PlayerInput::default()], &mut events, scratch)
+            .unwrap();
+        s.check_invariants(w).unwrap();
+        scratch.check(w).unwrap();
+        events
+    }
+
+    #[test]
+    fn blast_channel_is_empty_at_tick_boundary() {
+        // Kênh blast là dữ liệu **của tick**, không phải của state: sau tick nó rỗng (`blocks` đã
+        // đọc và xóa), nên không có gì để mang qua mốc tick và không gì để bỏ khi đóng gói.
+        let w = world(&["0+..", "...."]);
+        let mut s = solo(&w);
+        add_bomb(&mut s, Cell::new(0, 0), 2, 0);
+        let mut scratch = TickScratch::new();
+        step_with_scratch(&w, &mut s, &mut scratch);
+
+        assert_eq!(
+            s.field.kind(Cell::new(1, 0)),
+            Some(CellKind::Floor),
+            "gạch trong blast vỡ"
+        );
+        assert!(
+            scratch.blasts().is_empty(),
+            "kênh blast phải rỗng ở mốc tick"
+        );
+    }
+
+    #[test]
+    fn blast_channel_stays_empty_during_warmup() {
+        // Warmup (R-100): không system nào chạy nên kênh blast không có gì, state chỉ tăng tick.
+        let mut r = rules();
+        r.warmup_ticks = 3;
+        let w = world_with(r, &["0+..", "...."]);
+        let mut s = solo(&w);
+        add_bomb(&mut s, Cell::new(0, 0), 2, 0);
+        let mut scratch = TickScratch::new();
+        step_with_scratch(&w, &mut s, &mut scratch);
+
+        assert_eq!(s.tick, 1, "warmup vẫn tăng tick engine");
+        assert!(
+            scratch.blasts().is_empty(),
+            "warmup không chạy system nào nên kênh blast rỗng"
+        );
+        assert_eq!(
+            s.field.kind(Cell::new(1, 0)),
+            Some(CellKind::Breakable),
+            "gạch chưa vỡ trong warmup"
+        );
+    }
+
+    #[test]
+    fn gameplay_step_matches_the_same_step_with_an_empty_scratch() {
+        // Đường gameplay (`step`) tự tạo scratch rỗng: kết quả tick phải y hệt đường fixture
+        // với scratch rỗng, tức state là nguồn duy nhất của tick.
+        let w = world(&["0+..", "...."]);
+        let mut a = solo(&w);
+        add_bomb(&mut a, Cell::new(0, 0), 2, 0);
+        let mut b = a.clone();
+        let events_a = step(&w, &mut a);
+
+        let mut scratch = TickScratch::new();
+        let mut events_b = Vec::new();
+        b.step_with_scratch(&w, &[PlayerInput::default()], &mut events_b, &mut scratch)
+            .unwrap();
+
+        assert_eq!(events_a, events_b, "cùng state + cùng input ⇒ cùng event");
+        assert_eq!(
+            a.hash(),
+            b.hash(),
+            "cùng state + cùng input ⇒ cùng state hash"
         );
     }
 }

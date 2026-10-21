@@ -31,6 +31,7 @@
 
 use crate::event::{EventKind, EventSink};
 use crate::num::Cell;
+use crate::scratch::TickScratch;
 use crate::sim::{PlayerInput, World};
 use crate::state::{Life as PlayerLife, SimulationState};
 use crate::system::System;
@@ -51,6 +52,7 @@ impl System for Life {
         state: &mut SimulationState,
         _inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
+        _scratch: &mut TickScratch,
     ) {
         let tick = state.tick;
         let rules = world.rules();
@@ -136,6 +138,7 @@ mod tests {
     use crate::mode::mode_by_id;
     use crate::num::Mpx;
     use crate::rules::Rules;
+    use crate::scratch::TickScratch;
     use crate::sim::{Dir, PlayerInput, PlayerSetup, World};
     use crate::state::{CharacterStats, EntityId, Flame, Life, SimulationState, Stat};
     use crate::system::System;
@@ -188,7 +191,8 @@ mod tests {
     fn run_life(w: &World, s: &mut SimulationState) -> Vec<SimulationEvent> {
         let mut events = Vec::new();
         let mut sink = EventSink::new(s.tick, &mut events);
-        LIFE.run(w, s, &[PlayerInput::default(); 2], &mut sink);
+        let mut scratch = TickScratch::new();
+        LIFE.run(w, s, &[PlayerInput::default(); 2], &mut sink, &mut scratch);
         s.check_invariants(w).unwrap();
         events
     }

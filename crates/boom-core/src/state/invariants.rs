@@ -1,5 +1,8 @@
 //! Bất biến của contract (contracts-r3). `new_round` kiểm sau khi dựng lượt; harness scenario và replay
 //! kiểm sau mỗi tick. Mọi tham chiếu (ô, người chơi, loại item, ID entity) được đối chiếu với `World`.
+//!
+//! Kênh blast **không** nằm trong state nên không có ở đây: nó được kiểm riêng bằng
+//! [`crate::TickScratch::check`].
 
 use boom_content::map::CellKind;
 
@@ -77,15 +80,6 @@ impl SimulationState {
                     "lửa ở {:?} trỏ bom {:?} chưa được cấp",
                     f.cell, f.source
                 ));
-            }
-        }
-
-        if !self.blasts.windows(2).all(|w| w[0] < w[1]) {
-            return Err("blasts phải sắp theo ô, mỗi ô một lần".into());
-        }
-        for c in &self.blasts {
-            if field.kind(*c).is_none() {
-                return Err(format!("blast ở ô ngoài lưới {c:?}"));
             }
         }
 

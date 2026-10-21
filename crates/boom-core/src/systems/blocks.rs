@@ -5,8 +5,8 @@
 //! giấu một item, loại chọn theo trọng số `Rules::items` (lấy mẫu không lệch bằng `Rng::below`).
 //! Item được quyết trước trận (R-050), nên cùng seed cho cùng bố cục item giấu (R-067).
 //!
-//! **Trong lượt** (`run`): ô nào bị vụ nổ phủ (`state.blasts`) và là khối mềm thì khối vỡ thành
-//! nền (`block_destroyed`); nếu khối vừa vỡ giấu item thì item lộ ra, nằm trên nền
+//! **Trong lượt** (`run`): ô nào bị vụ nổ phủ (kênh blast của tick) và là khối mềm thì khối vỡ
+//! thành nền (`block_destroyed`); nếu khối vừa vỡ giấu item thì item lộ ra, nằm trên nền
 //! (`item_revealed`). Lửa không phá item đang nằm trên nền (R-068): item chỉ rời nền khi người
 //! chơi nhặt (R-054).
 //!
@@ -19,6 +19,7 @@ use crate::event::{EventKind, EventSink};
 use crate::num::Cell;
 use crate::rng::Rng;
 use crate::rules::ItemDef;
+use crate::scratch::TickScratch;
 use crate::sim::{PlayerInput, World};
 use crate::state::{FloorItem, ItemKind, SimulationState};
 use crate::system::System;
@@ -68,13 +69,13 @@ impl System for Blocks {
         state: &mut SimulationState,
         _inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
+        scratch: &mut TickScratch,
     ) {
         // Ô bị vụ nổ phủ: khối mềm vỡ thành nền. BnB phá gạch **lúc nổ** (`game.js:401–431`),
         // tức trước bước giảm TTL, nên việc phá gạch không phụ thuộc tuổi lửa: `flame_ticks = 1`
         // vẫn phá gạch. Lửa không phá item đang nằm trên nền (R-068).
-        let blasted: Vec<Cell> = state.blasts.clone();
         // Kênh blast là hàng chờ trong tick: đọc xong thì xóa (như `movement` xóa `grace`).
-        state.blasts.clear();
+        let blasted = scratch.take_blasts();
         for cell in blasted {
             if state.field.kind(cell) != Some(CellKind::Breakable) {
                 continue;
@@ -123,7 +124,7 @@ mod tests {
     use crate::mode::mode_by_id;
     use crate::rules::Rules;
     use crate::sim::PlayerSetup;
-    use crate::state::{CharacterStats, EntityId, Stat};
+    use crate::state::{Bomb, CharacterStats, EntityId, Stat};
     use crate::system::System;
 
     const PROFILE: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
@@ -176,10 +177,14 @@ mod tests {
 
     /// Chạy **riêng** system `blocks`: kênh blast do `explosion` ghi, `blocks` đọc rồi xóa,
     /// nên test phần này phải dựng sẵn kênh rồi gọi thẳng system.
-    fn run_blocks(w: &World, state: &mut SimulationState) -> Vec<SimulationEvent> {
+    fn run_blocks(
+        w: &World,
+        state: &mut SimulationState,
+        scratch: &mut TickScratch,
+    ) -> Vec<SimulationEvent> {
         let mut events = Vec::new();
         let mut sink = EventSink::new(state.tick, &mut events);
-        BLOCKS.run(w, state, &[PlayerInput::default()], &mut sink);
+        BLOCKS.run(w, state, &[PlayerInput::default()], &mut sink, scratch);
         state.check_invariants(w).unwrap();
         events
     }
@@ -270,8 +275,9 @@ mod tests {
         let mut state = new_round(&rows, 1);
         // Giấu sẵn item trong khối mềm như scenario dựng sẵn.
         state.field.set_hidden(Cell::new(2, 1), Some(ItemKind(2)));
-        state.blasts = blast(Cell::new(2, 1));
-        let events = run_blocks(&w, &mut state);
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        let events = run_blocks(&w, &mut state, &mut scratch);
 
         assert_eq!(
             events,
@@ -304,7 +310,7 @@ mod tests {
         );
 
         // Khối đã vỡ: không phá thêm lần nữa.
-        let later = run_blocks(&w, &mut state);
+        let later = run_blocks(&w, &mut state, &mut scratch);
         assert!(later.is_empty(), "khối mềm chỉ vỡ một lần");
         assert_eq!(state.items.len(), 1);
     }
@@ -321,8 +327,9 @@ mod tests {
             kind: ItemKind(1),
             cell: Cell::new(2, 1),
         });
-        state.blasts = blast(Cell::new(2, 1));
-        let events = run_blocks(&w, &mut state);
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        let events = run_blocks(&w, &mut state, &mut scratch);
 
         assert!(
             !events
@@ -340,8 +347,9 @@ mod tests {
         let mut state = new_round(&rows, 1);
         // Bỏ item giấu do đầu lượt tự chọn, để khối mềm rỗng.
         state.field.set_hidden(Cell::new(2, 1), None);
-        state.blasts = blast(Cell::new(2, 1));
-        let events = run_blocks(&w, &mut state);
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        let events = run_blocks(&w, &mut state, &mut scratch);
 
         assert_eq!(events.len(), 1);
         assert_eq!(
@@ -351,5 +359,54 @@ mod tests {
             }
         );
         assert!(state.items.is_empty(), "khối rỗng không lộ item nào");
+    }
+
+    #[test]
+    fn fixture_blast_channel_gives_the_same_result_as_a_real_explosion() {
+        // Đường fixture (kênh blast dựng sẵn, dùng để test riêng `blocks`) phải cho cùng kết
+        // quả với đường gameplay (vụ nổ thật của `explosion`): cùng ô bị phủ ⇒ cùng khối vỡ,
+        // cùng item lộ ra.
+        let rows = ["#####", "#0+.#", "#####"];
+        let w = world(&rows);
+
+        // (a) đường fixture: dựng sẵn kênh blast.
+        let mut fixture = new_round(&rows, 1);
+        fixture.field.set_hidden(Cell::new(2, 1), Some(ItemKind(2)));
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        run_blocks(&w, &mut fixture, &mut scratch);
+
+        // (b) đường gameplay: bom nổ thật ở tick 0, tầm 1 ⇒ vụ nổ phủ ô (1,1) và (2,1).
+        let mut gameplay = new_round(&rows, 1);
+        gameplay
+            .field
+            .set_hidden(Cell::new(2, 1), Some(ItemKind(2)));
+        let bomb_id = gameplay.ids.next_id();
+        gameplay.bombs.push(Bomb {
+            id: bomb_id,
+            owner: 0,
+            cell: Cell::new(1, 1),
+            range: 1,
+            explodes_at: 0,
+            grace: vec![],
+        });
+        let mut events = Vec::new();
+        gameplay
+            .step(&w, &[PlayerInput::default()], &mut events)
+            .expect("step");
+
+        assert_eq!(
+            fixture.field.kind(Cell::new(2, 1)),
+            gameplay.field.kind(Cell::new(2, 1)),
+            "cả hai đường phải vỡ cùng khối mềm"
+        );
+        let kinds = |s: &SimulationState| -> Vec<(Cell, ItemKind)> {
+            s.items.iter().map(|i| (i.cell, i.kind)).collect()
+        };
+        assert_eq!(
+            kinds(&fixture),
+            kinds(&gameplay),
+            "cả hai đường phải lộ cùng item ở cùng ô"
+        );
     }
 }

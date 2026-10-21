@@ -9,6 +9,7 @@ use crate::mode::Mode;
 use crate::num::{Cell, Mpx};
 use crate::rng::Rng;
 use crate::rules::Rules;
+use crate::scratch::TickScratch;
 use crate::state::{CharacterStats, Field, IdAllocator, Life, Phase, Player, SimulationState};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -261,7 +262,6 @@ impl SimulationState {
             field,
             bombs: Vec::new(),
             flames: Vec::new(),
-            blasts: Vec::new(),
             items: Vec::new(),
         };
         for system in world.mode.systems() {
@@ -278,11 +278,37 @@ impl SimulationState {
     /// chạy (không movement, không đặt bom, không timer) và đồng hồ lượt chưa chạy, nên thời hạn
     /// lượt đo từ đầu lượt thật (BnB `server/game.js:616–646`). Tick engine vẫn tăng để client
     /// và authority đồng bộ; `mode::outcome` lấy đồng hồ lượt = tick − warmup.
+    ///
+    /// **Scratch của tick** ([`TickScratch`]) được tạo **rỗng** ở đây: kênh blast do `explosion`
+    /// ghi và `blocks` đọc trong chính tick đó, nên kết quả tick luôn suy ra từ state + input.
+    /// Vì vậy state khôi phục từ snapshot không thể lệch với state gốc ở tick kế tiếp: không có
+    /// dữ liệu nào của tick mang theo ngoài state.
     pub fn step(
         &mut self,
         world: &World,
         inputs: &[PlayerInput],
         events: &mut Vec<SimulationEvent>,
+    ) -> Result<(), CoreError> {
+        let mut scratch = TickScratch::new();
+        self.step_with_scratch(world, inputs, events, &mut scratch)
+    }
+
+    /// Một tick với scratch do bên gọi đưa vào.
+    ///
+    /// **Chỉ dùng cho fixture**: harness scenario cần dựng sẵn kênh blast để test riêng system
+    /// `blocks` mà không cần system `explosion`. Đường gameplay dùng [`SimulationState::step`],
+    /// tự tạo scratch rỗng mỗi tick.
+    ///
+    /// Ở đường này scratch là **input thêm** của tick: cùng state + cùng input nhưng khác
+    /// scratch thì kết quả khác — khác biệt có chủ ý và có chủ ý nằm ngoài đường gameplay, nơi
+    /// state là nguồn duy nhất. Kênh blast của scratch được kiểm riêng bằng
+    /// [`TickScratch::check`], không lẫn vào bất biến của state.
+    pub fn step_with_scratch(
+        &mut self,
+        world: &World,
+        inputs: &[PlayerInput],
+        events: &mut Vec<SimulationEvent>,
+        scratch: &mut TickScratch,
     ) -> Result<(), CoreError> {
         if self.phase != Phase::Playing {
             return Err(CoreError::RoundOver);
@@ -299,7 +325,7 @@ impl SimulationState {
         }
         let mut sink = EventSink::new(self.tick, events);
         for system in world.mode.systems() {
-            system.run(world, self, inputs, &mut sink);
+            system.run(world, self, inputs, &mut sink, scratch);
         }
         self.tick += 1;
         if let Some(outcome) = world.mode.outcome(world, self) {

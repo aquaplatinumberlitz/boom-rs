@@ -20,6 +20,7 @@
 
 use crate::event::{EventKind, EventSink};
 use crate::rules::{ItemDef, ItemEffect};
+use crate::scratch::TickScratch;
 use crate::sim::{PlayerInput, World};
 use crate::state::{Life, Player, SimulationState, Stat};
 use crate::system::System;
@@ -40,6 +41,7 @@ impl System for Pickup {
         state: &mut SimulationState,
         _inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
+        _scratch: &mut TickScratch,
     ) {
         // Duyệt theo thứ tự id của người chơi: hai người cùng ô trong một tick thì người id nhỏ
         // nhặt trước, item biến mất khỏi nền nên người sau không còn gì để nhặt (R-056).
