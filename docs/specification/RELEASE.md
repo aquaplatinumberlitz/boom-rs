@@ -22,7 +22,7 @@ chơi vẫn ở [RULES_V1](gameplay/RULES_V1.md), bố cục engine ở
 | Không kèm pack/bundle/asset game trong gói | **Đã làm** (người dùng tự dựng bundle) |
 | Báo lỗi rõ (đường dẫn + cách sửa) khi thiếu file rules/bundle/l10n hoặc sai hash | **Đã làm** (client + `boom-server content`) |
 | Smoke cài/chạy gói trên 3 OS: **mở gói đã đóng**, chạy binary trong gói, lỗi thiếu pack/rules/l10n báo rõ | **Đã làm** (phần 3, §3.2) |
-| Log smoke (version + fingerprint + từng ca) lưu thành artifact CI | **Đã làm** (phần 3, §3.2) |
+| Log smoke (version + fingerprint + từng ca) lưu thành artifact CI (**kể cả khi smoke fail**) | **Đã làm** (phần 3, §3.2) |
 | Ký số artifact, installer, đo cấu hình máy tối thiểu | **Chưa làm** (ngoài phạm vi issue #102/#167) |
 | License cho **chính crate của dự án** (`boom-*` chưa khai `license` trong `Cargo.toml`) | **Chưa làm** (cần integrator chọn, §9) |
 
@@ -83,6 +83,13 @@ Quy tắc:
 | Artifact | mỗi OS một artifact `boom-rs-<phiên bản>-<os>-<arch>` (zip cho Windows, tar.gz cho Linux/macOS) · một artifact log `…-smoke` (§3.2) |
 
 `workflow_dispatch` trên nhánh để thử: job `package` cần job `check` xanh trước.
+
+Ngoài `release.yml`, `.github/workflows/ci.yml` chạy **mọi PR**:
+
+| Job | Việc |
+|---|---|
+| `ci` | `cargo xtask ci` + `python tools/check_package.py test` (tự kiểm công cụ đóng gói) trên cả ba OS |
+| `smoke` | build debug → `pack` → `smoke` → upload artifact `smoke-log-<os>` (§3.2) |
 
 ### 3.1 Công cụ đóng gói (`tools/check_package.py`)
 
@@ -155,6 +162,10 @@ binary → báo thiếu; toàn văn license đủ điều khoản → nhận đ�
 license dùng làm **mẫu đối chiếu** và dữ liệu vào nằm ở `tools/fixtures/licenses/`
 (nguyên văn, có SHA-256 + nguồn trong README của thư mục).
 
+Bộ test còn giữ **hợp đồng với workflow** (V1-036 phần 3): JSON của `health --offline`
+phải là **object** (array/null/scalar ⇒ báo lỗi), smoke fail vẫn **ghi log**, và bước
+upload log trong `ci.yml`/`release.yml` phải chạy **cả khi job fail** (xem §3.2).
+
 ### 3.2 Smoke cài/chạy gói trên ba OS (V1-036 phần 3)
 
 Build xanh **không** đồng nghĩa gói chạy được. `smoke` (lệnh `check_package.py smoke`)
@@ -165,7 +176,7 @@ từ archive đã đóng** (không phải thư mục dựng tạm):
 |---|---|---|
 | `--help` | `boom-server --help` · `boom-client --help` | exit `0`, in danh sách lệnh |
 | Nội dung | `boom-server content --rules <gói>/data/rules/v1-dev.toml --l10n <gói>/data/l10n/vi-v1.toml` | exit `0`, in profile + hash rules + locale chuỗi |
-| Vận hành | `boom-server health --offline` | in **JSON** có `scope: offline` + fingerprint (`server_version`, `rules_hash`, `content_sha256`); mã `0` (healthy) hoặc `1` (unhealthy) — gói **không** kèm DB identity, DB do `serve` tạo sau; mã `3` (lỗi cấu hình) là lỗi thật |
+| Vận hành | `boom-server health --offline` | in **JSON là object** có `scope: offline` + fingerprint (`server_version`, `rules_hash`, `content_sha256`); JSON đúng cú pháp nhưng **không phải object** (array/null/scalar) ⇒ **báo lỗi** (không có field nào để kiểm); mã `0` (healthy) hoặc `1` (unhealthy) — gói **không** kèm DB identity, DB do `serve` tạo sau; mã `3` (lỗi cấu hình) là lỗi thật |
 | Thiếu rules | `boom-server content --rules <file thiếu>` · `boom-client --rules <file thiếu>` | exit `2`, thông điệp **nêu đường dẫn** và **cách sửa** (`sửa:`) |
 | Thiếu chuỗi | `boom-server content --l10n <file thiếu>` | exit `2`, nêu đường dẫn + cách sửa |
 | Thiếu bundle (pack) | `boom-server content --bundle <thư mục thiếu>` · `boom-client --bundle <thư mục thiếu>` | exit `2`, nêu thư mục bundle + cách dựng lại từ pack (`boom-assets bundle … --pack-dir …`) |
@@ -181,6 +192,13 @@ Chạy ở đâu:
 - `.github/workflows/release.yml` — job `package`, sau khi **đóng gói**: `unpack` archive
   thật → `check` (đủ thành phần, không pack/asset game) → `smoke` trên gói đã mở →
   upload artifact `…-smoke` (log smoke).
+
+**Log smoke luôn được upload, kể cả khi smoke fail.** Bước upload dùng điều kiện
+`if: ${{ !cancelled() && hashFiles('dist/smoke-log.txt') != '' }}` (điều kiện mặc định của
+GitHub là `success()`, nên bước upload sẽ **bị bỏ qua** khi smoke trả mã khác 0 — mất
+đúng artifact cần để debug). Job vẫn **đỏ** khi smoke fail: bước smoke không bọc
+`continue-on-error`, nên lỗi không bị nuốt. Artifact **gói phát hành** (`Upload artifact`
+trong `release.yml`) vẫn theo điều kiện mặc định: gói smoke fail thì không phát hành.
 
 Log smoke (`.txt`) ghi: phiên bản gói, OS, commit git, fingerprint (từ `health --offline`:
 `server_version`, `rules_hash`, `content_sha256`, profile rules + hash của **file rules

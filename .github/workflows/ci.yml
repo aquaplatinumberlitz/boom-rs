@@ -33,6 +33,12 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
       - run: cargo xtask ci
+      # Tự kiểm công cụ đóng gói (V1-036): bộ test của `tools/check_package.py` phải
+      # xanh trên **mọi** PR — nếu không, regression của smoke chỉ lộ lúc phát hành
+      # (job `check` của `release.yml` chỉ chạy khi workflow_dispatch hoặc đẩy tag).
+      # Chạy trên cả ba OS để bắt lỗi encoding console (Windows mặc định cp1252).
+      - name: Tự kiểm công cụ đóng gói
+        run: python tools/check_package.py test
 
   # Smoke cài/chạy gói (V1-036): build binary trên OS này → dựng gói → chạy binary
   # trong gói (server content/health --offline, client --help) và kiểm các ca thiếu
@@ -64,6 +70,10 @@ jobs:
           python tools/check_package.py smoke dist/boom-rs-smoke
           --log dist/smoke-log.txt --version dev
       - name: Upload log smoke
+        # Log smoke là thứ duy nhất còn lại khi gói lỗi trên một OS ⇒ upload **cả
+        # khi job fail**. Điều kiện mặc định của GitHub là `success()` nên bước này
+        # bị bỏ qua khi smoke trả mã khác 0 (review #168 vòng 1).
+        if: ${{ !cancelled() && hashFiles('dist/smoke-log.txt') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: smoke-log-${{ matrix.os }}

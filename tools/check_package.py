@@ -1476,6 +1476,23 @@ def smoke_cases(package_dir: Path, work_dir: Path) -> list[SmokeCase]:
     ]
 
 
+def json_kind(value: object) -> str:
+    """Tên kiểu JSON (tiếng Việt) của một giá trị đã parse — dùng cho thông điệp lỗi."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "số"
+    if isinstance(value, str):
+        return "chuỗi"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
 def check_smoke_case(case: SmokeCase, result: CommandResult) -> list[str]:
     """Kiểm một ca smoke; trả về danh sách vi phạm (rỗng = đạt)."""
     problems: list[str] = []
@@ -1494,16 +1511,22 @@ def check_smoke_case(case: SmokeCase, result: CommandResult) -> list[str]:
             body = json.loads(result.stdout.strip() or "{}")
         except json.JSONDecodeError as error:
             problems.append(f"{case.name}: stdout không phải JSON ({error})")
-            body = None
-        if isinstance(body, dict):
-            for name in case.json_fields:
-                if name not in body:
-                    problems.append(f"{case.name}: JSON thiếu field {name!r}")
-            for name, expected in case.json_expect:
-                if body.get(name) != expected:
-                    problems.append(
-                        f"{case.name}: JSON {name!r} = {body.get(name)!r} "
-                        f"(mong đợi {expected!r})")
+        else:
+            # JSON đúng cú pháp nhưng **không phải object** ⇒ không có field nào để
+            # kiểm, nên fingerprint/scope bắt buộc bị bỏ sót. Phải báo lỗi, không
+            # im lặng bỏ qua nhánh này (review #168 vòng 1).
+            if not isinstance(body, dict):
+                problems.append(
+                    f"{case.name}: JSON phải là object, thực tế là {json_kind(body)}")
+            else:
+                for name in case.json_fields:
+                    if name not in body:
+                        problems.append(f"{case.name}: JSON thiếu field {name!r}")
+                for name, expected in case.json_expect:
+                    if body.get(name) != expected:
+                        problems.append(
+                            f"{case.name}: JSON {name!r} = {body.get(name)!r} "
+                            f"(mong đợi {expected!r})")
     return problems
 
 
@@ -1677,12 +1700,13 @@ def cmd_unpack(args) -> int:
     return 0
 
 
-def cmd_smoke(args) -> int:
+def cmd_smoke(args, runner: CommandRunner | None = None) -> int:
     package_dir = Path(args.package_dir)
     if not package_dir.is_dir():
         print(f"LỖI: không có thư mục gói: {package_dir}", file=sys.stderr)
         return 1
-    run = smoke_package(package_dir, version=args.version)
+    # `runner` cho phép tự kiểm mô phỏng gói lỗi mà không cần binary thật.
+    run = smoke_package(package_dir, runner=runner, version=args.version)
     if args.log:
         log = Path(args.log)
         log.parent.mkdir(parents=True, exist_ok=True)
@@ -1787,6 +1811,33 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 END OF TERMS AND CONDITIONS
 """
+
+
+def workflow_step_block(text: str, name: str) -> list[str]:
+    """Các dòng của bước workflow có `name` (không kể dòng `- name:`).
+
+    Không cần thư viện YAML: workflow của dự án đặt `- name:` cho mỗi bước và
+    các khóa của bước nằm thụt lền sâu hơn. Trả về `[]` nếu không có bước nào
+    tên như vậy.
+    """
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped.startswith("- name:"):
+            continue
+        value = stripped[len("- name:"):].strip().strip('"').strip("'")
+        if value != name:
+            continue
+        indent = len(line) - len(line.lstrip())
+        block: list[str] = []
+        for follow in lines[index + 1:]:
+            content = follow.strip()
+            if content and not content.startswith("#"):
+                if len(follow) - len(follow.lstrip()) <= indent:
+                    break
+            block.append(follow)
+        return block
+    return []
 
 
 class PackageToolTests(unittest.TestCase):
@@ -2221,6 +2272,92 @@ class PackageToolTests(unittest.TestCase):
             run = smoke_package(package, runner=runner)
             self.assertTrue(run.problems)
             self.assertTrue(any("JSON" in problem for problem in run.problems))
+
+    def test_smoke_reports_health_json_not_object(self):
+        """`health --offline` in JSON **không phải object** ⇒ phải báo lỗi.
+
+        Ca âm của review #168 vòng 1: JSON đúng cú pháp nhưng là array/null/scalar
+        thì không có field nào để kiểm, nên smoke phải **không** bỏ qua.
+        """
+        for label, stdout in (("array", "[]"), ("null", "null"), ("chuỗi", '"bad"'),
+                              ("số", "42"), ("boolean", "true")):
+            with self.subTest(hinh=label), _TempDir() as root:
+                root = Path(root)
+                package = self._valid_package(root)
+                runner = _FakeRunner(overrides={
+                    "health-offline": CommandResult(0, stdout, ""),
+                })
+                run = smoke_package(package, runner=runner)
+                self.assertTrue(run.problems, f"JSON {label} phải bị báo lỗi")
+                self.assertTrue(
+                    any("JSON phải là object" in problem for problem in run.problems),
+                    f"thông điệp phải nói JSON phải là object: {run.problems}")
+
+    def test_smoke_accepts_health_json_object(self):
+        """JSON object đủ field ⇒ vẫn đạt (kiểm mới không vướng ca hợp lệ)."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            run = smoke_package(package, runner=_FakeRunner())
+            self.assertEqual(run.problems, [])
+
+    def test_smoke_log_written_when_smoke_fails(self):
+        """Smoke fail vẫn ghi log (bằng chứng để debug) **và** trả mã khác 0.
+
+        Review #168 vòng 1: log là thứ duy nhất còn lại khi gói lỗi trên một OS.
+        """
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            log = root / "smoke-log.txt"
+            runner = _FakeRunner(overrides={
+                "health-offline": CommandResult(0, "[]", ""),
+            })
+            args = argparse.Namespace(
+                package_dir=str(package), log=str(log), version="0.1.0")
+            code = cmd_smoke(args, runner=runner)
+            self.assertEqual(code, 1, "smoke fail phải trả mã khác 0")
+            self.assertTrue(log.is_file(), "phải ghi log kể cả khi smoke fail")
+            text = log.read_text(encoding="utf-8")
+            self.assertIn("KHÔNG ĐẠT", text)
+            self.assertIn("JSON phải là object", text)
+            self.assertIn("version: 0.1.0", text)
+
+    def test_workflow_uploads_smoke_log_when_smoke_fails(self):
+        """Bước upload log smoke phải chạy **cả khi smoke fail** (review #168 vòng 1).
+
+        Điều kiện mặc định của GitHub Actions là `success()` ⇒ bước bị bỏ qua khi
+        smoke trả mã khác 0, mất đúng artifact cần để debug.
+        """
+        for relative in (".github/workflows/ci.yml", ".github/workflows/release.yml"):
+            with self.subTest(workflow=relative):
+                text = (ROOT / relative).read_text(encoding="utf-8")
+                block = workflow_step_block(text, "Upload log smoke")
+                self.assertTrue(block, f"không thấy bước 'Upload log smoke' trong {relative}")
+                conditions = [line.strip() for line in block
+                              if line.strip().startswith("if:")]
+                self.assertTrue(
+                    conditions,
+                    f"bước upload log phải có `if:` riêng trong {relative}")
+                condition = conditions[0]
+                self.assertIn("!cancelled()", condition)
+                self.assertIn("hashFiles(", condition)
+                joined = "\n".join(block)
+                self.assertIn("dist/smoke-log.txt", joined)
+
+    def test_workflow_smoke_step_keeps_job_failing(self):
+        """Bước smoke không được nuốt lỗi — job phải đỏ khi gói sai."""
+        for relative, step_name in (
+            (".github/workflows/ci.yml", "Smoke: chạy binary trong gói"),
+            (".github/workflows/release.yml", "Mở gói và smoke"),
+        ):
+            with self.subTest(workflow=relative):
+                text = (ROOT / relative).read_text(encoding="utf-8")
+                block = workflow_step_block(text, step_name)
+                self.assertTrue(block, f"không thấy bước {step_name!r} trong {relative}")
+                joined = "\n".join(block)
+                self.assertNotIn("continue-on-error: true", joined)
+                self.assertNotIn("continue-on-error: true", text)
 
     def test_smoke_reports_missing_binary(self):
         """Gói thiếu binary thì smoke báo lỗi, không chạy lệnh không tồn tại."""

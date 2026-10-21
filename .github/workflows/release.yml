@@ -200,6 +200,10 @@ jobs:
           if-no-files-found: error
 
       - name: Upload log smoke
+        # Log smoke là thứ duy nhất còn lại khi gói lỗi trên một OS ⇒ upload **cả
+        # khi job fail**. Điều kiện mặc định của GitHub là `success()` nên bước này
+        # bị bỏ qua khi smoke trả mã khác 0 (review #168 vòng 1).
+        if: ${{ !cancelled() && hashFiles('dist/smoke-log.txt') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}-smoke
