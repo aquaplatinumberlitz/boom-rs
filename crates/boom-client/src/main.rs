@@ -878,7 +878,16 @@ impl Game {
         self.absorb_events(events);
         // Âm thanh: cue theo event, gộp cùng entry trong tick, tối đa 8 voice.
         if let Some(bundle) = &self.bundle {
-            let plan = self.audio_state.plan(bundle, round_id, events);
+            // Pump mạng có thể dồn nhiều tick vào một batch. Planner gộp cue theo
+            // tick (AUDIO_V1 §4), nên nhóm cả event không liền nhau của cùng tick.
+            let mut ordered = events.to_vec();
+            ordered.sort_by_key(|event| event.id);
+            // Kế hoạch rỗng vẫn khởi động BGM khi lượt chưa có event nào.
+            let mut plan = self.audio_state.plan(bundle, round_id, &[]);
+            for tick_events in ordered.chunk_by(|a, b| a.id.tick == b.id.tick) {
+                let tick_plan = self.audio_state.plan(bundle, round_id, tick_events);
+                plan.cues.extend(tick_plan.cues);
+            }
             self.audio_plan.cues.extend(plan.cues);
             self.audio_plan.start_bgm |= plan.start_bgm;
         }
@@ -2666,6 +2675,42 @@ mod tests {
             .item_for(anim::Subject::Player(1))
             .expect("mục chết vẫn còn trong sổ");
         assert_eq!(item.kind, anim::PresentationKind::Death);
+    }
+
+    /// Một lần drain mạng có thể chứa nhiều tick, thậm chí không theo thứ tự tick.
+    /// Cùng cue ở tick khác phải phát lại; cùng tick gộp một lần và reconcile bỏ qua.
+    #[test]
+    fn consumer_batch_mang_giu_ranh_gioi_tick_am_thanh() {
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        game.bundle = Some(presentation_bundle());
+        let explosion = |tick, seq| SimulationEvent {
+            id: boom_core::EventId { tick, seq },
+            kind: EventKind::BombExploded {
+                bomb: boom_core::EntityId(u32::from(seq) + tick),
+                owner: 0,
+                cell: Cell { x: 1, y: 1 },
+                chained: false,
+            },
+        };
+        // Hai event tick 10 bị tách bởi tick 11 trong batch: vẫn chỉ một cue cho tick 10.
+        let events = vec![explosion(10, 0), explosion(11, 0), explosion(10, 1)];
+        game.consume_events(0, &events);
+        let plan = game.take_audio_plan();
+        assert_eq!(plan.cues, vec!["bomb_exploded", "bomb_exploded"]);
+        assert!(plan.start_bgm);
+
+        game.consume_events(0, &events);
+        let plan = game.take_audio_plan();
+        assert!(plan.cues.is_empty(), "gửi lại batch không phát cue mới");
+        assert!(!plan.start_bgm, "BGM không restart");
+
+        // Event mới cùng cue ở cùng một tick vẫn chỉ phát một cue.
+        game.consume_events(0, &[explosion(12, 0), explosion(12, 1)]);
+        let plan = game.take_audio_plan();
+        assert_eq!(plan.cues, vec!["bomb_exploded"]);
+        assert!(!plan.start_bgm);
     }
 
     /// Profile rules cho test mạng: **fuse và thời gian nhốt ngắn** để lượt sinh event
