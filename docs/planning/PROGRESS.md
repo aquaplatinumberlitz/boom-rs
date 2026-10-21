@@ -10,8 +10,8 @@ Kế hoạch thực hiện: [REWRITE_PLAN](REWRITE_PLAN.md); danh mục: [FEATUR
 
 | Phạm vi | Done / tổng | Tỷ lệ số mục |
 |---|---:|---:|
-| Release 1 | 1 / 37 | 2.70% |
-| Toàn catalog cần triển khai | 1 / 112 | 0.89% |
+| Release 1 | 2 / 37 | 5.41% |
+| Toàn catalog cần triển khai | 2 / 112 | 1.79% |
 
 Có **2 mục drop_legacy** hiển thị riêng trong CSV, không cộng vào done hoặc mẫu số.
 Đây là tỷ lệ **số mục nghiệm thu**, không phải % công sức, thời gian hay fidelity KR.
@@ -20,10 +20,10 @@ Không chia điểm cho in_progress/in_review/blocked. Scope đổi phải đổ
 | Trạng thái | V1 | Toàn catalog cần triển khai |
 |---|---:|---:|
 | Chưa làm | 2 | 77 |
-| Đang làm | 17 | 17 |
+| Đang làm | 14 | 14 |
 | Bị chặn | 0 | 0 |
-| Chờ review | 17 | 17 |
-| Đã nghiệm thu | 1 | 1 |
+| Chờ review | 19 | 19 |
+| Đã nghiệm thu | 2 | 2 |
 
 ## Planning và gate phát hành — không cộng vào feature %
 
@@ -70,8 +70,8 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-008 | Ready/cancel/start | Đang làm | backend / dsh-b | Claude/Codex | Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2). | [lib.rs](<../../crates/boom-room/src/lib.rs>); `d0a8571a229c`; [server.rs](<../../crates/boom-server/src/server.rs>); [room.rs](<../../crates/boom-sync/src/room.rs>); `3d34d7fdf99b`; `ae70eaec72bc` |
 | V1-009 | Chat trong phòng chờ | Đang làm | backend / dsh-b | Claude/Codex | Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2). | [server.rs](<../../crates/boom-server/src/server.rs>); [room.rs](<../../crates/boom-sync/src/room.rs>); `d0a8571a229c`; `3d34d7fdf99b`; `ae70eaec72bc` |
 | V1-010 | Start barrier và spawn | Chờ review | net / dsh-a/dsh-b | Claude/Codex | Server authority qua wire đạt (test 2/4 client, delay/loss seed); done khi dependency done. | [lib.rs](<../../crates/boom-server/src/lib.rs>); `fb4ed043822a`; [authority.rs](<../../crates/boom-server/src/authority.rs>); [server.rs](<../../crates/boom-server/src/server.rs>); `ab4eb5a148a1`; `ae70eaec72bc` |
-| V1-011 | Di chuyển và ưu tiên input | Đang làm | core / opencode-4 | Claude | Đã có đi/rẽ/va chạm (PR #22); còn ưu tiên giữ nhiều phím/mất focus (V1-033) và hiệu chuẩn tốc độ/bám góc (#11, Q-005). | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); `fefd5c0d810c` |
-| V1-012 | Va chạm tường/gạch/bom | Chờ review | core / opencode-4 | Claude | Đã review và merge PR #22; đặt done khi dependency V1-011 done (AGENTS §6). | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); [bomb_grace_one_way.toml](<../../fixtures/scenarios/movement/bomb_grace_one_way.toml>); `fefd5c0d810c` |
+| V1-011 | Di chuyển và ưu tiên input | Chờ review | core / opencode-4 | Claude | Movement theo BnB (hộp 26 px, bám góc 12 px, bomb pass) đã merge PR #140 (#130, ADR 0012); dependency V1-030/V1-033 done. Chờ xác nhận trace acceptance để đặt done. | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); `fefd5c0d810c`; `b26c88c6c852`; [0012-v1-rules-from-bnb.md](<../../docs/decisions/0012-v1-rules-from-bnb.md>) |
+| V1-012 | Va chạm tường/gạch/bom | Chờ review | core / opencode-4 | Claude | Bomb pass theo overlap BnB đã merge PR #140; đặt done khi V1-011 done (AGENTS §6). | [movement.rs](<../../crates/boom-core/src/systems/movement.rs>); [bomb_grace_one_way.toml](<../../fixtures/scenarios/movement/bomb_grace_one_way.toml>); `fefd5c0d810c`; `b26c88c6c852` |
 | V1-013 | Đặt bom và hạn mức | Chờ review | core / opencode-1 | Claude | Đã review và merge PR #19; đặt done khi dependency V1-012 done (AGENTS §6). | [bomb_place.rs](<../../crates/boom-core/src/systems/bomb_place.rs>); [place_one.toml](<../../fixtures/scenarios/bomb_place/place_one.toml>); `4600810eacb6` |
 | V1-014 | Fuse/nổ/lan/chặn | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #21; đặt done khi dependency V1-013 done (AGENTS §6). | [explosion.rs](<../../crates/boom-core/src/systems/explosion.rs>); [rays_stop_at_solid.toml](<../../fixtures/scenarios/explosion/rays_stop_at_solid.toml>); `0c9207c4b67b` |
 | V1-015 | Nổ dây chuyền | Chờ review | core / opencode-2 | Claude | Đã review và merge PR #21; đặt done khi dependency V1-014 done (AGENTS §6). | [explosion.rs](<../../crates/boom-core/src/systems/explosion.rs>); [chain.toml](<../../fixtures/scenarios/explosion/chain.toml>); `0c9207c4b67b` |
@@ -89,8 +89,8 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-027 | QA mạng 4 client | Chưa làm | qa / chưa giao | — | — | — |
 | V1-028 | Lưu tài khoản và tùy chọn | Chờ review | backend / opencode-1/opencode-2 | Claude/Codex | Identity bền qua restart + options client đạt; done khi V1-001 done. | [0011-identity-persistence-log-v1.md](<../../docs/decisions/0011-identity-persistence-log-v1.md>); `06058297ddd9`; [sqlite.rs](<../../crates/boom-server/src/identity/sqlite.rs>); [options.rs](<../../crates/boom-client/src/options.rs>); `53aabbfb9023`; `c8b14a81e1e5`; `bf5ca50b338f`; `a3a78b0ec85b` |
 | V1-029 | Log/health và vận hành test | Chờ review | backend / dsh-a/opencode-1 | Claude/Codex | Log JSON/health/heartbeat/CLI đạt T1-H1…H7; done khi chạy trong serve thật (#108). | [0011-identity-persistence-log-v1.md](<../../docs/decisions/0011-identity-persistence-log-v1.md>); `06058297ddd9`; [admin.rs](<../../crates/boom-server/src/admin.rs>); [observability.rs](<../../crates/boom-server/src/observability.rs>); `8ffc64ed2421`; `8759e037c647` |
-| V1-030 | Map Village00 + dependency closure | Đang làm | assets / opencode-4 | Claude/Codex | Closure + bundle + client vẽ Village00 đã tích hợp (#36, #38, #39, #55, #81, #91). Còn acceptance: 4 mục `unknown` của bundle và test 4 spawn không trùng/không bị chặn/có đường thoát — issue #121. | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); `243d230fd7f0`; [closure.rs](<../../crates/boom-assets/src/closure.rs>); [sprite.rs](<../../crates/boom-assets/src/sprite.rs>); `9372f2074939`; `fd2e5d217251`; `282a051a5ce7`; [scene.rs](<../../crates/boom-client/src/scene.rs>); `abae61bba752`; `b3d4d068a3a7`; `4ec8acf9e133` |
-| V1-031 | Animation C00/C01 và bomb | Đang làm | client / opencode-3/opencode-4 | Claude/Codex | Clip + phát theo tick đạt; còn presentation journal (chuỗi chết) và clip nổ ở client (#101). | [animation.rs](<../../crates/boom-assets/src/animation.rs>); `389b6ce78fc1`; [anim.rs](<../../crates/boom-client/src/anim.rs>); `5242e48f6127`; `40fb031334dd`; `93288f1f300a` |
+| V1-030 | Map Village00 + dependency closure | Đã nghiệm thu | assets / opencode-4 | Claude/Codex | Xong: 0 unknown trong bundle Village00, test 4 spawn (PR #126, đóng #121). | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); `243d230fd7f0`; [closure.rs](<../../crates/boom-assets/src/closure.rs>); [sprite.rs](<../../crates/boom-assets/src/sprite.rs>); `9372f2074939`; `fd2e5d217251`; `282a051a5ce7`; [scene.rs](<../../crates/boom-client/src/scene.rs>); `abae61bba752`; `b3d4d068a3a7`; `4ec8acf9e133`; `891c7c7d3d76`; [BUNDLES.md](<../../docs/specification/assets/BUNDLES.md>) |
+| V1-031 | Animation C00/C01 và bomb | Chờ review | client / opencode-3/opencode-4 | Claude/Codex | Presentation journal (chết/nhốt/start) đã merge (PR #122, đóng #118); dependency V1-030 done. Chờ Claude/Codex xác nhận acceptance (frame/pivot theo R-085…R-088) để đặt done. | [animation.rs](<../../crates/boom-assets/src/animation.rs>); `389b6ce78fc1`; [anim.rs](<../../crates/boom-client/src/anim.rs>); `5242e48f6127`; `40fb031334dd`; `93288f1f300a`; `f545f24d6570` |
 | V1-032 | UI luồng V1 bằng asset KR | Đang làm | client / opencode-3 | Claude/Codex | Asset UI trong bundle (#91) + màn UI offline (#115) đã tích hợp. Còn: nối UiBackend mạng (#114) và thay text UI bằng API font #116 (task sau). | [closure.rs](<../../crates/boom-assets/src/closure.rs>); `4ec8acf9e133` |
 | V1-033 | Input/scale/focus | Đã nghiệm thu | client / dsh-b/opencode-2 | Claude/Codex | Done: mặc định mũi tên+Space (#51), rebind qua options.toml (#69, #77), integer scale + nhả phím khi mất focus (#51); reviewer độc lập Codex; không có dependency. | [input.rs](<../../crates/boom-client/src/input.rs>); `0c5df165ffab`; [options.rs](<../../crates/boom-client/src/options.rs>); `bf5ca50b338f`; `a3a78b0ec85b` |
 | V1-034 | Audio/volume | Chờ review | client / dsh-b/dsh-a | Claude/Codex | BGM/SFX theo event, volume/mute, dedup reconcile đạt; done khi V1-025 và V1-031 done. | [audio.rs](<../../crates/boom-client/src/audio.rs>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `6dfdac10040c`; `aace7988256b` |

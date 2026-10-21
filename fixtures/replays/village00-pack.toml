@@ -8,7 +8,7 @@ content_sha256 = "20bda34f6cc31800fb947a1013c12937404dcfe93a84feeb06068978d6597a
 ticks = 10
 checkpoints = [1, 10]
 rules = "../rules/skeleton-test.toml"
-profile_hash = "0x3faa77e6b1c76c15"
+profile_hash = "0xbebfe7f1a5127d80"
 mode = "battle_ffa"
 seed = 7
 

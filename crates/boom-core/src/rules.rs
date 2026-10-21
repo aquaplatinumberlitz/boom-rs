@@ -6,6 +6,7 @@
 use boom_content::rules::{ProfileError, RulesProfile};
 
 use crate::num::{Mpx, Tick, ms_to_ticks};
+use crate::state::CharacterStats;
 
 /// Hiệu ứng một item tác động lên chỉ số người chơi (ADR 0008 #6: item mới ghép từ hiệu ứng có sẵn).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,11 +41,35 @@ pub struct Rules {
     pub flame_ticks: Tick,
     /// Từ lúc bị nhốt tới lúc tự chết.
     pub trap_ticks: Tick,
+    /// Nửa cạnh hộp va chạm của người chơi: hộp `2 × collision_half` px (26×26 khi 13 px, R-107).
+    pub collision_half: Mpx,
+    /// Lệch tối đa (px) được phép bám góc về tâm hàng/cột khi bị chặn (R-107).
+    pub corner_assist: Mpx,
     /// Xác suất một khối mềm có item, phần nghìn.
     pub brick_item_chance_permille: u32,
     /// Bảng item V1, thứ tự cố định: Bomb, Fire, Roller.
     pub items: Vec<ItemDef>,
     pub profile_hash: u64,
+}
+
+/// Bảng chỉ số hai nhân vật V1 (C00/C01), đọc từ rules profile (`characters.*`, R-040/R-041).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CharacterStatsTable {
+    pub c00: CharacterStats,
+    pub c01: CharacterStats,
+}
+
+impl CharacterStatsTable {
+    /// Bảng chỉ số từ rules profile: `characters.c00.*` / `characters.c01.*`.
+    ///
+    /// Profile thiếu nhân vật hoặc có cấp hiện tại vượt trần ⇒ lỗi rõ (không tự đặt mặc định).
+    pub fn from_profile(p: &RulesProfile) -> Result<Self, ProfileError> {
+        let table = p.character_table()?;
+        Ok(Self {
+            c00: CharacterStats::from_spec(&table.c00),
+            c01: CharacterStats::from_spec(&table.c01),
+        })
+    }
 }
 
 impl Rules {
@@ -71,6 +96,18 @@ impl Rules {
             fuse_ticks: ms("bomb.fuse_ms")?,
             flame_ticks: ms("bomb.flame_ms")?,
             trap_ticks: ms("player.trap_to_death_ms")?,
+            collision_half: Mpx::from_px(i32_of(p.int_in(
+                "player.collision_half_px",
+                "px",
+                1,
+                100,
+            )?)),
+            corner_assist: Mpx::from_px(i32_of(p.int_in(
+                "player.corner_assist_px",
+                "px",
+                0,
+                100,
+            )?)),
             brick_item_chance_permille: u32_of(p.int_in(
                 "drop.brick_item_chance",
                 "permille",

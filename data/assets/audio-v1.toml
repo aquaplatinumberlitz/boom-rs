@@ -1,0 +1,139 @@
+# Bảng mapping âm thanh V1: event → entry trong pack `FxSound`.
+#
+# Nguồn chuẩn duy nhất cho bảng audio của V1 (trước đây là khai báo Rust trong
+# `crates/boom-assets/src/audio.rs`). Sửa mapping = sửa file này, không sửa code.
+#
+# Cột nhãn (AGENTS §4):
+# - `source`: nguồn của **entry** được trỏ tới (`kr_static`: entry có thật trong pack
+#   `FxSound` của build KR 00967; 15 entry V1 có SHA-256 trùng ở KR và VN — AUDIO_V1 §5).
+# - `status`: mức bằng chứng của **mapping** event → entry. R-082: chưa có consumer gốc
+#   xác nhận event nào phát entry nào ⇒ mapping là quyết định của V1 (`design`).
+#   Riêng BGM: entry/mapping `MP3/Village` đã xác nhận (R-081), nhưng policy loop một
+#   voice là `design` (R-083) ⇒ dòng này vẫn `design`.
+# - `claims`: claim RULES_V1; `note`: lý do, giới hạn, ứng viên.
+#
+# Entry nào không chọn được thì **không** ghi dòng (giữ im lặng, theo dõi ở Q-015).
+#
+# Nguồn: RULES_V1 §10 (R-081…R-083), AUDIO_V1 §2–§5.
+
+schema = 1
+
+[[cues]]
+event = "bgm_loop"
+entry = "MP3/Village"
+source = "kr_static"
+claims = ["R-081", "R-083"]
+status = "design"
+note = "entry/mapping confirmed R-081; loop một voice là design R-083"
+
+[[cues]]
+event = "bomb_placed"
+entry = "Wave/Cha_BombIgnite"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "tên fuse/ignite; chưa có trace consumer gốc"
+
+[[cues]]
+event = "bomb_exploded"
+entry = "Wave/BombExplosion001"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "entry nổ chuẩn; pack có nhiều biến thể 001…032, chưa rõ quy tắc"
+
+[[cues]]
+event = "item_revealed"
+entry = "Wave/Itm_ItemPop"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "item lộ ra khỏi khối; design V1"
+
+[[cues]]
+event = "item_picked"
+entry = "Wave/Itm_ItemEaten"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "dùng chung Bomb/Fire/Roller; chưa có entry riêng cho V1"
+
+[[cues]]
+event = "player_trapped"
+entry = "Wave/Itm_UseTrap"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "ứng viên trap/bong bóng; chưa có trace consumer gốc"
+
+[[cues]]
+event = "player_died"
+entry = "Wave/Cha_Die"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "entry chết chung; chưa có trace consumer gốc"
+
+[[cues]]
+event = "round_ended_win"
+entry = "Wave/Ntc_Win"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "thắng; MP3/Ntc_Win là bản khác, chưa chọn"
+
+[[cues]]
+event = "round_ended_lose"
+entry = "Wave/Ntc_Lose"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "thua; chưa có trace consumer gốc"
+
+[[cues]]
+event = "round_ended_draw"
+entry = "Wave/Ntc_Draw"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "hòa; chưa có trace consumer gốc"
+
+[[cues]]
+event = "start_count_3"
+entry = "Wave/Ntc_Count3"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "đếm ngược start theo thứ tự 3→2→1→go"
+
+[[cues]]
+event = "start_count_2"
+entry = "Wave/Ntc_Count2"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "đếm ngược start; design V1"
+
+[[cues]]
+event = "start_count_1"
+entry = "Wave/Ntc_Count1"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "đếm ngược start; design V1"
+
+[[cues]]
+event = "start_go"
+entry = "Wave/Ntc_GameStart"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "bắt đầu lượt; design V1"
+
+[[cues]]
+event = "ui_click"
+entry = "Wave/Bt_p_Default"
+source = "kr_static"
+claims = ["R-082"]
+status = "design"
+note = "click UI mặc định; chưa có trace consumer gốc"

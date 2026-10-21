@@ -1,9 +1,14 @@
-# SCOPE_V1 §4: grace chỉ cho người đang đứng trên bom đi ra, không cho bước ngược lại (DESIGN, R-049).
+# R-107 (ADR 0012): `grace` (pass) của bom theo **hộp va chạm** chứ không theo ô của tâm:
+# người đứng trên bom vừa đặt đi ra được, hộp rời hẳn ô bom thì mất quyền này và không quay
+# lại được (BnB `server/game.js:150–153,392–399`).
+#
+# Bom ở ô (1,1) (40…80 px). Người chơi đi sang phải: hộp rời hẳn ô bom khi x ≥ 94 px, từ đó
+# bom chặn người chơi. Quay lại thì bị chặn ở mép hộp x = 94 px.
 name = "Đứng trên bom vừa đặt được đi ra, không được quay lại"
 features = ["V1-012"]
-claims = ["R-049"]
+claims = ["R-049", "R-107"]
 status = "active"
-ticks = 80
+ticks = 120
 map = [
     "#######",
     "#0....#",
@@ -33,14 +38,14 @@ tick = 40
 player = 0
 dir = "left"
 
-# Đi ra khỏi ô bom tới tâm ô (3,1); lúc này grace đã bị xóa.
+# Đi ra khỏi ô bom tới x = 140 px; lúc này hộp đã rời hẳn ô bom nên grace bị xóa.
 [[expect]]
 tick = 40
 player = 0
 pos_mpx = [140000, 60000]
 
-# Quay lại bị bom chặn ở tâm ô (2,1), không vào lại ô bom.
+# Quay lại bị bom chặn ở mép hộp x = 94 px, không vào lại ô bom.
 [[expect]]
-tick = 80
+tick = 120
 player = 0
-pos_mpx = [100000, 60000]
+pos_mpx = [94000, 60000]

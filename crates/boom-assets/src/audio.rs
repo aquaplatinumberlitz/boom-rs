@@ -1,14 +1,20 @@
 //! Âm thanh V1: entry `FxSound`, kiểm định dạng thô và SHA-256 (không decode).
 //!
-//! Không có bảng ánh xạ event→entry nào được xác nhận bởi consumer client gốc; các mapping trong
-//! [`V1_AUDIO_USES`] là **design** của V1-034 (xem `AUDIO_V1.md`/R-082), còn sự tồn tại entry là
-//! `kr_static`. Entry/mapping BGM Village đã xác nhận bởi R-070/R-081; policy loop/một voice là
-//! design R-083.
+//! **Bảng mapping** (event → entry) là **data**: [`boom_content::assets`] nạp từ
+//! `data/assets/audio-v1.toml`, mỗi dòng mang nhãn bằng chứng và claim RULES_V1. Module
+//! này chỉ đọc pack theo bảng đó, không khai báo tên entry.
+//!
+//! Không có bảng ánh xạ event→entry nào được xác nhận bởi consumer client gốc; các mapping
+//! trong bảng data là **design** của V1-034 (xem `AUDIO_V1.md`/R-082), còn sự tồn tại
+//! entry là `kr_static`. Entry/mapping BGM Village đã xác nhận bởi R-070/R-081; policy
+//! loop/một voice là design R-083.
 
 use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt;
 use std::io;
+
+use boom_content::assets::{AssetError, AudioMapping, AudioTable};
 
 use crate::closure::sha256_hex;
 use crate::pack::{Pack, PackError};
@@ -57,117 +63,46 @@ impl AudioFormat {
     }
 }
 
-/// Một event V1 dùng entry âm thanh nào. `status` ghi mức bằng chứng của mapping; `note` giữ
-/// lý do/nguồn ngắn để CLI và docs không phải suy lại.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct V1AudioUse {
-    pub event: &'static str,
-    pub entry: &'static str,
-    /// `confirmed` chỉ cho entry/mapping BGM (R-081); `design` cho mapping SFX/loop policy.
-    pub status: &'static str,
-    pub note: &'static str,
+/// Bảng event→entry V1 của V1-034, nạp từ `data/assets/audio-v1.toml`.
+///
+/// Kiểu này là iterable để CLI in bảng giữ nguyên lệnh cũ:
+/// `for usage in audio::V1_AUDIO_USES { … }`.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct V1AudioUses;
+
+impl IntoIterator for V1AudioUses {
+    type Item = AudioMapping;
+    type IntoIter = std::vec::IntoIter<AudioMapping>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        // Bảng nhúng trong crate được test chặn (xem `boom_content::assets`), nên lỗi ở
+        // đây là build hỏng, không phải lỗi lúc chạy.
+        v1_audio_uses()
+            .expect("bảng audio V1 trong data/assets/ phải hợp lệ")
+            .into_iter()
+    }
 }
 
-/// Bảng event→entry V1: entry/mapping BGM confirmed R-081; loop policy và mapping SFX là design.
-/// Đây là nguồn cho CLI `audio --list`.
-pub const V1_AUDIO_USES: &[V1AudioUse] = &[
-    V1AudioUse {
-        event: "bgm_loop",
-        entry: "MP3/Village",
-        status: "design",
-        note: "entry/mapping confirmed R-081; loop một voice là design R-083",
-    },
-    V1AudioUse {
-        event: "bomb_placed",
-        entry: "Wave/Cha_BombIgnite",
-        status: "design",
-        note: "tên fuse/ignite; chưa có trace consumer gốc",
-    },
-    V1AudioUse {
-        event: "bomb_exploded",
-        entry: "Wave/BombExplosion001",
-        status: "design",
-        note: "entry nổ chuẩn; pack có nhiều biến thể 001…032, chưa rõ quy tắc",
-    },
-    V1AudioUse {
-        event: "item_revealed",
-        entry: "Wave/Itm_ItemPop",
-        status: "design",
-        note: "item lộ ra khỏi khối; design V1",
-    },
-    V1AudioUse {
-        event: "item_picked",
-        entry: "Wave/Itm_ItemEaten",
-        status: "design",
-        note: "dùng chung Bomb/Fire/Roller; chưa có entry riêng cho V1",
-    },
-    V1AudioUse {
-        event: "player_trapped",
-        entry: "Wave/Itm_UseTrap",
-        status: "design",
-        note: "ứng viên trap/bong bóng; chưa có trace consumer gốc",
-    },
-    V1AudioUse {
-        event: "player_died",
-        entry: "Wave/Cha_Die",
-        status: "design",
-        note: "entry chết chung; chưa có trace consumer gốc",
-    },
-    V1AudioUse {
-        event: "round_ended_win",
-        entry: "Wave/Ntc_Win",
-        status: "design",
-        note: "thắng; MP3/Ntc_Win là bản khác, chưa chọn",
-    },
-    V1AudioUse {
-        event: "round_ended_lose",
-        entry: "Wave/Ntc_Lose",
-        status: "design",
-        note: "thua; chưa có trace consumer gốc",
-    },
-    V1AudioUse {
-        event: "round_ended_draw",
-        entry: "Wave/Ntc_Draw",
-        status: "design",
-        note: "hòa; chưa có trace consumer gốc",
-    },
-    V1AudioUse {
-        event: "start_count_3",
-        entry: "Wave/Ntc_Count3",
-        status: "design",
-        note: "đếm ngược start theo thứ tự 3→2→1→go",
-    },
-    V1AudioUse {
-        event: "start_count_2",
-        entry: "Wave/Ntc_Count2",
-        status: "design",
-        note: "đếm ngược start; design V1",
-    },
-    V1AudioUse {
-        event: "start_count_1",
-        entry: "Wave/Ntc_Count1",
-        status: "design",
-        note: "đếm ngược start; design V1",
-    },
-    V1AudioUse {
-        event: "start_go",
-        entry: "Wave/Ntc_GameStart",
-        status: "design",
-        note: "bắt đầu lượt; design V1",
-    },
-    V1AudioUse {
-        event: "ui_click",
-        entry: "Wave/Bt_p_Default",
-        status: "design",
-        note: "click UI mặc định; chưa có trace consumer gốc",
-    },
-];
+/// Bảng event→entry V1 (nguồn chuẩn: `data/assets/audio-v1.toml`).
+pub static V1_AUDIO_USES: V1AudioUses = V1AudioUses;
+
+/// Bảng event→entry V1, nạp từ `data/assets/audio-v1.toml`.
+///
+/// # Errors
+///
+/// Trả [`AssetError`] khi bảng data sai quy tắc (dữ liệu nhúng trong crate được test
+/// chặn nên trên build thường lỗi này không xảy ra).
+pub fn v1_audio_uses() -> Result<Vec<AudioMapping>, AssetError> {
+    Ok(AudioTable::from_toml(boom_content::assets::AUDIO_V1)?.cues)
+}
 
 #[derive(Debug)]
 pub enum AudioError {
     Pack(PackError),
     Io(io::Error),
     NonAudioEntry(String),
+    /// Bảng mapping audio trong `data/assets/` sai quy tắc.
+    Assets(AssetError),
 }
 
 impl fmt::Display for AudioError {
@@ -176,6 +111,7 @@ impl fmt::Display for AudioError {
             Self::Pack(e) => write!(f, "{e}"),
             Self::Io(e) => write!(f, "{e}"),
             Self::NonAudioEntry(name) => write!(f, "entry không phải âm thanh V1: {name}"),
+            Self::Assets(e) => write!(f, "bảng mapping âm thanh sai quy tắc: {e}"),
         }
     }
 }
@@ -194,15 +130,21 @@ impl From<io::Error> for AudioError {
     }
 }
 
+impl From<AssetError> for AudioError {
+    fn from(error: AssetError) -> Self {
+        Self::Assets(error)
+    }
+}
+
 /// Các entry âm thanh V1, đọc thô và hash; sắp theo tên entry để output ổn định.
 pub fn v1_entries(pack: &Pack) -> Result<Vec<AudioInfo>, AudioError> {
     let mut names = BTreeSet::new();
-    for usage in V1_AUDIO_USES {
+    for usage in v1_audio_uses()? {
         names.insert(usage.entry);
     }
     names
         .into_iter()
-        .map(|name| read_entry(pack, name))
+        .map(|name| read_entry(pack, &name))
         .collect()
 }
 
@@ -282,7 +224,8 @@ mod tests {
 
     #[test]
     fn v1_uses_are_unique_and_audio_entries() {
-        for usage in V1_AUDIO_USES {
+        let uses = v1_audio_uses().expect("bảng audio V1 trong data/assets/ phải hợp lệ");
+        for usage in &uses {
             assert!(
                 usage.entry.starts_with("MP3/") || usage.entry.starts_with("Wave/"),
                 "{}",
@@ -291,19 +234,26 @@ mod tests {
         }
         let mut events = BTreeSet::new();
         let mut entries = BTreeSet::new();
-        for usage in V1_AUDIO_USES {
-            assert!(events.insert(usage.event), "event trùng {}", usage.event);
-            assert!(entries.insert(usage.entry), "entry trùng {}", usage.entry);
+        for usage in &uses {
+            assert!(
+                events.insert(usage.event.clone()),
+                "event trùng {}",
+                usage.event
+            );
+            assert!(
+                entries.insert(usage.entry.clone()),
+                "entry trùng {}",
+                usage.entry
+            );
         }
         assert_eq!(entries.len(), 15);
-        assert!(V1_AUDIO_USES.iter().any(|u| u.entry == "MP3/Village"));
+        assert!(uses.iter().any(|u| u.entry == "MP3/Village"));
         assert_eq!(
-            V1_AUDIO_USES
-                .iter()
+            uses.iter()
                 .find(|u| u.event == "bgm_loop")
-                .unwrap()
+                .expect("có cue bgm_loop")
                 .status,
-            "design"
+            boom_content::rules::Status::Design
         );
     }
 }
