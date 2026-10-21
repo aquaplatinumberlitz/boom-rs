@@ -1,0 +1,36 @@
+# Hồ sơ QA nhanh cho test CI (`cargo xtask ci`): round ngắn, trễ nhỏ.
+#
+# Cùng bản chất với `scope-v1` (tham số fixture mạng, design — không phải luật chơi, không sinh
+# claim R-xxx); chỉ khác thời lượng để test chạy nhanh.
+schema = 1
+name = "fast"
+
+[network]
+rtt_ms = 20
+jitter_ms = 5
+loss_permille = 10
+duplicate_permille = 10
+reorder_permille = 10
+reorder_window_ms = 10
+timing = "real"
+
+[harness]
+rules_profile = "qa-fast"
+map = "qa-village"
+rounds = 2
+input_interval_ms = 20
+input_lead_ticks = 1
+ping_interval_ms = 1000
+snapshot_interval_ms = 16
+timeout_ms = 60000
+step_ms = 1
+lobby_retry_ms = 200
+retry_ms = 200
+auth_retry_ms = 1000
+snapshot_retry_ms = 100
+snapshot_deadline_ms = 2000
+auth_deadline_ms = 4000
+room_state_deadline_ms = 3000
+server_ping_interval_ms = 5000
+server_liveness_timeout_ms = 60000
+max_reconnects = 6

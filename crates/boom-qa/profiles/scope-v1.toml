@@ -1,0 +1,72 @@
+# Hồ sơ mạng QA theo SCOPE_V1 §7.6 (bộ nghiệm thu tích hợp, mục 6):
+# "RTT 100 ms, jitter 0–30 ms, loss 1 %, duplicate/reorder theo fixture".
+#
+# Đây là **tham số fixture mạng** (design của dự án), KHÔNG phải luật chơi: không sinh claim
+# R-xxx trong RULES_V1, không nằm trong `data/rules/`. Nguồn: SCOPE_V1 §7.6 + ADR 0009 §3.5.
+#
+# `rtt_ms` là RTT mục tiêu của hồ sơ; `boom-net` mô phỏng trễ **một chiều** nên harness chia đôi.
+schema = 1
+name = "scope-v1"
+
+[network]
+# RTT mục tiêu (SCOPE_V1 §7.6).
+rtt_ms = 100
+# Jitter 0–30 ms cộng thêm vào trễ một chiều (SCOPE_V1 §7.6).
+jitter_ms = 30
+# Mất frame 1 % (SCOPE_V1 §7.6).
+loss_permille = 10
+# Trùng/đảo thứ tự: SCOPE_V1 §7.6 chỉ yêu cầu "có kiểm soát", không chốt tỉ lệ.
+# Giá trị ở đây là lựa chọn của hồ sơ (design), tương đương 1 % mỗi loại.
+duplicate_permille = 10
+reorder_permille = 10
+# Cửa sổ đảo thứ tự: trễ thêm ngẫu nhiên trong [1, reorder_window_ms].
+reorder_window_ms = 30
+# `real`: transport ngủ đúng số ms ảo ⇒ độ trễ đo được bằng đồng hồ thật của harness.
+timing = "real"
+
+[harness]
+# Profile rules riêng cho QA (file trong `crates/boom-qa/rules/`): round ngắn để chạy nhiều hồ sơ.
+rules_profile = "qa-net"
+# Bản đồ ASCII trong `crates/boom-qa/maps/`.
+map = "qa-village"
+# Số trận mỗi lần chạy (SCOPE_V1 §7.1: hai trận liên tiếp).
+rounds = 2
+# Chu kỳ gửi input của bot (ms). Server chịu tối đa 120 batch/giây (ADR 0009 §3.5).
+input_interval_ms = 20
+# Bot nhắm tick đích trễ hơn tick server cuối cùng bot biết: bù độ trễ một chiều của hồ sơ.
+# Không phải luật chơi, là tham số của client giả lập.
+input_lead_ticks = 3
+# Chu kỳ bot gửi Ping để đo RTT (ms).
+ping_interval_ms = 2000
+# Chu kỳ server gửi snapshot cho client (ms) — tham số giao thức (ADR 0009), không phải luật chơi.
+snapshot_interval_ms = 16
+# Ngân sách thời gian cho cả lần chạy (ms) — chốt treo.
+timeout_ms = 180000
+# Chu kỳ vòng lặp harness (ms): server poll + bot gửi/nhận.
+step_ms = 1
+# Chu kỳ xin lại danh sách sảnh khi bot chưa vào được phòng (ms).
+lobby_retry_ms = 500
+# Chu kỳ gửi lại lệnh idempotent khi chưa thấy phản hồi (ms).
+retry_ms = 500
+# Chu kỳ thử lại `Auth` khi chưa thấy `AuthOk` (ms).
+auth_retry_ms = 2000
+# Chu kỳ xin lại snapshot kết thúc round khi chưa nhận được (ms).
+snapshot_retry_ms = 200
+# Hạn chờ snapshot kết thúc round trước khi bot từ bỏ và ack kết quả (ms).
+# Phải nhỏ hơn `results_timeout_ms` của server (SCOPE_V1 §3) để bot kịp ack.
+snapshot_deadline_ms = 2000
+# Hạn chờ `AuthOk` trước khi harness mở lại phiên cho bot (ms).
+auth_deadline_ms = 4000
+# Hạn chờ `RoomState` sau khi server đã xác nhận bot đang ở trong phòng (ms): server chỉ
+# đẩy `RoomState` khi phòng đổi, nên quá hạn thì bot rời phòng rồi vào lại.
+room_state_deadline_ms = 3000
+# Chu kỳ `Ping` server → bot và hạn chờ `Pong` (ms). Server chỉ làm mới hạn liveness khi
+# nhận được `Pong`, nên hạn phải lớn hơn nhiều chu kỳ Ping: hồ sơ mạng mất 1 % frame, một
+# `Pong` mất đi không được giết phiên (mặc định server: Ping 15 s / liveness 30 s ⇒ chỉ cần
+# mất một `Pong` là phiên chết).
+server_ping_interval_ms = 5000
+server_liveness_timeout_ms = 60000
+# Số lần mở lại phiên tối đa cho một bot. Mỗi lần mở lại giải phóng phiên tài khoản cũ
+# (ADR 0011 §6.1) nên bot đăng nhập lại được; số lần này là ngân sách cho trường hợp
+# `AuthOk` bị mất nhiều lần liên tiếp.
+max_reconnects = 6
