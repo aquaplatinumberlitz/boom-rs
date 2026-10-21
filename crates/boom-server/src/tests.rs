@@ -745,12 +745,6 @@ fn ask<Req: Message, Rep: Message>(
     ask_where(server, client, now_ms, budget, message, kind, |_| true)
 }
 
-/// Trần số ms tiến đồng hồ để chờ **một** tick authority chạy.
-///
-/// Một tick của profile test (60 Hz) dài ~17 ms; trần rộng để không phụ thuộc làm tròn
-/// của `tick_origin + ticks_elapsed * 1000 / hz`, nhưng vẫn hữu hạn để lỗi thật thì dừng.
-const MAX_TICK_ADVANCE_MS: u64 = 200;
-
 /// Chờ luồng đọc của server **lấy hết** frame client đã gửi — **không tiến đồng hồ server**.
 ///
 /// Đồng hồ server đứng yên ⇒ không tick nào chạy ⇒ lệnh input đang chờ trong hàng đợi
@@ -781,29 +775,6 @@ fn wait_frames_delivered(
     clients
         .iter()
         .all(|c| c.writer.peer_delivered_frames() >= c.writer.sent_frames())
-}
-
-/// Tiến đồng hồ server tới khi **một tick** authority chạy (tick áp dụng lệnh input).
-///
-/// Mỗi vòng tiến **1 ms** và dừng **ngay** khi tick tăng ⇒ không nhảy quá tick cần thiết
-/// (không đẩy vòng trận tới hết giờ) và không phụ thuộc tốc độ máy. Trả đồng hồ sau
-/// khi tick chạy; lỗi thật (tick không chạy) thì dừng test kèm thông báo.
-fn advance_one_tick(server: &mut Server, now: u64, budget: &mut usize) -> u64 {
-    let before = server.authority().tick().unwrap_or(0);
-    let mut clock = now;
-    for _ in 0..MAX_TICK_ADVANCE_MS {
-        if *budget == 0 {
-            panic!("hết ngân sách chờ trước khi tick authority chạy");
-        }
-        *budget -= 1;
-        clock = clock.saturating_add(1);
-        server.poll(clock, Duration::ZERO).expect("poll server");
-        if server.authority().tick().unwrap_or(0) != before {
-            return clock;
-        }
-        std::thread::yield_now();
-    }
-    panic!("tick authority không chạy sau {MAX_TICK_ADVANCE_MS} ms");
 }
 
 /// Hướng chắc chắn **đi được** từ ô người chơi đang đứng (ô kề bên là nền).
@@ -2766,8 +2737,8 @@ fn retry_loading(server: &mut Server, clients: &mut [WireClient], round: u64, no
 /// 3. Rào bằng `Ping` → `Pong` cho **từng** client: luồng đọc lấy frame theo thứ tự và
 ///    server xử lý kênh vào theo thứ tự FIFO ⇒ `Pong` chứng minh batch input **đã được
 ///    server xử lý** (mỗi kết nối một hàng đợi riêng nên phải rào từng client).
-/// 4. Tiến đồng hồ **đúng một tick** (1 ms mỗi vòng, dừng ngay khi tick chạy) ⇒ lệnh được
-///    áp dụng đúng một lần, không nhảy quá tick cần thiết.
+/// 4. Tiến tới deadline tick kế tiếp tính từ rules và mốc bắt đầu round.
+///    Assert chỉ đúng một tick chạy, không dùng số lượt poll để tiến clock.
 /// 5. Kiểm state server **và** `Snapshot`: vị trí **đã đổi**, hướng đúng và ack đúng sequence.
 fn retry_input(
     server: &mut Server,
@@ -2825,7 +2796,11 @@ fn retry_input(
         }
 
         // 4. Tiến đúng một tick: tick này áp dụng lệnh input đang chờ.
-        let clock = advance_one_tick(server, now, &mut budget);
+        let tick_before = server.authority().tick().expect("tick đang chơi");
+        let clock = now + 1_000 / u64::from(world.rules().ticks_per_second);
+        server.poll(clock, Duration::ZERO).expect("poll tick input");
+        let tick_after = server.authority().tick().expect("tick sau input");
+        assert_eq!(tick_after, tick_before + 1, "chỉ tiến đúng một tick");
 
         // 5. Chứng minh lệnh **được áp dụng**: vị trí đổi, hướng đúng, ack đúng sequence.
         for (index, _) in players.iter().enumerate() {
@@ -2849,10 +2824,12 @@ fn retry_input(
                 &mut budget,
                 &request,
                 |snapshot| {
-                    snapshot
-                        .players
-                        .iter()
-                        .any(|p| p.id == index as u8 && (p.x, p.y) != before[index])
+                    snapshot.round_id == u32::try_from(round).unwrap()
+                        && snapshot.tick == tick_after
+                        && snapshot
+                            .players
+                            .iter()
+                            .any(|p| p.id == index as u8 && (p.x, p.y) != before[index])
                 },
             )
             .unwrap_or_else(|| {
@@ -2865,6 +2842,7 @@ fn retry_input(
                 .iter()
                 .find(|p| p.id == index as u8)
                 .expect("snapshot phải có người chơi");
+            assert_eq!((state.x, state.y), after, "snapshot phải khớp authority");
             assert_eq!(
                 state.facing, dirs[index],
                 "hướng người chơi slot {index} phải là hướng đã gửi"
@@ -3032,7 +3010,7 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
             &players,
             &world,
             start2.round_id,
-            200_016,
+            200_000,
         );
         let _ = server.poll(400_000, Duration::ZERO).unwrap();
         for c in clients.iter_mut() {
