@@ -37,6 +37,13 @@ phải bằng chứng asset; chi tiết policy ở §4.
 
 ## 3. Bảng event→entry V1
 
+**Nguồn chuẩn của bảng này là `data/assets/audio-v1.toml`** (issue #123): mỗi dòng mapping
+mang `source`/`status`/`claims` theo [AGENTS §4](../../../AGENTS.md#4-bằng-chứng), nạp qua
+loader chung `boom_content::assets`. Trước đó bảng là khai báo Rust trong
+`crates/boom-assets/src/audio.rs`; nay **đổi mapping = sửa file data**, không sửa code.
+Bảng trong tài liệu này và bảng trong file data phải giống nhau — đổi một bảng thì đổi
+cả hai.
+
 Nhãn `design` trong bảng có nghĩa: entry có thật (đã kiểm hash ở §2), nhưng **chưa có bằng chứng
 consumer gốc** chọn entry đó cho event; đây là quyết định V1-034. `unknown` là chưa chọn được entry,
 giữ im lặng tạm thời và theo dõi ở Q-015. Event core lấy từ `boom_core::EventKind`; các dòng

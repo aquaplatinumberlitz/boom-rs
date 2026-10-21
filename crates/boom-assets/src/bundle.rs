@@ -6,8 +6,11 @@
 //! - [`crate::closure`] — manifest closure của một trận V1: entry pack nào cần có, vai trò,
 //!   SHA-256, và danh sách phần chưa xác định kèm lý do (task #34).
 //! - [`crate::sprite`] — bộ giải mã `CDataI16Alpha` v2: ảnh RGBA + frame 48 byte (task #33).
-//! - [`crate::animation`] — bảng clip animation V1 và bộ trích clip từ pack (task #52,
-//!   RULES_V1 R-077…R-079).
+//! - [`crate::animation`] — bộ trích clip từ pack (task #52, RULES_V1 R-077…R-079).
+//!
+//! **Bảng mapping** (clip animation, asset UI, event→SFX, closure) là **data** ở
+//! `data/assets/`, nạp qua [`boom_content::assets`]: mỗi dòng mang nhãn bằng chứng và
+//! claim RULES_V1, nên đổi mapping là sửa file data chứ không sửa code.
 //!
 //! Kiểu đọc bundle nằm ở [`boom_content::bundle`] để client dùng được mà **không cần bộ giải
 //! mã pack** (ARCHITECTURE §7). Định dạng bundle là quyết định `design` của dự án, mô tả ở
@@ -19,7 +22,7 @@
 //!
 //! - Thứ tự sprite theo thứ tự manifest closure, rồi entry chỉ có trong bảng clip; thứ tự
 //!   ảnh theo thứ tự blob gốc.
-//! - Thứ tự clip theo thứ tự bảng [`crate::animation::v1_clip_sources`].
+//! - Thứ tự clip theo thứ tự bảng clip ở `data/assets/animation-v1.toml`.
 //! - Đóng gói atlas dùng thuật toán kệ (shelf) với thứ tự ảnh cố định
 //!   (chiều cao giảm dần, rồi chiều rộng, rồi thứ tự ban đầu).
 //! - `content_hash` băm **toàn bộ bundle**: metadata, SHA-256 của từng file atlas **và** payload audio,
@@ -30,13 +33,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use boom_content::animation::{AnimationClip, PresentationState};
+use boom_content::assets::{AssetError, AssetTables, AudioMapping, UiMapping};
 use boom_content::bundle::{
     AtlasPage, AudioAsset, Bundle, BundleError, Cell, Clip, EvidenceStatus, Frame, NonImageAsset,
     Sprite as BundleSprite, SpriteImage, UiElement, UiState, Unknown, sha256_hex,
 };
-use boom_content::rules::{Source, Status};
+use boom_content::rules::Status;
 
-use crate::animation::{extract_clips, v1_clip_sources};
+use crate::animation::extract_clips;
 use crate::audio;
 use crate::closure::{self, ClosureRole, UnknownKind, V1_MAP};
 use crate::legacy_map::{Build, MapError, parse as parse_map};
@@ -214,11 +218,34 @@ fn page_relative_path(index: usize) -> String {
 ///
 /// Thư mục phải có `.idx`/`.idd` của các pack KR (`FxMap`, `FxTile`, `fx`, `FxCharacter`,
 /// `FxContents`, `FxDesktop`, `FxSound`).
+///
+/// Bảng mapping lấy từ `data/assets/` (nguồn chuẩn duy nhất, nhúng trong crate).
+///
+/// # Errors
+///
+/// Trả [`BundleBuildError`] khi đọc pack lỗi, bảng data sai quy tắc, hoặc bundle dựng ra
+/// không nhất quán.
 pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, BundleBuildError> {
+    let tables = AssetTables::v1()?;
+    build_bundle_with(pack_dir, map_name, &tables)
+}
+
+/// Dựng bundle với bảng mapping cho trước.
+///
+/// Dùng để kiểm "đổi một mapping ⇒ `content_hash` đổi" mà không sửa file trong repo.
+///
+/// # Errors
+///
+/// Trả [`BundleBuildError`] khi đọc pack lỗi hoặc bundle dựng ra không nhất quán.
+pub fn build_bundle_with(
+    pack_dir: &Path,
+    map_name: &str,
+    tables: &AssetTables,
+) -> Result<BuiltBundle, BundleBuildError> {
     if map_name != V1_MAP {
         return Err(BundleBuildError::UnsupportedMap(map_name.to_owned()));
     }
-    let manifest = closure::build_village00_manifest(pack_dir)?;
+    let manifest = closure::build_village00_manifest_with(pack_dir, &tables.closure)?;
 
     let map_pack = Pack::open(pack_dir, "FxMap", Build::Kr)?;
     let map_raw = map_pack.read_named(&format!("Map/{V1_MAP}"))?;
@@ -241,7 +268,7 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
     let mut raw_images: Vec<RawImage> = Vec::new();
     // Ảnh nào thuộc sprite nào: (sprite index, chỉ số ảnh trong sprite).
     let mut image_owner: Vec<(usize, u32)> = Vec::new();
-    // Clip animation của V1, theo thứ tự bảng `v1_clip_sources`.
+    // Clip animation của V1, theo thứ tự bảng `data/assets/animation-v1.toml`.
     let mut clips: Vec<Clip> = Vec::new();
 
     for entry in &manifest.entries {
@@ -301,7 +328,7 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
     // Ảnh của clip nằm trong sprite tương ứng: nếu entry đã có trong closure thì dùng
     // lại (một bản pixel trong atlas), nếu chỉ có trong bảng clip thì thêm vào bundle
     // kèm vai trò riêng.
-    let clip_set = extract_clips(pack_dir, Build::Kr, &v1_clip_sources())?;
+    let clip_set = extract_clips(pack_dir, Build::Kr, &tables.animation.clips)?;
     for clip in &clip_set.clips {
         let sprite_id = format!("{}/{}", clip.pack, clip.entry);
         if !sprites.iter().any(|sprite| sprite.id == sprite_id) {
@@ -372,13 +399,13 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
 
     // Asset UI của luồng V1 (V1-032): ảnh của phần tử nằm trong atlas như sprite thường,
     // còn trạng thái dùng (có chữ chờ duyệt / không dùng asset) nằm ở mục `[[ui]]`.
-    let mut ui: Vec<UiElement> = Vec::with_capacity(closure::ui_assets().len());
-    for asset in closure::ui_assets() {
+    let mut ui: Vec<UiElement> = Vec::with_capacity(tables.ui.elements.len());
+    for asset in &tables.ui.elements {
         let mut sprite = None;
         let mut decode_error = None;
         // Phần tử bị loại thì không đọc ảnh: asset đó không thuộc closure V1.
         if asset.state != UiState::Excluded
-            && let Some(entry) = asset.entry
+            && let Some(entry) = asset.entry.as_deref()
         {
             match decode_ui_sprite(pack_dir, entry) {
                 Ok((sprite_id, decoded)) => {
@@ -406,7 +433,7 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
                     push_unknown(
                         &mut unknown,
                         "ui",
-                        asset.id,
+                        &asset.id,
                         &format!("{entry}: {why}"),
                         &[],
                     );
@@ -415,29 +442,21 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
             }
         }
         let (state, reason) = ui_state_and_reason(asset, decode_error.as_deref());
-        // Phần tử không có asset: quyết định của dự án (vẽ text/màu), không phải bằng
-        // chứng từ pack.
-        let has_asset = asset.entry.is_some();
         ui.push(UiElement {
-            id: asset.id.to_owned(),
+            id: asset.id.clone(),
             screen: asset.screen,
             role: asset.role,
-            entry: asset.entry.map(str::to_owned),
+            entry: asset.entry.clone(),
             state,
             reason,
             sprite,
-            source: if has_asset {
-                Source::KrStatic
-            } else {
-                Source::Design
-            },
-            // Ảnh đọc được thì payload đã xác nhận; ảnh **không** đọc được thì chỉ
-            // mới biết entry trỏ tới pack KR — chưa xác nhận được payload, nên
+            source: asset.source,
+            // Ảnh đọc được thì payload đã xác nhận; ảnh **không** đọc được thì chỉ mới
+            // biết entry trỏ tới pack KR — chưa xác nhận được payload, nên hạ xuống
             // `candidate` (không suy diễn quá bằng chứng, AGENTS §4).
-            status: match (has_asset, decode_error.is_some()) {
-                (true, false) => EvidenceStatus::Confirmed,
-                (true, true) => EvidenceStatus::Candidate,
-                (false, _) => EvidenceStatus::Design,
+            status: match (EvidenceStatus::from(asset.status), decode_error.is_some()) {
+                (EvidenceStatus::Confirmed, true) => EvidenceStatus::Candidate,
+                (status, _) => status,
             },
         });
     }
@@ -530,16 +549,24 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
 
     // Audio V1: payload thô + hash, cùng quy tắc entry/mapping AUDIO_V1. Chỉ nhận định dạng
     // macroquad đọc được; mp3/unknown bị bỏ qua có log thay vì đưa file không phát được.
+    //
+    // Metadata entry đọc từ **chính bảng cue được truyền vào** (nguồn chuẩn), không từ
+    // bảng audio mặc định trong crate: entry ngoài bảng mặc định vẫn phải được đọc thật,
+    // không được coi là thiếu (review Codex #139). Entry không có trong pack thì dựng
+    // bundle lỗi — bỏ qua âm thanh âm thầm làm `content_hash` không còn ràng buộc được
+    // nội dung hiển thị.
     let sound_pack = Pack::open(pack_dir, "FxSound", Build::Kr)?;
-    let infos = audio::v1_entries(&sound_pack)?;
-    let info_by_entry: std::collections::BTreeMap<&str, &audio::AudioInfo> = infos
-        .iter()
-        .map(|info| (info.entry.as_str(), info))
-        .collect();
+    let mut info_by_entry: std::collections::BTreeMap<String, audio::AudioInfo> =
+        std::collections::BTreeMap::new();
+    for entry in audio_entries_of(&tables.audio.cues) {
+        let info = audio::read_entry(&sound_pack, entry)?;
+        info_by_entry.insert(entry.to_owned(), info);
+    }
     let mut audio_assets = Vec::new();
     let mut audio_files = Vec::new();
-    for usage in audio::V1_AUDIO_USES {
-        let Some(info) = info_by_entry.get(usage.entry) else {
+    for usage in &tables.audio.cues {
+        let Some(info) = info_by_entry.get(usage.entry.as_str()) else {
+            // Không xảy ra: metadata đã nạp cho mọi entry mà cue trỏ tới.
             eprintln!(
                 "audio: thiếu entry {} — bỏ qua cue {}",
                 usage.entry, usage.event
@@ -557,21 +584,21 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
             );
             continue;
         }
-        let bytes = sound_pack.read_named(usage.entry)?;
+        let bytes = sound_pack.read_named(&usage.entry)?;
         let file = format!(
             "{}/{}.{format}",
             boom_content::bundle::AUDIO_DIR,
             usage.event
         );
         audio_assets.push(AudioAsset {
-            id: usage.event.to_owned(),
-            entry: usage.entry.to_owned(),
+            id: usage.event.clone(),
+            entry: usage.entry.clone(),
             kind: info.kind.label().to_owned(),
             format: format.to_owned(),
             file,
             bytes: u32::try_from(bytes.len()).expect("audio vừa u32"),
             sha256: info.sha256.clone(),
-            status: EvidenceStatus::Design,
+            status: EvidenceStatus::from(usage.status),
         });
         audio_files.push(bytes);
     }
@@ -602,6 +629,21 @@ pub fn build_bundle(pack_dir: &Path, map_name: &str) -> Result<BuiltBundle, Bund
         pages: page_bytes,
         audio: audio_files,
     })
+}
+
+/// Các entry âm thanh mà các cue của bảng trỏ tới, dedup và giữ thứ tự bảng.
+///
+/// Bảng truyền vào là nguồn chuẩn: entry nào **không** có trong bảng audio mặc định của
+/// crate vẫn phải được đọc từ pack, không được coi là thiếu (review Codex #139).
+fn audio_entries_of(cues: &[AudioMapping]) -> Vec<&str> {
+    let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    let mut entries: Vec<&str> = Vec::new();
+    for cue in cues {
+        if seen.insert(cue.entry.as_str()) {
+            entries.push(cue.entry.as_str());
+        }
+    }
+    entries
 }
 
 /// Sprite đã giải mã từ pack, sẵn sàng đưa ảnh vào atlas.
@@ -698,7 +740,7 @@ fn decode_ui_sprite(pack_dir: &Path, entry: &str) -> Result<(String, DecodedSpri
 /// hạ xuống `excluded` kèm lý do kỹ thuật: phần tử đó không có ảnh trong atlas nên
 /// client vẽ text thay, còn bundle vẫn dựng được — cùng cách xử lý sprite và clip
 /// không giải được.
-fn ui_state_and_reason(asset: &closure::UiAsset, decode_error: Option<&str>) -> (UiState, String) {
+fn ui_state_and_reason(asset: &UiMapping, decode_error: Option<&str>) -> (UiState, String) {
     match decode_error {
         None => (asset.state, asset.reason.to_owned()),
         Some(why) => (
@@ -948,6 +990,8 @@ pub enum BundleBuildError {
     },
     /// Lỗi mã hoá PNG.
     Png(String),
+    /// Bảng mapping trong `data/assets/` sai quy tắc.
+    Assets(AssetError),
 }
 
 impl fmt::Display for BundleBuildError {
@@ -969,6 +1013,7 @@ impl fmt::Display for BundleBuildError {
             ),
             Self::Io { path, message } => write!(f, "{}: {message}", path.display()),
             Self::Png(e) => write!(f, "lỗi mã hoá PNG: {e}"),
+            Self::Assets(e) => write!(f, "bảng mapping content sai quy tắc: {e}"),
         }
     }
 }
@@ -1014,6 +1059,12 @@ impl From<crate::animation::ExtractError> for BundleBuildError {
 impl From<BundleError> for BundleBuildError {
     fn from(value: BundleError) -> Self {
         Self::Bundle(value)
+    }
+}
+
+impl From<AssetError> for BundleBuildError {
+    fn from(value: AssetError) -> Self {
+        Self::Assets(value)
     }
 }
 
@@ -1248,13 +1299,17 @@ mod tests {
     /// được (cùng cách xử lý sprite và clip không giải được).
     #[test]
     fn ui_element_with_an_undecodable_image_falls_back_to_excluded() {
-        let asset = closure::UiAsset {
-            id: "lobby.create",
+        let asset = UiMapping {
+            id: "lobby.create".to_owned(),
             screen: UiScreen::Lobby,
             role: boom_content::bundle::UiRole::Button,
-            entry: Some("FxStage/Lobby/LB_Bt_T_Create-NM"),
+            entry: Some("FxStage/Lobby/LB_Bt_T_Create-NM".to_owned()),
             state: UiState::NeedsReviewText,
-            reason: "ảnh nút có chữ Hàn",
+            reason: "ảnh nút có chữ Hàn".to_owned(),
+            source: boom_content::rules::Source::KrStatic,
+            status: boom_content::rules::Status::Confirmed,
+            claims: Vec::new(),
+            note: None,
         };
 
         // Ảnh đọc được: giữ nguyên trạng thái của bảng closure.
@@ -1281,6 +1336,163 @@ mod tests {
         }
     }
 
+    /// Nghiệm thu issue #123: bundle dựng từ bảng data (`data/assets/`) phải cho
+    /// **cùng** `content_hash` với bundle dựng từ bảng Rust trước khi chuyển mapping
+    /// sang data — nội dung không đổi thì hash không đổi.
+    #[test]
+    fn bundle_from_the_data_tables_matches_the_recorded_content_hash() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        assert_eq!(
+            built.bundle.content_hash,
+            "80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc",
+            "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
+        );
+    }
+
+    /// Nghiệm thu review Codex #139: bảng audio **truyền vào** là nguồn chuẩn — entry mà
+    /// cue trỏ tới nằm ngoài bảng audio mặc định của crate vẫn phải được đọc thật.
+    ///
+    /// Trước khi sửa, `build_bundle_with` nạp lại bảng audio mặc định để lấy metadata
+    /// entry: entry mới bị coi là thiếu và cue bị bỏ khỏi bundle dù asset có thật.
+    #[test]
+    fn audio_cue_outside_the_default_table_is_still_built() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let base = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let mut tables = AssetTables::v1().expect("bảng V1");
+        let cue = tables
+            .audio
+            .cues
+            .iter_mut()
+            .find(|cue| cue.event == "bomb_placed")
+            .expect("cue bomb_placed");
+        // Entry có thật trong pack `FxSound` nhưng không có trong bảng audio mặc định.
+        cue.entry = "Wave/BombExplosion002".to_owned();
+        let changed = build_bundle_with(&root, V1_MAP, &tables).expect("dựng bundle");
+
+        // Cue không bị bỏ, và mang entry mới.
+        assert_eq!(
+            changed.bundle.audio.len(),
+            base.bundle.audio.len(),
+            "không được bỏ cue nào"
+        );
+        let audio = changed
+            .bundle
+            .audio
+            .iter()
+            .find(|audio| audio.id == "bomb_placed")
+            .expect("cue bomb_placed vẫn phải có trong bundle");
+        assert_eq!(audio.entry, "Wave/BombExplosion002", "phải mang entry mới");
+        assert_eq!(audio.format, "ogg", "entry mới là Ogg");
+        assert_eq!(audio.bytes, 23168, "kích thước payload của entry mới");
+
+        // Hash phải là hash của entry mới, không phải của entry cũ.
+        let pack = Pack::open(&root, "FxSound", Build::Kr).expect("mở pack FxSound");
+        let expected = audio::read_entry(&pack, "Wave/BombExplosion002").expect("đọc entry mới");
+        assert_eq!(audio.sha256, expected.sha256, "hash phải của entry mới");
+        let old = base
+            .bundle
+            .audio
+            .iter()
+            .find(|audio| audio.id == "bomb_placed")
+            .expect("cue bomb_placed của bundle gốc");
+        assert_ne!(old.sha256, audio.sha256, "hash phải đổi theo entry");
+
+        // Đổi entry ⇒ `content_hash` đổi.
+        assert_ne!(
+            base.bundle.content_hash, changed.bundle.content_hash,
+            "đổi entry của cue phải đổi content_hash"
+        );
+    }
+
+    /// Bảng audio truyền vào là nguồn chuẩn: entry của cue ngoài bảng mặc định vẫn phải
+    /// được đọc, và entry lặp chỉ đọc một lần (review Codex #139).
+    ///
+    /// Test này không cần pack thật nên chạy được ở CI.
+    #[test]
+    fn audio_entries_come_from_the_given_table() {
+        let mut tables = AssetTables::v1().expect("bảng V1");
+        let cue = tables
+            .audio
+            .cues
+            .iter_mut()
+            .find(|cue| cue.event == "bomb_placed")
+            .expect("cue bomb_placed");
+        cue.entry = "Wave/BombExplosion002".to_owned();
+        let entries = audio_entries_of(&tables.audio.cues);
+        assert!(
+            entries.contains(&"Wave/BombExplosion002"),
+            "entry ngoài bảng audio mặc định vẫn phải được đọc"
+        );
+        assert_eq!(
+            entries.len(),
+            tables.audio.cues.len(),
+            "bảng V1 không có entry lặp"
+        );
+
+        // Entry lặp chỉ được đọc một lần.
+        let mut cues = tables.audio.cues.clone();
+        cues.push(cues[0].clone());
+        let entries = audio_entries_of(&cues);
+        let mut unique = entries.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(entries.len(), unique.len(), "entry lặp phải được dedup");
+    }
+
+    /// Nghiệm thu issue #123: đổi **một** mapping ⇒ `content_hash` đổi.
+    ///
+    /// Bảng data là nguồn chuẩn; nếu đổi mapping mà hash không đổi thì reader không còn
+    /// ràng buộc được nội dung hiển thị.
+    #[test]
+    fn changing_one_mapping_changes_the_content_hash() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let base = build_bundle(&root, V1_MAP).expect("dựng bundle");
+
+        // Đổi nhãn bằng chứng của một clip.
+        let mut tables = AssetTables::v1().expect("bảng V1");
+        let clip = tables
+            .animation
+            .clips
+            .iter_mut()
+            .find(|clip| clip.id == "c00.walk.down.static")
+            .expect("clip đi của C00");
+        clip.status = Status::Candidate;
+        let changed = build_bundle_with(&root, V1_MAP, &tables).expect("dựng bundle");
+        assert_ne!(
+            base.bundle.content_hash, changed.bundle.content_hash,
+            "đổi nhãn bằng chứng của clip phải đổi content_hash"
+        );
+
+        // Đổi lý do của một phần tử UI.
+        let mut tables = AssetTables::v1().expect("bảng V1");
+        let element = tables
+            .ui
+            .elements
+            .iter_mut()
+            .find(|element| element.id == "lobby.create")
+            .expect("phần tử UI lobby.create");
+        element.reason = "lý do đã đổi".to_owned();
+        let changed = build_bundle_with(&root, V1_MAP, &tables).expect("dựng bundle");
+        assert_ne!(
+            base.bundle.content_hash, changed.bundle.content_hash,
+            "đổi lý do của phần tử UI phải đổi content_hash"
+        );
+
+        // Bảng không đổi thì hash vẫn như cũ.
+        let same = build_bundle(&root, V1_MAP).expect("dựng bundle lại");
+        assert_eq!(base.bundle.content_hash, same.bundle.content_hash);
+    }
+
     /// Nghiệm thu V1-031: bundle phải mang **mọi** clip của bảng animation V1, với nhãn
     /// bằng chứng đúng: clip R-077 là `confirmed`, clip R-078 là `candidate`.
     ///
@@ -1293,7 +1505,7 @@ mod tests {
             return;
         };
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
-        let sources = crate::animation::v1_clip_sources();
+        let sources = crate::animation::v1_clip_sources().expect("bảng clip V1 hợp lệ");
         assert_eq!(built.bundle.clips.len(), sources.len());
 
         for source in &sources {
