@@ -109,3 +109,83 @@ value = 2000
 unit = "weight"
 source = "design"
 status = "design"
+
+# Chỉ số nhân vật C00/C01 (RULES_V1 R-040/R-041): nay **nằm trong rules profile**, không
+# còn ở cấu hình server (PR #117). Harness đọc bảng này qua
+# `boom_core::CharacterStatsTable::from_profile`, nên bot và server luôn dùng cùng nguồn.
+#
+# Giá trị (cấp hiện tại / cấp tối đa) là **lựa chọn của profile kiểm thử**: mọi rule của
+# profile này ghi `source = "design"`, `status = "design"`, không sinh claim `R-xxx` mới.
+# Trước khi chỉ số nằm ở `boom-server`, harness đặt cứng 1/5 cho cả ba chỉ số của cả hai
+# nhân vật; giữ nguyên 1/5 để kịch bản QA không đổi hành vi.
+[characters.c00_speed]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_speed_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"

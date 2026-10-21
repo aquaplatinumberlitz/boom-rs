@@ -35,14 +35,13 @@ use std::time::{Duration, Instant};
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
-use boom_core::{CharacterStats, Stat, World, mode_by_id};
+use boom_core::{CharacterStatsTable, World, mode_by_id};
 use boom_net::{MemoryTransport, Transport};
 use boom_room::PlayerId;
 use boom_server::auth::{AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use boom_server::{
-    Authority, CharacterStatsTable, HandshakeConfig, InternalServerEvent, MatchSetup, Server,
-    ServerConfig, ServerPhase,
+    Authority, HandshakeConfig, InternalServerEvent, MatchSetup, Server, ServerConfig, ServerPhase,
 };
 use sha2::{Digest, Sha256};
 
@@ -302,10 +301,8 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
         World::new(terrain, rules, mode).map_err(|err| QaError::Setup(format!("world: {err}")))?;
     let content_sha256: [u8; 32] = Sha256::digest(map_text.as_bytes()).into();
 
-    let stats = CharacterStatsTable {
-        c00: character_stats(),
-        c01: character_stats(),
-    };
+    let stats = CharacterStatsTable::from_profile(&rules_profile)
+        .map_err(|err| QaError::Setup(format!("chỉ số nhân vật: {err}")))?;
     let setup = MatchSetup {
         world: world.clone(),
         stats,
@@ -511,14 +508,24 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
                 bot.last_round = round;
                 bot.last_seq = 0;
             }
-            let applied = server.authority().applied_seq(bot.player).unwrap_or(0);
+            // Server khoá input theo **account_id** (định danh người chơi trên dây, ADR
+            // 0009 Addendum B §B.2), không phải `PlayerId` của kết nối: phải tra bằng
+            // `account_id` mà bot học từ `AuthOk`, nếu không thì `applied_seq` luôn rỗng
+            // ⇒ không đo được độ trễ nào.
+            let Some(account_id) = bot.client.stats().account_id else {
+                continue;
+            };
+            let applied = server
+                .authority()
+                .applied_seq(PlayerId(account_id))
+                .unwrap_or(0);
             if applied > bot.last_seq {
                 for seq in (bot.last_seq + 1)..=applied {
                     let Some(sent) = bot.client.stats().sent.get(&(round, seq)) else {
                         continue;
                     };
                     resolved += 1;
-                    if retired.contains(&(round, bot.player.0, seq)) {
+                    if retired.contains(&(round, account_id, seq)) {
                         continue;
                     }
                     latency.push(now.saturating_sub(sent.sent_at_ms));
@@ -671,14 +678,6 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
         bots: bot_status,
     };
     Ok(report)
-}
-
-fn character_stats() -> CharacterStats {
-    CharacterStats {
-        speed: Stat::new(1, 5),
-        bombs: Stat::new(1, 5),
-        range: Stat::new(1, 5),
-    }
 }
 
 /// Cấu hình auth cho lần chạy QA.

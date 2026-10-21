@@ -36,6 +36,10 @@
 //!    (ADR 0009 §2). Mạng cố ý trùng/đảo thứ tự frame nên `Pong` của ping cũ có thể tới
 //!    sau `Pong` của ping mới: mỗi `Pong` chỉ ghi mẫu RTT khi nonce khớp một ping **đang
 //!    chờ**; `Pong` lạ thì bỏ qua.
+//! 7. **Định danh trên dây là `account_id`**: mọi trường `player` của `RoomState` và
+//!    `RoundStart.roster` mang `account_id` server cấp trong `AuthOk`, **không** phải
+//!    `PlayerId` của kết nối (ADR 0009 Addendum B §B.2). Bot dùng nó để biết mình là host
+//!    và lấy slot của mình trong phòng.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -98,6 +102,13 @@ pub struct SentCommand {
 /// Số liệu bot tự ghi.
 #[derive(Clone, Debug, Default)]
 pub struct BotStats {
+    /// Định danh người chơi **trên dây** (`account_id` do server cấp trong `AuthOk`).
+    ///
+    /// `None` trước `AuthOk`. Mọi trường `player` trên dây và mọi khoá của server bên
+    /// trong (`Authority::applied_seq`, sự kiện `InputRetired`) dùng giá trị này, **không**
+    /// phải `PlayerId` của kết nối (ADR 0009 Addendum B §B.2). Harness đọc nó để tra
+    /// cùng khoá với server khi đo độ trễ input.
+    pub account_id: Option<u64>,
     /// Số lệnh input đã gửi.
     pub commands_sent: u32,
     /// Số batch input bị server từ chối.
@@ -250,6 +261,12 @@ pub struct DirectDtoBot {
     rng: Rng,
     stats: BotStats,
     request_seq: u64,
+    /// Định danh người chơi **trên dây** (`account_id` do server cấp trong `AuthOk`).
+    ///
+    /// Mọi trường `player` trên dây (`RoomState`, `RoundStart.roster`) mang giá trị này
+    /// (ADR 0009 Addendum B §B.2), **không** phải `PlayerId` của kết nối: bot học nó từ
+    /// `AuthOk` và dùng để biết mình là host và slot của mình trong phòng.
+    account_id: Option<u64>,
     /// Phòng bot đang ở (ID public).
     room_id: Option<u64>,
     /// Phòng bot đã gửi `Join`; `None` = chưa gửi `Join` nào.
@@ -337,6 +354,7 @@ impl DirectDtoBot {
             rng,
             stats: BotStats::default(),
             request_seq: 0,
+            account_id: None,
             room_id: None,
             join_requested: None,
             join_requested_at_ms: 0,
@@ -380,7 +398,9 @@ impl DirectDtoBot {
     /// Bắt đầu lại luồng phiên sau khi harness mở lại kết nối.
     ///
     /// `ping_nonce` **không** được đặt lại: nonce phải đơn điệu trong cả lần chạy để
-    /// `Pong` của phiên cũ (nếu còn sót) không khớp nhầm ping của phiên mới.
+    /// `Pong` của phiên cũ (nếu còn sót) không khớp nhầm ping của phiên mới. `account_id`
+    /// cũng giữ nguyên: mở lại phiên vẫn là **cùng một tài khoản** (`AuthOk` mới sẽ xác nhận
+    /// lại), còn `slot` thì phải học lại từ roster của lượt mới.
     fn reset_state(&mut self) {
         self.phase = BotPhase::Handshake;
         self.request_seq = 0;
@@ -533,9 +553,16 @@ impl DirectDtoBot {
         }
     }
 
-    fn on_auth_ok(&mut self, now_ms: u64) -> Result<Vec<Vec<u8>>, BotError> {
+    /// `AuthOk`: bot học **account_id** do server cấp và xin danh sách sảnh.
+    ///
+    /// `account_id` là định danh người chơi trên dây (mọi trường `player` của `RoomState` /
+    /// `RoundStart.roster` mang giá trị này, ADR 0009 Addendum B §B.2): bot cần nó để biết
+    /// mình có phải host và slot của mình trong phòng.
+    fn on_auth_ok(&mut self, now_ms: u64, auth: &AuthOk) -> Result<Vec<Vec<u8>>, BotError> {
         self.auth_retry_allowed = false;
-        self.trace("<- AuthOk");
+        self.account_id = Some(auth.account_id);
+        self.stats.account_id = Some(auth.account_id);
+        self.trace(&format!("<- AuthOk account {}", auth.account_id));
         let frame = self.encode(&LobbyListRequest {})?;
         self.phase = BotPhase::Lobby;
         self.lobby_requested_at_ms = now_ms;
@@ -586,11 +613,14 @@ impl DirectDtoBot {
     }
 
     /// Ghi nhận slot người chơi trong phòng từ `RoomState` hoặc roster của `RoundStart`.
+    ///
+    /// `members` mang **account_id** (định danh người chơi trên dây, ADR 0009 Addendum B
+    /// §B.2), **không** phải `PlayerId` của kết nối: server bind session rồi mới gán slot.
     fn learn_slot(&mut self, members: &[(u64, u8)]) {
-        if let Some((_, slot)) = members
-            .iter()
-            .find(|(player, _)| *player == self.config.player)
-        {
+        let Some(account_id) = self.account_id else {
+            return;
+        };
+        if let Some((_, slot)) = members.iter().find(|(player, _)| *player == account_id) {
             self.slot = Some(*slot);
         }
     }
@@ -601,7 +631,9 @@ impl DirectDtoBot {
         self.join_confirmed = false;
         self.join_confirmed_at_ms = 0;
         self.room_members = state.members.len();
-        self.is_room_host = state.host == self.config.player;
+        // `host` mang **account_id** của host (ADR 0009 Addendum B §B.2), không phải
+        // `PlayerId` của kết nối: so với account_id của chính bot.
+        self.is_room_host = self.account_id == Some(state.host);
         let members: Vec<(u64, u8)> = state
             .members
             .iter()
@@ -611,10 +643,12 @@ impl DirectDtoBot {
         // `self_ready`/`all_ready_seen` phản ánh **trạng thái quan sát được** ở `RoomState` này.
         // Không được đặt lại chúng sau khi tính: nếu đặt lại, host không bao giờ thấy
         // "phòng đủ người ready" nên không gửi `Start` (phòng treo vĩnh viễn).
-        self.self_ready = state
-            .members
-            .iter()
-            .any(|member| member.player == self.config.player && member.ready);
+        self.self_ready = self.account_id.is_some_and(|account_id| {
+            state
+                .members
+                .iter()
+                .any(|member| member.player == account_id && member.ready)
+        });
         self.all_ready_seen = state.members.len() == self.config.expected_members
             && state.members.iter().all(|member| member.ready);
         self.trace(&format!(
@@ -1020,9 +1054,9 @@ impl BotClient for DirectDtoBot {
         match envelope.kind {
             MessageKind::Welcome => self.on_welcome(now_ms),
             MessageKind::AuthOk => {
-                let _auth: AuthOk = boom_proto::decode_payload(payload)
+                let auth: AuthOk = boom_proto::decode_payload(payload)
                     .map_err(|e| BotError::Proto(e.to_string()))?;
-                self.on_auth_ok(now_ms)
+                self.on_auth_ok(now_ms, &auth)
             }
             MessageKind::AuthFail => {
                 let fail: AuthFail = boom_proto::decode_payload(payload)
@@ -1254,6 +1288,7 @@ mod tests {
     use boom_content::rules::RulesProfile;
     use boom_core::mode_by_id;
     use boom_proto::LobbyRoom;
+    use boom_proto::dto::room::RoomMember;
 
     /// Thế giới dùng cho test bot (bản đồ + profile rules tích hợp sẵn của QA).
     fn test_world() -> World {
@@ -1501,7 +1536,6 @@ mod tests {
     #[test]
     fn pong_of_a_previous_session_is_ignored() {
         let mut bot = pinged_bot();
-
         let nonce_a = ping_nonce(&bot.on_tick(1_000).unwrap());
         // Mở lại phiên: bảng pending được dọn, nonce vẫn đơn điệu.
         bot.reset(1);
@@ -1518,5 +1552,105 @@ mod tests {
 
         bot.on_frame(2_050, &pong_frame(nonce_b)).unwrap();
         assert_eq!(bot.stats().rtt.values(), [50u64].as_slice());
+    }
+
+    /// `RoomState.host` và roster mang **account_id** (ADR 0009 Addendum B §B.2), **không**
+    /// phải `PlayerId` của kết nối: bot học `account_id` từ `AuthOk` và dùng nó để biết
+    /// mình là host và slot của mình trong phòng.
+    #[test]
+    fn host_and_slot_come_from_the_account_id() {
+        let mut bot = test_bot();
+        // `PlayerId` của kết nối (bot này là bot số 1) **khác** `account_id` do server cấp.
+        bot.config.player = 1;
+        bot.on_auth_ok(
+            0,
+            &AuthOk {
+                account_id: 42,
+                display_name: "bot0".to_owned(),
+                token: "token".to_owned(),
+                expires_at_ms: 0,
+            },
+        )
+        .unwrap();
+        assert_eq!(bot.account_id, Some(42));
+
+        // Phòng có host là account_id 42 (bot này) và bot kia ở slot 0.
+        let state = RoomState {
+            room_id: 1,
+            host: 42,
+            phase: boom_proto::RoomPhase::Waiting,
+            members: vec![
+                RoomMember {
+                    player: 7,
+                    slot: 0,
+                    character: RoomCharacter::C00,
+                    ready: true,
+                },
+                RoomMember {
+                    player: 42,
+                    slot: 1,
+                    character: RoomCharacter::C01,
+                    ready: true,
+                },
+            ],
+            round: None,
+        };
+        bot.on_room_state(&state, 10).unwrap();
+
+        assert!(
+            bot.is_room_host,
+            "host là account_id của bot thì bot là host"
+        );
+        assert_eq!(bot.slot, Some(1), "slot lấy theo account_id");
+        assert!(bot.self_ready, "ready của mình lấy theo account_id");
+    }
+
+    /// `PlayerId` của kết nối trùng với `account_id` của **người khác** thì bot không
+    /// được tưởng mình là host: nếu không, bot gửi `Start` liên tục và bị từ chối
+    /// (`NotHost`) ⇒ phòng treo.
+    #[test]
+    fn connection_player_id_is_not_the_account_id() {
+        let mut bot = test_bot();
+        bot.config.player = 42;
+        bot.on_auth_ok(
+            0,
+            &AuthOk {
+                account_id: 7,
+                display_name: "bot1".to_owned(),
+                token: "token".to_owned(),
+                expires_at_ms: 0,
+            },
+        )
+        .unwrap();
+
+        let state = RoomState {
+            room_id: 1,
+            // Host là account_id 42 — trùng `PlayerId` của kết nối bot này.
+            host: 42,
+            phase: boom_proto::RoomPhase::Waiting,
+            members: vec![
+                RoomMember {
+                    player: 42,
+                    slot: 0,
+                    character: RoomCharacter::C00,
+                    ready: true,
+                },
+                RoomMember {
+                    player: 7,
+                    slot: 1,
+                    character: RoomCharacter::C01,
+                    ready: true,
+                },
+            ],
+            round: None,
+        };
+        bot.on_room_state(&state, 10).unwrap();
+
+        assert!(
+            !bot.is_room_host,
+            "host so với account_id, không so với PlayerId"
+        );
+        assert_eq!(bot.slot, Some(1), "slot lấy theo account_id");
+        assert!(bot.self_ready, "ready của mình lấy theo account_id");
     }
 }

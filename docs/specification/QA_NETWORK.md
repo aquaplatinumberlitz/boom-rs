@@ -83,6 +83,23 @@ bị mất, trùng hoặc tới trễ. Bot vì vậy phải idempotent:
   roster, không phải slot session. Server bind người chơi theo session rồi so `batch.player` với
   slot trong roster của lượt; gửi sai slot thì mọi batch bị từ chối.
 
+### Định danh người chơi: `account_id`, không phải `PlayerId` của kết nối
+
+Mọi trường `player` trên dây (`RoomState.host`, `RoomState.members[].player`,
+`RoundStart.roster[].player`) mang **account_id** do server cấp trong `AuthOk`, **không** phải
+`PlayerId` của kết nối (ADR 0009 Addendum B §B.2). Bot vì vậy:
+
+- học `account_id` của mình từ `AuthOk` và dùng nó để biết mình có phải host
+  (`RoomState.host == account_id` của bot) và để lấy **slot** của mình trong roster
+  (`members[].player == account_id` ⇒ lấy `members[].slot`);
+- `account_id` **không** trùng với `PlayerId` mà harness gán cho kết nối: server cấp
+  `account_id` theo thứ tự đăng ký tài khoản, nên hai bot có thể đổi thứ tự. So sánh nhầm hai
+  định danh này khiến bot tưởng mình là host ⇒ gửi `Start` liên tục và bị từ chối `NotHost`
+  ⇒ phòng treo, lượt không bắt đầu.
+
+Harness cũng tra `applied_seq` của server (khoá theo `account_id`) bằng `account_id` mà bot
+học được, nếu không thì không đo được độ trễ input nào.
+
 ### Giữ phiên sống (liveness)
 
 Server đóng phiên khi **không nhận được `Pong`** trong `liveness_timeout_ms`, và nó chỉ làm
