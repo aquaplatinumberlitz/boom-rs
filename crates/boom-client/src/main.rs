@@ -250,6 +250,62 @@ fn main() {
             std::process::exit(2);
         }
     };
+    // Luồng tương tác mạng bắt đầu ở login; auto-ready giữ entry headless/QA.
+    if let Some(addr) = opts.connect.clone()
+        && !opts.auto_ready
+    {
+        for &(action, key) in &opts.rebinds {
+            game.input.rebind(action, key);
+        }
+        let content = local_content(&game);
+        let rules = game.world.rules().clone();
+        let profile_for_login = profile.clone();
+        let backend = net::ui_backend::NetBackend::lazy(move |credentials| {
+            let hello = net::hello_for_profile(
+                &profile_for_login,
+                &rules,
+                net::content_sha256_from_env(),
+                "boom-client",
+            );
+            let mut client = net::connect_tcp(
+                &addr,
+                rules.clone(),
+                mode_by_id("battle_ffa").expect("mode"),
+            )?;
+            client.handshake(&hello)?;
+            client.authenticate(&credentials)?;
+            if let Some(content) = content.clone() {
+                client.set_local_content(content);
+            }
+            Ok(client)
+        });
+        let mut model = ui::UiModel::new(backend, ui::Texts::from_l10n(l10n));
+        if let Some(user) = opts
+            .user
+            .clone()
+            .or_else(|| std::env::var("BOOM_USER").ok())
+        {
+            model.set_field_text(ui::model::FieldId::LoginAccount, &user);
+        }
+        if let Some(password) = opts
+            .password
+            .clone()
+            .or_else(|| std::env::var("BOOM_PASSWORD").ok())
+        {
+            model.set_field_text(ui::model::FieldId::LoginPassword, &password);
+        }
+        let conf = macroquad::miniquad::conf::Conf {
+            window_title: "boom-rs".to_owned(),
+            window_width: ui::WIDTH as i32,
+            window_height: ui::HEIGHT as i32,
+            window_resizable: false,
+            high_dpi: false,
+            sample_count: 1,
+            ..Default::default()
+        };
+        macroquad::Window::from_config(conf, run_network_ui(game, model, opts.scale));
+        return;
+    }
     // Chế độ mạng: nối server và dùng module `net`; không có `--connect` thì giữ offline.
     if let Some(addr) = opts.connect.clone() {
         let credentials = match net_credentials(
@@ -1178,6 +1234,89 @@ fn demo_cell_free(world: &World, cell: Cell, dir: Dir, step: i32) -> bool {
     let (dx, dy) = dir.delta();
     let target = Cell::new(cell.x + dx * step, cell.y + dy * step);
     world.terrain().kind(target.x, target.y) == Some(CellKind::Floor)
+}
+
+/// UI và gameplay cùng sở hữu một phiên mạng, không mở kết nối thứ hai.
+async fn run_network_ui(
+    mut game: Game,
+    mut model: ui::UiModel<net::ui_backend::NetBackend<boom_net::TcpTransport>>,
+    scale: u32,
+) {
+    let font = ui::draw::load_font();
+    let atlas = match (game.bundle_dir.as_deref(), game.scene.as_ref()) {
+        (Some(dir), Some(scene)) => Some(Atlas::load(dir, &scene.pages).expect("atlas")),
+        _ => None,
+    };
+    let mut audio = match (game.bundle_dir.as_deref(), game.bundle.as_ref()) {
+        (Some(dir), Some(bundle)) if !bundle.audio.is_empty() => {
+            Some(audio::MacroquadAudio::load(dir, bundle).await)
+        }
+        _ => None,
+    };
+    let target = render_target(game.logic_size[0], game.logic_size[1]);
+    target.texture.set_filter(FilterMode::Nearest);
+    let material = load_copy_material();
+    let mut adapter = InputAdapter::default();
+    let subscriber = macroquad::input::utils::register_input_subscriber();
+    let step = 1.0 / f64::from(game.world.rules().ticks_per_second);
+    let mut last = get_time();
+    let mut accumulator = 0.0;
+    let mut was_match = false;
+    loop {
+        model.tick();
+        let playing = model.screen() == boom_content::bundle::UiScreen::Match;
+        if playing != was_match {
+            game.input.apply(InputEvent::FocusLost);
+            accumulator = 0.0;
+            let size = if playing {
+                [game.logic_size[0] * scale, game.logic_size[1] * scale]
+            } else {
+                [ui::WIDTH, ui::HEIGHT]
+            };
+            macroquad::miniquad::window::set_window_size(size[0], size[1]);
+            was_match = playing;
+        }
+        macroquad::input::utils::repeat_all_miniquad_input(&mut adapter, subscriber);
+        adapter.drain_into(&mut game.input);
+        let now = get_time();
+        if playing {
+            if is_key_pressed(KeyCode::Escape) {
+                return;
+            }
+            game.now = now;
+            accumulator += (now - last).min(0.25);
+            game.net = model.backend_mut().take_client();
+            while accumulator >= step {
+                if let Err(error) = game.tick() {
+                    eprintln!("mạng: {error}");
+                    return;
+                }
+                accumulator -= step;
+            }
+            if let Some(audio) = &mut audio {
+                audio.apply(&game.take_audio_plan(), &game.options);
+            }
+            draw_scene(&game, atlas.as_ref(), &target, &material, scale);
+            if let Some(client) = game.net.take() {
+                model.backend_mut().put_client(client);
+            }
+        } else {
+            game.input.apply(InputEvent::FocusLost);
+            if ui::app::handle_input(&mut model) {
+                return;
+            }
+            let layout = ui::layout::layout(&model, game.bundle.as_ref(), game.scene.as_ref());
+            ui::draw::draw(
+                &layout,
+                &font,
+                atlas.as_ref(),
+                game.bundle.as_ref(),
+                game.scene.as_ref(),
+            );
+        }
+        last = now;
+        next_frame().await;
+    }
 }
 
 async fn run(mut game: Game, opts: Options) {

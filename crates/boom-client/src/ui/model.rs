@@ -219,6 +219,11 @@ pub trait UiBackend {
     /// [`UiModel::tick`] gọi hàm này mỗi vòng, nên UI trong phòng chờ thấy được thay đổi của
     /// người khác mà không cần bấm làm mới.
     fn pump(&mut self) {}
+
+    /// Server đã phát lượt mới cho thành viên phòng.
+    fn active_match(&self) -> bool {
+        false
+    }
 }
 
 /// Hành động của UI (mỗi hành động gắn một khóa chuỗi đã có trong file chuỗi V1).
@@ -375,6 +380,11 @@ impl<B: UiBackend> UiModel<B> {
     /// Bộ chuỗi hiển thị.
     pub fn texts(&self) -> &Texts {
         &self.texts
+    }
+
+    /// Backend dùng chung cho UI và vòng gameplay.
+    pub fn backend_mut(&mut self) -> &mut B {
+        &mut self.backend
     }
 
     /// Danh sách phòng ở sảnh.
@@ -715,6 +725,10 @@ impl<B: UiBackend> UiModel<B> {
     pub fn tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
         self.backend.pump();
+        if self.screen == UiScreen::Room && self.backend.active_match() {
+            self.screen = UiScreen::Match;
+            self.focus = Focus::Action(ActionId::Quit);
+        }
         if self.screen != UiScreen::Match {
             return;
         }
