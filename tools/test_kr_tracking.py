@@ -77,14 +77,13 @@ class TrackingIntegrityTests(unittest.TestCase):
         target = self.first_open()
         base = metrics(self.features)
         self.complete_record(target)
-        target["depends_on"] = []
         m = metrics(self.features)
         self.assertEqual((m["V1"]["done"], m["V1"]["total"]), (base["V1"]["done"] + 1, 37))
         self.assertEqual(
             (m["catalog"]["done"], m["catalog"]["total"], m["excluded"]),
             (base["catalog"]["done"] + 1, 112, 2),
         )
-        self.features[0]["implementation"] = "in_review"
+        target["implementation"] = "in_review"
         self.assertEqual(metrics(self.features)["V1"]["percent"], base["V1"]["percent"])
 
     def test_scope_change_cannot_silently_change_denominator(self):

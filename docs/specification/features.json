@@ -1086,7 +1086,7 @@
           "result": ""
         },
         "blocker": "",
-        "next_action": "Rà #161: Sổ not_started đã stale. Hội tụ và dedup NetClient đạt, nhưng binary `main.rs::Game::tick` lấy rồi bỏ `net.take_events()` (khoảng dòng 736), chưa nối journal/audio nên chưa chứng minh acceptance effect/audio thực. Nối consumer duy nhất theo (round_id, EventId), reset round; thêm test Game mạng correction+duplicate event→đúng một effect/cue/pickup. Đây là task nối tích hợp, không viết lại "
+        "next_action": "Hội tụ/dedup NetClient đạt (#89/#136), nhưng binary `main.rs::Game::tick` lấy rồi bỏ `net.take_events()` và return trước absorb_events ⇒ chưa chứng minh effect/audio thực khi chơi mạng. Việc: issue #163 — một consumer duy nhất theo (round_id, EventId) cho offline + mạng, reset khi sang round; test Game mạng với fixture server thật."
       }
     },
     {
@@ -1168,7 +1168,7 @@
           "result": ""
         },
         "blocker": "",
-        "next_action": "Phần 1: harness QA mạng headless boom-qa (#142). Còn: bot dùng prediction client (cần V1-025), kịch bản mất kết nối, đo correction."
+        "next_action": "Phần 1 harness boom-qa (#142). Thiếu: bot dùng predictor/API client chung, metric correction p50/p95, kịch bản disconnect/liveness/rejoin, 4 client drain rồi hội tụ hash; đường xin lại RoundResult khi mất frame (hiện `net/tests.rs::mat_round_result_chua_co_duong_xin_lai` xác nhận thiếu) phải có trước phát hành. Việc: issue #166 (sau #163)."
       }
     },
     {
@@ -1255,7 +1255,7 @@
           "result": "Comment APPROVE trên PR #79, #97"
         },
         "blocker": "",
-        "next_action": "Rà #161: Acceptance còn thiếu: `observability.rs:148` khởi tạo round_id=null, chưa thấy emit round lifecycle điền round_id; server close_session/shutdown không log đủ nguyên nhân network disconnect. `runtime.rs::start` gọi load_content trước tạo Logger nên lỗi load đi stderr từ main. Bổ sung structured content.load_failed + round lifecycle/disconnect có ID/reason ở runtime/server/authority; thêm t"
+        "next_action": "Thiếu: `observability.rs:148` round_id=null, chưa emit vòng đời round có round_id; close_session/shutdown không log đủ nguyên nhân disconnect; `runtime.rs::start` gọi load_content trước tạo Logger nên lỗi load đi stderr. Việc: issue #165 — log JSON round lifecycle + lý do disconnect + logger trước load, có test."
       }
     },
     {
@@ -1347,7 +1347,7 @@
           "result": "Comment APPROVE trên PR #52, #82, #100, #105, #122"
         },
         "blocker": "",
-        "next_action": "Rà #161: Frame/pivot/offline theo R-085…R-089 có test, nhưng nhánh mạng `Game::tick` chỉ đếm rồi bỏ server events và return trước absorb_events; journal không nhận trap/dead/explosion/start round mạng. Nối event và round start vào journal, clock/reset khi sang round; thêm test Game mạng phát trọn dead/trapped/start, frame/pivot, tiếp tục sau Ended và duplicate không phát lại. #148 là RE tương lai,"
+        "next_action": "Frame/pivot/offline theo R-085…R-089 có test (#100/#122), nhưng nhánh mạng `Game::tick` chỉ đếm rồi bỏ server events ⇒ journal không nhận trap/dead/explosion/start khi chơi mạng. Việc: issue #163 — nối event + round start vào journal, clock/reset khi sang round, test Game mạng."
       }
     },
     {
@@ -1387,7 +1387,7 @@
           "result": "Comment APPROVE trên PR #91"
         },
         "blocker": "",
-        "next_action": "UiBackend mạng + tên hiển thị (#155). Còn: bố cục UI theo client gốc (RE KR #150), ảnh UI chờ duyệt Việt hóa."
+        "next_action": "Blocker thật: entry binary chưa gọi `UiModel<NetBackend>` (main() chỉ dựng DemoBackend ở --ui-demo; `ui/app.rs:70–75` run_ui chưa có caller mạng), chưa nối Playing → ResultsAck → Room → trận 2. Layout KR (#150) không tự chặn luồng V1. Việc: issue #164 (sau #163) — test tích hợp trọn hai trận qua UI model với fixture server thật."
       }
     },
     {
@@ -1469,7 +1469,7 @@
           "result": "Comment APPROVE trên PR #67, #106"
         },
         "blocker": "",
-        "next_action": "Rà #161: Game::tick nhánh net return trước AudioState::plan; chưa có BGM/SFX từ event mạng. Nối AudioState/MacroquadAudio + own slot/round và cue UI vào consumer mạng; test duplicate/reconcile chỉ phát một cue, mute/volume/BGM không restart. Module test/offline xanh chưa nghiệm thu audio luồng chơi mạng."
+        "next_action": "Audio module/offline xanh (#106) nhưng nhánh net `Game::tick` return trước `AudioState::plan` ⇒ chưa có BGM/SFX từ event mạng. Việc: issue #163 — nối AudioState/MacroquadAudio + own slot/round + cue UI vào consumer mạng; test duplicate/reconcile chỉ phát một cue, mute/volume/BGM không restart."
       }
     },
     {
@@ -1509,7 +1509,7 @@
           "result": "Comment APPROVE trên PR #98"
         },
         "blocker": "",
-        "next_action": "Chuỗi V1 từ catalog; 42 khóa unknown + 15 review chờ boom-re-l10n; font chưa chọn."
+        "next_action": "Font OFL đã có (#116). Thiếu: chuỗi unknown/review còn trong `data/l10n/vi-v1.toml` (fallback placeholder chưa phải bản dịch đã chốt) ⇒ chốt key/ngữ cảnh ở catalog boom-re-l10n rồi xuất lại; nối toàn bộ màn UI thật qua TextFont/l10n; test glyph/wrap/placeholder trên chuỗi đã duyệt. Cần người duyệt bản dịch."
       }
     },
     {
@@ -1548,7 +1548,7 @@
           "result": "Comment APPROVE trên PR "
         },
         "blocker": "",
-        "next_action": "Gói phát hành có toàn văn license + font OFL + tools/check_package.py (#128). Còn dependency V1-027/V1-035."
+        "next_action": "Có gói phát hành 3 OS + LICENSES/font/check_package (#110/#128). Thiếu acceptance: smoke cài/chạy package trên Windows/Linux/macOS (client/server từ gói, thiếu pack/rules/content báo rõ, lưu log + version/fingerprint). Việc: issue #167. Còn dependency V1-027/V1-035."
       }
     },
     {
@@ -1588,7 +1588,7 @@
           "result": "Comment APPROVE trên PR #96"
         },
         "blocker": "",
-        "next_action": "Phần 1 đối chiếu server VN xong; còn fixture original/golden riêng."
+        "next_action": "Chưa có oracle original/VN tách khỏi golden V1: cần fixture/metadata provenance từ raw VN/original, input/expected/tolerance và báo diff với profile ADR 0013. Việc đo client gốc đang hoãn theo quyết định chủ dự án (Q-009: BnB CN/thông số công khai); RE KR #146–#150 cung cấp claim tĩnh."
       }
     },
     {
