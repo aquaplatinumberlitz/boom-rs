@@ -1,5 +1,8 @@
+# R-107: khối mềm chặn như khối cứng theo hộp 26×26 px; người chơi dừng ở mép hộp
+# (x = 66 px), không ở tâm ô (60 px) như mô hình điểm tâm.
 name = "Khối mềm chặn như khối cứng"
 features = ["V1-012"]
+claims = ["R-107"]
 status = "active"
 ticks = 50
 map = [
@@ -22,4 +25,4 @@ dir = "right"
 [[expect]]
 tick = 50
 player = 0
-pos_mpx = [60000, 60000]
+pos_mpx = [66000, 60000]

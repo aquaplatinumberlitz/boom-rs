@@ -1,0 +1,531 @@
+# Bảng mapping animation V1: state trình diễn → entry pack.
+#
+# Nguồn chuẩn duy nhất cho bảng clip của V1 (trước đây là khai báo Rust trong
+# `crates/boom-assets/src/animation.rs`). Sửa mapping = sửa file này, không sửa code.
+#
+# Cột nhãn (AGENTS §4):
+# - `source`: nguồn của **entry** được trỏ tới (`kr_static`: đọc từ pack KR 00967).
+# - `status`: mức bằng chứng của **mapping** state → entry:
+#   `confirmed` (R-077/R-084: tên entry và dãi frame đọc được trong pack KR 00967),
+#   `candidate` (R-078: entry có trong pack nhưng chưa có consumer nào xác nhận state nào
+#   dùng nó — Q-003).
+# - `claims`: claim RULES_V1 của dòng; `note`: lý do, giới hạn, ứng viên.
+#
+# Thứ tự dòng **có ý nghĩa**: thứ tự clip trong bundle quyết định thứ tự atlas, nên
+# `content_hash` đổi khi thêm/bớt một dòng.
+#
+# `timing` của clip: không ghi thì dùng `default_timing` của bảng. R-079: pack client gốc
+# không mang trường thời lượng frame nên V1 chưa chốt được ⇒ `unknown` (không mang số).
+# Khi có nguồn thời lượng thì ghi `timing = { known = { ms = …, source = …, status = …,
+# claims = […] } }` riêng cho clip đó — `unknown` không được mang giá trị.
+#
+# Nguồn: RULES_V1 §8 (R-077…R-079, R-084), MAPS §3, pack KR 00967.
+
+schema = 1
+default_timing = { unknown = { reason = "pack client gốc không mang trường thời lượng frame (blob CDataI16Alpha v2 chỉ có 12 số mỗi frame, MAPS §3) và consumer phía client chưa định vị được; V1 chưa chốt thời lượng nên không tự đặt (R-079, Q-003)" } }
+
+[[clips]]
+id = "c00.walk.up.static"
+state = "walk_up"
+pack = "FxCharacter"
+entry = "Character/C00-WalkUp_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.walk.up.adjust"
+state = "walk_up"
+pack = "FxCharacter"
+entry = "Character/C00-WalkUp_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.walk.down.static"
+state = "walk_down"
+pack = "FxCharacter"
+entry = "Character/C00-WalkDown_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.walk.down.adjust"
+state = "walk_down"
+pack = "FxCharacter"
+entry = "Character/C00-WalkDown_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.walk.left.static"
+state = "walk_left"
+pack = "FxCharacter"
+entry = "Character/C00-WalkLeft_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.walk.left.adjust"
+state = "walk_left"
+pack = "FxCharacter"
+entry = "Character/C00-WalkLeft_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.walk.right.static"
+state = "walk_right"
+pack = "FxCharacter"
+entry = "Character/C00-WalkRight_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.walk.right.adjust"
+state = "walk_right"
+pack = "FxCharacter"
+entry = "Character/C00-WalkRight_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c00.idle.blink.static"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C00-Blink_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.idle.blink_small.static"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C00-BlinkSmall_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt, biến thể nhỏ): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.start.static"
+state = "start"
+pack = "FxCharacter"
+entry = "Character/C00-Start_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.trapped.static"
+state = "trapped"
+pack = "FxCharacter"
+entry = "Character/C00-FaintLayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.dead.static"
+state = "dead"
+pack = "FxCharacter"
+entry = "Character/C00-DieLayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+
+[[clips]]
+id = "c00.idle.blink.adjust"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C00-Blink_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.idle.blink_small.adjust"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C00-BlinkSmall_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt, biến thể nhỏ): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.start.adjust"
+state = "start"
+pack = "FxCharacter"
+entry = "Character/C00-Start_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.trapped.adjust"
+state = "trapped"
+pack = "FxCharacter"
+entry = "Character/C00-FaintLayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+
+[[clips]]
+id = "c00.dead.adjust"
+state = "dead"
+pack = "FxCharacter"
+entry = "Character/C00-DieLayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+
+[[clips]]
+id = "c01.walk.up.static"
+state = "walk_up"
+pack = "FxCharacter"
+entry = "Character/C01-WalkUp_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.walk.up.adjust"
+state = "walk_up"
+pack = "FxCharacter"
+entry = "Character/C01-WalkUp_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.walk.down.static"
+state = "walk_down"
+pack = "FxCharacter"
+entry = "Character/C01-WalkDown_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.walk.down.adjust"
+state = "walk_down"
+pack = "FxCharacter"
+entry = "Character/C01-WalkDown_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.walk.left.static"
+state = "walk_left"
+pack = "FxCharacter"
+entry = "Character/C01-WalkLeft_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.walk.left.adjust"
+state = "walk_left"
+pack = "FxCharacter"
+entry = "Character/C01-WalkLeft_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.walk.right.static"
+state = "walk_right"
+pack = "FxCharacter"
+entry = "Character/C01-WalkRight_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.walk.right.adjust"
+state = "walk_right"
+pack = "FxCharacter"
+entry = "Character/C01-WalkRight_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[clips]]
+id = "c01.idle.blink.static"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C01-Blink_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.idle.blink_small.static"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C01-BlinkSmall_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt, biến thể nhỏ): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.start.static"
+state = "start"
+pack = "FxCharacter"
+entry = "Character/C01-Start_ALayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.trapped.static"
+state = "trapped"
+pack = "FxCharacter"
+entry = "Character/C01-FaintLayerStatic"
+layer = "static"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.dead.static"
+state = "dead"
+pack = "FxCharacter"
+entry = "Character/C01-DieLayerStatic"
+layer = "static"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+
+[[clips]]
+id = "c01.idle.blink.adjust"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C01-Blink_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.idle.blink_small.adjust"
+state = "idle"
+pack = "FxCharacter"
+entry = "Character/C01-BlinkSmall_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip đứng yên (nháy mắt, biến thể nhỏ): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.start.adjust"
+state = "start"
+pack = "FxCharacter"
+entry = "Character/C01-Start_ALayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.trapped.adjust"
+state = "trapped"
+pack = "FxCharacter"
+entry = "Character/C01-FaintLayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+
+[[clips]]
+id = "c01.dead.adjust"
+state = "dead"
+pack = "FxCharacter"
+entry = "Character/C01-DieLayerAdjust"
+layer = "adjust"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+
+[[clips]]
+id = "bomb.fuse"
+state = "bomb_fuse"
+pack = "FxDesktop"
+entry = "Bomb/Bomb00"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "hình bom đặt trên ô; 4 frame là 4 mức đếm fuse, còn tần suất đổi mức thì chưa có nguồn"
+
+[[clips]]
+id = "trapped.bubble"
+state = "trapped"
+pack = "FxDesktop"
+entry = "Bomb/Bubble00"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "bong bóng bị nhốt; 9 frame là chuỗi bong bóng to lên rồi vỡ, chưa có consumer nào xác nhận (Q-003)"
+
+[[clips]]
+id = "flame.main"
+state = "flame_main"
+pack = "FxDesktop"
+entry = "Bomb/Fire00"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "hình lửa: **một** blob 100 frame gộp nhiều phần; cách chia tâm/thân/đuôi và thứ tự hướng chưa xác nhận được (Q-003)"
+
+[[clips]]
+id = "flame.motion_blur.up"
+state = "flame_motion_blur_up"
+pack = "fx"
+entry = "MotionBlur/Blur_Fire01_Up"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "lửa nhạt (motion blur) theo hướng: bằng chứng client phân biệt hướng lửa, nhưng chưa có consumer nào xác nhận state nào vẽ clip này (Q-003)"
+
+[[clips]]
+id = "flame.motion_blur.down"
+state = "flame_motion_blur_down"
+pack = "fx"
+entry = "MotionBlur/Blur_Fire01_Down"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "lửa nhạt (motion blur) theo hướng: bằng chứng client phân biệt hướng lửa, nhưng chưa có consumer nào xác nhận state nào vẽ clip này (Q-003)"
+
+[[clips]]
+id = "flame.motion_blur.left"
+state = "flame_motion_blur_left"
+pack = "fx"
+entry = "MotionBlur/Blur_Fire01_Left"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "lửa nhạt (motion blur) theo hướng: bằng chứng client phân biệt hướng lửa, nhưng chưa có consumer nào xác nhận state nào vẽ clip này (Q-003)"
+
+[[clips]]
+id = "flame.motion_blur.right"
+state = "flame_motion_blur_right"
+pack = "fx"
+entry = "MotionBlur/Blur_Fire01_Right"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "lửa nhạt (motion blur) theo hướng: bằng chứng client phân biệt hướng lửa, nhưng chưa có consumer nào xác nhận state nào vẽ clip này (Q-003)"
+
+[[clips]]
+id = "explosion.main"
+state = "explosion"
+pack = "FxDesktop"
+entry = "Bomb/BombExplosion001"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "hiệu ứng nổ: **một** clip 10 frame liên tục, pack không tách tâm/nhánh/đuôi nên không có clip riêng theo phần (R-084)"
+
+[[clips]]
+id = "item.bomb"
+state = "item"
+pack = "fx"
+entry = "Item/Bomb"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "icon item rơi trên nền; 1 frame"
+
+[[clips]]
+id = "item.fire"
+state = "item"
+pack = "fx"
+entry = "Item/Fire"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "icon item rơi trên nền; 1 frame"
+
+[[clips]]
+id = "item.roller"
+state = "item"
+pack = "fx"
+entry = "Item/Roller"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "icon item rơi trên nền; 1 frame"

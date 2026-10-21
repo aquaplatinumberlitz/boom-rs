@@ -1,0 +1,271 @@
+# Bảng asset UI của luồng V1: màn hình → phần tử → entry pack.
+#
+# Nguồn chuẩn duy nhất cho bảng UI của V1 (trước đây là khai báo Rust trong
+# `crates/boom-assets/src/closure.rs`). Sửa mapping = sửa file này, không sửa code.
+#
+# Cột nhãn (AGENTS §4):
+# - `source`: nguồn của **asset** được trỏ tới (`kr_static`: entry có thật trong pack KR
+#   00967; `design`: V1 không dùng asset nào cho phần tử này).
+# - `status`: mức bằng chứng của asset đó (`confirmed`: entry có thật và payload đọc được;
+#   `design`: quyết định của dự án — vẽ text/màu theo `reason`).
+# - `state`: trạng thái **dùng** của phần tử (không phải nhãn bằng chứng):
+#   `selected` (có trong closure V1 và không có chữ cần duyệt), `needs_review_text`
+#   (có chữ, chờ duyệt ảnh), `excluded` (không dùng asset này).
+# - `reason`: bắt buộc, không rỗng — lý do/ghi chú để client biết phải vẽ gì thay.
+# - `claims`: phần tử UI **không phải luật chơi** nên không có claim RULES_V1
+#   (BUNDLES §3.3) ⇒ `claims = []`; quyết định dùng được truy bằng `state` + `reason`.
+#
+# Phần tử `selected`/`needs_review_text` phải có `entry`; phần tử `excluded` không bắt buộc
+# có entry (V1 dựng bằng màu, chữ lấy từ catalog).
+#
+# Nguồn: UI_STRINGS_V1 §3 (danh mục ảnh có chữ của luồng V1), ảnh giải mã đọc trực tiếp từ
+# pack KR 00967 ngày 2026-10-20, IMAGE_REVIEW (quy trình duyệt ảnh).
+
+schema = 1
+
+[[elements]]
+id = "login.background"
+screen = "login"
+role = "background"
+entry = "FxDesktop/LoginStage/CAStage"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "nền là JPEG 800×600: bộ giải mã bundle chỉ đọc sprite I16; ảnh còn có lời thoại tiếng Hàn, huy hiệu Nexon (ô 'N' góc trên) và bản VN có dòng bản quyền 'Copyright (C) 2001 Nexon'; V1 dựng nền bằng màu, chữ lấy từ catalog"
+
+[[elements]]
+id = "login.submit"
+screen = "login"
+role = "button"
+state = "excluded"
+source = "design"
+status = "design"
+claims = []
+reason = "chưa có asset nút đăng nhập trong closure; UI_STRINGS_V1 §2.2 đã chốt `login.submit` lấy key catalog nên V1 vẽ nút bằng text"
+
+[[elements]]
+id = "lobby.background"
+screen = "lobby"
+role = "background"
+entry = "FxStage/Lobby/CAStage"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "nền là JPEG 800×600 có nhãn tiếng Hàn trong ảnh: hai tab chế độ '대결 모드' (bản VN: 'ĐẠI CHIẾN') và '상이 모드' (bản VN: 'NHIỆM VỤ') cùng nhãn '레벨'; V1 dựng nền bằng màu, chữ lấy từ catalog"
+
+[[elements]]
+id = "lobby.create"
+screen = "lobby"
+role = "button"
+entry = "FxStage/Lobby/LB_Bt_T_Create-NM"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "ảnh nút 9 frame có chữ Hàn (방만들기); chưa có quyết định duyệt ảnh nên V1 vẽ nút bằng text từ catalog"
+
+[[elements]]
+id = "lobby.create_dialog"
+screen = "lobby"
+role = "dialog"
+entry = "FxStage/Lobby/Dlg_LB-NMCreate"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "tiêu đề dialog nằm trong ảnh (방만들기); thân dialog là ô trống, nhãn do client vẽ; chưa duyệt ảnh thì V1 vẽ tiêu đề bằng text từ catalog"
+
+[[elements]]
+id = "lobby.show_all"
+screen = "lobby"
+role = "button"
+entry = "FxStage/Lobby/LB_Bt_T_ShowAllRenew"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "bản VN ngắn hơn nên mất nghĩa 'xem mọi phòng'; V1 không cần bộ lọc phòng, vẽ nút bằng text từ catalog"
+
+[[elements]]
+id = "lobby.wait_room"
+screen = "lobby"
+role = "button"
+entry = "FxStage/Lobby/LB_Bt_T_WaitRoomRenew"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "bản VN là danh từ, không phải hành động 'xem phòng chờ'; V1 vẽ nút bằng text từ catalog"
+
+[[elements]]
+id = "room.background"
+screen = "room"
+role = "background"
+entry = "FxMap/Prepare/CAStage"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "nền là JPEG 800×600 có nhãn tiếng Hàn '방' (phòng), '던전' (dungeon), '게임디테일' (game detail) và nút '자동 준비' (auto-ready) — auto-ready ngoài scope FFA V1; V1 dựng nền bằng màu, chữ lấy từ catalog"
+
+[[elements]]
+id = "room.ready"
+screen = "room"
+role = "button"
+entry = "FxMap/Prepare/PRE_Bt_Ready"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "ảnh nút 6 frame có chữ Hàn (준비); chưa có quyết định duyệt ảnh nên V1 vẽ nút bằng text từ catalog"
+
+[[elements]]
+id = "room.start"
+screen = "room"
+role = "button"
+entry = "FxMap/Prepare/PRE_Bt_Start"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "ảnh nút 6 frame có chữ Hàn (시작); chưa có quyết định duyệt ảnh nên V1 vẽ nút bằng text từ catalog"
+
+[[elements]]
+id = "room.info_dialog"
+screen = "room"
+role = "dialog"
+entry = "FxMap/Prepare/Dlg_PRE-NMRoominfo"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "tiêu đề KR là '방정보변경' (đổi thông tin phòng) còn bản VN là 'THÔNG TIN' (thông tin) — khác nghĩa; nếu dùng thì nhãn lấy từ catalog, không tự chọn hay sửa nhãn trong ảnh"
+
+[[elements]]
+id = "room.info_label"
+screen = "room"
+role = "info"
+entry = "FxMap/Prepare/PRE_Bt_Roominfo"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "ảnh KR ghi '방정보변경' (đổi thông tin phòng) còn bản VN ghi 'THÔNG TIN' (thông tin) — khác nghĩa; V1 vẽ nhãn bằng text từ catalog"
+
+[[elements]]
+id = "room.ready_indicator"
+screen = "room"
+role = "info"
+entry = "FxStage/Lobby/ReadyBox"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "KR ghi '준비중' (đang chuẩn bị) còn bản VN ghi 'ĐẠI CHIẾN' — khác nghĩa hoàn toàn nên không dùng làm indicator ready; V1 vẽ trạng thái ready bằng text và màu"
+
+[[elements]]
+id = "match.background"
+screen = "match"
+role = "background"
+state = "excluded"
+source = "design"
+status = "design"
+claims = []
+reason = "nền trận là bản đồ V1: lưới ô và sprite nền đã nằm trong closure (role map/tile) nên V1 không dùng ảnh nền riêng cho màn trận"
+
+[[elements]]
+id = "match.hud"
+screen = "match"
+role = "info"
+state = "excluded"
+source = "design"
+status = "design"
+claims = []
+reason = "HUD trận (đồng hồ, trạng thái nhốt/chết, tên item) chưa có asset trong closure và UI_STRINGS_V1 §2.5 ghi `unknown`; V1 vẽ bằng text từ catalog"
+
+[[elements]]
+id = "match.navigation"
+screen = "match"
+role = "button"
+state = "excluded"
+source = "design"
+status = "design"
+claims = []
+reason = "trong trận không có nút điều hướng: đường về phòng mở ở màn kết quả; V1 không vẽ nút trong trận"
+
+[[elements]]
+id = "result.background"
+screen = "result"
+role = "background"
+state = "excluded"
+source = "design"
+status = "design"
+claims = []
+reason = "chưa có asset nền riêng cho màn kết quả trong closure; V1 dùng nền màu, chữ lấy từ catalog"
+
+[[elements]]
+id = "result.continue"
+screen = "result"
+role = "button"
+state = "excluded"
+source = "design"
+status = "design"
+claims = []
+reason = "chưa có asset nút tiếp tục trong closure và UI_STRINGS_V1 §2.6 ghi `unknown`; V1 vẽ nút bằng text từ catalog"
+
+[[elements]]
+id = "result.win"
+screen = "result"
+role = "result_art"
+entry = "FxStage/Game/Win"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "ảnh 4 frame ghép chữ Latin 'WIN!!'; phải duyệt cả chuỗi frame mới dùng, không chỉ frame 0"
+
+[[elements]]
+id = "result.lose"
+screen = "result"
+role = "result_art"
+entry = "FxStage/Game/Lose"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "ảnh 5 frame ghép chữ Latin 'LOSE!!'; chuỗi frame chưa được người duyệt xem đủ nên V1 vẽ nhãn bằng text từ catalog"
+
+[[elements]]
+id = "result.draw"
+screen = "result"
+role = "result_art"
+entry = "FxStage/Game/Draw"
+state = "needs_review_text"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "ảnh 5 frame ghép chữ Latin 'DRAW!!'; dấu có thể nằm ở frame khác nên phải duyệt cả chuỗi frame"
+
+[[elements]]
+id = "result.info_bar"
+screen = "result"
+role = "info"
+entry = "FxStage/Game/ResultInfoBar"
+state = "excluded"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "spritesheet trộn nhãn KR/EN và có cột EXP/LUCCI (V1 không có tiền/EXP); V1 chỉ cần cột Hạng/Người chơi/Kết quả nên vẽ bằng text từ catalog"
+
+[[elements]]
+id = "result.info_good"
+screen = "result"
+role = "info"
+entry = "FxStage/Game/ResultInfoGood"
+state = "selected"
+source = "kr_static"
+status = "confirmed"
+claims = []
+reason = "đã đọc trực tiếp PNG giải mã từ pack KR 00967 ngày 2026-10-20: chỉ có icon bàn tay (ngón cái) 4 frame, không thấy chữ nên không cần duyệt text"

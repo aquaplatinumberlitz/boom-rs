@@ -30,6 +30,7 @@ boom-rs/
     boom-server/    # [khung, đợt 2] auth, lobby, authority, persistence
   xtask/                                # `cargo xtask ci`, golden replay
   data/rules/                           # rules profile có provenance (TOML)
+  data/assets/                          # mapping presentation/closure có nhãn bằng chứng (TOML)
   data/overlays/, data/items/, data/events/  # [dự kiến] overlay luật, hiệu ứng item, liveops (ADR 0008)
   fixtures/replays/                     # replay + hash golden, chạy trên CI ba OS
   fixtures/scenarios/<system>/          # boundary scenario theo system (active/pending)

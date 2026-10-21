@@ -1,0 +1,200 @@
+# Bảng closure của một trận V1: entry pack cần có + vai trò + họ sprite nhân vật.
+#
+# Nguồn chuẩn duy nhất cho phần "entry cố định" và "họ entry nhân vật" của closure V1
+# (trước đây là khai báo Rust trong `crates/boom-assets/src/closure.rs`). Sửa mapping =
+# sửa file này, không sửa code.
+#
+# Cột nhãn (AGENTS §4):
+# - `source`: nguồn của **entry** được trỏ tới (`kr_static`: đọc từ pack KR 00967).
+# - `status`: mức bằng chứng của vai trò:
+#   `confirmed` (tên entry và dãi frame đọc được trong pack), `candidate` (entry có trong
+#   pack nhưng chưa có consumer nào xác nhận state nào dùng nó), `design` (mapping state V1
+#   → clip là quyết định của V1 — R-086).
+# - `claims`: claim RULES_V1 của dòng; `note`: lý do, giới hạn.
+#
+# Entry theme, preview và BGM **không** khai ở đây: chúng suy từ quy tắc tra theme
+# (R-071 `candidate`; riêng map V1 `Village00` đã xác nhận ở R-070).
+#
+# `[[character_families]]`: họ entry sprite nhân vật — **tiền tố** entry trong ODT
+# (`Character/<Id>-<họ>`); entry pack đầy đủ là `Character/<Id>-<họ>Layer<lớp>` vì client
+# ghép thêm lớp `Static`/`Adjust` (R-094). `used_by_v1 = true` ⇒ closure kiểm họ đó có
+# trong bảng state của client trong ODT lúc dựng manifest.
+#
+# `[[character_states]]`: mapping state của V1 → state của client (ODT) → họ entry mà V1
+# chọn. Bảng ODT xác nhận **nhãn → entry**; nó **không** xác nhận state core V1 dùng nhãn
+# nào ⇒ dòng này là quyết định của V1 (`design`, R-086).
+#
+# Nguồn: RULES_V1 §1, §8, §8.2 (R-002, R-040, R-051, R-077, R-078, R-084, R-086, R-094),
+# docs/evidence/inventory/kr_v1_content.json, BUNDLES §6.
+
+schema = 1
+
+[[entries]]
+entry = "FxMap/Map/Village00"
+role = "map"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-002"]
+note = "file map của trận V1: 15×13 ô, 4 spawn (R-002, R-005)"
+
+[[entries]]
+entry = "FxContents/Attr/BomberAttr"
+role = "character_attr"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-040"]
+note = "bảng chỉ số nhân vật của build KR 00967 (R-040, R-041)"
+
+[[entries]]
+entry = "FxContents/Attr/ItemAttr"
+role = "item_attr"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-051"]
+note = "bảng trọng số item của build KR 00967 (R-051)"
+
+[[entries]]
+entry = "fx/Item/Bomb"
+role = "item_icon"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "icon item rơi; 1 frame, đọc được trong pack KR 00967"
+
+[[entries]]
+entry = "fx/Item/Fire"
+role = "item_icon"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "icon item rơi; 1 frame, đọc được trong pack KR 00967"
+
+[[entries]]
+entry = "fx/Item/Roller"
+role = "item_icon"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "icon item rơi; 1 frame, đọc được trong pack KR 00967"
+
+[[entries]]
+entry = "FxDesktop/Bomb/Bomb00"
+role = "bomb_art"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "hình bom đặt trên ô; 4 frame là 4 mức đếm fuse"
+
+[[entries]]
+entry = "FxDesktop/Bomb/BombExplosion001"
+role = "explosion_art"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-084"]
+note = "một clip nổ 10 frame liên tục; pack không tách tâm/nhánh/đuôi (R-084)"
+
+[[entries]]
+entry = "FxDesktop/Bomb/Fire00"
+role = "flame_art"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "hình lửa: **một** blob 100 frame gộp nhiều phần; cách chia tâm/thân/đuôi và thứ tự hướng chưa xác nhận được (Q-003)"
+
+[[entries]]
+entry = "FxDesktop/Bomb/Bubble00"
+role = "trapped_art"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "bong bóng bị nhốt; 9 frame là chuỗi bong bóng to lên rồi vỡ, chưa có consumer nào xác nhận (Q-003)"
+
+[[character_families]]
+family = "WalkUp_A"
+role = "character_walk"
+used_by_v1 = true
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "đi hướng lên; 5 frame, xác nhận bằng tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[character_families]]
+family = "WalkDown_A"
+role = "character_walk"
+used_by_v1 = true
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "đi hướng xuống; 5 frame, xác nhận bằng tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[character_families]]
+family = "WalkLeft_A"
+role = "character_walk"
+used_by_v1 = true
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "đi hướng trái; 5 frame, xác nhận bằng tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[character_families]]
+family = "WalkRight_A"
+role = "character_walk"
+used_by_v1 = true
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "đi hướng phải; 5 frame, xác nhận bằng tên entry và dãi frame đọc được trong pack KR 00967"
+
+[[character_families]]
+family = "Die"
+role = "character_dead"
+used_by_v1 = true
+source = "kr_static"
+status = "confirmed"
+claims = ["R-077"]
+note = "chết; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+
+[[character_families]]
+family = "Blink_A"
+role = "character_idle"
+used_by_v1 = true
+source = "kr_static"
+status = "design"
+claims = ["R-086", "R-094"]
+note = "mapping `idle` → `Blink` là quyết định của V1 (R-086); bảng ODT chỉ xác nhận nhãn → entry (R-094)"
+
+[[character_families]]
+family = "BlinkSmall_A"
+role = "character_idle"
+used_by_v1 = false
+source = "kr_static"
+status = "candidate"
+claims = ["R-078", "R-094"]
+note = "ứng viên đứng yên mà V1 **không chọn**: bảng state `Character/<Id>_A` của C00/C01 không có state `BlinkSmall`; họ sprite này **có** trong ODT ở khối `Character/<Id>_Display_A` nên không kết luận là client không dùng (R-094)"
+
+[[character_families]]
+family = "Faint"
+role = "character_trapped"
+used_by_v1 = true
+source = "kr_static"
+status = "design"
+claims = ["R-086", "R-094"]
+note = "mapping `trapped` → `Faint` là quyết định của V1 (R-086); bảng ODT chỉ xác nhận nhãn → entry (R-094)"
+
+[[character_states]]
+v1_state = "idle"
+client_state = "Blink"
+family = "Blink_A"
+source = "design"
+status = "design"
+claims = ["R-086"]
+note = "client gốc dùng `Stop <hướng>` cho tư thế đứng yên, `Blink` làm overlay nháy mắt (R-095); V1 chọn khác"
+
+[[character_states]]
+v1_state = "trapped"
+client_state = "Faint"
+family = "Faint"
+source = "design"
+status = "design"
+claims = ["R-086"]
+note = "client gốc dùng `Locked In` (frame 0…1 của `Die` giữ vô hạn) cho state bị khoá (R-095); V1 chọn khác"

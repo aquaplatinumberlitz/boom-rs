@@ -1,0 +1,61 @@
+# R-107 (ADR 0012): bám góc chỉ khi bị chặn và lệch không quá `player.corner_assist_px` = 12 px.
+# Người chơi đi xuống 12 px so với tâm hàng 1 rồi bị khối cứng (2,2) chặn bước sang phải:
+# mỗi tick bị chặn thì kéo về tâm hàng, hết lệch 12 px thì trượt qua khối cứng.
+#
+# Hàng 1 có tâm ở y = 60 px; người chơi đi xuống 6 tick (2 px/tick) nên lệch 12 px (y = 72 px).
+name = "Bị chặn thì bám góc về tâm hàng rồi trượt qua khối cứng"
+features = ["V1-011", "V1-012"]
+claims = ["R-107"]
+status = "active"
+ticks = 12
+map = [
+    "#####",
+    "#0..#",
+    "#.##.",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[input]]
+tick = 0
+player = 0
+dir = "down"
+
+[[input]]
+tick = 6
+player = 0
+dir = "right"
+
+# Lệch 12 px dưới tâm hàng 1.
+[[expect]]
+tick = 6
+player = 0
+pos_mpx = [60000, 72000]
+
+# Sang phải tới mép hộp của cột 2 rồi bị khối cứng (2,2) chặn.
+[[expect]]
+tick = 9
+player = 0
+pos_mpx = [66000, 72000]
+
+# Bị chặn: bám góc kéo về tâm hàng từng bước 2 px.
+[[expect]]
+tick = 10
+player = 0
+pos_mpx = [66000, 70000]
+
+[[expect]]
+tick = 11
+player = 0
+pos_mpx = [66000, 68000]
+
+# Hộp không còn chồm hàng 2 nên trượt qua khối cứng sang cột 2.
+[[expect]]
+tick = 12
+player = 0
+pos_mpx = [68000, 66000]
