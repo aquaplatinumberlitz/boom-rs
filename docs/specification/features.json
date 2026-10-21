@@ -12,7 +12,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [],
       "server_responsibility": "Lưu identity/password hash; xác thực session; phiên thứ hai bị từ chối.",
@@ -24,7 +24,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "docs/decisions/0011-identity-persistence-log-v1.md",
           "git:06058297ddd97285354a428069ff539c24671301",
@@ -32,19 +32,20 @@
           "git:14e359ce795466e95d8fcd736adf554de820c4ba",
           "git:c8b14a81e1e5ff4bd17ab1d9614f6a39f6f5ebff",
           "git:8759e037c64778b0a231f166b78acf0ead567dbe",
-          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9"
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #57, #66, #85, #97 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #57, #66, #85, #97"
+          "result": "APPROVE trên PR #85, #107, #117, #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Auth server (#85/#97/#107) + client gửi Auth và chạy trọn luồng với server thật (#117+#136). Chờ reviewer xác nhận acceptance để done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Không thiếu acceptance tạo/login, sai thông tin, một phiên. Claude ghi integration commit/proof/review hiện hành; không cần chờ UI V1-032 để nghiệm thu logic auth này."
       }
     },
     {
@@ -54,7 +55,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "net",
       "depends_on": [
         "V1-001"
@@ -68,25 +69,26 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-proto/src/dto/handshake.rs",
           "git:e627112e5fe52dd69fa1903b6d6fefe004ac41d9",
           "crates/boom-server/src/server.rs",
           "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
-          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9"
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #56, #60 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #56, #60"
+          "result": "APPROVE trên PR #60, #107, #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Handshake + fingerprint server (#60/#107), serve thật (#117) và client kiểm/hiện lỗi (#136). Đặt done khi V1-001 done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Acceptance mismatch protocol/rules/content có code và test; chưa cần thêm code để đóng mục này. Chờ ghi V1-001 done; cập nhật proof #117/#136 thay next_action cũ."
       }
     },
     {
@@ -96,7 +98,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-001",
@@ -111,26 +113,27 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
           "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #83, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #83, #90"
+          "result": "APPROVE trên PR #136, #155; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Luồng auth→một sảnh và danh sách/số người tạo/vào/rời có bằng chứng ở server + NetClient/NetBackend. Chờ dependency. Việc gọi UI mạng từ binary còn thiếu thuộc V1-032, không suy rằng test NetBackend chứng minh màn hình t"
       }
     },
     {
@@ -140,7 +143,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-003"
@@ -154,7 +157,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-room/src/lib.rs",
           "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -163,19 +166,20 @@
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
           "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23, #83, #90"
+          "result": "APPROVE trên PR #23, #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: ID phòng duy nhất, một phòng/account và 4 slot đã có regression. Chờ V1-003 done; không thiếu code riêng theo acceptance này."
       }
     },
     {
@@ -185,7 +189,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-004"
@@ -199,7 +203,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-room/src/lib.rs",
           "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -208,19 +212,20 @@
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
           "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23, #83, #90"
+          "result": "APPROVE trên PR #23, #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Đủ guard capacity/Playing + leave dọn slot; chờ V1-004 done. Test join được serialize qua authority, không diễn giải thành phép đo stress nhiều thread."
       }
     },
     {
@@ -230,7 +235,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-005"
@@ -244,7 +249,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-room/src/lib.rs",
           "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -253,19 +258,20 @@
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
           "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23, #83, #90"
+          "result": "APPROVE trên PR #23, #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Host transfer theo thứ tự join; non-host kick/start bị chặn. Chờ V1-005 done."
       }
     },
     {
@@ -275,7 +281,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "client",
       "depends_on": [
         "V1-005"
@@ -289,7 +295,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-room/src/lib.rs",
           "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -298,19 +304,20 @@
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
           "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23, #83, #90"
+          "result": "APPROVE trên PR #23, #136, #155; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Selection/đồng bộ/hủy ready đã có; không cần đợi RE #149 nâng mapping thành confirmed. Chờ V1-005 done."
       }
     },
     {
@@ -320,7 +327,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-007"
@@ -334,7 +341,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-room/src/lib.rs",
           "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -343,19 +350,20 @@
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
           "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23, #83, #90"
+          "result": "APPROVE trên PR #23, #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Acceptance 2–4/all-ready, hủy ready khi roster/selection đổi, start lặp một lần đạt trong test. Chờ V1-007 done."
       }
     },
     {
@@ -365,7 +373,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-005"
@@ -379,7 +387,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
@@ -387,19 +395,20 @@
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
           "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #23, #83, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #23, #83, #90"
+          "result": "APPROVE trên PR #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Logic chat UTF-8/phạm vi/rate có bằng chứng; font/wrap sản phẩm theo V1-035. Chờ V1-005 done."
       }
     },
     {
@@ -409,7 +418,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "net",
       "depends_on": [
         "V1-008",
@@ -421,29 +430,30 @@
       "tracking": {
         "assignee": "dsh-a/dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-server/src/lib.rs",
           "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
           "crates/boom-server/src/authority.rs",
           "crates/boom-server/src/server.rs",
           "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #53, #60, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #53, #60, #90"
+          "result": "APPROVE trên PR #136, #153; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server authority qua wire đạt (test 2/4 client, delay/loss seed); done khi dependency done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Barrier/15s/cancel có test, snapshot loading đã sửa #153. Chờ V1-008 (V1-030 đã done)."
       }
     },
     {
@@ -453,7 +463,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-030",
@@ -465,27 +475,28 @@
       "tracking": {
         "assignee": "opencode-4",
         "reviewer": "Claude",
-        "updated_at": "2026-10-21",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/movement.rs",
           "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9",
           "git:b26c88c6c852786b9281c5aea0e2939e40247739",
-          "docs/decisions/0012-v1-rules-from-bnb.md"
+          "docs/decisions/0012-v1-rules-from-bnb.md",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #22 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Codex APPROVE PR #140"
+          "result": "APPROVE trên PR #140; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Movement theo BnB (hộp 26 px, bám góc 12 px, bomb pass) đã merge PR #140 (#130, ADR 0012); dependency V1-030/V1-033 done. Chờ xác nhận trace acceptance để đặt done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Trace movement/rẽ/ưu tiên nhiều hướng và release focus đối chiếu R-107/R-114/R-116; design BnB hợp lệ theo ADR 0013. V1-030/V1-033 đều đã done; không còn blocker acceptance hiện hành. Không gọi đây là hiệu chuẩn KR."
       }
     },
     {
@@ -495,7 +506,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-011"
@@ -506,27 +517,28 @@
       "tracking": {
         "assignee": "opencode-4",
         "reviewer": "Claude",
-        "updated_at": "2026-10-21",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "fefd5c0d810c4e3d494c5a064272be29fa5c39c9",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/movement.rs",
           "fixtures/scenarios/movement/bomb_grace_one_way.toml",
           "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9",
-          "git:b26c88c6c852786b9281c5aea0e2939e40247739"
+          "git:b26c88c6c852786b9281c5aea0e2939e40247739",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #22 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Review PR #22; Codex APPROVE PR #140"
+          "result": "APPROVE trên PR #140; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Bomb pass theo overlap BnB đã merge PR #140; đặt done khi V1-011 done (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Không xuyên tường/gạch/bom, ra bom và mất pass sau hết overlap đạt. Chờ V1-011 được ghi done."
       }
     },
     {
@@ -536,7 +548,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-012"
@@ -547,26 +559,27 @@
       "tracking": {
         "assignee": "opencode-1",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "4600810eacb611354677aa1074282e5ddb2b0e75",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/bomb_place.rs",
           "fixtures/scenarios/bomb_place/place_one.toml",
-          "git:4600810eacb611354677aa1074282e5ddb2b0e75"
+          "git:4600810eacb611354677aa1074282e5ddb2b0e75",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #19 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #19"
+          "result": "APPROVE trên PR #19, #140; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #19; đặt done khi dependency V1-012 done (AGENTS §6)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Bom cùng ô/cap/command lặp đã được kiểm; grace bản mới theo #140. Chờ V1-012 done."
       }
     },
     {
@@ -576,7 +589,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-013"
@@ -590,24 +603,25 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/explosion.rs",
           "fixtures/scenarios/explosion/rays_stop_at_solid.toml",
           "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
-          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #21 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #21"
+          "result": "APPROVE trên PR #143; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Acceptance fuse/ray/block/TTL có nguồn design hiện hành và test; không đợi #148. Chờ V1-013 done; dùng integration #143 thay proof #21 cũ."
       }
     },
     {
@@ -617,7 +631,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-014"
@@ -631,24 +645,25 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/explosion.rs",
           "fixtures/scenarios/explosion/chain.toml",
           "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
-          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #21 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #21"
+          "result": "APPROVE trên PR #143, #160; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Chain một lần/thứ tự/double drop đạt theo R-109; không coi test sinh từ implementation là oracle gốc. Chờ V1-014 done; proof phải gồm #143/#160."
       }
     },
     {
@@ -658,7 +673,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-015"
@@ -669,26 +684,27 @@
       "tracking": {
         "assignee": "opencode-1",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "c0323b13fb39902bd8f0ad67decf158773ec3bdb",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/blocks.rs",
           "fixtures/scenarios/blocks/destroy_and_reveal.toml",
-          "git:c0323b13fb39902bd8f0ad67decf158773ec3bdb"
+          "git:c0323b13fb39902bd8f0ad67decf158773ec3bdb",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #30 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #30"
+          "result": "APPROVE trên PR #160; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #30; đặt done khi V1-015 done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Đã thay pre-roll #30 bằng roll khi vỡ #160: RNG/ô ổn định, ba item V1, 350‰, trọng số 3650:2800:2000. Chờ V1-015 done và cập nhật evidence mới; không còn để next_action trỏ duy nhất implementation cũ."
       }
     },
     {
@@ -698,7 +714,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-016"
@@ -709,26 +725,27 @@
       "tracking": {
         "assignee": "opencode-2",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "5845f1541242f13d4effc8d703630d26f1f10e63",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/pickup.rs",
           "fixtures/scenarios/pickup/bomb.toml",
-          "git:5845f1541242f13d4effc8d703630d26f1f10e63"
+          "git:5845f1541242f13d4effc8d703630d26f1f10e63",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #29 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #29"
+          "result": "APPROVE trên PR #29, #160; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #29; đặt done khi V1-016 done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Capacity +1, cap hiệu ứng và một người nhận có test; cap vẫn mất item theo R-109 đã đổi #160. Chờ V1-016 done; approval #29 cũ một mình không đủ cho hành vi mới."
       }
     },
     {
@@ -738,7 +755,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-016"
@@ -749,26 +766,27 @@
       "tracking": {
         "assignee": "opencode-2",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "5845f1541242f13d4effc8d703630d26f1f10e63",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/pickup.rs",
           "fixtures/scenarios/pickup/bomb.toml",
-          "git:5845f1541242f13d4effc8d703630d26f1f10e63"
+          "git:5845f1541242f13d4effc8d703630d26f1f10e63",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #29 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #29"
+          "result": "APPROVE trên PR #29, #160; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #29; đặt done khi V1-016 done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Fire +1 và bom đã đặt giữ tầm chụp có code/test. Chờ V1-016 done; dùng proof mới cho cap/pickup."
       }
     },
     {
@@ -778,7 +796,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-011",
@@ -790,26 +808,27 @@
       "tracking": {
         "assignee": "opencode-2",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "5845f1541242f13d4effc8d703630d26f1f10e63",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/pickup.rs",
           "fixtures/scenarios/pickup/bomb.toml",
-          "git:5845f1541242f13d4effc8d703630d26f1f10e63"
+          "git:5845f1541242f13d4effc8d703630d26f1f10e63",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #29 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #29"
+          "result": "APPROVE trên PR #29, #140, #160; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #29; đặt done khi V1-016 và V1-011 done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Theo spec được duyệt: +1 level, 24px/s/level R-114 (oss/design), không phụ thuộc render FPS. Không tuyên bố đã đo KR; ADR 0013 cho phép design này. Chờ V1-011 và V1-016 done."
       }
     },
     {
@@ -819,7 +838,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-014"
@@ -833,24 +852,25 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/systems/life.rs",
           "fixtures/scenarios/life/trap_timeout.toml",
           "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
-          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #20 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #20"
+          "result": "APPROVE trên PR #143; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Acceptance trap→death/touch/một lần đạt theo R-108/R-115/R-116. Chờ V1-014 done; proof #20 cũ đã khác cơ chế, cần #143."
       }
     },
     {
@@ -860,7 +880,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-020"
@@ -874,24 +894,25 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
-        "integration_commit": "5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-core/src/mode.rs",
           "fixtures/scenarios/round/time_limit_draw.toml",
           "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
-          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #2 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #2"
+          "result": "APPROVE trên PR #143; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Winner/draw/trapped còn sống đạt; duration 120s theo R-110, warmup 3s theo R-113. Chờ V1-020 done; không lấy contracts review #2 làm PR approval hiện hành (#2 là issue, không phải PR)."
       }
     },
     {
@@ -901,7 +922,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-021"
@@ -912,29 +933,30 @@
       "tracking": {
         "assignee": "dsh-a/dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-server/src/lib.rs",
           "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
           "crates/boom-server/src/authority.rs",
           "crates/boom-server/src/server.rs",
           "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #53, #60, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #53, #60, #90"
+          "result": "APPROVE trên PR #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server authority qua wire đạt (test 2/4 client, delay/loss seed); done khi dependency done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Kết quả/ack hoặc 5s/reset round/không auto-ready có bằng chứng trên transport hoạt động. Chờ V1-021 done. Mất application-frame RoundResult chưa recover là giới hạn đã có regression, cần xử lý ở QA loss V1-027 trước phát"
       }
     },
     {
@@ -944,7 +966,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "net",
       "depends_on": [
         "V1-022"
@@ -955,29 +977,30 @@
       "tracking": {
         "assignee": "dsh-a/dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-server/src/lib.rs",
           "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
           "crates/boom-server/src/authority.rs",
           "crates/boom-server/src/server.rs",
           "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #53, #60, #90 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #53, #60, #90"
+          "result": "APPROVE trên PR #136; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server authority qua wire đạt (test 2/4 client, delay/loss seed); done khi dependency done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Server leave ngay/neutral→10s/loại một lần/loading cancel/không rejoin/room rỗng hủy có code/test. Chờ V1-022 done. UX báo mất kết nối còn thuộc tích hợp UI, không lấy core server test chứng minh UX."
       }
     },
     {
@@ -987,7 +1010,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "net",
       "depends_on": [
         "V1-002"
@@ -1001,7 +1024,7 @@
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "docs/decisions/0009-wire-protocol-input-snapshot-codec.md",
           "git:743a38af2a27065b7786409ae8504493ec89b1c9",
@@ -1014,19 +1037,20 @@
           "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
           "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
           "git:501f292e81082f26885adc1f757f0d46fb776638",
-          "git:4ed41a4155facea770169fbddf5822e4e4f9f0ec"
+          "git:4ed41a4155facea770169fbddf5822e4e4f9f0ec",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #50, #56, #53, #60 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #50, #56, #53, #60"
+          "result": "APPROVE trên PR #117, #136, #153, #158; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Server authoritative chạy trận thật (#117), slot bind theo roster/account (#117/#136), không gửi snapshot lúc loading (#153), test mạng xác định (#129/#158)."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Authority/bind slot/dedup/window có evidence thực; không còn blocker server-loading #137. Chờ V1-002 done; cập nhật integration/evidence từ #117/#136/#153/#158."
       }
     },
     {
@@ -1036,7 +1060,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "net",
       "depends_on": [
         "V1-024"
@@ -1045,11 +1069,11 @@
       "acceptance": "State hội tụ sau correction; không nhân đôi effect/audio/pickup khi replay.",
       "open_questions": "Chiến lược reconcile/rollback quyết sau prototype.",
       "tracking": {
-        "assignee": "",
+        "assignee": "opencode",
         "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "updated_at": "2026-10-22",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [],
         "verification": {
@@ -1062,7 +1086,7 @@
           "result": ""
         },
         "blocker": "",
-        "next_action": ""
+        "next_action": "Rà #161: Sổ not_started đã stale. Hội tụ và dedup NetClient đạt, nhưng binary `main.rs::Game::tick` lấy rồi bỏ `net.take_events()` (khoảng dòng 736), chưa nối journal/audio nên chưa chứng minh acceptance effect/audio thực. Nối consumer duy nhất theo (round_id, EventId), reset round; thêm test Game mạng correction+duplicate event→đúng một effect/cue/pickup. Đây là task nối tích hợp, không viết lại "
       }
     },
     {
@@ -1072,7 +1096,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "core",
       "depends_on": [
         "V1-024"
@@ -1083,27 +1107,28 @@
       "tracking": {
         "assignee": "dsh-b/dsh-a",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "956d54b37fb4ec42c7c63a73661850b17ec186d2",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "crates/boom-replay/src/main.rs",
           "crates/boom-server/src/replay_log.rs",
           "git:5bcafa0f35471a9a6ce9f5584fbb11efc72ba1d2",
-          "git:956d54b37fb4ec42c7c63a73661850b17ec186d2"
+          "git:956d54b37fb4ec42c7c63a73661850b17ec186d2",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #72, #88 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #72, #88"
+          "result": "APPROVE trên PR #72, #88, #160; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Replay cùng hash 3 OS (CI), từ chối lệch rules/content, server ghi replay round thật kể cả disconnect; done khi V1-024 done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Determinism/hash/schema và reject rules/content đã có; replay golden là baseline V1 mới, không phải oracle KR. Chờ V1-024 done; ghi proof hash sau #160, không chỉ golden trước đổi luật."
       }
     },
     {
@@ -1153,7 +1178,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_review",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [
         "V1-001"
@@ -1164,10 +1189,10 @@
       "tracking": {
         "assignee": "opencode-1/opencode-2",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "c8b14a81e1e5ff4bd17ab1d9614f6a39f6f5ebff",
+        "integration_commit": "ee779e43c9bc870e5b07060264334cea479c6f14",
         "evidence": [
           "docs/decisions/0011-identity-persistence-log-v1.md",
           "git:06058297ddd97285354a428069ff539c24671301",
@@ -1176,19 +1201,20 @@
           "git:53aabbfb9023992d3e4af9d5d2d108ac78762634",
           "git:c8b14a81e1e5ff4bd17ab1d9614f6a39f6f5ebff",
           "git:bf5ca50b338fb36447108633b7712441bb6cb8de",
-          "git:a3a78b0ec85b4a3608f7ad62ccb9f34ea6c709df"
+          "git:a3a78b0ec85b4a3608f7ad62ccb9f34ea6c709df",
+          "git:ee779e43c9bc870e5b07060264334cea479c6f14"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #68, #85, #69, #77 và trên main sau merge"
+          "command": "cargo xtask ci + CI GitHub ba OS; scenario/test trong bằng chứng",
+          "result": "xanh trên main ee779e43c9bc; rà nghiệm thu Codex #161"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #68, #85, #69, #77"
+          "result": "APPROVE trên PR #68, #69, #85; rà nghiệm thu độc lập Codex issue #161"
         },
         "blocker": "",
-        "next_action": "Identity bền qua restart + options client đạt; done khi V1-001 done."
+        "next_action": "Done theo spec V1 hiện hành (rà #161). Ghi chú: Identity/tùy chọn bền đã có code/test; room/trận không cần phục hồi đúng scope. Chờ V1-001 done; giữ proof options #69/#77 và server identity/auth."
       }
     },
     {
@@ -1198,7 +1224,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "backend",
       "depends_on": [],
       "server_responsibility": "Config endpoint, health và log cấu trúc.",
@@ -1207,7 +1233,7 @@
       "tracking": {
         "assignee": "dsh-a/opencode-1",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "8759e037c64778b0a231f166b78acf0ead567dbe",
@@ -1229,7 +1255,7 @@
           "result": "Comment APPROVE trên PR #79, #97"
         },
         "blocker": "",
-        "next_action": "Log JSON/health/heartbeat/CLI đạt T1-H1…H7; done khi chạy trong serve thật (#108)."
+        "next_action": "Rà #161: Acceptance còn thiếu: `observability.rs:148` khởi tạo round_id=null, chưa thấy emit round lifecycle điền round_id; server close_session/shutdown không log đủ nguyên nhân network disconnect. `runtime.rs::start` gọi load_content trước tạo Logger nên lỗi load đi stderr từ main. Bổ sung structured content.load_failed + round lifecycle/disconnect có ID/reason ở runtime/server/authority; thêm t"
       }
     },
     {
@@ -1287,7 +1313,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "client",
       "depends_on": [
         "V1-030"
@@ -1298,7 +1324,7 @@
       "tracking": {
         "assignee": "opencode-3/opencode-4",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-21",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -1321,7 +1347,7 @@
           "result": "Comment APPROVE trên PR #52, #82, #100, #105, #122"
         },
         "blocker": "",
-        "next_action": "Presentation journal (chết/nhốt/start) đã merge (PR #122, đóng #118); dependency V1-030 done. Chờ Claude/Codex xác nhận acceptance (frame/pivot theo R-085…R-088) để đặt done."
+        "next_action": "Rà #161: Frame/pivot/offline theo R-085…R-089 có test, nhưng nhánh mạng `Game::tick` chỉ đếm rồi bỏ server events và return trước absorb_events; journal không nhận trap/dead/explosion/start round mạng. Nối event và round start vào journal, clock/reset khi sang round; thêm test Game mạng phát trọn dead/trapped/start, frame/pivot, tiếp tục sau Ended và duplicate không phát lại. #148 là RE tương lai,"
       }
     },
     {
@@ -1411,7 +1437,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_review",
+      "implementation": "in_progress",
       "owner": "client",
       "depends_on": [
         "V1-025",
@@ -1423,7 +1449,7 @@
       "tracking": {
         "assignee": "dsh-b/dsh-a",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "aace7988256b384bf2f8d6a4d4454dcbe54401bf",
@@ -1443,7 +1469,7 @@
           "result": "Comment APPROVE trên PR #67, #106"
         },
         "blocker": "",
-        "next_action": "BGM/SFX theo event, volume/mute, dedup reconcile đạt; done khi V1-025 và V1-031 done."
+        "next_action": "Rà #161: Game::tick nhánh net return trước AudioState::plan; chưa có BGM/SFX từ event mạng. Nối AudioState/MacroquadAudio + own slot/round và cue UI vào consumer mạng; test duplicate/reconcile chỉ phát một cue, mute/volume/BGM không restart. Module test/offline xanh chưa nghiệm thu audio luồng chơi mạng."
       }
     },
     {
