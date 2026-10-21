@@ -106,7 +106,7 @@ pub async fn run_ui<B: UiBackend>(mut model: UiModel<B>, opts: UiOptions) {
 }
 
 /// Xử lý phím; trả về `true` nếu cần thoát ứng dụng.
-fn handle_input<B: UiBackend>(model: &mut UiModel<B>) -> bool {
+pub(crate) fn handle_input<B: UiBackend>(model: &mut UiModel<B>) -> bool {
     if is_key_pressed(KeyCode::Escape) {
         return matches!(model.back(), ActionOutcome::Quit);
     }

@@ -112,6 +112,16 @@ impl<W: Transport> NetBackend<W> {
         self.client.as_ref()
     }
 
+    /// Cho vòng gameplay mượn client; trả lại trước khi bơm UI.
+    pub fn take_client(&mut self) -> Option<NetClient<W>> {
+        self.client.take()
+    }
+
+    /// Trả client sau bước gameplay.
+    pub fn put_client(&mut self, client: NetClient<W>) {
+        self.client = Some(client);
+    }
+
     /// Nhân vật đang chọn (mã trên dây).
     pub fn character(&self) -> RoomCharacter {
         self.character
@@ -464,6 +474,13 @@ impl<W: Transport> UiBackend for NetBackend<W> {
         })
     }
 
+    fn active_match(&self) -> bool {
+        self.client
+            .as_ref()
+            .and_then(|client| client.room().round())
+            .is_some_and(|round| self.presented_result != Some(round.round_id))
+    }
+
     fn pump(&mut self) {
         // Lỗi bơm mạng không làm hỏng vòng vẽ: lần bơm sau sẽ thử lại; UI hiện trạng thái
         // server đã xác nhận gần nhất.
@@ -520,6 +537,10 @@ mod tests {
     impl UiFixture {
         /// Dựng server + `count` client đã đăng nhập; trả về fixture và **client đầu tiên**.
         fn new(count: usize) -> (Self, NetClient<MemoryTransport>) {
+            Self::sessions(count, true)
+        }
+
+        fn sessions(count: usize, authenticate: bool) -> (Self, NetClient<MemoryTransport>) {
             let profile = RulesProfile::from_toml(RULES).expect("profile rules");
             let rules = Rules::from_profile(&profile).expect("rules");
             let hz = rules.ticks_per_second;
@@ -601,7 +622,9 @@ mod tests {
                         mode_by_id("battle_ffa").expect("mode"),
                     );
                     net.handshake(&client_hello).expect("handshake");
-                    net.authenticate(&credentials).expect("auth");
+                    if authenticate {
+                        net.authenticate(&credentials).expect("auth");
+                    }
                     net
                 }));
             }
@@ -653,6 +676,110 @@ mod tests {
                 net.pump(Duration::from_millis(1)).expect("bơm message");
             }
         }
+    }
+
+    #[test]
+    fn ui_model_hai_tran_voi_server_that() {
+        use crate::ui::model::{ActionId, ActionOutcome, FieldId};
+        use crate::ui::{Texts, UiModel};
+        use boom_content::bundle::UiScreen;
+        let (mut fixture, first) = UiFixture::sessions(2, false);
+        let second = fixture.others.remove(0);
+        let mut index = 0;
+        let mut models = [first, second].map(|client| {
+            let name = format!("ui-user-{index}");
+            index += 1;
+            let mut client = Some(client);
+            let backend = NetBackend::lazy(move |credentials| {
+                let mut net = client.take().expect("một phiên");
+                net.authenticate(&credentials)?;
+                Ok(net)
+            });
+            let mut model = UiModel::new(backend, Texts::embedded());
+            model.set_field_text(FieldId::LoginAccount, &name);
+            model.set_field_text(FieldId::LoginPassword, ACCOUNT_PASSWORD);
+            // Auth đồng bộ của UI chờ server IO trên luồng fixture.
+            thread::scope(|scope| {
+                let handle = scope.spawn(|| model.activate(ActionId::LoginRegister));
+                while !handle.is_finished() {
+                    fixture.server.poll(0, Duration::from_millis(1)).unwrap();
+                }
+                assert_eq!(handle.join().unwrap(), ActionOutcome::Done);
+            });
+            assert_eq!(model.screen(), UiScreen::Lobby);
+            model
+        });
+        fn pump(fixture: &mut UiFixture, models: &mut [UiModel<NetBackend<MemoryTransport>>; 2]) {
+            for _ in 0..64 {
+                fixture.server.poll(fixture.now_ms, Duration::ZERO).unwrap();
+                for model in models.iter_mut() {
+                    model.tick();
+                }
+            }
+        }
+        assert_eq!(
+            models[0].activate(ActionId::LobbyCreate),
+            ActionOutcome::Done
+        );
+        pump(&mut fixture, &mut models);
+        models[1].activate(ActionId::LobbyRefresh);
+        // Fixture server được poll riêng; nhận danh sách trước khi chọn phòng.
+        pump(&mut fixture, &mut models);
+        models[1].activate(ActionId::LobbyRefresh);
+        models[1].move_selection(0);
+        assert_eq!(models[1].activate(ActionId::LobbyJoin), ActionOutcome::Done);
+        pump(&mut fixture, &mut models);
+        let mut rounds = Vec::new();
+        for _ in 0..2 {
+            for model in &mut models {
+                assert_eq!(model.activate(ActionId::RoomReady), ActionOutcome::Done);
+            }
+            pump(&mut fixture, &mut models);
+            assert!(models[0].room().unwrap().can_start);
+            assert_eq!(models[0].activate(ActionId::RoomStart), ActionOutcome::Done);
+            pump(&mut fixture, &mut models);
+            fixture.now_ms += 200;
+            pump(&mut fixture, &mut models);
+            for model in &models {
+                assert_eq!(model.screen(), UiScreen::Match);
+            }
+            let round = models[0]
+                .backend_mut()
+                .client()
+                .unwrap()
+                .round_id()
+                .unwrap();
+            rounds.push(round);
+            for model in &mut models {
+                let client = model.backend_mut().client.as_mut().unwrap();
+                assert_eq!(client.phase(), Some(Phase::Playing));
+                client
+                    .predict(boom_core::PlayerInput {
+                        dir: boom_core::Dir::Right,
+                        place_bomb: true,
+                    })
+                    .unwrap();
+                client.resend().unwrap();
+                assert!(client.pending_len() > 0);
+            }
+            pump(&mut fixture, &mut models);
+            fixture.now_ms += fixture.round_duration_ms + 10_000;
+            pump(&mut fixture, &mut models);
+            for model in &mut models {
+                assert_eq!(model.screen(), UiScreen::Result);
+                assert_eq!(model.outcome().unwrap().entries.len(), 2);
+                assert_eq!(
+                    model.activate(ActionId::ResultContinue),
+                    ActionOutcome::Done
+                );
+                assert_eq!(model.screen(), UiScreen::Room);
+            }
+            pump(&mut fixture, &mut models);
+            for model in &models {
+                assert!(!model.room().unwrap().self_ready);
+            }
+        }
+        assert!(rounds[1] > rounds[0]);
     }
 
     /// Backend UI mạng đi trọn luồng V1 với server thật: sảnh → phòng → lượt → kết quả.
