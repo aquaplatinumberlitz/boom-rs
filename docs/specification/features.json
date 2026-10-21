@@ -437,7 +437,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "core",
       "depends_on": [
         "V1-030",
@@ -449,13 +449,15 @@
       "tracking": {
         "assignee": "opencode-4",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-21",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
         "integration_commit": "",
         "evidence": [
           "crates/boom-core/src/systems/movement.rs",
-          "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9"
+          "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9",
+          "git:b26c88c6c852786b9281c5aea0e2939e40247739",
+          "docs/decisions/0012-v1-rules-from-bnb.md"
         ],
         "verification": {
           "status": "passed",
@@ -464,10 +466,10 @@
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #22"
+          "result": "Codex APPROVE PR #140"
         },
         "blocker": "",
-        "next_action": "Đã có đi/rẽ/va chạm (PR #22); còn ưu tiên giữ nhiều phím/mất focus (V1-033) và hiệu chuẩn tốc độ/bám góc (#11, Q-005)."
+        "next_action": "Movement theo BnB (hộp 26 px, bám góc 12 px, bomb pass) đã merge PR #140 (#130, ADR 0012); dependency V1-030/V1-033 done. Chờ xác nhận trace acceptance để đặt done."
       }
     },
     {
@@ -488,14 +490,15 @@
       "tracking": {
         "assignee": "opencode-4",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-21",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
         "integration_commit": "fefd5c0d810c4e3d494c5a064272be29fa5c39c9",
         "evidence": [
           "crates/boom-core/src/systems/movement.rs",
           "fixtures/scenarios/movement/bomb_grace_one_way.toml",
-          "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9"
+          "git:fefd5c0d810c4e3d494c5a064272be29fa5c39c9",
+          "git:b26c88c6c852786b9281c5aea0e2939e40247739"
         ],
         "verification": {
           "status": "passed",
@@ -504,10 +507,10 @@
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #22"
+          "result": "Review PR #22; Codex APPROVE PR #140"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #22; đặt done khi dependency V1-011 done (AGENTS §6)."
+        "next_action": "Bomb pass theo overlap BnB đã merge PR #140; đặt done khi V1-011 done (AGENTS §6)."
       }
     },
     {
@@ -1210,7 +1213,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "assets",
       "depends_on": [],
       "server_responsibility": "Dùng allowlist content manifest.",
@@ -1219,10 +1222,10 @@
       "tracking": {
         "assignee": "opencode-4",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-21",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "4ec8acf9e133e45d351b589d2089bae446248e8f",
+        "integration_commit": "891c7c7d3d76ed4f8e6807d9e32f4611917e3d10",
         "evidence": [
           "docs/specification/gameplay/RULES_V1.md",
           "git:243d230fd7f04524b7dc7794f597237cf4d4454d",
@@ -1234,19 +1237,21 @@
           "crates/boom-client/src/scene.rs",
           "git:abae61bba75252fcea83bf9b6da80e322722dfe3",
           "git:b3d4d068a3a78a4c4b40a0bb76e28bc410893f7a",
-          "git:4ec8acf9e133e45d351b589d2089bae446248e8f"
+          "git:4ec8acf9e133e45d351b589d2089bae446248e8f",
+          "git:891c7c7d3d76ed4f8e6807d9e32f4611917e3d10",
+          "docs/specification/assets/BUNDLES.md"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #36, #38, #39, #55, #81, #91 và trên main sau merge"
+          "command": "BOOM_KR_PACK_DIR=… cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh; bundle thật 0 unknown, content_hash 80838d62…"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #36, #38, #39, #55, #81, #91"
+          "result": "Codex APPROVE PR #126 vòng 2 (head 00b13a9)"
         },
         "blocker": "",
-        "next_action": "Closure + bundle + client vẽ Village00 đã tích hợp (#36, #38, #39, #55, #81, #91). Còn acceptance: 4 mục `unknown` của bundle và test 4 spawn không trùng/không bị chặn/có đường thoát — issue #121."
+        "next_action": "Xong: 0 unknown trong bundle Village00, test 4 spawn (PR #126, đóng #121)."
       }
     },
     {
@@ -1256,7 +1261,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "client",
       "depends_on": [
         "V1-030"
@@ -1267,7 +1272,7 @@
       "tracking": {
         "assignee": "opencode-3/opencode-4",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-21",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -1277,7 +1282,8 @@
           "crates/boom-client/src/anim.rs",
           "git:5242e48f61272d2c6ce5c1b3386d123e5e6688f4",
           "git:40fb031334dd70caa7d13ee725f8c7890fd85505",
-          "git:93288f1f300a249da7b723f91acfa4d8a1f1325b"
+          "git:93288f1f300a249da7b723f91acfa4d8a1f1325b",
+          "git:f545f24d6570617814763609ce4cfc1c7ffecfc3"
         ],
         "verification": {
           "status": "passed",
@@ -1286,10 +1292,10 @@
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #52, #82, #100, #105"
+          "result": "Comment APPROVE trên PR #52, #82, #100, #105, #122"
         },
         "blocker": "",
-        "next_action": "Clip + phát theo tick đạt; còn presentation journal (chuỗi chết) và clip nổ ở client (#101)."
+        "next_action": "Presentation journal (chết/nhốt/start) đã merge (PR #122, đóng #118); dependency V1-030 done. Chờ Claude/Codex xác nhận acceptance (frame/pivot theo R-085…R-088) để đặt done."
       }
     },
     {
