@@ -7,6 +7,12 @@ name: ci
 on:
   push:
   pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Python đọc/ghi UTF-8 trên mọi OS (Windows mặc định cp1252).
+  PYTHONUTF8: "1"
+
 jobs:
   ci:
     strategy:

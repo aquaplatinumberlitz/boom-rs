@@ -2341,7 +2341,24 @@ def cmd_test(args) -> int:
 # --------------------------------------------------------------------------------------
 
 
+def force_utf8_output() -> None:
+    """Ép stdout/stderr dùng UTF-8: console Windows mặc định cp1252, in tiếng Việt sẽ lỗi.
+
+    `UnicodeEncodeError` khi in thông điệp tiếng Việt làm job CI fail dù công cụ
+    đã làm đúng. Ép được thì ép; không được thì bỏ qua (không được làm hỏng lệnh).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):  # pragma: no cover - stream không ép được
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_output()
     parser = argparse.ArgumentParser(
         description="Dựng/mở gói phát hành, sinh LICENSES, kiểm gói và smoke chạy binary (V1-036).")
     sub = parser.add_subparsers(dest="command", required=True)
