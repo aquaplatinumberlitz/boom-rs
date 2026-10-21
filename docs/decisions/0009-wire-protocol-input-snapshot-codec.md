@@ -737,6 +737,11 @@ RoomRejectReason = PlayerAlreadyInRoom | PlayerNotInRoom | RoomNotFound | RoomFu
   Addendum A). Server bind `player` từ phiên `AuthOk` rồi mới dựng `boom_room::RoomCommand`; vì vậy
   ánh xạ 1-1 `RoomAction`/`request` là **sau khi bind**. Adapter `boom-sync::room` nhận `player` là
   tham số riêng khi đổi DTO→core, không đọc từ payload.
+- **Định danh người chơi trong phòng/round là `AuthOk.account_id`** (mọi trường `player` trên dây
+  mang giá trị này). **Slot trận** của một client là `slot` của mục `RoundStart.roster` có
+  `player == account_id` của phiên — **không** suy từ `Welcome.player_id`, vì đó là định danh
+  kết nối trong phiên chứ không phải slot. Server bind slot của input từ phiên → (round, slot
+  theo roster); batch khai slot khác bị **bỏ** và đếm (không tin client khai — ADR 0005).
 - `RoomState` ánh xạ `RoomView`; tên hiển thị từ account store không có trong `RoomView`, nên
   `LobbyRoom.name`/`RoomChatMessage.from_name` do server điền, adapter phòng để trống/không suy đoán.
 - `RoomRejected` giữ `request` để client bỏ dedup; lý do ánh xạ từ `RoomError`, không gộp lỗi.

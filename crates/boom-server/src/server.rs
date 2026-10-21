@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::net::{IpAddr, TcpListener};
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
 use std::thread;
 use std::time::Duration;
@@ -37,6 +38,7 @@ use crate::authority::{
 };
 use crate::config::HandshakeConfig;
 use crate::identity::{AccountStore, RevokeReason, SessionId, SessionStore};
+use crate::observability::{LogFields, Logger, events};
 
 fn room_command_reject_reason(err: &ServerError) -> Option<boom_proto::RoomRejectReason> {
     use boom_proto::RoomRejectReason as Reason;
@@ -147,6 +149,11 @@ impl AuthRuntime {
 
 #[derive(Clone, Debug)]
 struct AuthSession {
+    /// ID tài khoản: **định danh người chơi trong phòng/round** (ADR 0009 Addendum B §B.2).
+    ///
+    /// Mọi trường `player` trên dây (`RoomState`, `RoundStart.roster`, `RoomChatMessage`,
+    /// `RoundResult`) mang giá trị này; server bind từ phiên `AuthOk`, không tin payload.
+    account_id: u64,
     display_name: String,
     session_id: SessionId,
     last_pong_ms: u64,
@@ -171,7 +178,11 @@ const OUTBOUND_QUEUE_FRAMES: usize = 32;
 const GRACEFUL_CLOSE_MS: u64 = 2_000;
 
 struct Session {
-    slot: u8,
+    /// Định danh **kết nối** trong phiên (đưa vào `Welcome.player_id`).
+    ///
+    /// **Không phải** slot trận: slot trận lấy từ roster round theo `account_id`
+    /// (ADR 0009 Addendum B §B.2). Số thứ tự kết nối TCP không được dùng làm slot.
+    connection_id: u8,
     session_id: String,
     /// IP nguồn của kết nối (không lấy port) — bucket rate limit theo nguồn ADR 0011 §5.
     source_ip: IpAddr,
@@ -208,11 +219,21 @@ pub struct Server {
     handshake: HandshakeConfig,
     tx: Sender<Inbound>,
     rx: Receiver<Inbound>,
+    /// Kết nối đang mở, khóa theo **định danh kết nối** (`PlayerId` cấp lúc accept).
     sessions: BTreeMap<PlayerId, Session>,
+    /// Ánh xạ **định danh người chơi trong phòng** (`account_id`) → kết nối đang giữ nó.
+    ///
+    /// Một tài khoản chỉ có một phiên (ADR 0011 §6) nên ánh xạ là 1-1; dùng để gửi tin
+    /// phòng/round về đúng kết nối mà không tin `player` do client khai.
+    by_account: BTreeMap<PlayerId, PlayerId>,
+    /// Số batch input bị **bỏ** vì client khai slot khác slot server bind từ phiên.
+    input_slot_mismatch: u64,
     now_ms: u64,
     next_session: u64,
     /// Auth + store thật; `None` chỉ dành cho test handshake thuần.
     auth: Option<AuthRuntime>,
+    /// Log JSON Lines (ADR 0011 §8.1); `None` khi không gắn (test).
+    logger: Option<Arc<Logger>>,
     server_version: String,
     ping_interval_ms: u64,
     liveness_timeout_ms: u64,
@@ -229,9 +250,12 @@ impl Server {
             tx,
             rx,
             sessions: BTreeMap::new(),
+            by_account: BTreeMap::new(),
+            input_slot_mismatch: 0,
             now_ms: 0,
             next_session: 1,
             auth: None,
+            logger: None,
             server_version: env!("CARGO_PKG_VERSION").to_owned(),
             ping_interval_ms: 15_000,
             liveness_timeout_ms: 30_000,
@@ -282,9 +306,53 @@ impl Server {
         self.server_version = version.into();
     }
 
+    /// Gắn logger JSON Lines (ADR 0011 §8.1). Không bắt buộc: test không cần log.
+    pub fn set_logger(&mut self, logger: Arc<Logger>) {
+        self.logger = Some(logger);
+    }
+
     /// Đặt hạn handshake/auth cho kết nối chưa `AuthOk` (mặc định 10 s).
     pub fn set_auth_deadline_ms(&mut self, deadline_ms: u64) {
         self.auth_deadline_ms = deadline_ms.max(1);
+    }
+
+    /// Số batch input bị bỏ vì client khai slot khác slot server bind từ phiên.
+    pub fn input_slot_mismatch_count(&self) -> u64 {
+        self.input_slot_mismatch
+    }
+
+    /// Định danh người chơi trong phòng/round của một kết nối (`account_id` sau `AuthOk`).
+    ///
+    /// `None` khi kết nối chưa `AuthOk` ⇒ chưa có định danh để bind lệnh phòng.
+    fn room_player(&self, connection: PlayerId) -> Option<PlayerId> {
+        self.sessions
+            .get(&connection)
+            .and_then(|session| session.account.as_ref())
+            .map(|account| PlayerId(account.account_id))
+    }
+
+    /// Kết nối đang giữ một định danh người chơi trong phòng.
+    fn connection_of(&self, account: PlayerId) -> Option<PlayerId> {
+        self.by_account.get(&account).copied()
+    }
+
+    /// Định danh người chơi trong phòng mà một kết nối được bind.
+    ///
+    /// Sau `AuthOk` đó là `account_id` (ADR 0009 Addendum B §B.2). Kết nối **chưa** có
+    /// account thì dùng chính định danh kết nối: trên dây, kind phòng trước `AuthOk` đã bị
+    /// `RoomGate` chặn, nên nhánh này chỉ cho lớp backend/test chưa bật auth.
+    fn bound_player(&self, connection: PlayerId) -> PlayerId {
+        self.room_player(connection).unwrap_or(connection)
+    }
+
+    /// Thu hồi **mọi phiên của instance này** trong store (ADR 0011 §6.1).
+    ///
+    /// Dùng khi server dừng có trật tự (Ctrl-C/SIGTERM): phiên bị đánh dấu thu hồi nên
+    /// người chơi đăng nhập lại được, còn `Server::drop` gọi lại hàm này (thao tác idempotent).
+    pub fn shutdown_sessions(&mut self, now_ms: u64) {
+        if let Some(auth) = self.auth.as_mut() {
+            auth.shutdown_all(i64::try_from(now_ms).unwrap_or(i64::MAX));
+        }
     }
 
     pub fn authority(&self) -> &Authority {
@@ -313,10 +381,13 @@ impl Server {
     }
 
     /// Nhận một nửa đọc và một nửa ghi của kết nối; spawn đúng một luồng đọc chặn.
+    ///
+    /// `connection_id` là **định danh kết nối** (đưa vào `Welcome.player_id`), không phải
+    /// slot trận: slot trận lấy từ roster round theo `account_id` (ADR 0009 Addendum B §B.2).
     pub fn accept<R, W>(
         &mut self,
         player: PlayerId,
-        slot: u8,
+        connection_id: u8,
         source_ip: IpAddr,
         reader: R,
         writer: W,
@@ -325,7 +396,7 @@ impl Server {
         R: Transport + Send + 'static,
         W: Transport + Send + 'static,
     {
-        self.accept_with_shutdown(player, slot, source_ip, reader, writer, || {})
+        self.accept_with_shutdown(player, connection_id, source_ip, reader, writer, || {})
     }
 
     /// Như [`Server::accept`] nhưng có handle shutdown độc lập để hủy socket khi session bị loại,
@@ -333,7 +404,7 @@ impl Server {
     pub fn accept_with_shutdown<R, W, S>(
         &mut self,
         player: PlayerId,
-        slot: u8,
+        connection_id: u8,
         source_ip: IpAddr,
         mut reader: R,
         writer: W,
@@ -354,7 +425,7 @@ impl Server {
         self.sessions.insert(
             player,
             Session {
-                slot,
+                connection_id,
                 session_id,
                 source_ip,
                 connected_at_ms: self.now_ms,
@@ -410,7 +481,7 @@ impl Server {
         &mut self,
         listener: &TcpListener,
         player: PlayerId,
-        slot: u8,
+        connection_id: u8,
     ) -> Result<(), ServerError> {
         let (stream, peer) = listener.accept().map_err(NetError::from)?;
         let source_ip = peer.ip();
@@ -419,9 +490,16 @@ impl Server {
         let reader = TcpTransport::from_stream(stream)?;
         let writer = TcpTransport::from_stream(writer_stream)?;
         let mut shutdown = TcpTransport::from_stream(shutdown_stream)?;
-        self.accept_with_shutdown(player, slot, source_ip, reader, writer, move || {
-            let _ = shutdown.close();
-        })
+        self.accept_with_shutdown(
+            player,
+            connection_id,
+            source_ip,
+            reader,
+            writer,
+            move || {
+                let _ = shutdown.close();
+            },
+        )
     }
 
     /// Chạy một vòng: nhận frame (chờ tối đa `wait`), xử lý authority, gửi snapshot/event.
@@ -558,12 +636,30 @@ impl Server {
             self.close_session_after_flush_with_reason(player, RevokeReason::Logout);
             return Ok(());
         }
+        // Đã `AuthOk` ⇒ định danh người chơi trong phòng/round là `account_id`
+        // (ADR 0009 Addendum B §B.2). Mọi lệnh phòng/round bind theo định danh này.
+        let Some(room_player) = self.room_player(player) else {
+            self.close_session(player);
+            return Ok(());
+        };
         let limits = self.authority.config().protocol_limits;
         match kind {
             boom_proto::MessageKind::InputBatch => {
                 let batch: InputBatch = decode_frame(frame, &limits)?;
-                match self.authority.submit_input(player, &batch, self.now_ms) {
+                // Server bind slot của input từ phiên: định danh người chơi = `account_id`,
+                // slot lấy từ roster round (ADR 0009 Addendum B §B.2). `batch.player` do
+                // client khai chỉ để **đối chiếu**, không phải nguồn sự thật.
+                match self
+                    .authority
+                    .submit_input(room_player, &batch, self.now_ms)
+                {
                     Ok(_) => {}
+                    Err(crate::InputError::PlayerMismatch { expected, received }) => {
+                        // Client khai slot khác slot server bind ⇒ **bỏ** batch + đếm,
+                        // không áp dụng và không đổi state (không tin client khai — ADR 0005).
+                        self.input_slot_mismatch = self.input_slot_mismatch.saturating_add(1);
+                        self.log_input_slot_mismatch(room_player, expected, received);
+                    }
                     Err(err) => self.send_input_rejected(player, &batch, &err)?,
                 }
             }
@@ -585,8 +681,10 @@ impl Server {
             }
             boom_proto::MessageKind::RoomCommand => {
                 let dto: RoomCommandDto = decode_frame(frame, &limits)?;
-                let command = from_room_command(&dto, player);
-                match self.room_command(command, self.now_ms) {
+                // Bind định danh người chơi từ phiên (`account_id`) rồi mới dựng lệnh phòng:
+                // client không được khai định danh (ADR 0009 Addendum B §B.2).
+                let command = from_room_command(&dto, room_player);
+                match self.authority.room_command(command, self.now_ms) {
                     Ok(update) => self.after_room_update(&update)?,
                     Err(err) => {
                         if let Some(reason) = room_command_reject_reason(&err) {
@@ -599,7 +697,7 @@ impl Server {
             }
             boom_proto::MessageKind::RoomChat => {
                 let chat: RoomChat = decode_frame(frame, &limits)?;
-                self.handle_room_chat(player, &chat)?;
+                self.handle_room_chat(player, room_player, &chat)?;
             }
             boom_proto::MessageKind::LoadingAck => {
                 let ack: LoadingAck = decode_frame(frame, &limits)?;
@@ -612,7 +710,7 @@ impl Server {
                 } else if self.authority.phase() == ServerPhase::Playing {
                     // Ack lặp sau barrier: idempotent, không đổi phase.
                 } else {
-                    match self.authority.ack_loading(player, self.now_ms) {
+                    match self.authority.ack_loading(room_player, self.now_ms) {
                         Ok(events) => self.flush_lifecycle(&events)?,
                         Err(_) => self.send_room_rejected(
                             player,
@@ -633,7 +731,7 @@ impl Server {
                 } else if self.authority.phase() == ServerPhase::Waiting {
                     // ResultAck lặp sau khi đã về phòng: idempotent.
                 } else {
-                    match self.authority.ack_result(player, self.now_ms) {
+                    match self.authority.ack_result(room_player, self.now_ms) {
                         Ok(events) => self.flush_lifecycle(&events)?,
                         Err(_) => self.send_room_rejected(
                             player,
@@ -738,12 +836,16 @@ impl Server {
                 if let Some(session) = self.sessions.get_mut(&player) {
                     session.auth.on_auth_ok();
                     session.account = Some(AuthSession {
+                        account_id,
                         display_name,
                         session_id,
                         last_pong_ms: self.now_ms,
                         next_ping_ms: self.now_ms.saturating_add(self.ping_interval_ms),
                     });
                 }
+                // Định danh người chơi trong phòng = `account_id`; mọi lệnh phòng/round bind
+                // theo ánh xạ này (ADR 0009 Addendum B §B.2).
+                self.by_account.insert(PlayerId(account_id), player);
             }
             Err(err) => {
                 self.send(
@@ -815,14 +917,18 @@ impl Server {
 
     fn send_room_state(&mut self, view: &RoomView) -> Result<(), ServerError> {
         let state = to_room_state(view);
+        // `view.members` mang **định danh người chơi** (`account_id`); gửi về kết nối đang giữ nó.
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
-        for player in members {
+        for account in members {
+            let Some(connection) = self.connection_of(account) else {
+                continue;
+            };
             if self
                 .sessions
-                .get(&player)
+                .get(&connection)
                 .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
             {
-                self.send(player, &state)?;
+                self.send(connection, &state)?;
             }
         }
         Ok(())
@@ -832,12 +938,14 @@ impl Server {
         let views: Vec<RoomView> = self.authority.room_view().into_iter().collect();
         let mut list = to_lobby_list(&views);
         for room in &mut list.rooms {
-            if let Some(account) = self
-                .sessions
-                .get(&PlayerId(room.host))
+            // `host` là định danh người chơi (`account_id`) ⇒ tên hiển thị lấy từ session đang giữ nó.
+            let name = self
+                .connection_of(PlayerId(room.host))
+                .and_then(|connection| self.sessions.get(&connection))
                 .and_then(|session| session.account.as_ref())
-            {
-                room.name = account.display_name.clone();
+                .map(|account| account.display_name.clone());
+            if let Some(name) = name {
+                room.name = name;
             }
         }
         list
@@ -888,36 +996,44 @@ impl Server {
             start_tick: self.authority.tick().unwrap_or(0),
         };
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
-        for player in members {
+        for account in members {
+            let Some(connection) = self.connection_of(account) else {
+                continue;
+            };
             if self
                 .sessions
-                .get(&player)
+                .get(&connection)
                 .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
             {
-                self.send(player, &message)?;
+                self.send(connection, &message)?;
             }
         }
         Ok(())
     }
 
-    fn handle_room_chat(&mut self, player: PlayerId, chat: &RoomChat) -> Result<(), ServerError> {
+    fn handle_room_chat(
+        &mut self,
+        connection: PlayerId,
+        room_player: PlayerId,
+        chat: &RoomChat,
+    ) -> Result<(), ServerError> {
         let Some(view) = self.authority.room_view() else {
             return self.send_room_rejected(
-                player,
+                connection,
                 chat.request,
                 boom_proto::RoomRejectReason::PlayerNotInRoom,
             );
         };
-        if !view.members.iter().any(|m| m.player == player) {
+        if !view.members.iter().any(|m| m.player == room_player) {
             return self.send_room_rejected(
-                player,
+                connection,
                 chat.request,
                 boom_proto::RoomRejectReason::PlayerNotInRoom,
             );
         }
         let max_per_s = self.authority.config().protocol_limits.max_chat_per_s;
         let now = self.now_ms;
-        let Some(session) = self.sessions.get_mut(&player) else {
+        let Some(session) = self.sessions.get_mut(&connection) else {
             return Ok(());
         };
         if now.saturating_sub(session.chat_window_start_ms) >= 1_000 {
@@ -930,24 +1046,28 @@ impl Server {
         session.chat_count = session.chat_count.saturating_add(1);
         let from_name = self
             .sessions
-            .get(&player)
+            .get(&connection)
             .and_then(|session| session.account.as_ref())
             .map(|account| account.display_name.clone())
-            .unwrap_or_else(|| format!("player{}", player.0));
+            .unwrap_or_else(|| format!("player{}", room_player.0));
         let message = RoomChatMessage {
             room_id: view.id.0,
-            from: player.0,
+            // `from` là định danh người chơi (`account_id`).
+            from: room_player.0,
             from_name,
             text: chat.text.clone(),
         };
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
-        for member in members {
+        for account in members {
+            let Some(member_connection) = self.connection_of(account) else {
+                continue;
+            };
             if self
                 .sessions
-                .get(&member)
+                .get(&member_connection)
                 .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
             {
-                self.send(member, &message)?;
+                self.send(member_connection, &message)?;
             }
         }
         Ok(())
@@ -990,13 +1110,16 @@ impl Server {
             results,
         };
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
-        for player in members {
+        for account in members {
+            let Some(connection) = self.connection_of(account) else {
+                continue;
+            };
             if self
                 .sessions
-                .get(&player)
+                .get(&connection)
                 .is_some_and(|s| s.handshaken && s.auth.is_authenticated())
             {
-                self.send(player, &message)?;
+                self.send(connection, &message)?;
             }
         }
         Ok(())
@@ -1046,7 +1169,8 @@ impl Server {
         };
         let welcome = Welcome {
             session_id: session.session_id.clone(),
-            player_id: session.slot,
+            // Định danh kết nối trong phiên — **không phải** slot trận (ADR 0009 Addendum B §B.2).
+            player_id: session.connection_id,
             wire_schema: WIRE_SCHEMA,
             state_schema: 1,
             server_version: self.server_version.clone(),
@@ -1096,7 +1220,11 @@ impl Server {
             _ => InputRejectReason::BadSequence,
         };
         let first_seq = batch.commands.first().map_or(0, |c| c.seq);
-        let applied_seq = self.authority.applied_seq(player).unwrap_or(0);
+        // Ack lấy theo **định danh người chơi** (`account_id`) của phiên.
+        let applied_seq = self
+            .room_player(player)
+            .and_then(|room_player| self.authority.applied_seq(room_player))
+            .unwrap_or(0);
         let server_tick = self.authority.tick().unwrap_or(0);
         self.send(
             player,
@@ -1109,6 +1237,26 @@ impl Server {
                 server_tick,
             },
         )
+    }
+
+    /// Ghi sự kiện "batch input bị bỏ vì client khai slot khác slot server bind".
+    ///
+    /// Không gửi `InputRejected`: lý do `BadSequence` khiến client bỏ lệnh của mình
+    /// (ADR 0009 §3.4(d)) trong khi lệnh hoàn toàn hợp lệ — chỉ là client chưa biết
+    /// slot của mình. Client tự resync qua snapshot.
+    fn log_input_slot_mismatch(&self, room_player: PlayerId, expected: u8, received: u8) {
+        let Some(logger) = self.logger.as_ref() else {
+            return;
+        };
+        let mut fields = LogFields::new();
+        fields.insert("player_id", serde_json::json!(room_player.0));
+        fields.insert("expected_slot", serde_json::json!(expected));
+        fields.insert("received_slot", serde_json::json!(received));
+        fields.insert(
+            "dropped_batches",
+            serde_json::json!(self.input_slot_mismatch),
+        );
+        logger.warn(events::INPUT_SLOT_MISMATCH, fields);
     }
 
     fn send<M: Message>(&mut self, player: PlayerId, message: &M) -> Result<(), ServerError> {
@@ -1158,10 +1306,14 @@ impl Server {
         Ok(())
     }
 
-    fn is_member(&self, player: PlayerId) -> bool {
+    /// Kết nối này có đang là thành viên phòng không (định danh = `account_id`).
+    fn is_member(&self, connection: PlayerId) -> bool {
+        let Some(account) = self.room_player(connection) else {
+            return false;
+        };
         self.authority
             .room_view()
-            .is_some_and(|view| view.members.iter().any(|m| m.player == player))
+            .is_some_and(|view| view.members.iter().any(|m| m.player == account))
     }
 
     fn flush_liveness(&mut self, now_ms: u64) -> Result<(), ServerError> {
@@ -1256,8 +1408,13 @@ impl Server {
         let Some(session) = self.sessions.remove(&player) else {
             return;
         };
+        let account = session
+            .account
+            .as_ref()
+            .map(|account| PlayerId(account.account_id));
         self.revoke_account(&session, reason);
-        self.notify_disconnect(player);
+        self.forget_account(account);
+        self.notify_disconnect(account);
     }
 
     fn revoke_account(&mut self, session: &Session, reason: RevokeReason) {
@@ -1273,8 +1430,18 @@ impl Server {
         }
     }
 
-    fn notify_disconnect(&mut self, player: PlayerId) {
-        if let Ok(events) = self.authority.disconnect(player, self.now_ms) {
+    /// Gỡ ánh xạ account → kết nối khi phiên đóng.
+    fn forget_account(&mut self, account: Option<PlayerId>) {
+        if let Some(account) = account {
+            self.by_account.remove(&account);
+        }
+    }
+
+    /// Báo cho authority biết người chơi rời phòng (định danh = `account_id`).
+    fn notify_disconnect(&mut self, account: Option<PlayerId>) {
+        if let Some(account) = account
+            && let Ok(events) = self.authority.disconnect(account, self.now_ms)
+        {
             let _ = self.flush_lifecycle(&events);
         }
         if let Some(view) = self.authority.room_view() {
@@ -1294,8 +1461,13 @@ impl Server {
         let Some(mut session) = self.sessions.remove(&player) else {
             return;
         };
+        let account = session
+            .account
+            .as_ref()
+            .map(|account| PlayerId(account.account_id));
         self.revoke_account(&session, reason);
-        self.notify_disconnect(player);
+        self.forget_account(account);
+        self.notify_disconnect(account);
         let shutdown = session.shutdown.take();
         let (dummy_tx, dummy_rx) = mpsc::channel();
         drop(dummy_tx);
@@ -1310,6 +1482,10 @@ impl Server {
     }
 
     // --- Điều khiển authority cho test/lớp backend khi chưa có DTO room/loading/result. ---
+    //
+    // `player` ở các hàm này là **định danh kết nối** (khoá session): server bind định danh
+    // người chơi trong phòng (`account_id`) từ phiên đó, đúng như lệnh phòng trên dây
+    // (ADR 0009 Addendum B §B.2).
 
     pub fn room_command(
         &mut self,
@@ -1323,15 +1499,19 @@ impl Server {
         {
             return Err(ServerError::NoSession(command.player));
         }
+        let command = RoomCommand {
+            player: self.bound_player(command.player),
+            ..command
+        };
         self.authority.room_command(command, now_ms)
     }
-
     pub fn ack_loading(
         &mut self,
         player: PlayerId,
         now_ms: u64,
     ) -> Result<Vec<InternalServerEvent>, ServerError> {
-        self.authority.ack_loading(player, now_ms)
+        self.authority
+            .ack_loading(self.bound_player(player), now_ms)
     }
 
     pub fn ack_result(
@@ -1339,7 +1519,7 @@ impl Server {
         player: PlayerId,
         now_ms: u64,
     ) -> Result<Vec<InternalServerEvent>, ServerError> {
-        self.authority.ack_result(player, now_ms)
+        self.authority.ack_result(self.bound_player(player), now_ms)
     }
 
     pub fn disconnect(
@@ -1347,18 +1527,17 @@ impl Server {
         player: PlayerId,
         now_ms: u64,
     ) -> Result<Vec<InternalServerEvent>, ServerError> {
-        self.authority.disconnect(player, now_ms)
+        self.authority.disconnect(self.bound_player(player), now_ms)
     }
 
     pub fn player_life(&self, player: PlayerId) -> Option<Life> {
-        self.authority.player_life(player)
+        self.authority.player_life(self.bound_player(player))
     }
 }
 
 impl Drop for Server {
     fn drop(&mut self) {
-        if let Some(auth) = self.auth.as_mut() {
-            auth.shutdown_all(i64::try_from(self.now_ms).unwrap_or(i64::MAX));
-        }
+        let now_ms = self.now_ms;
+        self.shutdown_sessions(now_ms);
     }
 }

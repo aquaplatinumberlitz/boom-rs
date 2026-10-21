@@ -39,6 +39,10 @@ pub mod events {
     pub const AUTH_RNG_UNAVAILABLE: &str = "auth.rng_unavailable";
     /// Phiên bị thu hồi (logout, disconnect, timeout, lệnh admin).
     pub const SESSION_REVOKED: &str = "session.revoked";
+    /// Batch input bị **bỏ** vì client khai slot khác slot server bind từ phiên
+    /// (ADR 0009 Addendum B §B.2). Không phải lỗi sequence: client chỉ chưa biết
+    /// slot của mình.
+    pub const INPUT_SLOT_MISMATCH: &str = "input.slot_mismatch";
 }
 
 /// Mức log cố định.

@@ -108,6 +108,14 @@ pub enum ProfileError {
         found: String,
     },
     OutOfRange(String, i64),
+    /// Thiếu bảng chỉ số của một nhân vật V1 trong profile.
+    MissingCharacter(String),
+    /// Cấp hiện tại vượt trần trong bảng chỉ số nhân vật.
+    CharacterAboveMax {
+        key: String,
+        value: i64,
+        max: i64,
+    },
     OverlayBase {
         overlay: String,
         base: String,
@@ -135,6 +143,13 @@ impl fmt::Display for ProfileError {
                 found,
             } => write!(f, "{key}: đơn vị {found}, cần {expected}"),
             Self::OutOfRange(k, v) => write!(f, "{k}: giá trị {v} ngoài miền cho phép"),
+            Self::MissingCharacter(id) => write!(
+                f,
+                "thiếu bảng chỉ số nhân vật {id} trong profile (cần khóa `characters.{id}_*`)"
+            ),
+            Self::CharacterAboveMax { key, value, max } => {
+                write!(f, "{key}: cấp hiện tại {value} vượt trần {max}")
+            }
             Self::OverlayBase {
                 overlay,
                 base,
@@ -154,6 +169,36 @@ impl fmt::Display for ProfileError {
 }
 
 impl std::error::Error for ProfileError {}
+
+/// Chỉ số một nhân vật đọc từ rules profile (`characters.<id>_<chỉ số>`).
+///
+/// Mỗi giá trị là một khóa riêng trong profile nên mỗi giá trị trỏ được claim riêng
+/// (R-040 cho C00, R-041 cho C01; nghĩa trường R-042).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CharacterSpec {
+    /// Cấp tốc độ hiện tại (f2).
+    pub speed_value: u8,
+    /// Trần cấp tốc độ (f3).
+    pub speed_max: u8,
+    /// Số bom đặt cùng lúc hiện tại (f4).
+    pub bombs_value: u8,
+    /// Trần số bom (f5).
+    pub bombs_max: u8,
+    /// Tầm nổ hiện tại (f6).
+    pub range_value: u8,
+    /// Trần tầm nổ (f7).
+    pub range_max: u8,
+}
+
+/// Bảng chỉ số hai nhân vật V1 (C00/C01) đọc từ rules profile.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CharacterTable {
+    pub c00: CharacterSpec,
+    pub c01: CharacterSpec,
+}
+
+/// Đơn vị của mọi chỉ số nhân vật trong profile: cấp (level).
+pub const CHARACTER_UNIT: &str = "level";
 
 impl RulesProfile {
     pub fn from_toml(text: &str) -> Result<Self, ProfileError> {
@@ -229,6 +274,54 @@ impl RulesProfile {
         }
         rule.value
             .ok_or_else(|| ProfileError::Unknown(key.to_owned()))
+    }
+
+    /// Bảng chỉ số nhân vật V1 đọc từ profile.
+    ///
+    /// Mỗi nhân vật cần đủ sáu khóa `characters.<id>_{speed,bombs,range}` và
+    /// `characters.<id>_*_max`; thiếu nhân vật hoặc cấp hiện tại vượt trần ⇒ lỗi rõ, không
+    /// tự đặt mặc định (AGENTS §3: giá trị luật không nằm trong code).
+    pub fn character_table(&self) -> Result<CharacterTable, ProfileError> {
+        Ok(CharacterTable {
+            c00: self.character_spec("c00")?,
+            c01: self.character_spec("c01")?,
+        })
+    }
+
+    /// Chỉ số một nhân vật trong profile.
+    fn character_spec(&self, id: &str) -> Result<CharacterSpec, ProfileError> {
+        let prefix = format!("characters.{id}_");
+        if !self.rules.keys().any(|key| key.starts_with(&prefix)) {
+            return Err(ProfileError::MissingCharacter(id.to_owned()));
+        }
+        let stat = |name: &str| -> Result<(u8, u8), ProfileError> {
+            let value_key = format!("{prefix}{name}");
+            let max_key = format!("{prefix}{name}_max");
+            let value = self.int_in(&value_key, CHARACTER_UNIT, 0, i64::from(u8::MAX))?;
+            let max = self.int_in(&max_key, CHARACTER_UNIT, 0, i64::from(u8::MAX))?;
+            if value > max {
+                return Err(ProfileError::CharacterAboveMax {
+                    key: value_key,
+                    value,
+                    max,
+                });
+            }
+            Ok((
+                u8::try_from(value).expect("miền đã kiểm nằm trong u8"),
+                u8::try_from(max).expect("miền đã kiểm nằm trong u8"),
+            ))
+        };
+        let (speed_value, speed_max) = stat("speed")?;
+        let (bombs_value, bombs_max) = stat("bombs")?;
+        let (range_value, range_max) = stat("range")?;
+        Ok(CharacterSpec {
+            speed_value,
+            speed_max,
+            bombs_value,
+            bombs_max,
+            range_value,
+            range_max,
+        })
     }
 
     /// Như [`Self::int`] nhưng ép vào miền `[min, max]`.
@@ -438,5 +531,205 @@ status = "design"
         let p = RulesProfile::from_toml(text).unwrap();
         assert!(!p.release);
         assert_eq!(p.int("grid.tile_px", "px"), Ok(40));
+    }
+
+    /// Profile có bảng chỉ số C00/C01 (mỗi giá trị một khóa, trỏ claim).
+    const WITH_CHARACTERS: &str = r#"
+schema = 1
+profile_id = "t"
+release = false
+
+[sim.ticks_per_second]
+value = 60
+unit = "Hz"
+source = "design"
+status = "design"
+
+[characters.c00_speed]
+value = 5
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-040"]
+
+[characters.c00_speed_max]
+value = 7
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-040"]
+
+[characters.c00_bombs]
+value = 1
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-040"]
+
+[characters.c00_bombs_max]
+value = 10
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-040"]
+
+[characters.c00_range]
+value = 1
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-040"]
+
+[characters.c00_range_max]
+value = 7
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-040"]
+
+[characters.c01_speed]
+value = 4
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-041"]
+
+[characters.c01_speed_max]
+value = 8
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-041"]
+
+[characters.c01_bombs]
+value = 2
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-041"]
+
+[characters.c01_bombs_max]
+value = 7
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-041"]
+
+[characters.c01_range]
+value = 1
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-041"]
+
+[characters.c01_range_max]
+value = 9
+unit = "level"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-041"]
+"#;
+
+    #[test]
+    fn character_table_reads_both_characters() {
+        let p = RulesProfile::from_toml(WITH_CHARACTERS).unwrap();
+        let table = p.character_table().unwrap();
+        assert_eq!(table.c00.speed_value, 5);
+        assert_eq!(table.c00.speed_max, 7);
+        assert_eq!(table.c00.bombs_max, 10);
+        assert_eq!(table.c00.range_max, 7);
+        assert_eq!(table.c01.speed_value, 4);
+        assert_eq!(table.c01.speed_max, 8);
+        assert_eq!(table.c01.bombs_value, 2);
+        assert_eq!(table.c01.bombs_max, 7);
+        assert_eq!(table.c01.range_value, 1);
+        assert_eq!(table.c01.range_max, 9);
+    }
+
+    #[test]
+    fn character_table_reports_missing_character() {
+        // Bỏ hết khóa của C01 ⇒ báo thiếu nhân vật, không tự đặt mặc định.
+        let text = WITH_CHARACTERS
+            .split("[characters.c01_speed]")
+            .next()
+            .expect("còn phần C00")
+            .to_owned();
+        let p = RulesProfile::from_toml(&text).unwrap();
+        assert_eq!(
+            p.character_table(),
+            Err(ProfileError::MissingCharacter("c01".into()))
+        );
+    }
+
+    #[test]
+    fn character_table_reports_missing_key_of_present_character() {
+        // C01 có mặt nhưng thiếu một khóa ⇒ báo đúng khóa thiếu.
+        let text = WITH_CHARACTERS.replace(
+            "[characters.c01_range_max]\nvalue = 9\nunit = \"level\"\nsource = \"kr_static\"\nstatus = \"confirmed\"\nclaims = [\"R-041\"]\n",
+            "",
+        );
+        let p = RulesProfile::from_toml(&text).unwrap();
+        assert_eq!(
+            p.character_table(),
+            Err(ProfileError::Missing("characters.c01_range_max".into()))
+        );
+    }
+
+    #[test]
+    fn character_table_rejects_value_above_max() {
+        let text = WITH_CHARACTERS.replace(
+            "[characters.c00_speed]\nvalue = 5",
+            "[characters.c00_speed]\nvalue = 8",
+        );
+        let p = RulesProfile::from_toml(&text).unwrap();
+        assert_eq!(
+            p.character_table(),
+            Err(ProfileError::CharacterAboveMax {
+                key: "characters.c00_speed".into(),
+                value: 8,
+                max: 7,
+            })
+        );
+    }
+
+    #[test]
+    fn character_table_rejects_wrong_unit() {
+        let text = WITH_CHARACTERS.replace(
+            "[characters.c00_bombs]\nvalue = 1\nunit = \"level\"",
+            "[characters.c00_bombs]\nvalue = 1\nunit = \"bomb\"",
+        );
+        let p = RulesProfile::from_toml(&text).unwrap();
+        assert!(matches!(
+            p.character_table(),
+            Err(ProfileError::UnitMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn character_value_changes_profile_identity() {
+        // Chỉ số nhân vật nằm trong định danh profile ⇒ `rules_hash` đổi khi chỉ số đổi.
+        let a = RulesProfile::from_toml(WITH_CHARACTERS).unwrap();
+        let b = RulesProfile::from_toml(&WITH_CHARACTERS.replace(
+            "[characters.c00_speed]\nvalue = 5",
+            "[characters.c00_speed]\nvalue = 6",
+        ))
+        .unwrap();
+        assert_ne!(a.identity_hash(), b.identity_hash());
+        // Và profile không có chỉ số nhân vật cũng khác định danh ⇒ không đổi rules_hash "cho có".
+        let without = RulesProfile::from_toml(BASE).unwrap();
+        assert_ne!(a.identity_hash(), without.identity_hash());
+    }
+
+    #[test]
+    fn repo_profiles_carry_character_tables() {
+        for text in [
+            include_str!("../../../data/rules/v1-dev.toml"),
+            include_str!("../../../fixtures/rules/skeleton-test.toml"),
+        ] {
+            let p = RulesProfile::from_toml(text).unwrap();
+            let table = p.character_table().unwrap();
+            assert_eq!(table.c00.speed_max, 7);
+            assert_eq!(table.c01.range_max, 9);
+        }
     }
 }

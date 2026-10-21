@@ -1,14 +1,13 @@
 //! CLI server V1: `health` runtime/offline (ADR 0011 §8.2), `account revoke-sessions`
-//! (ADR 0011 §6), `config` (đọc/ghi cấu hình vận hành) và `content` (kiểm bộ nội dung
-//! rules/bundle/l10n của gói phát hành — V1-036).
+//! (ADR 0011 §6), `config` (đọc/ghi cấu hình vận hành), `content` (kiểm bộ nội dung
+//! rules/bundle/l10n của gói phát hành — V1-036) và `serve` (chạy trận thật).
 //!
-//! Game listener/content startup thuộc lớp triển khai P7; `serve` hiện mở admin listener + heartbeat
-//! để health runtime có nguồn sự thật là tiến trình, không chỉ đọc file.
+//! `serve` nạp rules profile + bundle map, mở DB identity, bind game listener, nhận client
+//! TCP và chạy vòng tick; Ctrl-C/SIGTERM dừng sạch (thu hồi phiên của instance, ghi
+//! heartbeat cuối, thoát 0). Chi tiết ở [`boom_server::runtime`].
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::Arc;
-use std::time::Duration;
 
 use boom_content::bundle;
 use boom_content::l10n::L10n;
@@ -17,9 +16,9 @@ use boom_server::identity::{
     AccountId, AccountStore, RevokeReason, SessionService, SqliteAccountStore, SqliteOptions,
     StoreError,
 };
+use boom_server::runtime::StopFlag;
 use boom_server::{
-    AdminServer, HealthState, Heartbeat, LogFields, Logger, OperationalConfig, events,
-    new_instance_id, now_ms, run_health_cli,
+    LogFields, Logger, OperationalConfig, events, new_instance_id, now_ms, run_health_cli,
 };
 use serde_json::json;
 
@@ -316,6 +315,33 @@ fn config_command(args: &[String]) -> ExitCode {
     }
 }
 
+/// Tham số của `boom-server serve`.
+fn parse_serve_args(args: &[String]) -> Result<Option<PathBuf>, String> {
+    let mut config_path: Option<PathBuf> = None;
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        match arg.as_str() {
+            "--config" => match rest.next() {
+                Some(path) if !path.trim().is_empty() => {
+                    config_path = Some(PathBuf::from(path.trim()))
+                }
+                _ => {
+                    return Err(
+                        "--config cần đường dẫn file; dùng: boom-server serve [--config <file>]"
+                            .to_owned(),
+                    );
+                }
+            },
+            other => {
+                return Err(format!(
+                    "tham số serve không hỗ trợ: {other}; dùng: boom-server serve [--config <file>]"
+                ));
+            }
+        }
+    }
+    Ok(config_path)
+}
+
 /// Mã thoát của lệnh `content`; `content_command` bọc thành [`ExitCode`].
 fn content_command(args: &[String]) -> ExitCode {
     ExitCode::from(content_exit(args))
@@ -367,6 +393,16 @@ fn content_exit(args: &[String]) -> u8 {
         profile.identity_hash(),
         profile.rules.len()
     );
+    // Bảng chỉ số nhân vật là một phần của profile: thiếu/sai thì `serve` không chạy được.
+    if let Err(error) = profile.character_table() {
+        eprintln!(
+            "file rules không dùng được: {} ({error})\n  \
+             sửa: profile phải có bảng chỉ số nhân vật `characters.c00_*` và `characters.c01_*` \
+             (xem docs/specification/gameplay/RULES_V1.md)",
+            rules_path.display()
+        );
+        return 2;
+    }
 
     if let Some(dir) = bundle_dir.as_deref() {
         let loaded = match bundle::load(dir) {
@@ -446,48 +482,45 @@ fn bundle_error(dir: &Path, error: &dyn std::fmt::Display) -> String {
     )
 }
 
+/// `boom-server serve [--config <file>]` — chạy server thật cho client LAN.
+///
+/// Thứ tự cấu hình giữ nguyên ADR 0011 §5: mặc định → file (`--config` hoặc
+/// `BOOM_CONFIG_FILE`) → biến môi trường.
+///
+/// Mã thoát: `0` dừng sạch (Ctrl-C/SIGTERM) · `2` lỗi khởi động hoặc lỗi lúc chạy ·
+/// `3` sai cú pháp/lỗi cấu hình.
 fn serve_command(args: &[String]) -> ExitCode {
-    if let Some(other) = args.first() {
-        eprintln!("tham số serve không hỗ trợ: {other}; dùng: boom-server serve");
-        return ExitCode::from(3);
-    }
-    let config = match OperationalConfig::from_env() {
+    let config_path = match parse_serve_args(args) {
+        Ok(path) => path,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(3);
+        }
+    };
+    let config = match config_path {
+        Some(path) => OperationalConfig::from_file_with_env(Path::new(&path)),
+        None => OperationalConfig::from_env(),
+    };
+    let config = match config {
         Ok(config) => config,
         Err(err) => {
             eprintln!("lỗi cấu hình: {err}");
             return ExitCode::from(3);
         }
     };
-    let instance_id = new_instance_id();
-    let state = Arc::new(HealthState::new(
-        config.clone(),
-        instance_id.clone(),
-        now_ms(),
-    ));
-    let logger = Arc::new(Logger::stdout(
-        config.fingerprint(),
-        instance_id,
-        config.content_epoch,
-    ));
-    let admin = match AdminServer::start(&config, state.clone(), logger.clone()) {
-        Ok(admin) => admin,
+    // Ctrl-C/SIGTERM ⇒ dừng sạch (ADR 0011 §6.1): handler chỉ đặt cờ, vòng tick lo phần còn lại.
+    let stop = StopFlag::default();
+    let handler_stop = stop.clone();
+    if let Err(err) = ctrlc::set_handler(move || handler_stop.request()) {
+        eprintln!("không cài được handler Ctrl-C/SIGTERM: {err}");
+        return ExitCode::from(2);
+    }
+    match boom_server::runtime::serve(config, stop) {
+        Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("không mở được admin listener: {err}");
-            return ExitCode::from(2);
+            eprintln!("server dừng vì lỗi: {err}");
+            ExitCode::from(2)
         }
-    };
-    let heartbeat = match Heartbeat::start(state, logger, config.heartbeat_interval_ms) {
-        Ok(heartbeat) => heartbeat,
-        Err(err) => {
-            eprintln!("không ghi được health.json: {err}");
-            return ExitCode::from(2);
-        }
-    };
-    eprintln!("admin listener {}", admin.local_addr());
-    let _admin = admin;
-    let _heartbeat = heartbeat;
-    loop {
-        std::thread::sleep(Duration::from_secs(1));
     }
 }
 
@@ -661,5 +694,32 @@ mod tests {
             content_exit(&args(&["--rules", "/khong/ton/tai/rules.toml"])),
             2
         );
+    }
+
+    /// `content` với profile thiếu bảng chỉ số nhân vật → mã thoát 2 + thông điệp rõ.
+    #[test]
+    fn content_command_rejects_profile_without_character_table() {
+        let dir = TempDir::new().expect("thư mục tạm");
+        let path = dir.path().join("rules.toml");
+        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml")
+            .split("[characters.c01_range]")
+            .next()
+            .expect("còn phần C00")
+            .to_owned();
+        std::fs::write(&path, profile).expect("ghi profile");
+        assert_eq!(content_exit(&args(&["--rules", path.to_str().unwrap()])), 2);
+    }
+
+    /// `content` với profile có đủ bảng chỉ số → mã thoát 0.
+    #[test]
+    fn content_command_accepts_profile_with_character_table() {
+        let dir = TempDir::new().expect("thư mục tạm");
+        let path = dir.path().join("rules.toml");
+        std::fs::write(
+            &path,
+            include_str!("../../../fixtures/rules/skeleton-test.toml"),
+        )
+        .expect("ghi profile");
+        assert_eq!(content_exit(&args(&["--rules", path.to_str().unwrap()])), 0);
     }
 }
