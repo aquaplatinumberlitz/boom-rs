@@ -5,6 +5,7 @@ Chỉ tạo ADR cho quyết định có tác động lâu dài; không biến m�
 
 | ID | Chủ đề | Trạng thái |
 |---|---|---|
+| [0012](0012-v1-rules-from-bnb.md) | V1 chọn luật BnB, ghi đè giá trị profile và giữ bằng chứng KR/VN | Accepted — chủ dự án 2026-10-21 |
 | [0011](0011-identity-persistence-log-v1.md) | Identity, persistence, log và health V1 (SQLite, Argon2id, session gắn kết nối) | Accepted (mặc định có thể đảo) — review #57 (Codex) |
 | [0010](0010-client-stack-choice.md) | Client stack: macroquad (có điều kiện), winit+softbuffer làm tham chiếu | Accepted có điều kiện — review #37 (Codex + Claude) |
 | [0009](0009-wire-protocol-input-snapshot-codec.md) | Giao thức InputCommand/Snapshot và codec; Addendum A: auth/health | Accepted — review #24 (Codex); Addendum A chờ review |

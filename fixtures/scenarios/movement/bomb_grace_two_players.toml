@@ -1,10 +1,14 @@
-# Ca biên SCOPE_V1 §4: bom vừa đặt dưới hai người thì cả hai đều có grace và đi ra được;
-# rời ô xong thì không ai quay lại được.
+# R-107: `grace` (pass) cấp cho mọi người có hộp chồng ô bom lúc đặt, và bị xóa khi hộp rời
+# hẳn ô bom. Hai người cùng đứng trên bom vừa đặt đều đi ra được; rời hẳn ô xong thì bom chặn
+# người đó không quay lại được (BnB `server/game.js:150–153,392–399`).
+#
+# Bom ở ô (2,1) (80…120 px). Người 0 đi sang phải thì hộp rời hẳn ô bom khi x ≥ 134 px; người 1
+# đi sang trái thì rời ô bom khi x ≤ 66 px. Từ đó bom chặn cả hai theo mép hộp.
 name = "Hai người cùng đứng trên bom vừa đặt đều đi ra được, sau đó không quay lại"
 features = ["V1-012"]
-claims = ["R-049"]
+claims = ["R-049", "R-107"]
 status = "active"
-ticks = 120
+ticks = 160
 map = [
     "#######",
     "#01...#",
@@ -42,16 +46,16 @@ tick = 0
 player = 1
 dir = "left"
 
-# Cả hai đã rời ô (2,1); grace bị xóa khi rời ô.
+# Cả hai đã rời hẳn ô bom (2,1): grace bị xóa khi hộp rời ô.
 [[expect]]
 tick = 80
 player = 0
-pos_mpx = [220000, 60000]
+pos_mpx = [226000, 60000]
 
 [[expect]]
 tick = 80
 player = 1
-pos_mpx = [60000, 60000]
+pos_mpx = [54000, 60000]
 
 [[input]]
 tick = 80
@@ -63,13 +67,13 @@ tick = 80
 player = 1
 dir = "right"
 
-# Người 0 quay lại bị bom chặn ở tâm ô (3,1); người 1 đang ở tâm ô (1,1), đi sang phải cũng bị chặn.
+# Người 0 quay lại bị bom chặn ở mép hộp x = 134 px; người 1 quay lại bị bom chặn ở x = 66 px.
 [[expect]]
-tick = 120
+tick = 160
 player = 0
-pos_mpx = [140000, 60000]
+pos_mpx = [134000, 60000]
 
 [[expect]]
-tick = 120
+tick = 160
 player = 1
-pos_mpx = [60000, 60000]
+pos_mpx = [66000, 60000]

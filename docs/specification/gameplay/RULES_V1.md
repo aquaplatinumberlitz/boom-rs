@@ -1,6 +1,6 @@
 # Luật trận V1 — claim, bằng chứng và giá trị được chọn
 
-Cập nhật 2026-10-19. Nguồn chuẩn cho **claim luật chơi V1**; giá trị engine dùng nằm ở
+Cập nhật 2026-10-21. Nguồn chuẩn cho **claim luật chơi V1**; giá trị engine dùng nằm ở
 [`data/rules/v1-dev.toml`](../../../data/rules/v1-dev.toml), mỗi giá trị trỏ claim ID ở đây.
 Nhãn nguồn/trạng thái theo [AGENTS §4](../../../AGENTS.md#4-bằng-chứng). VN và KR ngang nhau
 ([ADR 0002](../../decisions/0002-vn-kr-trusted-sources.md)).
@@ -10,11 +10,14 @@ Locator viết tắt: `oc_e` = `/home/admin/boom-re/docs/oc_e-game.md` (main `4c
 `OSS` = [OSS_REIMPLEMENTATIONS](../../research/findings/OSS_REIMPLEMENTATIONS.md),
 `NAMU` = [WEB_RULES_NAMU](../../research/findings/WEB_RULES_NAMU.md).
 
+Lựa chọn hiện hành: **§10 / ADR 0012**. Các mục §1–§9 giữ bằng chứng và lịch sử triển khai;
+claim design bị thay thế có ghi superseded. Chưa coi cơ chế mới đã triển khai trước #130–#133.
+
 ## 1. Lưới và map
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
-| R-001 | Một ô = 40 px | 40 px | `vn_static` / confirmed | MAPS §1.1 (`idiv 0x28` ở `0x735DA9`) |
+| R-001 | Một ô = 40 px | 40 px | `vn_static` / confirmed | MAPS §1.1 (`idiv 0x28` ở `0x735DA9`); profile V1 dùng BnB thay giá trị này theo ADR 0012 (bằng chứng gốc giữ nguyên) |
 | R-002 | Village00 KR: 15×13 ô, version 1000, 2 dword/ô `(tileId, objId)`, `-1` = trống | — | `kr_static` / confirmed | Probe 2026-10-19 trên payload `bd34c418…` |
 | R-003 | Header map KR dài hơn VN 4 byte: spawn bắt đầu ở +80 (VN +76); count spawn ở +20 cả hai | +80 / +76 | `kr_static` + `vn_static` / confirmed | So Village00 KR với `boom-re/assets/fx/Map/Village00.map` |
 | R-004 | Village00 KR và VN cùng bố cục ô; ID KR = ID VN + 937 (tile) hoặc +937/+938 (obj) | — | `kr_static` + `vn_static` / confirmed | Cùng phép so như R-003; ID là khóa tra bảng runtime theo build |
@@ -31,12 +34,12 @@ Locator viết tắt: `oc_e` = `/home/admin/boom-re/docs/oc_e-game.md` (main `4c
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
-| R-010 | Giới hạn thời gian mặc định của client: 120 s, đếm từ lúc bắt đầu lượt | 120 000 ms | `vn_static` + `vn_runtime` / confirmed | oc_e "Hết giờ" (`ctx+490518`) |
+| R-010 | Giới hạn thời gian mặc định của client: 120 s, đếm từ lúc bắt đầu lượt | 120 000 ms | `vn_static` + `vn_runtime` / confirmed | oc_e "Hết giờ" (`ctx+490518`); profile V1 dùng BnB thay giá trị này theo ADR 0012 (bằng chứng gốc giữ nguyên) |
 | R-011 | Map có cờ thì byte thời gian từ server ghi đè R-010 | — | `vn_static` / confirmed | oc_e "Hết giờ" (`sub_71A9EC`) |
 | R-012 | Header map có cặp `60000, 22000` (ms?) ở 574 file VN và ở Village00 KR | — | `vn_static` + `kr_static` / unknown | MAPS §1.1; nghĩa chưa rõ |
-| R-013 | Tần số bước mô phỏng gốc: **30 ms/bước** (đo 33,377/33,436 bước/s, tức 29,96/29,91 ms/bước) | 30 ms (±0,1 ms) | `vn_runtime` / confirmed | Bộ đếm `ctx+0x1DF190` tăng tại 0x6ED316, `ctx = *(stage+0x547C)`; 2 run, 24+12 mẫu, cửa sổ 11,505/5,503 s; [tick-runs.csv](../../evidence/measurements/vn-timing-2026-10-19/tick-runs.csv); cửa sổ 2,5 s 32,98–34,00 do lượng tử mẫu 0,5 s; Q-004 |
+| R-013 | Tần số bước mô phỏng gốc: **30 ms/bước** (đo 33,377/33,436 bước/s, tức 29,96/29,91 ms/bước) | 30 ms (±0,1 ms) | `vn_runtime` / confirmed | Bộ đếm `ctx+0x1DF190` tăng tại 0x6ED316, `ctx = *(stage+0x547C)`; 2 run, 24+12 mẫu, cửa sổ 11,505/5,503 s; [tick-runs.csv](../../evidence/measurements/vn-timing-2026-10-19/tick-runs.csv); cửa sổ 2,5 s 32,98–34,00 do lượng tử mẫu 0,5 s; Q-004; profile V1 dùng BnB thay giá trị này theo ADR 0012 (bằng chứng gốc giữ nguyên) |
 | R-014 | Tick server remake: 30 Hz | 30 Hz | `oss` / candidate | OSS §2 |
-| R-074 | V1 chọn `sim.ticks_per_second = 33` (xấp xỉ nguyên 1000/30 ≈ 33,3 Hz) cho profile dev | 33 Hz | `design` / design | R-013; sai lệch ≈1%; Q-004; `data/rules/v1-dev.toml` |
+| R-074 | V1 chọn `sim.ticks_per_second = 33` (xấp xỉ nguyên 1000/30 ≈ 33,3 Hz) cho profile dev | 33 Hz | `design` / design | R-013; sai lệch ≈1%; Q-004; `data/rules/v1-dev.toml`; **superseded by R-100** (ADR 0012; lịch sử implementation) |
 
 ## 3. Bom, lửa, nhốt, chết
 
@@ -48,20 +51,20 @@ Locator viết tắt: `oc_e` = `/home/admin/boom-re/docs/oc_e-game.md` (main `4c
 | R-023 | Remake dùng fuse 2,5 s, lửa 0,5 s | 2 500 / 500 ms | `oss` / candidate | OSS §2 |
 | R-024 | Bom bị ném/đá nổ sau 3 s | 3 000 ms | `web` / candidate | `boomkr-re/docs/game-spec-web.md` §2 |
 | R-025 | Tầm nổ khởi đầu 1; mỗi ItemFire +1 tầm; mỗi ItemBomb +1 số bom đặt cùng lúc | — | `vn_runtime` / confirmed | oc_e §5a-5d (hiệu ứng bị động) |
-| R-026 | Bị nước trúng → bị nhốt; khoảng packet `120/11 → 120/13` là **6,359 s** (ba lần: 6,355/6,364/6,358; biên độ 9 ms) | 6 359 ms ± 5 ms (biên độ) | `vn_runtime` / confirmed | [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv), [trap-packets.txt](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.txt); run3 chỉ còn log worker, run4/5 còn raw `server.log`; đây là khoảng packet gồm xử lý/gửi, chưa phải timer nội bộ; `210 tick`/literal 6300 chưa chứng minh, Q-006 |
-| R-076 | V1 chọn `player.trap_to_death_ms = 6300` từ khoảng packet đo được; `210 tick` chỉ là giả thuyết, không phải hằng số đã đọc | 6 300 ms | `design` / design | R-026; Q-006; [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv); `data/rules/v1-dev.toml` |
-| R-027 | Remake: nhốt 4 s rồi chết | 4 000 ms | `oss` / candidate | OSS §2; mâu thuẫn R-026, R-026 thắng |
+| R-026 | Bị nước trúng → bị nhốt; khoảng packet `120/11 → 120/13` là **6,359 s** (ba lần: 6,355/6,364/6,358; biên độ 9 ms) | 6 359 ms ± 5 ms (biên độ) | `vn_runtime` / confirmed | [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv), [trap-packets.txt](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.txt); run3 chỉ còn log worker, run4/5 còn raw `server.log`; đây là khoảng packet gồm xử lý/gửi, chưa phải timer nội bộ; `210 tick`/literal 6300 chưa chứng minh, Q-006; profile V1 dùng BnB thay giá trị này theo ADR 0012 (bằng chứng gốc giữ nguyên) |
+| R-076 | V1 chọn `player.trap_to_death_ms = 6300` từ khoảng packet đo được; `210 tick` chỉ là giả thuyết, không phải hằng số đã đọc | 6 300 ms | `design` / design | R-026; Q-006; [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv); `data/rules/v1-dev.toml`; **superseded by R-103** (ADR 0012; lịch sử implementation) |
+| R-027 | Remake: nhốt 4 s rồi chết | 4 000 ms | `oss` / candidate | OSS §2; mâu thuẫn R-026; bằng chứng gốc giữ nguyên, V1 chọn R-103 theo ADR 0012 |
 | R-028 | Địch chạm người bị nhốt → người bị nhốt chết | — | `vn_runtime` / confirmed | VN-B01 |
 | R-029 | Bị nhốt: không đặt bom, đi rất chậm | — | `web` / candidate | NAMU §2.1 |
 | R-030 | Lửa dừng ở khối cứng, phá khối mềm; bom trong lửa kích nổ dây chuyền | — | `oss` + `web` / candidate | OSS §5; client VN tự vẽ vụ nổ (oc_e) |
 | R-031 | Vỡ gạch: client legacy tự tính và báo C→S 135 | — | `vn_runtime` / confirmed | oc_e §5a-5d |
 | R-032 | Sức nổ được chụp lúc đặt bom (client gửi `power` trong 111); ID bom do server cấp (152) | — | `vn_static` + `vn_runtime` / confirmed | [Legacy server](../../research/findings/VN_LEGACY_SERVER_REFERENCE.md) §1 |
-| R-033 | Lửa phủ ô đặt bom + tối đa `range` ô mỗi hướng; khối cứng/mép lưới chặn, khối mềm đầu tiên có lửa rồi dừng. Bom đến hạn hoặc bị lửa chạm nổ cùng tick, xử lý theo `id` tăng dần, mỗi bom một lần; nhiều lửa cùng ô giữ `until` lớn nhất, hòa chọn `source` id nhỏ | — | `design` (từ R-030) | Task #5, `systems/explosion.rs`; R-030 |
-| R-034 | V1: "chạm" = hai người chơi cùng một ô lưới tại bước life; chỉ người `Alive` làm vỡ bong bóng, hai người `Trapped` chạm nhau không đổi trạng thái | — | `design` / design | SCOPE_V1 §4; issue #8 (cùng ô); `systems/life.rs` |
-| R-035 | V1: trong một tick, người `Alive` đứng trên lửa bị nhốt trước; chỉ người đã `Trapped` từ đầu bước life mới xét chết; nếu vừa hết `trap_ticks` vừa bị chạm thì `player_died.by` là người chạm; nhiều người `Alive` cùng ô thì chọn id nhỏ nhất | — | `design` / design | SCOPE_V1 §4; ARCHITECTURE §5.2; issue #8 |
+| R-033 | Lửa phủ ô đặt bom + tối đa `range` ô mỗi hướng; khối cứng/mép lưới chặn, khối mềm đầu tiên có lửa rồi dừng. Bom đến hạn hoặc bị lửa chạm nổ cùng tick, xử lý theo `id` tăng dần, mỗi bom một lần; nhiều lửa cùng ô giữ `until` lớn nhất, hòa chọn `source` id nhỏ | — | `design` (từ R-030) | Task #5, `systems/explosion.rs`; R-030; **superseded by R-109** (ADR 0012; lịch sử implementation) |
+| R-034 | V1 trước ADR 0012: "chạm" = hai người chơi cùng một ô lưới tại bước life; chỉ người `Alive` làm vỡ bong bóng, hai người `Trapped` chạm nhau không đổi trạng thái | — | `design` / design | SCOPE_V1 §4; issue #8 (cùng ô); `systems/life.rs`; **superseded by R-108** (ADR 0012; lịch sử implementation) |
+| R-035 | V1 trước ADR 0012: trong một tick, người `Alive` đứng trên lửa bị nhốt trước; chỉ người đã `Trapped` từ đầu bước life mới xét chết; nếu vừa hết `trap_ticks` vừa bị chạm thì `player_died.by` là người chạm; nhiều người `Alive` cùng ô thì chọn id nhỏ nhất | — | `design` / design | SCOPE_V1 §4; ARCHITECTURE §5.2; issue #8; **superseded by R-108** (ADR 0012; lịch sử implementation) |
 | R-036 | Người bị nhốt không di chuyển trong V1 (đứng tại chỗ tới khi chết) | — | `design` / design | SCOPE_V1 §4; R-029 (`web` / candidate) nói "đi rất chậm" nhưng chưa có px/s; quyết định cho V1-012 |
 
-Hai claim `design` R-034/R-035 chỉ định nghĩa cách engine V1 hiện thực hóa "chạm" và thứ tự trong
+Hai claim lịch sử `design` R-034/R-035 (nay superseded by R-108) chỉ định nghĩa cách engine V1 hiện thực hóa "chạm" và thứ tự trong
 tick; chưa có bằng chứng client KR/VN cho trường hợp biên. Khi có trace, thay bằng claim `confirmed`
 hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 
@@ -69,43 +72,43 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
-| R-040 | BomberAttr KR C00: f2–f7 = `5,7,1,10,1,7` | — | `kr_static` / confirmed | `boomkr-re/data/kr/bomber_attr.json`; giá trị dùng ở `data/rules/v1-dev.toml` (`characters.c00_*`) |
-| R-041 | BomberAttr KR C01: f2–f7 = `4,8,2,7,1,9` | — | `kr_static` / confirmed | Như trên (`characters.c01_*`) |
+| R-040 | BomberAttr KR C00: f2–f7 = `5,7,1,10,1,7` | — | `kr_static` / confirmed | `boomkr-re/data/kr/bomber_attr.json`; profile V1 dùng BnB thay giá trị này theo ADR 0012 (bằng chứng gốc giữ nguyên) |
+| R-041 | BomberAttr KR C01: f2–f7 = `4,8,2,7,1,9` | — | `kr_static` / confirmed | Như trên; profile V1 dùng BnB thay giá trị này theo ADR 0012 (bằng chứng gốc giữ nguyên) |
 | R-042 | f2–f3 = speed min/max, f4–f5 = số bom min/max, f6–f7 = tầm min/max (cấp) | — | `kr_static` + `web` / candidate | `boomkr-re/docs/kr-data.md` §23; OSS §4 khớp 5/6 giá trị; chưa đối chiếu VN vì R-043 còn candidate |
 | R-043 | Quan sát thô tốc độ C00: 5 px/tick base; sau Roller 6 px/tick (một run, checksum x/y chưa xác thực) | 5 → 6 px/tick (raw) | `vn_runtime` / candidate | [speed-observations.csv](../../evidence/measurements/vn-timing-2026-10-19/speed-observations.csv); item3 117/158 22:31:20; `xok/yok=false`, decoder cần xác minh; Q-005 |
 | R-044 | Remake: 1 cấp tốc độ = 24 px/s | 24 px/s | `oss` / candidate | OSS §3; chưa đối chiếu được VN vì R-043 còn candidate |
 | R-045 | Roller: +1 cấp tốc độ | +1 cấp (raw 5→6 px/tick, một run) | `web` + `vn_runtime` / candidate | NAMU §1; [speed-item3-changes.txt](../../evidence/measurements/vn-timing-2026-10-19/speed-item3-changes.txt); một run, checksum chưa xác thực; Q-005 |
-| R-075 | V1 chọn `player.speed_px_per_s_per_level = 33` (xấp xỉ nguyên 1000/30 ≈ 33,3 px/s) cho profile dev | 33 px/s | `design` / design | R-043/R-045 (candidate); sai lệch ≈1%; Q-005; `data/rules/v1-dev.toml` |
+| R-075 | V1 chọn `player.speed_px_per_s_per_level = 33` (xấp xỉ nguyên 1000/30 ≈ 33,3 px/s) cho profile dev | 33 px/s | `design` / design | R-043/R-045 (candidate); sai lệch ≈1%; Q-005; `data/rules/v1-dev.toml`; **superseded by R-102** (ADR 0012; lịch sử implementation) |
 | R-046 | Bám góc khi rẽ trong 12 px | 12 px | `oss` / candidate | OSS §5 |
 | R-047 | Di chuyển không có gói C→S; client tự mô phỏng | — | `vn_static` / confirmed | oc_e §5a |
 | R-048 | Bom đang tồn tại chặn mọi người đi vào ô của nó | — | `design` / design | SCOPE_V1 §4 ("bom chặn/đi ra"); chưa đối chiếu collision client gốc |
-| R-049 | Grace một chiều: người đang đứng trên bom được đi ra; rời ô thì mất quyền, không được quay lại | — | `design` / design | SCOPE_V1 §4; V1-012 |
+| R-049 | Grace một chiều (lịch sử trước ADR 0012, phần rời ô superseded by R-107): người đang đứng trên bom được đi ra; rời ô thì mất quyền, không được quay lại | — | `design` / design | SCOPE_V1 §4; V1-012 |
 
 ## 5. Item rơi và nhặt
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
 | R-050 | Item giấu trong gạch được server gửi **trước trận** (553), không quyết lúc vỡ | — | `vn_runtime` / confirmed | oc_e §5a-5d |
-| R-051 | ItemAttr trọng số: Bomb 3650, Fire 2800, Roller 2000; client nạp vào bảng ngẫu nhiên 0x8000 ô | — | `vn_static` / confirmed | items (loader `sub_89F3DE`); thay cách đọc "giá" ở MAPS §2 |
+| R-051 | ItemAttr trọng số: Bomb 3650, Fire 2800, Roller 2000; client nạp vào bảng ngẫu nhiên 0x8000 ô | — | `vn_static` / confirmed | items (loader `sub_89F3DE`); thay cách đọc "giá" ở MAPS §2; profile V1 dùng BnB thay giá trị này theo ADR 0012 (bằng chứng gốc giữ nguyên) |
 | R-052 | Ai dùng bảng R-051 để rơi item (client hay server) | — | unknown | Q-007 |
 | R-053 | Xác suất một gạch có item | — | unknown | Q-007; OSS dùng 0,35 (`oss` / candidate) |
 | R-054 | Nhặt: client xin (117), server xác nhận (158), item mất sau xác nhận | — | `vn_runtime` / confirmed | oc_e §5a-5d |
 | R-055 | Bảng rơi gốc của Village00 chỉ có 6 loại Lucci | — | `kr_static` / confirmed | `kr_v1_content.json`; V1 thay bằng Bomb/Fire/Roller (DESIGN, SCOPE_V1 §2) |
 | R-056 | V1: người còn sống (`Alive`) có tâm trong ô có item trên nền thì nhặt; duyệt người chơi theo id tăng dần nên hai người cùng ô trong cùng tick chỉ người id nhỏ nhận; item mất khỏi nền sau khi nhặt và phát `item_picked` | — | `design` (từ R-054) | Task #7, `systems/pickup.rs`; R-054; SCOPE_V1 §4 |
 | R-057 | V1: ItemBomb +1 số bom, ItemFire +1 tầm nổ, ItemRoller +1 cấp tốc độ; lượng lấy từ profile (`item.*_delta`), kẹp theo trần chỉ số; bom đã đặt giữ tầm chụp lúc đặt | — | `design` (từ R-025, R-032, R-045) | Task #7, `systems/pickup.rs`; R-025; R-032; R-045 |
-| R-058 | V1: chỉ số đã ở trần thì không nhặt — item vẫn nằm trên nền, không áp hiệu ứng, không phát event; nhặt là atomic (item chỉ mất khi hiệu ứng áp được) | — | `design` | Task #7; R-054 (item mất sau khi server xác nhận); SCOPE_V1 §4; Q-007 |
+| R-058 | V1: chỉ số đã ở trần thì không nhặt — item vẫn nằm trên nền, không áp hiệu ứng, không phát event; nhặt là atomic (item chỉ mất khi hiệu ứng áp được) | — | `design` | Task #7; R-054 (item mất sau khi server xác nhận); SCOPE_V1 §4; Q-007; **superseded by R-109** (ADR 0012; lịch sử implementation) |
 | R-059 | V1: người bị nhốt (`Trapped`) hoặc đã chết không nhặt item; người bị nhốt đứng yên nên cũng không tới ô item | — | `design` | Task #7; R-036 (đứng yên), R-028 |
-| R-067 | V1 giấu item khi bắt đầu lượt: duyệt khối mềm theo hàng rồi cột, mỗi khối rút một số phần nghìn so với `drop.brick_item_chance`; trúng thì chọn loại theo trọng số `Rules::items` (bảng trọng số cộng dồn, lấy mẫu không lệch bằng `Rng::below`) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-050, R-051, R-053 |
-| R-068 | V1: lửa **không** phá item đang nằm trên nền; item chỉ rời nền khi người chơi nhặt (R-054) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-030, R-054 |
+| R-067 | V1 giấu item khi bắt đầu lượt: duyệt khối mềm theo hàng rồi cột, mỗi khối rút một số phần nghìn so với `drop.brick_item_chance`; trúng thì chọn loại theo trọng số `Rules::items` (bảng trọng số cộng dồn, lấy mẫu không lệch bằng `Rng::below`) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-050, R-051, R-053; **superseded by R-106** (ADR 0012; lịch sử implementation) |
+| R-068 | V1: lửa **không** phá item đang nằm trên nền; item chỉ rời nền khi người chơi nhặt (R-054) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-030, R-054; **superseded by R-109** (ADR 0012; lịch sử implementation) |
 
-Bốn claim `design` R-056…R-059 là quyết định V1 cho luồng nhặt, chưa có bằng chứng client KR/VN cho
+Bốn claim `design` R-056…R-059 là quyết định V1 trước ADR 0012 (R-058 nay superseded by R-109) cho luồng nhặt, chưa có bằng chứng client KR/VN cho
 các ca biên: thứ tự khi hai người cùng tick (Q-007), và nhặt khi chỉ số đã ở trần (Q-007, `cap`).
 Luồng chung đã có bằng chứng: client xin nhặt (117), server xác nhận (158) rồi item mới mất
 (R-054), nên V1 cho server quyết cả trường hợp "đã chạm trần" — giữ item trên nền thay vì xóa
 đi. Khi có trace, thay các claim này bằng `confirmed` hoặc mở câu hỏi ở
 [QUESTIONS](../../research/QUESTIONS.md).
 
-Hai claim `design` R-067/R-068 định nghĩa cách V1 giấu item và cách lửa đối xử với item trên nền;
+Hai claim lịch sử `design` R-067/R-068 (nay superseded by R-106/R-109) định nghĩa cách V1 giấu item và cách lửa đối xử với item trên nền;
 chưa có bằng chứng client KR/VN cho hai điểm này. R-068 chọn "lửa không phá item" vì item lộ ra
 nằm đúng ô mà lửa vừa phá khối: nếu lửa phá item trên nền thì item vừa lộ ra sẽ mất ngay, và
 protocol cũ không có gói thu hồi item ngoài xác nhận nhặt (R-054). Khi có trace, thay bằng claim
@@ -113,28 +116,12 @@ protocol cũ không có gói thu hồi item ngoài xác nhận nhặt (R-054). K
 
 ## 6. Giá trị được chọn cho profile dev
 
-Profile [`v1-dev`](../../../data/rules/v1-dev.toml) không dùng được cho phát hành
-(`release = false`). Các giá trị `design` hiện tại và claim dẫn tới:
-
-| Rule | Chọn | Vì sao |
-|---|---|---|
-| Tick | 30 ms/bước (`confirmed`, R-013); profile 33 Hz (`design`, R-074) | Đo 2 run + chọn nguyên 33 Hz |
-| Thời gian lượt | 120 s (`confirmed`, R-010) | Client VN |
-| Fuse | 2,5 s (`design`, R-021…R-024) | Hai candidate độc lập trùng nhau; gốc unknown |
-| Lửa tồn tại | 0,5 s (`design`, R-023) | Chỉ có OSS |
-| Nhốt → chết | Packet 6,359 s (`confirmed`, R-026); profile 6,30 s (`design`, R-076) | 3 run, biên độ 9 ms; timer nội bộ unknown |
-| Chỉ số C00/C01 | Dãy số `BomberAttr` (`confirmed`, R-040/R-041); profile `candidate` | Nghĩa trường f2–f7 còn `candidate` (R-042) ⇒ giá trị dùng chưa đủ bằng chứng |
-| Tốc độ | Raw 5→6 px/tick (`candidate`, R-043/R-045); profile 33 px/s (`design`, R-075) | Checksum chưa xác thực; một run cấp 6 |
-| Trọng số rơi | 3650 : 2800 : 2000 (`confirmed`, R-051) | Dữ liệu client; vai trò bảng còn unknown |
-| Xác suất gạch có item | 35% (`design`, R-053) | Chỉ có OSS |
-| Căn trục khi rẽ | Căn về tâm hàng/cột, tối đa bằng tốc độ mỗi tick (`design`) | Thay thế tạm cho R-046 tới khi Q-005 xong |
-| Bom chặn đường | Ô có bom không đi vào được (`design`, R-048) | Chưa có phép đo collision client gốc |
-| Grace | Một chiều, xóa khi rời ô (`design`, R-049) | SCOPE_V1 §4; V1-012 |
-| Người bị nhốt | Đứng yên (`design`, R-036) | R-029 candidate web nói "đi rất chậm" nhưng chưa có px/s; V1 chọn đứng yên |
-| Nhặt item | Chỉ người `Alive`, duyệt theo id; đã chạm trần thì không nhặt (`design`, R-056…R-059) | Luồng client xin 117 → server xác nhận 158 (R-054); ca biên chưa có bằng chứng client gốc, V1 tự quyết (Q-007) |
-
-Profile phát hành phải thay mọi `candidate` bằng `confirmed` hoặc `design` đã được review;
-`unknown` không được có giá trị. `boom-content` kiểm điều này khi nạp.
+Profile [`v1-dev`](../../../data/rules/v1-dev.toml) dùng các claim R-100…R-109 theo
+[ADR 0012](../../decisions/0012-v1-rules-from-bnb.md), quyết định chủ dự án 2026-10-21.
+`release = false`: profile đã chọn thông số nhưng cơ chế còn đợi #130/#131/#132 và nhân vật #133.
+Các claim trước đó mô tả bằng chứng hoặc implementation cũ; bảng dưới §10 là lựa chọn hiện hành.
+Presentation (R-085) giữ riêng vì BnB không cung cấp timing cho clip asset KR.
+Không coi profile đã đổi là engine đã hoàn thành hoặc đã đạt fidelity KR/VN.
 
 ## 7. Vòng đời trận và phòng (legacy VN)
 
@@ -289,3 +276,29 @@ một voice thuộc R-083 design. R-082/R-083 là **DESIGN của dự
 án**, không phải claim `confirmed` KR/VN: chưa tìm thấy trace consumer phát SFX trong client gốc
 (A10 của `features.md` vẫn là "chưa điều tra") và chưa có consumer audio V1. Q-015 theo dõi việc
 đóng hai claim này; khi có trace, sửa bảng/giá trị thay vì tự nhận confirmed.
+
+## 10. V1 chọn luật từ BnB — ADR 0012
+
+Quyết định chủ dự án 2026-10-21: chọn có chủ ý OSS thành `design`, kể cả khi khác
+bằng chứng KR/VN `confirmed`. Không nâng OSS thành bằng chứng luật gốc, không hạ nhãn claim gốc.
+Locator `BnB` dưới đây là SHA `5c108e8ad3ea07684d4666f60e6eec6c2f3e569e`, repo
+[tpoisonooo/BnB](https://github.com/tpoisonooo/BnB/tree/5c108e8ad3ea07684d4666f60e6eec6c2f3e569e),
+đọc lại clone `/home/admin/boom-team/tmp/bnb` ngày 2026-10-21. Mọi dòng là lựa chọn V1 theo
+quyết định trên; bảng sai khác và issue triển khai nằm trong ADR 0012.
+
+| ID | Claim V1 chọn theo BnB | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-100 | Fixed step, thời hạn và warmup đóng băng không chạy đồng hồ lượt | 30 Hz; 180000 ms; 3000 ms | `oss` / design | BnB `server/game.js:12–19,616–646` |
+| R-101 | Cỡ ô V1 giữ giá trị BnB (trùng R-001); map vẫn Village00 KR | 40 px | `oss` / design | BnB `server/map.js:7–9`; ADR 0012 giữ scope content |
+| R-102 | Một cấp tốc độ = 24 px/s | 24 px/s/level | `oss` / design | BnB `server/characters.js:15,20–26`, `server/game.js:21,229` |
+| R-103 | Fuse/lửa/nhốt dùng timer BnB | 2500/500/4000 ms = 75/15/120 tick | `oss` / design | BnB `server/game.js:14–17`; biên tick theo R-108/R-109, không phải đo packet gốc |
+| R-104 | Bomb/Fire +1; Roller +24 px/s tức +1 cấp R-102 | 1 bomb / 1 cell / 1 level | `oss` / design | BnB `server/game.js:21,579–581` |
+| R-105 | Ánh xạ cân bằng design C00→baobao, C01→haidao (không phải identity KR) | C00 speed 6–10/bomb 1–6/range 1–7; C01 speed 5–9/bomb 1–8/range 2–7 | `oss` / design | BnB `server/characters.js:17–27`; #133 sau #117 |
+| R-106 | Roll khi vỡ gạch; V1 chỉ giữ ba loại, chuẩn hóa tương đối BnB bubble/potion/shoe | 350 permille; Bomb:Fire:Roller = 20:28:16 | `oss` / design | BnB `server/game.js:20,425–439`; bỏ loại ngoài scope, không giữ xác suất tuyệt đối 20/28/16% |
+| R-107 | Hộp va chạm và assist khi bị chặn; pass bom tới khi hộp rời hoàn toàn | half 13 px (26×26), assist ≤12 px | `oss` / design | BnB `server/game.js:31–32,150–153,173–275,392–399`; #130 |
+| R-108 | Trapped đứng yên; giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035, giữ đứng yên R-036 |
+| R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
+
+R-014/R-023/R-027/R-044/R-046 giữ `oss`/candidate như bằng chứng lịch sử; không phải claim lựa chọn.
+R-056/R-057/R-059 còn áp dụng phần alive/tâm ô/cap hiệu ứng; phần giữ item tại cap (R-058),
+giấu trước trận (R-067), lửa không phá item (R-068) và tie-break life cũ đã superseded như ghi trên.

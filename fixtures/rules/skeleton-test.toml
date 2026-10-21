@@ -29,6 +29,19 @@ unit = "px/s"
 source = "design"
 status = "design"
 
+# Cơ chế hộp va chạm và bám góc (R-107, ADR 0012): hộp 26×26 px, bám góc khi lệch ≤ 12 px.
+[player.collision_half_px]
+value = 13
+unit = "px"
+source = "design"
+status = "design"
+
+[player.corner_assist_px]
+value = 12
+unit = "px"
+source = "design"
+status = "design"
+
 [player.trap_to_death_ms]
 value = 6300
 unit = "ms"

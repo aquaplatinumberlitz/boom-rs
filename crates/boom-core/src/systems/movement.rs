@@ -1,19 +1,29 @@
 //! Di chuyển và va chạm ô — V1-011, V1-012.
 //!
-//! Đã có: đi theo hướng giữ, dừng ở tâm ô trước khối cứng/mềm/mép lưới, căn về tâm ô đang đứng
-//! trước khi rẽ (design tạm, RULES_V1 §6), bom chặn đường (R-048), grace một chiều khi vừa đặt bom
-//! (R-049), người bị nhốt đứng yên (R-036). Còn thiếu: bám góc (R-046, Q-005), tốc độ khi bị nhốt
-//! nếu đổi quyết định design. Kịch bản: `fixtures/scenarios/movement/`.
+//! Luật V1 chọn theo BnB (ADR 0012, claim R-107): người chơi là **hộp 26×26 px**
+//! (`player.collision_half_px`), không còn là điểm tâm phải căn về tâm ô. Một ô chặn người chơi
+//! khi hộp chồm ô đó; hộp chồm ô bom thì người đó phải có `grace` (pass) mới đi qua.
 //!
-//! `Bomb.grace` do bomb_place thêm lúc đặt; movement chỉ xóa khi người đó rời ô. Vì movement chạy
-//! trước bomb_place trong một tick, grace của bom đặt trong tick N bắt đầu có hiệu lực từ tick N+1.
+//! - Di chuyển theo đúng một trục mỗi tick theo hướng đang giữ (V1-011). Bị chặn thì dừng ở mép hộp.
+//! - Bám góc (BnB `server/game.js:241–272`): khi bị chặn theo trục ngang thì kéo người chơi về
+//!   tâm hàng đang đứng rồi thử lại, chỉ khi lệch không quá `player.corner_assist_px`.
+//! - `grace` cấp cho **mọi** người có hộp chồng ô bom lúc đặt, và bị xóa khi hộp rời hẳn ô
+//!   (R-107; BnB `server/game.js:150–153,392–399`). Không ai thêm lại sau khi mất.
+//! - Người bị nhốt đứng yên (R-036; BnB `server/game.js:631–633`), không có slow movement.
+//!
+//! Thứ tự xóa `grace`: BnB xóa ở đầu tick (`updateBombPass`) trước khi người chơi di chuyển,
+//! V1 xóa ở cuối bước movement. Hai cách cho cùng kết quả: người chơi rời hẳn ô bom trong
+//! tick N thì từ tick N+1 bom đã chặn người đó ở cả hai cách.
+//!
+//! Mọi giá trị luật lấy từ `Rules`; file này không có hằng số luật. Kịch bản nghiệm thu:
+//! `fixtures/scenarios/movement/`. Luật và nguồn: RULES_V1.
 
 use boom_content::map::CellKind;
 
 use crate::event::{EventKind, EventSink};
 use crate::num::{Cell, Mpx};
 use crate::sim::{Dir, PlayerInput, World};
-use crate::state::{Bomb, Life, Player, SimulationState};
+use crate::state::{Bomb, Field, Life, Player, SimulationState};
 use crate::system::System;
 
 #[derive(Debug)]
@@ -39,7 +49,6 @@ impl System for Movement {
             field,
             ..
         } = state;
-        let walkable = |c: Cell| field.kind(c) == Some(CellKind::Floor);
         for (player, input) in players.iter_mut().zip(inputs) {
             if player.life != Life::Alive || input.dir == Dir::None {
                 continue;
@@ -48,121 +57,254 @@ impl System for Movement {
                 player.facing = input.dir;
                 events.emit(EventKind::PlayerTurned { player: player.id });
             }
-            move_player(world, player, input.dir, bombs, &walkable);
+            move_player(world, player, input.dir, bombs, field);
         }
         clear_finished_grace(world, players, bombs);
     }
 }
 
-/// Grace chỉ còn khi người chơi vẫn đứng trên ô bom; rời ô là mất quyền quay lại (R-049).
-/// Giữ id nếu người đó còn trong ô, kể cả khi đang đi lại trong ô mà chưa vượt biên.
+/// `grace` (pass) chỉ còn khi hộp người chơi còn chồng ô bom; rời hẳn ô thì mất quyền quay lại
+/// (R-107). Người đã chết thì mất luôn. Danh sách giữ nguyên thứ tự id tăng dần.
 fn clear_finished_grace(world: &World, players: &[Player], bombs: &mut [Bomb]) {
     for bomb in bombs {
-        let cell = bomb.cell;
         bomb.grace.retain(|&id| {
-            players
-                .iter()
-                .any(|p| p.id == id && world.cell_at(p.x, p.y) == cell)
+            players.iter().any(|p| {
+                p.id == id && p.life != Life::Dead && box_overlaps_cell(world, p.x, p.y, bomb.cell)
+            })
         });
     }
 }
 
-fn move_player(
-    world: &World,
-    p: &mut Player,
-    dir: Dir,
-    bombs: &[Bomb],
-    walkable: &impl Fn(Cell) -> bool,
-) {
-    let (dx, dy) = dir.delta();
-    let speed = world.speed(p.speed.value);
-    let id = p.id;
-    if dx != 0 {
-        let row = world.cell_index(p.y);
-        let center = world.center(row);
-        if p.y != center {
-            p.y = approach(p.y, center, speed);
-            return;
-        }
-        p.x = advance(
-            world,
-            p.x,
-            dx,
-            speed,
-            |c| enterable(bombs, walkable, Cell::new(c, row)),
-            |c| may_leave(bombs, Cell::new(c, row), id),
-        );
-    } else {
-        let col = world.cell_index(p.x);
-        let center = world.center(col);
-        if p.x != center {
-            p.x = approach(p.x, center, speed);
-            return;
-        }
-        p.y = advance(
-            world,
-            p.y,
-            dy,
-            speed,
-            |c| enterable(bombs, walkable, Cell::new(col, c)),
-            |c| may_leave(bombs, Cell::new(col, c), id),
-        );
+/// Hộp tại tâm `(x, y)` có chồng ô `(cell.x, cell.y)` không (BnB `overlapsTile`).
+///
+/// Dùng chung cho `grace` của bom: người chơi được pass khi hộp còn chồng ô bom.
+pub(super) fn box_overlaps_cell(world: &World, x: Mpx, y: Mpx, cell: Cell) -> bool {
+    let half = world.rules().collision_half.0;
+    let tile = world.rules().tile.0;
+    let left = cell.x * tile;
+    let top = cell.y * tile;
+    x.0 + half > left && x.0 - half < left + tile && y.0 + half > top && y.0 - half < top + tile
+}
+
+/// Ô mà hộp tại tâm `pos` chạm tới trên một trục (chỉ số ô đầu và ô cuối).
+///
+/// Mép hộp vừa chạm ranh giới ô thì ô kề chưa bị tính, đúng như BnB dùng `x + HALF - 0.01`.
+fn span(world: &World, pos: Mpx) -> (i32, i32) {
+    let tile = world.rules().tile.0;
+    let half = world.rules().collision_half.0;
+    let lo = (pos.0 - half).div_euclid(tile);
+    let hi = (pos.0 + half - 1).div_euclid(tile);
+    (lo, hi)
+}
+
+/// Ô `cell` chặn người chơi `player` không: ngoài lưới, khối cứng/mềm, hoặc bom mà người đó
+/// không có `grace` (R-107).
+fn solid_for(field: &Field, bombs: &[Bomb], player: u8, cell: Cell) -> bool {
+    let blocked_by_field = match field.kind(cell) {
+        None => true,
+        Some(CellKind::Floor) => false,
+        Some(CellKind::Solid | CellKind::Breakable | CellKind::Unknown) => true,
+    };
+    if blocked_by_field {
+        return true;
     }
-}
-
-/// Vào ô chỉ khi là nền và không có bom (R-048). Grace không cho đi vào, chỉ cho đi ra (R-049).
-fn enterable(bombs: &[Bomb], walkable: &impl Fn(Cell) -> bool, cell: Cell) -> bool {
-    walkable(cell) && !bombs.iter().any(|b| b.cell == cell)
-}
-
-/// Rời ô có bom cần grace của chính bom đó (R-049).
-fn may_leave(bombs: &[Bomb], cell: Cell, player: u8) -> bool {
     bombs
         .iter()
-        .find(|b| b.cell == cell)
-        .is_none_or(|b| b.grace.contains(&player))
+        .any(|b| b.cell == cell && !b.grace.contains(&player))
 }
 
-/// Tiến theo một trục; không vượt tâm ô khi ô phía trước bị chặn hoặc không được rời ô hiện tại.
-fn advance(
-    world: &World,
-    pos: Mpx,
-    sign: i32,
-    speed: Mpx,
-    open: impl Fn(i32) -> bool,
-    may_leave: impl Fn(i32) -> bool,
-) -> Mpx {
-    let target = Mpx(pos.0 + sign * speed.0);
-    let here = world.cell_index(pos);
-    let there = world.cell_index(target);
-    for cell in [here, there] {
-        let center = world.center(cell);
-        if !open(cell + sign) && (target.0 - center.0) * sign > 0 {
-            return clamp_at(pos, center, sign);
-        }
-        if here == there {
-            break;
+/// Hộp tại tâm `(x, y)` chạm ô chặn nào không.
+fn collides(world: &World, field: &Field, bombs: &[Bomb], player: u8, x: Mpx, y: Mpx) -> bool {
+    let (x0, x1) = span(world, x);
+    let (y0, y1) = span(world, y);
+    for cy in y0..=y1 {
+        for cx in x0..=x1 {
+            if solid_for(field, bombs, player, Cell::new(cx, cy)) {
+                return true;
+            }
         }
     }
-    if there != here && !may_leave(here) {
-        return clamp_at(pos, world.center(here), sign);
-    }
-    target
+    false
 }
 
-/// Dừng ở tâm ô hiện tại nếu chưa qua; đã qua thì không lùi (tránh nhảy ngược khi bị chặn).
-fn clamp_at(pos: Mpx, center: Mpx, sign: i32) -> Mpx {
-    if (pos.0 - center.0) * sign > 0 {
-        pos
+/// Một bước di chuyển theo hướng `dir`: thử bước trước, bị chặn thì mới bám góc.
+fn move_player(world: &World, p: &mut Player, dir: Dir, bombs: &[Bomb], field: &Field) {
+    let (dx, dy) = dir.delta();
+    let step = world.speed(p.speed.value);
+    let assist = world.rules().corner_assist.0;
+    let tile = world.rules().tile.0;
+    if dx != 0 {
+        let target = Mpx(p.x.0 + dx * step.0);
+        if !collides(world, field, bombs, p.id, target, p.y) {
+            p.x = target;
+            return;
+        }
+        // Bám góc: kéo về tâm hàng đang đứng (rồi tới tâm hàng trên/dưới kèm theo), chỉ khi lệch
+        // trong phạm vi assist và vị trí sau khi kéo không chạm ô chặn.
+        let center = world.center(world.cell_index(p.y)).0;
+        for candidate in [center, center - tile, center + tile] {
+            let delta = candidate - p.y.0;
+            if delta == 0 || delta.abs() > assist {
+                continue;
+            }
+            let shift = if delta.abs() <= step.0 {
+                delta
+            } else {
+                delta.signum() * step.0
+            };
+            let shifted = Mpx(p.y.0 + shift);
+            if collides(world, field, bombs, p.id, p.x, shifted) {
+                continue;
+            }
+            p.y = shifted;
+            if !collides(world, field, bombs, p.id, target, shifted) {
+                p.x = target;
+            }
+            return;
+        }
     } else {
-        center
+        let target = Mpx(p.y.0 + dy * step.0);
+        if !collides(world, field, bombs, p.id, p.x, target) {
+            p.y = target;
+            return;
+        }
+        // Bám góc theo trục dọc: kéo về tâm cột đang đứng.
+        let center = world.center(world.cell_index(p.x)).0;
+        for candidate in [center, center - tile, center + tile] {
+            let delta = candidate - p.x.0;
+            if delta == 0 || delta.abs() > assist {
+                continue;
+            }
+            let shift = if delta.abs() <= step.0 {
+                delta
+            } else {
+                delta.signum() * step.0
+            };
+            let shifted = Mpx(p.x.0 + shift);
+            if collides(world, field, bombs, p.id, shifted, p.y) {
+                continue;
+            }
+            p.x = shifted;
+            if !collides(world, field, bombs, p.id, shifted, target) {
+                p.y = target;
+            }
+            return;
+        }
     }
 }
 
-fn approach(from: Mpx, to: Mpx, step: Mpx) -> Mpx {
-    if (to.0 - from.0).abs() <= step.0 {
-        to
-    } else {
-        Mpx(from.0 + step.0 * (to.0 - from.0).signum())
+#[cfg(test)]
+mod tests {
+    use boom_content::map::Terrain;
+    use boom_content::rules::RulesProfile;
+
+    use crate::mode::mode_by_id;
+    use crate::num::{Cell, Mpx};
+    use crate::rules::Rules;
+    use crate::sim::{Dir, PlayerInput, PlayerSetup, World};
+    use crate::state::{Bomb, CharacterStats, EntityId, Life, SimulationState, Stat};
+
+    const PROFILE: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
+
+    fn rules() -> Rules {
+        Rules::from_profile(&RulesProfile::from_toml(PROFILE).unwrap()).unwrap()
+    }
+
+    fn world(rows: &[&str]) -> World {
+        let ffa = mode_by_id("battle_ffa").unwrap();
+        World::new(Terrain::from_ascii(rows).unwrap(), rules(), ffa).unwrap()
+    }
+
+    fn setup(id: u8) -> PlayerSetup {
+        PlayerSetup {
+            id,
+            stats: CharacterStats {
+                speed: Stat::new(5, 7),
+                bombs: Stat::new(1, 10),
+                range: Stat::new(1, 7),
+            },
+        }
+    }
+
+    fn walk(dir: Dir) -> PlayerInput {
+        PlayerInput {
+            dir,
+            place_bomb: false,
+        }
+    }
+
+    /// Chạy `ticks` tick với hướng `dir`.
+    fn run(w: &World, s: &mut SimulationState, dir: Dir, ticks: u32) {
+        for _ in 0..ticks {
+            s.step(w, &[walk(dir)], &mut Vec::new()).unwrap();
+        }
+    }
+
+    #[test]
+    fn hitbox_stops_at_the_edge_of_the_wall() {
+        // Tường cột 4 bắt đầu ở x = 160 px; hộp nửa 13 px nên người chơi dừng ở x = 146 px
+        // (mép hộp chạm đúng mép ô), không phải ở tâm ô (140 px) như mô hình điểm tâm.
+        let w = world(&["#####", "#0..#", "#####"]);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        run(&w, &mut s, Dir::Right, 100);
+        assert_eq!(s.players[0].x, Mpx(146_000));
+    }
+
+    #[test]
+    fn corner_assist_applies_at_twelve_px_and_stops_at_thirteen() {
+        // Khối cứng ở (2,2) chặn bước sang phải khi hộp chồm hàng 2. Người chơi đứng ở mép
+        // hộp chồm cột 2 (x = 66 px) nên bước sang phải bị chặn.
+        let rows = ["#####", "#0..#", "#.##.", "#####"];
+        // Lệch 12 px so với tâm hàng 1 (60 px): bám góc được, kéo về tâm hàng theo một bước.
+        let w = world(&rows);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.players[0].x = Mpx(66_000);
+        s.players[0].y = Mpx(72_000);
+        run(&w, &mut s, Dir::Right, 1);
+        assert_eq!(s.players[0].x, Mpx(66_000), "vẫn bị khối cứng chặn");
+        assert_eq!(
+            s.players[0].y,
+            Mpx(70_000),
+            "lệch 12 px: bám góc kéo về tâm hàng"
+        );
+
+        // Lệch 13 px: vượt phạm vi assist nên đứng yên.
+        let w = world(&rows);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.players[0].x = Mpx(66_000);
+        s.players[0].y = Mpx(73_000);
+        run(&w, &mut s, Dir::Right, 1);
+        assert_eq!(s.players[0].x, Mpx(66_000));
+        assert_eq!(s.players[0].y, Mpx(73_000), "lệch 13 px: không bám góc");
+    }
+
+    #[test]
+    fn trapped_player_does_not_move() {
+        let w = world(&["#####", "#0..#", "#####"]);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.players[0].life = Life::Trapped { since: 0 };
+        run(&w, &mut s, Dir::Right, 20);
+        assert_eq!(s.players[0].x, Mpx(60_000));
+    }
+
+    #[test]
+    fn grace_is_dropped_when_the_box_leaves_the_bomb_cell() {
+        // R-107: pass chỉ còn khi hộp còn chồng ô bom; rời hẳn ô thì mất và bom chặn người đó.
+        let w = world(&["#####", "#0..#", "#####"]);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.bombs.push(Bomb {
+            id: EntityId(1),
+            owner: 0,
+            cell: Cell::new(1, 1),
+            range: 1,
+            explodes_at: 1000,
+            grace: vec![0],
+        });
+        run(&w, &mut s, Dir::Right, 20);
+        assert_eq!(s.players[0].x, Mpx(100_000));
+        assert!(
+            s.bombs[0].grace.is_empty(),
+            "hộp đã rời hẳn ô bom nên pass bị xóa"
+        );
     }
 }

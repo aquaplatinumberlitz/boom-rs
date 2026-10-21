@@ -67,8 +67,21 @@ fn rejects_content_mismatch() {
 
 #[test]
 fn rejects_rules_mismatch() {
-    let text = fixture().replace("0x3f43f71d06488a95", "0x0000000000000000");
+    let text = break_profile_hash(&fixture());
     reject("rules", &text, "định danh");
+}
+
+/// Thay giá trị `profile_hash` trong header replay bằng giá trị sai, không hard-code hash
+/// để không stale mỗi lần profile đổi định danh.
+fn break_profile_hash(text: &str) -> String {
+    const KEY: &str = "profile_hash = \"";
+    let start = text.find(KEY).expect("replay có profile_hash") + KEY.len();
+    let end = start + text[start..].find('"').expect("profile_hash có dấu nháy");
+    let mut out = String::with_capacity(text.len());
+    out.push_str(&text[..start]);
+    out.push_str("0x0000000000000000");
+    out.push_str(&text[end..]);
+    out
 }
 
 fn content_hash() -> &'static str {
