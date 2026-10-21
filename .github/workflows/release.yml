@@ -1,7 +1,8 @@
-# Build phát hành 3 OS (V1-036 phần 1, issue #102).
+# Build phát hành 3 OS (V1-036 phần 1, issue #102; phần 2: license + font, issue #119).
 #
 # Chạy tay (workflow_dispatch) hoặc khi đẩy tag `v*`. Mỗi OS ra một artifact: gói gồm
-# bin/, data/rules/, data/l10n/, README chạy nhanh và LICENSES.
+# bin/, data/rules/, data/l10n/, assets/fonts/ (font OFL), README chạy nhanh và LICENSES
+# (toàn văn license SPDX + bản quyền từng crate).
 # KHÔNG kèm pack/bundle/asset game — người dùng tự dựng bundle từ pack của mình.
 # Bố cục gói và cách chạy: docs/specification/RELEASE.md.
 name: release
@@ -47,6 +48,9 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
       - run: cargo xtask ci
+      # Tự kiểm công cụ đóng gói (V1-036 phần 2): tool phải bắt được file cấm.
+      - name: Tự kiểm công cụ đóng gói
+        run: python tools/check_package.py test
 
   package:
     needs: check
@@ -111,12 +115,14 @@ jobs:
           export NAME
           export PKG="dist/${NAME}"
           rm -rf dist
-          mkdir -p "${PKG}/bin" "${PKG}/data/rules" "${PKG}/data/l10n"
+          mkdir -p "${PKG}/bin" "${PKG}/data/rules" "${PKG}/data/l10n" "${PKG}/assets/fonts"
           for bin in boom-client boom-server boom-assets; do
             cp "target/release/${bin}${EXT}" "${PKG}/bin/"
           done
           cp data/rules/*.toml "${PKG}/data/rules/"
           cp data/l10n/*.toml "${PKG}/data/l10n/"
+          # Font OFL (V1-035): không phải asset game, được phân phối kèm OFL.txt.
+          cp assets/fonts/* "${PKG}/assets/fonts/"
           # README chạy nhanh: trích từ docs/specification/RELEASE.md (một nguồn chuẩn).
           python - <<'PY'
           import os, pathlib
@@ -129,6 +135,12 @@ jobs:
           test -s "${PKG}/README.md" || { echo "LỖI: không trích được README"; exit 1; }
           echo "Gói: ${PKG}"
 
+      # `cargo build` chỉ tải nguồn crate của nền tảng đang build; `cargo fetch` (không
+      # --target) tải nguồn cho **mọi** nền tảng để LICENSES có toàn văn license của
+      # toàn bộ đồ thị phụ thuộc.
+      - name: Tải nguồn crate mọi nền tảng
+        run: cargo fetch
+
       - name: Sinh LICENSES
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -139,32 +151,21 @@ jobs:
           NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
           export NAME
           export PKG="dist/${NAME}"
-          python - <<'PY'
-          import json, os, pathlib, subprocess
-          # Đọc byte rồi tự giải mã UTF-8: `text=True` trên Windows dùng cp1252 và hỏng
-          # khi metadata có ký tự ngoài ASCII.
-          raw = subprocess.run(
-              ["cargo", "metadata", "--format-version", "1"],
-              capture_output=True, check=True).stdout
-          meta = json.loads(raw.decode("utf-8"))
-          rows = sorted({
-              "{} {} — {} — {}".format(
-                  p["name"], p["version"], p.get("license") or "không khai",
-                  p.get("repository") or "không có")
-              for p in meta["packages"] if p.get("source")})
-          lines = [
-              "LICENSES — boom-rs (V1, phần 1)",
-              "",
-              "Crate phụ thuộc của gói này, lấy từ `cargo metadata` lúc build.",
-              "Liệt kê toàn bộ đồ thị phụ thuộc (mọi nền tảng), không chỉ crate được link ở nền tảng này.",
-              "Mỗi dòng: tên · phiên bản · license (SPDX) · kho mã nguồn.",
-              "Toàn văn license nằm ở kho của từng crate (mục repository) và ở crate trên crates.io.",
-              "",
-          ] + rows
-          out = pathlib.Path(os.environ["PKG"]) / "LICENSES"
-          out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-          PY
+          python tools/check_package.py licenses --out "${PKG}/LICENSES"
           test -s "${PKG}/LICENSES" || { echo "LỖI: LICENSES rỗng"; exit 1; }
+
+      # Chặn pack/bundle/asset game trong gói và kiểm thành phần bắt buộc.
+      - name: Kiểm bộ đóng gói
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
+          export NAME
+          export PKG="dist/${NAME}"
+          python tools/check_package.py check "${PKG}"
 
       - name: Kiểm binary trong gói
         env:
