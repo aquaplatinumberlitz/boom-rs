@@ -21,7 +21,7 @@ use std::time::Duration;
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
 use boom_core::{CharacterStats, Dir, PlayerInput, Rules, Stat, World, mode_by_id};
-use boom_net::{MemoryConfig, MemoryFaults, MemoryTransport, Timing, Transport};
+use boom_net::{MemoryConfig, MemoryCounters, MemoryFaults, MemoryTransport, Timing, Transport};
 use boom_proto::dto::auth::AuthFailReason;
 use boom_proto::{ProtocolLimits, RejectReason, RoundEvent, Welcome, decode_frame, encode_frame};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
@@ -75,6 +75,8 @@ struct Client {
     slot: u8,
     /// Event đã nhận (đã dedup theo `(round_id, EventId)`).
     events: Vec<RoundEvent>,
+    /// Bộ đếm chiều **client → server**: biết luồng đọc của server đã lấy frame chưa.
+    out: MemoryCounters,
 }
 
 /// Kịch bản: server + hai client nối qua `MemoryTransport`.
@@ -160,6 +162,9 @@ impl Harness {
                 faults: out_faults,
                 timing: Timing::Virtual,
             });
+            // Bộ đếm của chiều client→server: test biết chắc server đã lấy frame input
+            // (không đoán theo hạn thời gian thật) — xem `Harness::wait_input_delivered`.
+            let out = client_writer.counters();
             let (server_writer, client_reader) = MemoryTransport::pair(MemoryConfig {
                 seed: seed.wrapping_add(index as u64),
                 faults: in_faults,
@@ -193,6 +198,7 @@ impl Harness {
                 player,
                 slot,
                 events: Vec::new(),
+                out,
             });
         }
         Self {
@@ -294,13 +300,14 @@ impl Harness {
         let now = self.origin_ms + (self.ticks * 1_000) / u64::from(self.hz);
         self.ticks += 1;
         if self.ticks > 1 {
-            // Nhận input **trước** khi server chạy tick: hai lần poll ở mốc chưa tới tick kế
-            // tiếp (tick không chạy) để chắc chắn cả hai frame input của client nằm trong hàng
-            // đợi; rồi poll ở mốc tick để áp input vào đúng tick client đã gán `target_tick`.
+            // Nhận input **trước** khi server chạy tick:
+            // 1. Chờ luồng đọc của server **lấy đủ** frame client đã gửi (đồng hồ server đứng
+            //    yên ở `before` ⇒ không tick nào chạy, không lệch tick nào).
+            // 2. Poll **có chờ** ⇒ chắc chắn batch input đã vào kênh vào và được server xử lý
+            //    trước khi tick kế tiếp chạy ⇒ lệnh áp dụng đúng tick client đã gán
+            //    `target_tick`, không phải tick sau (lệch một tick làm vị trí dự đoán lệch).
             let before = now - 1;
-            self.server
-                .poll(before, Duration::from_millis(2))
-                .expect("poll nhận input");
+            self.wait_input_delivered(before);
             self.server
                 .poll(before, Duration::from_millis(2))
                 .expect("poll nhận input");
@@ -326,6 +333,34 @@ impl Harness {
                         .insert((client.player, tick), (player.x.0, player.y.0));
                 }
             }
+        }
+    }
+
+    /// Chờ luồng đọc của server **lấy hết** frame client đã gửi, mà **không** tiến đồng hồ
+    /// server (poll ở mốc `before` nên không tick nào chạy).
+    ///
+    /// `MemoryTransport` đếm frame **đưa lên đường** và frame **đã giao cho ứng dụng nhận**
+    /// (mỗi frame tới nơi đúng một lần) ⇒ hai số bằng nhau ⇔ server đã nhận hết frame client
+    /// gửi. Nhờ vậy test **không đua với lịch chạy thread**: không đoán bằng hạn thời gian thật.
+    fn wait_input_delivered(&mut self, before: u64) {
+        let Self {
+            server, clients, ..
+        } = self;
+        for client in clients.iter() {
+            // Trần số vòng: lỗi thật (frame không tới nơi) thì dừng test kèm thông báo
+            // thay vì quay vô hạn.
+            for _ in 0..100_000 {
+                if client.out.peer_delivered_frames() >= client.out.sent_frames() {
+                    break;
+                }
+                server
+                    .poll(before, Duration::from_millis(1))
+                    .expect("poll nhận input");
+            }
+            assert!(
+                client.out.peer_delivered_frames() >= client.out.sent_frames(),
+                "server chưa nhận hết frame input của client"
+            );
         }
     }
 
