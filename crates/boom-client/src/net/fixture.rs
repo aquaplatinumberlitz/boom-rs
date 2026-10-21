@@ -44,8 +44,25 @@ const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml"
 /// Mật khẩu tài khoản thật trong fixture (đủ 8 ký tự — ADR 0011 §4).
 pub const ACCOUNT_PASSWORD: &str = "matkhau123";
 
-/// Thời gian chờ message khi bơm hàng đợi đọc.
-pub const PUMP_TIMEOUT: Duration = Duration::from_millis(20);
+/// Trần **số vòng** chờ trong fixture (bơm client / poll server).
+///
+/// Trần là số vòng, **không phải thời gian thật**: tốc độ máy và độ phân giải timer của hệ
+/// điều hành không được quyết định kết quả test. Vòng chờ **không tiến đồng hồ ảo** nên độ
+/// trễ thực tế của luồng đọc không làm lệch kịch bản.
+const MAX_WAIT_ROUNDS: u32 = 200_000;
+
+/// Trần thời gian thật khi **biết chắc** còn frame đang chờ (bơm client / poll server).
+///
+/// Chỉ dùng khi bộ đếm frame cho biết còn frame chưa xử lý: thời gian thật ở đây chỉ là
+/// **trần an toàn** (đợi luồng đọc đẩy frame vào hàng đợi), không quyết định kết quả test.
+const RELAXED_WAIT: Duration = Duration::from_millis(200);
+
+/// Trần thời gian thật khi **không** còn frame chờ (chỉ để lấy frame vừa được luồng đọc
+/// đẩy vào hàng đợi ứng dụng).
+///
+/// Luồng đọc lấy frame khỏi mạng ảo rồi **mới** đẩy vào hàng đợi ứng dụng: có một khe nhỏ
+/// giữa hai việc đó. Chờ ngắn ở đây đảm bảo client không bỏ sót frame vừa tới nơi.
+const SHORT_WAIT: Duration = Duration::from_millis(5);
 
 /// Ngưỡng "trễ nhiều tick" dùng trong test: input phải tới trễ hơn ngần này so với lúc gửi.
 ///
@@ -187,13 +204,50 @@ struct Shared {
     /// Lỗi mạng áp cho chiều này; **bật sau handshake** (mất `Hello` thì phiên hỏng, không
     /// phải lỗi mạng).
     faults: ScheduledFaults,
+    /// Số frame **đã tới hàng đợi nhận** của endpoint (đã đến hạn giao, chờ luồng đọc lấy),
+    /// tính theo endpoint **nhận**.
+    ///
+    /// Khác [`Self::sent`]: frame còn trên đường (chưa đến hạn giao) **không** tính ở đây.
+    queued: [u64; 2],
+    /// Số frame **đã giao cho ứng dụng nhận** (đã lấy khỏi hàng đợi), tính theo endpoint
+    /// **nhận**.
+    delivered: [u64; 2],
 }
 
 /// Mạng ảo có lịch giao theo thời gian server.
 #[derive(Default)]
 pub struct ScheduledNet {
-    inner: Mutex<Shared>,
+    inner: Arc<Mutex<Shared>>,
     signal: Condvar,
+}
+
+/// Bộ đếm frame của **chiều nhận** của mạng ảo.
+///
+/// Cho phép test biết chắc khi nào frame đã **tới nơi** mà không đoán theo hạn thời gian
+/// thật: mỗi frame đưa lên đường sẽ được đối phương lấy **đúng một lần**.
+#[derive(Clone)]
+pub struct ScheduledCounters {
+    inner: Arc<Mutex<Shared>>,
+    /// Index endpoint **nhận** trong cặp.
+    receiver: usize,
+}
+
+impl ScheduledCounters {
+    /// Số frame chiều này **đã tới nơi** (đối phương đã lấy khỏi hàng đợi nhận).
+    pub fn delivered_frames(&self) -> u64 {
+        let inner = self.inner.lock().expect("khoá mạng ảo");
+        inner.delivered[self.receiver]
+    }
+
+    /// Số frame chiều này **đã tới hàng đợi nhận** (đến hạn giao) nhưng luồng đọc chưa lấy.
+    ///
+    /// Frame còn trên đường (chưa đến hạn giao theo đồng hồ mạng) **không** tính ở đây.
+    /// Nhờ vậy test biết chính xác khi nào còn frame **đang chờ luồng đọc** (khác với frame
+    /// còn trên đường) mà không phải đoán theo thời gian thật.
+    pub fn queued_frames(&self) -> u64 {
+        let inner = self.inner.lock().expect("khoá mạng ảo");
+        inner.queued[self.receiver]
+    }
 }
 
 impl ScheduledNet {
@@ -225,6 +279,8 @@ impl ScheduledNet {
             }
             inner.delivered_max[index] = inner.delivered_max[index].max(packet.seq);
             inner.ready[index].push_back(packet.payload);
+            // Frame đã tới hàng đợi nhận: luồng đọc chưa lấy ⇒ còn frame đang chờ.
+            inner.queued[index] += 1;
         }
         drop(inner);
         self.signal.notify_all();
@@ -233,6 +289,14 @@ impl ScheduledNet {
     /// Thống kê lỗi mạng đã xảy ra.
     pub fn stats(&self) -> NetStats {
         self.inner.lock().expect("khoá mạng ảo").stats
+    }
+
+    /// Bộ đếm frame của chiều **nhận** ở endpoint `receiver` (index endpoint trong cặp).
+    pub fn counters(&self, receiver: usize) -> ScheduledCounters {
+        ScheduledCounters {
+            inner: Arc::clone(&self.inner),
+            receiver,
+        }
     }
 
     /// Bật lỗi mạng cho chiều này (gọi **sau** handshake).
@@ -279,7 +343,12 @@ impl ScheduledTransport {
     /// Lấy frame đã giao mà **không chờ** (phía server của fixture).
     pub fn try_recv(&mut self) -> Option<Vec<u8>> {
         let mut inner = self.net.inner.lock().expect("khoá mạng ảo");
-        inner.ready[self.endpoint.index()].pop_front()
+        let frame = inner.ready[self.endpoint.index()].pop_front();
+        if frame.is_some() {
+            // Frame đã tới nơi: đếm giống `recv_frame` để bộ đếm nhất quán.
+            inner.delivered[self.endpoint.index()] += 1;
+        }
+        frame
     }
 
     fn roll(&mut self, permille: u16) -> bool {
@@ -355,6 +424,8 @@ impl Transport for ScheduledTransport {
         let mut inner = self.net.inner.lock().expect("khoá mạng ảo");
         loop {
             if let Some(frame) = inner.ready[self.endpoint.index()].pop_front() {
+                // Frame đã tới nơi: đếm để ứng dụng biết chắc peer đã lấy frame này.
+                inner.delivered[self.endpoint.index()] += 1;
                 return Ok(Some(frame));
             }
             if inner.closed[self.endpoint.peer().index()]
@@ -439,6 +510,16 @@ pub struct ScheduledClient {
     events: Vec<RoundEvent>,
     /// Sequence đã gửi lên server (để đếm lệnh trùng).
     sent_seqs: BTreeSet<u32>,
+}
+
+impl ScheduledClient {
+    /// Bộ đếm frame chiều **server → client**.
+    ///
+    /// Trong `ScheduledTransport::pair` endpoint `A` là phía **gửi** đầu tiên, `B` là phía
+    /// nhận; chiều server→client nên server gửi (`A`) và client nhận (`B`).
+    pub fn in_counters(&self) -> ScheduledCounters {
+        self.in_net.counters(1)
+    }
 }
 
 /// Fixture: server authority + hai client, lịch giao theo tick của server.
@@ -786,12 +867,22 @@ impl ScheduledHarness {
         let now_ms = self.next_ms();
         // 1. Giao các frame đã đến hạn (snapshot/event của tick trước, input tới trễ).
         self.advance_network(now_ms);
-        // 2. Client nhận message, dự đoán một bước và gửi cửa sổ lệnh chưa ack.
+        // 2. Client nhận message: chờ tới khi **mọi** frame server gửi đã được client xử lý
+        //    (điều kiện theo bộ đếm frame; đồng hồ ảo đứng yên ⇒ độ trễ thực tế của luồng
+        //    đọc không làm lệch kịch bản).
+        let before: Vec<(usize, u32)> = self
+            .clients
+            .iter()
+            .map(|client| {
+                (
+                    client.net.pending_len(),
+                    client.net.confirmed_state().map_or(0, |state| state.tick),
+                )
+            })
+            .collect();
+        self.pump_clients();
         for (index, client) in self.clients.iter_mut().enumerate() {
-            let pending_before = client.net.pending_len();
-            let confirmed_before = client.net.confirmed_state().map_or(0, |state| state.tick);
-            client.net.pump(PUMP_TIMEOUT).expect("bơm message");
-            client.events.extend(client.net.take_events());
+            let (pending_before, confirmed_before) = before[index];
             // Slot trận của client: lấy từ `RoundStart.roster` theo `account_id` (client tự
             // suy ra từ roster, không phải fixture gán sẵn — ADR 0009 Addendum B §B.2).
             if let Some(slot) = client.net.player_slot() {
@@ -833,9 +924,9 @@ impl ScheduledHarness {
         for round in 0..200 {
             let now_ms = self.next_ms();
             self.advance_network(now_ms);
+            // Chờ tới khi mọi frame server gửi đã được client xử lý (đồng hồ ảo đứng yên).
+            self.pump_clients();
             for client in &mut self.clients {
-                client.net.pump(PUMP_TIMEOUT).expect("bơm message");
-                client.events.extend(client.net.take_events());
                 // Slot trận của client lấy từ roster (xem [`ScheduledHarness::tick`]).
                 if let Some(slot) = client.net.player_slot() {
                     client.slot = slot;
@@ -947,6 +1038,37 @@ impl ScheduledHarness {
         let now = self.origin_ms + (self.ticks * 1_000) / u64::from(self.hz);
         self.ticks += 1;
         now
+    }
+
+    /// Bơm hàng đợi đọc của mọi client tới khi **mọi frame server gửi** đã được xử lý.
+    ///
+    /// Điều kiện dựa trên **bộ đếm frame** của mạng ảo, không đo thời gian thật. Vòng chờ
+    /// **không tiến đồng hồ ảo** nên độ trễ thực tế của luồng đọc client không làm lệch
+    /// kịch bản.
+    ///
+    /// Lần bơm có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** ⇒ thời gian thật ở đây chỉ là
+    /// trần an toàn, không quyết định kết quả.
+    fn pump_clients(&mut self) {
+        for index in 0..self.clients.len() {
+            for _ in 0..MAX_WAIT_ROUNDS {
+                let queued = self.clients[index].in_counters().queued_frames();
+                let delivered = self.clients[index].in_counters().delivered_frames();
+                let wait = if delivered < queued {
+                    RELAXED_WAIT
+                } else {
+                    SHORT_WAIT
+                };
+                self.clients[index].net.pump(wait).expect("bơm message");
+                let events = self.clients[index].net.take_events();
+                self.clients[index].events.extend(events);
+                let after = self.clients[index].in_counters().delivered_frames();
+                if after == delivered {
+                    // Không có frame nào tới trong lúc bơm: client đã xử lý hết frame có mặt.
+                    break;
+                }
+                // Có frame tới trong lúc bơm: client xử lý ở vòng sau (đồng hồ đứng yên).
+            }
+        }
     }
 
     fn advance_network(&self, now_ms: u64) {
@@ -1087,12 +1209,6 @@ pub const ROOM_MAP_ID: &str = "skeleton-test";
 /// Bước đồng hồ ảo (ms) của fixture phòng: 16 ms = một tick ở 60 Hz.
 const ROOM_STEP_MS: u64 = 16;
 
-/// Thời gian chờ message khi bơm hàng đợi đọc trong fixture phòng (ms).
-///
-/// Ngắn hơn [`PUMP_TIMEOUT`] vì fixture phòng bơm nhiều lần; kết quả không phụ thuộc thời gian
-/// thực vì mọi thứ đi qua đồng hồ ảo của mạng.
-const ROOM_PUMP_TIMEOUT: Duration = Duration::from_millis(2);
-
 /// IP nguồn giả của kết nối trong fixture phòng (bucket rate limit theo nguồn, ADR 0011 §5).
 const ROOM_TEST_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
@@ -1144,6 +1260,19 @@ impl RoomClient {
     /// (ADR 0009 Addendum B §B.2).
     pub fn connection_id(&self) -> Option<u8> {
         self.net.connection_id()
+    }
+
+    /// Bộ đếm frame chiều **server → client**.
+    ///
+    /// Trong `ScheduledTransport::pair` endpoint `A` là phía **gửi** đầu tiên, `B` là phía
+    /// nhận; chiều server→client nên server gửi (`A`) và client nhận (`B`).
+    pub fn in_counters(&self) -> ScheduledCounters {
+        self.in_net.counters(1)
+    }
+
+    /// Bộ đếm frame chiều **client → server**.
+    pub fn out_counters(&self) -> ScheduledCounters {
+        self.out_net.counters(1)
     }
 }
 
@@ -1283,9 +1412,14 @@ impl RoomHarness {
             identities.push(connection);
         }
         // Vòng IO của server phải chạy để trả `Welcome`/`AuthOk` cho client.
+        //
+        // Đồng hồ ảo tiến theo **bước cố định** ([`ROOM_STEP_MS`]) chứ không theo số vòng
+        // thực: số vòng handshake phụ thuộc lịch chạy thread (không tất định), còn phần
+        // lẻ của đồng hồ ảo quyết định **bước** mà frame tới nơi ⇒ phải cố định để kịch
+        // bản tất định.
         let mut now_ms = 0u64;
         while handles.iter().any(|handle| !handle.is_finished()) {
-            now_ms += 1;
+            now_ms += ROOM_STEP_MS;
             for (out_net, in_net) in &nets {
                 out_net.advance_to(now_ms);
                 in_net.advance_to(now_ms);
@@ -1368,14 +1502,16 @@ impl RoomHarness {
     }
 
     /// Bơm mạng `steps` bước: giao frame đến hạn, server xử lý, client nhận message.
+    ///
+    /// Mỗi bước **đóng** trước khi đồng hồ ảo tiến: server đã xử lý hết frame client gửi
+    /// và client đã xử lý hết frame server gửi. Nhờ vậy độ trễ thực tế của luồng đọc
+    /// (luồng đọc client chạy ở thread riêng) **không** làm lệch kịch bản: cùng seed cho
+    /// cùng kết quả trên mọi OS và mọi tốc độ máy.
     pub fn pump(&mut self, steps: u32) {
         for _ in 0..steps {
             self.now_ms += ROOM_STEP_MS;
             self.advance_network();
-            let _ = self
-                .server
-                .poll(self.now_ms, Duration::from_millis(1))
-                .expect("server poll");
+            self.poll_server();
             self.pump_clients();
         }
     }
@@ -1387,10 +1523,7 @@ impl RoomHarness {
     pub fn advance_to(&mut self, now_ms: u64) {
         self.now_ms = self.now_ms.max(now_ms);
         self.advance_network();
-        let _ = self
-            .server
-            .poll(self.now_ms, Duration::from_millis(1))
-            .expect("server poll");
+        self.poll_server();
     }
 
     /// Bơm tới khi điều kiện của client `index` thành hiện thực; trả về kết quả điều kiện.
@@ -1425,6 +1558,25 @@ impl RoomHarness {
         self.clients[index].net.room().room().is_some()
     }
 
+    /// Thống kê lỗi mạng đã xảy ra trên **cả hai chiều** của mọi client.
+    ///
+    /// Test dùng để chứng minh lỗi mạng **thật sự xảy ra** (fixture không rỗng): mất, trễ,
+    /// trùng và đảo thứ tự đều phải được quan sát thấy.
+    pub fn net_stats(&self) -> NetStats {
+        let mut total = NetStats::default();
+        for client in &self.clients {
+            for stats in [client.out_net.stats(), client.in_net.stats()] {
+                total.sent += stats.sent;
+                total.lost += stats.lost;
+                total.duplicated += stats.duplicated;
+                total.delayed += stats.delayed;
+                total.max_late_ms = total.max_late_ms.max(stats.max_late_ms);
+                total.reordered += stats.reordered;
+            }
+        }
+        total
+    }
+
     /// Client đã sẵn sàng (ready) trong phòng chưa.
     pub fn is_ready(&self, index: usize) -> bool {
         self.clients[index]
@@ -1442,11 +1594,73 @@ impl RoomHarness {
         }
     }
 
-    /// Bơm hàng đợi đọc của mọi client.
+    /// Chờ server **xử lý hết** frame client đã gửi, rồi trả về.
+    ///
+    /// Điều kiện dựa trên **bộ đếm frame** của mạng ảo, không đo thời gian thật. Vòng chờ
+    /// **không tiến đồng hồ ảo** nên độ trễ thực tế của luồng đọc không làm lệch kịch bản.
+    ///
+    /// Lần poll có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** (đã tới hàng đợi nhận mà
+    /// luồng đọc chưa lấy) ⇒ thời gian thật ở đây chỉ là trần an toàn, không quyết định kết quả.
+    fn poll_server(&mut self) {
+        for _ in 0..MAX_WAIT_ROUNDS {
+            let queued: Vec<u64> = self
+                .clients
+                .iter()
+                .map(|client| client.out_counters().queued_frames())
+                .collect();
+            let delivered: Vec<u64> = self
+                .clients
+                .iter()
+                .map(|client| client.out_counters().delivered_frames())
+                .collect();
+            let pending = queued
+                .iter()
+                .zip(&delivered)
+                .any(|(queued, delivered)| queued > delivered);
+            let wait = if pending { RELAXED_WAIT } else { SHORT_WAIT };
+            let _ = self.server.poll(self.now_ms, wait).expect("server poll");
+            let after: Vec<u64> = self
+                .clients
+                .iter()
+                .map(|client| client.out_counters().delivered_frames())
+                .collect();
+            if after == delivered {
+                // Không có frame nào tới trong lúc poll: server đã xử lý hết frame có mặt.
+                return;
+            }
+            // Có frame tới trong lúc poll: server xử lý ở vòng sau (đồng hồ ảo đứng yên).
+        }
+        panic!("server không xử lý hết frame client gửi");
+    }
+
+    /// Bơm hàng đợi đọc của mọi client tới khi **mọi frame server gửi** đã được xử lý.
+    ///
+    /// Điều kiện dựa trên **bộ đếm frame** của mạng ảo, không đo thời gian thật. Vòng chờ
+    /// **không tiến đồng hồ ảo** nên độ trễ thực tế của luồng đọc client không làm lệch
+    /// kịch bản.
+    ///
+    /// Lần bơm có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** ⇒ thời gian thật ở đây chỉ là
+    /// trần an toàn, không quyết định kết quả.
     fn pump_clients(&mut self) {
-        for client in &mut self.clients {
-            client.net.pump(ROOM_PUMP_TIMEOUT).expect("bơm message");
-            client.events.extend(client.net.take_events());
+        for index in 0..self.clients.len() {
+            for _ in 0..MAX_WAIT_ROUNDS {
+                let queued = self.clients[index].in_counters().queued_frames();
+                let delivered = self.clients[index].in_counters().delivered_frames();
+                let wait = if delivered < queued {
+                    RELAXED_WAIT
+                } else {
+                    SHORT_WAIT
+                };
+                self.clients[index].net.pump(wait).expect("bơm message");
+                let events = self.clients[index].net.take_events();
+                self.clients[index].events.extend(events);
+                let after = self.clients[index].in_counters().delivered_frames();
+                if after == delivered {
+                    // Không có frame nào tới trong lúc bơm: client đã xử lý hết frame có mặt.
+                    break;
+                }
+                // Có frame tới trong lúc bơm: client xử lý ở vòng sau (đồng hồ đứng yên).
+            }
         }
     }
 }
