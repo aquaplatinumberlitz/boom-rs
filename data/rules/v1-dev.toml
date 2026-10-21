@@ -10,112 +10,202 @@ value = 30
 unit = "Hz"
 source = "oss"
 status = "design"
-claims = ["R-100"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+claims = ["R-100", "R-113"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
 
 [grid.tile_px]
 value = 40
 unit = "px"
-source = "oss"
-status = "design"
-claims = ["R-101"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-001", "R-110"]
+note = "ADR 0013; khôi phục nguồn confirmed cùng đại lượng; giới hạn áp dụng xem claim lựa chọn"
 
 [round.duration_ms]
-value = 180000
+value = 120000
 unit = "ms"
-source = "oss"
-status = "design"
-claims = ["R-100"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-010", "R-110"]
+note = "ADR 0013; khôi phục nguồn confirmed cùng đại lượng; giới hạn áp dụng xem claim lựa chọn"
 
 [player.speed_px_per_s_per_level]
 value = 24
 unit = "px/s"
 source = "oss"
 status = "design"
-claims = ["R-102"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+claims = ["R-102", "R-114"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
 
 [player.trap_to_death_ms]
 value = 4000
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-103"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+claims = ["R-103", "R-115"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
 
 [bomb.fuse_ms]
 value = 2500
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-103"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+claims = ["R-103", "R-115"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
 
 [bomb.flame_ms]
 value = 500
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-103"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+claims = ["R-103", "R-115"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
 
 [item.fire_range_delta]
 value = 1
 unit = "cell"
-source = "oss"
-status = "design"
-claims = ["R-104"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-025", "R-111"]
+note = "ADR 0013; khôi phục nguồn confirmed cùng đại lượng; giới hạn áp dụng xem claim lựa chọn"
 
 [item.bomb_capacity_delta]
 value = 1
 unit = "bomb"
-source = "oss"
-status = "design"
-claims = ["R-104"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-025", "R-111"]
+note = "ADR 0013; khôi phục nguồn confirmed cùng đại lượng; giới hạn áp dụng xem claim lựa chọn"
 
 [item.roller_speed_delta]
 value = 1
 unit = "level"
 source = "oss"
 status = "design"
-claims = ["R-104"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+claims = ["R-104", "R-111"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
 
 [drop.brick_item_chance]
 value = 350
 unit = "permille"
 source = "oss"
 status = "design"
-claims = ["R-106"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+claims = ["R-106", "R-112"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
 
 [drop.weight_bomb]
-value = 20
+value = 3650
 unit = "weight"
-source = "oss"
-status = "design"
-claims = ["R-106"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051", "R-112"]
+note = "ADR 0013/R-112: số bảng confirmed; vai trò bảng drop còn unknown R-052, áp làm trọng số V1 có chủ ý"
 
 [drop.weight_fire]
-value = 28
+value = 2800
 unit = "weight"
-source = "oss"
-status = "design"
-claims = ["R-106"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051", "R-112"]
+note = "ADR 0013/R-112: số bảng confirmed; vai trò bảng drop còn unknown R-052, áp làm trọng số V1 có chủ ý"
 
 [drop.weight_roller]
-value = 16
+value = 2000
 unit = "weight"
-source = "oss"
-status = "design"
-claims = ["R-106"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051", "R-112"]
+note = "ADR 0013/R-112: số bảng confirmed; vai trò bảng drop còn unknown R-052, áp làm trọng số V1 có chủ ý"
+
+# Chỉ số nhân vật C00/C01: `BomberAttr` của pack KR 00967 (RULES_V1 R-040/R-041, `confirmed`).
+# Nghĩa trường theo R-042 (`candidate`): f2–f3 = cấp tốc độ, f4–f5 = số bom, f6–f7 = tầm nổ.
+# Vì nghĩa trường còn `candidate`, **giá trị dùng** cũng là `candidate` (AGENTS §4): dãy số đã
+# đối chiếu (R-040/R-041) nhưng chưa có bằng chứng rằng f2–f7 mang đúng nghĩa speed/bombs/range.
+# Mỗi giá trị là một khóa riêng để mỗi giá trị trỏ claim (AGENTS §3) và để `rules_hash`
+# đổi khi chỉ số đổi (định danh profile là hash của toàn bộ rule).
+[characters.c00_speed]
+value = 5
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-040", "R-042", "R-117"]
+
+[characters.c00_speed_max]
+value = 7
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-040", "R-042", "R-117"]
+
+[characters.c00_bombs]
+value = 1
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-040", "R-042", "R-117"]
+
+[characters.c00_bombs_max]
+value = 10
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-040", "R-042", "R-117"]
+
+[characters.c00_range]
+value = 1
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-040", "R-042", "R-117"]
+
+[characters.c00_range_max]
+value = 7
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-040", "R-042", "R-117"]
+
+[characters.c01_speed]
+value = 4
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-041", "R-042", "R-117"]
+
+[characters.c01_speed_max]
+value = 8
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-041", "R-042", "R-117"]
+
+[characters.c01_bombs]
+value = 2
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-041", "R-042", "R-117"]
+
+[characters.c01_bombs_max]
+value = 7
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-041", "R-042", "R-117"]
+
+[characters.c01_range]
+value = 1
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-041", "R-042", "R-117"]
+
+[characters.c01_range_max]
+value = 9
+unit = "level"
+source = "kr_static"
+status = "candidate"
+claims = ["R-041", "R-042", "R-117"]
 
 # Thời lượng một frame animation của client (presentation, không phải luật chơi).
 # R-079: pack client gốc không mang trường thời gian, nên V1 **chọn** nhịp riêng
@@ -125,34 +215,34 @@ value = 100
 unit = "ms"
 source = "design"
 status = "design"
-claims = ["R-085"]
+claims = ["R-085", "R-118"]
 note = "Nhịp 10 frame/s cho mọi clip V1: 100 ms/frame là lựa chọn design của V1 (R-085); nguồn gốc chưa có (R-079 vẫn unknown)"
 
-# Thông số cơ chế đã chốt; engine sẽ tiêu thụ trong issue #130/#132.
+# Thông số BnB cho chỗ trống (ADR 0013); movement #130 đã tích hợp, life/warmup còn #132.
 [player.collision_half_px]
 value = 13
 unit = "px"
 source = "oss"
 status = "design"
-claims = ["R-107"]
+claims = ["R-107", "R-116"]
 
 [player.corner_assist_px]
 value = 12
 unit = "px"
 source = "oss"
 status = "design"
-claims = ["R-107"]
+claims = ["R-107", "R-116"]
 
 [player.trap_touch_distance_px]
 value = 28
 unit = "px"
 source = "oss"
 status = "design"
-claims = ["R-108"]
+claims = ["R-108", "R-116"]
 
 [round.warmup_ms]
 value = 3000
 unit = "ms"
 source = "oss"
 status = "design"
-claims = ["R-100"]
+claims = ["R-100", "R-113"]

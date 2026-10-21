@@ -12,6 +12,7 @@ members = [
     "crates/boom-client",
     "crates/boom-room",
     "crates/boom-scenario",
+    "crates/boom-qa",
     "xtask",
 ]
 

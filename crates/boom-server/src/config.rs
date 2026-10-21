@@ -13,10 +13,18 @@
 //!
 //! Cấu hình là **tham số vận hành** (ADR 0011 §5, §14), không phải luật chơi: không có giá
 //! trị nào ở đây nằm trong `data/rules` và không sinh claim `R-xxx`.
+//!
+//! # Chỉ số nhân vật: ở rules profile, không ở đây
+//!
+//! Chỉ số C00/C01 là **giá trị luật** (RULES_V1 R-040/R-041) nên nằm trong rules profile
+//! (`data/rules/*.toml`, khóa `characters.c00_*` / `characters.c01_*`) chứ không phải trong
+//! file cấu hình: mọi người chạy server phải dùng cùng một nguồn, và `rules_hash` phải
+//! phản ánh chỉ số để handshake bắt được lệch (AGENTS §3). `boom-server serve` đọc bảng
+//! chỉ số từ profile qua [`crate::runtime::load_content`].
 
 use std::path::{Path, PathBuf};
 
-use boom_core::{CharacterStats, Rules, Tick, ms_to_ticks};
+use boom_core::{Rules, Tick, ms_to_ticks};
 use boom_proto::ProtocolLimits;
 use boom_room::RoomPolicy;
 use serde::{Deserialize, Serialize};
@@ -132,13 +140,6 @@ impl InputTicks {
     }
 }
 
-/// Chỉ số khởi đầu của hai template C00/C01, do caller nạp từ content.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CharacterStatsTable {
-    pub c00: CharacterStats,
-    pub c01: CharacterStats,
-}
-
 /// Định danh server dùng để chấp nhận `Hello` (ADR 0009 §1, V1-002).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HandshakeConfig {
@@ -168,8 +169,20 @@ pub struct OperationalConfig {
     pub db_path: std::path::PathBuf,
     /// Schema version T1/identity mong đợi (ADR 0011 §4).
     pub expected_db_schema_version: u32,
+    /// Hạn hoàn tất handshake+auth cho kết nối chưa `AuthOk` (ADR 0011 §6.1).
+    pub auth_deadline_ms: u64,
     /// Các địa chỉ game server bind; dùng trong `HealthResponse.listen_addrs`.
     pub listen_addrs: Vec<std::net::SocketAddr>,
+    /// Thư mục bundle content (map V1) mà `serve` nạp.
+    pub bundle_dir: std::path::PathBuf,
+    /// File rules profile mà `serve` nạp.
+    pub rules_path: std::path::PathBuf,
+    /// File bảng phân loại ô theo build mà `serve` nạp (`data/maps/*.toml`).
+    pub map_profile_path: std::path::PathBuf,
+    /// Thư mục ghi replay round; `None` tắt ghi (V1-026).
+    pub replay_dir: Option<std::path::PathBuf>,
+    /// Các tick cần ghi checkpoint hash trong replay (V1-026).
+    pub replay_checkpoints: Vec<u32>,
     /// Build id hiển thị trong log/health fingerprint.
     pub server_version: String,
     /// Chu kỳ heartbeat + ghi `health.json`, ms (ADR 0011 §8.1/§8.2.3).
@@ -226,6 +239,14 @@ pub const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:17889";
 pub const DEFAULT_HEARTBEAT_INTERVAL_MS: u64 = 60_000;
 /// Timeout CLI health mặc định: 3 giây.
 pub const DEFAULT_HEALTH_TIMEOUT_MS: u64 = 3_000;
+/// Hạn handshake+auth mặc định: 10 giây.
+pub const DEFAULT_AUTH_DEADLINE_MS: u64 = 10_000;
+/// Thư mục bundle mặc định (bundle do `boom-assets bundle` dựng).
+pub const DEFAULT_BUNDLE_DIR: &str = "data/bundle/village00";
+/// File rules profile mặc định.
+pub const DEFAULT_RULES_PATH: &str = "data/rules/v1-dev.toml";
+/// File bảng phân loại ô mặc định (map V1).
+pub const DEFAULT_MAP_PROFILE_PATH: &str = "data/maps/village00-kr.toml";
 
 impl Default for OperationalConfig {
     fn default() -> Self {
@@ -237,7 +258,13 @@ impl Default for OperationalConfig {
             data_dir: PathBuf::from("data"),
             db_path: PathBuf::from("data/boom-server.sqlite3"),
             expected_db_schema_version: 1,
+            auth_deadline_ms: DEFAULT_AUTH_DEADLINE_MS,
             listen_addrs: vec![DEFAULT_LISTEN_ADDR.parse().expect("địa chỉ game mặc định")],
+            bundle_dir: PathBuf::from(DEFAULT_BUNDLE_DIR),
+            rules_path: PathBuf::from(DEFAULT_RULES_PATH),
+            map_profile_path: PathBuf::from(DEFAULT_MAP_PROFILE_PATH),
+            replay_dir: None,
+            replay_checkpoints: Vec::new(),
             server_version: env!("CARGO_PKG_VERSION").to_owned(),
             heartbeat_interval_ms: DEFAULT_HEARTBEAT_INTERVAL_MS,
             health_timeout_ms: DEFAULT_HEALTH_TIMEOUT_MS,
@@ -279,6 +306,8 @@ pub enum ConfigError {
     File { path: String, message: String },
     /// File cấu hình không parse được (TOML sai hoặc có trường lạ).
     Toml { path: String, message: String },
+    /// File cấu hình còn mục đã bỏ (`[characters]`).
+    Characters { message: String },
 }
 
 impl std::fmt::Display for ConfigError {
@@ -291,6 +320,9 @@ impl std::fmt::Display for ConfigError {
             Self::Toml { path, message } => {
                 write!(f, "file cấu hình {path} sai định dạng: {message}")
             }
+            Self::Characters { message } => {
+                write!(f, "mục `[characters]` không còn được chấp nhận: {message}")
+            }
         }
     }
 }
@@ -301,21 +333,42 @@ impl OperationalConfig {
     /// Cấu hình hiệu lực: mặc định → file cấu hình → biến môi trường.
     ///
     /// Biến môi trường: `BOOM_ADMIN_ADDR`, `BOOM_DATA_DIR`, `BOOM_DB_PATH`,
-    /// `BOOM_EXPECTED_DB_SCHEMA_VERSION`, `BOOM_LISTEN_ADDR`, `BOOM_SERVER_VERSION`,
-    /// `BOOM_HEARTBEAT_INTERVAL_MS`, `BOOM_HEALTH_TIMEOUT_MS`, `BOOM_SESSION_TTL_MS`,
-    /// `BOOM_SESSION_PING_INTERVAL_MS`, `BOOM_SESSION_LIVENESS_TIMEOUT_MS`,
-    /// `BOOM_REGISTRATION_OPEN`, `BOOM_RATE_LIMIT_MAX_FAILURES`,
-    /// `BOOM_REGISTER_RATE_LIMIT_MAX_ATTEMPTS`, `BOOM_RATE_LIMIT_WINDOW_MS`,
-    /// `BOOM_RATE_LIMIT_MAX_BUCKETS`, `BOOM_PASSWORD_MIN_CHARS`, `BOOM_PASSWORD_MAX_BYTES`,
-    /// `BOOM_ARGON2_M_COST`, `BOOM_ARGON2_T_COST`, `BOOM_ARGON2_P_COST`,
-    /// `BOOM_ARGON2_OUTPUT_LEN`, `BOOM_ARGON2_SALT_LEN`.
+    /// `BOOM_EXPECTED_DB_SCHEMA_VERSION`, `BOOM_AUTH_DEADLINE_MS`, `BOOM_LISTEN_ADDR`,
+    /// `BOOM_BUNDLE_DIR`, `BOOM_RULES_PATH`, `BOOM_MAP_PROFILE_PATH`, `BOOM_REPLAY_DIR`,
+    /// `BOOM_SERVER_VERSION`, `BOOM_HEARTBEAT_INTERVAL_MS`, `BOOM_HEALTH_TIMEOUT_MS`,
+    /// `BOOM_SESSION_TTL_MS`, `BOOM_SESSION_PING_INTERVAL_MS`,
+    /// `BOOM_SESSION_LIVENESS_TIMEOUT_MS`, `BOOM_REGISTRATION_OPEN`,
+    /// `BOOM_RATE_LIMIT_MAX_FAILURES`, `BOOM_REGISTER_RATE_LIMIT_MAX_ATTEMPTS`,
+    /// `BOOM_RATE_LIMIT_WINDOW_MS`, `BOOM_RATE_LIMIT_MAX_BUCKETS`,
+    /// `BOOM_PASSWORD_MIN_CHARS`, `BOOM_PASSWORD_MAX_BYTES`, `BOOM_ARGON2_M_COST`,
+    /// `BOOM_ARGON2_T_COST`, `BOOM_ARGON2_P_COST`, `BOOM_ARGON2_OUTPUT_LEN`,
+    /// `BOOM_ARGON2_SALT_LEN`.
     ///
     /// `BOOM_CONFIG_FILE` trỏ tới file TOML: giá trị trong file bị biến môi trường ghi đè.
     pub fn from_env() -> Result<Self, ConfigError> {
-        let mut config = match env_value("BOOM_CONFIG_FILE") {
-            Some(path) => Self::from_file(Path::new(&path))?,
-            None => Self::default(),
-        };
+        match env_value("BOOM_CONFIG_FILE") {
+            Some(path) => Self::from_file_with_env(Path::new(&path)),
+            None => {
+                let mut config = Self::default();
+                config.apply_env()?;
+                Ok(config)
+            }
+        }
+    }
+
+    /// Đọc file cấu hình rồi áp biến môi trường (biến môi trường thắng file).
+    ///
+    /// Dùng cho `boom-server serve --config <file>`: thứ tự mặc định → file → biến môi
+    /// trường giữ nguyên như [`Self::from_env`].
+    pub fn from_file_with_env(path: &Path) -> Result<Self, ConfigError> {
+        let mut config = Self::from_file(path)?;
+        config.apply_env()?;
+        Ok(config)
+    }
+
+    /// Áp biến môi trường `BOOM_*` lên cấu hình đang có.
+    fn apply_env(&mut self) -> Result<(), ConfigError> {
+        let config = self;
         if let Some(value) = env_value("BOOM_ADMIN_ADDR") {
             config.admin_addr = value.parse().map_err(|_| ConfigError::Addr {
                 name: "BOOM_ADMIN_ADDR",
@@ -332,6 +385,9 @@ impl OperationalConfig {
         if let Some(value) = env_number_u32("BOOM_EXPECTED_DB_SCHEMA_VERSION")? {
             config.expected_db_schema_version = value;
         }
+        if let Some(value) = env_number("BOOM_AUTH_DEADLINE_MS")? {
+            config.auth_deadline_ms = value;
+        }
         if let Some(value) = env_value("BOOM_LISTEN_ADDR") {
             config.listen_addrs = value
                 .split(',')
@@ -342,6 +398,18 @@ impl OperationalConfig {
                     })
                 })
                 .collect::<Result<_, _>>()?;
+        }
+        if let Some(value) = env_value("BOOM_BUNDLE_DIR") {
+            config.bundle_dir = value.into();
+        }
+        if let Some(value) = env_value("BOOM_RULES_PATH") {
+            config.rules_path = value.into();
+        }
+        if let Some(value) = env_value("BOOM_MAP_PROFILE_PATH") {
+            config.map_profile_path = value.into();
+        }
+        if let Some(value) = env_value("BOOM_REPLAY_DIR") {
+            config.replay_dir = Some(value.into());
         }
         if let Some(value) = env_value("BOOM_SERVER_VERSION") {
             config.server_version = value;
@@ -397,7 +465,7 @@ impl OperationalConfig {
         if let Some(value) = env_number_usize("BOOM_ARGON2_SALT_LEN")? {
             config.argon2.salt_len = value;
         }
-        Ok(config)
+        Ok(())
     }
 
     /// Đọc cấu hình từ file TOML.
@@ -510,6 +578,21 @@ impl OperationalConfig {
         if let Some(value) = server.health_timeout_ms {
             config.health_timeout_ms = value;
         }
+        if let Some(value) = server.bundle_dir {
+            config.bundle_dir = value.into();
+        }
+        if let Some(value) = server.rules_path {
+            config.rules_path = value.into();
+        }
+        if let Some(value) = server.map_profile_path {
+            config.map_profile_path = value.into();
+        }
+        if let Some(value) = server.replay_dir {
+            config.replay_dir = Some(value.into());
+        }
+        if let Some(value) = server.replay_checkpoints {
+            config.replay_checkpoints = value;
+        }
 
         let identity = file.identity;
         if let Some(value) = identity.db_path {
@@ -517,6 +600,9 @@ impl OperationalConfig {
         }
         if let Some(value) = identity.expected_db_schema_version {
             config.expected_db_schema_version = value;
+        }
+        if let Some(value) = identity.auth_deadline_ms {
+            config.auth_deadline_ms = value;
         }
         if let Some(value) = identity.session_ttl_ms {
             config.session_ttl_ms = value;
@@ -565,6 +651,16 @@ impl OperationalConfig {
         if let Some(value) = auth.argon2_salt_len {
             config.argon2.salt_len = value;
         }
+
+        // Mục `[characters]` đã bỏ: chỉ số nhân vật là giá trị luật nên nằm ở rules profile.
+        if file.characters.is_some() {
+            return Err(ConfigError::Characters {
+                message: "chỉ số C00/C01 đọc từ rules profile (khóa `characters.c00_*` / \
+                          `characters.c01_*` trong file rules); bỏ mục này khỏi file cấu hình"
+                    .to_owned(),
+            });
+        }
+
         Ok(config)
     }
 }
@@ -632,6 +728,10 @@ struct ConfigFile {
     identity: IdentitySection,
     #[serde(default)]
     auth: AuthSection,
+    /// Mục `[characters]` **đã bỏ**: giữ tên để báo lỗi rõ (kèm cách sửa) thay vì lỗi
+    /// "unknown field" của serde.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    characters: Option<toml::Value>,
 }
 
 /// Phần `[server]` của file cấu hình.
@@ -650,6 +750,16 @@ struct ServerSection {
     heartbeat_interval_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     health_timeout_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bundle_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rules_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    map_profile_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    replay_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    replay_checkpoints: Option<Vec<u32>>,
 }
 
 /// Phần `[identity]` của file cấu hình.
@@ -660,6 +770,8 @@ struct IdentitySection {
     db_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     expected_db_schema_version: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    auth_deadline_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     session_ttl_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -715,10 +827,19 @@ impl ConfigFile {
                 server_version: Some(config.server_version.clone()),
                 heartbeat_interval_ms: Some(config.heartbeat_interval_ms),
                 health_timeout_ms: Some(config.health_timeout_ms),
+                bundle_dir: Some(config.bundle_dir.display().to_string()),
+                rules_path: Some(config.rules_path.display().to_string()),
+                map_profile_path: Some(config.map_profile_path.display().to_string()),
+                replay_dir: config
+                    .replay_dir
+                    .as_ref()
+                    .map(|dir| dir.display().to_string()),
+                replay_checkpoints: Some(config.replay_checkpoints.clone()),
             },
             identity: IdentitySection {
                 db_path: Some(config.db_path.display().to_string()),
                 expected_db_schema_version: Some(config.expected_db_schema_version),
+                auth_deadline_ms: Some(config.auth_deadline_ms),
                 session_ttl_ms: Some(config.session_ttl_ms),
                 session_ping_interval_ms: Some(config.session_ping_interval_ms),
                 session_liveness_timeout_ms: Some(config.session_liveness_timeout_ms),
@@ -737,6 +858,7 @@ impl ConfigFile {
                 argon2_output_len: Some(config.argon2.output_len),
                 argon2_salt_len: Some(config.argon2.salt_len),
             },
+            characters: None,
         }
     }
 }
@@ -777,6 +899,7 @@ pub struct ReplaySetup {
 mod tests {
     use super::{ConfigError, OperationalConfig};
     use crate::auth::AuthConfig;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     #[test]
@@ -876,5 +999,63 @@ mod tests {
         let path = dir.path().join("khong-co.toml");
         let error = OperationalConfig::from_file(&path).unwrap_err();
         assert!(matches!(error, ConfigError::File { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn config_file_reads_content_paths() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("server.toml");
+        std::fs::write(
+            &path,
+            "[server]\n\
+             bundle_dir = \"data/bundle/village00\"\n\
+             rules_path = \"data/rules/v1-dev.toml\"\n\
+             map_profile_path = \"data/maps/village00-kr.toml\"\n\
+             replay_dir = \"data/replay\"\n\
+             replay_checkpoints = [1, 16, 32]\n\
+             \n\
+             [identity]\n\
+             auth_deadline_ms = 12345\n",
+        )
+        .expect("ghi file");
+        let config = OperationalConfig::from_file(&path).expect("đọc file cấu hình");
+        assert_eq!(config.bundle_dir, PathBuf::from("data/bundle/village00"));
+        assert_eq!(config.rules_path, PathBuf::from("data/rules/v1-dev.toml"));
+        assert_eq!(
+            config.map_profile_path,
+            PathBuf::from("data/maps/village00-kr.toml")
+        );
+        assert_eq!(config.replay_dir, Some(PathBuf::from("data/replay")));
+        assert_eq!(config.replay_checkpoints, vec![1, 16, 32]);
+        assert_eq!(config.auth_deadline_ms, 12_345);
+    }
+
+    #[test]
+    fn config_file_rejects_characters_section() {
+        // Chỉ số nhân vật là **giá trị luật**: nằm ở rules profile, không phải ở file cấu hình.
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("server.toml");
+        std::fs::write(
+            &path,
+            "[characters.c00]\n\
+             speed_value = 5\nspeed_max = 7\n\
+             bombs_value = 1\nbombs_max = 10\n\
+             range_value = 1\nrange_max = 7\n",
+        )
+        .expect("ghi file");
+        let error = OperationalConfig::from_file(&path).unwrap_err();
+        assert!(matches!(error, ConfigError::Characters { .. }), "{error:?}");
+        // Thông điệp phải chỉ ra cách sửa (đọc từ rules profile).
+        assert!(error.to_string().contains("rules profile"), "{error}");
+    }
+
+    #[test]
+    fn config_file_with_env_keeps_env_priority() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("server.toml");
+        std::fs::write(&path, "[server]\nserver_version = \"tu-file\"\n").expect("ghi file");
+        // Biến môi trường ghi đè giá trị trong file (không cần test khác đọc env).
+        let config = OperationalConfig::from_file(&path).expect("đọc file cấu hình");
+        assert_eq!(config.server_version, "tu-file");
     }
 }

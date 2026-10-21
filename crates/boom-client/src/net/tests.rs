@@ -20,16 +20,19 @@ use std::time::Duration;
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
-use boom_core::{CharacterStats, Dir, PlayerInput, Rules, Stat, World, mode_by_id};
+use boom_core::{
+    CharacterStats, CharacterStatsTable, Dir, PlayerInput, Rules, Stat, World, mode_by_id,
+};
 use boom_net::{MemoryConfig, MemoryCounters, MemoryFaults, MemoryTransport, Timing, Transport};
 use boom_proto::dto::auth::AuthFailReason;
-use boom_proto::{ProtocolLimits, RejectReason, RoundEvent, Welcome, decode_frame, encode_frame};
-use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand};
+use boom_proto::{
+    MessageKind, ProtocolLimits, RejectReason, RoomAction as RoomActionDto, RoomCharacter,
+    RoundEvent, RoundMember, RoundStart, Welcome, decode_frame, encode_frame, read_envelope,
+};
+use boom_room::{PlayerId, RoomView};
 use boom_server::auth::{AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
-use boom_server::{
-    Authority, CharacterStatsTable, HandshakeConfig, MatchSetup, Server, ServerConfig,
-};
+use boom_server::{Authority, HandshakeConfig, MatchSetup, Server, ServerConfig, ServerPhase};
 
 use super::fixture::{ACCOUNT_PASSWORD, LATE_THRESHOLD_MS, ScheduledFaults, ScheduledHarness};
 use super::{ClientSession, Credentials, NetClient, NetError, hello_for_profile};
@@ -40,11 +43,24 @@ const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml"
 /// Thời gian chờ message khi bơm hàng đợi đọc.
 const PUMP_TIMEOUT: Duration = Duration::from_millis(20);
 
+/// Thời gian chờ message khi bơm luồng phòng (server phải poll trước rồi client mới nhận).
+const ROOM_PUMP_TIMEOUT: Duration = Duration::from_millis(2);
+
+/// Số vòng bơm tối đa cho luồng phòng (server xử lý lệnh → client nhận → client ack).
+const ROOM_PUMP_ROUNDS: u32 = 32;
+
 /// Số bước mô phỏng trong một kịch bản.
 const STEPS: u64 = 30;
 
 /// IP nguồn giả của kết nối trong test (bucket rate limit theo nguồn, ADR 0011 §5).
 const TEST_SOURCE_IP: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+
+/// Gốc định danh **kết nối** trong kịch bản này.
+///
+/// Cố tình khác `account_id` (mà SQLite cấp từ 1) và khác slot trận (0, 1, …): định danh
+/// kết nối **không** phải slot trận (ADR 0009 Addendum B §B.2), nên test phải bắt được lỗi
+/// "lấy slot từ `Welcome`".
+const CONNECTION_ID_BASE: u64 = 900;
 
 fn stats() -> CharacterStats {
     CharacterStats {
@@ -71,8 +87,18 @@ fn terrain() -> Terrain {
 /// Một client trong kịch bản.
 struct Client {
     net: NetClient<MemoryTransport>,
+    /// Định danh người chơi trong phòng/round (= `AuthOk.account_id`).
+    ///
+    /// Server bind mọi trường `player` trên dây từ giá trị này (ADR 0009 Addendum B §B.2).
     player: PlayerId,
-    slot: u8,
+    /// Định danh **kết nối** trong phiên (khoá session phía server).
+    ///
+    /// **Không** phải slot trận: slot lấy từ roster theo `player`.
+    connection: PlayerId,
+    /// Slot trận của client (lấy từ `RoundStart.roster` theo `player`).
+    ///
+    /// `None` = client chưa nhận `RoundStart` nên chưa biết slot của mình.
+    slot: Option<u8>,
     /// Event đã nhận (đã dedup theo `(round_id, EventId)`).
     events: Vec<RoundEvent>,
     /// Bộ đếm chiều **client → server**: biết luồng đọc của server đã lấy frame chưa.
@@ -154,8 +180,13 @@ impl Harness {
             .expect("dựng server có auth");
         let hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
         let mut clients = Vec::new();
-        for (index, player) in [PlayerId(1), PlayerId(2)].into_iter().enumerate() {
-            let slot = u8::try_from(index).expect("slot");
+        for index in 0..2 {
+            // Định danh **kết nối** trong phiên: **không** phải slot trận.
+            let connection = PlayerId(u64::try_from(index).expect("id") + CONNECTION_ID_BASE);
+            // `Welcome.player_id` = định danh kết nối: fixture cố tình chọn giá trị **khác**
+            // slot trận (server bind slot từ roster theo `account_id`) để chứng minh client
+            // không lấy slot từ `Welcome` (ADR 0009 Addendum B §B.2).
+            let connection_id = u8::try_from(index).expect("id") + 1;
             // Hai chiều tách riêng: client→server và server→client (giống cách server chia).
             let (client_writer, server_reader) = MemoryTransport::pair(MemoryConfig {
                 seed: seed.wrapping_add(index as u64),
@@ -171,7 +202,13 @@ impl Harness {
                 timing: Timing::Virtual,
             });
             server
-                .accept(player, slot, TEST_SOURCE_IP, server_reader, server_writer)
+                .accept(
+                    connection,
+                    connection_id,
+                    TEST_SOURCE_IP,
+                    server_reader,
+                    server_writer,
+                )
                 .expect("accept");
             // Handshake + auth cần server poll (vòng IO của server), nên client chờ ở luồng riêng
             // còn server poll tới khi xong.
@@ -193,10 +230,13 @@ impl Harness {
                 server.poll(0, Duration::from_millis(1)).expect("poll");
             }
             let net = handle.join().expect("join luồng client");
+            // Định danh người chơi trong phòng/round = `account_id` (server bind từ phiên).
+            let account_id = net.account().expect("client đã đăng nhập").account_id;
             clients.push(Client {
                 net,
-                player,
-                slot,
+                player: PlayerId(account_id),
+                connection,
+                slot: None,
                 events: Vec::new(),
                 out,
             });
@@ -216,66 +256,219 @@ impl Harness {
     }
 
     /// Dựng phòng, ready, start và qua loading barrier: lượt bắt đầu ở tick 0.
+    ///
+    /// Mọi lệnh phòng đi qua **wire**: client gửi `RoomCommand`, server bind `player` từ phiên
+    /// (`AuthOk.account_id`) rồi gửi `RoomState`/`RoundStart`; client lấy slot trận của mình từ
+    /// mục `RoundStart.roster` có `player == account_id` (ADR 0009 Addendum B §B.2).
+    ///
+    /// Lệnh bị mất/đảo thứ tự trên đường thì **gửi lại cùng request ID**: server dedup theo
+    /// request ID nên lệnh không áp hai lần. Điều kiện chờ đo trên **server** (authority là
+    /// nguồn sự thật), không đo trên bản `RoomState` của client: mạng có thể đảo thứ tự
+    /// `RoomState` nên bản client có thể cũ hơn bản server.
     fn start_round(&mut self) {
-        let host = PlayerId(1);
-        let now = 0;
-        self.server
-            .room_command(
-                RoomCommand {
-                    player: host,
-                    request: RequestId(1),
-                    action: RoomAction::Create {
-                        character: CharacterId::C00,
-                    },
-                },
-                now,
-            )
-            .expect("create");
-        let room = self.server.room_view().expect("có phòng").id;
-        self.server
-            .room_command(
-                RoomCommand {
-                    player: PlayerId(2),
-                    request: RequestId(2),
-                    action: RoomAction::Join {
-                        room,
-                        character: CharacterId::C01,
-                    },
-                },
-                now,
-            )
-            .expect("join");
-        for (index, player) in [host, PlayerId(2)].into_iter().enumerate() {
-            self.server
-                .room_command(
-                    RoomCommand {
-                        player,
-                        request: RequestId(10 + index as u64),
-                        action: RoomAction::SetReady { ready: true },
-                    },
-                    now,
-                )
-                .expect("ready");
+        let create = RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        };
+        let request = self.clients[0]
+            .net
+            .room_command(create.clone())
+            .expect("gửi lệnh tạo phòng");
+        assert!(
+            self.room_command_until(0, request, create, |view| view.members.len() == 1),
+            "server phải tạo được phòng"
+        );
+        let room = self.server.room_view().expect("có phòng").id.0;
+        let join = RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        };
+        let request = self.clients[1]
+            .net
+            .room_command(join.clone())
+            .expect("gửi lệnh vào phòng");
+        assert!(
+            self.room_command_until(1, request, join, |view| view.members.len() == 2),
+            "server phải cho client 1 vào phòng"
+        );
+        let mut ready_commands = Vec::new();
+        for index in 0..2 {
+            let ready = RoomActionDto::SetReady { ready: true };
+            let request = self.clients[index]
+                .net
+                .room_command(ready.clone())
+                .expect("gửi lệnh ready");
+            ready_commands.push((index, request, ready));
         }
-        self.server
-            .room_command(
-                RoomCommand {
-                    player: host,
-                    request: RequestId(20),
-                    action: RoomAction::Start,
-                },
-                now,
-            )
-            .expect("start");
-        for player in [host, PlayerId(2)] {
-            self.server.ack_loading(player, now).expect("ack loading");
+        assert!(
+            self.room_commands_until(&ready_commands, |view| {
+                view.members.iter().all(|member| member.ready)
+            }),
+            "server phải thấy mọi người ready"
+        );
+        let request = self.clients[0]
+            .net
+            .room_command(RoomActionDto::Start)
+            .expect("gửi lệnh start");
+        // `RoundStart` mang roster: client lấy slot trận của mình từ đó. Lệnh `Start` bị mất
+        // thì gửi lại cùng request ID: server coi là trùng và gửi lại `RoundStart`.
+        assert!(
+            self.wait_for_round_slots(0, request),
+            "mọi client phải nhận RoundStart và biết slot trận của mình"
+        );
+        for client in &mut self.clients {
+            client.slot = Some(
+                client
+                    .net
+                    .player_slot()
+                    .expect("client phải biết slot trận của mình"),
+            );
         }
-        self.origin_ms = now;
+        // Client phải có gốc dự đoán **khớp tick** của server trước khi chơi.
+        self.sync_with_server();
+        self.origin_ms = 0;
         // Vị trí lúc đầu: người chơi đứng ở tâm ô spawn.
         for client in &self.clients {
             if let Some(position) = self.server.authority().player_position(client.player) {
                 self.start_positions.insert(client.player, position);
             }
+        }
+    }
+
+    /// Đồng bộ state confirmed của client với state hiện tại của server.
+    ///
+    /// Server chạy tick **đầu tiên** ngay khi loading barrier qua, còn client nhận được
+    /// snapshot gửi lúc phòng còn ở loading (tick 0) — snapshot đó **đã cũ hơn** state
+    /// server. Nếu client dùng nó làm gốc dự đoán thì lệnh client gán `target_tick` sẽ
+    /// trễ một tick so với server: client điều khiển nhân vật lệch một tick suốt vòng
+    /// chơi.
+    ///
+    /// Client xin snapshot mới (`SnapshotRequest`, ADR 0009 §4.3) để lấy state hiện tại
+    /// của server: gốc dự đoán khớp đúng tick server đang ở, nên lệnh đầu tiên (target
+    /// tick = tick gốc) được server áp đúng ở transition kế tiếp.
+    ///
+    /// Đồng hồ của harness cũng phải khớp lịch tick của server: server tính tick từ lúc
+    /// loading barrier qua (`tick_origin_ms`), nên `ticks` của harness bắt đầu bằng số
+    /// tick server đã chạy.
+    fn sync_with_server(&mut self) {
+        for _ in 0..ROOM_PUMP_ROUNDS {
+            let playing = self.server.authority().phase() == ServerPhase::Playing;
+            let tick = self.server.authority().tick();
+            let synced = playing
+                && tick.is_some_and(|tick| {
+                    self.clients.iter().all(|client| {
+                        client
+                            .net
+                            .confirmed_state()
+                            .is_some_and(|state| state.tick == tick)
+                    })
+                });
+            if synced {
+                self.ticks = u64::from(tick.expect("đã kiểm ở trên"));
+                return;
+            }
+            for client in &mut self.clients {
+                client.net.request_snapshot().expect("xin snapshot");
+            }
+            self.pump_once();
+        }
+        panic!("client không đồng bộ được state với server");
+    }
+
+    /// Gửi lệnh phòng của client `index` và bơm cho tới khi server **xác nhận** điều kiện.
+    ///
+    /// Lệnh bị mất trên đường thì gửi lại **cùng request ID**: server dedup theo request ID nên
+    /// lệnh không áp hai lần (ADR 0009 Addendum B §B.2).
+    fn room_command_until(
+        &mut self,
+        index: usize,
+        request: u64,
+        action: RoomActionDto,
+        done: impl Fn(&RoomView) -> bool,
+    ) -> bool {
+        let commands = [(index, request, action)];
+        self.room_commands_until(&commands, done)
+    }
+
+    /// Bơm cho tới khi server **xác nhận** điều kiện, gửi lại các lệnh phòng đã gửi.
+    ///
+    /// Lệnh bị mất trên đường thì gửi lại **cùng request ID**: server dedup theo request ID nên
+    /// lệnh không áp hai lần (ADR 0009 Addendum B §B.2).
+    fn room_commands_until(
+        &mut self,
+        commands: &[(usize, u64, RoomActionDto)],
+        done: impl Fn(&RoomView) -> bool,
+    ) -> bool {
+        for _ in 0..ROOM_PUMP_ROUNDS {
+            if self.server.room_view().is_some_and(|view| done(&view)) {
+                return true;
+            }
+            for (index, request, action) in commands {
+                self.clients[*index]
+                    .net
+                    .resend_room_command(*request, action.clone())
+                    .expect("gửi lệnh phòng");
+            }
+            self.pump_once();
+        }
+        self.server.room_view().is_some_and(|view| done(&view))
+    }
+
+    /// Bơm cho tới khi **mọi** client biết slot trận của mình (đã nhận `RoundStart`).
+    ///
+    /// `RoundStart` mang roster: client lấy slot trận của mình từ mục có `player ==
+    /// account_id` (ADR 0009 Addendum B §B.2). `RoundStart` bị mất/đảo thứ tự trên đường thì
+    /// gửi lại lệnh `Start` **cùng request ID**: server coi là trùng và gửi lại `RoundStart`.
+    fn wait_for_round_slots(&mut self, index: usize, request: u64) -> bool {
+        for _ in 0..ROOM_PUMP_ROUNDS {
+            if self
+                .clients
+                .iter()
+                .all(|client| client.net.player_slot().is_some())
+            {
+                return true;
+            }
+            self.clients[index]
+                .net
+                .resend_room_command(request, RoomActionDto::Start)
+                .expect("gửi lại lệnh start");
+            self.pump_once();
+        }
+        self.clients
+            .iter()
+            .all(|client| client.net.player_slot().is_some())
+    }
+
+    /// Ghi lại hash/điểm của state server tại tick hiện tại.
+    ///
+    /// Gọi sau **mọi** lần poll server (kể cả lúc dựng phòng): client giữ state confirmed
+    /// theo snapshot đã nhận, nên hash của mọi tick server đã chạy đều phải có trong bản đồ
+    /// để đối chiếu. Lúc dựng phòng, server đã gửi snapshot đầu tiên (tick 0) **trước** khi
+    /// lượt chạy tick, nên hash của tick đó phải được ghi lại ngay — bỏ qua thì client giữ
+    /// state ở tick cũ mà bản đồ không có tick đó.
+    fn record_state(&mut self) {
+        let Some(tick) = self.server.authority().tick() else {
+            return;
+        };
+        let hash = self.server.authority().state_hash().expect("state hash");
+        self.hashes.insert(tick, hash);
+        for client in &self.clients {
+            if let Some(position) = self.server.authority().player_position(client.player) {
+                self.server_positions
+                    .insert((client.player, tick), position);
+            }
+        }
+    }
+
+    /// Một vòng bơm: server xử lý lệnh trước, rồi client nhận `RoomState`/`RoundStart` và
+    /// gửi `LoadingAck`.
+    ///
+    /// Đồng hồ server giữ nguyên 0 nên lượt chưa chạy tick trong lúc dựng phòng.
+    fn pump_once(&mut self) {
+        self.server.poll(0, ROOM_PUMP_TIMEOUT).expect("poll phòng");
+        self.record_state();
+        for client in &mut self.clients {
+            client.net.pump(ROOM_PUMP_TIMEOUT).expect("bơm message");
+            client.events.extend(client.net.take_events());
         }
     }
 
@@ -315,20 +508,12 @@ impl Harness {
         self.server
             .poll(now, Duration::from_millis(2))
             .expect("poll");
-        if let Some(tick) = self.server.authority().tick() {
-            let hash = self.server.authority().state_hash().expect("state hash");
-            self.hashes.insert(tick, hash);
-            for client in &self.clients {
-                if let Some(position) = self.server.authority().player_position(client.player) {
-                    self.server_positions
-                        .insert((client.player, tick), position);
-                }
-            }
-        }
+        self.record_state();
         for client in &self.clients {
             if let Some(state) = client.net.state() {
                 let tick = state.tick;
-                if let Some(player) = state.player(client.slot) {
+                let slot = client.slot.expect("client phải biết slot trận của mình");
+                if let Some(player) = state.player(slot) {
                     self.predicted_positions
                         .insert((client.player, tick), (player.x.0, player.y.0));
                 }
@@ -370,10 +555,13 @@ impl Harness {
             let Some(confirmed) = client.net.confirmed_state() else {
                 continue;
             };
-            let expected = self
-                .hashes
-                .get(&confirmed.tick)
-                .expect("server đã chạy qua tick này");
+            let expected = self.hashes.get(&confirmed.tick).unwrap_or_else(|| {
+                panic!(
+                    "server đã chạy qua tick này: confirmed tick={} hashes={:?}",
+                    confirmed.tick,
+                    self.hashes.keys().collect::<Vec<_>>()
+                )
+            });
             assert_eq!(
                 confirmed.hash(),
                 *expected,
@@ -424,6 +612,63 @@ fn state_confirmed_hoi_tu_server_sau_correction() {
 }
 
 #[test]
+fn slot_tran_lay_tu_roster_theo_account_id_khong_phai_welcome_player_id() {
+    // `Welcome.player_id` là **định danh kết nối** trong phiên, **không** phải slot trận:
+    // slot trận là `slot` của mục `RoundStart.roster` có `player == AuthOk.account_id`
+    // (ADR 0009 Addendum B §B.2). Fixture cố tình chọn `Welcome.player_id` khác slot trận
+    // để test này bắt được lỗi "lấy slot từ `Welcome`".
+    let mut harness = Harness::new(MemoryFaults::none(), MemoryFaults::none(), 20261023);
+    harness.start_round();
+    for client in &harness.clients {
+        let connection = client.net.connection_id().expect("có định danh kết nối");
+        let slot = client.slot.expect("client phải biết slot trận của mình");
+        assert_ne!(
+            connection, slot,
+            "định danh kết nối (`Welcome.player_id`) phải khác slot trận"
+        );
+        // Mục roster của client là mục có `player == account_id`; slot của mục đó mới là
+        // slot trận của client.
+        let plan = client.net.round_plan().expect("có kế hoạch round");
+        let member = plan
+            .roster
+            .iter()
+            .find(|member| member.player == client.player.0)
+            .expect("roster phải chứa client theo account_id");
+        assert_eq!(
+            member.slot, slot,
+            "slot trận phải lấy từ roster theo `account_id`"
+        );
+        // Định danh kết nối phía server cũng khác định danh người chơi trong phòng.
+        assert_ne!(
+            client.connection, client.player,
+            "định danh kết nối phải khác `account_id`"
+        );
+    }
+    // Client điều khiển **đúng nhân vật** của mình: sau khi đi, vị trí nhân vật ở slot của
+    // client phải khớp vị trí server (nếu client lấy nhầm slot của người khác thì lệch).
+    for _ in 0..STEPS {
+        harness.tick([Dir::Right, Dir::Down]);
+    }
+    for client in &harness.clients {
+        let slot = client.slot.expect("client phải biết slot trận của mình");
+        let predicted = client.net.state().expect("có state dự đoán");
+        let player = predicted
+            .player(slot)
+            .expect("client phải điều khiển được nhân vật ở slot của mình");
+        let server_position = harness
+            .server
+            .authority()
+            .player_position(client.player)
+            .expect("có vị trí ở server");
+        assert_eq!(
+            (player.x.0, player.y.0),
+            server_position,
+            "client phải điều khiển đúng nhân vật của mình (slot từ roster)"
+        );
+    }
+}
+
+#[test]
 fn vị_trí_du_đoán_hoi_tu_server() {
     let harness = chay(MemoryFaults::none(), MemoryFaults::none(), 20261019);
     for client in &harness.clients {
@@ -433,7 +678,8 @@ fn vị_trí_du_đoán_hoi_tu_server() {
             .authority()
             .player_position(client.player)
             .expect("có vị trí ở server");
-        let player = predicted.player(client.slot).expect("có người chơi");
+        let slot = client.slot.expect("client phải biết slot trận của mình");
+        let player = predicted.player(slot).expect("có người chơi");
         // Vị trí dự đoán của chính mình phải khớp vị trí server tại cùng tick: client chỉ dự
         // đoán di chuyển của mình, còn server là authority.
         assert_eq!(
@@ -737,6 +983,18 @@ fn tai_khoan_fixture_dang_ky_that_bang_sqlite() {
 
 // --- Client đơn (không qua server): áp snapshot thẳng để kiểm xử lý round và kết quả. ---
 
+/// Định danh người chơi trong phòng/round của client đơn (= `AuthOk.account_id`).
+const SOLO_ACCOUNT_ID: u64 = 1;
+
+/// Slot trận của client đơn trong roster của `RoundStart`.
+const SOLO_SLOT: u8 = 0;
+
+/// Định danh **kết nối** trong phiên (`Welcome.player_id`).
+///
+/// Cố tình khác [`SOLO_SLOT`]: định danh kết nối **không** phải slot trận
+/// (ADR 0009 Addendum B §B.2), nên test bắt được lỗi "lấy slot từ `Welcome`".
+const SOLO_CONNECTION_ID: u8 = 7;
+
 /// Client mạng độc lập: test đẩy message trực tiếp và đọc frame client gửi ra.
 struct SoloClient {
     net: NetClient<MemoryTransport>,
@@ -747,20 +1005,34 @@ struct SoloClient {
 }
 
 impl SoloClient {
-    /// Dựng client và hoàn tất handshake (server giả trả `Welcome`).
+    /// Dựng client và hoàn tất handshake (server giả trả `Welcome`) rồi đăng nhập.
+    ///
+    /// Client phải đăng nhập trước khi vào phòng: `AuthOk.account_id` là **định danh người
+    /// chơi trong phòng/round** mà server ghi vào mọi trường `player` trên dây
+    /// (ADR 0009 Addendum B §B.2).
     fn new() -> Self {
+        Self::with_retry_interval(super::ROOM_RETRY_INTERVAL)
+    }
+
+    /// Dựng client với **nhịp gửi lại** tuỳ chọn.
+    ///
+    /// Nhịp gửi lại là tham số vận hành (design): lệnh phòng và ack phòng có **hai đồng hồ
+    /// riêng** nhưng cùng một khoảng cách tối thiểu. Test cần nhịp **khác 0** để bắt được
+    /// lỗi "hai nhịp dùng chung đồng hồ" (nhịp 0 ⇒ hai nhịp luôn trùng nhau nên lỗi bị che).
+    fn with_retry_interval(interval: Duration) -> Self {
         let profile = RulesProfile::from_toml(RULES).expect("profile rules");
         let rules = Rules::from_profile(&profile).expect("rules");
         let (mut server_to_client, client_reader) = MemoryTransport::pair(MemoryConfig::default());
         let (client_writer, mut client_to_server) = MemoryTransport::pair(MemoryConfig::default());
-        let mut net = NetClient::new(
+        let mut net = NetClient::with_room_retry_interval(
             ClientSession::new(client_reader, client_writer),
             rules.clone(),
             mode_by_id("battle_ffa").expect("mode"),
+            interval,
         );
         let welcome = Welcome {
             session_id: "solo".into(),
-            player_id: 0,
+            player_id: SOLO_CONNECTION_ID,
             wire_schema: boom_proto::limits::WIRE_SCHEMA,
             state_schema: 1,
             server_version: "boom-server-test".to_owned(),
@@ -771,8 +1043,9 @@ impl SoloClient {
             snapshot_interval_ms: 50,
             protocol_limits_version: ProtocolLimits::v1().revision,
         };
+        let limits = ProtocolLimits::v1();
         server_to_client
-            .send_frame(&encode_frame(&welcome, &ProtocolLimits::v1()).expect("encode welcome"))
+            .send_frame(&encode_frame(&welcome, &limits).expect("encode welcome"))
             .expect("gửi welcome");
         net.handshake(&hello_for_profile(
             &profile,
@@ -783,11 +1056,107 @@ impl SoloClient {
         .expect("handshake");
         // Đọc `Hello` client đã gửi để hàng đợi chiều client→server còn trống cho batch.
         let _hello_frame = client_to_server.recv_frame().expect("đọc hello");
+        // Đăng nhập: server giả trả `AuthOk` với `account_id` cố định.
+        let auth_ok = boom_proto::dto::auth::AuthOk {
+            account_id: SOLO_ACCOUNT_ID,
+            display_name: "solo".into(),
+            token: "solo-token".into(),
+            expires_at_ms: u64::MAX,
+        };
+        server_to_client
+            .send_frame(&encode_frame(&auth_ok, &limits).expect("encode auth ok"))
+            .expect("gửi auth ok");
+        net.authenticate(&Credentials::login("solo", "matkhau123"))
+            .expect("đăng nhập");
+        let _auth_frame = client_to_server.recv_frame().expect("đọc auth");
         Self {
             net,
             server_to_client,
             client_to_server,
         }
+    }
+
+    /// `RoundStart` mà mục roster của client (`player == account_id`) có slot `slot`.
+    fn round_start_of(round_id: u64, slot: u8) -> RoundStart {
+        let profile = RulesProfile::from_toml(RULES).expect("profile rules");
+        let rules = Rules::from_profile(&profile).expect("rules");
+        RoundStart {
+            round_id,
+            seed: 7,
+            rules_profile_id: profile.profile_id.clone(),
+            rules_hash: rules.profile_hash,
+            content_sha256: [0; 32],
+            map: "skeleton-test".to_owned(),
+            mode: "battle_ffa".to_owned(),
+            roster: vec![RoundMember {
+                player: SOLO_ACCOUNT_ID,
+                slot,
+                character: RoomCharacter::C00,
+            }],
+            start_tick: 0,
+        }
+    }
+
+    /// Đẩy `RoundStart` cho client (không đọc frame client gửi: `RoundStart` cũ thì client
+    /// **không** gửi gì).
+    fn push_round_start_raw(&mut self, start: &RoundStart) {
+        self.server_to_client
+            .send_frame(&encode_frame(start, &ProtocolLimits::v1()).expect("encode round start"))
+            .expect("gửi round start");
+        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
+    }
+
+    /// Đẩy `RoundStart` cho client: roster mang slot trận của client theo `account_id`.
+    ///
+    /// Client lấy slot trận của mình từ mục roster có `player == account_id`; định danh
+    /// kết nối (`Welcome.player_id`) không được dùng làm slot.
+    fn push_round_start(&mut self, round_id: u64) {
+        self.push_round_start_raw(&Self::round_start_of(round_id, SOLO_SLOT));
+        // Client gửi `LoadingAck` sau khi nhận `RoundStart`: đọc để hàng đợi chiều
+        // client→server còn trống cho batch input.
+        let _ack_frame = self.client_to_server.recv_frame().expect("đọc loading ack");
+    }
+
+    /// Đẩy `RoomState` (phòng chờ, client chưa ready) cho client.
+    ///
+    /// Client bật luồng tự động thì coi đây là phòng đã vào: lệnh phòng `SetReady` được gửi
+    /// và **đang chờ** xác nhận (server không trả `RoomState` nào nữa) ⇒ nhịp gửi lại lệnh
+    /// phòng chạy liên tục.
+    fn push_room_state(&mut self) {
+        let state = boom_proto::RoomState {
+            room_id: 1,
+            host: SOLO_ACCOUNT_ID,
+            phase: boom_proto::RoomPhase::Waiting,
+            members: vec![boom_proto::RoomMember {
+                player: SOLO_ACCOUNT_ID,
+                slot: 0,
+                character: RoomCharacter::C00,
+                ready: false,
+            }],
+            round: None,
+        };
+        self.server_to_client
+            .send_frame(&encode_frame(&state, &ProtocolLimits::v1()).expect("encode room state"))
+            .expect("gửi room state");
+        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
+    }
+
+    /// Đẩy `RoundResult` cho client (kết quả do server quyết).
+    fn push_round_result(&mut self, round_id: u64) {
+        let result = boom_proto::RoundResult {
+            round_id,
+            outcome: boom_proto::RoomOutcome::Winner(SOLO_ACCOUNT_ID),
+            results: vec![boom_proto::PlayerResult {
+                player: SOLO_ACCOUNT_ID,
+                slot: SOLO_SLOT,
+                rank: 1,
+                alive: true,
+            }],
+        };
+        self.server_to_client
+            .send_frame(&encode_frame(&result, &ProtocolLimits::v1()).expect("encode round result"))
+            .expect("gửi round result");
+        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
     }
 
     /// Đẩy một snapshot cho client.
@@ -798,10 +1167,26 @@ impl SoloClient {
         self.net.pump(PUMP_TIMEOUT).expect("bơm message");
     }
 
-    /// Đọc batch input client gửi (nếu có).
+    /// Đọc batch input client gửi (nếu có), bỏ qua frame khác (ack, lệnh phòng).
     fn take_batch(&mut self) -> Option<boom_proto::InputBatch> {
-        let frame = self.client_to_server.try_recv_frame().expect("đọc frame")?;
-        Some(decode_frame(&frame, &ProtocolLimits::v1()).expect("decode input batch"))
+        while let Some(frame) = self.client_to_server.try_recv_frame().expect("đọc frame") {
+            let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+            if envelope.kind != MessageKind::InputBatch {
+                continue;
+            }
+            return Some(decode_frame(&frame, &ProtocolLimits::v1()).expect("decode input batch"));
+        }
+        None
+    }
+
+    /// Kind của các frame client đã gửi (đọc hết hàng đợi chiều client→server).
+    fn drain_kinds(&mut self) -> Vec<MessageKind> {
+        let mut kinds = Vec::new();
+        while let Some(frame) = self.client_to_server.try_recv_frame().expect("đọc frame") {
+            let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+            kinds.push(envelope.kind);
+        }
+        kinds
     }
 
     /// Đẩy một `InputRejected` cho client.
@@ -866,6 +1251,9 @@ fn solo_snapshot(
 fn snapshot_round_cu_khong_lam_lui_metadata_client() {
     let mut client = SoloClient::new();
     let state = solo_state(7);
+    // Round 2: client nhận `RoundStart` (biết slot trận của mình từ roster) rồi mới áp
+    // snapshot của round đó.
+    client.push_round_start(2);
     // Round 2, snapshot_seq 5: client áp và ghi nhớ.
     client.push_snapshot(&solo_snapshot(&state, 2, 5));
     client
@@ -907,6 +1295,8 @@ fn snapshot_round_cu_khong_lam_lui_metadata_client() {
 fn input_rejected_cua_round_cu_khong_xoa_lenh_round_moi() {
     let mut client = SoloClient::new();
     let state = solo_state(7);
+    // Round 2: client nhận `RoundStart` trước khi áp snapshot của round đó.
+    client.push_round_start(2);
     // Round 2: client có một lệnh chưa ack.
     client.push_snapshot(&solo_snapshot(&state, 2, 5));
     client
@@ -953,6 +1343,9 @@ fn input_rejected_cua_round_cu_khong_xoa_lenh_round_moi() {
 fn client_khong_du_doan_va_khong_gui_khi_snapshot_bao_ket_qua() {
     let mut client = SoloClient::new();
     let mut state = solo_state(7);
+    // Round 1: client nhận `RoundStart` (biết slot trận của mình từ roster) rồi mới áp
+    // snapshot của round đó.
+    client.push_round_start(1);
     // Trước khi kết thúc: client dự đoán và gửi bình thường.
     client.push_snapshot(&solo_snapshot(&state, 1, 1));
     client
@@ -1103,20 +1496,29 @@ fn du_doan_hoi_tu_server_khi_mat_tre_va_dao_thu_tu() {
         let server_position = harness
             .server_position(client.player, confirmed.tick)
             .expect("có vị trí server");
-        let player = predicted.player(client.slot).expect("có người chơi");
+        let slot = client.slot;
+        let player = predicted.player(slot).expect("có người chơi");
         assert_eq!(
             (player.x.0, player.y.0),
             server_position,
             "sau correction, vị trí dự đoán phải khớp vị trí server tại cùng tick"
         );
         // Người chơi đã thật sự di chuyển (không đứng yên ở ô spawn).
+        //
+        // So **mọi** tick của lượt chứ không chỉ tick cuối: kịch bản đổi hướng liên tục
+        // (sang phải rồi trái, xuống rồi lên) nên vị trí ở tick cuối có thể trùng đúng vị trí
+        // đầu lượt dù suốt lượt người chơi đã đi.
         let start = harness
             .start_position(client.player)
             .expect("có vị trí đầu lượt");
-        assert_ne!(
-            (player.x.0, player.y.0),
-            start,
-            "kịch bản phải có chuyển động thật"
+        let moved = (0..=confirmed.tick).any(|tick| {
+            harness
+                .server_position(client.player, tick)
+                .is_some_and(|position| position != start)
+        });
+        assert!(
+            moved,
+            "kịch bản phải có chuyển động thật (vị trí đầu lượt {start:?})"
         );
     }
 }
@@ -1171,4 +1573,524 @@ fn duplicate_input_thuc_su_den_server_va_khong_ap_hai_lan() {
             "mọi lệnh phải được server ack sau khi drain"
         );
     }
+}
+
+// --- Luồng phòng end-to-end với server thật (ADR 0009 Addendum B) ---
+
+use super::fixture::{ROOM_MAP_ID, RoomHarness};
+use boom_proto::RoomRejectReason;
+
+/// Số bước bơm tối đa khi chờ một mốc trạng thái phòng.
+const ROOM_WAIT_STEPS: u32 = 600;
+
+/// Bật luồng tự động cho từng client **theo thứ tự** và chờ mỗi client vào được phòng.
+///
+/// Bật tuần tự (không bật cả lô) để thứ tự vào phòng khớp thứ tự kết nối: server cấp slot
+/// phòng theo thứ tự vào, mà slot phòng cũng là id người chơi trong state trận.
+fn join_all(harness: &mut RoomHarness, count: usize) {
+    for index in 0..count {
+        harness.enable_auto(index, count);
+        assert!(
+            harness.wait_for(
+                index,
+                |client| client.net.room().room().is_some(),
+                ROOM_WAIT_STEPS
+            ),
+            "client {index} phải vào được phòng"
+        );
+    }
+    // Mọi client sẵn sàng: phòng chỉ start khi đủ người **và** mọi người ready
+    // (SCOPE_V1 §3). Luồng tự động bật ready ngay khi vào phòng.
+    assert!(
+        harness.wait_for_all(
+            |client| client
+                .net
+                .room()
+                .my_member()
+                .is_some_and(|member| member.ready),
+            ROOM_WAIT_STEPS
+        ),
+        "mọi client phải sẵn sàng"
+    );
+    for index in 0..count {
+        assert!(harness.is_ready(index), "client {index} phải sẵn sàng");
+    }
+}
+
+/// Chơi thật trong lượt: client gửi input (dự đoán + gửi cửa sổ lệnh chưa ack).
+fn play(harness: &mut RoomHarness, count: usize, steps: u32) {
+    for step in 0..steps {
+        for index in 0..count {
+            let dir = if step % 8 < 4 { Dir::Right } else { Dir::Down };
+            let client = harness.client_mut(index);
+            client
+                .net
+                .predict(PlayerInput {
+                    dir,
+                    place_bomb: false,
+                })
+                .expect("dự đoán");
+            client.net.resend().expect("gửi cửa sổ lệnh");
+        }
+        harness.pump(1);
+    }
+}
+
+/// Nhảy tới hết thời gian lượt để server tự quyết kết quả.
+///
+/// Thời gian lượt lấy từ rules profile (`round.duration_ms`), không hard-code trong test.
+fn run_out_round(harness: &mut RoomHarness) {
+    let duration_ms = harness.round_duration_ms();
+    let now = harness.now_ms();
+    harness.advance_to(now + duration_ms + 10_000);
+    harness.pump(40);
+}
+
+/// Chạy trọn luồng V1: vào phòng → ready → start → `RoundStart` → chơi → `RoundResult` → ack →
+/// về phòng → trận 2.
+fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHarness {
+    let mut harness = RoomHarness::new(count, faults, faults, seed);
+    join_all(&mut harness, count);
+
+    // Mọi người ready → host start → `RoundStart` tới mọi client.
+    assert!(
+        harness.wait_for_all(
+            |client| client.net.room().round().is_some(),
+            ROOM_WAIT_STEPS
+        ),
+        "mọi client phải nhận RoundStart"
+    );
+    let round_id = harness
+        .client(0)
+        .net
+        .room()
+        .round()
+        .expect("có kế hoạch round")
+        .round_id;
+    // Mọi client cùng nhận một round: cùng ID, cùng seed, cùng map/mode.
+    for index in 0..count {
+        let plan = harness
+            .client(index)
+            .net
+            .room()
+            .round()
+            .expect("có kế hoạch round")
+            .clone();
+        assert_eq!(plan.round_id, round_id, "mọi client phải cùng round");
+        assert_eq!(plan.map, ROOM_MAP_ID);
+        assert_eq!(plan.mode, "battle_ffa");
+        assert_eq!(plan.roster.len(), count, "roster phải đủ người chơi");
+        assert!(
+            harness.client(index).net.room().loading_acked() == Some(round_id),
+            "client {index} phải ack loading"
+        );
+    }
+    let seed = harness
+        .client(0)
+        .net
+        .room()
+        .round()
+        .expect("có kế hoạch round")
+        .seed;
+    for index in 1..count {
+        assert_eq!(
+            harness
+                .client(index)
+                .net
+                .room()
+                .round()
+                .expect("có kế hoạch round")
+                .seed,
+            seed,
+            "mọi client phải cùng seed"
+        );
+    }
+
+    // Chơi thật trong lượt rồi để server quyết kết quả.
+    play(&mut harness, count, 20);
+    assert!(
+        harness.server_tick().is_some_and(|tick| tick > 0),
+        "server phải chạy lượt thật (tick authority tiến)"
+    );
+    run_out_round(&mut harness);
+
+    // Event của round đến client và không bị phát lại (dedup theo `(round_id, EventId)`).
+    for index in 0..count {
+        let events = harness.client(index).events();
+        assert!(
+            !events.is_empty(),
+            "client {index} phải nhận event của round (đổi hướng lần đầu)"
+        );
+        let mut seen: Vec<(u32, u16)> = Vec::new();
+        for event in events {
+            let key = (event.id.tick, event.id.seq);
+            assert!(!seen.contains(&key), "event bị phát hai lần: {key:?}");
+            seen.push(key);
+        }
+    }
+
+    // Kết quả do server quyết: mọi client cùng nhận và cùng ack.
+    for index in 0..count {
+        let result = harness
+            .client(index)
+            .net
+            .room()
+            .result()
+            .expect("phải nhận kết quả round")
+            .clone();
+        assert_eq!(
+            result.round_id, round_id,
+            "kết quả phải của round đang chơi"
+        );
+        assert_eq!(result.results.len(), count, "kết quả phải có đủ người chơi");
+        assert_eq!(
+            harness.client(index).net.room().result_acked(),
+            Some(round_id),
+            "client {index} phải ack kết quả"
+        );
+    }
+
+    // Về phòng và vào được trận 2.
+    assert!(
+        harness.wait_for_all(
+            |client| {
+                client
+                    .net
+                    .room()
+                    .round()
+                    .is_some_and(|plan| plan.round_id > round_id)
+            },
+            ROOM_WAIT_STEPS
+        ),
+        "mọi client phải vào được trận 2"
+    );
+    harness
+}
+
+#[test]
+fn hai_client_trong_luong_phong_day_du() {
+    let harness = chay_luong_phong(2, ScheduledFaults::none(), 20261020);
+    assert_eq!(harness.client_count(), 2);
+    assert!(
+        harness.client(0).net.room().is_host(),
+        "client tạo phòng phải là host"
+    );
+    assert!(!harness.client(1).net.room().is_host());
+}
+
+#[test]
+fn bon_client_trong_luong_phong_day_du() {
+    let harness = chay_luong_phong(4, ScheduledFaults::none(), 20261021);
+    assert_eq!(harness.client_count(), 4);
+    for index in 0..4 {
+        let client = harness.client(index);
+        let room = client.net.room().room().expect("client phải ở trong phòng");
+        assert_eq!(room.members.len(), 4, "phòng phải đủ 4 người");
+        // Định danh người chơi trong phòng = `AuthOk.account_id`; slot trận lấy từ
+        // `RoundStart.roster` theo định danh đó (ADR 0009 Addendum B §B.2).
+        let player = client.player.0;
+        let slot = client.slot().expect("client phải biết slot trận của mình");
+        assert!(
+            room.members
+                .iter()
+                .any(|member| member.slot == slot && member.player == player),
+            "client {index} phải có mặt trong phòng với slot/player của mình"
+        );
+        let plan = client.net.room().round().expect("có kế hoạch round");
+        assert!(
+            plan.roster
+                .iter()
+                .any(|member| member.slot == slot && member.player == player),
+            "roster của round phải chứa client {index}"
+        );
+        // `Welcome.player_id` là định danh **kết nối**, khác slot trận: client vẫn phải điều
+        // khiển đúng nhân vật của mình (slot lấy từ roster).
+        let connection = client
+            .connection_id()
+            .expect("client phải biết định danh kết nối");
+        assert_ne!(
+            connection, slot,
+            "định danh kết nối phải khác slot trận (client {index})"
+        );
+        // Định danh kết nối phía server cũng khác định danh người chơi trong phòng.
+        assert_ne!(
+            client.connection, client.player,
+            "định danh kết nối phải khác `account_id` (client {index})"
+        );
+    }
+}
+
+#[test]
+fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
+    // Mạng có trễ, mất, trùng và đảo thứ tự: luồng phải vẫn chạy trọn vẹn nhờ client gửi lại
+    // lệnh phòng (cùng request ID → server dedup).
+    let faults = ScheduledFaults {
+        loss_permille: 50,
+        duplicate_permille: 50,
+        reorder_permille: 100,
+        delay_ms: 20,
+        jitter_ms: 30,
+        reorder_window_ms: 10,
+    };
+    let harness = chay_luong_phong(2, faults, 20261022);
+    assert!(
+        harness.client(0).net.room().result().is_some(),
+        "phải nhận kết quả dù mạng mất frame"
+    );
+}
+
+#[test]
+fn request_lap_khong_ap_hai_lan() {
+    let mut harness = RoomHarness::new(2, ScheduledFaults::none(), ScheduledFaults::none(), 4242);
+    // Client 0 tạo phòng rồi gửi lại **cùng** request ID: server dedup nên không tạo phòng
+    // thứ hai và không báo từ chối.
+    let request = harness
+        .client_mut(0)
+        .net
+        .room_command(RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        })
+        .expect("tạo phòng");
+    harness.pump(20);
+    harness
+        .client_mut(0)
+        .net
+        .resend_room_command(
+            request,
+            RoomActionDto::Create {
+                character: RoomCharacter::C00,
+            },
+        )
+        .expect("gửi lại lệnh");
+    harness.pump(20);
+
+    let room = harness
+        .client(0)
+        .net
+        .room()
+        .room()
+        .expect("phải có phòng")
+        .clone();
+    assert_eq!(
+        room.members.len(),
+        1,
+        "lệnh lặp không được tạo phòng thứ hai"
+    );
+    assert!(
+        harness.client(0).net.room().rejection().is_none(),
+        "lệnh lặp cùng request ID không được bị từ chối"
+    );
+
+    // Cùng hành động nhưng request ID **mới** thì server từ chối (đã có phòng): chứng minh
+    // lệnh lặp ở trên thực sự được dedup, không phải vì lệnh bị bỏ qua.
+    harness
+        .client_mut(0)
+        .net
+        .room_command(RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        })
+        .expect("tạo phòng lần hai");
+    harness.pump(20);
+    let rejection = *harness
+        .client(0)
+        .net
+        .room()
+        .rejection()
+        .expect("lệnh mới phải bị từ chối");
+    assert_eq!(rejection.reason, RoomRejectReason::AlreadyStarted);
+    assert_eq!(
+        harness
+            .client(0)
+            .net
+            .room()
+            .room()
+            .expect("phải có phòng")
+            .members
+            .len(),
+        1,
+        "phòng vẫn chỉ có một người"
+    );
+}
+
+#[test]
+fn chat_chi_toi_thanh_vien_phong() {
+    let mut harness = RoomHarness::new(3, ScheduledFaults::none(), ScheduledFaults::none(), 777);
+    // Hai client vào phòng; client thứ ba đứng ở sảnh (không vào phòng nào).
+    harness.enable_auto(0, 2);
+    assert!(
+        harness.wait_for(
+            0,
+            |client| client.net.room().room().is_some(),
+            ROOM_WAIT_STEPS
+        ),
+        "client 0 phải vào được phòng"
+    );
+    harness.enable_auto(1, 2);
+    assert!(
+        harness.wait_for(
+            1,
+            |client| client.net.room().room().is_some(),
+            ROOM_WAIT_STEPS
+        ),
+        "client 1 phải vào được phòng"
+    );
+    assert!(
+        !harness.in_room(2),
+        "client 2 không được vào phòng khi chưa bật luồng tự động"
+    );
+
+    // Client ngoài phòng gửi chat: server từ chối, không có tin nào phát ra.
+    harness
+        .client_mut(2)
+        .net
+        .send_chat("ngoi phong")
+        .expect("gửi chat");
+    harness.pump(20);
+    assert!(
+        harness.client(2).net.room().chat().is_empty(),
+        "chat của người ngoài phòng không được phát ra"
+    );
+    assert!(
+        harness.client(2).net.room().rejection().is_some(),
+        "server phải từ chối chat của người không ở trong phòng"
+    );
+
+    // Chat của thành viên trong phòng tới mọi thành viên trong phòng.
+    harness
+        .client_mut(0)
+        .net
+        .send_chat("xin chao")
+        .expect("gửi chat");
+    harness.pump(20);
+    for index in 0..2 {
+        let chat = harness.client(index).net.room().chat();
+        assert!(
+            chat.iter().any(|message| message.text == "xin chao"),
+            "client {index} phải nhận chat của phòng"
+        );
+    }
+    assert!(
+        harness.client(2).net.room().chat().is_empty(),
+        "chat của phòng không được tới client ngoài phòng"
+    );
+}
+
+// --- RoundStart cũ/trùng (review PR #136 P1) và nhịp gửi lại ack (review PR #136 P2) ---
+
+#[test]
+fn round_start_cu_toi_tre_khong_lam_lui_round_moi() {
+    // `RoundStart` của round **cũ** tới trễ **sau** khi client đã á snapshot của round mới:
+    // client phải bỏ nó trước mọi side effect — không lùi kế hoạch round, không ghi lùi
+    // slot trận (roster của round cũ đặt slot khác), không ack loading cho round cũ.
+    let mut client = SoloClient::new();
+    let mut state = solo_state(7);
+    state.tick = 5;
+    // Round 2: client nhận `RoundStart` (slot 0 theo roster) rồi á snapshot round 2.
+    client.push_round_start(2);
+    client.push_snapshot(&solo_snapshot(&state, 2, 5));
+    assert_eq!(client.net.player_slot(), Some(SOLO_SLOT));
+
+    // `RoundStart` của round 1 tới trễ, roster đặt slot 7 cho client.
+    client.push_round_start_raw(&SoloClient::round_start_of(1, 7));
+    assert!(
+        client
+            .client_to_server
+            .try_recv_frame()
+            .expect("đọc frame")
+            .is_none(),
+        "`RoundStart` cũ không được ack loading"
+    );
+    assert_eq!(
+        client.net.player_slot(),
+        Some(SOLO_SLOT),
+        "`RoundStart` cũ không được ghi lùi slot trận"
+    );
+    assert_eq!(
+        client.net.round_plan().map(|plan| plan.round_id),
+        Some(2),
+        "`RoundStart` cũ không được làm lùi kế hoạch round"
+    );
+
+    // Snapshot của round mới vẫn được áp: client không bị chặn bởi `RoundStart` cũ.
+    let mut next = solo_state(7);
+    next.tick = 6;
+    client.push_snapshot(&solo_snapshot(&next, 2, 6));
+    assert_eq!(
+        client.net.round_id(),
+        Some(2),
+        "client vẫn phải nhận snapshot của round mới"
+    );
+
+    // Input đi kèm **đúng round** và **đúng slot** của round mới.
+    client
+        .net
+        .predict(PlayerInput {
+            dir: Dir::Right,
+            place_bomb: false,
+        })
+        .expect("dự đoán");
+    client.net.resend().expect("gửi cửa sổ lệnh");
+    let batch = client.take_batch().expect("phải có batch input");
+    assert_eq!(batch.round_id, 2, "input phải mang round mới");
+    assert_eq!(
+        batch.player, SOLO_SLOT,
+        "input phải mang slot trận của round mới"
+    );
+}
+
+/// Nhịp gửi lại trong test: nhỏ hơn mặc định (500 ms) để test không phải chờ lâu, nhưng
+/// **khác 0** — nhịp 0 khiến hai nhịp (lệnh phòng và ack) luôn trùng nhau nên lỗi "hai nhịp
+/// dùng chung đồng hồ" bị che.
+const SOLO_RETRY_INTERVAL: Duration = Duration::from_millis(20);
+
+/// Chờ lâu hơn nhiều lần [`SOLO_RETRY_INTERVAL`] để nhịp gửi lại kịp chạy (biên rộng để
+/// test trên máy chậm vẫn xanh).
+const SOLO_RETRY_WAIT: Duration = Duration::from_millis(150);
+
+#[test]
+fn result_ack_mat_frame_duoc_gui_lai_khi_lenh_phong_con_pending() {
+    // Nhịp gửi lại của **lệnh phòng** và của **ack** phải là hai đồng hồ riêng: nếu chung,
+    // mỗi lần gửi lại lệnh phòng đẩy mốc của ack về hiện tại ⇒ ack không bao giờ được gửi
+    // lại ⇒ frame `ResultAck` mất thì client phải chờ timeout phía server.
+    let mut client = SoloClient::with_retry_interval(SOLO_RETRY_INTERVAL);
+    // Luồng tự động: client vào phòng (server giả trả `RoomState`) và bật ready ⇒ lệnh phòng
+    // `SetReady` **đang chờ** xác nhận nên nhịp gửi lại lệnh phòng chạy liên tục.
+    client
+        .net
+        .enable_auto_flow(RoomCharacter::C00, 2)
+        .expect("bật luồng tự động");
+    client.push_room_state();
+    // Lượt đang chơi: `RoundStart` + snapshot tick > 0 ⇒ lượt đã chạy (bằng chứng server đã
+    // nhận `LoadingAck`) nên nhịp gửi lại loading ack không chen vào.
+    client.push_round_start_raw(&SoloClient::round_start_of(2, SOLO_SLOT));
+    let mut state = solo_state(7);
+    state.tick = 5;
+    client.push_snapshot(&solo_snapshot(&state, 2, 5));
+
+    // Kết quả round: client gửi `ResultAck` **đầu tiên** — frame này bị mất (đọc rồi bỏ, không
+    // tới server).
+    client.push_round_result(2);
+    let kinds = client.drain_kinds();
+    assert_eq!(
+        kinds
+            .iter()
+            .filter(|kind| **kind == MessageKind::ResultAck)
+            .count(),
+        1,
+        "client phải gửi `ResultAck` khi nhận kết quả: {kinds:?}"
+    );
+
+    // Chờ hơn một nhịp rồi bơm: nhịp gửi lại lệnh phòng vẫn đang chạy (`SetReady` còn
+    // pending) nhưng ack phải được gửi lại **riêng**, không nhờ timeout phía server.
+    thread::sleep(SOLO_RETRY_WAIT);
+    client.net.pump(PUMP_TIMEOUT).expect("bơm message");
+    let kinds = client.drain_kinds();
+    assert!(
+        kinds.contains(&MessageKind::RoomCommand),
+        "lệnh phòng vẫn phải được gửi lại: {kinds:?}"
+    );
+    assert!(
+        kinds.contains(&MessageKind::ResultAck),
+        "`ResultAck` mất phải được gửi lại, không nhờ timeout phía server: {kinds:?}"
+    );
 }

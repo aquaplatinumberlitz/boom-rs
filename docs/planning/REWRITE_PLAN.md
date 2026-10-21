@@ -1,6 +1,6 @@
 # Kế hoạch tổng viết lại engine Boom KR bằng Rust
 
-Cập nhật: 2026-10-19. **Kế hoạch tổng hiện hành**, thay vai trò điều hành của
+Cập nhật: 2026-10-21. **Kế hoạch tổng hiện hành**, thay vai trò điều hành của
 [REWRITE_PLAN_2026-10-19 cũ](../archive/plans/REWRITE_PLAN_2026-10-19.md).
 Nguồn chuẩn về lộ trình, pha, hạn, dependency và việc tiếp theo.
 Scope: [SCOPE_V1](SCOPE_V1.md). Quy tắc: [AGENTS.md](../../AGENTS.md). Repo: `boom-rs` ([ADR 0003](../decisions/0003-engine-repo-and-docs-home.md)).
@@ -18,7 +18,7 @@ V1 là lát cắt chơi được; mục tiêu dài hạn vẫn là mở rộng c
 | Quyết định | Nguồn |
 |---|---|
 | Scope V1, policy phòng/vòng đời | [SCOPE_V1](SCOPE_V1.md), [ADR 0001](../decisions/0001-project-baseline.md) |
-| VN và KR là nguồn tin cậy ngang nhau | [ADR 0002](../decisions/0002-vn-kr-trusted-sources.md) |
+| VN dùng trực tiếp; giá trị ưu tiên KR confirmed → VN confirmed → BnB → design | [ADR 0002](../decisions/0002-vn-kr-trusted-sources.md), [ADR 0013](../decisions/0013-rule-source-precedence.md) |
 | Repo `boom-rs` chứa engine + docs | [ADR 0003](../decisions/0003-engine-repo-and-docs-home.md) |
 | Fixed step, số nguyên, RNG/hash riêng trong core | [ADR 0004](../decisions/0004-time-numeric-model.md) |
 | Server quyết kết quả; client chỉ dự đoán di chuyển của mình | [ADR 0005](../decisions/0005-authority-and-prediction.md) |
@@ -104,6 +104,12 @@ Luồng song song theo pha (vai trò, chưa phải người cụ thể):
 
 ## Nguyên tắc fidelity và đo nguồn
 
+Theo [ADR 0013](../decisions/0013-rule-source-precedence.md), cùng đại lượng ưu tiên
+KR 00967 confirmed → VN VBNB_116 confirmed → BnB `5c108e8` design → design riêng.
+RE/decomp client KR là luồng ưu tiên; BnB bổ sung phần chưa có luật gốc.
+Không đồng nhất packet trap với timer hoặc bước client với tick server; ngoại lệ Attr candidate xem ADR.
+
+
 Mục tiêu giữ cảm giác và tài nguyên nguyên bản ở phần có nguồn xác nhận. Mỗi luật thuộc một trong:
 **confirmed** (KR hoặc VN, ADR 0002), **candidate** (web, OSS, giá trị emu tự đặt), **design** (dự án chọn,
 có claim dẫn tới) hoặc **unknown**. Profile drop Village00 V1 và Việt hóa là khác biệt có chủ ý, theo SCOPE_V1.
@@ -129,6 +135,12 @@ Economy/ledger/inventory/guild/liveops giữ trong backlog sau V1. Không chép 
 Khi mở economy phải có transaction/idempotency, ownership và nguồn balance (Q-011).
 
 ## Việc tiếp theo — đợt 1 (GitHub issues)
+
+Ưu tiên luồng RE KR, owner **dsh**, review Claude/Codex: Q-017/#146 movement/hitbox/corner/speed;
+Q-018/#147 trapped; Q-019/#148 nổ/lửa theo hướng và timing frame; Q-020/#149 item/cap; Q-021/#150 UI V1.
+Mỗi task trả claim có địa chỉ/hàm consumer + evidence metadata; đổi profile bằng PR riêng có review.
+Tool kiểm thứ tự nguồn [#145](https://github.com/aquaplatinumberlitz/boom-rs/issues/145) do OpenCode thực hiện; #131/#132 giữ backlog BnB cho chỗ trống server.
+
 
 Bảng việc là issue của `aquaplatinumberlitz/boom-rs` (nhãn `wave:1`); quy trình nhận/bàn giao ở
 TEAM_WORKFLOW §5–6. Mọi task dưới đây chạy song song được; ràng buộc ghi trong từng issue.
