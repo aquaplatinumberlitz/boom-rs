@@ -1,0 +1,51 @@
+# Chạm theo khoảng cách thực (R-108): lệch **mỗi trục** phải nhỏ hơn 28 px thì mới chạm, nên
+# lệch đúng 28 px **không** chạm. Người 1 bị nhốt ở tâm ô (2,1) = (100 px, 60 px); người 0 đi
+# sang phải 2 px mỗi tick rồi dừng ở 72 px ⇒ lệch 28 px ⇒ không ai chết.
+name = "Lệch đúng 28 px thì không làm vỡ bong bóng"
+features = ["V1-020"]
+claims = ["R-028", "R-108"]
+status = "active"
+ticks = 20
+map = [
+    "######",
+    "#0...#",
+    "######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+life = "trapped"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 6
+player = 0
+dir = "none"
+
+[[expect]]
+tick = 20
+event = "player_died"
+count = 0
+
+[[expect]]
+tick = 20
+player = 1
+life = "trapped"
+
+[end]
+outcome = "playing"

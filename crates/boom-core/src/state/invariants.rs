@@ -1,5 +1,8 @@
 //! Bất biến của contract (contracts-r3). `new_round` kiểm sau khi dựng lượt; harness scenario và replay
 //! kiểm sau mỗi tick. Mọi tham chiếu (ô, người chơi, loại item, ID entity) được đối chiếu với `World`.
+//!
+//! Kênh blast **không** nằm trong state nên không có ở đây: nó được kiểm riêng bằng
+//! [`crate::TickScratch::check`].
 
 use boom_content::map::CellKind;
 

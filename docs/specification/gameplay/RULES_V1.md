@@ -304,7 +304,7 @@ quyết định trên; bảng sai khác và issue triển khai nằm trong ADR 0
 | R-106 | Roll khi vỡ gạch; V1 chỉ giữ ba loại, chuẩn hóa tương đối BnB bubble/potion/shoe | 350 permille; Bomb:Fire:Roller = 20:28:16 | `oss` / design | BnB `server/game.js:20,425–439`; bỏ loại ngoài scope, không giữ xác suất tuyệt đối 20/28/16% |
 | R-107 | Hộp va chạm và assist khi bị chặn; pass bom tới khi hộp rời hoàn toàn | half 13 px (26×26), assist ≤12 px | `oss` / design | BnB `server/game.js:31–32,150–153,173–275,392–399`; #130 |
 | R-108 | Trapped đứng yên; giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035, giữ đứng yên R-036 |
-| R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
+| R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout. Biên TTL: ttl 1 → 0 ⇒ vụ nổ bị xóa **trước** khi áp sát thương (không có ô lửa, không ai bị nhốt) nhưng gạch trong blast vẫn vỡ, vì BnB phá gạch lúc nổ | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
 
 R-014/R-023/R-027/R-044/R-046 giữ `oss`/candidate như bằng chứng lịch sử; không phải claim lựa chọn.
 R-056/R-057/R-059 còn áp dụng phần alive/tâm ô/cap hiệu ứng; phần giữ item tại cap (R-058),
@@ -333,6 +333,58 @@ R-109 giữ backlog #131/#132, không biến thành bằng chứng gốc.
 | R-116 | `player.collision_half_px`, `player.corner_assist_px`, `player.trap_touch_distance_px` giữ BnB | 13/12/28 px | `oss` / design | R-107/R-108/BnB `server/game.js:31–32,546–567` SHA §10; chưa có KR/VN confirmed cùng đại lượng; R-028 không xác nhận khoảng cách |
 | R-117 | Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
 | R-118 | `presentation.frame_duration_ms` giữ design riêng | 100 ms | `design` / design | R-085; R-079 unknown; BnB không cung cấp nhịp clip KR. RE consumer frame/timing có thể thay sau |
+
+### Bảng lựa chọn theo khóa (máy-đọc)
+
+Bảng dưới ràng buộc metadata **theo từng khóa profile**: claim lựa chọn, đại lượng, đơn vị,
+nguồn, trạng thái và ngữ cảnh/build áp dụng. Đây là nguồn chuẩn để validator so tầng ADR 0013
+**theo từng khóa** — ô "Nguồn / trạng thái" của bảng claim ở trên chỉ là tóm tắt và phải khớp
+đúng tập nguồn/trạng thái của các khóa thuộc claim đó; lệch thì validator báo lỗi. Dòng gộp
+chưa tách được theo từng khóa thì validator **fail closed** (báo lỗi), không đoán theo ô claim.
+
+| Khóa profile | Claim lựa chọn | Đại lượng | Đơn vị | Nguồn | Trạng thái | Ngữ cảnh / build |
+|---|---|---|---|---|---|---|
+| `grid.tile_px` | R-110 | tile_size | px | `vn_static` | confirmed | VN VBNB_116 |
+| `round.duration_ms` | R-110 | round_duration | ms | `vn_runtime` | confirmed | VN VBNB_116 |
+| `item.bomb_capacity_delta` | R-111 | item_bomb_capacity_delta | bomb | `vn_runtime` | confirmed | VN VBNB_116 |
+| `item.fire_range_delta` | R-111 | item_fire_range_delta | cell | `vn_runtime` | confirmed | VN VBNB_116 |
+| `item.roller_speed_delta` | R-111 | item_roller_speed_delta | level | `oss` | design | BnB 5c108e8 |
+| `drop.weight_bomb` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
+| `drop.weight_fire` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
+| `drop.weight_roller` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
+| `drop.brick_item_chance` | R-112 | drop_brick_item_chance | permille | `oss` | design | BnB 5c108e8 |
+| `sim.ticks_per_second` | R-113 | server_tick_rate | Hz | `oss` | design | BnB 5c108e8 |
+| `round.warmup_ms` | R-113 | round_warmup | ms | `oss` | design | BnB 5c108e8 |
+| `player.speed_px_per_s_per_level` | R-114 | speed_px_per_s_per_level | px/s | `oss` | design | BnB 5c108e8 |
+| `bomb.fuse_ms` | R-115 | bomb_fuse | ms | `oss` | design | BnB 5c108e8 |
+| `bomb.flame_ms` | R-115 | bomb_flame | ms | `oss` | design | BnB 5c108e8 |
+| `player.trap_to_death_ms` | R-115 | trap_to_death_timer | ms | `oss` | design | BnB 5c108e8 |
+| `player.collision_half_px` | R-116 | collision_box_half | px | `oss` | design | BnB 5c108e8 |
+| `player.corner_assist_px` | R-116 | corner_assist | px | `oss` | design | BnB 5c108e8 |
+| `player.trap_touch_distance_px` | R-116 | trap_touch_distance | px | `oss` | design | BnB 5c108e8 |
+| `characters.c00_speed` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_speed_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_bombs` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_bombs_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_range` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_range_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_speed` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_speed_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_bombs` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_bombs_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_range` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_range_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `presentation.frame_duration_ms` | R-118 | presentation_frame_duration | ms | `design` | design | V1 design |
+
+Bảng trên là nguồn chuẩn lựa chọn; validator [`tools/rules_precedence.py`](../../../tools/rules_precedence.py)
+giữ bảng kỳ vọng máy-đọc-của bảng này (định danh theo **đại lượng**, đơn vị, build/context) và **đối chiếu
+ngược với RULES_V1** trước khi kiểm profile [`data/rules/`](../../../data/rules/) không dùng tầng thấp
+hơn tầng ghi ở đây; validator chạy trong `cargo xtask ci`, test ở `tools/test_rules_precedence.py`.
+Tầng được so **theo từng khóa** từ "Bảng lựa chọn theo khóa" ở đây: bảng kỳ vọng trong tool và ô
+"Nguồn / trạng thái" của bảng claim phải khớp từng khóa với bảng đó, lệch thì CI báo lỗi.
+Ngoại lệ phải tường minh: 12 khóa `characters.*` (candidate theo R-117, ADR 0013) và `drop.weight_*`
+(số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052). Validator **không** so giá trị số với
+claim và không tự kết luận claim đúng; reviewer kiểm nguồn.
 
 ## 12. Nền và ảnh UI của client V1
 

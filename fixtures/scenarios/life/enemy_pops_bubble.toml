@@ -1,6 +1,10 @@
+# Chạm theo khoảng cách thực (R-108): lệch trên **mỗi trục** phải nhỏ hơn 28 px thì mới chạm.
+# Người 1 bị nhốt ở ô (2,1) = tâm (100 px, 60 px); người 0 đi từ (60 px, 60 px) sang phải
+# 2 px mỗi tick, nên lệch xa còn 26 px ở tick 6 (step 7) ⇒ chạm ở tick 6, không phải khi
+# cùng ô như luật cũ (R-034 đã bị R-108 supersede).
 name = "Địch chạm người bị nhốt thì người đó chết, địch thắng"
 features = ["V1-020", "V1-021"]
-claims = ["R-028", "R-034"]
+claims = ["R-028", "R-108"]
 status = "active"
 ticks = 20
 map = [
@@ -29,7 +33,7 @@ player = 0
 dir = "right"
 
 [[expect]]
-tick = 10
+tick = 7
 event = "player_died"
 where = { player = 1, by = 0 }
 count = 1

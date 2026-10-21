@@ -1,8 +1,9 @@
-# Cả hai bị nhốt từ tick 0 nên cùng hết hạn ở tick 378; không còn ai sống thì hòa
-# (SCOPE_V1 §4). Mỗi người chỉ phát đúng một player_died, by = -1 (R-026).
+# Cả hai bị nhốt từ tick 0 nên cùng hết hạn ở tick 377 (378 tick nhốt tính cả tick bị nhốt,
+# R-108); không còn ai sống thì hòa (SCOPE_V1 §4). Mỗi người chỉ phát đúng một player_died,
+# by = -1 (R-026).
 name = "Nhiều người hết thời gian nhốt cùng tick thì chết và hòa"
 features = ["V1-020", "V1-021"]
-claims = ["R-026"]
+claims = ["R-026", "R-108"]
 status = "active"
 ticks = 400
 map = [
@@ -28,34 +29,34 @@ cell = [2, 1]
 life = "trapped"
 
 [[expect]]
-tick = 378
+tick = 377
 player = 0
 life = "trapped"
 
 [[expect]]
-tick = 378
+tick = 377
 player = 1
 life = "trapped"
 
 [[expect]]
-tick = 379
+tick = 378
 event = "player_died"
 where = { player = 0, by = -1 }
 count = 1
 
 [[expect]]
-tick = 379
+tick = 378
 event = "player_died"
 where = { player = 1, by = -1 }
 count = 1
 
 [[expect]]
-tick = 379
+tick = 378
 player = 0
 life = "dead"
 
 [[expect]]
-tick = 379
+tick = 378
 player = 1
 life = "dead"
 

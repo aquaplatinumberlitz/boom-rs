@@ -4,7 +4,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
-use boom_content::map::Terrain;
+use boom_content::map::{Terrain, is_walkable};
 use boom_content::rules::RulesProfile;
 use boom_core::{CharacterStats, CharacterStatsTable, Dir, Life, Stat, World, mode_by_id};
 use boom_proto::{InputBatch, InputBits, InputCommand};
@@ -631,12 +631,13 @@ use std::time::{Duration, Instant};
 
 use boom_net::{MemoryConfig, MemoryTransport, Transport};
 use boom_proto::dto::auth::{Auth, AuthFail, AuthFailReason, AuthOk, AuthOp, Logout};
+use boom_proto::dto::{DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP};
 use boom_proto::{
     Hello, InputRejectReason, InputRejected, LoadingAck, LobbyList, LobbyListRequest, Message,
     MessageKind, Ping, Pong, Reject, RejectReason, ResultAck, RoomAction as RoomActionDto,
     RoomCharacter, RoomChat, RoomChatMessage, RoomCommand as RoomCommandDto, RoomRejectReason,
-    RoomRejected, RoomState, RoundResult, RoundStart, Snapshot, Welcome, decode_frame,
-    encode_frame, limits::ProtocolLimits, read_envelope,
+    RoomRejected, RoomState, RoundResult, RoundStart, Snapshot, SnapshotRequest, Welcome,
+    decode_frame, encode_frame, limits::ProtocolLimits, read_envelope,
 };
 
 use crate::auth::{AuthConfig, AuthService};
@@ -646,6 +647,255 @@ use crate::{HandshakeConfig, Server};
 struct WireClient {
     writer: MemoryTransport,
     reader: MemoryTransport,
+}
+
+/// Tổng số vòng chờ cho một yêu cầu trong kịch bản mạng lỗi.
+///
+/// Trần là **số vòng**, không phải thời gian thật: tốc độ máy và độ phân giải timer của hệ
+/// điều hành (Windows `sleep(1 ms)` thực tế ~15.6 ms) không ảnh hưởng kết quả kiểm.
+const WAIT_ROUNDS: usize = 200_000;
+
+/// Số lần gửi tối đa cho một yêu cầu.
+///
+/// Gửi lại **chỉ** khi mạng thật sự nuốt frame — quyết định lấy từ PRNG theo seed nên biết
+/// *tức thì*, không phải đoán theo hạn thời gian thật.
+const SEND_ATTEMPTS: usize = 300;
+
+/// Lấy frame kế tiếp nếu đúng loại `kind`; frame khác loại bị bỏ (không chặn).
+fn take_kind<M: Message>(c: &mut WireClient, kind: MessageKind) -> Option<M> {
+    let frame = c.reader.try_recv_frame().expect("đọc frame")?;
+    let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+    if envelope.kind == kind {
+        Some(decode_frame(&frame, &ProtocolLimits::v1()).expect("giải mã frame"))
+    } else {
+        None
+    }
+}
+
+/// Gửi frame trên chiều client→server; trả `true` nếu mạng đã nuốt frame (mất).
+///
+/// Quyết định mất lấy từ PRNG theo seed ⇒ biết **tức thì**, không cần chờ theo thời gian
+/// thật. Đây là mấu chốt để test không phụ thuộc tốc độ máy: chỉ gửi lại khi frame thật sự
+/// bị mất, nên server không dồn câu trả lời vô hạn (hàng đợi gửi đi của server có trần; đầy
+/// thì bị coi như consumer chậm và session bị đóng — xem `Server::send_raw`).
+fn send_tracked<M: Message>(c: &mut WireClient, message: &M) -> bool {
+    let before = c.writer.dropped_frames();
+    send(c, message);
+    c.writer.dropped_frames() > before
+}
+
+/// Gửi yêu cầu tới server và chờ câu trả lời loại `kind`.
+///
+/// - Yêu cầu bị mạng nuốt → gửi lại ngay, không tốn ngân sách chờ.
+/// - Câu trả lời bị mạng nuốt → gửi lại yêu cầu.
+/// - Yêu cầu tới nơi → chờ theo **điều kiện**, trần số vòng (`budget`), mỗi vòng bơm server
+///   bằng `poll` không chặn rồi `yield_now` (không ngủ theo timer hệ điều hành).
+///
+/// `accept` lọc câu trả lời: frame không thoả điều kiện bị bỏ và vẫn chờ tiếp, không gửi lại.
+fn ask_where<Req: Message, Rep: Message, F: FnMut(&Rep) -> bool>(
+    server: &mut Server,
+    client: &mut WireClient,
+    now_ms: u64,
+    budget: &mut usize,
+    message: &Req,
+    kind: MessageKind,
+    mut accept: F,
+) -> Option<Rep> {
+    for _ in 0..SEND_ATTEMPTS {
+        let dropped_out = client.writer.dropped_frames();
+        send(client, message);
+        if client.writer.dropped_frames() > dropped_out {
+            // Mạng nuốt yêu cầu: gửi lại ngay.
+            continue;
+        }
+        // Số frame **server gửi** đã bị nuốt, đo sau khi gửi yêu cầu: server chưa xử lý yêu
+        // cầu này nên mọi frame bị nuốt từ đây trở đi là câu trả lời của yêu cầu này.
+        let dropped_in = client.reader.peer_dropped_frames();
+        while *budget > 0 {
+            *budget -= 1;
+            server.poll(now_ms, Duration::ZERO).expect("poll server");
+            if let Some(reply) = take_kind::<Rep>(client, kind)
+                && accept(&reply)
+            {
+                return Some(reply);
+            }
+            if client.reader.peer_dropped_frames() > dropped_in {
+                // Mạng nuốt câu trả lời: gửi lại yêu cầu.
+                break;
+            }
+            std::thread::yield_now();
+        }
+        if *budget == 0 {
+            // Hết ngân sách chờ: không gửi thêm (server sẽ dồn câu trả lời vô hạn).
+            break;
+        }
+    }
+    None
+}
+
+/// Như [`ask_where`] nhưng không lọc câu trả lời.
+fn ask<Req: Message, Rep: Message>(
+    server: &mut Server,
+    client: &mut WireClient,
+    now_ms: u64,
+    budget: &mut usize,
+    message: &Req,
+    kind: MessageKind,
+) -> Option<Rep> {
+    ask_where(server, client, now_ms, budget, message, kind, |_| true)
+}
+
+/// Chờ luồng đọc của server **lấy hết** frame client đã gửi — **không tiến đồng hồ server**.
+///
+/// Đồng hồ server đứng yên ⇒ không tick nào chạy ⇒ lệnh input đang chờ trong hàng đợi
+/// của authority **không bị retire** vì đồng hồ chạy trước khi lệnh tới server
+/// (ADR 0009 §3.3: lệnh cũ hơn `server_tick - late` bị retire, không áp dụng).
+///
+/// [`MemoryTransport`] đếm frame **đưa lên đường** ([`MemoryTransport::sent_frames`]) và
+/// frame **đã giao cho ứng dụng nhận** ([`MemoryTransport::peer_delivered_frames`]): mỗi
+/// frame đưa lên đường tới nơi đúng một lần, nên hai số bằng nhau ⇔ mọi frame client gửi
+/// đã tới tay luồng đọc của server. Trả `true` nếu đủ, `false` nếu hết ngân sách chờ.
+fn wait_frames_delivered(
+    server: &mut Server,
+    clients: &mut [WireClient],
+    now: u64,
+    budget: &mut usize,
+) -> bool {
+    while *budget > 0 {
+        if clients
+            .iter()
+            .all(|c| c.writer.peer_delivered_frames() >= c.writer.sent_frames())
+        {
+            return true;
+        }
+        *budget -= 1;
+        server.poll(now, Duration::ZERO).expect("poll server");
+        std::thread::yield_now();
+    }
+    clients
+        .iter()
+        .all(|c| c.writer.peer_delivered_frames() >= c.writer.sent_frames())
+}
+
+/// Hướng chắc chắn **đi được** từ ô người chơi đang đứng (ô kề bên là nền).
+///
+/// Bản đồ test có tường ở biên nên một hướng cố định có thể bị chặn ⇒ vị trí không đổi
+/// dù lệnh đã áp dụng. Chọn hướng theo địa hình để **vị trí chắc chắn đổi** khi lệnh
+/// được áp dụng thật.
+fn walkable_dir(world: &World, x: i32, y: i32) -> u8 {
+    let tile = world.rules().tile.0;
+    let (cx, cy) = (x.div_euclid(tile), y.div_euclid(tile));
+    // (mã hướng, delta ô) theo thứ tự ưu tiên: phải, xuống, trái, lên.
+    for (code, (dx, dy)) in [
+        (DIR_RIGHT, (1, 0)),
+        (DIR_DOWN, (0, 1)),
+        (DIR_LEFT, (-1, 0)),
+        (DIR_UP, (0, -1)),
+    ] {
+        if world
+            .terrain()
+            .kind(cx + dx, cy + dy)
+            .is_some_and(is_walkable)
+        {
+            return code;
+        }
+    }
+    panic!("ô ({cx},{cy}) không có hướng nào đi được");
+}
+
+/// Rào `Ping` → `Pong`: chứng minh server đã **xử lý** batch input gửi trước đó.
+///
+/// Luồng đọc của server lấy frame theo thứ tự và server xử lý kênh vào theo thứ tự FIFO
+/// ⇒ `Pong` (trả lời `Ping` gửi **sau** input) chứng minh batch input đã được xử lý.
+///
+/// `Ping` gửi sau khi batch input **đã tới nơi** ([`wait_frames_delivered`]) ⇒ nhờ đồng
+/// hồ ảo của mạng đã chạy tới mốc giao của batch, `Ping` luôn tới **sau** batch, kể cả
+/// khi mạng có jitter (thứ tự giao theo mốc giao, không theo thứ tự gửi).
+///
+/// Server **từ chối** input là lỗi thật ⇒ báo ngay kèm lý do thay vì chờ mãi.
+fn wait_pong_barrier(server: &mut Server, client: &mut WireClient, now: u64, budget: &mut usize) {
+    for _ in 0..SEND_ATTEMPTS {
+        // Số frame **server gửi** đã bị nuốt, đo trước khi gửi `Ping`.
+        let dropped_in = client.reader.peer_dropped_frames();
+        if send_tracked(client, &Ping(now)) {
+            // Mạng nuốt `Ping`: gửi lại ngay (server chưa thấy frame này).
+            continue;
+        }
+        while *budget > 0 {
+            *budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            let Some(frame) = client.reader.try_recv_frame().expect("đọc frame") else {
+                std::thread::yield_now();
+                continue;
+            };
+            let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+            match envelope.kind {
+                MessageKind::Pong => return,
+                MessageKind::InputRejected => {
+                    let rejected: InputRejected =
+                        decode_frame(&frame, &ProtocolLimits::v1()).expect("InputRejected");
+                    panic!(
+                        "server từ chối input: {:?} (seq đầu {}, số lệnh {}, tick server {})",
+                        rejected.reason,
+                        rejected.first_seq,
+                        rejected.command_count,
+                        rejected.server_tick
+                    );
+                }
+                _ => {}
+            }
+            if client.reader.peer_dropped_frames() > dropped_in {
+                // Mạng nuốt câu trả lời: gửi lại `Ping`.
+                break;
+            }
+        }
+        if *budget == 0 {
+            // Hết ngân sách chờ: không gửi thêm.
+            break;
+        }
+    }
+    panic!("không nhận Pong (rào) sau khi gửi input");
+}
+
+/// Xin `Snapshot` cho tới khi `accept` đúng — bỏ các snapshot cũ đã queue trước đó.
+///
+/// `SnapshotRequest` idempotent nên gửi lại được. Yêu cầu bị mạng nuốt → gửi lại ngay;
+/// câu trả lời bị nuốt → gửi lại yêu cầu. Hết ngân sách thì trả `None`.
+fn wait_snapshot_where<F: FnMut(&Snapshot) -> bool>(
+    server: &mut Server,
+    client: &mut WireClient,
+    now: u64,
+    budget: &mut usize,
+    request: &SnapshotRequest,
+    mut accept: F,
+) -> Option<Snapshot> {
+    for _ in 0..SEND_ATTEMPTS {
+        // Số frame **server gửi** đã bị nuốt, đo trước khi gửi yêu cầu.
+        let dropped_in = client.reader.peer_dropped_frames();
+        if send_tracked(client, request) {
+            // Mạng nuốt yêu cầu: gửi lại ngay.
+            continue;
+        }
+        while *budget > 0 {
+            *budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            if let Some(snapshot) = take_kind::<Snapshot>(client, MessageKind::Snapshot)
+                && accept(&snapshot)
+            {
+                return Some(snapshot);
+            }
+            if client.reader.peer_dropped_frames() > dropped_in {
+                // Mạng nuốt câu trả lời: gửi lại yêu cầu.
+                break;
+            }
+            std::thread::yield_now();
+        }
+        if *budget == 0 {
+            // Hết ngân sách chờ: không gửi thêm.
+            break;
+        }
+    }
+    None
 }
 
 fn handshake_config(a: &Authority) -> HandshakeConfig {
@@ -714,14 +964,13 @@ fn send<M: Message>(c: &mut WireClient, message: &M) {
 }
 
 fn recv_raw(c: &mut WireClient) -> Vec<u8> {
-    let start = Instant::now();
-    loop {
-        match c.reader.try_recv_frame().unwrap() {
-            Some(frame) => return frame,
-            None if start.elapsed() > Duration::from_secs(2) => panic!("timeout chờ frame"),
-            None => std::thread::sleep(Duration::from_millis(1)),
+    for _ in 0..WAIT_ROUNDS {
+        if let Some(frame) = c.reader.try_recv_frame().expect("đọc frame") {
+            return frame;
         }
+        std::thread::yield_now();
     }
+    panic!("timeout chờ frame");
 }
 
 fn recv<M: Message>(c: &mut WireClient) -> M {
@@ -730,37 +979,13 @@ fn recv<M: Message>(c: &mut WireClient) -> M {
 }
 
 fn recv_of<M: Message>(c: &mut WireClient, kind: MessageKind) -> M {
-    let start = Instant::now();
-    loop {
-        match c.reader.try_recv_frame().unwrap() {
-            Some(frame) => {
-                let (envelope, _) = read_envelope(&frame).unwrap();
-                if envelope.kind == kind {
-                    return decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
-                }
-            }
-            None if start.elapsed() > Duration::from_secs(2) => {
-                panic!("timeout chờ {kind:?}")
-            }
-            None => std::thread::sleep(Duration::from_millis(1)),
+    for _ in 0..WAIT_ROUNDS {
+        if let Some(message) = take_kind::<M>(c, kind) {
+            return message;
         }
+        std::thread::yield_now();
     }
-}
-
-fn try_recv_of<M: Message>(c: &mut WireClient, kind: MessageKind, timeout: Duration) -> Option<M> {
-    let start = Instant::now();
-    loop {
-        if let Some(frame) = c.reader.try_recv_frame().unwrap() {
-            let (envelope, _) = read_envelope(&frame).unwrap();
-            if envelope.kind == kind {
-                return Some(decode_frame(&frame, &ProtocolLimits::v1()).unwrap());
-            }
-        } else if start.elapsed() >= timeout {
-            return None;
-        } else {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-    }
+    panic!("timeout chờ {kind:?}")
 }
 
 fn send_room(c: &mut WireClient, request: u64, action: RoomActionDto) {
@@ -771,32 +996,38 @@ fn test_credentials(player: PlayerId) -> (String, String) {
     (format!("player{}", player.0), "password123".to_owned())
 }
 
-fn recv_auth_response(
-    client: &mut WireClient,
-    timeout: Duration,
-) -> Option<Result<AuthOk, AuthFailReason>> {
-    let start = Instant::now();
-    loop {
-        if let Some(frame) = client.reader.try_recv_frame().unwrap() {
-            let (envelope, _) = read_envelope(&frame).unwrap();
-            match envelope.kind {
-                MessageKind::AuthOk => {
-                    return Some(Ok(decode_frame(&frame, &ProtocolLimits::v1()).unwrap()));
-                }
-                MessageKind::AuthFail => {
-                    let fail: AuthFail = decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
-                    return Some(Err(fail.reason));
-                }
-                _ => {}
-            }
-        } else if start.elapsed() >= timeout {
-            return None;
-        } else {
-            std::thread::sleep(Duration::from_millis(1));
+/// Đọc một frame trả lời của bước đăng nhập.
+///
+/// - `Some(Ok(AuthOk))` / `Some(Err(AuthFail))`: server đã trả lời auth.
+/// - `None`: frame không phải trả lời auth (bị bỏ) hoặc chưa có frame nào.
+///
+/// `Reject` là lỗi giao thức (ví dụ `Auth` lặp sau `AuthOk` ⇒ server đóng phiên): báo ngay
+/// thay vì chờ mãi, để lỗi hiện rõ thay vì thành "không nhận LobbyList" ở bước sau.
+fn recv_auth_response(client: &mut WireClient) -> Option<Result<AuthOk, AuthFailReason>> {
+    let frame = client.reader.try_recv_frame().expect("đọc frame")?;
+    let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+    match envelope.kind {
+        MessageKind::AuthOk => Some(Ok(
+            decode_frame(&frame, &ProtocolLimits::v1()).expect("AuthOk")
+        )),
+        MessageKind::AuthFail => {
+            let fail: AuthFail = decode_frame(&frame, &ProtocolLimits::v1()).expect("AuthFail");
+            Some(Err(fail.reason))
         }
+        MessageKind::Reject => {
+            let reject: Reject = decode_frame(&frame, &ProtocolLimits::v1()).expect("Reject");
+            panic!("server từ chối phiên lúc đăng nhập: {:?}", reject.reason);
+        }
+        _ => None,
     }
 }
 
+/// Đăng nhập một client, chịu được mạng mất frame mà **không** gửi lặp `Auth`.
+///
+/// `Auth` là frame **không idempotent**: server coi `Auth` lặp sau `AuthOk` là lỗi giao thức
+/// (`Server::handle_frame`) ⇒ gửi `Reject` rồi **đóng phiên**, mọi yêu cầu sau đó không được
+/// trả lời. Vì vậy chỉ gửi lại khi mạng **thật sự** nuốt frame (biết tức thì qua
+/// [`MemoryTransport::dropped_frames`]), không gửi lại theo hạn thời gian thật.
 fn auth_attempt(
     server: &mut Server,
     client: &mut WireClient,
@@ -804,21 +1035,29 @@ fn auth_attempt(
     username: &str,
     password: &str,
 ) -> Result<AuthOk, AuthFailReason> {
-    for _ in 0..300 {
-        send(
-            client,
-            &Auth {
-                op,
-                username: username.to_owned(),
-                password: password.to_owned(),
-            },
-        );
-        let _ = server
-            .poll(server.now_ms(), Duration::from_millis(20))
-            .unwrap();
-        if let Some(result) = recv_auth_response(client, Duration::from_millis(250)) {
-            return result;
+    let mut budget = WAIT_ROUNDS;
+    let auth = Auth {
+        op,
+        username: username.to_owned(),
+        password: password.to_owned(),
+    };
+    for _ in 0..SEND_ATTEMPTS {
+        if send_tracked(client, &auth) {
+            // Mạng nuốt `Auth`: gửi lại ngay (server chưa thấy frame nào).
+            continue;
         }
+        while budget > 0 {
+            budget -= 1;
+            server
+                .poll(server.now_ms(), Duration::ZERO)
+                .expect("poll server");
+            if let Some(result) = recv_auth_response(client) {
+                return result;
+            }
+            std::thread::yield_now();
+        }
+        // Hết ngân sách chờ: không gửi thêm (frame đã tới server ⇒ không gửi lặp `Auth`).
+        break;
     }
     panic!("không nhận AuthOk/AuthFail sau retry");
 }
@@ -1148,9 +1387,22 @@ fn wire_khong_gui_snapshot_khi_phong_dang_loading_barrier() {
         let _ = server.poll(now, Duration::from_millis(50)).unwrap();
     }
     assert_eq!(server.phase(), ServerPhase::Loading);
+    // Rào bằng helper chờ-theo-điều-kiện của nhánh này ([`wait_snapshot_where`]): client
+    // **xin** `Snapshot` rồi chờ theo điều kiện, trần **số vòng** (`WAIT_ROUNDS`) — không
+    // phụ thuộc hạn thời gian thật (độ phân giải timer Windows ~15,6 ms).
+    //
+    // Ở pha loading barrier server **không** được gửi `Snapshot` (ADR 0009 §4.3) — kể cả
+    // khi client xin ⇒ hết ngân sách chờ ⇒ `None`. Mọi frame `Snapshot` đã nằm sẵn trong
+    // hàng đợi (server phát sai ngay lúc `Start`) cũng bị đọc ra ở đây ⇒ assert đỏ đúng
+    // như trước, và cửa sổ quan sát dài hơn hẳn cửa sổ 50 ms cũ.
     for c in clients.iter_mut() {
+        let mut budget = WAIT_ROUNDS;
+        let request = SnapshotRequest {
+            round_id: u32::try_from(round).unwrap(),
+            last_snapshot_seq: 0,
+        };
         assert!(
-            try_recv_of::<Snapshot>(c, MessageKind::Snapshot, Duration::from_millis(50)).is_none(),
+            wait_snapshot_where(&mut server, c, 64, &mut budget, &request, |_| true).is_none(),
             "server không được gửi Snapshot khi phòng còn ở loading barrier"
         );
     }
@@ -1542,11 +1794,14 @@ fn closed_session_shuts_down_stuck_transport_and_threads() {
     }
     assert_eq!(server.session_count(), 0);
     assert!(shutdown_called.load(Ordering::SeqCst));
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while (!reader_done.load(Ordering::SeqCst) || !writer_done.load(Ordering::SeqCst))
-        && Instant::now() < deadline
-    {
-        std::thread::sleep(Duration::from_millis(1));
+    // Chờ hai luồng thoát theo **số vòng**, không theo hạn thời gian thật: tín hiệu
+    // shutdown đã bắn nên luồng thoát ngay khi được xếp lịch; trần số vòng giữ test
+    // không phụ thuộc tốc độ máy mà vẫn dừng khi lỗi thật.
+    for _ in 0..WAIT_ROUNDS {
+        if reader_done.load(Ordering::SeqCst) && writer_done.load(Ordering::SeqCst) {
+            break;
+        }
+        std::thread::yield_now();
     }
     assert!(
         reader_done.load(Ordering::SeqCst),
@@ -2520,17 +2775,15 @@ fn lossy_memory(seed: u64, loss_permille: u16) -> MemoryConfig {
 
 fn lossy_handshake(server: &mut Server, clients: &mut [WireClient], h: &HandshakeConfig) {
     for c in clients.iter_mut() {
-        let mut welcome = None;
-        for _ in 0..300 {
-            send(c, &hello(h.rules_hash));
-            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
-            if let Some(msg) =
-                try_recv_of::<Welcome>(c, MessageKind::Welcome, Duration::from_millis(250))
-            {
-                welcome = Some(msg);
-                break;
-            }
-        }
+        let mut budget = WAIT_ROUNDS;
+        let welcome = ask::<Hello, Welcome>(
+            server,
+            c,
+            0,
+            &mut budget,
+            &hello(h.rules_hash),
+            MessageKind::Welcome,
+        );
         assert!(welcome.is_some(), "không nhận Welcome qua mạng lossy");
     }
 }
@@ -2542,109 +2795,234 @@ fn retry_room_state(
     action: RoomActionDto,
     now: u64,
 ) -> RoomState {
-    for _ in 0..300 {
-        send_room(client, request, action.clone());
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if let Some(state) =
-            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(250))
-        {
-            return state;
-        }
-    }
-    panic!("không nhận RoomState sau retry");
+    let mut budget = WAIT_ROUNDS;
+    let state = ask::<RoomCommandDto, RoomState>(
+        server,
+        client,
+        now,
+        &mut budget,
+        &RoomCommandDto { request, action },
+        MessageKind::RoomState,
+    );
+    state.unwrap_or_else(|| panic!("không nhận RoomState sau retry"))
 }
 
 fn retry_ready(server: &mut Server, client: &mut WireClient, player: u64, request: u64, now: u64) {
-    for _ in 0..300 {
-        send_room(client, request, RoomActionDto::SetReady { ready: true });
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if let Some(state) =
-            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(250))
-            && state.members.iter().any(|m| m.player == player && m.ready)
-        {
-            return;
-        }
-    }
-    panic!("ready không tới server sau retry");
+    let mut budget = WAIT_ROUNDS;
+    let ready = ask_where::<RoomCommandDto, RoomState, _>(
+        server,
+        client,
+        now,
+        &mut budget,
+        &RoomCommandDto {
+            request,
+            action: RoomActionDto::SetReady { ready: true },
+        },
+        MessageKind::RoomState,
+        |state| state.members.iter().any(|m| m.player == player && m.ready),
+    );
+    assert!(ready.is_some(), "ready không tới server sau retry");
 }
 
 fn retry_start(server: &mut Server, client: &mut WireClient, request: u64, now: u64) -> RoundStart {
-    for _ in 0..300 {
-        send_room(client, request, RoomActionDto::Start);
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if let Some(start) =
-            try_recv_of::<RoundStart>(client, MessageKind::RoundStart, Duration::from_millis(250))
-        {
-            return start;
-        }
-    }
-    panic!("Start/RoundStart không qua mạng lossy");
+    let mut budget = WAIT_ROUNDS;
+    let start = ask::<RoomCommandDto, RoundStart>(
+        server,
+        client,
+        now,
+        &mut budget,
+        &RoomCommandDto {
+            request,
+            action: RoomActionDto::Start,
+        },
+        MessageKind::RoundStart,
+    );
+    start.unwrap_or_else(|| panic!("Start/RoundStart không qua mạng lossy"))
 }
 
 fn retry_loading(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
-    for _ in 0..300 {
+    let mut budget = WAIT_ROUNDS;
+    for _ in 0..SEND_ATTEMPTS {
+        let mut lost = false;
         for c in clients.iter_mut() {
-            send(c, &LoadingAck { round_id: round });
+            lost |= send_tracked(c, &LoadingAck { round_id: round });
         }
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if server.phase() == ServerPhase::Playing {
-            return;
+        if lost {
+            // Một `LoadingAck` bị mất: gửi lại cả loạt (ack lặp là idempotent).
+            continue;
         }
+        while budget > 0 {
+            budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            if server.phase() == ServerPhase::Playing {
+                return;
+            }
+            std::thread::yield_now();
+        }
+        // Hết ngân sách chờ: không gửi thêm.
+        break;
     }
     panic!("LoadingAck không vượt barrier sau retry");
 }
 
+/// Gửi input cho mọi người chơi và **chứng minh lệnh đã được áp dụng**.
+///
+/// Không chỉ kiểm `applied_seq`: lệnh bị *retire* (quá hạn) cũng làm `applied_seq` tăng mà
+/// vị trí **không đổi** (xem `late_input_is_retired_and_not_applied`), nên phải thấy **vị
+/// trí người chơi đổi** và hướng đã áp dụng trong `Snapshot`.
+///
+/// Các bước — không bước nào phụ thuộc lịch chạy thread hay đồng hồ thật:
+///
+/// 1. Gửi `InputBatch` (seq = 1) với hướng **chắc chắn đi được** từ ô người chơi đứng.
+///    Mạng nuốt frame thì gửi lại cả loạt (server dedup theo sequence).
+/// 2. **Đồng hồ server đứng yên** chờ luồng đọc của server lấy đủ frame: không tick nào
+///    chạy ⇒ lệnh đang chờ không bị retire vì đồng hồ chạy trước khi lệnh tới server.
+/// 3. Rào bằng `Ping` → `Pong` cho **từng** client: luồng đọc lấy frame theo thứ tự và
+///    server xử lý kênh vào theo thứ tự FIFO ⇒ `Pong` chứng minh batch input **đã được
+///    server xử lý** (mỗi kết nối một hàng đợi riêng nên phải rào từng client).
+/// 4. Tiến tới deadline tick kế tiếp tính từ rules và mốc bắt đầu round.
+///    Assert chỉ đúng một tick chạy, không dùng số lượt poll để tiến clock.
+/// 5. Kiểm state server **và** `Snapshot`: vị trí **đã đổi**, hướng đúng và ack đúng sequence.
 fn retry_input(
     server: &mut Server,
     clients: &mut [WireClient],
     players: &[PlayerId],
+    world: &World,
     round: u64,
     now: u64,
 ) {
-    for attempt in 0..100 {
+    let mut budget = WAIT_ROUNDS;
+    for _ in 0..SEND_ATTEMPTS {
+        // Vị trí trước lệnh + hướng chắc chắn đi được (để vị trí chắc chắn đổi khi áp dụng).
+        let mut before: Vec<(i32, i32)> = Vec::with_capacity(players.len());
+        let mut dirs: Vec<u8> = Vec::with_capacity(players.len());
+        for player in players {
+            let (x, y) = server
+                .authority()
+                .player_position(*player)
+                .expect("người chơi phải có vị trí trong trận");
+            before.push((x, y));
+            dirs.push(walkable_dir(world, x, y));
+        }
+
+        // 1. Gửi input.
+        let mut lost = false;
         for (index, _) in players.iter().enumerate() {
-            send(
-                &mut clients[index],
-                &InputBatch {
-                    round_id: u32::try_from(round).unwrap(),
-                    player: index as u8,
-                    ack_snapshot: 0,
-                    commands: vec![InputCommand {
-                        seq: 1,
-                        target_tick: server.authority().tick().unwrap_or(0).saturating_add(1),
-                        bits: InputBits::new(4, false).unwrap(),
-                    }],
-                },
+            let batch = InputBatch {
+                round_id: u32::try_from(round).unwrap(),
+                player: index as u8,
+                ack_snapshot: 0,
+                commands: vec![InputCommand {
+                    seq: 1,
+                    // Áp dụng ở tick hiện tại: tick kế tiếp là tick áp dụng lệnh này.
+                    target_tick: server.authority().tick().unwrap_or(0),
+                    bits: InputBits::new(dirs[index], false).unwrap(),
+                }],
+            };
+            lost |= send_tracked(&mut clients[index], &batch);
+        }
+        if lost {
+            // Input bị mất: gửi lại cả loạt (server dedup theo sequence).
+            continue;
+        }
+
+        // 2. Chờ server nhận đủ input — đồng hồ server đứng yên (không tick nào chạy).
+        if !wait_frames_delivered(server, clients, now, &mut budget) {
+            // Hết ngân sách chờ: không gửi thêm.
+            break;
+        }
+
+        // 3. Rào `Ping` → `Pong` cho **từng** client: mỗi kết nối có hàng đợi vào riêng,
+        //    nên chỉ rào client 0 không bảo đảm batch của client khác đã được xử lý.
+        for client in clients.iter_mut() {
+            wait_pong_barrier(server, client, now, &mut budget);
+        }
+
+        // 4. Tiến đúng một tick: tick này áp dụng lệnh input đang chờ.
+        let tick_before = server.authority().tick().expect("tick đang chơi");
+        let clock = now + 1_000 / u64::from(world.rules().ticks_per_second);
+        server.poll(clock, Duration::ZERO).expect("poll tick input");
+        let tick_after = server.authority().tick().expect("tick sau input");
+        assert_eq!(tick_after, tick_before + 1, "chỉ tiến đúng một tick");
+
+        // 5. Chứng minh lệnh **được áp dụng**: vị trí đổi, hướng đúng, ack đúng sequence.
+        for (index, _) in players.iter().enumerate() {
+            // State server (authority) trước khi kiểm snapshot: vị trí phải đã đổi.
+            let after = server
+                .authority()
+                .player_position(players[index])
+                .expect("người chơi phải có vị trí trong trận");
+            assert_ne!(
+                after, before[index],
+                "lệnh input của người chơi slot {index} không được áp dụng (vị trí không đổi)"
             );
-        }
-        let _ = server
-            .poll(
-                now.saturating_add(34 * (attempt + 1)),
-                Duration::from_millis(20),
+            let request = SnapshotRequest {
+                round_id: u32::try_from(round).unwrap(),
+                last_snapshot_seq: 0,
+            };
+            let snapshot = wait_snapshot_where(
+                server,
+                &mut clients[index],
+                clock,
+                &mut budget,
+                &request,
+                |snapshot| {
+                    snapshot.round_id == u32::try_from(round).unwrap()
+                        && snapshot.tick == tick_after
+                        && snapshot
+                            .players
+                            .iter()
+                            .any(|p| p.id == index as u8 && (p.x, p.y) != before[index])
+                },
             )
-            .unwrap();
-        if players
-            .iter()
-            .all(|player| server.authority().applied_seq(*player) == Some(1))
-        {
-            for c in clients.iter_mut() {
-                let _: Snapshot = recv_of(c, MessageKind::Snapshot);
-            }
-            return;
+            .unwrap_or_else(|| {
+                panic!(
+                    "lệnh input của người chơi slot {index} không được áp dụng (vị trí không đổi)"
+                )
+            });
+            let state = snapshot
+                .players
+                .iter()
+                .find(|p| p.id == index as u8)
+                .expect("snapshot phải có người chơi");
+            assert_eq!((state.x, state.y), after, "snapshot phải khớp authority");
+            assert_eq!(
+                state.facing, dirs[index],
+                "hướng người chơi slot {index} phải là hướng đã gửi"
+            );
+            let ack = snapshot
+                .acks
+                .iter()
+                .find(|a| a.player == index as u8)
+                .expect("snapshot phải có ack input");
+            assert_eq!(ack.last_seq, 1, "sequence 1 phải được giải quyết");
         }
+        return;
     }
     panic!("input không tới server sau retry");
 }
 
 fn retry_result_ack(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
-    for _ in 0..300 {
+    let mut budget = WAIT_ROUNDS;
+    for _ in 0..SEND_ATTEMPTS {
+        let mut lost = false;
         for c in clients.iter_mut() {
-            send(c, &ResultAck { round_id: round });
+            lost |= send_tracked(c, &ResultAck { round_id: round });
         }
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if server.phase() == ServerPhase::Waiting {
-            return;
+        if lost {
+            // `ResultAck` bị mất: gửi lại cả loạt (ack lặp là idempotent).
+            continue;
         }
+        while budget > 0 {
+            budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            if server.phase() == ServerPhase::Waiting {
+                return;
+            }
+            std::thread::yield_now();
+        }
+        // Hết ngân sách chờ: không gửi thêm.
+        break;
     }
     panic!("ResultAck không về Waiting sau retry");
 }
@@ -2656,6 +3034,8 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
         vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
     ] {
         let setup = setup();
+        // Giữ bản sao world để biết ô nào đi được (xác nhận input thật sự làm người chơi di chuyển).
+        let world = setup.world.clone();
         let a = Authority::new(ServerConfig::v1(), setup);
         let h = handshake_config(&a);
         let dir = tempfile::tempdir().unwrap();
@@ -2692,20 +3072,25 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
             .collect();
         lossy_handshake(&mut server, &mut clients, &h);
         authenticate(&mut server, &mut clients, &players);
+        // Chốt phiên còn sống sau bước auth: `Auth` lặp sẽ khiến server đóng phiên, và mọi
+        // yêu cầu sau đó không được trả lời (báo lỗi ở đây rõ hơn "không nhận LobbyList").
+        assert_eq!(
+            server.session_count(),
+            players.len(),
+            "mọi phiên phải còn sau bước auth"
+        );
 
-        let mut lobby = None;
-        for _ in 0..100 {
-            send(&mut clients[0], &LobbyListRequest {});
-            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
-            if let Some(list) = try_recv_of::<LobbyList>(
+        let lobby = {
+            let mut budget = WAIT_ROUNDS;
+            ask::<LobbyListRequest, LobbyList>(
+                &mut server,
                 &mut clients[0],
+                0,
+                &mut budget,
+                &LobbyListRequest {},
                 MessageKind::LobbyList,
-                Duration::from_millis(50),
-            ) {
-                lobby = Some(list);
-                break;
-            }
-        }
+            )
+        };
         assert!(lobby.is_some(), "không nhận LobbyList lossy");
 
         let state = retry_room_state(
@@ -2741,7 +3126,7 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
         assert_eq!(start.roster.len(), players.len());
         let round = start.round_id;
         retry_loading(&mut server, &mut clients, round, 0);
-        retry_input(&mut server, &mut clients, &players, round, 0);
+        retry_input(&mut server, &mut clients, &players, &world, round, 0);
 
         let _ = server.poll(200_000, Duration::ZERO).unwrap();
         for c in clients.iter_mut() {
@@ -2766,8 +3151,9 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
             &mut server,
             &mut clients,
             &players,
+            &world,
             start2.round_id,
-            200_016,
+            200_000,
         );
         let _ = server.poll(400_000, Duration::ZERO).unwrap();
         for c in clients.iter_mut() {

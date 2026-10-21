@@ -1,5 +1,7 @@
-# Không cần system explosion: lửa dựng sẵn trên khối mềm có item giấu.
-name = "Lửa trên khối mềm phá khối và lộ item giấu, một lần"
+# Không cần system explosion: ô bị vụ nổ phủ dựng sẵn trên khối mềm có item giấu.
+# BnB phá gạch lúc nổ (game.js:401–431), tức trước bước giảm TTL, nên phá gạch không phụ
+# thuộc tuổi lửa.
+name = "Ô bị vụ nổ phủ phá khối mềm và lộ item giấu, một lần"
 features = ["V1-016"]
 claims = ["R-030", "R-050", "R-067"]
 status = "active"
@@ -16,10 +18,8 @@ speed = [5, 7]
 bombs = [1, 10]
 range = [1, 7]
 
-[[flame]]
+[[blast]]
 cell = [2, 1]
-ticks = 3
-owner = 0
 
 [[hidden]]
 cell = [2, 1]
