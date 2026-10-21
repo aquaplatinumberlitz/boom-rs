@@ -112,6 +112,7 @@ consumer **không** được nâng lên `confirmed` chỉ vì entry có trong pa
 | `[[unknown]]` | bảng | Phần chưa xác định: `kind`, `id`, `reason`, `candidates` (tuỳ chọn) |
 | `[[clips]]` | bảng | Clip animation của V1, xem §3.2 |
 | `[[ui]]` | bảng | Phần tử UI của luồng V1, xem §3.3 |
+| `[[audio]]` | bảng | Cue âm thanh của V1 (BGM + SFX), xem §3.4; **chỉ schema 4** |
 
 ### 3.1 Sprite
 
@@ -262,7 +263,7 @@ status = "confirmed"                 # trạng thái bằng chứng (AGENTS §4)
   (mới biết entry trỏ tới pack KR, chưa xác nhận được payload).
 
 
-### 3.1 Bảng audio (schema 4)
+### 3.4 Bảng audio (schema 4)
 
 Nguồn: `data/assets/audio-v1.toml` (bảng event → entry của V1, có nhãn bằng chứng).
 
@@ -405,14 +406,14 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Sprite trong bundle | 70 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, vụ nổ, **9 ảnh UI**) |
 | Ảnh | 299 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1430 |
-| Audio V1 | 15 entry (1 BGM + 14 SFX), 496 KiB payload thô trong `audio/` (không commit) |
+| Audio V1 | 15 entry (1 BGM + 14 SFX), 467.063 byte (456,1 KiB) payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
 | Entry không phải ảnh | 4: BGM `FxSound/MP3/Village`, file map, 2 bảng chỉ số |
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
 | `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
-| `content_hash` | `80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc` |
+| `content_hash` | `80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc` (schema 4, **có** audio) |
 
 Cách kiểm lại:
 
@@ -426,6 +427,13 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
 trên gắn với bộ mã trong `Cargo.lock` hiện hành. Trước issue #121, giá trị ghi trong
 bảng này đã **stale** (đo trước khi bảng audio được thêm vào hash) nên không khớp với
 bundle dựng được; bảng được cập nhật lại theo lần đo mới.
+
+Giá trị hash của **schema 3** (bundle chưa có audio) là
+`27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2`; **không** dùng lại giá trị
+đó cho schema 4. Lần đo ngày 2026-10-20 (đã có bảng `[[audio]]`, schema 4) cho giá trị
+`6d74ad4f0462b87bf458d65d369bfb24d8a9923ad164f98c9008b7063ce87dc0` — dựng **hai lần** cho cùng
+hash và cùng byte file (atlas `page-000.png` 2048×1430, 665.372 byte) — nay đã cũ sau #121
+(manifest/closure đổi), nên bảng ở trên lấy giá trị đo mới.
 
 **Issue #123 (mapping → data):** giá trị `content_hash` ở trên **không đổi** khi bốn bảng
 mapping chuyển từ khai báo Rust sang `data/assets/*.toml` — bundle dựng từ data cho
@@ -554,7 +562,7 @@ Giới hạn đã biết:
 
 Ngoài quy ước đặt ảnh, client V1 còn phải chọn **clip nào** cho state core nào và
 **frame nào** trong clip đó. Đây là quyết định **design** của V1 (RULES_V1
-[R-085…R-089](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r085r089)),
+[R-085…R-089](../gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r-085r-089)),
 ghi ở đây để client, reviewer và công cụ đo dùng chung một công thức.
 
 1. **Chọn clip theo state core** (R-086):
@@ -664,8 +672,16 @@ chưa có consumer gốc xác nhận (Q-003).
 - **Lớp `Static`/`Adjust` chỉ ghi lại.** Thứ tự vẽ và cách blend của hai lớp chưa có
   consumer xác nhận (Q-003); bundle chỉ ghi lớp nào là lớp nào.
 - **`f2` chưa chốt.** Ngữ nghĩa field `flag` vẫn chưa biết; bundle giữ nguyên số.
-- **Không có BGM hay bảng chỉ số.** Entry không phải ảnh được ghi ở `[[assets]]` kèm lý do
-  để không bị bỏ qua âm thầm.
+- **BGM và SFX đã có trong bundle (schema 4).** 15 entry V1 nằm ở bảng `[[audio]]` (§3.4) với
+  payload thô trong `audio/<id>.<format>`: 1 BGM (`MP3/Village`) + 14 SFX — xem
+  [AUDIO_V1](AUDIO_V1.md). Entry **không phải ảnh còn lại** (file map, bảng chỉ số `Attr/*`) nằm ở
+  `[[assets]]` kèm lý do để không bị bỏ qua âm thầm.
+  Lưu ý: entry BGM của closure (`FxSound/MP3/Village`, vai trò `music`) **vẫn** được liệt kê ở
+  `[[assets]]` với lý do ghi sẵn của builder ("âm thanh nền: không phải ảnh, chưa đưa vào bundle") —
+  câu chữ đó **không còn đúng** vì payload BGM đã nằm ở `[[audio]]`/`audio/bgm_loop.ogg`
+  (đo 2026-10-20 trên `main` @ `32a6d81`, tái lập sau khi gộp `main` @ `f545f24`). Sửa câu chữ
+  trong builder sẽ **đổi `content_hash`**, nên tách task code riêng; ở đây chỉ ghi nhận là giới
+  hạn đã biết.
 - **Atlas đóng gói bằng thuật toán kệ (shelf).** Không tối ưu chặt chẽ; một trang 2048×2048
   chứa được toàn bộ ảnh Village00. Ảnh vượt trần 2048 px thì báo lỗi thay vì cắt.
 - **Chưa có bước kiểm pixel của client.** Bộ giải mã sprite đã khớp từng pixel với tool
@@ -676,11 +692,14 @@ chưa có consumer gốc xác nhận (Q-003).
   chỉ đọc sprite I16, và ảnh còn có chữ/nhãn ngoài scope V1. Các nền này ở trạng thái
   `excluded` kèm lý do; V1 dựng nền bằng màu, chữ lấy từ catalog. Muốn đưa nền vào
   bundle thì cần bộ giải mã JPEG (và bản ảnh đã che chữ) — quyết định kiến trúc, thuộc
-  integrator.
+  integrator. Claim: R-090 (nền là JPEG 800×600, `confirmed`) và R-091 (quyết định V1,
+  `design`) ở [RULES_V1 §12](../gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1).
 - **Ảnh có chữ chưa được duyệt.** 8/9 ảnh UI trong atlas có chữ, nên ở trạng thái
   `needs_review_text`: client chỉ hiển thị khi có quyết định duyệt ảnh
   ([IMAGE_REVIEW](../localization/IMAGE_REVIEW.md)), tới lúc đó vẽ text từ catalog. Bundle
-  **không** có trạng thái "đã duyệt" nên không thể vô tình hiển thị ảnh chưa duyệt.
+  **không** có trạng thái "đã duyệt" nên không thể vô tình hiển thị ảnh chưa duyệt. Claim:
+  R-092 (ảnh có chữ trong ảnh, `confirmed`) và R-093 (quyết định V1, `design`) ở
+  [RULES_V1 §12](../gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1).
 - **Bảng UI là quyết định của dự án.** Nó ghi trạng thái dùng và cách thay thế, không
   phải luật chơi; nhãn nguồn/trạng thái theo AGENTS §4 (`kr_static`/`confirmed` cho
   asset có thật, `design`/`design` cho phần tử không dùng asset nào).

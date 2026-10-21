@@ -2,7 +2,8 @@
 
 Tài liệu task **V1-026 phần 1 / issue #70**. `boom-replay` chạy replay xác định theo tick; golden là
 **regression baseline**, không phải oracle client gốc (AGENTS §4). Phần ghi replay từ trận
-`boom-server` thật thuộc V1-026 phần 2 (sau #60).
+`boom-server` thật là **V1-026 phần 2 / issue #87** và **đã làm** (`crates/boom-server/src/replay_log.rs`:
+ghi `round-<id>.toml` + `.golden` từ round do authority chốt, kèm verify cho round disconnect).
 
 ## 1. Header bắt buộc
 
@@ -81,8 +82,11 @@ Các ca sau trả lỗi rõ và exit ≠ 0 (test tự động ở `crates/boom-r
 
 ## 6. Chưa làm
 
-- Chưa ghi replay từ `boom-server`/trận thật; chưa có manifest content bundle (V1-026 phần 2).
+- ~~Chưa ghi replay từ `boom-server`/trận thật~~ → **đã làm** (V1-026 phần 2, issue #87:
+  `crates/boom-server/src/replay_log.rs`).
 - Chưa replay snapshot/delta; replay vẫn dựng trận từ setup + input theo tick.
-- Chưa chốt hash cho toàn bundle (chỉ map Terrain); `content_sha256` sẽ mở rộng khi có bundle.
+- Chưa chốt hash cho toàn bundle: `content_sha256` của replay hiện chỉ băm **Terrain** đã phân
+  loại; bundle đã có `content_hash` riêng ([BUNDLES §4](../assets/BUNDLES.md)) và replay sẽ mở
+  rộng theo đó.
 - `boom-replay` dùng `boom-assets` để đọc pack; edge dependency này cần integrator thêm vào
   ARCHITECTURE §1 khi merge (file ARCHITECTURE ngoài scope task).

@@ -56,8 +56,11 @@ Khôi phục round 120 s, trọng số VN và Bomb/Fire +1; giữ chỉ số KR 
 Bảng từng khóa và giới hạn ở RULES_V1 §11; BnB lấp chỗ trống, warmup 3 s giữ design.
 Không mở scope map/item/nhân vật ngoài V1; policy vận hành §3 giữ nguyên.
 
-Ghi chú tích hợp: PR #127 chưa merge tại thời điểm soạn; sau #127, ghép các sai khác của
-ADR 0013 vào sổ §10, giữ riêng số bảng confirmed với ý nghĩa drop chưa xác nhận.
+Ghi chú tích hợp: PR #127 đã ghép các sai khác của ADR 0013 vào sổ §10 (tổng hợp ở
+[§10.3](#103-nguồn-giá-trị-hiện-hành--adr-0012-và-adr-0013)), giữ riêng số bảng `confirmed` với
+ý nghĩa drop chưa xác nhận.
+
+Danh sách đầy đủ các sai khác có chủ ý **và** các khoảng trống fidelity còn chờ đo: [§10](#10-sai-khác-có-chủ-ý-so-với-client-gốc).
 
 ## 3. Policy phòng và vòng đời
 
@@ -172,3 +175,94 @@ START-A khảo sát dữ liệu/fixture và xuất bảng phân loại ô vào `
 START-B ghi claim vào [RULES_V1](../specification/gameplay/RULES_V1.md) và giá trị vào profile.
 Coding task có feature ID chỉ mở sau khi hợp đồng tương ứng được chốt và P3 kết luận.
 Đổi chính sách hoặc content của V1 phải sửa registry và docs trước khi giao tiếp task.
+
+## 10. Sai khác có chủ ý so với client gốc
+
+Sổ này tách hai loại khác biệt giữa engine V1 và client gốc (KR/VN):
+
+- **Sai khác chấp thuận** — quyết định scope/policy của V1, có claim hoặc ADR dẫn tới; giữ nguyên.
+- **Khoảng trống fidelity** — engine V1 đang khác client gốc (hoặc chưa biết) nhưng **chưa có
+  bằng chứng đo**; giữ nguyên cho tới khi đo được, không tự coi là đã khớp.
+
+Sổ **không đổi scope** và **không tạo feature**: nó ghi lại điều đã quyết để reviewer đối chiếu
+và để báo cáo sai khác (V1-037) có một danh sách chuẩn. Mọi mục "chờ đo" nằm trong
+[QUESTIONS](../research/QUESTIONS.md); kế hoạch lấy oracle và phương pháp đo ở **Q-009**.
+
+Mỗi mục có ít nhất một claim trong [RULES_V1](../specification/gameplay/RULES_V1.md) hoặc ADR dẫn
+tới; mức bằng chứng của claim ghi theo [AGENTS §4](../../AGENTS.md#4-bằng-chứng). Mục nào cần
+thêm dẫn spec (phần đó không có claim riêng) thì ghi spec đó kèm theo ở cột *Nguồn*.
+
+Cột *V1* ghi **giá trị đang dùng** kèm nguồn của nó, theo thứ tự ưu tiên
+[ADR 0013](../decisions/0013-rule-source-precedence.md) (KR `confirmed` → VN `confirmed` → BnB
+`design` → `design` riêng; chỉ so **cùng đại lượng, đơn vị, ngữ cảnh**). Bằng chứng gốc của
+client KR/VN và nhãn của nó **giữ nguyên**; quyết định cũ của
+[ADR 0012](../decisions/0012-v1-rules-from-bnb.md) (BnB đè giá trị gốc) chỉ còn hiệu lực ở chỗ
+ADR 0013 **không** tìm được nguồn `confirmed` cùng đại lượng. Bảng từng khóa, nhãn và giới hạn áp
+dụng nằm ở [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013).
+Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành--adr-0012-và-adr-0013).
+
+### 10.1 Sai khác chấp thuận cho V1
+
+| # | Sai khác | Client gốc | V1 | Nguồn |
+|---|---|---|---|---|
+| D-01 | Bảng rơi item của map | `Village00` rơi **6 loại Lucci** (`kr_static` / confirmed); bảng ItemAttr của client VN ghi trọng số Bomb/Fire/Roller **3650/2800/2000** (`vn_static` / confirmed) nhưng **vai trò bảng còn `unknown`** | Profile riêng: chỉ **Bomb/Fire/Roller**, trọng số **3650:2800:2000** (số bảng VN — dùng làm trọng số ba item V1 là quyết định áp dụng, **không** gọi là xác suất drop gốc); xác suất gạch có item **35%** (`oss` / design, xem G-09); giữ nguyên map asset làm bằng chứng | R-055, R-051, R-052, R-112 (lịch sử: R-067 → R-106 → R-112) ([RULES_V1 §5](../specification/gameplay/RULES_V1.md#5-item-rơi-và-nhặt); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)); [ADR 0013](../decisions/0013-rule-source-precedence.md); SCOPE_V1 §2 |
+| D-02 | Chủ phòng và ready | Chủ phòng **không** bấm ready | Chủ phòng **cũng phải** ready | R-063 ([RULES_V1 §7](../specification/gameplay/RULES_V1.md#7-vòng-đời-trận-và-phòng-legacy-vn)); SCOPE_V1 §3 |
+| D-03 | Ai quyết kết quả và vị trí người chơi | Client tự mô phỏng di chuyển, đồng bộ P2P qua UDP; server gốc thất lạc | Server authoritative; client chỉ dự đoán di chuyển của mình, state đồng bộ bằng snapshot | [ADR 0005](../decisions/0005-authority-and-prediction.md); R-047, R-066; SCOPE_V1 §1 |
+| D-04 | Nền màn hình (JPEG) | Nền login/lobby/prepare là JPEG 800×600 có chữ nằm trong ảnh (KR: chữ Hàn; bản VN: nền login **không** có chữ Việt) | Không đưa nền vào atlas; dựng nền bằng màu, chữ lấy từ catalog | R-090 (`kr_static`+`vn_static` / confirmed), R-091 (`design` / design) ([RULES_V1 §12](../specification/gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1)); [BUNDLES §8](../specification/assets/BUNDLES.md#8-giới-hạn-đã-biết); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+| D-05 | Ảnh UI có chữ | Ảnh nút/hộp thoại có chữ nằm trong ảnh (KR: chữ Hàn ở nút/dialog, chữ Latin ở art kết quả; bản VN: nút/dialog đọc được chữ Việt, art kết quả **chưa đọc rõ**) | Ảnh `needs_review_text` chưa duyệt ⇒ client **vẽ text từ catalog** thay | R-092 (`kr_static`+`vn_static` / confirmed), R-093 (`design` / design) ([RULES_V1 §12](../specification/gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1)); [BUNDLES §3.3](../specification/assets/BUNDLES.md#33-phần-tử-ui); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+| D-06 | Mô hình phòng và cách xếp kết quả | 16 slot trạng thái, đội, kết quả theo hạng mỗi slot và cột bắt/cứu/EXP/tiền | FFA 2–4 người, một kết quả mỗi lượt, hòa khi hết giờ | R-062, R-065 ([RULES_V1 §7](../specification/gameplay/RULES_V1.md#7-vòng-đời-trận-và-phòng-legacy-vn)); [VN_ENGINE_DIFF](../research/findings/VN_ENGINE_DIFF.md) |
+| D-07 | Số map chơi được | 1.151 map trong pack KR, nhiều mode | Một map cố định `Village00` | R-002, R-070, R-071 ([RULES_V1 §1](../specification/gameplay/RULES_V1.md#1-lưới-và-map)); SCOPE_V1 §1 |
+| D-08 | Chỉ số nhân vật (speed/bomb/range) | KR `BomberAttr` C00 f2–f7 = `5,7,1,10,1,7`, C01 = `4,8,2,7,1,9` (`kr_static` / confirmed — **số** đã đọc); **nghĩa trường** (speed/bomb/range) còn `candidate` | Giữ nguyên 12 khóa `characters.c00_*`/`c01_*` theo số KR — ngoại lệ `candidate` có chủ ý; **không** dùng template cân bằng BnB (R-105 đã bị thay) | R-040, R-041, R-042, R-117 (lịch sử: R-105) ([RULES_V1 §4](../specification/gameplay/RULES_V1.md#4-nhân-vật-và-tốc-độ); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)); [ADR 0013](../decisions/0013-rule-source-precedence.md) |
+
+### 10.2 Khoảng trống fidelity — chờ đo
+
+| # | Sai khác | Client gốc (mức bằng chứng) | V1 (giá trị đang dùng) | Nguồn | Câu hỏi |
+|---|---|---|---|---|---|
+| G-01 | Thời lượng frame animation | Pack **không** mang thời lượng; consumer chưa định vị được (`unknown`) | 100 ms cho mọi clip (`design` — ADR 0013 giữ nhịp này vì BnB không có nhịp clip KR) | R-079, R-085, R-118 ([RULES_V1 §8](../specification/gameplay/RULES_V1.md#8-animation-và-trình-diễn-v1); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)); [BUNDLES §7.1](../specification/assets/BUNDLES.md#71-chọn-clip-và-frame-v1) | Q-003 |
+| G-02 | Hình lửa theo hướng | Clip lửa 100 frame gộp thân/đuôi/nhánh (`candidate`) | Mọi ô lửa dùng **dải frame lõi 28..=59** (`design`) | R-078, R-087; [BUNDLES §7.1](../specification/assets/BUNDLES.md#71-chọn-clip-và-frame-v1) | Q-003 |
+| G-03 | Chuỗi chết | Clip chết kết thúc bằng ảnh rỗng 0×0 (dữ liệu `confirmed`) | Sổ trình diễn (R-089): chuỗi chết phát **trọn clip**, xong nhân vật giữ **khung cuối có ảnh**; nếu clip không có khung nào có ảnh thì **không vẽ**. Ở chế độ mạng chưa nối event server vào sổ (#114) nên chưa có chuỗi chết để phát | R-077, R-086, R-089 ([RULES_V1 §8.1](../specification/gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r-085r-089)); [BUNDLES §7.2](../specification/assets/BUNDLES.md#72-sổ-trình-diễn-v1) | Q-003 |
+| G-04 | Fuse bom | Chưa biết (`unknown`); emulator tự đặt 2,5 s | 2,5 s (`oss` / design — BnB) | R-021, R-022, R-115 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-006 |
+| G-05 | Nhốt → chết | Đo được khoảng packet **6,359 s** (`vn_runtime` / confirmed) — là khoảng packet có xử lý/gửi, **không** phải timer nội bộ | **4 s** (`oss` / design — BnB); **không** phải 6,30 s cũ của R-076 (claim đã superseded) | R-026, R-076 (superseded), R-115 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-006 |
+| G-06 | Tốc độ nhân vật | Quan sát thô 5→6 px/tick ở 30 ms, checksum chưa xác thực (`candidate`) | **24 px/s mỗi cấp** (`oss` / design — BnB); **không** phải 33 px/s cũ của R-075 (claim đã superseded) | R-043, R-045, R-075 (superseded), R-114 ([RULES_V1 §4](../specification/gameplay/RULES_V1.md#4-nhân-vật-và-tốc-độ); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-005 |
+| G-07 | Nhịp tick | 30 ms/bước đo được ở **client** (`vn_runtime` / confirmed) — **không** xác nhận tick server | **30 Hz** (`oss` / design — BnB); 33 Hz cũ của R-074 đã superseded | R-013, R-074 (superseded), R-113 ([RULES_V1 §2](../specification/gameplay/RULES_V1.md#2-trận-và-thời-gian); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-004 |
+| G-08 | Người bị nhốt có di chuyển không | "Đi rất chậm" (`web`/`candidate`), chưa có px/s | Đứng yên (`design` — R-036; BnB cũng đứng yên nên cơ chế này giữ theo ADR 0012) | R-029, R-036, R-108 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-005 |
+| G-09 | Xác suất gạch có item | Chưa biết (`unknown`); OSS dùng 0,35 (`candidate`) | **35%** (350 permille; `oss` / design — BnB) | R-053, R-067 (superseded), R-112 ([RULES_V1 §5](../specification/gameplay/RULES_V1.md#5-item-rơi-và-nhặt); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-007 |
+| G-10 | Âm thanh event→entry | Chưa có trace consumer; A10 của `features.md` còn "chưa điều tra" | Mapping event→entry và policy chồng tiếng là `design` | R-082, R-083 ([RULES_V1 §10](../specification/gameplay/RULES_V1.md#10-âm-thanh)); [AUDIO_V1](../specification/assets/AUDIO_V1.md) | Q-015 |
+| G-11 | Ảnh UI đã Việt hóa | Bản VN có ảnh chữ Việt ở nút/dialog (`vn_static` / confirmed); art kết quả của bản VN chưa đọc rõ; chưa có quyết định duyệt nào | 3.038 ảnh `pending`; 8 ảnh của luồng V1 chờ duyệt | R-092 (`kr_static`+`vn_static` / confirmed), R-093 (`design` / design) ([RULES_V1 §12](../specification/gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1)); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1); [IMAGE_REVIEW](../specification/localization/IMAGE_REVIEW.md) | Q-012 |
+
+Các mục "chờ đo" **không** phải lỗi đã biết: phần lớn là chỗ V1 tự chọn giá trị khi client gốc
+chưa có bằng chứng. Việc đo client gốc **đang hoãn** (chủ dự án sẽ lấy oracle sau: client BnB
+Trung Quốc qua tài khoản test, hoặc thông số công khai trên mạng với nhãn `web`/`candidate`);
+nguồn oracle, phương pháp đo độ lặp và cách lưu bằng chứng nằm ở **Q-009**.
+
+### 10.3 Nguồn giá trị hiện hành — ADR 0012 và ADR 0013
+
+Sổ trên ghi **giá trị đang dùng**. Nguồn của từng giá trị sau ADR 0013 chia làm ba nhóm, và
+sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
+
+- **Đã về gốc KR/VN** (khôi phục nguồn `confirmed` cùng đại lượng): thời hạn vòng **120 s** và
+  cỡ ô **40 px** (R-110), **Bomb/Fire +1** (R-111), trọng số rơi **3650:2800:2000** (R-112 —
+  *số* bảng VN `confirmed`, vai trò bảng vẫn `unknown` R-052, nên áp làm trọng số ba item V1 là
+  quyết định áp dụng chứ không phải xác suất drop gốc), chỉ số C00/C01 theo `BomberAttr` KR
+  (R-117 — ngoại lệ `candidate` có chủ ý, xem D-08). Theo ADR 0012/trước ADR 0013 các giá trị này
+  đã bị BnB đè (ví dụ vòng 120→180 s); nay về lại giá trị gốc, **bằng chứng gốc không bị hạ nhãn**.
+- **Vẫn theo BnB** (`oss` / `design`) vì chưa có nguồn `confirmed` cùng đại lượng: nhịp tick
+  **30 Hz** (R-113 — R-013 chỉ đo bước *client*, không xác nhận tick server), warmup **3 s**
+  (R-113), tốc độ **24 px/s mỗi cấp** (R-114 — R-043 còn `candidate`), fuse/lửa/nhốt
+  **2500/500/4000 ms** (R-115 — R-026 là khoảng packet, không phải timer nội bộ), hộp va chạm
+  **26×26 px** / assist **12 px** / khoảng chạm **28 px** (R-116), Roller **+1 cấp** (R-111),
+  xác suất gạch có item **35%** (R-112 — R-053 `unknown`).
+- **`design` riêng** (BnB **không** cung cấp cùng đại lượng, nên **không** phải lựa chọn từ BnB):
+  nhịp clip **100 ms** (R-118 — R-079 `unknown`; ADR 0013 giữ `design` riêng vì BnB không có nhịp
+  clip KR).
+
+**Profile đã đổi giá trị, cơ chế thì chưa.** Profile
+[`v1-dev`](../../data/rules/v1-dev.toml) đã mang giá trị R-110…R-118, nhưng các **cơ chế** BnB
+đi kèm còn chờ task triển khai: **#130** (movement/hitbox/assist, bomb pass — đã merge), **#131**
+(drop khi vỡ gạch, lửa và item, nhặt tại cap), **#132** (chạm/nhốt, chuỗi lửa, warmup, thứ tự
+kết quả). **#133** không còn là chỉ dẫn chọn template BnB — chỉ số giữ theo KR (R-117). Sổ này
+ghi **giá trị đã chọn**, không khẳng định engine đã chạy theo; xem [ADR 0012](../decisions/0012-v1-rules-from-bnb.md)
+và [ADR 0013](../decisions/0013-rule-source-precedence.md).
+
+**Số liệu không suy ra từ phần trăm.** Tỷ lệ feature `done` và số claim `confirmed` **không**
+phải % fidelity; xem [REWRITE_PLAN §Nguyên tắc fidelity](REWRITE_PLAN.md#nguyên-tắc-fidelity-và-đo-nguồn).
