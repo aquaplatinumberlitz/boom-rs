@@ -150,6 +150,14 @@ impl AuthRuntime {
     }
 }
 
+/// Tên hiển thị **fallback** khi account store không còn giữ tài khoản.
+///
+/// Thành viên đã mất phiên dùng `player{account_id}` — giống `RoomChatMessage.from_name` — để
+/// UI không hiện dòng rỗng (ADR 0009 Addendum B §B.6).
+pub(crate) fn fallback_display_name(account: PlayerId) -> String {
+    format!("player{}", account.0)
+}
+
 #[derive(Clone, Debug)]
 struct AuthSession {
     /// ID tài khoản: **định danh người chơi trong phòng/round** (ADR 0009 Addendum B §B.2).
@@ -337,6 +345,20 @@ impl Server {
     /// Kết nối đang giữ một định danh người chơi trong phòng.
     fn connection_of(&self, account: PlayerId) -> Option<PlayerId> {
         self.by_account.get(&account).copied()
+    }
+
+    /// Tên hiển thị của một định danh người chơi (`account_id`), lấy từ account store.
+    ///
+    /// Tên hiển thị do **server** điền (ADR 0009 Addendum B §B.6): client không khai tên.
+    /// Thành viên đã mất phiên (không còn session giữ `account_id`) dùng fallback
+    /// [`fallback_display_name`] — giống `RoomChatMessage.from_name` — để UI không hiện dòng
+    /// rỗng.
+    fn display_name_of(&self, account: PlayerId) -> String {
+        self.connection_of(account)
+            .and_then(|connection| self.sessions.get(&connection))
+            .and_then(|session| session.account.as_ref())
+            .map(|account| account.display_name.clone())
+            .unwrap_or_else(|| fallback_display_name(account))
     }
 
     /// Định danh người chơi trong phòng mà một kết nối được bind.
@@ -919,7 +941,17 @@ impl Server {
     }
 
     fn send_room_state(&mut self, view: &RoomView) -> Result<(), ServerError> {
-        let state = to_room_state(view);
+        let mut state = to_room_state(view);
+        // Tên hiển thị: **server** điền từ account store sau adapter (adapter không suy diễn
+        // tên — ADR 0009 Addendum B §B.6).
+        for member in &mut state.members {
+            member.name = self.display_name_of(PlayerId(member.player));
+        }
+        if let Some(round) = state.round.as_mut() {
+            for member in &mut round.members {
+                member.name = self.display_name_of(PlayerId(member.player));
+            }
+        }
         // `view.members` mang **định danh người chơi** (`account_id`); gửi về kết nối đang giữ nó.
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
         for account in members {
@@ -941,15 +973,9 @@ impl Server {
         let views: Vec<RoomView> = self.authority.room_view().into_iter().collect();
         let mut list = to_lobby_list(&views);
         for room in &mut list.rooms {
-            // `host` là định danh người chơi (`account_id`) ⇒ tên hiển thị lấy từ session đang giữ nó.
-            let name = self
-                .connection_of(PlayerId(room.host))
-                .and_then(|connection| self.sessions.get(&connection))
-                .and_then(|session| session.account.as_ref())
-                .map(|account| account.display_name.clone());
-            if let Some(name) = name {
-                room.name = name;
-            }
+            // `LobbyRoom.name` là **tên hiển thị của chủ phòng** (ADR 0009 Addendum B §B.6):
+            // `host` là định danh người chơi (`account_id`) ⇒ tên lấy từ account store.
+            room.name = self.display_name_of(PlayerId(room.host));
         }
         list
     }
@@ -980,9 +1006,14 @@ impl Server {
         if view.round.is_none() {
             return Ok(());
         }
-        let Some(roster) = to_room_state(&view).round else {
+        let Some(mut roster) = to_room_state(&view).round else {
             return Ok(());
         };
+        // Tên hiển thị trong roster: server điền từ account store (ADR 0009 Addendum B §B.6).
+        // Roster là bản **lịch sử**: người đã rời phòng sau `Start` vẫn có tên.
+        for member in &mut roster.members {
+            member.name = self.display_name_of(PlayerId(member.player));
+        }
         let Some(seed) = self.authority.round_seed() else {
             return Ok(());
         };
@@ -1052,7 +1083,7 @@ impl Server {
             .get(&connection)
             .and_then(|session| session.account.as_ref())
             .map(|account| account.display_name.clone())
-            .unwrap_or_else(|| format!("player{}", room_player.0));
+            .unwrap_or_else(|| fallback_display_name(room_player));
         let message = RoomChatMessage {
             room_id: view.id.0,
             // `from` là định danh người chơi (`account_id`).

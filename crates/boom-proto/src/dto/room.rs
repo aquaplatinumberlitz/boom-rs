@@ -48,20 +48,33 @@ pub enum RoomPhase {
 }
 
 /// Một thành viên trong `RoomState`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `name` là **tên hiển thị**, do **server** điền từ account store (`AuthOk.display_name`),
+/// không phải client khai (ADR 0005, ADR 0009 Addendum B §B.6). `name` là field **cuối** ⇒
+/// không đổi thứ tự/kiểu của field cũ (thay đổi đó mới là tăng `wire_schema`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomMember {
     pub player: u64,
     pub slot: u8,
     pub character: RoomCharacter,
     pub ready: bool,
+    /// Tên hiển thị của thành viên (server điền; xem ADR 0009 Addendum B §B.6).
+    #[serde(deserialize_with = "de_name")]
+    pub name: String,
 }
 
 /// Một thành viên roster đã chốt lúc start.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `name` là **tên hiển thị** như [`RoomMember::name`]: server điền từ account store, kể cả
+/// người đã rời phòng sau `Start` (roster là bản lịch sử — ADR 0009 Addendum B §B.2/§B.6).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoundMember {
     pub player: u64,
     pub slot: u8,
     pub character: RoomCharacter,
+    /// Tên hiển thị của thành viên roster (server điền; xem ADR 0009 Addendum B §B.6).
+    #[serde(deserialize_with = "de_name")]
+    pub name: String,
 }
 
 /// Round đã chốt trong `RoomState`.
@@ -266,6 +279,24 @@ where
     bounded_str::<D, WIRE_MAX_NAME_BYTES>(d)
 }
 
+/// Kiểm độ dài một tên hiển thị theo miền phiên (`MAX_NAME_BYTES`).
+///
+/// Tên hiển thị do server điền (ADR 0009 Addendum B §B.6) nhưng client vẫn kiểm: miền phiên
+/// là hợp đồng của **cả hai** đầu, tên vượt trần là lỗi giao thức (không phải lỗi hiển thị).
+fn check_name(field: &'static str, name: &str, limits: &ProtocolLimits) -> Result<(), ProtoError> {
+    if name.len() > limits.max_name_bytes {
+        return Err(ProtoError::Invalid {
+            field,
+            detail: format!(
+                "{} byte vượt trần {} byte",
+                name.len(),
+                limits.max_name_bytes
+            ),
+        });
+    }
+    Ok(())
+}
+
 fn de_chat<'de, D>(d: D) -> Result<String, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -299,6 +330,7 @@ impl RoomState {
                 });
             }
             players.push(member.player);
+            check_name("room.members.name", &member.name, limits)?;
         }
         if !players.contains(&self.host) {
             return Err(ProtoError::Invalid {
@@ -314,6 +346,11 @@ impl RoomState {
                 len: round.members.len(),
                 max: limits.max_players,
             });
+        }
+        if let Some(round) = &self.round {
+            for member in &round.members {
+                check_name("room.round.members.name", &member.name, limits)?;
+            }
         }
         Ok(())
     }
@@ -401,6 +438,9 @@ impl RoundStart {
                 len: self.roster.len(),
                 max: limits.max_players,
             });
+        }
+        for member in &self.roster {
+            check_name("round_start.roster.name", &member.name, limits)?;
         }
         Ok(())
     }
@@ -494,6 +534,7 @@ mod tests {
                 slot: 0,
                 character: RoomCharacter::C00,
                 ready: true,
+                name: "a".into(),
             }],
             round: None,
         }
@@ -512,6 +553,25 @@ mod tests {
         assert_eq!(bytes, vec![0x2a, 0x01, 0x03, 0x01]);
         let decoded: RoomCommand = decode_payload(&bytes).unwrap();
         assert_eq!(decoded, cmd);
+    }
+
+    /// Golden byte của `RoomState` **có** tên hiển thị (ADR 0009 Addendum B §B.6).
+    ///
+    /// `RoomState { room_id=1, host=7, phase=Waiting, members=[{player=7, slot=0, C00,
+    /// ready=true, name="a"}], round=None }`:
+    /// `01` room_id · `07` host · `00` phase · `01` số member · `07` player · `00` slot ·
+    /// `00` character · `01` ready · `01` độ dài tên · `61` byte 'a' · `00` round = None.
+    #[test]
+    fn room_state_golden_bytes_with_display_name() {
+        let bytes = encode_payload(&room_state()).unwrap();
+        assert_eq!(
+            bytes,
+            vec![
+                0x01, 0x07, 0x00, 0x01, 0x07, 0x00, 0x00, 0x01, 0x01, 0x61, 0x00
+            ]
+        );
+        let decoded: RoomState = decode_payload(&bytes).unwrap();
+        assert_eq!(decoded, room_state());
     }
 
     #[test]
@@ -557,6 +617,7 @@ mod tests {
                 player: 7,
                 slot: 0,
                 character: RoomCharacter::C00,
+                name: "a".into(),
             }],
             start_tick: 0,
         });
@@ -616,10 +677,85 @@ mod tests {
                 slot: slot as u8,
                 character: RoomCharacter::C00,
                 ready: false,
+                name: "a".into(),
             })
             .collect();
         state.host = 0;
         assert!(state.check(&limits).is_err());
+    }
+
+    /// Tên hiển thị vượt trần phiên bị từ chối bằng lỗi có kiểu (ADR 0009 Addendum B §B.6).
+    ///
+    /// Tên quá trần **định dạng** (`WIRE_MAX_NAME_BYTES`) bị chặn lúc decode; tên vượt trần
+    /// **phiên** (`MAX_NAME_BYTES`) decode được rồi bị `check` từ chối — cùng cách
+    /// `LobbyRoom.name` làm.
+    #[test]
+    fn ten_hoi_thi_vuot_tran_phien_bi_tu_choi() {
+        let limits = ProtocolLimits::v1();
+
+        let mut state = room_state();
+        state.members[0].name = "x".repeat(limits.max_name_bytes + 1);
+        let error = state
+            .check(&limits)
+            .expect_err("tên vượt trần phải bị từ chối");
+        assert!(
+            matches!(&error, ProtoError::Invalid { field, .. } if *field == "room.members.name"),
+            "lỗi phải nêu đúng trường, thấy {error:?}"
+        );
+
+        let mut state = room_state();
+        state.round = Some(RoundInfo {
+            id: 1,
+            members: vec![RoundMember {
+                player: 7,
+                slot: 0,
+                character: RoomCharacter::C00,
+                name: "x".repeat(limits.max_name_bytes + 1),
+            }],
+        });
+        let error = state
+            .check(&limits)
+            .expect_err("tên roster vượt trần phải bị từ chối");
+        assert!(
+            matches!(&error, ProtoError::Invalid { field, .. } if *field == "room.round.members.name"),
+            "lỗi phải nêu đúng trường, thấy {error:?}"
+        );
+
+        let start = RoundStart {
+            round_id: 1,
+            seed: 2,
+            rules_profile_id: "p".into(),
+            rules_hash: 3,
+            content_sha256: [0; 32],
+            map: "Village00".into(),
+            mode: "battle_ffa".into(),
+            roster: vec![RoundMember {
+                player: 7,
+                slot: 0,
+                character: RoomCharacter::C00,
+                name: "x".repeat(limits.max_name_bytes + 1),
+            }],
+            start_tick: 0,
+        };
+        let error = start
+            .check(&limits)
+            .expect_err("tên roster vượt trần phải bị từ chối");
+        assert!(
+            matches!(&error, ProtoError::Invalid { field, .. } if *field == "round_start.roster.name"),
+            "lỗi phải nêu đúng trường, thấy {error:?}"
+        );
+    }
+
+    /// Tên vượt trần **định dạng** bị chặn lúc decode (không cấp phát theo length prefix).
+    #[test]
+    fn ten_hoi_thi_vuot_tran_dinh_dang_bi_tu_choi_luc_decode() {
+        let mut state = room_state();
+        state.members[0].name = "x".repeat(WIRE_MAX_NAME_BYTES + 1);
+        let bytes = encode_payload(&state).unwrap();
+        assert!(
+            decode_payload::<RoomState>(&bytes).is_err(),
+            "tên vượt trần định dạng phải bị từ chối lúc decode"
+        );
     }
 
     #[test]
@@ -632,11 +768,13 @@ mod tests {
                     player: 7,
                     slot: 0,
                     character: RoomCharacter::C00,
+                    name: "a".into(),
                 },
                 RoundMember {
                     player: 8,
                     slot: 1,
                     character: RoomCharacter::C01,
+                    name: "b".into(),
                 },
             ],
         });

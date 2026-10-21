@@ -614,6 +614,7 @@ mod tests {
                     slot: 0,
                     character: boom_proto::RoomCharacter::C00,
                     ready: false,
+                    name: "a".into(),
                 }],
                 round: None,
             };
