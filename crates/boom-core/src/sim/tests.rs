@@ -164,6 +164,35 @@ fn round_ends_on_time_limit_as_draw() {
 }
 
 #[test]
+fn warmup_freezes_the_round_and_the_clock_starts_after_it() {
+    // R-100: 90 tick đóng băng đầu lượt (không system nào chạy) rồi đồng hồ lượt mới chạy,
+    // nên hết giờ ở tick warmup + round_ticks chứ không phải round_ticks.
+    let mut r = rules();
+    r.warmup_ticks = 90;
+    let w = World::new(
+        Terrain::from_ascii(&["0.1"]).unwrap(),
+        r,
+        mode_by_id("battle_ffa").unwrap(),
+    )
+    .unwrap();
+    let mut s = SimulationState::new_round(&w, &[setup(0), setup(1)], 0).unwrap();
+    let mut events = Vec::new();
+    let idle = [PlayerInput::default(); 2];
+
+    for _ in 0..90 {
+        s.step(&w, &idle, &mut events).unwrap();
+    }
+    assert_eq!(s.phase, Phase::Playing, "warmup chưa kết thúc lượt");
+    assert!(events.is_empty(), "warmup không phát event");
+
+    for _ in 0..w.rules().round_ticks {
+        s.step(&w, &idle, &mut events).unwrap();
+    }
+    assert_eq!(s.phase, Phase::Ended(Outcome::Draw));
+    assert_eq!(s.tick, 90 + w.rules().round_ticks);
+}
+
+#[test]
 fn last_player_not_dead_wins_and_trapped_still_counts() {
     let w = world(&["0.1"]);
     let mut s = SimulationState::new_round(&w, &[setup(0), setup(1)], 0).unwrap();

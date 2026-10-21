@@ -1,0 +1,84 @@
+# Chuỗi nổ trong cùng tick, gạch chắn chuỗi (R-109, BnB `server/game.js:401–431`).
+# Bom A (1,2) nổ tick 10, lửa phủ ô (2,2) là gạch mềm — gạch **bị phá sau khi hàng đợi nổ
+# rỗng**. Bom B (2,3) cùng nổ tick 10 nhưng lửa của B bị gạch (2,2) chắn nên không sang ô
+# (2,1) ⇒ bom C ở (2,1) không nổ dây chuyền.
+name = "Gạch chắn chuỗi nổ: bom sau không nổ dây chuyền"
+features = ["V1-015"]
+claims = ["R-030", "R-109"]
+status = "active"
+ticks = 12
+map = [
+    "#########",
+    "#.......#",
+    "#.+.....#",
+    "#.......#",
+    "#########",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [6, 1]
+
+[[bomb]]
+cell = [1, 2]
+owner = 0
+range = 1
+fuse = 10
+
+[[bomb]]
+cell = [2, 3]
+owner = 0
+range = 2
+fuse = 10
+
+[[bomb]]
+cell = [2, 1]
+owner = 0
+range = 1
+fuse = 1000
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+count = 2
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 1, y = 2, chained = 0 }
+count = 1
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 2, y = 3, chained = 0 }
+count = 1
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+where = { x = 2, y = 1 }
+count = 0
+
+[[expect]]
+tick = 11
+bomb_count = 1
+
+[[expect]]
+tick = 11
+at = [2, 1]
+bomb = true
+flame = false
+
+[[expect]]
+tick = 11
+at = [2, 2]
+kind = "floor"
+flame = true
+
+[[expect]]
+tick = 12
+bomb_count = 1

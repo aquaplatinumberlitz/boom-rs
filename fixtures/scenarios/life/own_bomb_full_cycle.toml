@@ -1,5 +1,9 @@
+# Bom đặt tick 0 nổ tick 150 (fuse 2500 ms = 150 tick ở 60 Hz); người chơi đứng trên bom của
+# mình bị lửa bắt ở tick 150 rồi chết khi hết timer nhốt: 150 + 378 - 1 = 527 (timer nhốt tính
+# cả tick bị nhốt, R-108).
 name = "Đứng trên bom của mình: nổ, bị nhốt, hết giờ nhốt thì chết"
 features = ["V1-013", "V1-014", "V1-020"]
+claims = ["R-108"]
 status = "active"
 ticks = 600
 map = [
@@ -31,7 +35,7 @@ where = { player = 0 }
 count = 1
 
 [[expect]]
-tick = 529
+tick = 528
 event = "player_died"
 where = { player = 0, by = -1 }
 count = 1

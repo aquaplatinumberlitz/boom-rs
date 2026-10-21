@@ -1,4 +1,4 @@
-# Khối mềm không giấu item: lửa phá khối nhưng không lộ item nào.
+# Khối mềm không giấu item: vụ nổ phá khối nhưng không lộ item nào.
 # seed 1: ô (2,1) rút 465‰ nên không giấu item (`drop.brick_item_chance` = 350‰).
 name = "Khối mềm rỗng vỡ thì không lộ item"
 features = ["V1-016"]
@@ -18,10 +18,8 @@ speed = [5, 7]
 bombs = [1, 10]
 range = [1, 7]
 
-[[flame]]
+[[blast]]
 cell = [2, 1]
-ticks = 3
-owner = 0
 
 [[expect]]
 tick = 1
