@@ -115,6 +115,38 @@ impl DisconnectReason {
     }
 }
 
+/// Ngữ cảnh phòng/round gắn vào log vận hành (ADR 0011 §8.1).
+///
+/// `room_id`/`round_id` là **ngữ cảnh của chính người đó**: chỉ gắn khi tài khoản thực sự
+/// thuộc roster phòng (và roster của round). Tài khoản đứng sảnh, connection chưa auth
+/// hoặc người đã rời phòng **không** mang ngữ cảnh nào ⇒ hai trường để trống (null),
+/// không gắn ID phòng/trận của người khác vào log của họ.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RoomContext {
+    /// ID phòng **public** (giống `RoomState.room_id` mà client thấy).
+    pub room_id: Option<u64>,
+    /// ID round **public** (giống `RoundStart.round_id` trên dây).
+    pub round_id: Option<u32>,
+}
+
+impl RoomContext {
+    /// Ngữ cảnh rỗng: không gắn `room_id`/`round_id`.
+    pub const NONE: Self = Self {
+        room_id: None,
+        round_id: None,
+    };
+
+    /// Ghi `room_id`/`round_id` vào trường log; thiếu thì để trống ⇒ `null` (Logger tự điền).
+    pub fn apply(&self, fields: &mut LogFields) {
+        if let Some(room_id) = self.room_id {
+            fields.insert("room_id", json!(room_id));
+        }
+        if let Some(round_id) = self.round_id {
+            fields.insert("round_id", json!(round_id));
+        }
+    }
+}
+
 /// Trường ngữ cảnh của sự kiện vòng đời round (ADR 0011 §8.1).
 ///
 /// Mọi sự kiện `round.*` đều mang `round_id` thật (ID public trên dây) để đối chiếu log với

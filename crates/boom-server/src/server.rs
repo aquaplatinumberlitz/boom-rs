@@ -41,7 +41,9 @@ use crate::authority::{
 };
 use crate::config::HandshakeConfig;
 use crate::identity::{AccountStore, RevokeReason, SessionId, SessionStore};
-use crate::observability::{DisconnectReason, LogFields, Logger, events, phases, round_fields};
+use crate::observability::{
+    DisconnectReason, LogFields, Logger, RoomContext, events, phases, round_fields,
+};
 
 fn room_command_reject_reason(err: &ServerError) -> Option<boom_proto::RoomRejectReason> {
     use boom_proto::RoomRejectReason as Reason;
@@ -61,6 +63,31 @@ fn outcome_label(outcome: &MatchOutcome) -> &'static str {
         MatchOutcome::Winner(_) => "winner",
         MatchOutcome::Draw => "draw",
         MatchOutcome::Aborted => "aborted",
+    }
+}
+
+/// Ngữ cảnh phòng/round của một tài khoản theo **một ảnh phòng** (ADR 0011 §8.1).
+///
+/// - `room_id` chỉ có khi tài khoản **đang là thành viên** phòng.
+/// - `round_id` chỉ có khi tài khoản nằm trong **roster của round** (roster chốt lúc start).
+///
+/// Tài khoản đứng sảnh, connection chưa auth, người đã rời phòng ⇒ không có ngữ cảnh nào
+/// (null) ⇒ log không gắn ID phòng/trận của người khác.
+fn room_context(view: Option<&RoomView>, account: PlayerId) -> RoomContext {
+    let Some(view) = view else {
+        return RoomContext::NONE;
+    };
+    if !view.members.iter().any(|member| member.player == account) {
+        return RoomContext::NONE;
+    }
+    let round_id = view
+        .round
+        .as_ref()
+        .filter(|round| round.members.iter().any(|member| member.player == account))
+        .and_then(|round| u32::try_from(round.id.0).ok());
+    RoomContext {
+        room_id: Some(view.id.0),
+        round_id,
     }
 }
 
@@ -410,11 +437,13 @@ impl Server {
             })
             .collect();
         for (account, session_id) in accounts {
+            let context = self.member_context(Some(account));
             self.log_player_disconnect(
                 Some(account),
                 DisconnectReason::ServerShutdown,
                 RevokeReason::ServerShutdown,
                 session_id,
+                context,
             );
         }
     }
@@ -767,8 +796,11 @@ impl Server {
                 // Bind định danh người chơi từ phiên (`account_id`) rồi mới dựng lệnh phòng:
                 // client không được khai định danh (ADR 0009 Addendum B §B.2).
                 let command = from_room_command(&dto, room_player);
+                // Ảnh phòng **trước** khi áp lệnh: người bị kick bị gỡ khỏi roster ngay
+                // khi lệnh áp dụng ⇒ sau đó không tra lại được ngữ cảnh phòng/round.
+                let before = self.authority.room_view();
                 match self.authority.room_command(command, self.now_ms) {
-                    Ok(update) => self.after_room_update(&update)?,
+                    Ok(update) => self.after_room_update(&update, before)?,
                     Err(err) => {
                         if let Some(reason) = room_command_reject_reason(&err) {
                             self.send_room_rejected(player, dto.request, reason)?;
@@ -982,7 +1014,16 @@ impl Server {
         self.send(player, &RoomRejected { request, reason })
     }
 
-    fn after_room_update(&mut self, update: &RoomUpdate) -> Result<(), ServerError> {
+    /// Xử lý kết quả lệnh phòng: gửi trạng thái phòng cho roster, ghi log vòng đời round
+    /// và log `player.disconnect` cho người bị kick.
+    ///
+    /// `before` là ảnh phòng **trước** khi lệnh áp dụng: người bị kick đã bị gỡ khỏi
+    /// roster ⇒ không tra lại được ngữ cảnh phòng/round của họ sau khi lệnh áp dụng.
+    fn after_room_update(
+        &mut self,
+        update: &RoomUpdate,
+        before: Option<RoomView>,
+    ) -> Result<(), ServerError> {
         if let Some(view) = self.authority.room_view() {
             self.send_room_state(&view)?;
         }
@@ -990,7 +1031,8 @@ impl Server {
         // Người bị kick: ghi lý do `kicked` (V1: kick chỉ rời phòng, kết nối TCP còn sống).
         for event in &update.events {
             if let RoomEvent::PlayerKicked { player, by, .. } = event {
-                self.log_kicked(*player, *by);
+                let context = room_context(before.as_ref(), *player);
+                self.log_kicked(*player, *by, context);
             }
         }
         if let Some(round) = update.round {
@@ -1439,17 +1481,21 @@ impl Server {
     /// `reason` là mã lý do disconnect; `revoke_reason` là mã lý do **thu hồi phiên** trong DB
     /// (ADR 0011 §6.1) — hai trường khác nhau: bị kick thì `reason = kicked` nhưng phiên
     /// vẫn sống ⇒ `revoke_reason` để trống (null).
+    ///
+    /// `context` là ngữ cảnh phòng/round **của người đó** (xem [`room_context`]): chỉ
+    /// truyền ngữ cảnh mà tài khoản thực sự thuộc roster, không gắn ID trận của người khác.
     fn log_player_disconnect(
         &self,
         account: Option<PlayerId>,
         reason: DisconnectReason,
         revoke: RevokeReason,
         session_id: Option<SessionId>,
+        context: RoomContext,
     ) {
         let Some(logger) = self.logger.as_ref() else {
             return;
         };
-        let mut fields = self.disconnect_identity_fields(account, session_id);
+        let mut fields = self.disconnect_identity_fields(account, session_id, context);
         fields.insert("reason", serde_json::json!(reason.as_str()));
         fields.insert("revoke_reason", serde_json::json!(revoke.as_str()));
         logger.info(events::PLAYER_DISCONNECT, fields);
@@ -1460,6 +1506,7 @@ impl Server {
         &self,
         account: Option<PlayerId>,
         session_id: Option<SessionId>,
+        context: RoomContext,
     ) -> LogFields {
         let mut fields = LogFields::new();
         if let Some(account) = account {
@@ -1472,13 +1519,20 @@ impl Server {
         if let Some(session_id) = session_id {
             fields.insert("session_id", serde_json::json!(session_id.0));
         }
-        if let Some(room_id) = self.public_room_id() {
-            fields.insert("room_id", serde_json::json!(room_id));
-        }
-        if let Some(round_id) = self.authority.current_round_id() {
-            fields.insert("round_id", serde_json::json!(round_id));
-        }
+        context.apply(&mut fields);
         fields
+    }
+
+    /// Ngữ cảnh phòng/round của tài khoản theo trạng thái authority **hiện tại**.
+    ///
+    /// Dùng cho các đường đóng session (EOF/reset, timeout, shutdown): tại thời điểm ghi
+    /// log, tài khoản vẫn còn trong roster phòng ⇒ giữ đúng ngữ cảnh của thành viên thật;
+    /// tài khoản ngoài phòng (đứng sảnh) hoặc connection chưa auth ⇒ không có ngữ cảnh.
+    fn member_context(&self, account: Option<PlayerId>) -> RoomContext {
+        let Some(account) = account else {
+            return RoomContext::NONE;
+        };
+        room_context(self.authority.room_view().as_ref(), account)
     }
 
     /// Ghi `round.start`: round vừa được tạo, loading barrier mở.
@@ -1500,11 +1554,14 @@ impl Server {
     ///
     /// V1: kick chỉ **rời phòng** (kết nối TCP còn sống, phiên không bị thu hồi) — log ghi
     /// lý do `kicked` để vận hành biết vì sao người chơi rời phòng giữa trận.
-    fn log_kicked(&self, player: PlayerId, by: PlayerId) {
+    ///
+    /// `context` là ngữ cảnh phòng/round lấy từ ảnh phòng **trước** khi lệnh kick áp dụng:
+    /// người bị kick bị gỡ khỏi roster ngay lập tức ⇒ sau đó không tra lại được ngữ cảnh.
+    fn log_kicked(&self, player: PlayerId, by: PlayerId, context: RoomContext) {
         let Some(logger) = self.logger.as_ref() else {
             return;
         };
-        let mut fields = self.disconnect_identity_fields(Some(player), None);
+        let mut fields = self.disconnect_identity_fields(Some(player), None, context);
         fields.insert("kicked_by", serde_json::json!(by.0));
         fields.insert(
             "reason",
@@ -1699,7 +1756,8 @@ impl Server {
         let session_id = session.account.as_ref().map(|account| account.session_id);
         self.revoke_account(&session, revoke);
         self.forget_account(account);
-        self.log_player_disconnect(account, reason, revoke, session_id);
+        let context = self.member_context(account);
+        self.log_player_disconnect(account, reason, revoke, session_id, context);
         self.notify_disconnect(account);
     }
 
@@ -1763,7 +1821,8 @@ impl Server {
         let session_id = session.account.as_ref().map(|account| account.session_id);
         self.revoke_account(&session, revoke);
         self.forget_account(account);
-        self.log_player_disconnect(account, reason, revoke, session_id);
+        let context = self.member_context(account);
+        self.log_player_disconnect(account, reason, revoke, session_id, context);
         self.notify_disconnect(account);
         let shutdown = session.shutdown.take();
         let (dummy_tx, dummy_rx) = mpsc::channel();
