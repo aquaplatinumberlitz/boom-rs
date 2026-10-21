@@ -272,6 +272,11 @@ impl SimulationState {
 
     /// Một tick: chạy các system của mode theo thứ tự, tăng tick, rồi xét kết quả.
     /// `inputs[i]` là input của `players[i]`; event của tick được nối vào `events`.
+    ///
+    /// **Warmup** (R-100): `round.warmup_ms` tick đầu của lượt bị đóng băng — không system nào
+    /// chạy (không movement, không đặt bom, không timer) và đồng hồ lượt chưa chạy, nên thời hạn
+    /// lượt đo từ đầu lượt thật (BnB `server/game.js:616–646`). Tick engine vẫn tăng để client
+    /// và authority đồng bộ; `mode::outcome` lấy đồng hồ lượt = tick − warmup.
     pub fn step(
         &mut self,
         world: &World,
@@ -286,6 +291,10 @@ impl SimulationState {
                 expected: self.players.len(),
                 found: inputs.len(),
             });
+        }
+        if self.tick < world.rules().warmup_ticks {
+            self.tick += 1;
+            return Ok(());
         }
         let mut sink = EventSink::new(self.tick, events);
         for system in world.mode.systems() {

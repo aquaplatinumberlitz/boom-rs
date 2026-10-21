@@ -9,6 +9,19 @@
 //! lớn nhất, hòa thì chọn `source` có `id` nhỏ hơn; danh sách vẫn sắp theo ô, mỗi ô một flame.
 //! Không phá khối và không nhốt người: việc của `blocks`/`life`.
 //!
+//! **Chuỗi nổ (R-109, BnB `server/game.js:401–431`):** lửa tính trên **lưới chưa đổi**. BnB gom
+//! ô bị phá vào tập `destroyed` rồi mới áp dụng **sau khi hàng đợi nổ rỗng**, nên gạch vẫn chắn
+//! lửa của các bom sau trong cùng tick. V1 giữ nguyên: `explosion` chạy trước `blocks` nên toàn
+//! bộ lửa của tick tính trên lưới trước khi gạch vỡ.
+//!
+//! **Thứ tự nổ:** V1 xử lý theo `id` tăng dần (R-033) thay hàng đợi FIFO theo thứ tự chèn của
+//! `Map` JS — khác biệt có chủ ý (ADR 0012). *Tập* bom nổ thì giống hệt: cùng là bao đóng dây
+//! chuyền, chỉ khác thứ tự phát event và nguồn lửa khi nhiều bom chồng một ô.
+//!
+//! **Tuổi lửa (R-109, BnB `server/game.js:448–451`):** vụ nổ sinh với `ttl = flame_ticks` rồi
+//! bị giảm ngay trong tick nổ, nên lửa có mặt ở `flame_ticks - 1` tick, tức `until` =
+//! `tick + flame_ticks - 2`.
+//!
 //! Quyền ghi và event được phép: bảng trong `systems/mod.rs`. Kịch bản nghiệm thu:
 //! `fixtures/scenarios/explosion/` (`active`). Giá trị luật lấy từ `World::rules()`.
 
@@ -81,7 +94,9 @@ impl System for Explosion {
         }
         exploding.sort_unstable();
 
-        let until = tick.saturating_add(flame_ticks).saturating_sub(1);
+        // BnB `server/game.js:448–451`: vụ nổ sinh với `ttl = flame_ticks` rồi bị giảm ngay
+        // trong tick nổ, nên lửa chỉ còn `flame_ticks - 1` tick — `until` là tick cuối còn lửa.
+        let until = tick.saturating_add(flame_ticks).saturating_sub(2);
         let mut new_flames = Vec::new();
         for id in &exploding {
             let bomb = state
@@ -234,8 +249,8 @@ mod tests {
             assert_ne!(flames[0].source, second);
             assert_eq!(
                 flames[0].until,
-                w.rules().flame_ticks - 1,
-                "until = tick nổ (0) + flame_ticks - 1"
+                w.rules().flame_ticks - 2,
+                "until = tick nổ (0) + flame_ticks - 2: lửa mới bị giảm ngay trong tick nổ"
             );
         }
     }
@@ -304,7 +319,7 @@ mod tests {
             .iter()
             .find(|f| f.cell == Cell::new(1, 1))
             .expect("bom vừa nổ phải có lửa");
-        assert_eq!(flame.until, 10 + w.rules().flame_ticks - 1);
+        assert_eq!(flame.until, 10 + w.rules().flame_ticks - 2);
         assert_eq!(flame.cell, Cell::new(1, 1));
         assert_eq!(s.field.kind(Cell::new(1, 1)), Some(CellKind::Floor));
     }

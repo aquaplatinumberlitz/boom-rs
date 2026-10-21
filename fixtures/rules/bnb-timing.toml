@@ -1,0 +1,20 @@
+# Overlay cho scenario: số **tick** luật của profile V1 (ADR 0012) nhưng ở tần số của profile
+# test (60 Hz). Mục đích: scenario kiểm đúng số tick luật (120 tick nhốt, 90 tick warmup) mà
+# không phụ thuộc `data/rules/v1-dev.toml` đang chuyển động.
+# - `player.trap_to_death_ms = 2000` ở 60 Hz = 120 tick (profile V1: 4000 ms ở 30 Hz).
+# - `round.warmup_ms = 1500` ở 60 Hz = 90 tick (profile V1: 3000 ms ở 30 Hz).
+schema = 1
+overlay_id = "bnb-timing"
+base = "skeleton-test"
+
+[player.trap_to_death_ms]
+value = 2000
+unit = "ms"
+source = "design"
+status = "design"
+
+[round.warmup_ms]
+value = 1500
+unit = "ms"
+source = "design"
+status = "design"

@@ -34,12 +34,18 @@ pub struct Rules {
     /// Tốc độ một cấp, mpx/tick, làm tròn xuống khi đổi từ px/s.
     pub speed_per_level: Mpx,
     pub round_ticks: Tick,
+    /// Số tick đóng băng đầu lượt: không movement, không đặt bom, không timer; đồng hồ lượt
+    /// chỉ chạy sau warmup (R-100).
+    pub warmup_ticks: Tick,
     /// Từ lúc đặt tới lúc nổ.
     pub fuse_ticks: Tick,
     /// Thời gian một ô lửa tồn tại.
     pub flame_ticks: Tick,
     /// Từ lúc bị nhốt tới lúc tự chết.
     pub trap_ticks: Tick,
+    /// Khoảng cách (px) để người chạm làm vỡ bong bóng: mỗi trục lệch **nhỏ hơn** ngưỡng này
+    /// thì chạm (R-108).
+    pub trap_touch_distance: Mpx,
     /// Nửa cạnh hộp va chạm của người chơi: hộp `2 × collision_half` px (26×26 khi 13 px, R-107).
     pub collision_half: Mpx,
     /// Lệch tối đa (px) được phép bám góc về tâm hàng/cột khi bị chặn (R-107).
@@ -59,6 +65,9 @@ impl Rules {
         let ms = |key: &str| -> Result<Tick, ProfileError> {
             Ok(ms_to_ticks(u32_of(p.int_in(key, "ms", 1, 3_600_000)?), hz))
         };
+        // Warmup cho phép 0 ms: profile test giữ lượt không đóng băng (BnB cũng cho `warmup = 0`).
+        let warmup_ticks =
+            ms_to_ticks(u32_of(p.int_in("round.warmup_ms", "ms", 0, 3_600_000)?), hz);
         let item = |key, effect, delta_key: &str, delta_unit: &str, weight_key: &str| {
             Ok::<_, ProfileError>(ItemDef {
                 key,
@@ -72,9 +81,16 @@ impl Rules {
             tile: Mpx::from_px(tile_px),
             speed_per_level: Mpx(speed_px_s * Mpx::PER_PX / i32_of(i64::from(hz))),
             round_ticks: ms("round.duration_ms")?,
+            warmup_ticks,
             fuse_ticks: ms("bomb.fuse_ms")?,
             flame_ticks: ms("bomb.flame_ms")?,
             trap_ticks: ms("player.trap_to_death_ms")?,
+            trap_touch_distance: Mpx::from_px(i32_of(p.int_in(
+                "player.trap_touch_distance_px",
+                "px",
+                1,
+                1000,
+            )?)),
             collision_half: Mpx::from_px(i32_of(p.int_in(
                 "player.collision_half_px",
                 "px",

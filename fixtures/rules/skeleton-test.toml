@@ -23,6 +23,14 @@ unit = "ms"
 source = "design"
 status = "design"
 
+# Warmup đóng băng đầu lượt (R-100, ADR 0012). Profile test để 0 để fixture cũ giữ nguyên mốc
+# tick; profile dev `data/rules/v1-dev.toml` giữ 3000 ms theo lựa chọn BnB.
+[round.warmup_ms]
+value = 0
+unit = "ms"
+source = "design"
+status = "design"
+
 [player.speed_px_per_s_per_level]
 value = 24
 unit = "px/s"
@@ -45,6 +53,13 @@ status = "design"
 [player.trap_to_death_ms]
 value = 6300
 unit = "ms"
+source = "design"
+status = "design"
+
+# Khoảng cách chạm làm vỡ bong bóng: mỗi trục lệch nhỏ hơn 28 px (R-108, ADR 0012).
+[player.trap_touch_distance_px]
+value = 28
+unit = "px"
 source = "design"
 status = "design"
 

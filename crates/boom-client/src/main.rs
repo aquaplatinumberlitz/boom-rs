@@ -1005,6 +1005,11 @@ impl Demo {
         let Some(player) = state.player(id) else {
             return PlayerInput::default();
         };
+        // Warmup (R-100): lượt đang đóng băng thì core bỏ qua input, nên demo chờ hết
+        // warmup mới đặt bom/đi (nếu không thì bom đặt trong warmup bị mất).
+        if state.tick < world.rules().warmup_ticks {
+            return PlayerInput::default();
+        }
         let cell = world.cell_at(player.x, player.y);
         if self.death {
             let place_bomb = self.victim == Some(id) && !self.bomb_cells.contains_key(&id);
@@ -1105,7 +1110,8 @@ async fn run(mut game: Game, opts: Options) {
             // Vòng lặp chạy theo **đồng hồ trình diễn**: lượt hai người **kết thúc** ngay
             // lúc chết nên mô phỏng dừng, nhưng đồng hồ trình diễn vẫn tiến để chuỗi
             // chết phát trọn clip (R-089).
-            let limit = game.world.rules().round_ticks;
+            // Warmup đóng băng đầu lượt nên hạn lượt tính từ tick cuối warmup.
+            let limit = game.world.rules().warmup_ticks + game.world.rules().round_ticks;
             while !(if opts.death_hold {
                 game.death_hold_ready()
             } else {
@@ -1130,7 +1136,8 @@ async fn run(mut game: Game, opts: Options) {
             }
         } else if opts.demo {
             // Chế độ demo: chạy tới khi scene đủ nhân vật + bom + lửa (hoặc hết lượt).
-            let limit = game.world.rules().round_ticks;
+            // Warmup đóng băng đầu lượt nên hạn lượt tính từ tick cuối warmup.
+            let limit = game.world.rules().warmup_ticks + game.world.rules().round_ticks;
             while !game.demo_ready()
                 && game.state.tick < limit
                 && game.state.phase == Phase::Playing
