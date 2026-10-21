@@ -2,12 +2,12 @@
 tick 1 state 0x867bb77c3fe5b558
 tick 20 state 0x40dd029e094838e1
 tick 29 state 0x102067ebd774a82c
-tick 80 state 0xc91b30c6d4484666
-tick 130 state 0x4f3225a4c4dc5059
-tick 180 state 0xf033972d9e34f345
-tick 220 state 0xd6cbb836c0ef08c9
-tick 260 state 0x812d0a45ab59e367
-tick 280 state 0x1cb212d206ac94c5
-final tick 285 state 0x4ae82a8c0aaeeb3a
+tick 80 state 0x76352c2cb6cecb9e
+tick 130 state 0xd58821e1a0445711
+tick 180 state 0x58cbd14f70a8637d
+tick 220 state 0xf117aeb6ede746a1
+tick 260 state 0xf3b0814e186ebf3e
+tick 280 state 0xba0beb2eea6c695c
+final tick 285 state 0x5ab3a882def44e63
 events 22 digest 0xba722c5fab3eb727
 outcome winner:0

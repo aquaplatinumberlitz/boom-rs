@@ -1,6 +1,8 @@
+# R-107: bom chặn ô (3,1) theo hộp 26×26 px; người không có grace dừng ở mép hộp
+# (x = 106 px), không dừng ở tâm ô (100 px) như mô hình điểm tâm.
 name = "Bom chặn đường người không có grace"
 features = ["V1-012"]
-claims = ["R-048"]
+claims = ["R-048", "R-107"]
 status = "active"
 ticks = 60
 map = [
@@ -26,13 +28,14 @@ tick = 0
 player = 0
 dir = "right"
 
-# Dừng ở tâm ô (2,1) trước ô có bom, không đi vào.
+# Sau 20 tick người chơi ở x = 100 px, chưa chạm ô bom.
 [[expect]]
 tick = 20
 player = 0
 pos_mpx = [100000, 60000]
 
+# Dừng ở mép hộp trước ô có bom (x = 106 px), không đi vào ô bom.
 [[expect]]
 tick = 60
 player = 0
-pos_mpx = [100000, 60000]
+pos_mpx = [106000, 60000]
