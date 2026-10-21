@@ -5,7 +5,7 @@
 //! | `movement.rs` | V1-011, V1-012 | `Player.{x,y,facing}`, `Bomb.grace` (chỉ xóa) | `player_turned` |
 //! | `bomb_place.rs` | V1-013 | `bombs` (thêm), `ids` | `bomb_placed` |
 //! | `explosion.rs` | V1-014, V1-015 | `bombs` (xóa), `flames`, kênh blast của tick (ghi) | `bomb_exploded` |
-//! | `blocks.rs` | V1-016 | `field`, `items` (thêm/xóa do lửa), `ids`, `rng` (đầu lượt), kênh blast của tick (đọc rồi xóa) | `block_destroyed`, `item_revealed`, `item_destroyed` |
+//! | `blocks.rs` | V1-016 | `field`, `items` (thêm/xóa do lửa), `ids`, `rng` (lúc vỡ gạch), kênh blast của tick (đọc rồi xóa) | `block_destroyed`, `item_revealed`, `item_destroyed` |
 //! | `pickup.rs` | V1-017…V1-019 | `items` (xóa), `Player.{bombs,range,speed}` | `item_picked` |
 //! | `life.rs` | V1-020 | `Player.life` | `player_trapped`, `player_died` |
 //!

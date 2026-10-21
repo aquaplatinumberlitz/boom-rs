@@ -1,7 +1,8 @@
 # Một vòng FFA 2 người trên map ASCII nhỏ, cố ý dùng prestate để chạm đủ pipeline:
 # - tick 0: player 0 đặt bom rồi đi lên khỏi tầm nổ;
 # - tick 80: bom (3,1) nổ, chain qua (3,2) rồi (4,2)…(6,2), phá ba khối mềm ở hàng 1;
-# - player 0 lên hàng 1, nhặt Bomb/Fire/Roller rồi xuống chạm người bị nhốt;
+#   mỗi khối vỡ rơi ra một item (seed 119: Bomb, Fire, Roller theo thứ tự ô);
+# - player 0 lên hàng 1, nhặt Bomb/Fire/Roller vừa rơi rồi xuống chạm người bị nhốt;
 # - player 1 bị lửa ở (7,3) nhốt, chết khi player 0 chạm, player 0 thắng.
 # Input viết tay theo chủ ý; golden chỉ là regression (AGENTS §4), không phải oracle bản gốc.
 schema = 1
@@ -12,7 +13,7 @@ checkpoints = [1, 20, 29, 80, 130, 180, 220, 260, 280]
 rules = "../rules/skeleton-test.toml"
 profile_hash = "0x12ef614d5751da78"
 mode = "battle_ffa"
-seed = 42
+seed = 119
 map = [
     "#########",
     "#...+++.#",
@@ -66,17 +67,8 @@ owner = 1
 range = 1
 fuse = 1000
 
-[[hidden]]
-cell = [4, 1]
-kind = "Bomb"
-
-[[hidden]]
-cell = [5, 1]
-kind = "Fire"
-
-[[hidden]]
-cell = [6, 1]
-kind = "Roller"
+# Item **không** giấu sẵn nữa: V1 rơi item khi gạch vỡ (R-106), nên fixture này không còn
+# dựng `[[hidden]]`; seed 119 cho ba khối mềm rơi Bomb, Fire, Roller theo thứ tự ô.
 
 # Player 1 bị nhốt từ tick 0; player 0 tới chạm ở tick 284.
 [[flame]]

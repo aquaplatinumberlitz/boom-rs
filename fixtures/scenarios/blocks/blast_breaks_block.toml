@@ -1,10 +1,13 @@
-# Không cần system explosion: ô bị vụ nổ phủ dựng sẵn trên khối mềm có item giấu.
-# BnB phá gạch lúc nổ (game.js:401–431), tức trước bước giảm TTL, nên phá gạch không phụ
-# thuộc tuổi lửa.
-name = "Ô bị vụ nổ phủ phá khối mềm và lộ item giấu, một lần"
+# Ô bị vụ nổ phủ phá khối mềm và khối vỡ **rơi ra một item** (R-106, R-112).
+# Không cần system explosion: ô bị vụ nổ phủ dựng sẵn trên khối mềm.
+#
+# seed 9: lần rút đầu của RNG ra 228‰ < 350‰ (`drop.brick_item_chance`) nên khối vỡ có
+# item; lần rút sau ra 2556 < 3650 nên loại là Bomb (`drop.weight_bomb`).
+name = "Ô bị vụ nổ phủ phá khối mềm và rơi ra một item"
 features = ["V1-016"]
-claims = ["R-030", "R-050", "R-067"]
+claims = ["R-106", "R-112"]
 status = "active"
+seed = 9
 ticks = 3
 map = [
     "#####",
@@ -21,10 +24,6 @@ range = [1, 7]
 [[blast]]
 cell = [2, 1]
 
-[[hidden]]
-cell = [2, 1]
-kind = "Roller"
-
 [[expect]]
 tick = 1
 event = "block_destroyed"
@@ -34,9 +33,10 @@ count = 1
 [[expect]]
 tick = 1
 event = "item_revealed"
-where = { x = 2, y = 1, kind = 2 }
+where = { x = 2, y = 1, kind = 0 }
 count = 1
 
+# Khối đã vỡ: không vỡ lần nữa và không rơi thêm item.
 [[expect]]
 tick = 2
 event = "block_destroyed"
@@ -44,6 +44,15 @@ count = 0
 
 [[expect]]
 tick = 2
+event = "item_revealed"
+count = 0
+
+[[expect]]
+tick = 2
 at = [2, 1]
 kind = "floor"
-item = "Roller"
+item = "Bomb"
+
+[[expect]]
+tick = 2
+item_count = 1

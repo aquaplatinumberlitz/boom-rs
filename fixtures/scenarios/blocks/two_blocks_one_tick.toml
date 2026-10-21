@@ -1,10 +1,13 @@
-# Hai khối mềm cùng bị vụ nổ phủ trong một tick: mỗi khối vỡ một lần, mỗi khối lộ đúng item
-# của nó.
-# ID item cấp theo thứ tự ô (hàng rồi cột): ô (2,1) trước ô (3,1).
-name = "Hai khối mềm vỡ cùng tick thì lộ hai item khác nhau"
+# Hai khối mềm cùng bị vụ nổ phủ trong một tick: mỗi khối vỡ một lần, mỗi khối rơi **đúng
+# một** item của nó — không roll lặp (R-109).
+#
+# seed 24: lần rút cho ô (2,1) ra 108‰ (< 350‰) rồi 3225 (< 3650) ⇒ Bomb; lần rút cho ô
+# (3,1) ra 118‰ rồi 8125 (≥ 6450) ⇒ Roller.
+name = "Hai khối mềm vỡ cùng tick thì mỗi khối rơi một item khác nhau"
 features = ["V1-016"]
-claims = ["R-050", "R-067"]
+claims = ["R-106", "R-109", "R-112"]
 status = "active"
+seed = 24
 ticks = 3
 map = [
     "#######",
@@ -17,14 +20,6 @@ id = 0
 speed = [5, 7]
 bombs = [1, 10]
 range = [1, 7]
-
-[[hidden]]
-cell = [2, 1]
-kind = "Bomb"
-
-[[hidden]]
-cell = [3, 1]
-kind = "Roller"
 
 [[blast]]
 cell = [2, 1]
@@ -52,14 +47,19 @@ count = 2
 [[expect]]
 tick = 1
 event = "item_revealed"
-where = { x = 2, y = 1, kind = 0, item = 1 }
+where = { x = 2, y = 1, kind = 0 }
 count = 1
 
 [[expect]]
 tick = 1
 event = "item_revealed"
-where = { x = 3, y = 1, kind = 2, item = 2 }
+where = { x = 3, y = 1, kind = 2 }
 count = 1
+
+[[expect]]
+tick = 1
+event = "item_revealed"
+count = 2
 
 [[expect]]
 tick = 1
