@@ -57,7 +57,7 @@ Bảng từng khóa và giới hạn ở RULES_V1 §11; BnB lấp chỗ trống,
 Không mở scope map/item/nhân vật ngoài V1; policy vận hành §3 giữ nguyên.
 
 Ghi chú tích hợp: PR #127 đã ghép các sai khác của ADR 0013 vào sổ §10 (tổng hợp ở
-[§10.3](#103-nguồn-giá-trị-hiện-hành-adr-0012--adr-0013)), giữ riêng số bảng `confirmed` với
+[§10.3](#103-nguồn-giá-trị-hiện-hành--adr-0012-và-adr-0013)), giữ riêng số bảng `confirmed` với
 ý nghĩa drop chưa xác nhận.
 
 Danh sách đầy đủ các sai khác có chủ ý **và** các khoảng trống fidelity còn chờ đo: [§10](#10-sai-khác-có-chủ-ý-so-với-client-gốc).
@@ -199,7 +199,7 @@ client KR/VN và nhãn của nó **giữ nguyên**; quyết định cũ của
 [ADR 0012](../decisions/0012-v1-rules-from-bnb.md) (BnB đè giá trị gốc) chỉ còn hiệu lực ở chỗ
 ADR 0013 **không** tìm được nguồn `confirmed` cùng đại lượng. Bảng từng khóa, nhãn và giới hạn áp
 dụng nằm ở [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013).
-Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành-adr-0012--adr-0013).
+Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành--adr-0012-và-adr-0013).
 
 ### 10.1 Sai khác chấp thuận cho V1
 
@@ -235,7 +235,7 @@ chưa có bằng chứng. Việc đo client gốc **đang hoãn** (chủ dự á
 Trung Quốc qua tài khoản test, hoặc thông số công khai trên mạng với nhãn `web`/`candidate`);
 nguồn oracle, phương pháp đo độ lặp và cách lưu bằng chứng nằm ở **Q-009**.
 
-### 10.3 Nguồn giá trị hiện hành (ADR 0012 → ADR 0013)
+### 10.3 Nguồn giá trị hiện hành — ADR 0012 và ADR 0013
 
 Sổ trên ghi **giá trị đang dùng**. Nguồn của từng giá trị sau ADR 0013 chia làm hai nhóm, và
 sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
