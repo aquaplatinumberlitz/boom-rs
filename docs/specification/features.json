@@ -12,7 +12,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [],
       "server_responsibility": "Lưu identity/password hash; xác thực session; phiên thứ hai bị từ chối.",
@@ -21,7 +21,7 @@
       "tracking": {
         "assignee": "opencode-1/dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -31,7 +31,8 @@
           "crates/boom-server/src/auth.rs",
           "git:14e359ce795466e95d8fcd736adf554de820c4ba",
           "git:c8b14a81e1e5ff4bd17ab1d9614f6a39f6f5ebff",
-          "git:8759e037c64778b0a231f166b78acf0ead567dbe"
+          "git:8759e037c64778b0a231f166b78acf0ead567dbe",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9"
         ],
         "verification": {
           "status": "passed",
@@ -43,7 +44,7 @@
           "result": "Comment APPROVE trên PR #57, #66, #85, #97"
         },
         "blocker": "",
-        "next_action": "Logic auth/phiên (#85, #97) và auth trên wire (#107) đã tích hợp. Còn: client gửi Auth (PR #89 / #80) và chạy trong `serve` thật (#108 / PR #117)."
+        "next_action": "Auth server (#85/#97/#107) + client gửi Auth và chạy trọn luồng với server thật (#117+#136). Chờ reviewer xác nhận acceptance để done."
       }
     },
     {
@@ -53,7 +54,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "net",
       "depends_on": [
         "V1-001"
@@ -64,7 +65,7 @@
       "tracking": {
         "assignee": "dsh-a/dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -72,7 +73,8 @@
           "crates/boom-proto/src/dto/handshake.rs",
           "git:e627112e5fe52dd69fa1903b6d6fefe004ac41d9",
           "crates/boom-server/src/server.rs",
-          "git:ab4eb5a148a1c186fefada8854d728660bc62c94"
+          "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9"
         ],
         "verification": {
           "status": "passed",
@@ -84,7 +86,7 @@
           "result": "Comment APPROVE trên PR #56, #60"
         },
         "blocker": "",
-        "next_action": "Handshake + Welcome fingerprint đã tích hợp (#60, #107). Còn: client kiểm fingerprint/hiện lỗi cập nhật (PR #89) và `serve` nạp content thật (PR #117)."
+        "next_action": "Handshake + fingerprint server (#60/#107), serve thật (#117) và client kiểm/hiện lỗi (#136). Đặt done khi V1-001 done."
       }
     },
     {
@@ -94,7 +96,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-001",
@@ -106,7 +108,7 @@
       "tracking": {
         "assignee": "dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -114,7 +116,9 @@
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -126,7 +130,7 @@
           "result": "Comment APPROVE trên PR #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
+        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
       }
     },
     {
@@ -136,7 +140,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-003"
@@ -147,7 +151,7 @@
       "tracking": {
         "assignee": "dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -157,7 +161,9 @@
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -169,7 +175,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
+        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
       }
     },
     {
@@ -179,7 +185,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-004"
@@ -190,7 +196,7 @@
       "tracking": {
         "assignee": "dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -200,7 +206,9 @@
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -212,7 +220,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
+        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
       }
     },
     {
@@ -222,7 +230,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-005"
@@ -233,7 +241,7 @@
       "tracking": {
         "assignee": "dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -243,7 +251,9 @@
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -255,7 +265,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
+        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
       }
     },
     {
@@ -265,7 +275,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "client",
       "depends_on": [
         "V1-005"
@@ -276,7 +286,7 @@
       "tracking": {
         "assignee": "dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -286,7 +296,9 @@
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -298,7 +310,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
+        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
       }
     },
     {
@@ -308,7 +320,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-007"
@@ -319,7 +331,7 @@
       "tracking": {
         "assignee": "dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "d0a8571a229cc34c610706b4ac25d22c467bbf6c",
@@ -329,7 +341,9 @@
           "crates/boom-server/src/server.rs",
           "crates/boom-sync/src/room.rs",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -341,7 +355,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
+        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
       }
     },
     {
@@ -351,7 +365,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "backend",
       "depends_on": [
         "V1-005"
@@ -362,7 +376,7 @@
       "tracking": {
         "assignee": "dsh-b",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -371,7 +385,9 @@
           "crates/boom-sync/src/room.rs",
           "git:d0a8571a229cc34c610706b4ac25d22c467bbf6c",
           "git:3d34d7fdf99bdeb3ddc0c90bb635d9dcc24eaeb7",
-          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec"
+          "git:ae70eaec72bc9f11e308d352d96b6240bdf683ec",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -383,7 +399,7 @@
           "result": "Comment APPROVE trên PR #23, #83, #90"
         },
         "blocker": "",
-        "next_action": "Server + wire Addendum B + auth đã tích hợp (#83, #90, #107); màn UI offline đã tích hợp (#115). Còn: client nói Addendum B qua mạng và nối UI (#114, owner opencode-2)."
+        "next_action": "Server phòng/sảnh (Addendum B) + client chạy trọn luồng với server thật (#136), tên hiển thị (#155). Đặt done theo dependency (AGENTS §6)."
       }
     },
     {
@@ -571,14 +587,15 @@
       "tracking": {
         "assignee": "opencode-2",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
         "integration_commit": "0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
         "evidence": [
           "crates/boom-core/src/systems/explosion.rs",
           "fixtures/scenarios/explosion/rays_stop_at_solid.toml",
-          "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e"
+          "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
         ],
         "verification": {
           "status": "passed",
@@ -590,7 +607,7 @@
           "result": "Comment APPROVE trên PR #21"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #21; đặt done khi dependency V1-013 done (AGENTS §6)."
+        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
       }
     },
     {
@@ -611,14 +628,15 @@
       "tracking": {
         "assignee": "opencode-2",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
         "integration_commit": "0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
         "evidence": [
           "crates/boom-core/src/systems/explosion.rs",
           "fixtures/scenarios/explosion/chain.toml",
-          "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e"
+          "git:0c9207c4b67bfa96bad39dcd65f4ec6722032f1e",
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
         ],
         "verification": {
           "status": "passed",
@@ -630,7 +648,7 @@
           "result": "Comment APPROVE trên PR #21"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #21; đặt done khi dependency V1-014 done (AGENTS §6)."
+        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
       }
     },
     {
@@ -812,14 +830,15 @@
       "tracking": {
         "assignee": "opencode-3",
         "reviewer": "Claude",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
         "integration_commit": "5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
         "evidence": [
           "crates/boom-core/src/systems/life.rs",
           "fixtures/scenarios/life/trap_timeout.toml",
-          "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac"
+          "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
         ],
         "verification": {
           "status": "passed",
@@ -831,7 +850,7 @@
           "result": "Comment APPROVE trên PR #20"
         },
         "blocker": "",
-        "next_action": "Đã review và merge PR #20; đặt done khi dependency V1-014 done (AGENTS §6)."
+        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
       }
     },
     {
@@ -852,14 +871,15 @@
       "tracking": {
         "assignee": "Claude",
         "reviewer": "Codex",
-        "updated_at": "2026-10-19",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r3",
         "integration_commit": "5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
         "evidence": [
           "crates/boom-core/src/mode.rs",
           "fixtures/scenarios/round/time_limit_draw.toml",
-          "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac"
+          "git:5b42a6a899a62cd72995ea16e2d5708a4c7c6cac",
+          "git:8bc88e1a38d755d786045096fa4d03ad910f0295"
         ],
         "verification": {
           "status": "passed",
@@ -871,7 +891,7 @@
           "result": "Comment APPROVE trên PR #2"
         },
         "blocker": "",
-        "next_action": "Thắng/hòa/hết giờ ở mode.rs (contracts review #2) + life #20; đặt done khi V1-020 done."
+        "next_action": "Cơ chế theo BnB (ADR 0012/0013): thứ tự tick, chain FIFO/TTL, trap/touch, warmup, kết quả (#143). Chờ RE KR #147/#148 có thể thay; đặt done theo dependency."
       }
     },
     {
@@ -967,7 +987,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "in_review",
       "owner": "net",
       "depends_on": [
         "V1-002"
@@ -978,7 +998,7 @@
       "tracking": {
         "assignee": "dsh-a/opencode-2",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -991,7 +1011,10 @@
           "git:2af995d8def92e80eb18f15199feaed99129544e",
           "git:e627112e5fe52dd69fa1903b6d6fefe004ac41d9",
           "git:fb4ed043822a3132cbbd7be76047c5f604df4d4e",
-          "git:ab4eb5a148a1c186fefada8854d728660bc62c94"
+          "git:ab4eb5a148a1c186fefada8854d728660bc62c94",
+          "git:c8fbd31b7c8aef204be1a3d3cd619a94c4b395d9",
+          "git:501f292e81082f26885adc1f757f0d46fb776638",
+          "git:4ed41a4155facea770169fbddf5822e4e4f9f0ec"
         ],
         "verification": {
           "status": "passed",
@@ -1003,7 +1026,7 @@
           "result": "Comment APPROVE trên PR #50, #56, #53, #60"
         },
         "blocker": "",
-        "next_action": "Server xong; client mạng PR #89 (#80) đang sửa review."
+        "next_action": "Server authoritative chạy trận thật (#117), slot bind theo roster/account (#117/#136), không gửi snapshot lúc loading (#153), test mạng xác định (#129/#158)."
       }
     },
     {
@@ -1090,7 +1113,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "not_started",
+      "implementation": "in_progress",
       "owner": "qa",
       "depends_on": [
         "V1-025",
@@ -1100,13 +1123,16 @@
       "acceptance": "Chạy 4 client qua RTT100ms, jitter0–30ms, loss1%, duplicate/reorder có kiểm soát; không diverge vĩnh viễn.",
       "open_questions": "Transport chưa chốt; loss/reorder có thể nằm lớp dưới nếu dùng TCP.",
       "tracking": {
-        "assignee": "",
-        "reviewer": "",
-        "updated_at": "2026-10-19",
-        "accepted_baseline": "",
-        "accepted_spec": "",
+        "assignee": "opencode-6",
+        "reviewer": "Claude/Codex",
+        "updated_at": "2026-10-22",
+        "accepted_baseline": "KR-00967-V1-scope-1",
+        "accepted_spec": "contracts-r4",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "git:ea7c0070fbb06b4c7dc87ae5150d3195fd70851a",
+          "docs/specification/QA_NETWORK.md"
+        ],
         "verification": {
           "status": "not_run",
           "command": "",
@@ -1117,7 +1143,7 @@
           "result": ""
         },
         "blocker": "",
-        "next_action": ""
+        "next_action": "Phần 1: harness QA mạng headless boom-qa (#142). Còn: bot dùng prediction client (cần V1-025), kịch bản mất kết nối, đo correction."
       }
     },
     {
@@ -1316,13 +1342,14 @@
       "tracking": {
         "assignee": "opencode-3",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [
           "crates/boom-assets/src/closure.rs",
-          "git:4ec8acf9e133e45d351b589d2089bae446248e8f"
+          "git:4ec8acf9e133e45d351b589d2089bae446248e8f",
+          "git:c129a21815b860529b2cf614548daebc903ba261"
         ],
         "verification": {
           "status": "passed",
@@ -1334,7 +1361,7 @@
           "result": "Comment APPROVE trên PR #91"
         },
         "blocker": "",
-        "next_action": "Asset UI trong bundle (#91) + màn UI offline (#115) đã tích hợp. Còn: nối UiBackend mạng (#114) và thay text UI bằng API font #116 (task sau)."
+        "next_action": "UiBackend mạng + tên hiển thị (#155). Còn: bố cục UI theo client gốc (RE KR #150), ảnh UI chờ duyệt Việt hóa."
       }
     },
     {
@@ -1478,11 +1505,13 @@
       "tracking": {
         "assignee": "opencode-1",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
-        "evidence": [],
+        "evidence": [
+          "git:d6ca5799c8c9dbae00a56d774049d8da88e1102f"
+        ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
@@ -1493,7 +1522,7 @@
           "result": "Comment APPROVE trên PR "
         },
         "blocker": "",
-        "next_action": "Build phát hành 3 OS ở #102."
+        "next_action": "Gói phát hành có toàn văn license + font OFL + tools/check_package.py (#128). Còn dependency V1-027/V1-035."
       }
     },
     {
