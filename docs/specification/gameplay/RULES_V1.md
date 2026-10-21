@@ -332,8 +332,9 @@ R-109 giữ backlog #131/#132, không biến thành bằng chứng gốc.
 | R-118 | `presentation.frame_duration_ms` giữ design riêng | 100 ms | `design` / design | R-085; R-079 unknown; BnB không cung cấp nhịp clip KR. RE consumer frame/timing có thể thay sau |
 
 Bảng trên là nguồn chuẩn lựa chọn; validator [`tools/rules_precedence.py`](../../../tools/rules_precedence.py)
-đọc chính bảng này và kiểm profile [`data/rules/`](../../../data/rules/) không dùng tầng thấp hơn
-tầng ghi ở đây cho **cùng đại lượng, cùng đơn vị**; validator chạy trong `cargo xtask ci`, test ở
-`tools/test_rules_precedence.py`. Ngoại lệ phải tường minh: 12 khóa `characters.*` (candidate theo
-R-117, ADR 0013) và `drop.weight_*` (số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052).
-Validator **không** so giá trị số với claim và không tự kết luận claim đúng; reviewer kiểm nguồn.
+giữ bảng kỳ vọng máy-đọc-của bảng này (định danh theo **đại lượng**, đơn vị, build/context) và **đối chiếu
+ngược với RULES_V1** trước khi kiểm profile [`data/rules/`](../../../data/rules/) không dùng tầng thấp
+hơn tầng ghi ở đây; validator chạy trong `cargo xtask ci`, test ở `tools/test_rules_precedence.py`.
+Ngoại lệ phải tường minh: 12 khóa `characters.*` (candidate theo R-117, ADR 0013) và `drop.weight_*`
+(số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052). Validator **không** so giá trị số với
+claim và không tự kết luận claim đúng; reviewer kiểm nguồn.
