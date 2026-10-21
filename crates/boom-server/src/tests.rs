@@ -1387,9 +1387,22 @@ fn wire_khong_gui_snapshot_khi_phong_dang_loading_barrier() {
         let _ = server.poll(now, Duration::from_millis(50)).unwrap();
     }
     assert_eq!(server.phase(), ServerPhase::Loading);
+    // Rào bằng helper chờ-theo-điều-kiện của nhánh này ([`wait_snapshot_where`]): client
+    // **xin** `Snapshot` rồi chờ theo điều kiện, trần **số vòng** (`WAIT_ROUNDS`) — không
+    // phụ thuộc hạn thời gian thật (độ phân giải timer Windows ~15,6 ms).
+    //
+    // Ở pha loading barrier server **không** được gửi `Snapshot` (ADR 0009 §4.3) — kể cả
+    // khi client xin ⇒ hết ngân sách chờ ⇒ `None`. Mọi frame `Snapshot` đã nằm sẵn trong
+    // hàng đợi (server phát sai ngay lúc `Start`) cũng bị đọc ra ở đây ⇒ assert đỏ đúng
+    // như trước, và cửa sổ quan sát dài hơn hẳn cửa sổ 50 ms cũ.
     for c in clients.iter_mut() {
+        let mut budget = WAIT_ROUNDS;
+        let request = SnapshotRequest {
+            round_id: u32::try_from(round).unwrap(),
+            last_snapshot_seq: 0,
+        };
         assert!(
-            try_recv_of::<Snapshot>(c, MessageKind::Snapshot, Duration::from_millis(50)).is_none(),
+            wait_snapshot_where(&mut server, c, 64, &mut budget, &request, |_| true).is_none(),
             "server không được gửi Snapshot khi phòng còn ở loading barrier"
         );
     }
