@@ -93,7 +93,7 @@ argon2_salt_len = 16
 
 ### Chỉ số nhân vật: ở rules profile, không ở file cấu hình
 
-Chỉ số C00/C01 là **giá trị luật** (RULES_V1 R-040/R-041) nên nằm trong rules profile
+Chỉ số C00/C01 là **giá trị luật** (RULES_V1 R-105) nên nằm trong rules profile
 (`rules_path`), không phải trong file cấu hình: mọi người chạy server phải dùng cùng một
 nguồn, và `rules_hash` phản ánh chỉ số để handshake bắt được lệch (AGENTS §3). Vì vậy mục
 `[characters]` **không còn** trong file cấu hình — file còn mục đó bị từ chối khi đọc, kèm
@@ -105,18 +105,18 @@ Lệnh `boom-server content --rules <file>` cũng kiểm bảng chỉ số này.
 
 | Khóa | Nghĩa | Nguồn |
 |---|---|---|
-| `characters.c00_speed` / `_speed_max` | Cấp tốc độ hiện tại / trần (`BomberAttr` f2/f3) | RULES_V1 R-040 (`confirmed`), nghĩa trường R-042 (`candidate`) |
-| `characters.c00_bombs` / `_bombs_max` | Số bom đặt cùng lúc (f4/f5) | như trên |
-| `characters.c00_range` / `_range_max` | Tầm nổ (f6/f7) | như trên |
-| `characters.c01_*` | Cùng bộ nghĩa cho C01 | R-041 (`confirmed`) |
+| `characters.c00_speed` / `_speed_max` | Cấp tốc độ hiện tại / trần | RULES_V1 R-105 (`oss` / `design`) |
+| `characters.c00_bombs` / `_bombs_max` | Số bom đặt cùng lúc | như trên |
+| `characters.c00_range` / `_range_max` | Tầm nổ | như trên |
+| `characters.c01_*` | Cùng bộ nghĩa cho C01 | R-105 (`oss` / `design`) |
 
-Giá trị `5,7 / 1,10 / 1,7` (C00) và `4,8 / 2,7 / 1,9` (C01) là số đọc được trong
-`BomberAttr` của pack KR 00967 (RULES_V1 R-040/R-041) và nằm ở
-[`data/rules/v1-dev.toml`](../../data/rules/v1-dev.toml). Vì **nghĩa trường** f2–f7 còn là
-`candidate` (R-042), giá trị dùng trong profile ghi `status = "candidate"`: dãy số đã đối
-chiếu nhưng chưa có bằng chứng rằng f2–f7 mang đúng nghĩa speed/bombs/range (AGENTS §4).
-Bảng `BomberAttr` **chưa** được giải vào content — gate G2 của SCOPE_V1 §6 còn mở — nên V1
-đọc chỉ số từ rules profile.
+Profile V1 dùng **template BnB** theo [ADR 0012](../../docs/decisions/0012-v1-rules-from-bnb.md):
+C00→baobao (`6→10 / 1→6 / 1→7`) và C01→haidao (`5→9 / 1→8 / 2→7`) cho speed/bombs/range.
+Đây là ánh xạ cân bằng của profile V1, **không** phải xác nhận identity nhân vật KR: dãy số
+gốc `BomberAttr` (R-040/R-041, `confirmed`) giữ nguyên làm bằng chứng trong RULES_V1, còn
+profile chọn giá trị BnB nên ghi `source = "oss"`, `status = "design"` và trỏ claim R-105
+(tốc độ trỏ thêm R-102: 1 cấp = 24 px/s). Bảng `BomberAttr` **chưa** được giải vào content —
+gate G2 của SCOPE_V1 §6 còn mở — nên V1 đọc chỉ số từ rules profile.
 
 ## Chạy cùng client
 

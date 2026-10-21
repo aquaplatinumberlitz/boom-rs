@@ -117,95 +117,112 @@ status = "design"
 claims = ["R-106"]
 note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
-# Chỉ số nhân vật C00/C01: `BomberAttr` của pack KR 00967 (RULES_V1 R-040/R-041, `confirmed`).
-# Nghĩa trường theo R-042 (`candidate`): f2–f3 = cấp tốc độ, f4–f5 = số bom, f6–f7 = tầm nổ.
-# Vì nghĩa trường còn `candidate`, **giá trị dùng** cũng là `candidate` (AGENTS §4): dãy số đã
-# đối chiếu (R-040/R-041) nhưng chưa có bằng chứng rằng f2–f7 mang đúng nghĩa speed/bombs/range.
+# Chỉ số nhân vật C00/C01 theo **template BnB** (RULES_V1 R-105, ADR 0012): C00→baobao,
+# C01→haidao. Đây là ánh xạ cân bằng của profile V1, **không phải xác nhận identity nhân vật KR**:
+# dãy số gốc `BomberAttr` KR (R-040/R-041, `confirmed`) giữ nguyên làm bằng chứng, còn profile V1
+# chọn BnB (`source = "oss"`, `status = "design"`) theo quyết định chủ dự án 2026-10-21.
+# ADR 0012 §2: BnB ghi đè *giá trị profile*, không ghi đè bằng chứng gốc hay hạ nhãn claim gốc.
+#
+# BnB ghi tốc độ bằng px/s (baobao 144→240, haidao 120→216); quy ra cấp theo 24 px/s/cấp
+# (R-102) ⇒ 6→10 cấp và 5→9 cấp. Số bom và tầm BnB ghi thẳng theo cấp (ô/chiếc).
+#
 # Mỗi giá trị là một khóa riêng để mỗi giá trị trỏ claim (AGENTS §3) và để `rules_hash`
 # đổi khi chỉ số đổi (định danh profile là hash của toàn bộ rule).
 [characters.c00_speed]
-value = 5
+value = 6
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [characters.c00_speed_max]
-value = 7
+value = 10
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [characters.c00_bombs]
 value = 1
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [characters.c00_bombs_max]
-value = 10
+value = 6
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [characters.c00_range]
 value = 1
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [characters.c00_range_max]
 value = 7
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [characters.c01_speed]
-value = 4
+value = 5
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 [characters.c01_speed_max]
-value = 8
-unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042"]
-
-[characters.c01_bombs]
-value = 2
-unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042"]
-
-[characters.c01_bombs_max]
-value = 7
-unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042"]
-
-[characters.c01_range]
-value = 1
-unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042"]
-
-[characters.c01_range_max]
 value = 9
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+
+[characters.c01_bombs]
+value = 1
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+
+[characters.c01_bombs_max]
+value = 8
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+
+[characters.c01_range]
+value = 2
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
+
+[characters.c01_range_max]
+value = 7
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
+note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0012, quyết định chủ dự án 2026-10-21"
 
 # Thời lượng một frame animation của client (presentation, không phải luật chơi).
 # R-079: pack client gốc không mang trường thời gian, nên V1 **chọn** nhịp riêng

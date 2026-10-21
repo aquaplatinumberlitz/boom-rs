@@ -115,7 +115,8 @@ Profile TOML ở `data/rules/` (overlay ở `RulesOverlay`, ADR 0008) gồm `pro
 không đổi định danh). Replay ghi định danh này và từ chối profile khác.
 
 Bảng chỉ số nhân vật C00/C01 là **giá trị luật** nên nằm trong profile (`characters.c00_*`,
-`characters.c01_*`; RULES_V1 R-040/R-041), không phải trong file cấu hình server: mọi người chạy
+`characters.c01_*`; RULES_V1 R-105 — template BnB theo ADR 0012, dãy số gốc KR R-040/R-041 chỉ
+còn làm bằng chứng), không phải trong file cấu hình server: mọi người chạy
 server phải dùng cùng một nguồn, và chỉ số nằm trong định danh nên `rules_hash` đổi khi chỉ số
 đổi ⇒ handshake bắt được lệch (AGENTS §3). `boom-content` đọc và kiểm bảng chỉ số (đủ hai
 nhân vật, cấp hiện tại ≤ trần); thiếu hoặc sai thì `serve` báo lỗi rõ, không tự đặt mặc định.

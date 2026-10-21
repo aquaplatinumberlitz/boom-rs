@@ -172,8 +172,9 @@ impl std::error::Error for ProfileError {}
 
 /// Chỉ số một nhân vật đọc từ rules profile (`characters.<id>_<chỉ số>`).
 ///
-/// Mỗi giá trị là một khóa riêng trong profile nên mỗi giá trị trỏ được claim riêng
-/// (R-040 cho C00, R-041 cho C01; nghĩa trường R-042).
+/// Mỗi giá trị là một khóa riêng trong profile nên mỗi giá trị trỏ được claim riêng.
+/// Profile V1 dùng template BnB (R-105, ADR 0012): C00→baobao, C01→haidao; dãy số gốc KR
+/// (R-040/R-041) chỉ còn là bằng chứng, không phải giá trị dùng.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CharacterSpec {
     /// Cấp tốc độ hiện tại (f2).
@@ -534,6 +535,9 @@ status = "design"
     }
 
     /// Profile có bảng chỉ số C00/C01 (mỗi giá trị một khóa, trỏ claim).
+    ///
+    /// Fixture dùng **template BnB** (R-105, ADR 0012) — cùng bộ giá trị với profile dev
+    /// trong repo, nên test loader và test profile kiểm cùng một bảng.
     const WITH_CHARACTERS: &str = r#"
 schema = 1
 profile_id = "t"
@@ -546,104 +550,106 @@ source = "design"
 status = "design"
 
 [characters.c00_speed]
-value = 5
+value = 6
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-040"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
 
 [characters.c00_speed_max]
-value = 7
+value = 10
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-040"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
 
 [characters.c00_bombs]
 value = 1
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-040"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
 
 [characters.c00_bombs_max]
-value = 10
+value = 6
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-040"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
 
 [characters.c00_range]
 value = 1
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-040"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
 
 [characters.c00_range_max]
 value = 7
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-040"]
+source = "oss"
+status = "design"
+claims = ["R-105"]
 
 [characters.c01_speed]
-value = 4
+value = 5
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-041"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
 
 [characters.c01_speed_max]
-value = 8
-unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-041"]
-
-[characters.c01_bombs]
-value = 2
-unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-041"]
-
-[characters.c01_bombs_max]
-value = 7
-unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-041"]
-
-[characters.c01_range]
-value = 1
-unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-041"]
-
-[characters.c01_range_max]
 value = 9
 unit = "level"
-source = "kr_static"
-status = "confirmed"
-claims = ["R-041"]
+source = "oss"
+status = "design"
+claims = ["R-102", "R-105"]
+
+[characters.c01_bombs]
+value = 1
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
+
+[characters.c01_bombs_max]
+value = 8
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
+
+[characters.c01_range]
+value = 2
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
+
+[characters.c01_range_max]
+value = 7
+unit = "level"
+source = "oss"
+status = "design"
+claims = ["R-105"]
 "#;
 
     #[test]
     fn character_table_reads_both_characters() {
         let p = RulesProfile::from_toml(WITH_CHARACTERS).unwrap();
         let table = p.character_table().unwrap();
-        assert_eq!(table.c00.speed_value, 5);
-        assert_eq!(table.c00.speed_max, 7);
-        assert_eq!(table.c00.bombs_max, 10);
+        assert_eq!(table.c00.speed_value, 6);
+        assert_eq!(table.c00.speed_max, 10);
+        assert_eq!(table.c00.bombs_value, 1);
+        assert_eq!(table.c00.bombs_max, 6);
+        assert_eq!(table.c00.range_value, 1);
         assert_eq!(table.c00.range_max, 7);
-        assert_eq!(table.c01.speed_value, 4);
-        assert_eq!(table.c01.speed_max, 8);
-        assert_eq!(table.c01.bombs_value, 2);
-        assert_eq!(table.c01.bombs_max, 7);
-        assert_eq!(table.c01.range_value, 1);
-        assert_eq!(table.c01.range_max, 9);
+        assert_eq!(table.c01.speed_value, 5);
+        assert_eq!(table.c01.speed_max, 9);
+        assert_eq!(table.c01.bombs_value, 1);
+        assert_eq!(table.c01.bombs_max, 8);
+        assert_eq!(table.c01.range_value, 2);
+        assert_eq!(table.c01.range_max, 7);
     }
 
     #[test]
@@ -665,7 +671,7 @@ claims = ["R-041"]
     fn character_table_reports_missing_key_of_present_character() {
         // C01 có mặt nhưng thiếu một khóa ⇒ báo đúng khóa thiếu.
         let text = WITH_CHARACTERS.replace(
-            "[characters.c01_range_max]\nvalue = 9\nunit = \"level\"\nsource = \"kr_static\"\nstatus = \"confirmed\"\nclaims = [\"R-041\"]\n",
+            "[characters.c01_range_max]\nvalue = 7\nunit = \"level\"\nsource = \"oss\"\nstatus = \"design\"\nclaims = [\"R-105\"]\n",
             "",
         );
         let p = RulesProfile::from_toml(&text).unwrap();
@@ -678,16 +684,16 @@ claims = ["R-041"]
     #[test]
     fn character_table_rejects_value_above_max() {
         let text = WITH_CHARACTERS.replace(
-            "[characters.c00_speed]\nvalue = 5",
-            "[characters.c00_speed]\nvalue = 8",
+            "[characters.c00_speed]\nvalue = 6",
+            "[characters.c00_speed]\nvalue = 11",
         );
         let p = RulesProfile::from_toml(&text).unwrap();
         assert_eq!(
             p.character_table(),
             Err(ProfileError::CharacterAboveMax {
                 key: "characters.c00_speed".into(),
-                value: 8,
-                max: 7,
+                value: 11,
+                max: 10,
             })
         );
     }
@@ -710,8 +716,8 @@ claims = ["R-041"]
         // Chỉ số nhân vật nằm trong định danh profile ⇒ `rules_hash` đổi khi chỉ số đổi.
         let a = RulesProfile::from_toml(WITH_CHARACTERS).unwrap();
         let b = RulesProfile::from_toml(&WITH_CHARACTERS.replace(
-            "[characters.c00_speed]\nvalue = 5",
             "[characters.c00_speed]\nvalue = 6",
+            "[characters.c00_speed]\nvalue = 7",
         ))
         .unwrap();
         assert_ne!(a.identity_hash(), b.identity_hash());
@@ -720,16 +726,62 @@ claims = ["R-041"]
         assert_ne!(a.identity_hash(), without.identity_hash());
     }
 
+    /// Profile dev trong repo dùng **template BnB** (R-105, ADR 0012): C00→baobao,
+    /// C01→haidao. Đây là bảng giá trị profile V1, không phải dãy số gốc KR
+    /// (R-040/R-041) — dãy gốc chỉ còn làm bằng chứng trong RULES_V1.
+    #[test]
+    fn dev_profile_uses_bnb_character_template() {
+        let text = include_str!("../../../data/rules/v1-dev.toml");
+        let p = RulesProfile::from_toml(text).unwrap();
+        let table = p.character_table().unwrap();
+        // C00 → baobao: speed 6→10, bombs 1→6, range 1→7.
+        assert_eq!(table.c00.speed_value, 6);
+        assert_eq!(table.c00.speed_max, 10);
+        assert_eq!(table.c00.bombs_value, 1);
+        assert_eq!(table.c00.bombs_max, 6);
+        assert_eq!(table.c00.range_value, 1);
+        assert_eq!(table.c00.range_max, 7);
+        // C01 → haidao: speed 5→9, bombs 1→8, range 2→7.
+        assert_eq!(table.c01.speed_value, 5);
+        assert_eq!(table.c01.speed_max, 9);
+        assert_eq!(table.c01.bombs_value, 1);
+        assert_eq!(table.c01.bombs_max, 8);
+        assert_eq!(table.c01.range_value, 2);
+        assert_eq!(table.c01.range_max, 7);
+    }
+
+    /// Profile dev không còn mang dãy số gốc KR (R-040/R-041) trong `characters.*`.
+    #[test]
+    fn dev_profile_drops_kr_character_values() {
+        let text = include_str!("../../../data/rules/v1-dev.toml");
+        let p = RulesProfile::from_toml(text).unwrap();
+        for key in p.rules.keys().filter(|key| key.starts_with("characters.")) {
+            let rule = &p.rules[key];
+            assert_eq!(rule.source, Source::Oss, "{key}: phải là nguồn BnB");
+            assert_eq!(rule.status, Status::Design, "{key}: phải là design");
+            assert!(
+                rule.claims.iter().any(|claim| claim == "R-105"),
+                "{key}: phải trỏ claim R-105"
+            );
+        }
+    }
+
     #[test]
     fn repo_profiles_carry_character_tables() {
-        for text in [
-            include_str!("../../../data/rules/v1-dev.toml"),
-            include_str!("../../../fixtures/rules/skeleton-test.toml"),
-        ] {
-            let p = RulesProfile::from_toml(text).unwrap();
-            let table = p.character_table().unwrap();
-            assert_eq!(table.c00.speed_max, 7);
-            assert_eq!(table.c01.range_max, 9);
-        }
+        // Profile dev: template BnB (R-105). Profile `skeleton-test` là fixture cố định
+        // cho test/scenario/replay: giữ nguyên bộ khóa, giá trị riêng (không sửa file này).
+        let dev = RulesProfile::from_toml(include_str!("../../../data/rules/v1-dev.toml"))
+            .unwrap()
+            .character_table()
+            .unwrap();
+        assert_eq!(dev.c00.speed_max, 10);
+        assert_eq!(dev.c01.range_max, 7);
+        let skeleton =
+            RulesProfile::from_toml(include_str!("../../../fixtures/rules/skeleton-test.toml"))
+                .unwrap()
+                .character_table()
+                .unwrap();
+        assert_eq!(skeleton.c00.speed_max, 7);
+        assert_eq!(skeleton.c01.range_max, 9);
     }
 }

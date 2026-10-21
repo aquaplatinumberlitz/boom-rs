@@ -1038,8 +1038,8 @@ mod tests {
         std::fs::write(
             &path,
             "[characters.c00]\n\
-             speed_value = 5\nspeed_max = 7\n\
-             bombs_value = 1\nbombs_max = 10\n\
+             speed_value = 6\nspeed_max = 10\n\
+             bombs_value = 1\nbombs_max = 6\n\
              range_value = 1\nrange_max = 7\n",
         )
         .expect("ghi file");

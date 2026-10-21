@@ -52,7 +52,10 @@ pub struct Rules {
     pub profile_hash: u64,
 }
 
-/// Bảng chỉ số hai nhân vật V1 (C00/C01), đọc từ rules profile (`characters.*`, R-040/R-041).
+/// Bảng chỉ số hai nhân vật V1 (C00/C01), đọc từ rules profile (`characters.*`).
+///
+/// Profile V1 dùng template BnB (R-105, ADR 0012): C00→baobao, C01→haidao; dãy số gốc KR
+/// (R-040/R-041) là bằng chứng, không phải giá trị dùng.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CharacterStatsTable {
     pub c00: CharacterStats,
@@ -148,4 +151,156 @@ fn i32_of(v: i64) -> i32 {
 
 fn u32_of(v: i64) -> u32 {
     u32::try_from(v).expect("miền đã kiểm nằm trong u32")
+}
+
+#[cfg(test)]
+mod tests {
+    use boom_content::map::Terrain;
+
+    use super::*;
+    use crate::mode::mode_by_id;
+    use crate::num::Cell;
+    use crate::sim::{PlayerInput, PlayerSetup, World};
+    use crate::state::{FloorItem, ItemKind, SimulationState};
+
+    /// Profile dev của repo: chỉ số nhân vật theo template BnB (R-105, ADR 0012).
+    const DEV_PROFILE: &str = include_str!("../../../data/rules/v1-dev.toml");
+
+    fn dev_profile() -> RulesProfile {
+        RulesProfile::from_toml(DEV_PROFILE).expect("profile dev hợp lệ")
+    }
+
+    /// Spawn và trần của C00/C01 phải đúng profile BnB (R-105).
+    #[test]
+    fn character_table_from_dev_profile_is_bnb_template() {
+        let table = CharacterStatsTable::from_profile(&dev_profile()).expect("bảng chỉ số");
+        // C00 → baobao: speed 6→10, bombs 1→6, range 1→7.
+        assert_eq!(table.c00.speed.value, 6);
+        assert_eq!(table.c00.speed.max, 10);
+        assert_eq!(table.c00.bombs.value, 1);
+        assert_eq!(table.c00.bombs.max, 6);
+        assert_eq!(table.c00.range.value, 1);
+        assert_eq!(table.c00.range.max, 7);
+        // C01 → haidao: speed 5→9, bombs 1→8, range 2→7.
+        assert_eq!(table.c01.speed.value, 5);
+        assert_eq!(table.c01.speed.max, 9);
+        assert_eq!(table.c01.bombs.value, 1);
+        assert_eq!(table.c01.bombs.max, 8);
+        assert_eq!(table.c01.range.value, 2);
+        assert_eq!(table.c01.range.max, 7);
+    }
+
+    /// Người chơi spawn trong lượt lấy đúng chỉ số profile (không có giá trị gốc hardcode).
+    #[test]
+    fn round_spawns_players_with_profile_stats() {
+        let profile = dev_profile();
+        let rules = Rules::from_profile(&profile).expect("rules");
+        let stats = CharacterStatsTable::from_profile(&profile).expect("bảng chỉ số");
+        let terrain = Terrain::from_ascii(&["0..", "1.."]).expect("địa hình");
+        let world = World::new(
+            terrain,
+            rules,
+            mode_by_id("battle_ffa").expect("mode battle_ffa"),
+        )
+        .expect("thế giới");
+        let roster = [
+            PlayerSetup {
+                id: 0,
+                stats: stats.c00,
+            },
+            PlayerSetup {
+                id: 1,
+                stats: stats.c01,
+            },
+        ];
+        let state = SimulationState::new_round(&world, &roster, 7).expect("vòng mới");
+        let c00 = &state.players[0];
+        let c01 = &state.players[1];
+        assert_eq!((c00.speed.value, c00.speed.max), (6, 10));
+        assert_eq!((c00.bombs.value, c00.bombs.max), (1, 6));
+        assert_eq!((c00.range.value, c00.range.max), (1, 7));
+        assert_eq!((c01.speed.value, c01.speed.max), (5, 9));
+        assert_eq!((c01.bombs.value, c01.bombs.max), (1, 8));
+        assert_eq!((c01.range.value, c01.range.max), (2, 7));
+    }
+
+    /// Nhặt item tăng chỉ số tới **trần của profile** rồi dừng: item còn trên nền,
+    /// không phát event (R-058). Trần lấy từ profile ⇒ C00 dừng ở 6 bom, không phải 10.
+    #[test]
+    fn pickup_stops_at_profile_cap() {
+        let profile = dev_profile();
+        let rules = Rules::from_profile(&profile).expect("rules");
+        let stats = CharacterStatsTable::from_profile(&profile).expect("bảng chỉ số");
+        let bomb = ItemKind(
+            u16::try_from(
+                rules
+                    .items
+                    .iter()
+                    .position(|item| item.key == "Bomb")
+                    .expect("item Bomb trong rules"),
+            )
+            .expect("index vừa khớp u16"),
+        );
+        let terrain = Terrain::from_ascii(&["0.."]).expect("địa hình");
+        let world = World::new(
+            terrain,
+            rules,
+            mode_by_id("battle_ffa").expect("mode battle_ffa"),
+        )
+        .expect("thế giới");
+        let mut state = SimulationState::new_round(
+            &world,
+            &[PlayerSetup {
+                id: 0,
+                stats: stats.c00,
+            }],
+            1,
+        )
+        .expect("vòng mới");
+        let spawn = Cell::new(0, 0);
+        let mut events = Vec::new();
+        // Nhặt tới trần: mỗi tick một item Bomb, cấp bom tăng đúng `item.bomb_capacity_delta`.
+        while state.players[0].bombs.value < state.players[0].bombs.max {
+            let id = state.ids.next_id();
+            state.items.push(FloorItem {
+                id,
+                kind: bomb,
+                cell: spawn,
+            });
+            events.clear();
+            state
+                .step(&world, &[PlayerInput::default()], &mut events)
+                .expect("tick");
+            assert!(
+                events
+                    .iter()
+                    .any(|event| event.kind.name() == "item_picked"),
+                "phải có event nhặt khi còn dưới trần"
+            );
+        }
+        assert_eq!(state.players[0].bombs.max, 6, "trần bom của C00 theo R-105");
+        assert_eq!(state.players[0].bombs.value, 6);
+        assert!(state.items.is_empty(), "item đã nhặt phải mất khỏi nền");
+
+        // Đã ở trần: item tiếp theo không được nhặt, vẫn nằm trên nền và không phát event.
+        let id = state.ids.next_id();
+        state.items.push(FloorItem {
+            id,
+            kind: bomb,
+            cell: spawn,
+        });
+        events.clear();
+        state
+            .step(&world, &[PlayerInput::default()], &mut events)
+            .expect("tick");
+        assert_eq!(state.players[0].bombs.value, 6, "đã ở trần thì không tăng");
+        assert_eq!(state.items.len(), 1, "item phải còn trên nền");
+        assert!(
+            !events
+                .iter()
+                .any(|event| event.kind.name() == "item_picked"),
+            "không phát event khi không nhặt được"
+        );
+        state.check_invariants(&world).expect("bất biến");
+    }
 }

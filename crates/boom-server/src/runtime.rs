@@ -1596,37 +1596,59 @@ empty = "floor"
         sender.join().expect("luồng client");
     }
 
+    /// Profile dev của repo là profile V1 (chỉ số theo template BnB, R-105/ADR 0012).
+    const DEV_PROFILE: &str = include_str!("../../../data/rules/v1-dev.toml");
+
+    /// Bỏ mọi khối `characters.c01_*` khỏi một profile ⇒ profile còn C00 nhưng thiếu C01.
+    fn without_c01(text: &str) -> String {
+        let mut out = String::new();
+        let mut skip = false;
+        for line in text.lines() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with('[') {
+                skip = trimmed.starts_with("[characters.c01_");
+            }
+            if !skip {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+        out
+    }
+
+    /// Chỉ số nhân vật phải đến từ rules profile (`characters.*`), không từ file cấu hình.
+    ///
+    /// Profile V1 (`data/rules/v1-dev.toml`) dùng template BnB (R-105, ADR 0012):
+    /// C00→baobao (speed 6→10, bombs 1→6, range 1→7), C01→haidao (speed 5→9, bombs 1→8,
+    /// range 2→7). Giá trị gốc KR (R-040/R-041) không còn trong profile ⇒ không thể "rơi" về.
     #[test]
     fn serve_reads_character_stats_from_rules_profile() {
         let dir = tempfile::tempdir().expect("thư mục tạm");
-        let config_path = write_test_env(dir.path());
+        let config_path = write_test_env_with_rules(dir.path(), Some(DEV_PROFILE));
         let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
         let content = load_content(&config).expect("nạp content");
 
-        // Chỉ số đến từ rules profile (`characters.*`), không từ file cấu hình.
-        assert_eq!(content.stats.c00.speed.value, 5);
-        assert_eq!(content.stats.c00.speed.max, 7);
+        // C00 → baobao.
+        assert_eq!(content.stats.c00.speed.value, 6);
+        assert_eq!(content.stats.c00.speed.max, 10);
         assert_eq!(content.stats.c00.bombs.value, 1);
-        assert_eq!(content.stats.c00.bombs.max, 10);
+        assert_eq!(content.stats.c00.bombs.max, 6);
         assert_eq!(content.stats.c00.range.value, 1);
         assert_eq!(content.stats.c00.range.max, 7);
-        assert_eq!(content.stats.c01.speed.value, 4);
-        assert_eq!(content.stats.c01.speed.max, 8);
-        assert_eq!(content.stats.c01.bombs.value, 2);
-        assert_eq!(content.stats.c01.bombs.max, 7);
-        assert_eq!(content.stats.c01.range.value, 1);
-        assert_eq!(content.stats.c01.range.max, 9);
+        // C01 → haidao.
+        assert_eq!(content.stats.c01.speed.value, 5);
+        assert_eq!(content.stats.c01.speed.max, 9);
+        assert_eq!(content.stats.c01.bombs.value, 1);
+        assert_eq!(content.stats.c01.bombs.max, 8);
+        assert_eq!(content.stats.c01.range.value, 2);
+        assert_eq!(content.stats.c01.range.max, 7);
     }
 
     #[test]
     fn serve_reports_clear_error_when_profile_lacks_characters() {
         let dir = tempfile::tempdir().expect("thư mục tạm");
         // Profile không có bảng chỉ số nhân vật ⇒ lỗi rõ, không tự đặt mặc định.
-        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml")
-            .split("[characters.c01_range]")
-            .next()
-            .expect("còn phần C00")
-            .to_owned();
+        let profile = without_c01(DEV_PROFILE);
         let config_path = write_test_env_with_rules(dir.path(), Some(&profile));
         let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
         let error = load_content(&config).expect_err("profile thiếu nhân vật phải lỗi");
@@ -1638,9 +1660,9 @@ empty = "floor"
     fn serve_reports_clear_error_when_profile_character_value_above_max() {
         let dir = tempfile::tempdir().expect("thư mục tạm");
         // Cấp hiện tại vượt trần ⇒ lỗi rõ, không tự sửa.
-        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml").replace(
-            "[characters.c00_speed]\nvalue = 5",
-            "[characters.c00_speed]\nvalue = 8",
+        let profile = DEV_PROFILE.replace(
+            "[characters.c00_speed]\nvalue = 6",
+            "[characters.c00_speed]\nvalue = 11",
         );
         let config_path = write_test_env_with_rules(dir.path(), Some(&profile));
         let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
@@ -1652,14 +1674,14 @@ empty = "floor"
     #[test]
     fn rules_hash_changes_when_character_stats_change() {
         let dir = tempfile::tempdir().expect("thư mục tạm");
-        let config_path = write_test_env(dir.path());
+        let config_path = write_test_env_with_rules(dir.path(), Some(DEV_PROFILE));
         let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
         let base = load_content(&config).expect("nạp content");
 
         // Đổi chỉ số trong profile ⇒ `rules_hash` đổi ⇒ handshake bắt được lệch.
-        let profile = include_str!("../../../fixtures/rules/skeleton-test.toml").replace(
-            "[characters.c00_speed]\nvalue = 5",
+        let profile = DEV_PROFILE.replace(
             "[characters.c00_speed]\nvalue = 6",
+            "[characters.c00_speed]\nvalue = 7",
         );
         let other_dir = tempfile::tempdir().expect("thư mục tạm");
         let other_path = write_test_env_with_rules(other_dir.path(), Some(&profile));
@@ -1668,8 +1690,8 @@ empty = "floor"
         let other = load_content(&other_config).expect("nạp content");
 
         assert_ne!(base.rules_hash, other.rules_hash);
-        assert_eq!(other.stats.c00.speed.value, 6);
-        assert_eq!(base.stats.c00.speed.value, 5);
+        assert_eq!(other.stats.c00.speed.value, 7);
+        assert_eq!(base.stats.c00.speed.value, 6);
     }
 
     #[test]
