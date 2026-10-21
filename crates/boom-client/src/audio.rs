@@ -28,18 +28,36 @@ pub struct AudioPlan {
 /// Trạng thái quyết định cue của một client.
 #[derive(Debug)]
 pub struct AudioState {
-    local_slot: u8,
+    /// Slot trận của client: chọn cue thắng/thua khi lượt kết thúc.
+    ///
+    /// `None` = client chưa biết slot của mình (chưa nhận `RoundStart`): không có cue
+    /// thắng/thua nào được phát, vì không biết mình thắng hay thua.
+    local_slot: Option<u8>,
     seen: HashSet<(u32, EventId)>,
     bgm_started: bool,
 }
 
 impl AudioState {
-    pub fn new(local_slot: u8) -> Self {
+    /// Trạng thái âm thanh mới: slot trận của client (`None` = chưa biết, xem
+    /// [`AudioState::local_slot`]).
+    pub fn new(local_slot: Option<u8>) -> Self {
         Self {
             local_slot,
             seen: HashSet::new(),
             bgm_started: false,
         }
+    }
+
+    /// Sang lượt mới: đổi slot của client (từ `RoundStart`) và quên cue của lượt cũ.
+    ///
+    /// Khoá dedup là `(round_id, EventId)` nên cue của lượt cũ không thể phát lại ở lượt
+    /// mới; sổ `seen` vẫn được dọn để không giữ vô ích. **BGM không restart**: voice loop
+    /// BGM chạy suốt phiên, kể cả khi reconcile lẫn khi sang lượt mới (AUDIO_V1 §4).
+    pub fn set_round(&mut self, local_slot: Option<u8>) {
+        if local_slot.is_some() {
+            self.local_slot = local_slot;
+        }
+        self.seen.clear();
     }
 
     /// Lên kế hoạch phát cho event của một round/tick.
@@ -115,8 +133,13 @@ impl AudioState {
             EventKind::PlayerDied { .. } => Some("player_died"),
             EventKind::PlayerTurned { .. } => None,
             EventKind::RoundEnded { outcome } => Some(match outcome {
-                Outcome::Winner(slot) if *slot == self.local_slot => "round_ended_win",
-                Outcome::Winner(_) => "round_ended_lose",
+                // Chưa biết slot của mình thì không có cue thắng/thua: không đoán
+                // (client chỉ biết slot sau `RoundStart`).
+                Outcome::Winner(slot) => match self.local_slot {
+                    Some(local) if local == *slot => "round_ended_win",
+                    Some(_) => "round_ended_lose",
+                    None => return None,
+                },
                 Outcome::Draw => "round_ended_draw",
             }),
             _ => None,
@@ -275,7 +298,7 @@ mod tests {
             "player_trapped",
             "player_died",
         ]);
-        let mut state = AudioState::new(0);
+        let mut state = AudioState::new(Some(0));
         let events = vec![
             event(
                 1,
@@ -319,10 +342,91 @@ mod tests {
     }
 
     #[test]
+    fn sang_luot_moi_quen_cue_cu_va_khong_restart_bgm() {
+        // Sang lượt mới: cue của lượt cũ quên, **BGM không restart** (AUDIO_V1 §4) và
+        // slot của client lấy theo `RoundStart` (cue thắng/thua đúng góc nhìn).
+        let bundle = bundle_with(&[
+            "bgm_loop",
+            "bomb_placed",
+            "round_ended_win",
+            "round_ended_lose",
+        ]);
+        let mut state = AudioState::new(Some(0));
+        let events = vec![event(
+            1,
+            0,
+            EventKind::BombPlaced {
+                bomb: boom_core::EntityId(1),
+                player: 0,
+                cell: boom_core::Cell { x: 1, y: 1 },
+                range: 1,
+            },
+        )];
+        let first = state.plan(&bundle, 7, &events);
+        assert!(first.start_bgm);
+        assert_eq!(first.cues, vec!["bomb_placed".to_owned()]);
+
+        // Lượt mới (slot mới từ `RoundStart`): BGM vẫn chạy, không bật lại.
+        state.set_round(Some(1));
+        let next = state.plan(&bundle, 8, &events);
+        assert!(!next.start_bgm, "BGM không restart khi sang lượt mới");
+        assert_eq!(
+            next.cues,
+            vec!["bomb_placed".to_owned()],
+            "cue của lượt mới vẫn phát"
+        );
+        // Góc nhìn thắng/thua theo slot mới.
+        let win = state.plan(
+            &bundle,
+            8,
+            &[event(
+                9,
+                0,
+                EventKind::RoundEnded {
+                    outcome: Outcome::Winner(1),
+                },
+            )],
+        );
+        assert_eq!(win.cues, vec!["round_ended_win".to_owned()]);
+        let lose = state.plan(
+            &bundle,
+            8,
+            &[event(
+                10,
+                0,
+                EventKind::RoundEnded {
+                    outcome: Outcome::Winner(0),
+                },
+            )],
+        );
+        assert_eq!(lose.cues, vec!["round_ended_lose".to_owned()]);
+    }
+
+    #[test]
+    fn chua_biet_slot_thi_khong_co_cue_thang_thua() {
+        // Chưa nhận `RoundStart` thì chưa biết mình thắng hay thua: không đoán, không
+        // phát cue thắng/thua.
+        let bundle = bundle_with(&["round_ended_win", "round_ended_lose"]);
+        let mut state = AudioState::new(None);
+        let plan = state.plan(
+            &bundle,
+            1,
+            &[event(
+                9,
+                0,
+                EventKind::RoundEnded {
+                    outcome: Outcome::Winner(0),
+                },
+            )],
+        );
+        assert!(plan.cues.is_empty());
+    }
+
+    #[test]
     fn groups_same_cue_and_caps_voices() {
         let cues = ["bomb_exploded"];
         let bundle = bundle_with(&cues);
-        let mut state = AudioState::new(0);
+        let mut state = AudioState::new(Some(0));
         let events: Vec<_> = (0..10)
             .map(|i| {
                 event(
@@ -344,7 +448,7 @@ mod tests {
     #[test]
     fn round_result_uses_local_player_perspective() {
         let bundle = bundle_with(&["round_ended_win", "round_ended_lose", "round_ended_draw"]);
-        let mut state = AudioState::new(2);
+        let mut state = AudioState::new(Some(2));
         let win = state.plan(
             &bundle,
             1,
@@ -386,7 +490,7 @@ mod tests {
     #[test]
     fn ui_cue_only_uses_sfx_entry() {
         let bundle = bundle_with(&["bomb_placed", "bgm_loop"]);
-        let state = AudioState::new(0);
+        let state = AudioState::new(Some(0));
         assert_eq!(
             state.plan_ui(&bundle, "bomb_placed").cues,
             vec!["bomb_placed".to_owned()]

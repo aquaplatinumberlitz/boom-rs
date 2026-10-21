@@ -868,6 +868,131 @@ fn client_nhan_reject_khi_rules_lech() {
 }
 
 #[test]
+fn giai_ma_khoi_du_lieu_server_dong_goi() {
+    // Server đóng gói event bằng `boom_sync::to_round_events` (tên loại và tên trường lấy
+    // từ `EventKind::name()`/`EventKind::fields()` của core); client giải mã bằng
+    // `decode_event`. Hai bên phải dùng **cùng một bảng tên**: mọi loại event V1 đi qua
+    // vòng đóng gói → giải mã phải ra đúng event core.
+    use boom_core::{
+        Cell, EntityId, EventId as CoreEventId, EventKind, ItemKind, Outcome, SimulationEvent,
+    };
+    let events = vec![
+        SimulationEvent {
+            id: CoreEventId { tick: 1, seq: 0 },
+            kind: EventKind::PlayerTurned { player: 2 },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 1, seq: 1 },
+            kind: EventKind::BombPlaced {
+                bomb: EntityId(7),
+                player: 1,
+                cell: Cell::new(3, 4),
+                range: 5,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 0 },
+            kind: EventKind::BombExploded {
+                bomb: EntityId(7),
+                owner: 1,
+                cell: Cell::new(3, 4),
+                chained: true,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 1 },
+            kind: EventKind::BlockDestroyed {
+                cell: Cell::new(5, 6),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 2 },
+            kind: EventKind::ItemRevealed {
+                item: EntityId(9),
+                kind: ItemKind(2),
+                cell: Cell::new(5, 6),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 3 },
+            kind: EventKind::ItemDestroyed {
+                item: EntityId(9),
+                cell: Cell::new(5, 6),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 3, seq: 0 },
+            kind: EventKind::ItemPicked {
+                item: EntityId(9),
+                kind: ItemKind(2),
+                player: 0,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 4, seq: 0 },
+            kind: EventKind::PlayerTrapped { player: 1, by: 0 },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 5, seq: 0 },
+            kind: EventKind::PlayerDied {
+                player: 1,
+                by: Some(0),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 5, seq: 1 },
+            kind: EventKind::PlayerDied {
+                player: 0,
+                by: None,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 6, seq: 0 },
+            kind: EventKind::RoundEnded {
+                outcome: Outcome::Winner(1),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 6, seq: 1 },
+            kind: EventKind::RoundEnded {
+                outcome: Outcome::Draw,
+            },
+        },
+    ];
+    let wire = boom_sync::to_round_events(11, &events);
+    assert_eq!(wire.events.len(), events.len());
+    for (original, encoded) in events.iter().zip(wire.events.iter()) {
+        let decoded = super::decode_event(encoded).expect("phải giải mã được");
+        assert_eq!(&decoded, original, "giải mã phải ra đúng event core");
+    }
+}
+
+#[test]
+fn giai_ma_bo_event_khong_hieu_va_thieu_truong() {
+    // Event tên lạ hoặc thiếu trường thì **bỏ**: consumer không đoán giá trị
+    // (`EventKind` là `non_exhaustive`, ADR 0009 §2).
+    let id = boom_proto::EventId { tick: 1, seq: 0 };
+    assert!(
+        super::decode_event(&RoundEvent {
+            id,
+            name: "event_la".to_owned(),
+            fields: Vec::new(),
+        })
+        .is_none(),
+        "tên loại lạ phải bị bỏ"
+    );
+    assert!(
+        super::decode_event(&RoundEvent {
+            id,
+            name: "player_died".to_owned(),
+            fields: Vec::new(),
+        })
+        .is_none(),
+        "thiếu trường phải bị bỏ"
+    );
+}
+
+#[test]
 fn event_khong_phat_lai_khi_reconcile() {
     // Chiều nhận bị nhân bản toàn bộ frame: cùng một `RoundEvents` tới nhiều lần, client chỉ
     // được trình bày đúng một lần (dedup theo `(round_id, EventId)`).
