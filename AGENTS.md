@@ -52,6 +52,9 @@ Mỗi claim và mỗi giá trị luật có **nguồn** và **trạng thái**:
 - Nguồn: `kr_static`, `kr_runtime`, `vn_static`, `vn_runtime`, `web`, `oss`, `emu_choice`, `design`.
 - Trạng thái: `confirmed`, `candidate`, `design`, `unknown` (unknown không mang giá trị).
 
+Ưu tiên giá trị cùng đại lượng: KR 00967 `confirmed` → VN VBNB_116 `confirmed` →
+BnB `5c108e8` được chọn `design` → `design` riêng ([ADR 0013](docs/decisions/0013-rule-source-precedence.md)).
+`candidate` không đè nguồn confirmed; ngoại lệ chỉ số KR candidate có lý do riêng trong ADR 0013.
 VN và KR là nguồn tin cậy ngang nhau ([ADR 0002](docs/decisions/0002-vn-kr-trusted-sources.md)).
 Claim VN `confirmed` dùng trực tiếp cho luật chung; khác biệt cụ thể theo build (ID, offset, map, mode)
 ghi theo profile. `web`, `oss` và `emu_choice` (giá trị server giả lập tự đặt) chỉ là `candidate`
