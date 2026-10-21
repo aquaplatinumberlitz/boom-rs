@@ -479,6 +479,11 @@ _PROSE_SUPERSEDED_RE = re.compile(
     r"(R-\d{3}(?:/R-\d{3})*)[^|\n]{0,80}?\*\*superseded by ([^*]+)\*\*")
 
 
+def _mentions(text: str, token: str) -> bool:
+    """Có nhắc đúng từ khóa (nguồn/trạng thái) trong ô bảng không."""
+    return re.search(rf"\b{re.escape(token)}\b", text) is not None
+
+
 def parse_rules_v1(text: str) -> RulesIndex:
     """Đọc RULES_V1: dòng bảng theo claim ID và quan hệ superseded."""
     index = RulesIndex()
@@ -528,11 +533,11 @@ def check_expectations(index: RulesIndex, quantities: list[Quantity]) -> list[st
         row = index.rows[selection]
         cell = row["source_status"]
         for source in quantity.sources:
-            if source not in cell:
+            if not _mentions(cell, source):
                 errors.append(
                     f"RULES_V1: dòng {selection} không nêu nguồn `{source}` "
                     f"(cần {quantity.expected()}) cho `{quantity.key}`")
-        if quantity.status not in cell:
+        if not _mentions(cell, quantity.status):
             errors.append(
                 f"RULES_V1: dòng {selection} không nêu trạng thái `{quantity.status}` "
                 f"(cần {quantity.expected()}) cho `{quantity.key}`")

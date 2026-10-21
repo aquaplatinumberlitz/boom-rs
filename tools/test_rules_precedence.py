@@ -148,6 +148,16 @@ class PrecedenceTests(unittest.TestCase):
         errors = check_expectations(self.index, [broken])
         self.assertTrue(any("R-999" in error for error in errors), errors)
 
+    def test_table_source_must_match_rules_v1_row(self):
+        quantity = next(q for q in self.quantities if q.key == "grid.tile_px")
+        broken = type(quantity)(
+            key=quantity.key, quantity=quantity.quantity, unit=quantity.unit,
+            context=quantity.context, tier=quantity.tier, sources=("web",),
+            status=quantity.status, selection=quantity.selection, support=quantity.support,
+            limits=quantity.limits, forbidden=quantity.forbidden, deviation=quantity.deviation)
+        errors = check_expectations(self.index, [broken])
+        self.assertTrue(any("không nêu nguồn `web`" in error for error in errors), errors)
+
     def test_parser_errors_fail(self):
         with self.assertRaises(PrecedenceError):
             parse_profile("schema = 1\nprofile_id = 'x'\nrelease = false\n[bad\n", "bad.toml")
