@@ -1,0 +1,27 @@
+[package]
+name = "boom-qa"
+description = "Harness QA mạng V1-027: 1 server + N bot headless qua MemoryTransport, đo trễ input và kiểm hội tụ state hash"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+boom-core.workspace = true
+boom-content.workspace = true
+boom-room = { path = "../boom-room" }
+boom-proto = { path = "../boom-proto" }
+boom-net = { path = "../boom-net" }
+boom-sync = { path = "../boom-sync" }
+boom-server = { path = "../boom-server" }
+# Báo cáo JSON (serde_json) và hồ sơ QA/harness (toml) — cùng dependency nền đã có trong workspace.
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+# SHA-256 của file map: `content_sha256` trong handshake là định danh content của phiên.
+sha2.workspace = true
+# SQLite tempfile cho identity của server trong lúc chạy QA (ADR 0011 §10).
+tempfile.workspace = true
+
+[lints]
+workspace = true
