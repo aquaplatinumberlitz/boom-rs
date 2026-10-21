@@ -433,13 +433,28 @@ impl Authority {
             .map(crate::input::InputTrack::applied_seq)
     }
 
-    /// Snapshot DTO đầy đủ của state hiện tại; `None` khi không có trận.
+    /// Server được phép gửi `Snapshot` của lượt hiện tại chưa.
+    ///
+    /// ADR 0009 §4.3: "Server gửi snapshot đầu **sau khi round bắt đầu**". Lượt chỉ bắt đầu
+    /// khi loading barrier đã qua (mọi thành viên đã gửi `LoadingAck`, SCOPE_V1 §3). Trước
+    /// đó state trận chưa chạy (`tick == 0`) nên snapshot chỉ mô tả "phòng đang loading":
+    /// **không** gửi. Lượt đã kết thúc (`Results`) vẫn được gửi snapshot cuối.
+    pub fn snapshot_allowed(&self) -> bool {
+        matches!(self.phase, Lifecycle::Playing | Lifecycle::Results { .. })
+    }
+
+    /// Snapshot DTO đầy đủ của state hiện tại; `None` khi không có trận **hoặc lượt chưa
+    /// bắt đầu** (còn ở loading barrier).
     /// Chuyển đổi nằm ở `boom-sync`, server không tự dựng DTO state.
     pub fn snapshot(
         &self,
         snapshot_seq: u32,
         content_epoch: u32,
     ) -> Option<Result<Snapshot, boom_sync::SyncError>> {
+        // ADR 0009 §4.3: snapshot chỉ đi sau khi round bắt đầu (loading barrier đã qua).
+        if !self.snapshot_allowed() {
+            return None;
+        }
         let active = self.active.as_ref()?;
         let round_id = u32::try_from(active.round.0).ok()?;
         let mut acks = Vec::new();
