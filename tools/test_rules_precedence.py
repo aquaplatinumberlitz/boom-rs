@@ -3,19 +3,26 @@
 Synthetic profiles never touch the real ones: the fixture text is built from the
 expectation table, and a single field is changed per case. The real repository
 profiles are checked once as a regression baseline.
+
+The cases for a **merged** claim row (R-111, R-112, R-116) are the point of the
+per-key metadata of RULES_V1 §11: one claim may cover several keys with different
+tiers, so a tier must never be read from the whole claim row.
 """
 import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from rules_precedence import (
+    SELECTION_HEADING,
     PrecedenceError,
     check_expectations,
     check_profile,
     check_repository,
     expectations,
+    load_profile,
     parse_profile,
     parse_rules_v1,
     tier_of,
@@ -24,7 +31,49 @@ from rules_precedence import (
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES_V1 = ROOT / "docs" / "specification" / "gameplay" / "RULES_V1.md"
+PROFILE = ROOT / "data" / "rules" / "v1-dev.toml"
 TOOL = ROOT / "tools" / "rules_precedence.py"
+
+# Dòng claim gộp R-111 và dòng "Bảng lựa chọn theo khóa" của cùng claim: một khóa
+# được nâng lên `kr_static` / confirmed còn khóa anh em giữ tầng cũ.
+CLAIM_R111_ROW = (
+    "| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN; "
+    "`item.roller_speed_delta` giữ BnB | +1 bomb; +1 cell; +1 level | "
+    "Bomb/Fire `vn_runtime` / confirmed; Roller `oss` / design |")
+CLAIM_R111_ROW_UPGRADED = (
+    "| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN; "
+    "`item.roller_speed_delta` giữ BnB | +1 bomb; +1 cell; +1 level | "
+    "Bomb/Fire `kr_static` + `vn_runtime` / confirmed; Roller `oss` / design |")
+PER_KEY_BOMB_CAPACITY = (
+    "| `item.bomb_capacity_delta` | R-111 | item_bomb_capacity_delta | bomb | "
+    "`vn_runtime` | confirmed | VN VBNB_116 |")
+PER_KEY_BOMB_CAPACITY_UPGRADED = (
+    "| `item.bomb_capacity_delta` | R-111 | item_bomb_capacity_delta | bomb | "
+    "`kr_static` | confirmed | KR 00967 |")
+
+# Ô nguồn/trạng thái của dòng claim gộp R-116: sửa riêng ô này (không sửa bảng
+# lựa chọn theo khóa) là cách tái lập finding "đối chiếu theo cả ô claim gộp".
+CLAIM_R116_ROW = (
+    "| R-116 | `player.collision_half_px`, `player.corner_assist_px`, "
+    "`player.trap_touch_distance_px` giữ BnB | 13/12/28 px | `oss` / design |")
+CLAIM_R116_ROW_TAMPERED = (
+    "| R-116 | `player.collision_half_px`, `player.corner_assist_px`, "
+    "`player.trap_touch_distance_px` giữ BnB | 13/12/28 px | "
+    "player.collision_half_px: kr_static / confirmed; assist/touch: oss / design |")
+PER_KEY_COLLISION = (
+    "| `player.collision_half_px` | R-116 | collision_box_half | px | `oss` | "
+    "design | BnB 5c108e8 |")
+
+
+def rules_v1_text() -> str:
+    return RULES_V1.read_text(encoding="utf-8")
+
+
+def replace_once(text: str, old: str, new: str) -> str:
+    """Thay đúng một lần; thất bại thì báo rõ đoạn cần sửa."""
+    if old not in text:
+        raise AssertionError(f"không tìm thấy đoạn cần sửa trong RULES_V1: {old!r}")
+    return text.replace(old, new, 1)
 
 
 def profile_text(overrides=None, extra=""):
@@ -196,6 +245,130 @@ class PrecedenceTests(unittest.TestCase):
             [sys.executable, str(TOOL)], capture_output=True, text=True, cwd=ROOT, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Rules precedence OK", result.stdout)
+
+
+class MergedClaimPerKeyTests(unittest.TestCase):
+    """Tầng phải được so **theo từng khóa**, không theo ô của dòng claim gộp.
+
+    Đây là test tái lập finding "Reviewer: Codex" (P1) trên PR #154: RULES_V1 có
+    thể đã chọn tầng `confirmed` cao hơn cho đúng khóa, nhưng validator đọc cả ô
+    của dòng claim gộp nên vẫn báo xanh khi bảng Python/profile còn ở tầng thấp.
+    """
+
+    def setUp(self):
+        self.index = parse_rules_v1(rules_v1_text())
+        self.quantities = expectations()
+
+    def upgraded_rules_v1(self):
+        """RULES_V1 nâng `item.bomb_capacity_delta` lên KR confirmed, khóa anh em giữ tầng cũ."""
+        text = rules_v1_text()
+        text = replace_once(text, PER_KEY_BOMB_CAPACITY, PER_KEY_BOMB_CAPACITY_UPGRADED)
+        text = replace_once(text, CLAIM_R111_ROW, CLAIM_R111_ROW_UPGRADED)
+        return parse_rules_v1(text)
+
+    def test_merged_claim_upgrade_breaks_old_table_and_profile(self):
+        index = self.upgraded_rules_v1()
+        errors = check_expectations(index, self.quantities)
+        self.assertTrue(any("item.bomb_capacity_delta" in error for error in errors), errors)
+        profile = load_profile(PROFILE)
+        profile_errors = check_profile(profile, index, self.quantities)
+        self.assertTrue(any("item.bomb_capacity_delta" in error
+                            and "tầng thấp hơn" in error
+                            for error in profile_errors), profile_errors)
+
+    def test_merged_claim_upgrade_passes_with_updated_table_and_profile(self):
+        index = self.upgraded_rules_v1()
+        updated = [replace(q, tier="kr_confirmed", sources=("kr_static",),
+                           status="confirmed", context="KR 00967 runtime")
+                   if q.key == "item.bomb_capacity_delta" else q
+                   for q in self.quantities]
+        self.assertEqual(check_expectations(index, updated), [])
+        profile = parse_profile(
+            profile_text({"item.bomb_capacity_delta": {"source": "kr_static",
+                                                       "status": "confirmed"}}),
+            "updated.toml")
+        self.assertEqual(check_profile(profile, index, updated), [])
+
+    def test_sibling_key_does_not_inherit_claim_row_tier(self):
+        """Khóa anh em cùng claim R-111 không được hưởng tầng của khóa khác."""
+        index = self.upgraded_rules_v1()
+        profile = parse_profile(
+            profile_text({"item.fire_range_delta": {"source": "kr_static",
+                                                    "status": "confirmed"}}),
+            "sibling.toml")
+        errors = check_profile(profile, index, self.quantities)
+        self.assertTrue(any("item.fire_range_delta" in error for error in errors), errors)
+
+    def test_claim_row_source_cell_must_match_per_key_table(self):
+        """Sửa riêng ô nguồn/trạng thái của dòng claim gộp thì phải báo lỗi."""
+        text = replace_once(rules_v1_text(), CLAIM_R116_ROW, CLAIM_R116_ROW_TAMPERED)
+        index = parse_rules_v1(text)
+        errors = check_expectations(index, self.quantities)
+        self.assertTrue(any("R-116" in error for error in errors), errors)
+
+    def test_cli_fails_on_tampered_claim_row(self):
+        text = replace_once(rules_v1_text(), CLAIM_R116_ROW, CLAIM_R116_ROW_TAMPERED)
+        with tempfile.TemporaryDirectory(prefix="rules-precedence-") as temp:
+            rules_v1 = Path(temp) / "RULES_V1.md"
+            rules_v1.write_text(text, encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(TOOL), "--rules-v1", str(rules_v1)],
+                capture_output=True, text=True, cwd=ROOT, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("R-116", result.stderr)
+
+    def test_key_without_per_key_metadata_fails_closed(self):
+        """Khóa chưa được định danh trong bảng lựa chọn theo khóa thì fail closed."""
+        text = rules_v1_text().replace(PER_KEY_COLLISION + "\n", "", 1)
+        index = parse_rules_v1(text)
+        errors = check_expectations(index, self.quantities)
+        self.assertTrue(any("player.collision_half_px" in error
+                            and "chưa định danh" in error for error in errors), errors)
+        profile = load_profile(PROFILE)
+        profile_errors = check_profile(profile, index, self.quantities)
+        self.assertTrue(any("player.collision_half_px" in error
+                            and "chưa định danh" in error for error in profile_errors),
+                        profile_errors)
+
+    def test_missing_per_key_table_fails_closed(self):
+        text = rules_v1_text().replace(SELECTION_HEADING, "### Bảng lựa chọn theo khóa (bỏ)")
+        with self.assertRaises(PrecedenceError):
+            parse_rules_v1(text)
+
+    def test_invalid_pair_in_per_key_table_fails_closed(self):
+        text = replace_once(
+            rules_v1_text(), PER_KEY_COLLISION,
+            "| `player.collision_half_px` | R-116 | collision_box_half | px | "
+            "`web` | confirmed | BnB 5c108e8 |")
+        with self.assertRaises(PrecedenceError):
+            parse_rules_v1(text)
+
+    def test_per_key_unit_quantity_and_context_are_checked(self):
+        text = replace_once(
+            rules_v1_text(), PER_KEY_COLLISION,
+            "| `player.collision_half_px` | R-116 | collision_box_half | cell | "
+            "`oss` | design | BnB 5c108e8 |")
+        errors = check_expectations(parse_rules_v1(text), self.quantities)
+        self.assertTrue(any("player.collision_half_px" in error and "đơn vị" in error
+                            for error in errors), errors)
+        text = replace_once(
+            rules_v1_text(), PER_KEY_COLLISION,
+            "| `player.collision_half_px` | R-116 | collision_box_half | px | "
+            "`oss` | design | VN VBNB_116 |")
+        errors = check_expectations(parse_rules_v1(text), self.quantities)
+        self.assertTrue(any("player.collision_half_px" in error
+                            and "ngữ cảnh/build" in error for error in errors), errors)
+
+    def test_per_key_table_is_the_standard_source_of_tier(self):
+        """Tầng kỳ vọng lấy từ metadata theo khóa, không từ tầng của ô claim gộp."""
+        chosen = self.index.selection("player.collision_half_px")
+        self.assertIsNotNone(chosen)
+        self.assertEqual(chosen.claim, "R-116")
+        self.assertEqual(chosen.source, "oss")
+        self.assertEqual(chosen.status, "design")
+        self.assertEqual(chosen.unit, "px")
+        self.assertEqual(self.index.selection("item.fire_range_delta").source, "vn_runtime")
+        self.assertEqual(self.index.selection("item.roller_speed_delta").source, "oss")
 
 
 if __name__ == "__main__":

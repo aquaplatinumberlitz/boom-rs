@@ -7,13 +7,14 @@ VN VBNB_116 `confirmed` -> BnB `5c108e8` chosen as `design` -> project's own
 tier. A profile key that uses a weaker source than the current choice is an error,
 and every value must point at the current selection claim of RULES_V1 §11.
 
-The expectation table in this module is the machine-readable form of ADR 0013 +
-RULES_V1 §11. Each entry names one quantity (never a similar-looking key), its
-unit, its build/context, the required tier, the current selection claim, and the
-claims that may be cited together with it. The validator cross-checks the table
-against RULES_V1 (the claim exists, is not superseded, its row carries the expected
-source/status and mentions the quantity), so RULES_V1 stays the single source of
-truth and drift is reported instead of hidden.
+The standard source is RULES_V1 §11: the per-key table "Bảng lựa chọn theo khóa"
+binds source, status, quantity, unit and build/context **for every profile key**.
+The tier is checked from that per-key metadata, never from a merged claim row:
+a claim row may cover several keys with different tiers (R-111, R-112, R-116),
+and reading the whole row would let one key's confirmed tier vouch for another's
+weaker one. The expectation table in this module is the machine-readable form of
+ADR 0013 + RULES_V1 §11; it is cross-checked against the per-key metadata, so
+drift between the table, the claim row and the profile is reported, not hidden.
 
 Scope: engine profiles under `data/rules/` (AGENTS §3). Test fixtures
 (`fixtures/rules/`, `crates/boom-qa/rules/`) are design-only profiles whose schema
@@ -79,6 +80,13 @@ PAIR_TIERS = {
     ("oss", "candidate"): "candidate",
     ("emu_choice", "candidate"): "candidate",
 }
+
+# Ngữ cảnh/build mà một đại lượng áp dụng (ADR 0013: chỉ so cùng đại lượng, cùng
+# đơn vị, cùng ngữ cảnh và build/profile). Dùng để ràng buộc build theo từng khóa.
+BUILD_CONTEXTS = ("KR 00967", "VN VBNB_116", "BnB 5c108e8", "V1 design")
+
+# Bảng lựa chọn theo khóa trong RULES_V1 §11: metadata theo từng khóa profile.
+SELECTION_HEADING = "### Bảng lựa chọn theo khóa (máy-đọc)"
 
 
 class PrecedenceError(Exception):
@@ -332,7 +340,7 @@ def expectations() -> list[Quantity]:
             key="presentation.frame_duration_ms",
             quantity="presentation_frame_duration",
             unit="ms",
-            context="Thiết kế V1 (trình diễn, không phải luật chơi)",
+            context="V1 design (trình diễn, không phải luật chơi)",
             tier="project_design",
             sources=("design",),
             status="design",
@@ -389,6 +397,34 @@ def expectations() -> list[Quantity]:
     return quantities
 
 
+@dataclass(frozen=True)
+class Selection:
+    """Metadata lựa chọn hiện hành của **một khóa profile**, đọc từ RULES_V1 §11.
+
+    Đây là hạt nhỏ so sánh của ADR 0013: cùng đại lượng, cùng đơn vị, cùng
+    ngữ cảnh/build. Ô "Nguồn / trạng thái" của một dòng claim gộp không đủ để
+    kết luận tầng của từng khóa trong dòng đó.
+    """
+
+    key: str
+    claim: str
+    quantity: str
+    unit: str
+    source: str
+    status: str
+    context: str
+
+    @property
+    def pair(self) -> tuple[str, str]:
+        return (self.source, self.status)
+
+    def tier(self) -> str:
+        return tier_of(self.source, self.status)
+
+    def expected(self) -> str:
+        return f"{TIER_LABEL[self.tier()]} ({self.source} / {self.status})"
+
+
 @dataclass
 class Profile:
     """Profile rules đọc từ TOML, đã kiểm schema."""
@@ -401,16 +437,21 @@ class Profile:
 
 @dataclass
 class RulesIndex:
-    """Chỉ mục claim đọc từ RULES_V1: dòng bảng và quan hệ superseded."""
+    """Chỉ mục claim đọc từ RULES_V1: dòng bảng, metadata theo khóa, superseded."""
 
     rows: dict[str, dict[str, str]] = field(default_factory=dict)
     superseded: dict[str, set[str]] = field(default_factory=dict)
+    selections: dict[str, Selection] = field(default_factory=dict)
 
     def source_status(self, claim: str) -> str:
         return self.rows.get(claim, {}).get("source_status", "")
 
     def text(self, claim: str) -> str:
         return self.rows.get(claim, {}).get("text", "")
+
+    def selection(self, key: str) -> Selection | None:
+        """Metadata theo khóa của RULES_V1 §11; `None` nếu khóa chưa được định danh."""
+        return self.selections.get(key)
 
 
 def parse_profile(text: str, path: Path | str = "<memory>") -> Profile:
@@ -477,6 +518,13 @@ _CLAIM_RE = re.compile(r"R-\d{3}")
 _ROW_SUPERSEDED_RE = re.compile(r"\*\*superseded by ([^*]+)\*\*")
 _PROSE_SUPERSEDED_RE = re.compile(
     r"(R-\d{3}(?:/R-\d{3})*)[^|\n]{0,80}?\*\*superseded by ([^*]+)\*\*")
+# Ô "Nguồn / trạng thái" của dòng claim: `src` / status, hoặc `src` + `src2` / status.
+_PAIR_RE = re.compile(
+    r"`(?P<source>[a-z_]+)`(?:\s*\+\s*`(?P<source2>[a-z_]+)`)?\s*/\s*"
+    r"(?P<status>confirmed|candidate|design|unknown)")
+_KEY_RE = re.compile(r"^[a-z0-9_]+(?:\.[a-z0-9_]+)+$")
+_QUANTITY_RE = re.compile(r"^[a-z0-9_]+$")
+_UNIT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9/%_]*$")
 
 
 def _mentions(text: str, token: str) -> bool:
@@ -484,8 +532,82 @@ def _mentions(text: str, token: str) -> bool:
     return re.search(rf"\b{re.escape(token)}\b", text) is not None
 
 
+def build_contexts(text: str) -> frozenset[str]:
+    """Tập build/ngữ cảnh mà một mô tả đại lượng nhắc tới."""
+    return frozenset(token for token in BUILD_CONTEXTS if token in text)
+
+
+def claim_pairs(cell: str) -> set[tuple[str, str]]:
+    """Các cặp (nguồn, trạng thái) mà ô "Nguồn / trạng thái" của dòng claim nêu."""
+    pairs: set[tuple[str, str]] = set()
+    for match in _PAIR_RE.finditer(cell):
+        pairs.add((match.group("source"), match.group("status")))
+        if match.group("source2"):
+            pairs.add((match.group("source2"), match.group("status")))
+    return pairs
+
+
+def parse_selection_table(text: str) -> dict[str, Selection]:
+    """Đọc "Bảng lựa chọn theo khóa" của RULES_V1 §11: metadata theo từng khóa.
+
+    Bảng này là nguồn chuẩn để so tầng theo khóa. Dòng thiếu cột, sai định danh
+    hoặc cặp nguồn/trạng thái không hợp lệ đều là lỗi (fail closed), không suy đoán.
+    """
+    lines = text.splitlines()
+    if SELECTION_HEADING not in lines:
+        raise PrecedenceError(
+            f"RULES_V1: thiếu bảng lựa chọn theo khóa ({SELECTION_HEADING}) ở §11")
+    start = lines.index(SELECTION_HEADING)
+    table: list[str] = []
+    for line in lines[start + 1:]:
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            if table:
+                break
+            continue
+        table.append(stripped)
+    if len(table) < 3:
+        raise PrecedenceError("RULES_V1: bảng lựa chọn theo khóa rỗng hoặc thiếu dòng đầu")
+    selections: dict[str, Selection] = {}
+    for line in table[2:]:
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) != 7:
+            raise PrecedenceError(
+                "RULES_V1: dòng bảng lựa chọn theo khóa phải có 7 cột "
+                f"(khóa, claim, đại lượng, đơn vị, nguồn, trạng thái, ngữ cảnh): {line}")
+        key = cells[0].strip("`").strip()
+        claim = cells[1].strip()
+        quantity = cells[2].strip()
+        unit = cells[3].strip()
+        source = cells[4].strip("`").strip()
+        status = cells[5].strip()
+        context = cells[6].strip()
+        if not _KEY_RE.fullmatch(key):
+            raise PrecedenceError(f"RULES_V1: khóa không hợp lệ trong bảng lựa chọn theo khóa: {key!r}")
+        if not _CLAIM_RE.fullmatch(claim):
+            raise PrecedenceError(f"RULES_V1: khóa `{key}`: claim lựa chọn không hợp lệ: {claim!r}")
+        if not _QUANTITY_RE.fullmatch(quantity):
+            raise PrecedenceError(f"RULES_V1: khóa `{key}`: đại lượng không hợp lệ: {quantity!r}")
+        if not _UNIT_RE.fullmatch(unit):
+            raise PrecedenceError(f"RULES_V1: khóa `{key}`: đơn vị không hợp lệ: {unit!r}")
+        if not context:
+            raise PrecedenceError(f"RULES_V1: khóa `{key}`: thiếu ngữ cảnh/build")
+        try:
+            tier_of(source, status)
+        except PrecedenceError as exc:
+            raise PrecedenceError(f"RULES_V1: khóa `{key}`: {exc}") from exc
+        if key in selections:
+            raise PrecedenceError(f"RULES_V1: khóa `{key}` lặp trong bảng lựa chọn theo khóa")
+        selections[key] = Selection(
+            key=key, claim=claim, quantity=quantity, unit=unit,
+            source=source, status=status, context=context)
+    if not selections:
+        raise PrecedenceError("RULES_V1: bảng lựa chọn theo khóa không có dòng nào")
+    return selections
+
+
 def parse_rules_v1(text: str) -> RulesIndex:
-    """Đọc RULES_V1: dòng bảng theo claim ID và quan hệ superseded."""
+    """Đọc RULES_V1: dòng bảng theo claim ID, metadata theo khóa và superseded."""
     index = RulesIndex()
     for line in text.splitlines():
         stripped = line.strip()
@@ -508,6 +630,7 @@ def parse_rules_v1(text: str) -> RulesIndex:
                 superseders = set(_CLAIM_RE.findall(match.group(2)))
                 for claim in match.group(1).split("/"):
                     index.superseded.setdefault(claim, set()).update(superseders)
+    index.selections = parse_selection_table(text)
     if not index.rows:
         raise PrecedenceError("RULES_V1: no claim table found")
     if "## 11." not in text:
@@ -516,7 +639,13 @@ def parse_rules_v1(text: str) -> RulesIndex:
 
 
 def check_expectations(index: RulesIndex, quantities: list[Quantity]) -> list[str]:
-    """Đối chiếu bảng kỳ vọng với RULES_V1: claim tồn tại, chưa superseded, đúng nguồn."""
+    """Đối chiếu bảng kỳ vọng với RULES_V1 **theo từng khóa**.
+
+    Mỗi đại lượng được so với metadata theo khóa của RULES_V1 §11 ("Bảng lựa chọn
+    theo khóa"): claim lựa chọn, đại lượng, đơn vị, nguồn, trạng thái và
+    ngữ cảnh/build. Không đọc tầng từ ô của dòng claim gộp — dòng gộp che tầng
+    của các khóa khác nhau, và ô đó không định danh được từng khóa.
+    """
     errors: list[str] = []
     for quantity in quantities:
         selection = quantity.selection
@@ -531,7 +660,14 @@ def check_expectations(index: RulesIndex, quantities: list[Quantity]) -> list[st
                 f"RULES_V1: claim lựa chọn hiện hành {selection} của `{quantity.key}` "
                 f"đã superseded bởi {superseders}")
         row = index.rows[selection]
-        cell = row["source_status"]
+        chosen = index.selection(quantity.key)
+        if chosen is None:
+            errors.append(
+                f"RULES_V1: bảng lựa chọn theo khóa chưa định danh `{quantity.key}` "
+                f"(claim {selection}) — cần ràng buộc nguồn/trạng thái/đại lượng/đơn vị "
+                "theo từng khóa; validator fail closed, không đoán theo ô claim gộp")
+            continue
+        cell = f"{chosen.source} / {chosen.status}"
         for source in quantity.sources:
             if not _mentions(cell, source):
                 errors.append(
@@ -541,6 +677,43 @@ def check_expectations(index: RulesIndex, quantities: list[Quantity]) -> list[st
             errors.append(
                 f"RULES_V1: dòng {selection} không nêu trạng thái `{quantity.status}` "
                 f"(cần {quantity.expected()}) cho `{quantity.key}`")
+        tier = chosen.tier()
+        if tier != quantity.tier:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}` dùng tầng {TIER_LABEL[tier]} "
+                f"({chosen.source} / {chosen.status}) khác bảng kỳ vọng "
+                f"{quantity.expected()} — bảng kỳ vọng lệch nguồn chuẩn theo khóa")
+        if chosen.source not in quantity.sources:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}` dùng nguồn `{chosen.source}` khác "
+                f"nguồn {'/'.join(quantity.sources)} của bảng kỳ vọng")
+        if chosen.status != quantity.status:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}` dùng trạng thái `{chosen.status}` khác "
+                f"trạng thái `{quantity.status}` của bảng kỳ vọng")
+        if chosen.claim != selection:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}` trỏ claim {chosen.claim} khác claim "
+                f"lựa chọn hiện hành {selection}")
+        if chosen.quantity != quantity.quantity:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}`: đại lượng `{chosen.quantity}` khác "
+                f"đại lượng `{quantity.quantity}` của bảng kỳ vọng")
+        if chosen.unit != quantity.unit:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}`: đơn vị `{chosen.unit}` khác đơn vị "
+                f"`{quantity.unit}` của bảng kỳ vọng")
+        standard_contexts = build_contexts(chosen.context)
+        table_contexts = build_contexts(quantity.context)
+        if not standard_contexts:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}`: bảng lựa chọn theo khóa thiếu "
+                "ngữ cảnh/build (ADR 0013 chỉ so cùng ngữ cảnh và build)")
+        elif standard_contexts != table_contexts:
+            errors.append(
+                f"RULES_V1: khóa `{quantity.key}`: ngữ cảnh/build "
+                f"{sorted(table_contexts)} của bảng kỳ vọng khác "
+                f"{sorted(standard_contexts)} ghi ở bảng lựa chọn theo khóa")
         if quantity.group not in row["text"]:
             errors.append(
                 f"RULES_V1: dòng {selection} không nói về nhóm `{quantity.group}` "
@@ -562,15 +735,52 @@ def check_expectations(index: RulesIndex, quantities: list[Quantity]) -> list[st
                     errors.append(
                         f"RULES_V1: claim {claim} của ngoại lệ `{quantity.key}` "
                         "không có trong RULES_V1")
+    errors += _check_claim_rows(index, quantities)
     keys = [q.key for q in quantities]
     for key in sorted({k for k in keys if keys.count(k) > 1}):
         errors.append(f"bảng kỳ vọng: khóa `{key}` khai báo trùng")
     return errors
 
 
+def _check_claim_rows(index: RulesIndex, quantities: list[Quantity]) -> list[str]:
+    """Ô "Nguồn / trạng thái" của dòng claim phải khớp metadata theo từng khóa.
+
+    Đây là chiều kiểm ngược: sửa ô của dòng claim gộp mà không sửa bảng lựa chọn
+    theo khóa (hoặc ngược lại) phải bị báo, không được âm thầm dùng ô gộp để
+    "xác nhận" tầng cho một khóa khác.
+    """
+    errors: list[str] = []
+    known = {quantity.key for quantity in quantities}
+    per_claim: dict[str, set[tuple[str, str]]] = {}
+    for key, chosen in index.selections.items():
+        if key not in known:
+            errors.append(
+                f"RULES_V1: bảng lựa chọn theo khóa có `{key}` chưa có trong bảng kỳ vọng")
+            continue
+        per_claim.setdefault(chosen.claim, set()).add(chosen.pair)
+    for claim, pairs in sorted(per_claim.items()):
+        row = index.rows.get(claim)
+        if row is None:
+            errors.append(
+                f"RULES_V1: claim {claim} của bảng lựa chọn theo khóa không có trong RULES_V1")
+            continue
+        cell_pairs = claim_pairs(row["source_status"])
+        if cell_pairs != pairs:
+            errors.append(
+                f"RULES_V1: dòng {claim} khai báo nguồn/trạng thái "
+                f"{sorted(cell_pairs)} khác bảng lựa chọn theo khóa {sorted(pairs)} — "
+                "ô claim gộp phải khớp từng khóa")
+    return errors
+
+
 def check_profile(profile: Profile, index: RulesIndex,
                   quantities: list[Quantity]) -> list[str]:
-    """Kiểm một profile theo bảng kỳ vọng của ADR 0013."""
+    """Kiểm một profile theo bảng kỳ vọng của ADR 0013.
+
+    Tầng kỳ vọng lấy từ metadata **theo khóa** của RULES_V1 §11, không lấy từ ô của
+    dòng claim gộp: hai khóa cùng một claim có thể khác tầng, và ô gộp không định
+    danh được khóa nào đang ở tầng nào.
+    """
     errors: list[str] = []
     by_key = {q.key: q for q in quantities}
     for key, rule in sorted(profile.rules.items()):
@@ -580,25 +790,32 @@ def check_profile(profile: Profile, index: RulesIndex,
                 f"{profile.path.name}: khóa `{key}` chưa khai báo đại lượng "
                 "trong bảng kỳ vọng ADR 0013")
             continue
-        if rule["unit"] != quantity.unit:
+        chosen = index.selection(key)
+        if chosen is None:
+            errors.append(
+                f"{profile.path.name}: `{key}`: RULES_V1 §11 chưa định danh metadata theo "
+                "khóa (bảng lựa chọn theo khóa) — validator fail closed, không đoán")
+            continue
+        if rule["unit"] != chosen.unit:
             errors.append(
                 f"{profile.path.name}: `{key}`: đơn vị `{rule['unit']}` khác đơn vị "
-                f"`{quantity.unit}` của đại lượng `{quantity.quantity}` "
+                f"`{chosen.unit}` của đại lượng `{chosen.quantity}` "
                 "(ADR 0013: chỉ so cùng đại lượng và cùng đơn vị)")
         try:
             tier = tier_of(rule["source"], rule["status"])
         except PrecedenceError as exc:
             errors.append(f"{profile.path.name}: `{key}`: {exc}")
             continue
-        if (tier != quantity.tier or rule["source"] not in quantity.sources
-                or rule["status"] != quantity.status):
-            weaker = TIER_RANK[tier] > TIER_RANK[quantity.tier]
+        expected_tier = chosen.tier()
+        if (tier != expected_tier or rule["source"] != chosen.source
+                or rule["status"] != chosen.status):
+            weaker = TIER_RANK[tier] > TIER_RANK[expected_tier]
             reason = ("dùng tầng thấp hơn tầng ADR 0013 yêu cầu" if weaker else
                       "khác lựa chọn hiện hành (cần cập nhật bảng kỳ vọng + RULES_V1 §11)")
             errors.append(
                 f"{profile.path.name}: `{key}`: nguồn/trạng thái `{rule['source']}` / "
                 f"`{rule['status']}` (tầng {TIER_LABEL[tier]}) {reason}; "
-                f"ADR 0013 chọn {quantity.expected()}")
+                f"ADR 0013 chọn {chosen.expected()} theo RULES_V1 §11 cho khóa này")
         claims = list(rule.get("claims", []))
         if quantity.selection not in claims:
             errors.append(
