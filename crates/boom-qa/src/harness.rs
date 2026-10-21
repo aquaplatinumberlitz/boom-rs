@@ -7,6 +7,13 @@
 //!    hồ sơ mạng: RTT, jitter, loss, trùng, đảo thứ tự.
 //! 3. Vòng lặp: `server.poll(now)` → bot nhận frame → bot gửi lệnh → đo độ trễ input.
 //!
+//! # Điểm thay thế bot
+//!
+//! Harness **không** tự dựng bot: nó gọi [`BotFactory`] cho từng bot của lần chạy.
+//! [`run`] là wrapper tiện lợi dùng factory mặc định (`DirectDtoBot`); [`run_with`] nhận
+//! factory bên ngoài để một implementation [`BotClient`] khác (ví dụ bot dự đoán state dùng
+//! module net của `boom-client`) chạy được trong harness mà không phải sửa harness.
+//!
 //! # Đồng hồ
 //!
 //! Mọi thời gian của lần chạy là **đồng hồ thật tính từ lúc bắt đầu** (ms kể từ 0). Server nhận
@@ -39,7 +46,7 @@ use boom_server::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::bot::{BotClient, BotConfig, BotPhase, DirectDtoBot};
+use crate::bot::{BotClient, BotConfig, BotFactory, BotPhase, DirectDtoBotFactory};
 use crate::metrics::Samples;
 use crate::profile::{ProfileError, QaProfile, builtin_map, builtin_rules, map_rows};
 use crate::report::{
@@ -264,7 +271,21 @@ const RECONNECT_DRAIN_ROUNDS: u32 = 5;
 const RECONNECT_DRAIN_STEP_MS: u64 = 20;
 
 /// Chạy một phiên QA và trả về báo cáo.
+///
+/// Đây là **wrapper tiện lợi** của [`run_with`]: bot mặc định là [`DirectDtoBotFactory`]
+/// (bot nói DTO trực tiếp). Muốn chạy với implementation bot khác thì dùng [`run_with`].
 pub fn run(config: &RunConfig) -> Result<RunReport, QaError> {
+    run_with(config, &DirectDtoBotFactory)
+}
+
+/// Chạy một phiên QA với **factory bot** do bên ngoài cài, rồi trả về báo cáo.
+///
+/// Đây là **điểm thay thế**: harness không tự dựng bot, nên một implementation khác của
+/// [`BotClient`] (ví dụ bot dự đoán state dùng module net của `boom-client`) chạy được
+/// trong harness **mà không phải sửa harness**. Factory nhận [`BotConfig`] mà harness đã
+/// tính sẵn cho từng bot (tên, tài khoản, `PlayerId`, vai trò host, thế giới, profile
+/// rules, nhịp input/ping…).
+pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunReport, QaError> {
     let harness = &config.profile.harness;
     let rules_text = builtin_rules(&harness.rules_profile).map_err(QaError::Profile)?;
     let rules_profile = RulesProfile::from_toml(rules_text)
@@ -359,7 +380,7 @@ pub fn run(config: &RunConfig) -> Result<RunReport, QaError> {
         };
         let (writer, frames) = connect(&mut server, &config.profile, &spec)?;
         bots.push(BotRuntime {
-            client: Box::new(DirectDtoBot::new(bot_config.clone())),
+            client: factory.create(&bot_config),
             config: bot_config,
             writer,
             frames,

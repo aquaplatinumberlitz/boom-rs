@@ -18,6 +18,22 @@ Harness **không** dùng client thật (`boom-client`): giai đoạn 1 bot nói 
 thế là trait `boom_qa::bot::BotClient`, để khi module net của `boom-client` sẵn sàng thì thêm một
 implementation mà không phải đổi harness.
 
+### Thay implementation bot
+
+Harness **không** tự dựng bot: nó gọi `boom_qa::bot::BotFactory` cho từng bot của lần chạy.
+
+| Entry point | Bot dùng | Ai dùng |
+|---|---|---|
+| `boom_qa::harness::run(&RunConfig)` | `DirectDtoBotFactory` (bot nói DTO trực tiếp) | CLI `boom-qa`, test |
+| `boom_qa::harness::run_with(&RunConfig, &dyn BotFactory)` | factory do bên ngoài cài | implementation bot khác (ví dụ bot dự đoán state) |
+
+`BotFactory::create(&BotConfig) -> Box<dyn BotClient>` nhận cấu hình harness đã tính sẵn cho bot
+đó (tên, tài khoản, `PlayerId`, vai trò host, thế giới, profile rules, nhịp input/ping…), nên
+implementation bên ngoài chỉ cần implement `BotClient` (`on_frame`, `on_tick`, `stats`, `phase`,
+`reset`) là chạy được trong harness. Test `harness_runs_an_external_bot_implementation` trong
+`crates/boom-qa/tests/harness.rs` truyền một implementation khác từ integration test và kiểm
+lượt vẫn hội tụ hash.
+
 ## Hồ sơ mạng
 
 Hồ sơ nằm trong `crates/boom-qa/profiles/*.toml`:
@@ -97,6 +113,22 @@ server **giải quyết** sequence đó (áp dụng hoặc retire).
 - Lệnh bị **retire** (quá hạn cửa sổ) không tính vào độ trễ: server đã loại nó, không áp dụng.
 - Báo cáo có `p50`/`p95`/`max`/`mean` của tập mẫu độ trễ, cùng `p50`/`p95` RTT đo bằng
   `Ping`/`Pong`.
+
+### RTT ghép theo nonce của `Ping`
+
+`Ping` mang một nonce và server trả lại `Pong` **cùng nonce** (ADR 0009 §2). Bot giữ bảng
+`nonce → mốc gửi` cho mọi ping **đang chờ** và chỉ ghi mẫu RTT khi `Pong` khớp đúng một ping
+trong bảng:
+
+- `Pong` của ping cũ tới **sau** `Pong` của ping mới (đảo thứ tự) không được ghi mẫu của
+  ping mới, và cũng không được xoá ping đang chờ — nếu không, `Pong` thật của ping mới sẽ bị
+  bỏ mất.
+- `Pong` trùng (mạng nhân bản frame) của một ping đã đo không ghi thêm mẫu.
+- `Pong` mất không làm hỏng ping sau: mỗi ping giữ mốc riêng, nên `Pong` tới muộn vẫn ghi
+  được mẫu của chính nó; ping quá hạn (không có `Pong` sau `10` chu kỳ ping) thì bị bỏ khỏi
+  bảng chờ.
+- Nonce tăng đơn điệu và **không dùng lại** kể cả sau khi mở lại phiên, nên `Pong` của phiên
+  cũ không khớp nhầm ping của phiên mới.
 
 Vì `Timing::Real`, transport **ngủ đúng số ms ảo** nên độ trễ đo được là độ trễ thật, không
 phải số ảo.

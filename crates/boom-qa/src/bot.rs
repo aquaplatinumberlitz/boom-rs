@@ -7,6 +7,9 @@
 //! đổi. Giai đoạn 1 bot nói **DTO trực tiếp** (`boom-proto`), không dự đoán state: mọi thứ bot
 //! biết về trận đến từ `Snapshot` của server.
 //!
+//! Harness **không** tự dựng bot: nó gọi [`BotFactory`] cho từng bot của lần chạy. Xem
+//! [`crate::harness::run_with`] — đó là entry point nhận factory bên ngoài.
+//!
 //! # Luồng của bot
 //!
 //! `Hello` → `Welcome` → `Auth`(Register) → `AuthOk` → sảnh (`LobbyListRequest`) → phòng
@@ -29,6 +32,10 @@
 //!    `slot_to_player` của lượt). Bot đọc slot từ roster `RoundStart`.
 //! 5. **`LoadingAck` gửi khi biết lượt**, không chỉ khi nhận `RoundStart`: `RoundStart` có thể
 //!    bị mất, còn `RoomState` (có `round.id`) thì server gửi lại mỗi khi phòng đổi.
+//! 6. **RTT ghép theo nonce của `Ping`**: `Pong` mang nonce của đúng `Ping` nó trả lời
+//!    (ADR 0009 §2). Mạng cố ý trùng/đảo thứ tự frame nên `Pong` của ping cũ có thể tới
+//!    sau `Pong` của ping mới: mỗi `Pong` chỉ ghi mẫu RTT khi nonce khớp một ping **đang
+//!    chờ**; `Pong` lạ thì bỏ qua.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -43,6 +50,12 @@ use boom_proto::{
 };
 
 use crate::metrics::Samples;
+
+/// Số chu kỳ `Ping` mà một ping được giữ trong bảng pending chờ `Pong`.
+///
+/// `Pong` mất vĩnh viễn thì mốc của ping đó không bao giờ được dùng; giữ nó mãi sẽ làm bảng
+/// pending phình vô hạn trong lượt chạy dài.
+const PING_PENDING_TTL_FACTOR: u64 = 10;
 
 /// Lỗi của bot.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -185,6 +198,29 @@ pub trait BotClient {
     fn reset(&mut self, player: u64);
 }
 
+/// Cách harness **dựng bot** cho một lần chạy — điểm thay thế cho [`DirectDtoBot`].
+///
+/// Harness không tự dựng bot: nó gọi factory này cho từng bot của lần chạy. Một
+/// implementation khác (ví dụ bot dự đoán state dùng module net của `boom-client`) chỉ cần
+/// cài factory riêng rồi gọi [`crate::harness::run_with`] — **không cần sửa harness**.
+///
+/// `BotConfig` mà factory nhận là cấu hình harness đã tính sẵn cho bot đó (tên, tài khoản,
+/// `PlayerId`, vai trò host, thế giới, profile rules, nhịp input/ping…).
+pub trait BotFactory {
+    /// Dựng một bot theo cấu hình mà harness tính sẵn cho bot đó.
+    fn create(&self, config: &BotConfig) -> Box<dyn BotClient>;
+}
+
+/// Factory mặc định: bot nói DTO trực tiếp (giai đoạn 1, không dự đoán state).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DirectDtoBotFactory;
+
+impl BotFactory for DirectDtoBotFactory {
+    fn create(&self, config: &BotConfig) -> Box<dyn BotClient> {
+        Box::new(DirectDtoBot::new(config.clone()))
+    }
+}
+
 /// Pha của bot trong luồng phiên.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BotPhase {
@@ -265,7 +301,15 @@ pub struct DirectDtoBot {
     auth_sent: bool,
     /// Server đã trả lời `AuthFail`: được phép gửi lại `Auth` đúng một lần nữa.
     auth_retry_allowed: bool,
-    pending_ping_at_ms: Option<u64>,
+    /// Ping đang chờ `Pong`, theo nonce: `nonce → mốc gửi (ms)`.
+    ///
+    /// Giữ **nhiều** ping cùng lúc: mạng cố ý mất/trùng/đảo thứ tự frame, nên `Pong` của
+    /// một ping có thể tới sau khi bot đã gửi ping mới (thậm chí tới hai lần). Mỗi ping giữ
+    /// mốc riêng ⇒ `Pong` ghép đúng ping của nó, và `Pong` mất không làm hỏng ping sau.
+    pending_pings: BTreeMap<u64, u64>,
+    /// Nonce của ping tiếp theo: tăng đơn điệu, **không dùng lại** (kể cả sau khi mở lại
+    /// phiên) để `Pong` của phiên cũ không bao giờ khớp nhầm ping mới.
+    ping_nonce: u64,
     /// Lượt nào bot đang giữ `ResultAck`, chờ state cuối lượt.
     pending_result_ack: Option<u64>,
     /// Các lượt đã biết kết thúc (chống đếm hai lần khi frame trùng/đảo thứ tự).
@@ -322,7 +366,8 @@ impl DirectDtoBot {
             auth_op: AuthOp::Register,
             auth_sent: false,
             auth_retry_allowed: false,
-            pending_ping_at_ms: None,
+            pending_pings: BTreeMap::new(),
+            ping_nonce: 0,
             pending_result_ack: None,
             finished_rounds: BTreeSet::new(),
             acked_rounds: BTreeSet::new(),
@@ -333,6 +378,9 @@ impl DirectDtoBot {
     }
 
     /// Bắt đầu lại luồng phiên sau khi harness mở lại kết nối.
+    ///
+    /// `ping_nonce` **không** được đặt lại: nonce phải đơn điệu trong cả lần chạy để
+    /// `Pong` của phiên cũ (nếu còn sót) không khớp nhầm ping của phiên mới.
     fn reset_state(&mut self) {
         self.phase = BotPhase::Handshake;
         self.request_seq = 0;
@@ -364,7 +412,7 @@ impl DirectDtoBot {
         self.auth_op = AuthOp::Register;
         self.auth_sent = false;
         self.auth_retry_allowed = false;
-        self.pending_ping_at_ms = None;
+        self.pending_pings.clear();
         self.pending_result_ack = None;
         self.round_end_at_ms = 0;
         self.snapshot_request_at_ms = 0;
@@ -864,10 +912,41 @@ impl DirectDtoBot {
         }
     }
 
-    fn on_pong(&mut self, now_ms: u64) {
-        if let Some(sent_at) = self.pending_ping_at_ms.take() {
-            self.stats.rtt.push(now_ms.saturating_sub(sent_at));
-        }
+    /// Ghi mẫu RTT cho **đúng** ping mà `Pong` trả lời.
+    ///
+    /// `Pong` mang nonce của `Ping` (ADR 0009 §2). Hồ sơ mạng cố ý trùng/đảo thứ tự
+    /// frame, nên `Pong` của ping cũ có thể tới **sau** `Pong` của ping mới, hoặc tới hai
+    /// lần. Vì vậy mỗi `Pong` chỉ được ghi mẫu khi nonce của nó khớp một ping **đang
+    /// chờ**; `Pong` lạ (stale, trùng, hoặc của ping đã mất) thì bỏ qua — nếu không, RTT
+    /// bị ghi nhầm sang ping khác và mẫu của ping thật bị mất.
+    fn on_pong(&mut self, nonce: u64, now_ms: u64) {
+        let Some(sent_at) = self.pending_pings.remove(&nonce) else {
+            self.trace(&format!(
+                "<- Pong nonce {nonce} không khớp ping nào (bỏ qua)"
+            ));
+            return;
+        };
+        self.stats.rtt.push(now_ms.saturating_sub(sent_at));
+    }
+
+    /// Nonce của ping tiếp theo: tăng đơn điệu, không dùng lại.
+    fn next_ping_nonce(&mut self) -> u64 {
+        self.ping_nonce = self.ping_nonce.saturating_add(1);
+        self.ping_nonce
+    }
+
+    /// Bỏ ping quá hạn (mất `Pong` vĩnh viễn) để bảng pending không phình vô hạn.
+    ///
+    /// Hạn lấy theo chu kỳ ping của hồ sơ: quá [`PING_PENDING_TTL_FACTOR`] chu kỳ mà chưa
+    /// có `Pong` thì coi như mất — mẫu RTT của nó không còn giá trị.
+    fn prune_pending_pings(&mut self, now_ms: u64) {
+        let ttl = self
+            .config
+            .ping_interval_ms
+            .saturating_mul(PING_PENDING_TTL_FACTOR)
+            .max(1);
+        self.pending_pings
+            .retain(|_, sent_at| now_ms.saturating_sub(*sent_at) <= ttl);
     }
 
     fn hello_frame(&mut self) -> Result<Vec<u8>, BotError> {
@@ -1006,7 +1085,9 @@ impl BotClient for DirectDtoBot {
                 Ok(vec![frame])
             }
             MessageKind::Pong => {
-                self.on_pong(now_ms);
+                let pong: Pong = boom_proto::decode_payload(payload)
+                    .map_err(|e| BotError::Proto(e.to_string()))?;
+                self.on_pong(pong.0, now_ms);
                 Ok(Vec::new())
             }
             _ => Ok(Vec::new()),
@@ -1143,8 +1224,10 @@ impl BotClient for DirectDtoBot {
             && now_ms.saturating_sub(self.last_ping_at_ms) >= self.config.ping_interval_ms
         {
             self.last_ping_at_ms = now_ms;
-            self.pending_ping_at_ms = Some(now_ms);
-            out.push(self.encode(&Ping(now_ms))?);
+            let nonce = self.next_ping_nonce();
+            self.pending_pings.insert(nonce, now_ms);
+            self.prune_pending_pings(now_ms);
+            out.push(self.encode(&Ping(nonce))?);
         }
         Ok(out)
     }
@@ -1323,5 +1406,117 @@ mod tests {
                 Some(command.action)
             })
             .collect()
+    }
+
+    /// Nonce của `Ping` đầu tiên trong một loạt frame bot gửi đi.
+    fn ping_nonce(frames: &[Vec<u8>]) -> u64 {
+        let limits = boom_proto::ProtocolLimits::v1();
+        frames
+            .iter()
+            .filter_map(|frame| {
+                let (envelope, _) = read_envelope(frame).expect("đọc envelope");
+                if envelope.kind != MessageKind::Ping {
+                    return None;
+                }
+                let ping: Ping = boom_proto::decode_frame(frame, &limits).expect("mã hoá Ping");
+                Some(ping.0)
+            })
+            .next()
+            .expect("bot phải gửi Ping")
+    }
+
+    /// Frame `Pong` trả lời `Ping` có nonce đó.
+    fn pong_frame(nonce: u64) -> Vec<u8> {
+        let limits = boom_proto::ProtocolLimits::v1();
+        boom_proto::encode_frame(&Pong(nonce), &limits).expect("mã hoá Pong")
+    }
+
+    /// Bot đã bắt tay thì `on_tick` gửi `Ping` (nhịp `ping_interval_ms` của bot test).
+    fn pinged_bot() -> DirectDtoBot {
+        let mut bot = test_bot();
+        bot.phase = BotPhase::Lobby;
+        bot
+    }
+
+    /// RTT phải ghép **đúng** ping: `Pong` mang nonce của `Ping` (ADR 0009 §2).
+    #[test]
+    fn rtt_sample_follows_the_ping_nonce() {
+        let mut bot = pinged_bot();
+
+        let nonce = ping_nonce(&bot.on_tick(1_000).unwrap());
+        bot.on_frame(1_040, &pong_frame(nonce)).unwrap();
+
+        assert_eq!(bot.stats().rtt.values(), [40u64].as_slice());
+    }
+
+    /// `Pong` trùng hoặc tới trễ **không** được ghi mẫu RTT của ping mới và **không** được
+    /// xoá ping đang chờ: nếu không, `Pong` thật của ping mới sẽ bị bỏ mất.
+    #[test]
+    fn stale_pong_does_not_consume_the_pending_ping() {
+        let mut bot = pinged_bot();
+
+        let nonce_a = ping_nonce(&bot.on_tick(1_000).unwrap());
+        bot.on_frame(1_040, &pong_frame(nonce_a)).unwrap();
+        assert_eq!(bot.stats().rtt.values(), [40u64].as_slice());
+
+        let nonce_b = ping_nonce(&bot.on_tick(2_000).unwrap());
+        assert_ne!(nonce_a, nonce_b, "mỗi ping phải có nonce riêng");
+
+        // Bản trùng/tới trễ của `Pong` A tới **sau** khi bot đã gửi `Ping` B.
+        bot.on_frame(2_010, &pong_frame(nonce_a)).unwrap();
+        assert_eq!(
+            bot.stats().rtt.values(),
+            [40u64].as_slice(),
+            "Pong cũ không được ghi mẫu RTT"
+        );
+
+        // `Pong` B thật: mẫu của B vẫn phải được ghi.
+        bot.on_frame(2_050, &pong_frame(nonce_b)).unwrap();
+        assert_eq!(bot.stats().rtt.values(), [40u64, 50].as_slice());
+    }
+
+    /// `Pong` mất không được làm hỏng ping kế tiếp: mỗi ping giữ mốc riêng, nên `Pong` tới
+    /// muộn vẫn ghi được mẫu của chính nó.
+    #[test]
+    fn lost_pong_does_not_block_the_next_ping() {
+        let mut bot = pinged_bot();
+
+        let nonce_a = ping_nonce(&bot.on_tick(1_000).unwrap());
+        // `Pong` A mất: không có frame nào tới.
+        let nonce_b = ping_nonce(&bot.on_tick(2_000).unwrap());
+
+        bot.on_frame(2_040, &pong_frame(nonce_b)).unwrap();
+        assert_eq!(
+            bot.stats().rtt.values(),
+            [40u64].as_slice(),
+            "chỉ mẫu của ping B"
+        );
+
+        // `Pong` A tới muộn: mẫu riêng của A, không đụng mẫu của B.
+        bot.on_frame(2_100, &pong_frame(nonce_a)).unwrap();
+        assert_eq!(bot.stats().rtt.values(), [40u64, 1_100].as_slice());
+    }
+
+    /// `Pong` của lần chạy trước (nonce không dùng lại) không được khớp nhầm ping mới.
+    #[test]
+    fn pong_of_a_previous_session_is_ignored() {
+        let mut bot = pinged_bot();
+
+        let nonce_a = ping_nonce(&bot.on_tick(1_000).unwrap());
+        // Mở lại phiên: bảng pending được dọn, nonce vẫn đơn điệu.
+        bot.reset(1);
+        bot.phase = BotPhase::Lobby;
+
+        let nonce_b = ping_nonce(&bot.on_tick(2_000).unwrap());
+        assert_ne!(nonce_a, nonce_b);
+
+        bot.on_frame(2_010, &pong_frame(nonce_a)).unwrap();
+        assert!(
+            bot.stats().rtt.values().is_empty(),
+            "Pong của phiên cũ không được ghi mẫu"
+        );
+
+        bot.on_frame(2_050, &pong_frame(nonce_b)).unwrap();
+        assert_eq!(bot.stats().rtt.values(), [50u64].as_slice());
     }
 }

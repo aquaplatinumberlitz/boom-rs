@@ -16,7 +16,8 @@
 //!   hiện tại (SCOPE_V1 §7.8, REWRITE_PLAN "đo nguồn").
 //! - Giai đoạn 1 bot nói DTO trực tiếp, **không dự đoán state**: số correction luôn bằng 0.
 //!   Khi module net của `boom-client` (PR #89) sẵn sàng, thay bằng implementation khác của
-//!   [`bot::BotClient`] — harness không phải đổi.
+//!   [`bot::BotClient`] — harness không phải đổi: cài [`bot::BotFactory`] riêng rồi gọi
+//!   [`harness::run_with`] (xem `docs/specification/QA_NETWORK.md`).
 //! - Mọi giá trị luật trận đọc từ profile rules (`crates/boom-qa/rules/*.toml`), không có hằng số
 //!   luật trong code (AGENTS §3).
 
@@ -26,8 +27,11 @@ pub mod metrics;
 pub mod profile;
 pub mod report;
 
-pub use bot::{BotClient, BotConfig, BotError, BotStats, DirectDtoBot};
-pub use harness::{QaError, RunConfig, run};
+pub use bot::{
+    BotClient, BotConfig, BotError, BotFactory, BotPhase, BotStats, DirectDtoBot,
+    DirectDtoBotFactory,
+};
+pub use harness::{QaError, RunConfig, run, run_with};
 pub use metrics::Samples;
 pub use profile::{ProfileError, QaProfile};
 pub use report::{REPORT_SCHEMA, RunReport};

@@ -4,7 +4,11 @@
 //! Test chạy trong `cargo xtask ci` (qua `cargo test --workspace`); dùng hồ sơ `fast` để
 //! lượt ngắn.
 
-use boom_qa::harness::{RunConfig, run};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use boom_qa::bot::{BotClient, BotConfig, BotError, BotFactory, BotPhase, BotStats, DirectDtoBot};
+use boom_qa::harness::{RunConfig, run, run_with};
 use boom_qa::profile::QaProfile;
 
 /// Kịch bản nhanh: 2 bot, 1 lượt, hồ sơ `fast` (lượt ngắn, mạng vẫn có lỗi).
@@ -91,5 +95,100 @@ fn scope_v1_profile_matches_acceptance_network() {
         profile.network.one_way_delay_ms(),
         50,
         "trễ một chiều = RTT/2"
+    );
+}
+
+/// Bot **thay thế** cho `DirectDtoBot`: bọc bot gốc và đếm số lần harness gọi vào bot.
+///
+/// Đây là implementation "bên ngoài" mà harness phải chạy được: nó chỉ biết trait
+/// `BotClient` công khai, không có quyền vào nội bộ của harness.
+struct CountingBot {
+    inner: DirectDtoBot,
+    frames: Arc<AtomicUsize>,
+    ticks: Arc<AtomicUsize>,
+}
+
+impl BotClient for CountingBot {
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn on_frame(&mut self, now_ms: u64, frame: &[u8]) -> Result<Vec<Vec<u8>>, BotError> {
+        self.frames.fetch_add(1, Ordering::Relaxed);
+        self.inner.on_frame(now_ms, frame)
+    }
+
+    fn on_tick(&mut self, now_ms: u64) -> Result<Vec<Vec<u8>>, BotError> {
+        self.ticks.fetch_add(1, Ordering::Relaxed);
+        self.inner.on_tick(now_ms)
+    }
+
+    fn stats(&self) -> &BotStats {
+        self.inner.stats()
+    }
+
+    fn phase(&self) -> BotPhase {
+        self.inner.phase()
+    }
+
+    fn reset(&mut self, player: u64) {
+        self.inner.reset(player);
+    }
+}
+
+/// Factory dựng [`CountingBot`] thay cho `DirectDtoBot`.
+struct CountingFactory {
+    frames: Arc<AtomicUsize>,
+    ticks: Arc<AtomicUsize>,
+}
+
+impl BotFactory for CountingFactory {
+    fn create(&self, config: &BotConfig) -> Box<dyn BotClient> {
+        Box::new(CountingBot {
+            inner: DirectDtoBot::new(config.clone()),
+            frames: Arc::clone(&self.frames),
+            ticks: Arc::clone(&self.ticks),
+        })
+    }
+}
+
+/// Harness phải chạy được với implementation bot **bên ngoài** (không phải `DirectDtoBot`):
+/// factory được truyền vào từ integration test, và bot đó vẫn chơi trọn lượt.
+#[test]
+fn harness_runs_an_external_bot_implementation() {
+    let profile = QaProfile::builtin("fast").expect("hồ sơ fast");
+    let config = RunConfig {
+        profile,
+        clients: 2,
+        seed: 7,
+        rounds: Some(1),
+    };
+    let frames = Arc::new(AtomicUsize::new(0));
+    let ticks = Arc::new(AtomicUsize::new(0));
+    let factory = CountingFactory {
+        frames: Arc::clone(&frames),
+        ticks: Arc::clone(&ticks),
+    };
+
+    let report = run_with(&config, &factory).expect("chạy harness với bot thay thế");
+
+    assert!(!report.timed_out, "hết ngân sách thời gian: {report:?}");
+    assert_eq!(report.rounds.len(), 1, "phải có đúng một lượt");
+    assert!(
+        report.converged,
+        "lượt không hội tụ với bot thay thế: {report:?}"
+    );
+    assert_eq!(
+        report.rounds[0].bot_hashes.len(),
+        2,
+        "mọi bot thay thế phải dựng lại được hash: {report:?}",
+    );
+    assert!(
+        frames.load(Ordering::Relaxed) > 0,
+        "harness phải đẩy frame vào bot thay thế: {report:?}"
+    );
+    assert!(
+        ticks.load(Ordering::Relaxed) > 0,
+        "harness phải gọi `on_tick` của bot thay thế: {report:?}"
     );
 }
