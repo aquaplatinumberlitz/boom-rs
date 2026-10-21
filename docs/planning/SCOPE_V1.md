@@ -237,22 +237,24 @@ nguồn oracle, phương pháp đo độ lặp và cách lưu bằng chứng n�
 
 ### 10.3 Nguồn giá trị hiện hành — ADR 0012 và ADR 0013
 
-Sổ trên ghi **giá trị đang dùng**. Nguồn của từng giá trị sau ADR 0013 chia làm hai nhóm, và
+Sổ trên ghi **giá trị đang dùng**. Nguồn của từng giá trị sau ADR 0013 chia làm ba nhóm, và
 sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
 
 - **Đã về gốc KR/VN** (khôi phục nguồn `confirmed` cùng đại lượng): thời hạn vòng **120 s** và
   cỡ ô **40 px** (R-110), **Bomb/Fire +1** (R-111), trọng số rơi **3650:2800:2000** (R-112 —
   *số* bảng VN `confirmed`, vai trò bảng vẫn `unknown` R-052, nên áp làm trọng số ba item V1 là
   quyết định áp dụng chứ không phải xác suất drop gốc), chỉ số C00/C01 theo `BomberAttr` KR
-  (R-117 — ngoại lệ `candidate` có chủ ý, xem D-08). Trước ADR 0012 các giá trị này đã bị BnB
-  đè (ví dụ vòng 120→180 s); nay về lại giá trị gốc, **bằng chứng gốc không bị hạ nhãn**.
+  (R-117 — ngoại lệ `candidate` có chủ ý, xem D-08). Theo ADR 0012/trước ADR 0013 các giá trị này
+  đã bị BnB đè (ví dụ vòng 120→180 s); nay về lại giá trị gốc, **bằng chứng gốc không bị hạ nhãn**.
 - **Vẫn theo BnB** (`oss` / `design`) vì chưa có nguồn `confirmed` cùng đại lượng: nhịp tick
   **30 Hz** (R-113 — R-013 chỉ đo bước *client*, không xác nhận tick server), warmup **3 s**
   (R-113), tốc độ **24 px/s mỗi cấp** (R-114 — R-043 còn `candidate`), fuse/lửa/nhốt
   **2500/500/4000 ms** (R-115 — R-026 là khoảng packet, không phải timer nội bộ), hộp va chạm
   **26×26 px** / assist **12 px** / khoảng chạm **28 px** (R-116), Roller **+1 cấp** (R-111),
-  xác suất gạch có item **35%** (R-112 — R-053 `unknown`), nhịp clip **100 ms** (R-118 — R-079
-  `unknown`).
+  xác suất gạch có item **35%** (R-112 — R-053 `unknown`).
+- **`design` riêng** (BnB **không** cung cấp cùng đại lượng, nên **không** phải lựa chọn từ BnB):
+  nhịp clip **100 ms** (R-118 — R-079 `unknown`; ADR 0013 giữ `design` riêng vì BnB không có nhịp
+  clip KR).
 
 **Profile đã đổi giá trị, cơ chế thì chưa.** Profile
 [`v1-dev`](../../data/rules/v1-dev.toml) đã mang giá trị R-110…R-118, nhưng các **cơ chế** BnB
