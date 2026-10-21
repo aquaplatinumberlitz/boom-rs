@@ -50,13 +50,14 @@ Không ghi đè pack hoặc gọi profile này là native KR. Tỷ lệ, cap và
 rules có version/provenance; giá trị tạm chưa được duyệt chỉ dùng ở development, không vượt gate phát hành.
 Không mặc định trọng số là phần trăm hoặc lấy log giả lập làm xác suất/timing gốc.
 
-Luật gameplay V1 chọn theo BnB theo quyết định chủ dự án 2026-10-21:
-[ADR 0012](../decisions/0012-v1-rules-from-bnb.md) quy định ưu tiên profile,
-bảng **BnB ↔ client gốc** (tick, vòng, trap, drop, chỉ số C00/C01), cơ chế khác và issue triển khai.
-Các câu trên về chỉ số nối Attr được thay bằng template BnB theo ADR; giữ content/asset C00/C01.
-Bằng chứng KR/VN confirmed giữ nguyên; profile V1 dùng BnB kể cả khác giá trị gốc.
-Đây là sai khác có chủ ý; không mở scope map/item/nhân vật ngoài V1. Warmup 3 s trước clock
-lượt theo ADR thay mốc clock ngay khi loading hoàn tất; policy vận hành §3 giữ nguyên.
+Luật gameplay theo [ADR 0013](../decisions/0013-rule-source-precedence.md):
+KR 00967 confirmed → VN VBNB_116 confirmed → BnB design → design riêng, chỉ so cùng đại lượng.
+Khôi phục round 120 s, trọng số VN và Bomb/Fire +1; giữ chỉ số KR candidate theo ngoại lệ có lý do.
+Bảng từng khóa và giới hạn ở RULES_V1 §11; BnB lấp chỗ trống, warmup 3 s giữ design.
+Không mở scope map/item/nhân vật ngoài V1; policy vận hành §3 giữ nguyên.
+
+Ghi chú tích hợp: PR #127 chưa merge tại thời điểm soạn; sau #127, ghép các sai khác của
+ADR 0013 vào sổ §10, giữ riêng số bảng confirmed với ý nghĩa drop chưa xác nhận.
 
 ## 3. Policy phòng và vòng đời
 
