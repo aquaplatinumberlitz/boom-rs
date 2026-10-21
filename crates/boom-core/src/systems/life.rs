@@ -61,6 +61,9 @@ impl System for Life {
             .collect();
 
         // 1. Lửa nhốt người còn sống. Mỗi ô tối đa một flame (invariant), nên chủ lửa là duy nhất.
+        //    Chỉ lửa **còn sống** ở tick này mới gây sát thương (`until` là tick cuối còn lửa,
+        //    bao gồm): lửa đã hết hạn không nhốt ai — BnB xoá vụ nổ hết TTL trước khi áp
+        //    sát thương (`game.js:448–451`).
         for (i, &cell) in cells.iter().enumerate() {
             if state.players[i].life != PlayerLife::Alive {
                 continue;
@@ -68,7 +71,7 @@ impl System for Life {
             let Some(owner) = state
                 .flames
                 .iter()
-                .find(|f| f.cell == cell)
+                .find(|f| f.cell == cell && f.until >= tick)
                 .map(|f| f.owner)
             else {
                 continue;
@@ -129,12 +132,15 @@ mod tests {
     use boom_content::map::Terrain;
     use boom_content::rules::RulesProfile;
 
-    use crate::event::{EventKind, SimulationEvent};
+    use crate::event::{EventKind, EventSink, SimulationEvent};
     use crate::mode::mode_by_id;
     use crate::num::Mpx;
     use crate::rules::Rules;
     use crate::sim::{Dir, PlayerInput, PlayerSetup, World};
     use crate::state::{CharacterStats, EntityId, Flame, Life, SimulationState, Stat};
+    use crate::system::System;
+
+    use super::LIFE;
 
     const PROFILE: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
 
@@ -173,6 +179,16 @@ mod tests {
         let mut events = Vec::new();
         s.step(w, &[PlayerInput::default(); 2], &mut events)
             .unwrap();
+        s.check_invariants(w).unwrap();
+        events
+    }
+
+    /// Chạy **riêng** system `life`: lửa hết hạn vẫn còn trong state (bước `explosion` mới
+    /// xóa lửa theo tick), nên test phải gọi thẳng system để kiểm bước dùng lửa.
+    fn run_life(w: &World, s: &mut SimulationState) -> Vec<SimulationEvent> {
+        let mut events = Vec::new();
+        let mut sink = EventSink::new(s.tick, &mut events);
+        LIFE.run(w, s, &[PlayerInput::default(); 2], &mut sink);
         s.check_invariants(w).unwrap();
         events
     }
@@ -316,6 +332,32 @@ mod tests {
             "người bị nhốt không tự chạm"
         );
         assert_eq!(s.players[1].life, Life::Trapped { since: 0 });
+    }
+
+    #[test]
+    fn expired_flame_does_not_trap() {
+        // `until` là tick cuối còn lửa: lửa đã hết hạn không được nhốt ai (BnB xóa vụ nổ
+        // hết TTL trước khi áp sát thương, `game.js:448–451`).
+        let rows = ["#####", "#0..#", "#####"];
+        let w = world_with(rules(), &rows);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        place(&mut s, 0, 100_000, 60_000); // ô (2,1)
+        s.tick = 1;
+        s.flames.push(Flame {
+            cell: crate::num::Cell::new(2, 1),
+            until: 0, // hết hạn từ tick 1
+            source: EntityId(0),
+            owner: 0,
+        });
+
+        let events = run_life(&w, &mut s);
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::PlayerTrapped { .. })),
+            "lửa đã hết hạn không nhốt ai"
+        );
+        assert_eq!(s.players[0].life, Life::Alive);
     }
 
     #[test]

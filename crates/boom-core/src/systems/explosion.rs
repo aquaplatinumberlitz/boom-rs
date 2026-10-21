@@ -20,7 +20,13 @@
 //!
 //! **Tuổi lửa (R-109, BnB `server/game.js:448–451`):** vụ nổ sinh với `ttl = flame_ticks` rồi
 //! bị giảm ngay trong tick nổ, nên lửa có mặt ở `flame_ticks - 1` tick, tức `until` =
-//! `tick + flame_ticks - 2`.
+//! `tick + flame_ticks - 2`. `flame_ticks = 1` ⇒ **không còn tick nào có lửa**: BnB xóa vụ
+//! nổ ngay trong tick nổ (ttl 1 → 0) trước khi gây sát thương, nên V1 **không tạo lửa** —
+//! state không có ô lửa, không ai bị nhốt, không có hình lửa.
+//!
+//! **Blast ≠ lửa:** BnB phá gạch ngay lúc nổ (`server/game.js:401–431`), tức **trước** bước
+//! giảm TTL, nên `flame_ticks = 1` vẫn phá gạch. V1 tách hai ý: `flames` là lửa còn sống
+//! (sát thương + hình), `state.blasts` là ô vừa bị vụ nổ phủ (kênh để `blocks` phá gạch).
 //!
 //! Quyền ghi và event được phép: bảng trong `systems/mod.rs`. Kịch bản nghiệm thu:
 //! `fixtures/scenarios/explosion/` (`active`). Giá trị luật lấy từ `World::rules()`.
@@ -96,8 +102,16 @@ impl System for Explosion {
 
         // BnB `server/game.js:448–451`: vụ nổ sinh với `ttl = flame_ticks` rồi bị giảm ngay
         // trong tick nổ, nên lửa chỉ còn `flame_ticks - 1` tick — `until` là tick cuối còn lửa.
-        let until = tick.saturating_add(flame_ticks).saturating_sub(2);
+        // `flame_ticks = 1` ⇒ ttl về 0 ngay trong tick nổ ⇒ BnB **xoá vụ nổ trước khi gây
+        // sát thương**: không có tick nào có lửa, nên V1 không tạo `Flame` nào (state không có
+        // ô lửa ⇒ không nhốt ai, không có hình lửa). Không dựa vào phép trừ bão hòa để biểu
+        // diễn "lửa đã chết": `until` là tick cuối còn lửa, nên lửa chết thì không có `Flame`.
+        let until = match flame_ticks {
+            0 | 1 => None,
+            ticks => Some(tick.saturating_add(ticks).saturating_sub(2)),
+        };
         let mut new_flames = Vec::new();
+        let mut blasted: Vec<Cell> = Vec::new();
         for id in &exploding {
             let bomb = state
                 .bombs
@@ -111,6 +125,11 @@ impl System for Explosion {
                 chained: bomb.explodes_at > tick,
             });
             for cell in blast_cells(&state.field, bomb) {
+                // Ô bị vụ nổ phủ: BnB phá gạch ngay lúc nổ, không phụ thuộc tuổi lửa.
+                blasted.push(cell);
+                let Some(until) = until else {
+                    continue;
+                };
                 new_flames.push(Flame {
                     cell,
                     until,
@@ -120,6 +139,11 @@ impl System for Explosion {
             }
         }
         state.bombs.retain(|b| !exploding.contains(&b.id));
+        // Kênh blast: `blocks` đọc để phá khối mềm rồi xóa. Không có bom nổ thì kênh giữ
+        // nguyên (hàng chờ rỗng sau tick trước).
+        blasted.sort_unstable();
+        blasted.dedup();
+        state.blasts = blasted;
         state.flames.append(&mut new_flames);
         state.flames.sort_by_key(|f| f.cell);
         state.flames.dedup_by(|later, earlier| {
@@ -183,6 +207,11 @@ mod tests {
     fn world(rows: &[&str]) -> World {
         let ffa = mode_by_id("battle_ffa").unwrap();
         World::new(Terrain::from_ascii(rows).unwrap(), rules(), ffa).unwrap()
+    }
+
+    fn world_with(rules: Rules, rows: &[&str]) -> World {
+        let ffa = mode_by_id("battle_ffa").unwrap();
+        World::new(Terrain::from_ascii(rows).unwrap(), rules, ffa).unwrap()
     }
 
     fn solo(w: &World) -> SimulationState {
@@ -322,5 +351,111 @@ mod tests {
         assert_eq!(flame.until, 10 + w.rules().flame_ticks - 2);
         assert_eq!(flame.cell, Cell::new(1, 1));
         assert_eq!(s.field.kind(Cell::new(1, 1)), Some(CellKind::Floor));
+    }
+
+    /// Rules với `flame_ticks` cho trước: `flame_ticks = 1` là biên không còn tick nào lửa.
+    fn rules_with_flame_ticks(flame_ticks: u32) -> Rules {
+        let mut r = rules();
+        r.flame_ticks = flame_ticks;
+        r
+    }
+
+    #[test]
+    fn flame_ticks_one_leaves_no_flame_at_tick_zero() {
+        // BnB `server/game.js:448–451`: ttl 1 → 0 ngay trong tick nổ nên vụ nổ bị xóa trước
+        // khi áp sát thương — không có ô lửa nào, không ai bị nhốt.
+        let w = world_with(rules_with_flame_ticks(1), &["0...", "...."]);
+        let mut s = solo(&w);
+        add_bomb(&mut s, Cell::new(1, 0), 1, 0);
+        let events = step(&w, &mut s);
+
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::BombExploded { .. })),
+            "bom vẫn nổ"
+        );
+        assert!(s.flames.is_empty(), "flame_ticks = 1: state không có ô lửa");
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::PlayerTrapped { .. })),
+            "không có lửa thì không ai bị nhốt"
+        );
+        assert_eq!(s.players[0].life, crate::state::Life::Alive);
+    }
+
+    #[test]
+    fn flame_ticks_one_leaves_no_flame_at_later_tick() {
+        // Cùng biên ở tick khác 0: tick nổ không phải tick đầu, kết luận phải y hệt.
+        let w = world_with(rules_with_flame_ticks(1), &["0...", "...."]);
+        let mut s = solo(&w);
+        s.tick = 10;
+        add_bomb(&mut s, Cell::new(1, 0), 1, 10);
+        let events = step(&w, &mut s);
+
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::BombExploded { .. })),
+            "bom vẫn nổ"
+        );
+        assert!(s.flames.is_empty(), "flame_ticks = 1: state không có ô lửa");
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::PlayerTrapped { .. })),
+            "không có lửa thì không ai bị nhốt"
+        );
+    }
+
+    #[test]
+    fn flame_ticks_two_damages_exactly_one_tick() {
+        // Biên kế bên: ttl 2 → 1 nên lửa còn ở đúng tick nổ và hết ở tick sau.
+        let w = world_with(rules_with_flame_ticks(2), &["0...", "...."]);
+        let mut s = solo(&w);
+        add_bomb(&mut s, Cell::new(1, 0), 1, 0);
+        let events = step(&w, &mut s);
+
+        assert!(
+            s.flames.iter().any(|f| f.cell == Cell::new(0, 0)),
+            "tick nổ vẫn còn lửa ở ô người chơi"
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::PlayerTrapped { .. })),
+            "lửa còn sống ở tick nổ nên người chơi bị nhốt"
+        );
+
+        let events = step(&w, &mut s);
+        assert!(s.flames.is_empty(), "tick sau lửa hết hạn");
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::PlayerTrapped { .. })),
+            "lửa hết hạn thì không nhốt thêm"
+        );
+    }
+
+    #[test]
+    fn blast_breaks_soft_block_even_when_no_flame_survives() {
+        // BnB phá gạch lúc nổ (`server/game.js:401–431`), tức trước bước giảm TTL: `flame_ticks`
+        // = 1 vẫn phá gạch dù không còn ô lửa nào.
+        let w = world_with(rules_with_flame_ticks(1), &["0+..", "...."]);
+        let mut s = solo(&w);
+        add_bomb(&mut s, Cell::new(0, 0), 2, 0);
+        step(&w, &mut s);
+
+        assert!(s.flames.is_empty(), "flame_ticks = 1: không còn ô lửa");
+        assert_eq!(
+            s.field.kind(Cell::new(1, 0)),
+            Some(CellKind::Floor),
+            "gạch trong blast vẫn vỡ"
+        );
+        assert!(
+            s.blasts.is_empty(),
+            "kênh blast rỗng ở mốc tick: `blocks` đã đọc và xóa"
+        );
     }
 }

@@ -26,6 +26,7 @@
 //! bomb = [{ cell = [2, 1], owner = 0, range = 2, fuse = 10, grace = [] }]  # fuse: tick nổ
 //! item = [{ cell = [3, 1], kind = "Fire" }]
 //! flame = [{ cell = [2, 1], ticks = 5, owner = 0 }]
+//! blast = [{ cell = [2, 1] }]        # ô vừa bị vụ nổ phủ (bước `blocks` phá khối mềm)
 //! hidden = [{ cell = [3, 2], kind = "Bomb" }]   # item giấu trong khối mềm
 //! ```
 
@@ -150,6 +151,14 @@ pub struct FlameEntry {
     pub owner: u8,
 }
 
+/// Ô vừa bị vụ nổ phủ (`SimulationState::blasts`): kênh để bước `blocks` phá khối mềm mà
+/// không cần system `explosion` (giống `flame` dựng sẵn cho bước `life`).
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BlastEntry {
+    pub cell: [i32; 2],
+}
+
 /// Nguồn map lấy từ pack legacy; loader thật nằm ở `boom-replay` để giữ boundary
 /// `boom-scenario` chỉ phụ thuộc `boom-content`/`boom-core`.
 #[derive(Clone, Debug, Deserialize)]
@@ -203,6 +212,8 @@ pub struct Setup {
     #[serde(default)]
     pub flame: Vec<FlameEntry>,
     #[serde(default)]
+    pub blast: Vec<BlastEntry>,
+    #[serde(default)]
     pub hidden: Vec<ItemEntry>,
 }
 
@@ -221,6 +232,7 @@ pub const SETUP_KEYS: &[&str] = &[
     "bomb",
     "item",
     "flame",
+    "blast",
     "hidden",
 ];
 
@@ -405,6 +417,10 @@ impl Match {
             .collect();
         flames.sort_by_key(|f| f.cell);
         s.flames = flames;
+        let mut blasts: Vec<Cell> = setup.blast.iter().map(|b| cell(b.cell)).collect();
+        blasts.sort_unstable();
+        blasts.dedup();
+        s.blasts = blasts;
         for h in &setup.hidden {
             let c = cell(h.cell);
             if s.field.kind(c) != Some(CellKind::Breakable) {

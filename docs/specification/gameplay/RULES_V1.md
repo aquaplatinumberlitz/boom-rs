@@ -297,7 +297,7 @@ quyết định trên; bảng sai khác và issue triển khai nằm trong ADR 0
 | R-106 | Roll khi vỡ gạch; V1 chỉ giữ ba loại, chuẩn hóa tương đối BnB bubble/potion/shoe | 350 permille; Bomb:Fire:Roller = 20:28:16 | `oss` / design | BnB `server/game.js:20,425–439`; bỏ loại ngoài scope, không giữ xác suất tuyệt đối 20/28/16% |
 | R-107 | Hộp va chạm và assist khi bị chặn; pass bom tới khi hộp rời hoàn toàn | half 13 px (26×26), assist ≤12 px | `oss` / design | BnB `server/game.js:31–32,150–153,173–275,392–399`; #130 |
 | R-108 | Trapped đứng yên; giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035, giữ đứng yên R-036 |
-| R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
+| R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout. Biên TTL: ttl 1 → 0 ⇒ vụ nổ bị xóa **trước** khi áp sát thương (không có ô lửa, không ai bị nhốt) nhưng gạch trong blast vẫn vỡ, vì BnB phá gạch lúc nổ | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
 
 R-014/R-023/R-027/R-044/R-046 giữ `oss`/candidate như bằng chứng lịch sử; không phải claim lựa chọn.
 R-056/R-057/R-059 còn áp dụng phần alive/tâm ô/cap hiệu ứng; phần giữ item tại cap (R-058),

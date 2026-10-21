@@ -146,7 +146,7 @@ mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới 
 |---|---|---|
 | `PlayerInput { dir, place_bomb }` | `sim.rs` | Input **đã được authority chấp nhận** cho một tick; `place_bomb` là cạnh nhấn, không phải giữ |
 | `PlayerSetup { id, stats: CharacterStats }` | `sim.rs`, `state/player.rs` | `Stat { value, max }` cho speed/bombs/range, lấy từ BomberAttr qua content |
-| `SimulationState` | `state/mod.rs` | `tick, phase, rng, ids, players, field, bombs, flames, items`; mỗi phần tự hash trong file của nó |
+| `SimulationState` | `state/mod.rs` | `tick, phase, rng, ids, players, field, bombs, flames, blasts, items`; mỗi phần tự hash trong file của nó (trừ `blasts`: hàng chờ trong tick, rỗng ở mọi mốc tick nên không đổi encoding hash) |
 | `EntityId`, `IdAllocator` | `state/mod.rs` | ID bom/item cấp tăng dần từ 1 trong lượt; chỉ cấp qua `ids.next_id()` |
 | `Player`, `Life`, `Stat` | `state/player.rs` | `Life::Trapped { since }` vẫn tính là chưa chết |
 | `Field` | `state/field.rs` | Loại ô đổi được trong lượt + item giấu trong khối mềm |
@@ -158,7 +158,7 @@ mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới 
 | `Mode`, `System` | `mode.rs`, `system.rs` | `System::on_round_start` cho việc đầu lượt (giấu item) |
 
 `SimulationState::check_invariants(&World)` (`state/invariants.rs`) kiểm: danh sách sắp đúng; một bom/item/
-flame mỗi ô; ID entity duy nhất trên mọi loại và do allocator cấp; bom/item trên ô nền, lửa trên nền hoặc
+flame mỗi ô; kênh `blasts` sắp theo ô, mỗi ô một lần; ID entity duy nhất trên mọi loại và do allocator cấp; bom/item trên ô nền, lửa trên nền hoặc
 khối mềm; số ô dữ liệu khớp kích thước lưới (kiểm trước mọi truy cập ô); owner/grace là người chơi có thật; `ItemKind` có trong `Rules::items`; người chơi trong lưới;
 chỉ số không vượt trần; item giấu chỉ trong khối mềm. Hàm không panic với state sai. `new_round` gọi nó
 trước khi trả state; harness scenario và replay gọi sau mỗi tick, nên system vi phạm bị bắt ở tick gây lỗi.
@@ -170,16 +170,16 @@ trước khi trả state; harness scenario và replay gọi sau mỗi tick, nên
 RNG được dùng đúng theo thứ tự này. Đổi thứ tự là đổi luật: chỉ integrator, kèm scenario và bless golden.
 
 Hệ quả đã chốt: bom đặt trong step N nằm ở ô người chơi **sau khi** di chuyển của step N; bom có
-`explodes_at = N` nổ trong step N; lửa sinh trong step N phá khối, nhốt người ngay trong step N;
-kết quả lượt xét sau khi mọi system đã chạy. Còn mở (quyết trong task tương ứng, ghi vào RULES_V1):
+`explodes_at = N` nổ trong step N; vụ nổ ở step N phá khối (kênh `blasts`), lửa sinh ở step N nhốt người
+ngay trong step N; kết quả lượt xét sau khi mọi system đã chạy. Còn mở (quyết trong task tương ứng, ghi vào RULES_V1):
 lửa có phá item đang nằm trên nền không; nhặt item khi đã chạm trần thì item mất hay ở lại.
 
 ### 5.3 Ma trận quyền ghi
 
 Bảng chi tiết ở đầu `crates/boom-core/src/systems/mod.rs`. Tóm tắt: mỗi field công khai chỉ có một
-system được ghi (movement → vị trí/hướng và xóa `grace`; bomb_place → thêm bom; explosion → xóa bom, lửa;
-blocks → lưới, item lộ/bị phá; pickup → xóa item, chỉ số; life → `Player.life`). Đọc thì tự do.
-Cần ghi field của system khác → mở issue cho integrator, không sửa thẳng.
+system được ghi (movement → vị trí/hướng và xóa `grace`; bomb_place → thêm bom; explosion → xóa bom, lửa,
+ghi kênh `blasts`; blocks → lưới, item lộ/bị phá, xóa kênh `blasts`; pickup → xóa item, chỉ số;
+life → `Player.life`). Đọc thì tự do. Cần ghi field của system khác → mở issue cho integrator, không sửa thẳng.
 
 ### 5.4 Contract mạng và replay (chưa có code)
 

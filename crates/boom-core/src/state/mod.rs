@@ -3,6 +3,7 @@
 //! Mỗi loại dữ liệu nằm trong file riêng và tự đóng góp vào state hash qua `hash_into`.
 //! Field công khai là contract: thêm/đổi field công khai phải qua integrator; field riêng tư mà một
 //! system cần thì thêm trong file của loại đó và nhớ đưa vào `hash_into` của nó.
+//! Ngoại lệ đã biết: `blasts` là kênh **trong tick** (xem doc của field) nên không hash.
 //! Ma trận ai được ghi field nào: ARCHITECTURE §5.
 
 mod bomb;
@@ -21,7 +22,7 @@ pub use player::{CharacterStats, Life, Player, Stat};
 use boom_content::hash::Fnv1a64;
 
 use crate::mode::Outcome;
-use crate::num::Tick;
+use crate::num::{Cell, Tick};
 use crate::rng::Rng;
 
 /// ID entity ổn định trong một lượt (bom, item…), cấp tăng dần từ 1.
@@ -76,6 +77,22 @@ pub struct SimulationState {
     pub bombs: Vec<Bomb>,
     /// Sắp theo ô; mỗi ô tối đa một flame.
     pub flames: Vec<Flame>,
+    /// Ô bị vụ nổ phủ — hàng chờ trong tick cho `blocks` phá khối mềm.
+    ///
+    /// BnB (`server/game.js:401–431`) phá gạch **ngay lúc nổ**, trước bước giảm TTL
+    /// (`server/game.js:448–451`), nên gạch vỡ không phụ thuộc tuổi lửa: `flame_ticks = 1`
+    /// (lửa không còn tick nào) vẫn phá gạch. V1 tách hai ý này: `flames` là **lửa còn sống**
+    /// (sát thương + hình), `blasts` là **ô vừa bị nổ phủ** (phá gạch).
+    ///
+    /// `explosion` ghi (đặt lại danh sách ô của các bom vừa nổ), `blocks` đọc rồi xóa —
+    /// cùng kiểu `movement` xóa `grace` (`systems/mod.rs`). Hàng chờ nên **rỗng ở mọi mốc
+    /// tick**: state khôi phục từ snapshot giống hệt state gốc.
+    ///
+    /// Sắp theo ô, mỗi ô một lần.
+    ///
+    /// **Không nằm trong state hash** (`fnv1a64-v0` không đổi, ADR 0004 §5): kênh này rỗng ở
+    /// mọi mốc tick nên thêm nó vào hash cũng không thêm thông tin nào, chỉ đổi encoding.
+    pub blasts: Vec<Cell>,
     /// Sắp theo `id`; mỗi ô tối đa một item.
     pub items: Vec<FloorItem>,
 }

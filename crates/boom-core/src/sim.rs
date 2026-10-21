@@ -261,6 +261,7 @@ impl SimulationState {
             field,
             bombs: Vec::new(),
             flames: Vec::new(),
+            blasts: Vec::new(),
             items: Vec::new(),
         };
         for system in world.mode.systems() {

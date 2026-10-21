@@ -80,6 +80,15 @@ impl SimulationState {
             }
         }
 
+        if !self.blasts.windows(2).all(|w| w[0] < w[1]) {
+            return Err("blasts phải sắp theo ô, mỗi ô một lần".into());
+        }
+        for c in &self.blasts {
+            if field.kind(*c).is_none() {
+                return Err(format!("blast ở ô ngoài lưới {c:?}"));
+            }
+        }
+
         if !self.items.windows(2).all(|w| w[0].id < w[1].id) {
             return Err("items phải sắp theo id".into());
         }

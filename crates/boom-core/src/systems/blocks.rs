@@ -5,9 +5,10 @@
 //! giấu một item, loại chọn theo trọng số `Rules::items` (lấy mẫu không lệch bằng `Rng::below`).
 //! Item được quyết trước trận (R-050), nên cùng seed cho cùng bố cục item giấu (R-067).
 //!
-//! **Trong lượt** (`run`): ô nào có lửa và là khối mềm thì khối vỡ thành nền (`block_destroyed`);
-//! nếu khối vừa vỡ giấu item thì item lộ ra, nằm trên nền (`item_revealed`). Lửa không phá
-//! item đang nằm trên nền (R-068): item chỉ rời nền khi người chơi nhặt (R-054).
+//! **Trong lượt** (`run`): ô nào bị vụ nổ phủ (`state.blasts`) và là khối mềm thì khối vỡ thành
+//! nền (`block_destroyed`); nếu khối vừa vỡ giấu item thì item lộ ra, nằm trên nền
+//! (`item_revealed`). Lửa không phá item đang nằm trên nền (R-068): item chỉ rời nền khi người
+//! chơi nhặt (R-054).
 //!
 //! Quyền ghi và event được phép: bảng trong `systems/mod.rs`. Kịch bản nghiệm thu:
 //! `fixtures/scenarios/blocks/` (`active`). Luật và nguồn: RULES_V1; giá trị lấy từ `Rules`.
@@ -68,9 +69,13 @@ impl System for Blocks {
         _inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
     ) {
-        // Ô có lửa: khối mềm vỡ thành nền. Lửa không phá item đang nằm trên nền (R-068).
-        let flaming: Vec<Cell> = state.flames.iter().map(|f| f.cell).collect();
-        for cell in flaming {
+        // Ô bị vụ nổ phủ: khối mềm vỡ thành nền. BnB phá gạch **lúc nổ** (`game.js:401–431`),
+        // tức trước bước giảm TTL, nên việc phá gạch không phụ thuộc tuổi lửa: `flame_ticks = 1`
+        // vẫn phá gạch. Lửa không phá item đang nằm trên nền (R-068).
+        let blasted: Vec<Cell> = state.blasts.clone();
+        // Kênh blast là hàng chờ trong tick: đọc xong thì xóa (như `movement` xóa `grace`).
+        state.blasts.clear();
+        for cell in blasted {
             if state.field.kind(cell) != Some(CellKind::Breakable) {
                 continue;
             }
@@ -114,11 +119,12 @@ mod tests {
     use boom_content::map::Terrain;
     use boom_content::rules::RulesProfile;
 
-    use crate::event::{EventId, SimulationEvent};
+    use crate::event::{EventId, EventSink, SimulationEvent};
     use crate::mode::mode_by_id;
     use crate::rules::Rules;
     use crate::sim::PlayerSetup;
-    use crate::state::{CharacterStats, EntityId, Flame, Stat};
+    use crate::state::{CharacterStats, EntityId, Stat};
+    use crate::system::System;
 
     const PROFILE: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
 
@@ -168,22 +174,19 @@ mod tests {
         SimulationState::new_round(&w, &[setup()], seed).unwrap()
     }
 
-    fn step(w: &World, state: &mut SimulationState) -> Vec<SimulationEvent> {
+    /// Chạy **riêng** system `blocks`: kênh blast do `explosion` ghi, `blocks` đọc rồi xóa,
+    /// nên test phần này phải dựng sẵn kênh rồi gọi thẳng system.
+    fn run_blocks(w: &World, state: &mut SimulationState) -> Vec<SimulationEvent> {
         let mut events = Vec::new();
-        state
-            .step(w, &[PlayerInput::default()], &mut events)
-            .unwrap();
+        let mut sink = EventSink::new(state.tick, &mut events);
+        BLOCKS.run(w, state, &[PlayerInput::default()], &mut sink);
         state.check_invariants(w).unwrap();
         events
     }
 
-    fn flame(cell: Cell, until: u32) -> Flame {
-        Flame {
-            cell,
-            until,
-            source: EntityId(0),
-            owner: 0,
-        }
+    /// Ô vừa bị vụ nổ phủ: kênh mà `explosion` ghi, `blocks` đọc để phá khối mềm.
+    fn blast(cell: Cell) -> Vec<Cell> {
+        vec![cell]
     }
 
     #[test]
@@ -261,14 +264,14 @@ mod tests {
     }
 
     #[test]
-    fn flame_breaks_block_once_and_reveals_item() {
+    fn blast_breaks_block_once_and_reveals_item() {
         let rows = ["#####", "#0+.#", "#####"];
         let w = world(&rows);
         let mut state = new_round(&rows, 1);
         // Giấu sẵn item trong khối mềm như scenario dựng sẵn.
         state.field.set_hidden(Cell::new(2, 1), Some(ItemKind(2)));
-        state.flames.push(flame(Cell::new(2, 1), 5));
-        let events = step(&w, &mut state);
+        state.blasts = blast(Cell::new(2, 1));
+        let events = run_blocks(&w, &mut state);
 
         assert_eq!(
             events,
@@ -300,14 +303,14 @@ mod tests {
             }]
         );
 
-        // Lửa còn ở ô đó nhưng khối đã vỡ: không phá thêm lần nữa.
-        let later = step(&w, &mut state);
+        // Khối đã vỡ: không phá thêm lần nữa.
+        let later = run_blocks(&w, &mut state);
         assert!(later.is_empty(), "khối mềm chỉ vỡ một lần");
         assert_eq!(state.items.len(), 1);
     }
 
     #[test]
-    fn flame_keeps_item_lying_on_the_floor() {
+    fn blast_keeps_item_lying_on_the_floor() {
         // R-068: lửa không phá item đang nằm trên nền.
         let rows = ["#####", "#0..#", "#####"];
         let w = world(&rows);
@@ -318,8 +321,8 @@ mod tests {
             kind: ItemKind(1),
             cell: Cell::new(2, 1),
         });
-        state.flames.push(flame(Cell::new(2, 1), 5));
-        let events = step(&w, &mut state);
+        state.blasts = blast(Cell::new(2, 1));
+        let events = run_blocks(&w, &mut state);
 
         assert!(
             !events
@@ -337,8 +340,8 @@ mod tests {
         let mut state = new_round(&rows, 1);
         // Bỏ item giấu do đầu lượt tự chọn, để khối mềm rỗng.
         state.field.set_hidden(Cell::new(2, 1), None);
-        state.flames.push(flame(Cell::new(2, 1), 5));
-        let events = step(&w, &mut state);
+        state.blasts = blast(Cell::new(2, 1));
+        let events = run_blocks(&w, &mut state);
 
         assert_eq!(events.len(), 1);
         assert_eq!(
