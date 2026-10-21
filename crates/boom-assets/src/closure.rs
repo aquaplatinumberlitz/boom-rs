@@ -29,27 +29,64 @@
 //!
 //! Bảng chọn nội dung (nhân vật, item, vai trò) là **dữ liệu content** của V1, không phải
 //! hằng số luật chơi: nó kế thừa vai trò đã fingerprint ở `kr_v1_content.json` và phạm vi
-//! V1 ở [SCOPE_V1](../../../../docs/planning/SCOPE_V1.md) §1.
+//! V1 ở [SCOPE_V1](../../../../docs/planning/SCOPE_V1.md) §1. Bảng đó nay là **data** ở
+//! `data/assets/closure-v1.toml` (nguồn chuẩn duy nhất, nạp qua
+//! [`boom_content::assets`]): mỗi dòng mang vai trò, nhãn bằng chứng và claim RULES_V1.
 //!
-//! Phần **UI** của closure V1 nằm ở bảng [`UI_ASSETS`]: mỗi dòng là một phần tử UI của
-//! luồng đăng nhập → sảnh → phòng → trận → kết quả, kèm trạng thái dùng. Bảng này là nguồn
-//! chuẩn cho mục `[[ui]]` của bundle (schema 3) và cho cột "Trạng thái dùng" ở
-//! [UI_STRINGS_V1 §3](../../../../docs/specification/localization/UI_STRINGS_V1.md).
-//!
+//! Phần **UI** của closure V1 cũng nằm ở data: `data/assets/ui-v1.toml`. Mỗi dòng là một
+//! phần tử UI của luồng đăng nhập → sảnh → phòng → trận → kết quả, kèm trạng thái dùng.
 //! Bảng UI **tách khỏi manifest closure** (`build_village00_manifest`) vì hai thứ khác
 //! nhau: manifest là closure *nội dung trận* (ô map, sprite, nhân vật, item) — mỗi dòng
 //! là một entry pack có SHA-256; còn bảng UI là closure *luồng hiển thị* — mỗi dòng là
 //! một **phần tử** có màn hình, vai trò, trạng thái duyệt ảnh và lý do thay thế, kèm
 //! entry pack khi V1 dùng ảnh. `[[ui]]` của bundle trỏ tới `[[sprites]]` nên ảnh của
 //! phần tử không bị nhân bản trong atlas.
+//!
+//! # Bảng state của client trong ODT (R-094)
+//!
+//! `fx/ObjectTable/ObjectTable` không chỉ chứa bảng tên ô của map: sau bảng tên còn là
+//! các **khối dữ liệu**, mỗi khối là bảng animation của một đối tượng. Khối
+//! `Character/<Id>_A` liệt kê **state trình diễn của client** theo thứ tự:
+//!
+//! | nhãn | state | entry |
+//! |---|---|---|
+//! | `00 Blink` | `Blink` | `Character/C00-Blink_A` |
+//! | `01 Die` | `Die` | `Character/C00-Die` |
+//! | `02 Faint` | `Faint` | `Character/C00-Faint` |
+//! | `03 Hurrah` | `Hurrah` | `Character/C00-Hurrah_A` |
+//! | `12 Stop Left` … `15 Stop Down` | đứng yên theo hướng | `Character/C00-Walk<Dir>_A` (frame 0) |
+//! | `20 Walk Left` … `23 Walk Down` | đi theo hướng | `Character/C00-Walk<Dir>_A` |
+//! | `24 Start` | `Start` | `Character/C00-Start_A` |
+//! | `25 Locked In` (+ `52`…`56`) | bị khoá (bị nhốt) | `Character/C00-Die` (frame 0…1, giữ vô hạn) |
+//!
+//! Mỗi state còn kèm danh sách `(chỉ số frame, thời lượng)`; **số frame khác nhau** dùng
+//! trong state khớp **đúng** số frame của sprite trong pack (`Blink` 3 frame, `Die` 14
+//! frame, `Faint` 3 frame, `Hurrah` 4 frame, `Walk<Dir>` 5 frame) nên bảng ODT là bảng
+//! animation của chính build KR 00967, không phải dữ liệu của build khác.
+//!
+//! Tên entry trong ODT là **tiền tố** của entry pack: client ghép thêm `Layer` +
+//! `Static`/`Adjust` (`C00-Blink_A` → `C00-Blink_ALayerStatic`). Vì vậy closure dùng
+//! chính ODT để **kiểm** entry nhân vật mình khai, thay vì tin vào bảng cứng.
+//!
+//! **Giới hạn của bảng ODT** (R-094, AGENTS §4): nó xác nhận **nhãn → entry**, **không**
+//! xác nhận state core của V1 dùng nhãn nào. Mapping `idle` → `Blink`, `trapped` →
+//! `Faint` là **quyết định của V1** (R-086 `design`) ⇒ closure gắn nhãn `design` cho hai
+//! sprite đó, **không** phải `confirmed`. Họ `BlinkSmall_A` **không** có trong bảng state
+//! `Character/<Id>_A` của C00/C01 ⇒ V1 **không chọn** họ này cho `idle`; họ sprite đó
+//! **có** trong ODT ở khối khác (`Character/<Id>_Display_A`) nên **không** kết luận là
+//! client không dùng.
 
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Write as _;
 use std::path::Path;
 
-use boom_content::bundle::{UiRole, UiScreen, UiState};
+use boom_content::assets::{AssetError, ClosureTable};
 use boom_content::rules::Status;
+
+/// Vai trò của một entry trong closure: định nghĩa ở `boom-content` (nguồn chuẩn chung
+/// với bảng data) và re-export để code closure dùng như trước.
+pub use boom_content::assets::ClosureRole;
 
 use crate::legacy_map::{Build, LegacyMap, MapError, parse as parse_map};
 use crate::pack::{Pack, PackError, PackIndex, load_index};
@@ -60,7 +97,11 @@ pub const SCHEMA: u32 = 1;
 /// Pack KR chứa sprite ô (tile/object) của map.
 pub const TILE_PACK: &str = "FxTile";
 
-/// Entry KR chứa bảng tên obj: `fx/ObjectTable/ObjectTable`.
+/// Pack KR chứa sprite nhân vật (`Character/...`).
+pub const CHARACTER_PACK: &str = "FxCharacter";
+
+/// Entry KR chứa bảng tên obj **và** bảng animation của client:
+/// `fx/ObjectTable/ObjectTable`.
 pub const OBJECT_TABLE: &str = "fx/ObjectTable/ObjectTable";
 
 /// Map V1 (SCOPE_V1 §1).
@@ -68,71 +109,6 @@ pub const V1_MAP: &str = "Village00";
 
 /// Theme của map V1; entry `FxMap/Theme/Village`.
 pub const V1_THEME: &str = "Village";
-
-/// Vai trò của một entry trong closure của một trận V1.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ClosureRole {
-    /// Dữ liệu map `.map` của trận.
-    Map,
-    /// Theme của map (ảnh chọn map trong lobby).
-    Theme,
-    /// Preview minimap của map.
-    Preview,
-    /// Nhạc nền của map.
-    Music,
-    /// Sprite nền của ô (ID tile trong map).
-    Tile,
-    /// Sprite vật cản của ô (ID obj trong map).
-    Object,
-    /// Sprite đi của nhân vật (4 hướng).
-    CharacterWalk,
-    /// Sprite đứng yên của nhân vật (chưa xác nhận state nào dùng nó).
-    CharacterIdle,
-    /// Sprite bị nhốt của nhân vật (chưa xác nhận state nào dùng nó).
-    CharacterTrapped,
-    /// Sprite chết của nhân vật.
-    CharacterDead,
-    /// Hình quả bom đặt trên ô.
-    BombArt,
-    /// Hình lửa/nước lan trên ô.
-    FlameArt,
-    /// Hình vụ nổ.
-    ExplosionArt,
-    /// Bong bóng của người bị nhốt.
-    TrappedArt,
-    /// Icon item rơi (Bomb/Fire/Roller).
-    ItemIcon,
-    /// Bảng chỉ số nhân vật.
-    CharacterAttr,
-    /// Bảng chỉ số item.
-    ItemAttr,
-}
-
-impl ClosureRole {
-    /// Tên vai trò dùng trong manifest.
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Map => "map",
-            Self::Theme => "theme",
-            Self::Preview => "preview",
-            Self::Music => "music",
-            Self::Tile => "tile",
-            Self::Object => "object",
-            Self::CharacterWalk => "character_walk",
-            Self::CharacterIdle => "character_idle",
-            Self::CharacterTrapped => "character_trapped",
-            Self::CharacterDead => "character_dead",
-            Self::BombArt => "bomb_art",
-            Self::FlameArt => "flame_art",
-            Self::ExplosionArt => "explosion_art",
-            Self::TrappedArt => "trapped_art",
-            Self::ItemIcon => "item_icon",
-            Self::CharacterAttr => "character_attr",
-            Self::ItemAttr => "item_attr",
-        }
-    }
-}
 
 /// Nhãn trạng thái bằng chứng (AGENTS §4).
 #[must_use]
@@ -143,273 +119,6 @@ fn status_str(status: Status) -> &'static str {
         Status::Design => "design",
         Status::Unknown => "unknown",
     }
-}
-
-/// Một phần tử UI của luồng V1 trong closure: màn hình, vai trò, entry pack và trạng
-/// thái dùng.
-///
-/// `entry` là `None` khi V1 **không dùng** asset nào cho phần tử này: phần tử vẫn được
-/// ghi lại kèm lý do để client biết phải vẽ gì thay, thay vì im lặng thiếu ảnh.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct UiAsset {
-    /// ID ổn định của phần tử UI, ví dụ `lobby.create`.
-    pub id: &'static str,
-    /// Màn hình của luồng V1 dùng phần tử này.
-    pub screen: UiScreen,
-    /// Vai trò của phần tử.
-    pub role: UiRole,
-    /// Entry pack của asset KR; `None` khi V1 không dùng asset nào cho phần tử này.
-    pub entry: Option<&'static str>,
-    /// Trạng thái dùng (xem [`UiState`]).
-    pub state: UiState,
-    /// Lý do hoặc ghi chú; **bắt buộc** (không rỗng) cho mọi phần tử — mọi quyết định
-    /// dùng phải truy được, và phần tử chưa duyệt ảnh phải ghi rõ client vẽ text thay.
-    pub reason: &'static str,
-}
-
-/// Bảng asset UI của luồng V1 (V1-032).
-///
-/// Mỗi dòng là **một phần tử UI** của luồng đăng nhập → sảnh → phòng → trận → kết quả.
-/// Ba trạng thái dùng (AGENTS §4 cho nhãn bằng chứng; phần duyệt ảnh theo
-/// [IMAGE_REVIEW](../../../../docs/specification/localization/IMAGE_REVIEW.md)):
-///
-/// | Trạng thái | Nghĩa | Ảnh trong atlas? | Hiển thị được? |
-/// |---|---|---|---|
-/// | `selected` | Có trong closure V1 và **không có chữ** cần duyệt | có | có |
-/// | `needs_review_text` | Có trong closure V1 nhưng **có chữ** | có | chỉ khi ảnh được duyệt; chưa duyệt thì client vẽ text từ catalog |
-/// | `excluded` | Không dùng asset này | không | thay bằng text/màu theo `reason` |
-///
-/// **Chưa ảnh nào ở trạng thái "đã duyệt"**: quy trình duyệt ảnh chưa sinh ra
-/// `l10n/images_review.csv`, nên mọi ảnh có chữ đều là `needs_review_text`.
-///
-/// Nguồn: [UI_STRINGS_V1 §3](../../../../docs/specification/localization/UI_STRINGS_V1.md)
-/// (danh mục ảnh có chữ của luồng V1) và ảnh giải mã đọc trực tiếp từ pack KR 00967
-/// ngày 2026-10-20 — bản PNG giải mã nằm ở cache review ảnh của `boom-re-l10n`
-/// (`l10n/.cache/image-review/`), cùng bộ ảnh mà `UI_STRINGS_V1 §3` mô tả. Nội dung chữ
-/// trong ảnh là **bằng chứng mô tả**, không phải bản dịch.
-const UI_ASSETS: &[UiAsset] = &[
-    // Màn đăng nhập.
-    UiAsset {
-        id: "login.background",
-        screen: UiScreen::Login,
-        role: UiRole::Background,
-        entry: Some("FxDesktop/LoginStage/CAStage"),
-        state: UiState::Excluded,
-        reason: "nền là JPEG 800×600: bộ giải mã bundle chỉ đọc sprite I16; ảnh còn có lời \
-                 thoại tiếng Hàn, huy hiệu Nexon (ô 'N' góc trên) và bản VN có dòng bản quyền \
-                 'Copyright (C) 2001 Nexon'; V1 dựng nền bằng màu, chữ lấy từ catalog",
-    },
-    UiAsset {
-        id: "login.submit",
-        screen: UiScreen::Login,
-        role: UiRole::Button,
-        entry: None,
-        state: UiState::Excluded,
-        reason: "chưa có asset nút đăng nhập trong closure; UI_STRINGS_V1 §2.2 đã chốt \
-                 `login.submit` lấy key catalog nên V1 vẽ nút bằng text",
-    },
-    // Màn sảnh.
-    UiAsset {
-        id: "lobby.background",
-        screen: UiScreen::Lobby,
-        role: UiRole::Background,
-        entry: Some("FxStage/Lobby/CAStage"),
-        state: UiState::Excluded,
-        reason: "nền là JPEG 800×600 có nhãn tiếng Hàn trong ảnh: hai tab chế độ '대결 모드' \
-                 (bản VN: 'ĐẠI CHIẾN') và '상이 모드' (bản VN: 'NHIỆM VỤ') cùng nhãn '레벨'; \
-                 V1 dựng nền bằng màu, chữ lấy từ catalog",
-    },
-    UiAsset {
-        id: "lobby.create",
-        screen: UiScreen::Lobby,
-        role: UiRole::Button,
-        entry: Some("FxStage/Lobby/LB_Bt_T_Create-NM"),
-        state: UiState::NeedsReviewText,
-        reason: "ảnh nút 9 frame có chữ Hàn (방만들기); chưa có quyết định duyệt ảnh nên V1 \
-                 vẽ nút bằng text từ catalog",
-    },
-    UiAsset {
-        id: "lobby.create_dialog",
-        screen: UiScreen::Lobby,
-        role: UiRole::Dialog,
-        entry: Some("FxStage/Lobby/Dlg_LB-NMCreate"),
-        state: UiState::NeedsReviewText,
-        reason: "tiêu đề dialog nằm trong ảnh (방만들기); thân dialog là ô trống, nhãn do \
-                 client vẽ; chưa duyệt ảnh thì V1 vẽ tiêu đề bằng text từ catalog",
-    },
-    UiAsset {
-        id: "lobby.show_all",
-        screen: UiScreen::Lobby,
-        role: UiRole::Button,
-        entry: Some("FxStage/Lobby/LB_Bt_T_ShowAllRenew"),
-        state: UiState::Excluded,
-        reason: "bản VN ngắn hơn nên mất nghĩa 'xem mọi phòng'; V1 không cần bộ lọc phòng, \
-                 vẽ nút bằng text từ catalog",
-    },
-    UiAsset {
-        id: "lobby.wait_room",
-        screen: UiScreen::Lobby,
-        role: UiRole::Button,
-        entry: Some("FxStage/Lobby/LB_Bt_T_WaitRoomRenew"),
-        state: UiState::Excluded,
-        reason: "bản VN là danh từ, không phải hành động 'xem phòng chờ'; V1 vẽ nút bằng \
-                 text từ catalog",
-    },
-    // Màn phòng chờ.
-    UiAsset {
-        id: "room.background",
-        screen: UiScreen::Room,
-        role: UiRole::Background,
-        entry: Some("FxMap/Prepare/CAStage"),
-        state: UiState::Excluded,
-        reason: "nền là JPEG 800×600 có nhãn tiếng Hàn '방' (phòng), '던전' (dungeon), \
-                 '게임디테일' (game detail) và nút '자동 준비' (auto-ready) — auto-ready ngoài \
-                 scope FFA V1; V1 dựng nền bằng màu, chữ lấy từ catalog",
-    },
-    UiAsset {
-        id: "room.ready",
-        screen: UiScreen::Room,
-        role: UiRole::Button,
-        entry: Some("FxMap/Prepare/PRE_Bt_Ready"),
-        state: UiState::NeedsReviewText,
-        reason: "ảnh nút 6 frame có chữ Hàn (준비); chưa có quyết định duyệt ảnh nên V1 vẽ \
-                 nút bằng text từ catalog",
-    },
-    UiAsset {
-        id: "room.start",
-        screen: UiScreen::Room,
-        role: UiRole::Button,
-        entry: Some("FxMap/Prepare/PRE_Bt_Start"),
-        state: UiState::NeedsReviewText,
-        reason: "ảnh nút 6 frame có chữ Hàn (시작); chưa có quyết định duyệt ảnh nên V1 vẽ nút \
-                 bằng text từ catalog",
-    },
-    UiAsset {
-        id: "room.info_dialog",
-        screen: UiScreen::Room,
-        role: UiRole::Dialog,
-        entry: Some("FxMap/Prepare/Dlg_PRE-NMRoominfo"),
-        state: UiState::NeedsReviewText,
-        reason: "tiêu đề KR là '방정보변경' (đổi thông tin phòng) còn bản VN là 'THÔNG TIN' \
-                 (thông tin) — khác nghĩa; nếu dùng thì nhãn lấy từ catalog, không tự chọn hay \
-                 sửa nhãn trong ảnh",
-    },
-    UiAsset {
-        id: "room.info_label",
-        screen: UiScreen::Room,
-        role: UiRole::Info,
-        entry: Some("FxMap/Prepare/PRE_Bt_Roominfo"),
-        state: UiState::Excluded,
-        reason: "ảnh KR ghi '방정보변경' (đổi thông tin phòng) còn bản VN ghi 'THÔNG TIN' \
-                 (thông tin) — khác nghĩa; V1 vẽ nhãn bằng text từ catalog",
-    },
-    UiAsset {
-        id: "room.ready_indicator",
-        screen: UiScreen::Room,
-        role: UiRole::Info,
-        entry: Some("FxStage/Lobby/ReadyBox"),
-        state: UiState::Excluded,
-        reason: "KR ghi '준비중' (đang chuẩn bị) còn bản VN ghi 'ĐẠI CHIẾN' — khác nghĩa hoàn \
-                 toàn nên không dùng làm indicator ready; V1 vẽ trạng thái ready bằng text và màu",
-    },
-    // Màn trận.
-    UiAsset {
-        id: "match.background",
-        screen: UiScreen::Match,
-        role: UiRole::Background,
-        entry: None,
-        state: UiState::Excluded,
-        reason: "nền trận là bản đồ V1: lưới ô và sprite nền đã nằm trong closure (role \
-                 map/tile) nên V1 không dùng ảnh nền riêng cho màn trận",
-    },
-    UiAsset {
-        id: "match.hud",
-        screen: UiScreen::Match,
-        role: UiRole::Info,
-        entry: None,
-        state: UiState::Excluded,
-        reason: "HUD trận (đồng hồ, trạng thái nhốt/chết, tên item) chưa có asset trong \
-                 closure và UI_STRINGS_V1 §2.5 ghi `unknown`; V1 vẽ bằng text từ catalog",
-    },
-    UiAsset {
-        id: "match.navigation",
-        screen: UiScreen::Match,
-        role: UiRole::Button,
-        entry: None,
-        state: UiState::Excluded,
-        reason: "trong trận không có nút điều hướng: đường về phòng mở ở màn kết quả; V1 \
-                 không vẽ nút trong trận",
-    },
-    // Màn kết quả.
-    UiAsset {
-        id: "result.background",
-        screen: UiScreen::Result,
-        role: UiRole::Background,
-        entry: None,
-        state: UiState::Excluded,
-        reason: "chưa có asset nền riêng cho màn kết quả trong closure; V1 dùng nền màu, \
-                 chữ lấy từ catalog",
-    },
-    UiAsset {
-        id: "result.continue",
-        screen: UiScreen::Result,
-        role: UiRole::Button,
-        entry: None,
-        state: UiState::Excluded,
-        reason: "chưa có asset nút tiếp tục trong closure và UI_STRINGS_V1 §2.6 ghi \
-                 `unknown`; V1 vẽ nút bằng text từ catalog",
-    },
-    UiAsset {
-        id: "result.win",
-        screen: UiScreen::Result,
-        role: UiRole::ResultArt,
-        entry: Some("FxStage/Game/Win"),
-        state: UiState::NeedsReviewText,
-        reason: "ảnh 4 frame ghép chữ Latin 'WIN!!'; phải duyệt cả chuỗi frame mới dùng, \
-                 không chỉ frame 0",
-    },
-    UiAsset {
-        id: "result.lose",
-        screen: UiScreen::Result,
-        role: UiRole::ResultArt,
-        entry: Some("FxStage/Game/Lose"),
-        state: UiState::NeedsReviewText,
-        reason: "ảnh 5 frame ghép chữ Latin 'LOSE!!'; chuỗi frame chưa được người duyệt xem \
-                 đủ nên V1 vẽ nhãn bằng text từ catalog",
-    },
-    UiAsset {
-        id: "result.draw",
-        screen: UiScreen::Result,
-        role: UiRole::ResultArt,
-        entry: Some("FxStage/Game/Draw"),
-        state: UiState::NeedsReviewText,
-        reason: "ảnh 5 frame ghép chữ Latin 'DRAW!!'; dấu có thể nằm ở frame khác nên phải \
-                 duyệt cả chuỗi frame",
-    },
-    UiAsset {
-        id: "result.info_bar",
-        screen: UiScreen::Result,
-        role: UiRole::Info,
-        entry: Some("FxStage/Game/ResultInfoBar"),
-        state: UiState::Excluded,
-        reason: "spritesheet trộn nhãn KR/EN và có cột EXP/LUCCI (V1 không có tiền/EXP); V1 \
-                 chỉ cần cột Hạng/Người chơi/Kết quả nên vẽ bằng text từ catalog",
-    },
-    UiAsset {
-        id: "result.info_good",
-        screen: UiScreen::Result,
-        role: UiRole::Info,
-        entry: Some("FxStage/Game/ResultInfoGood"),
-        state: UiState::Selected,
-        reason: "đã đọc trực tiếp PNG giải mã từ pack KR 00967 ngày 2026-10-20: chỉ có icon \
-                 bàn tay (ngón cái) 4 frame, không thấy chữ nên không cần duyệt text",
-    },
-];
-
-/// Bảng asset UI của luồng V1.
-#[must_use]
-pub fn ui_assets() -> &'static [UiAsset] {
-    UI_ASSETS
 }
 
 /// Một entry trong closure: đường dẫn đầy đủ trong pack, vai trò, kích thước và SHA-256.
@@ -555,11 +264,16 @@ fn toml_array(values: &[String]) -> String {
 
 /// Bảng tên obj của client gốc: `fx/ObjectTable/ObjectTable`.
 ///
-/// Định dạng: `u32 count`, rồi `count` bản ghi `(u32 name_len, tên, i32 value)`. Chỉ phần tên
-/// được dùng ở đây; `value` là offset vào khối dữ liệu còn lại, chưa có consumer đã biết.
+/// Định dạng: `u32 count`, rồi `count` bản ghi `(u32 name_len, tên, u32 value)`. Tên
+/// trong bảng là cp949; ở đây decode lossy sang UTF-8 như phần đọc index pack
+/// (`pack.rs`). Mọi tên dùng cho V1 đều là ASCII nên không mất thông tin.
+///
+/// `value` là **offset khối dữ liệu** của entry đó trong cùng payload: với
+/// `Character/<Id>_A` đó là bảng animation của nhân vật (xem [`character_animations`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObjectTable {
     names: Vec<String>,
+    values: Vec<u32>,
 }
 
 impl ObjectTable {
@@ -581,6 +295,13 @@ impl ObjectTable {
         let index = usize::try_from(id).ok()?;
         self.names.get(index).map(String::as_str)
     }
+
+    /// Offset khối dữ liệu của entry theo **tên**; `None` nếu bảng không có tên đó.
+    #[must_use]
+    pub fn value_of(&self, name: &str) -> Option<u32> {
+        let index = self.names.iter().position(|entry| entry == name)?;
+        self.values.get(index).copied()
+    }
 }
 
 /// Đọc bảng tên obj từ payload `fx/ObjectTable/ObjectTable`.
@@ -599,6 +320,7 @@ pub fn parse_object_table(data: &[u8]) -> Result<ObjectTable, ClosureError> {
         });
     }
     let mut names = Vec::with_capacity(count);
+    let mut values = Vec::with_capacity(count);
     for _ in 0..count {
         let len = usize::try_from(read_u32(data, &mut at, "độ dài tên")?).expect("u32 -> usize");
         let end = at
@@ -614,10 +336,132 @@ pub fn parse_object_table(data: &[u8]) -> Result<ObjectTable, ClosureError> {
                 what: "tên entry",
             })?;
         at = end;
-        read_u32(data, &mut at, "giá trị")?;
+        values.push(read_u32(data, &mut at, "offset dữ liệu")?);
         names.push(String::from_utf8_lossy(bytes).into_owned());
     }
-    Ok(ObjectTable { names })
+    Ok(ObjectTable { names, values })
+}
+
+/// Một frame của state trình diễn, theo bảng animation của client trong ODT.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AnimationFrame {
+    /// Chỉ số frame trong sprite.
+    pub frame: u32,
+    /// Thời lượng frame theo bảng client (đơn vị client, chưa chốt được là tick nào).
+    pub duration: u32,
+}
+
+/// Một state trình diễn của client, theo bảng animation trong ODT.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CharacterAnimation {
+    /// Nhãn state như client ghi, ví dụ `02 Faint`.
+    pub label: String,
+    /// Tên state, ví dụ `Faint` (phần sau dấu cách đầu của nhãn).
+    pub state: String,
+    /// Tiền tố entry pack, ví dụ `Character/C00-Faint`; client ghép thêm
+    /// `Layer` + `Static`/`Adjust`.
+    pub entry: String,
+    /// Danh sách frame của state theo bảng client.
+    pub frames: Vec<AnimationFrame>,
+}
+
+/// Đọc bảng animation của client cho một nhân vật từ payload ODT.
+///
+/// Khối dữ liệu của `Character/<Id>_A` trong `fx/ObjectTable/ObjectTable` là bảng
+/// animation của nhân vật đó (R-094). Định dạng:
+///
+/// ```text
+/// u32 số state
+/// state × số state:
+///   u32 độ dài nhãn, nhãn ("<số> <tên state>")
+///   u32 độ dài tên, tên entry
+///   u32 số frame, (u32 chỉ số frame, u32 thời lượng) × số frame
+/// ```
+///
+/// Trả về vec rỗng nếu ODT không có khối cho nhân vật đó.
+pub fn character_animations(
+    data: &[u8],
+    table: &ObjectTable,
+    character: &str,
+) -> Result<Vec<CharacterAnimation>, ClosureError> {
+    let block = format!("Character/{character}_A");
+    let Some(offset) = table.value_of(&block) else {
+        return Ok(Vec::new());
+    };
+    parse_animation_block(data, offset)
+}
+
+/// Đọc một khối bảng animation của ODT tại `offset`.
+fn parse_animation_block(
+    data: &[u8],
+    offset: u32,
+) -> Result<Vec<CharacterAnimation>, ClosureError> {
+    let mut at = usize::try_from(offset).map_err(|_| ClosureError::AnimationTable {
+        offset,
+        what: "offset khối animation",
+    })?;
+    let count = read_u32(data, &mut at, "số state")?;
+    // Mỗi state tối thiểu 12 byte; chặn số rác trước khi cấp phát.
+    let count = usize::try_from(count).unwrap_or(usize::MAX);
+    if count > data.len().saturating_sub(at) / 12 {
+        return Err(ClosureError::AnimationTable {
+            offset,
+            what: "số state",
+        });
+    }
+    let mut states = Vec::with_capacity(count);
+    for _ in 0..count {
+        let label = read_string(data, &mut at, 64, offset, "nhãn state")?;
+        let entry = read_string(data, &mut at, 128, offset, "tên entry")?;
+        let frame_count = read_u32(data, &mut at, "số frame")?;
+        let frame_count = usize::try_from(frame_count).unwrap_or(usize::MAX);
+        if frame_count > data.len().saturating_sub(at) / 8 {
+            return Err(ClosureError::AnimationTable {
+                offset,
+                what: "số frame",
+            });
+        }
+        let mut frames = Vec::with_capacity(frame_count);
+        for _ in 0..frame_count {
+            let frame = read_u32(data, &mut at, "chỉ số frame")?;
+            let duration = read_u32(data, &mut at, "thời lượng frame")?;
+            frames.push(AnimationFrame { frame, duration });
+        }
+        // Nhãn ghi dạng `<số> <tên state>`; tên state là phần sau dấu cách đầu.
+        let state = label
+            .split_once(' ')
+            .map_or(label.as_str(), |(_, rest)| rest)
+            .to_owned();
+        states.push(CharacterAnimation {
+            label,
+            state,
+            entry,
+            frames,
+        });
+    }
+    Ok(states)
+}
+
+/// Đọc một chuỗi có độ dài `u32` ở vị trí `at`; tối đa `max_len` byte.
+fn read_string(
+    data: &[u8],
+    at: &mut usize,
+    max_len: usize,
+    offset: u32,
+    what: &'static str,
+) -> Result<String, ClosureError> {
+    let len = usize::try_from(read_u32(data, at, what)?).unwrap_or(usize::MAX);
+    if len == 0 || len > max_len {
+        return Err(ClosureError::AnimationTable { offset, what });
+    }
+    let end = at
+        .checked_add(len)
+        .ok_or(ClosureError::AnimationTable { offset, what })?;
+    let bytes = data
+        .get(*at..end)
+        .ok_or(ClosureError::AnimationTable { offset, what })?;
+    *at = end;
+    Ok(String::from_utf8_lossy(bytes).into_owned())
 }
 
 /// Tách tên entry ObjectTable `<TileSet>_<Lớp>/<Tên>` thành (tile set, tên sprite).
@@ -677,116 +521,42 @@ pub fn resolve_theme(map_name: &str, themes: &[String]) -> Option<String> {
         .cloned()
 }
 
-/// Entry cần cho một trận V1 ngoài phần ô của map.
+/// Bảng closure V1, nạp từ `data/assets/closure-v1.toml`.
 ///
-/// Vai trò lấy từ `docs/evidence/inventory/kr_v1_content.json`; nhân vật và item theo
-/// [SCOPE_V1](../../../../docs/planning/SCOPE_V1.md) §1. Entry theme, preview và BGM không
-/// khai ở đây: chúng suy từ quy tắc tra theme (xem [`resolve_theme`], R-071 `candidate`;
-/// riêng map V1 `Village00` đã xác nhận ở R-070). `Fire00` (lửa) và
-/// `Bubble00` (bong bóng bị nhốt) chưa có bằng chứng consumer nên để `candidate`.
-const REQUIRED_ENTRIES: &[(&str, ClosureRole, Status)] = &[
-    ("FxMap/Map/Village00", ClosureRole::Map, Status::Confirmed),
-    (
-        "FxContents/Attr/BomberAttr",
-        ClosureRole::CharacterAttr,
-        Status::Confirmed,
-    ),
-    (
-        "FxContents/Attr/ItemAttr",
-        ClosureRole::ItemAttr,
-        Status::Confirmed,
-    ),
-    ("fx/Item/Bomb", ClosureRole::ItemIcon, Status::Confirmed),
-    ("fx/Item/Fire", ClosureRole::ItemIcon, Status::Confirmed),
-    ("fx/Item/Roller", ClosureRole::ItemIcon, Status::Confirmed),
-    (
-        "FxDesktop/Bomb/Bomb00",
-        ClosureRole::BombArt,
-        Status::Confirmed,
-    ),
-    (
-        "FxDesktop/Bomb/BombExplosion001",
-        ClosureRole::ExplosionArt,
-        Status::Confirmed,
-    ),
-    (
-        "FxDesktop/Bomb/Fire00",
-        ClosureRole::FlameArt,
-        Status::Candidate,
-    ),
-    (
-        "FxDesktop/Bomb/Bubble00",
-        ClosureRole::TrappedArt,
-        Status::Candidate,
-    ),
-];
+/// # Errors
+///
+/// Trả [`AssetError`] khi bảng data sai quy tắc (dữ liệu nhúng trong crate được test
+/// chặn nên trên build thường lỗi này không xảy ra).
+pub fn v1_closure_table() -> Result<ClosureTable, AssetError> {
+    ClosureTable::from_toml(boom_content::assets::CLOSURE_V1)
+}
 
 /// Nhân vật V1 (SCOPE_V1 §1).
 const CHARACTERS: &[&str] = &["C00", "C01"];
 
-/// Hướng đi của V1.
-const WALK_DIRECTIONS: &[&str] = &["Up", "Down", "Left", "Right"];
-
 /// Lớp sprite nhân vật: `Static` (nền) và `Adjust` (lớp ngoại hình điều chỉnh).
 const CHARACTER_LAYERS: &[&str] = &["Static", "Adjust"];
 
-/// State nhân vật V1 chưa xác nhận được sprite nào: (state, lý do, họ tên ứng viên).
-///
-/// `walk` và `dead` đã có bằng chứng từ tên entry (`Walk*`, `DieLayer*`); `idle` và `trapped`
-/// thì chưa có consumer nào được xác nhận, nên manifest ghi rõ ứng viên thay vì chọn bừa.
-const UNKNOWN_CHARACTER_STATES: &[(&str, &str, &[&str])] = &[
-    (
-        "idle",
-        "chưa có trace consumer xác nhận state idle dùng clip nào; ứng viên là họ sprite đứng yên `Blink`/`BlinkSmall`",
-        &["Blink_ALayer", "BlinkSmall_ALayer"],
-    ),
-    (
-        "trapped",
-        "chưa có trace consumer xác nhận state trapped dùng clip nào; ứng viên là họ `FaintLayer` của nhân vật và bong bóng `FxDesktop/Bomb/Bubble00`",
-        &["FaintLayer", "FxDesktop/Bomb/Bubble00"],
-    ),
-];
-
-/// Họ tên sprite của một state nhân vật.
-fn character_entry(character: &str, family: &str, layer: &str) -> String {
-    format!("FxCharacter/Character/{character}-{family}{layer}")
-}
-
 /// Entry sprite nhân vật cho các state V1.
-fn character_entries() -> Vec<(String, ClosureRole, Status)> {
+///
+/// Nhãn bằng chứng của mỗi họ là **nhãn của vai trò** (xem bảng `character_families` ở
+/// `data/assets/closure-v1.toml`), không phải kết quả của việc "có thấy tiền tố entry
+/// trong ODT hay không": bảng ODT xác nhận **nhãn → entry**, còn mapping state V1 → clip là
+/// quyết định của V1 (R-086).
+fn character_entries(table: &ClosureTable) -> Vec<(String, ClosureRole, Status)> {
     let mut out = Vec::new();
     for character in CHARACTERS {
-        for direction in WALK_DIRECTIONS {
+        for family in &table.character_families {
             for layer in CHARACTER_LAYERS {
                 out.push((
-                    format!("FxCharacter/Character/{character}-Walk{direction}_ALayer{layer}"),
-                    ClosureRole::CharacterWalk,
-                    Status::Confirmed,
+                    format!(
+                        "{CHARACTER_PACK}/Character/{character}-{}Layer{layer}",
+                        family.family
+                    ),
+                    family.role,
+                    family.status,
                 ));
             }
-        }
-        for layer in CHARACTER_LAYERS {
-            out.push((
-                format!("FxCharacter/Character/{character}-DieLayer{layer}"),
-                ClosureRole::CharacterDead,
-                Status::Confirmed,
-            ));
-        }
-        for family in ["Blink_ALayer", "BlinkSmall_ALayer"] {
-            for layer in CHARACTER_LAYERS {
-                out.push((
-                    character_entry(character, family, layer),
-                    ClosureRole::CharacterIdle,
-                    Status::Candidate,
-                ));
-            }
-        }
-        for layer in CHARACTER_LAYERS {
-            out.push((
-                format!("FxCharacter/Character/{character}-FaintLayer{layer}"),
-                ClosureRole::CharacterTrapped,
-                Status::Candidate,
-            ));
         }
     }
     out
@@ -796,7 +566,27 @@ fn character_entries() -> Vec<(String, ClosureRole, Status)> {
 ///
 /// Thư mục phải có `<pack>.idx` và `<pack>.idd` của các pack KR (`FxMap`, `FxTile`, `fx`,
 /// `FxCharacter`, `FxContents`, `FxDesktop`, `FxSound`).
+///
+/// Bảng closure lấy từ `data/assets/closure-v1.toml` (nguồn chuẩn duy nhất).
+///
+/// # Errors
+///
+/// Trả [`ClosureError`] khi đọc pack lỗi, bảng ODT sai định dạng, hoặc bảng data sai
+/// quy tắc.
 pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, ClosureError> {
+    let table = v1_closure_table()?;
+    build_village00_manifest_with(pack_dir, &table)
+}
+
+/// Dựng manifest closure với bảng closure cho trước.
+///
+/// # Errors
+///
+/// Trả [`ClosureError`] khi đọc pack lỗi hoặc bảng ODT sai định dạng.
+pub fn build_village00_manifest_with(
+    pack_dir: &Path,
+    closure: &ClosureTable,
+) -> Result<ClosureManifest, ClosureError> {
     let map_pack = Pack::open(pack_dir, "FxMap", Build::Kr)?;
     let map = parse_map(&map_pack.read_named(&format!("Map/{V1_MAP}"))?, Build::Kr)?;
     let themes = theme_names(map_pack.index());
@@ -807,9 +597,20 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
     let preview_in_pack = map_pack.index().find(&format!("Etc/{V1_MAP}_mm")).is_some();
     drop(map_pack);
 
-    let table = parse_object_table(&read_pack_entry(pack_dir, OBJECT_TABLE)?)?;
+    let odt_payload = read_pack_entry(pack_dir, OBJECT_TABLE)?;
+    let table = parse_object_table(&odt_payload)?;
     let tile_index = load_index(pack_dir, TILE_PACK, Build::Kr)?;
     let sound_index = load_index(pack_dir, "FxSound", Build::Kr)?;
+
+    // Bảng animation của client cho hai nhân vật V1 (R-094): nguồn để **kiểm** entry
+    // nhân vật mà V1 khai và để đối chiếu mapping state V1 → state của client.
+    let mut animations: BTreeMap<String, Vec<CharacterAnimation>> = BTreeMap::new();
+    for character in CHARACTERS {
+        animations.insert(
+            (*character).to_owned(),
+            character_animations(&odt_payload, &table, character)?,
+        );
+    }
 
     let mut entries: Vec<ClosureEntry> = Vec::new();
     let mut unknown: Vec<ClosureUnknown> = Vec::new();
@@ -930,19 +731,19 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
         }
     }
 
-    // Entry cố định của một trận V1.
-    for (entry, role, status) in REQUIRED_ENTRIES {
+    // Entry cố định của một trận V1 (bảng `entries` của `data/assets/closure-v1.toml`).
+    for mapping in &closure.entries {
         entries.push(ClosureEntry {
-            entry: (*entry).to_owned(),
-            role: *role,
-            status: *status,
+            entry: mapping.entry.clone(),
+            role: mapping.role,
+            status: mapping.status,
             bytes: 0,
             sha256: String::new(),
             map_id: None,
             object_name: None,
         });
     }
-    for (entry, role, status) in character_entries() {
+    for (entry, role, status) in character_entries(closure) {
         entries.push(ClosureEntry {
             entry,
             role,
@@ -954,25 +755,89 @@ pub fn build_village00_manifest(pack_dir: &Path) -> Result<ClosureManifest, Clos
         });
     }
 
-    // State nhân vật chưa xác nhận: ghi ứng viên, không chọn bừa.
-    for (state, reason, families) in UNKNOWN_CHARACTER_STATES {
-        for character in CHARACTERS {
-            let mut candidates = Vec::new();
-            for family in *families {
-                if family.contains('/') {
-                    candidates.push((*family).to_owned());
-                    continue;
-                }
-                for layer in CHARACTER_LAYERS {
-                    candidates.push(character_entry(character, family, layer));
-                }
+    // Bảng state của client (ODT, R-094) phải có **họ entry mà V1 dùng**; lệch thì ghi
+    // rõ lý do và ứng viên — không bỏ qua âm thầm.
+    for character in CHARACTERS {
+        let states = animations
+            .get(*character)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for family in &closure.character_families {
+            if !family.used_by_v1 {
+                continue;
+            }
+            let prefix = format!("Character/{character}-{}", family.family);
+            if states.iter().any(|state| state.entry == prefix) {
+                continue;
             }
             unknown.push(ClosureUnknown {
                 kind: UnknownKind::CharacterState,
-                id: format!("{character}:{state}"),
-                reason: (*reason).to_owned(),
-                candidates,
+                id: format!("{character}:{}", family.family),
+                reason: format!(
+                    "bảng state của client trong ODT không có entry {prefix} mà V1 dùng cho \
+                     vai trò {}",
+                    family.role.as_str()
+                ),
+                candidates: states
+                    .iter()
+                    .map(|state| state.entry.clone())
+                    .take(8)
+                    .collect(),
             });
+        }
+    }
+
+    // Mapping state V1 → clip: đối chiếu **nhãn** của client trong bảng ODT. Bảng xác
+    // nhận **nhãn → entry**; mapping state V1 → nhãn là **quyết định của V1** (R-086
+    // `design`), nên lệch ở đây là lệch giữa quyết định của V1 và dữ liệu của client.
+    //
+    // Bảng mapping nằm ở `data/assets/closure-v1.toml` (mục `[[character_states]]`):
+    //
+    // | state V1 | state của client (ODT) | họ entry V1 dùng |
+    // |---|---|---|
+    // | `idle` (đứng yên) | `Blink` — overlay nháy mắt; tư thế đứng của client là frame 0 của `Walk<hướng>_A` (state `Stop <hướng>`) | `Blink_A` |
+    // | `trapped` (bị nhốt) | `Faint` — animation 3 frame; state "bị khoá" của client (`Locked In`) dùng `Die` frame 0…1 giữ vô hạn, kèm bong bóng | `Faint` |
+    //
+    // Closure **kiểm** hai điều trên lúc dựng manifest: ODT phải có state của client tương
+    // ứng và entry của state đó phải đúng họ mà V1 dùng. Lệch thì manifest ghi `unknown`
+    // kèm lý do — không bỏ qua âm thầm.
+    for character in CHARACTERS {
+        let states = animations
+            .get(*character)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for mapping in &closure.character_states {
+            let v1_state = mapping.v1_state.as_str();
+            let client_state = mapping.client_state.as_str();
+            let family = mapping.family.as_str();
+            let expected = format!("Character/{character}-{family}");
+            let found = states.iter().find(|state| state.state == client_state);
+            match found {
+                Some(state) if state.entry == expected => {}
+                Some(state) => unknown.push(ClosureUnknown {
+                    kind: UnknownKind::CharacterState,
+                    id: format!("{character}:{v1_state}"),
+                    reason: format!(
+                        "bảng state của client trong ODT có state `{}` nhưng entry là {} \
+                         (V1 chọn họ {family} theo R-086 `design`)",
+                        client_state, state.entry
+                    ),
+                    candidates: vec![state.entry.clone()],
+                }),
+                None => unknown.push(ClosureUnknown {
+                    kind: UnknownKind::CharacterState,
+                    id: format!("{character}:{v1_state}"),
+                    reason: format!(
+                        "bảng state của client trong ODT không có state `{client_state}`; \
+                         V1 chọn họ {family} theo R-086 `design`"
+                    ),
+                    candidates: states
+                        .iter()
+                        .map(|state| state.entry.clone())
+                        .take(8)
+                        .collect(),
+                }),
+            }
         }
     }
 
@@ -1238,8 +1103,17 @@ pub enum ClosureError {
         /// Field đang đọc khi lỗi xảy ra.
         what: &'static str,
     },
+    /// Khối bảng animation của client trong ODT cắt hoặc sai định dạng.
+    AnimationTable {
+        /// Offset của khối trong payload ODT.
+        offset: u32,
+        /// Field đang đọc khi lỗi xảy ra.
+        what: &'static str,
+    },
     /// Đường dẫn entry không có dạng `<pack>/<path>`.
     BadEntryPath(String),
+    /// Bảng mapping trong `data/assets/` sai quy tắc.
+    Assets(AssetError),
 }
 
 impl fmt::Display for ClosureError {
@@ -1253,7 +1127,14 @@ impl fmt::Display for ClosureError {
                     "bảng tên obj cụt hoặc sai khi đọc {what} (khai báo {count} entry)"
                 )
             }
+            Self::AnimationTable { offset, what } => {
+                write!(
+                    f,
+                    "bảng animation của client cụt hoặc sai khi đọc {what} (offset {offset})"
+                )
+            }
             Self::BadEntryPath(path) => write!(f, "đường dẫn entry {path:?} thiếu phần pack"),
+            Self::Assets(e) => write!(f, "bảng mapping closure sai quy tắc: {e}"),
         }
     }
 }
@@ -1263,6 +1144,7 @@ impl std::error::Error for ClosureError {
         match self {
             Self::Pack(e) => Some(e),
             Self::Map(e) => Some(e),
+            Self::Assets(e) => Some(e),
             _ => None,
         }
     }
@@ -1280,9 +1162,24 @@ impl From<MapError> for ClosureError {
     }
 }
 
+impl From<AssetError> for ClosureError {
+    fn from(value: AssetError) -> Self {
+        Self::Assets(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use boom_content::assets::UiMapping;
+    use boom_content::bundle::{UiRole, UiScreen, UiState};
+
+    /// Bảng asset UI V1, nạp từ `data/assets/ui-v1.toml`.
+    fn v1_ui_table() -> Vec<UiMapping> {
+        boom_content::assets::UiTable::from_toml(boom_content::assets::UI_V1)
+            .expect("bảng UI V1 trong data/assets/ phải hợp lệ")
+            .elements
+    }
 
     #[test]
     fn sha256_matches_known_vectors() {
@@ -1397,14 +1294,18 @@ mod tests {
     /// thay bằng gì (vẽ text/màu) khi V1 không dùng asset.
     #[test]
     fn ui_table_is_consistent_and_covers_every_v1_screen() {
-        let table = ui_assets();
+        let table = v1_ui_table();
         assert!(!table.is_empty());
 
         let mut ids: Vec<&str> = Vec::with_capacity(table.len());
-        for asset in table {
+        for asset in &table {
             assert!(!asset.id.is_empty(), "phần tử UI thiếu id");
-            assert!(!ids.contains(&asset.id), "phần tử UI {} bị lặp", asset.id);
-            ids.push(asset.id);
+            assert!(
+                !ids.contains(&asset.id.as_str()),
+                "phần tử UI {} bị lặp",
+                asset.id
+            );
+            ids.push(asset.id.as_str());
             // Mọi quyết định dùng phải truy được: không có lý do thì không biết thay
             // bằng gì.
             assert!(
@@ -1421,7 +1322,7 @@ mod tests {
             UiScreen::Match,
             UiScreen::Result,
         ] {
-            let of_screen: Vec<&UiAsset> = table
+            let of_screen: Vec<&UiMapping> = table
                 .iter()
                 .filter(|asset| asset.screen == screen)
                 .collect();
@@ -1454,7 +1355,7 @@ mod tests {
             "result.lose",
             "result.draw",
         ];
-        let table = ui_assets();
+        let table = v1_ui_table();
         // Cả ba trạng thái đều phải có mặt trong bảng: `selected` (dùng được ngay),
         // `needs_review_text` (có chữ, chờ duyệt) và `excluded` (không dùng asset).
         assert!(table.iter().any(|asset| asset.state == UiState::Selected));
@@ -1464,8 +1365,8 @@ mod tests {
                 .any(|asset| asset.state == UiState::NeedsReviewText)
         );
         assert!(table.iter().any(|asset| asset.state == UiState::Excluded));
-        for asset in table {
-            if TEXT_BEARING.contains(&asset.id) {
+        for asset in &table {
+            if TEXT_BEARING.contains(&asset.id.as_str()) {
                 assert_ne!(
                     asset.state,
                     UiState::Selected,
@@ -1474,6 +1375,105 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Bảng animation của client nằm trong khối dữ liệu của ODT: đọc được state,
+    /// entry và danh sách `(frame, thời lượng)` (không cần pack thật).
+    #[test]
+    fn animation_table_is_read_from_the_odt_data_block() {
+        let label = "00 Blink";
+        let entry = "Character/C00-Blink_A";
+        let mut block: Vec<u8> = Vec::new();
+        block.extend_from_slice(&1u32.to_le_bytes());
+        block.extend_from_slice(&(label.len() as u32).to_le_bytes());
+        block.extend_from_slice(label.as_bytes());
+        block.extend_from_slice(&(entry.len() as u32).to_le_bytes());
+        block.extend_from_slice(entry.as_bytes());
+        block.extend_from_slice(&2u32.to_le_bytes());
+        block.extend_from_slice(&0u32.to_le_bytes());
+        block.extend_from_slice(&5u32.to_le_bytes());
+        block.extend_from_slice(&1u32.to_le_bytes());
+        block.extend_from_slice(&15u32.to_le_bytes());
+
+        // Bảng tên ODT: [số entry][(độ dài tên, tên, offset khối) × số].
+        let name = "Character/C00_A";
+        let table_len = 4 + 4 + name.len() + 4;
+        let mut data: Vec<u8> = Vec::new();
+        data.extend_from_slice(&1u32.to_le_bytes());
+        data.extend_from_slice(&(name.len() as u32).to_le_bytes());
+        data.extend_from_slice(name.as_bytes());
+        data.extend_from_slice(&(table_len as u32).to_le_bytes());
+        data.extend_from_slice(&block);
+
+        let table = parse_object_table(&data).expect("đọc bảng tên ODT");
+        assert_eq!(table.name(0), Some(name));
+        assert_eq!(table.value_of(name), Some(table_len as u32));
+
+        let states = character_animations(&data, &table, "C00").expect("đọc bảng animation");
+        assert_eq!(states.len(), 1);
+        assert_eq!(states[0].label, label);
+        assert_eq!(states[0].state, "Blink");
+        assert_eq!(states[0].entry, entry);
+        assert_eq!(states[0].frames.len(), 2);
+        assert_eq!(states[0].frames[0].frame, 0);
+        assert_eq!(states[0].frames[0].duration, 5);
+        assert_eq!(states[0].frames[1].frame, 1);
+        assert_eq!(states[0].frames[1].duration, 15);
+
+        // Nhân vật không có khối thì không có state nào, không phải lỗi.
+        assert!(
+            character_animations(&data, &table, "C01")
+                .expect("đọc bảng animation")
+                .is_empty()
+        );
+    }
+
+    /// Nhãn bằng chứng của sprite nhân vật phải **tách hai tầng** (AGENTS §4):
+    ///
+    /// - vai trò đã xác nhận bằng pack (đi, chết) ⇒ `confirmed`;
+    /// - vai trò mà V1 **chọn** theo mapping của mình (đứng yên, bị nhốt) ⇒ `design`,
+    ///   vì bảng ODT chỉ xác nhận **nhãn → entry**, không xác nhận state core V1 dùng
+    ///   nhãn đó;
+    /// - ứng viên mà V1 **không chọn** (`BlinkSmall`) ⇒ `candidate`.
+    ///
+    /// Không nhãn nào được nâng lên `confirmed` chỉ vì tiền tố entry có trong ODT.
+    #[test]
+    fn character_sprite_labels_separate_evidence_from_the_v1_choice() {
+        let table = v1_closure_table().expect("bảng closure V1 hợp lệ");
+        let status_of = |role: ClosureRole, family: &str| {
+            character_entries(&table)
+                .into_iter()
+                .find(|(entry, entry_role, _)| {
+                    *entry_role == role && entry.contains(&format!("-{family}LayerStatic"))
+                })
+                .map(|(_, _, status)| status)
+        };
+
+        assert_eq!(
+            status_of(ClosureRole::CharacterWalk, "WalkDown_A"),
+            Some(Status::Confirmed),
+            "đi: xác nhận bằng tên entry và dãi frame trong pack (R-077)"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterDead, "Die"),
+            Some(Status::Confirmed),
+            "chết: xác nhận bằng tên entry và dãi frame trong pack (R-077)"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterIdle, "Blink_A"),
+            Some(Status::Design),
+            "đứng yên: mapping là quyết định của V1 (R-086), không phải bằng chứng client"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterTrapped, "Faint"),
+            Some(Status::Design),
+            "bị nhốt: mapping là quyết định của V1 (R-086), không phải bằng chứng client"
+        );
+        assert_eq!(
+            status_of(ClosureRole::CharacterIdle, "BlinkSmall_A"),
+            Some(Status::Candidate),
+            "ứng viên: V1 không chọn họ này cho đứng yên"
+        );
     }
 
     /// Mọi entry UI có trong closure phải tồn tại thật trong pack KR, và ảnh của nó
@@ -1485,7 +1485,7 @@ mod tests {
             return;
         };
         let root = Path::new(&root);
-        for asset in ui_assets() {
+        for asset in v1_ui_table() {
             if asset.state == UiState::Excluded {
                 continue;
             }

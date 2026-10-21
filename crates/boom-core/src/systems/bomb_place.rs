@@ -2,8 +2,9 @@
 //!
 //! Khi input có cạnh nhấn `place_bomb` và người chơi còn sống (`Life::Alive`), đặt một bom ở ô tâm
 //! nhân vật nếu ô đó chưa có bom và số bom người đó đang có nhỏ hơn `bombs.value` (R-025). Bom chụp
-//! `range.value` lúc đặt (R-032) và nổ sau `Rules::fuse_ticks`. `grace` gồm mọi người đang đứng ở ô
-//! đó để họ đi ra được (SCOPE_V1 §4). Người bị nhốt không đặt được (R-029).
+//! `range.value` lúc đặt (R-032) và nổ sau `Rules::fuse_ticks`. `grace` (pass) cấp cho **mọi**
+//! người chơi còn sống mà hộp va chạm chồng ô bom lúc đặt, để họ đi ra được; người không có
+//! `grace` thì bom chặn ô (R-107). Người bị nhốt không đặt được (R-029).
 //!
 //! Người chơi được duyệt theo thứ tự id (`SimulationState::players` đã sắp), nên hai người cùng ô
 //! cùng nhấn trong một tick thì người id nhỏ đặt trước và bom thứ hai bị chặn bởi ô đã có bom.
@@ -16,6 +17,8 @@ use crate::num::Cell;
 use crate::sim::{PlayerInput, World};
 use crate::state::{Bomb, Life, SimulationState};
 use crate::system::System;
+
+use super::movement::box_overlaps_cell;
 
 #[derive(Debug)]
 pub struct BombPlace;
@@ -61,7 +64,7 @@ impl System for BombPlace {
             let grace = state
                 .players
                 .iter()
-                .filter(|p| world.cell_at(p.x, p.y) == cell)
+                .filter(|p| p.life != Life::Dead && box_overlaps_cell(world, p.x, p.y, cell))
                 .map(|p| p.id)
                 .collect();
             queue.push(PendingBomb {
@@ -169,6 +172,26 @@ mod tests {
         );
         assert_eq!(s.bombs[0].range, 2);
         assert_eq!(s.bombs[0].grace, vec![0, 1]);
+        s.check_invariants(&w).unwrap();
+    }
+
+    #[test]
+    fn grace_covers_every_player_whose_box_overlaps_the_bomb_cell() {
+        // R-107: `grace` theo hộp va chạm, không theo ô của tâm. Người 1 đứng ở x = 50 px
+        // (hộp 26×26 chồm cả ô (0,0) lẫn ô (1,0)) nên cũng được pass để đi ra khỏi bom.
+        let w = world(&["01."]);
+        let mut s = SimulationState::new_round(&w, &[setup(0, 2), setup(1, 3)], 1).unwrap();
+        s.players[1].x = crate::num::Mpx(50_000);
+        let mut events = Vec::new();
+        s.step(&w, &[press(), PlayerInput::default()], &mut events)
+            .unwrap();
+        assert_eq!(s.bombs.len(), 1);
+        assert_eq!(s.bombs[0].cell, crate::num::Cell::new(0, 0));
+        assert_eq!(
+            s.bombs[0].grace,
+            vec![0, 1],
+            "mọi người có hộp chồng ô bom đều có pass"
+        );
         s.check_invariants(&w).unwrap();
     }
 }

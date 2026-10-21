@@ -26,10 +26,20 @@ cargo run -p boom-assets --bin boom-assets -- bundle --map Village00 --out /tmp/
 Kết quả in ra số sprite/ảnh/trang atlas/ô/unknown và `content_hash`.
 
 Nguồn của bundle là **manifest closure** (`crates/boom-assets/src/closure.rs`, task #34),
-**bộ giải mã sprite** `CDataI16Alpha` v2 (`crates/boom-assets/src/sprite.rs`, task #33),
-**bảng clip animation** (`crates/boom-assets/src/animation.rs`, task #52, RULES_V1
-R-077…R-079) và **bảng asset UI** của luồng V1 (`crates/boom-assets/src/closure.rs`,
-task #84, V1-032):
+**bộ giải mã sprite** `CDataI16Alpha` v2 (`crates/boom-assets/src/sprite.rs`, task #33) và
+**bốn bảng mapping** ở `data/assets/` (issue #123):
+
+| File data | Bảng | Nguồn trước đây |
+|---|---|---|
+| `data/assets/animation-v1.toml` | clip animation: state → entry pack | `boom-assets/src/animation.rs` |
+| `data/assets/ui-v1.toml` | asset UI: phần tử → entry pack | `boom-assets/src/closure.rs` |
+| `data/assets/audio-v1.toml` | âm thanh: event → entry `FxSound` | `boom-assets/src/audio.rs` |
+| `data/assets/closure-v1.toml` | closure: entry cố định, họ entry nhân vật, mapping state V1 → state client | `boom-assets/src/closure.rs` |
+
+Các bảng này là **data có nhãn bằng chứng** (AGENTS §4), giống `data/rules/*.toml`: mỗi dòng
+mang `source`, `status`, `claims` và ghi chú. Loader chung nằm ở
+`crates/boom-content/src/assets.rs` (`boom_content::assets`); `boom-assets bundle` dùng
+loader đó, nên **đổi mapping = sửa file data, không sửa code** (xem §1.1).
 
 - Entry nào cần có, vai trò, trạng thái bằng chứng, SHA-256 payload → từ closure.
 - Ảnh RGBA + frame 48 byte (12 × `i32`) → từ bộ giải mã sprite; nghĩa field frame theo
@@ -45,6 +55,34 @@ dung trận* (ô map, sprite, nhân vật, item), mỗi dòng là một entry pa
 UI là closure *luồng hiển thị*, mỗi dòng là một **phần tử** có màn hình, vai trò, trạng
 thái duyệt ảnh và lý do thay thế. `[[ui]]` trỏ tới `[[sprites]]` nên ảnh của phần tử
 không bị nhân bản trong atlas.
+
+### 1.1 Sửa mapping: quy trình và quy tắc loader
+
+Bốn bảng ở `data/assets/` là nguồn chuẩn duy nhất (một thông tin — một nguồn, AGENTS §3).
+Muốn đổi mapping (đổi entry của một state, đổi nhãn bằng chứng, thêm cue âm thanh…):
+
+1. Sửa file `.toml` tương ứng trong `data/assets/`.
+2. Chạy `cargo xtask ci` — loader từ chối dữ liệu sai (xem bảng lỗi bên dưới).
+3. Nếu đổi nội dung hiển thị thì `content_hash` **phải** đổi: test
+   `changing_one_mapping_changes_the_content_hash` (boom-assets) chặn trường hợp mapping
+   đổi mà hash không đổi.
+
+| Lỗi loader | Nghĩa |
+|---|---|
+| ID trùng trong một bảng | hai dòng cùng ID (clip/UI/cue/entry/họ/state) |
+| Thiếu trường bắt buộc | dòng thiếu `entry`, `pack`, `state`, `reason`… |
+| State/hướng không hợp lệ | `state` không thuộc state V1, hoặc hướng không hợp lệ |
+| `timing.unknown` mang giá trị | thời lượng `unknown` không được mang số (R-079) |
+| `timing.known` thiếu claim | thời lượng đã chốt phải có claim, kể cả nguồn `design` |
+| Nhãn sai | `design` không được mang `confirmed`/`candidate`; `confirmed` cần nguồn `kr_*`/`vn_*`; `web`/`oss`/`emu_choice` chỉ được là `candidate`/`design`; dòng mapping không được mang `unknown` |
+| Claim sai dạng | claim phải có dạng `R-<số>` |
+| Khoá lạ trong dòng | gõ sai tên trường bị từ chối (không bỏ qua âm thầm) |
+
+Ý nghĩa cột `source`/`status` **khác nhau theo bảng** và được ghi ở đầu mỗi file data:
+bảng clip nói về *mapping* state → entry, bảng UI nói về *sự tồn tại của asset*, bảng audio
+nói về *mapping* event → entry. Nhãn cũ được giữ nguyên khi chuyển sang data — mapping
+consumer **không** được nâng lên `confirmed` chỉ vì entry có trong pack (AGENTS §4).
+
 
 ## 2. Cấu trúc thư mục bundle
 
@@ -135,6 +173,8 @@ thứ tự blob để đối chiếu với pack. Clip chết cũng kết thúc b
 
 ### 3.2 Clip
 
+Nguồn: `data/assets/animation-v1.toml` (bảng state → entry của V1, có nhãn bằng chứng).
+
 ```toml
 [[clips]]
 id = "c00.walk.down.static"       # ID ổn định của clip
@@ -183,6 +223,8 @@ pivot_y = 66                      # f11
 
 ### 3.3 Phần tử UI
 
+Nguồn: `data/assets/ui-v1.toml` (bảng phần tử → entry của luồng V1, có nhãn bằng chứng).
+
 ```toml
 [[ui]]
 id = "lobby.create"                  # ID ổn định của phần tử UI
@@ -222,6 +264,8 @@ status = "confirmed"                 # trạng thái bằng chứng (AGENTS §4)
 
 
 ### 3.4 Bảng audio (schema 4)
+
+Nguồn: `data/assets/audio-v1.toml` (bảng event → entry của V1, có nhãn bằng chứng).
 
 Mỗi entry là một payload thô trong `audio/`, không decode:
 
@@ -364,11 +408,12 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Trang atlas | 1 trang 2048×1430 |
 | Audio V1 | 15 entry (1 BGM + 14 SFX), 467.063 byte (456,1 KiB) payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
+| Entry không phải ảnh | 4: BGM `FxSound/MP3/Village`, file map, 2 bảng chỉ số |
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
-| `unknown` | 4 mục: 4 `character_state` (state `idle`/`trapped` của C00/C01 chưa có trace consumer) |
-| `content_hash` | `6d74ad4f0462b87bf458d65d369bfb24d8a9923ad164f98c9008b7063ce87dc0` (schema 4, **có** audio) |
+| `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
+| `content_hash` | `80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc` (schema 4, **có** audio) |
 
 Cách kiểm lại:
 
@@ -378,13 +423,106 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
 # content_hash phải bằng giá trị trên; dựng hai lần cho cùng hash và cùng byte file.
 ```
 
-Giá trị `content_hash` ở trên đo lại ngày 2026-10-20 trên `main` @ `32a6d81` (schema 4, có bảng
-`[[audio]]`) và **tái lập lại y hệt** sau khi gộp `main` @ `f545f24` (builder không đổi): hai lần
-dựng cho **cùng hash và cùng byte file** (atlas `page-000.png` 2048×1430, 665.372 byte).
-Hash **phụ thuộc byte file atlas/audio** nên đổi bộ mã PNG (đổi phiên bản thư viện `png`) là đổi
-hash dù pixel không đổi — xem §8. Giá trị hash của schema 3 (bundle chưa có audio) là
-`27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2`; **không** dùng lại giá trị đó
-cho schema 4.
+`content_hash` **băm cả byte file atlas**, nên đổi bộ mã PNG cũng đổi hash: giá trị ở
+trên gắn với bộ mã trong `Cargo.lock` hiện hành. Trước issue #121, giá trị ghi trong
+bảng này đã **stale** (đo trước khi bảng audio được thêm vào hash) nên không khớp với
+bundle dựng được; bảng được cập nhật lại theo lần đo mới.
+
+Giá trị hash của **schema 3** (bundle chưa có audio) là
+`27464dc28530563e1db4fba63a54062f9a75944ca8f5dab099dd29ff587609d2`; **không** dùng lại giá trị
+đó cho schema 4. Lần đo ngày 2026-10-20 (đã có bảng `[[audio]]`, schema 4) cho giá trị
+`6d74ad4f0462b87bf458d65d369bfb24d8a9923ad164f98c9008b7063ce87dc0` — dựng **hai lần** cho cùng
+hash và cùng byte file (atlas `page-000.png` 2048×1430, 665.372 byte) — nay đã cũ sau #121
+(manifest/closure đổi), nên bảng ở trên lấy giá trị đo mới.
+
+**Issue #123 (mapping → data):** giá trị `content_hash` ở trên **không đổi** khi bốn bảng
+mapping chuyển từ khai báo Rust sang `data/assets/*.toml` — bundle dựng từ data cho
+**cùng** hash và **cùng** byte file. Test `bundle_from_the_data_tables_matches_the_recorded_content_hash`
+chốt điều đó; test `changing_one_mapping_changes_the_content_hash` chặn trường hợp đổi
+mapping mà hash không đổi.
+
+### 6.1. Bốn state `unknown` của bundle đã giải bằng bảng state của client (issue #121)
+
+Trước issue #121, bundle có **4 mục `unknown`** loại `character_state`:
+`C00:idle`, `C01:idle`, `C00:trapped`, `C01:trapped` — "chưa có trace consumer xác nhận
+state nào dùng clip nào".
+
+**Nguồn trong chính pack KR** (claim R-094): ODT `fx/ObjectTable/ObjectTable` không chỉ
+có bảng tên ô của map. Sau bảng tên là các **khối dữ liệu**, mỗi khối là bảng state của
+một đối tượng. Khối `Character/<Id>_A` là **bảng state trình diễn của nhân vật**:
+
+| nhãn | state | entry (tiền tố) | số frame khác nhau |
+|---|---|---|---|
+| `00 Blink` | `Blink` | `Character/C00-Blink_A` | 3 |
+| `01 Die` | `Die` | `Character/C00-Die` | 14 |
+| `02 Faint` | `Faint` | `Character/C00-Faint` | 3 |
+| `03 Hurrah` | `Hurrah` | `Character/C00-Hurrah_A` | 4 |
+| `12 Stop Left` … `15 Stop Down` | đứng yên theo hướng | `Character/C00-Walk<Dir>_A` (frame 0) | 1 |
+| `20 Walk Left` … `23 Walk Down` | đi theo hướng | `Character/C00-Walk<Dir>_A` | 5 |
+| `24 Start` | `Start` | `Character/C00-Start_A` | 10 |
+| `25 Locked In` (+ `52`…`56`) | bị khoá (bị nhốt) | `Character/C00-Die` (frame 0…1, giữ vô hạn) | 2 |
+
+Cột "số frame khác nhau" là số chỉ số frame **khác nhau** dùng trong state (state lặp
+frame, ví dụ `Blink` có 7 cặp `(frame, thời lượng)` nhưng chỉ 3 frame ảnh khác nhau).
+Con số này khớp **đúng** số frame của sprite trong pack (`C00-Blink_ALayerStatic` 3 frame,
+`C00-DieLayerStatic` 14 frame, `C00-FaintLayerStatic` 3 frame,
+`C00-Hurrah_ALayerStatic` 4 frame, `C00-WalkDown_ALayerStatic` 5 frame) ⇒ bảng ODT là bảng
+state của chính build KR 00967, không phải dữ liệu của build khác. Client ghép tên entry
+trong ODT với lớp `Layer` + `Static`/`Adjust` (đối chiếu client VN:
+`CGameObjectTemplateLib::LoadNameTable` tại `0x5C9741` nối `LayerStatic`/`LayerAdjust` và
+tách riêng nhánh `Die`/`Faint`).
+
+#### Hai tầng nhãn — đừng gộp
+
+Bảng ODT xác nhận **nhãn → entry** (dữ liệu của client). Nó **không** xác nhận state core
+của V1 dùng nhãn nào — việc đó là **quyết định của V1** (R-086 `design`). Nên bundle gắn
+nhãn theo đúng tầng:
+
+| Mục | Trước | Sau | Căn cứ |
+|---|---|---|---|
+| `unknown` | 4 mục `character_state` | **0** | bốn state được **chốt bằng quyết định của V1** (R-086 `design`) và đối chiếu bảng ODT (R-094); xem "Giới hạn" bên dưới |
+| sprite `character_walk` `C0x-Walk<Dir>_ALayer*` | `confirmed` | `confirmed` | tên entry + dãi frame đọc được trong pack (R-077) |
+| sprite `character_dead` `C0x-DieLayer*` | `confirmed` | `confirmed` | tên entry + dãi frame đọc được trong pack (R-077) |
+| sprite `character_idle` `C0x-Blink_ALayer*` | `candidate` | **`design`** | mapping `idle` → `Blink` là **quyết định của V1** (R-086); ODT chỉ xác nhận nhãn `Blink` → entry (R-094), **không** xác nhận state core V1 dùng nhãn đó |
+| sprite `character_trapped` `C0x-FaintLayer*` | `candidate` | **`design`** | mapping `trapped` → `Faint` là **quyết định của V1** (R-086); ODT chỉ xác nhận nhãn `Faint` → entry (R-094) |
+| sprite `character_idle` `C0x-BlinkSmall_ALayer*` | `candidate` | `candidate` | V1 **không chọn** họ này: bảng state `Character/<Id>_A` của C00/C01 **không** có state `BlinkSmall`. Họ sprite này **có** trong ODT ở khối `Character/<Id>_Display_A` ⇒ **không** kết luận là client không dùng |
+
+Nhãn `design` ở bảng `[[sprites]]` nói "**V1 chọn** họ entry này cho vai trò đó"; bảng
+`[[clips]]` vẫn giữ `idle`/`trapped` là `candidate` (R-078) vì claim của bảng clip là
+"client gốc có dùng clip này cho state nào", mà điều đó **chưa** có consumer nào xác nhận
+(Q-003). Hai bảng trả lời hai câu khác nhau — cùng một entry, hai claim khác nhau.
+
+**Sai khác còn lại, đã ghi nhận (R-095, `candidate`):** client gốc dùng `Stop <hướng>`
+(frame 0 của `Walk<hướng>_A`) cho **tư thế đứng yên** và `Blink` làm overlay nháy mắt;
+state **bị nhốt** của client (`Locked In`) dùng frame 0…1 của `Die` giữ vô hạn, kèm bong
+bóng. V1 chọn khác (`idle` → clip `Blink`, `trapped` → clip `Faint`, R-086 `design`).
+Chưa có trace runtime nối state core của V1 với state của client, nên mức bằng chứng
+của *sai khác này* vẫn là `candidate`; việc đổi lựa chọn của V1 thuộc task client
+(V1-031), không thuộc issue này.
+
+**Giới hạn đã biết** (AGENTS §4: không suy diễn quá bằng chứng):
+
+- Bảng ODT là bằng chứng cho **nhãn → entry**. Bốn state đã giải là **quyết định của
+  V1**, không phải consumer nào đã xác nhận; nhãn `design` trong bundle là để nói đúng
+  điều đó.
+- Phạm vi khảo sát: ODT có 189 khối `Character/*_A`; trong đó **63** khối
+  `Character/<Id>_A` là bảng state trình diễn (4 state đầu giống nhau ở mọi nhân vật),
+  `C00`/`C01` có **90** state. Bảng state của C00/C01 **không** có state `BlinkSmall`;
+  state `BlinkSmall` chỉ thấy ở khối `Character/<Id>_Display_A` (**25** nhân vật: C00…C13,
+  C17…C22, C25…C29) ⇒ họ sprite `BlinkSmall` **có** mặt trong ODT. Không thấy ở bảng
+  state **không** loại trừ consumer khác hay tạo tên entry trực tiếp.
+- Vì `BlinkSmall` **có** trong ODT, nhãn `candidate` của nó là "V1 giữ trong bảng clip
+  làm ứng viên nhưng **không chọn**", không phải "client không dùng".
+
+Cơ chế "không bỏ qua âm thầm": closure **đọc bảng ODT lúc dựng manifest** và kiểm
+(1) mọi họ entry mà V1 dùng đều có trong bảng state của nhân vật, (2) state mà V1 chọn
+(`V1_CHARACTER_STATES`) có đúng nhãn và đúng entry trong bảng đó. Lệch thì manifest ghi
+mục `unknown` kèm lý do và ứng viên — xem `crates/boom-assets/src/closure.rs`.
+
+Bảng ODT **không** nằm trong closure: nó là dữ liệu lúc dựng (client đọc lúc chạy),
+không phải nội dung lúc chơi, nên không vào `[[assets]]` của bundle. SHA-256 của nó
+(2.391.729 B) là `a68fd5ffcc815b24b5c5199e9910f10d14f1ac6f30aba4c237a23f4e279608dc`
+— ghi ở claim R-094 để đối chiếu khi pack đổi.
 
 ## 7. Quy ước đặt ảnh của client (presentation — `design`)
 

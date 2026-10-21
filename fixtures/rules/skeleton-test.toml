@@ -29,6 +29,19 @@ unit = "px/s"
 source = "design"
 status = "design"
 
+# Cơ chế hộp va chạm và bám góc (R-107, ADR 0012): hộp 26×26 px, bám góc khi lệch ≤ 12 px.
+[player.collision_half_px]
+value = 13
+unit = "px"
+source = "design"
+status = "design"
+
+[player.corner_assist_px]
+value = 12
+unit = "px"
+source = "design"
+status = "design"
+
 [player.trap_to_death_ms]
 value = 6300
 unit = "ms"
@@ -86,5 +99,79 @@ status = "design"
 [drop.weight_roller]
 value = 2000
 unit = "weight"
+source = "design"
+status = "design"
+
+# Chỉ số nhân vật C00/C01 — cùng bộ khóa như `data/rules/v1-dev.toml` (`characters.*`),
+# mọi rule ghi `design` cho test.
+[characters.c00_speed]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_speed_max]
+value = 7
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs_max]
+value = 10
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range_max]
+value = 7
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed]
+value = 4
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed_max]
+value = 8
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs]
+value = 2
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs_max]
+value = 7
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range_max]
+value = 9
+unit = "level"
 source = "design"
 status = "design"
