@@ -11,7 +11,8 @@ use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
 use crate::{
-    Authority, InputError, MatchOutcome, MatchSetup, ReplaySetup, ServerConfig, ServerPhase,
+    Authority, InputError, Logger, MatchOutcome, MatchSetup, OperationalConfig, ReplaySetup,
+    ServerConfig, ServerPhase, SharedLogBuffer,
 };
 
 const RULES: &str = include_str!("../../../fixtures/rules/skeleton-test.toml");
@@ -3719,4 +3720,551 @@ fn repeated_hello_is_allowed_before_auth_but_not_after() {
     let _ = server.poll(0, Duration::from_millis(200)).unwrap();
     let reject: Reject = recv(&mut clients[0]);
     assert_eq!(reject.reason, RejectReason::SessionRejected);
+}
+
+// --- Log vòng đời round và lý do disconnect (ADR 0011 §8.1, V1-029) ---
+
+/// Dòng log đầu tiên có `event` = `name` (không có ⇒ test đỏ, không bỏ qua âm thầm).
+fn first_log_line(buffer: &SharedLogBuffer, name: &str) -> serde_json::Value {
+    buffer
+        .lines()
+        .into_iter()
+        .find(|line| line.get("event").and_then(|value| value.as_str()) == Some(name))
+        .unwrap_or_else(|| {
+            panic!(
+                "không có sự kiện `{name}` trong log: {:?}",
+                buffer
+                    .lines()
+                    .iter()
+                    .map(|line| line.get("event").cloned())
+                    .collect::<Vec<_>>()
+            )
+        })
+}
+
+/// Số dòng log có `event` = `name`.
+fn count_log_lines(buffer: &SharedLogBuffer, name: &str) -> usize {
+    buffer
+        .lines()
+        .iter()
+        .filter(|line| line.get("event").and_then(|value| value.as_str()) == Some(name))
+        .count()
+}
+
+/// Các dòng log `player.disconnect` theo thứ tự phát.
+fn disconnect_lines(buffer: &SharedLogBuffer) -> Vec<serde_json::Value> {
+    buffer
+        .lines()
+        .into_iter()
+        .filter(|line| {
+            line.get("event").and_then(|value| value.as_str()) == Some("player.disconnect")
+        })
+        .collect()
+}
+
+/// Dòng log `player.disconnect` của một tài khoản (`account_id`).
+fn disconnect_line_for(buffer: &SharedLogBuffer, account_id: i64) -> serde_json::Value {
+    disconnect_lines(buffer)
+        .into_iter()
+        .find(|line| line.get("account_id").and_then(|value| value.as_i64()) == Some(account_id))
+        .unwrap_or_else(|| {
+            panic!(
+                "không có player.disconnect cho account {account_id}: {:?}",
+                disconnect_lines(buffer)
+            )
+        })
+}
+
+/// Dòng log `player.disconnect` có `reason` = `reason` (dùng cho connection chưa auth:
+/// không có `account_id` nào để tra).
+fn disconnect_line_with_reason(buffer: &SharedLogBuffer, reason: &str) -> serde_json::Value {
+    disconnect_lines(buffer)
+        .into_iter()
+        .find(|line| line.get("reason").and_then(|value| value.as_str()) == Some(reason))
+        .unwrap_or_else(|| {
+            panic!(
+                "không có player.disconnect với reason `{reason}`: {:?}",
+                disconnect_lines(buffer)
+            )
+        })
+}
+
+/// Gắn logger JSON ghi vào buffer để test đọc được dòng log.
+fn attach_log_buffer(server: &mut Server) -> SharedLogBuffer {
+    let buffer = SharedLogBuffer::new();
+    let logger = Arc::new(Logger::new(
+        OperationalConfig::default().fingerprint(),
+        "test-instance".to_owned(),
+        1,
+        Box::new(buffer.clone()),
+    ));
+    server.set_logger(logger);
+    buffer
+}
+
+/// Đưa hai client qua phòng → start → loading → hết round; trả `round_id` trên dây.
+fn drive_wire_round_to_result(server: &mut Server, clients: &mut [WireClient]) -> u64 {
+    let players = [PlayerId(1), PlayerId(2)];
+    wire_handshake(server, clients);
+    authenticate(server, clients, &players);
+
+    let round = start_wire_round(server, clients, &players);
+
+    // Chạy tới khi có kết quả (giống kịch bản round đầy đủ).
+    let _ = server.poll(200_000, Duration::ZERO).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Results);
+    for client in clients.iter_mut() {
+        let result: RoundResult = recv_of(client, MessageKind::RoundResult);
+        assert_eq!(result.round_id, round);
+    }
+    round
+}
+
+/// Đưa `players[0]` tạo phòng, các người còn lại vào phòng, tất cả ready rồi start ⇒
+/// trận đang chạy (loading barrier đã qua); trả `round_id` trên dây.
+///
+/// Chỉ `players` đầu `clients` được dùng: client thừa (đứng sảnh) không vào phòng và
+/// không nhận `LoadingAck`.
+fn start_wire_round(server: &mut Server, clients: &mut [WireClient], players: &[PlayerId]) -> u64 {
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    let room = state.room_id;
+    for (index, _) in players.iter().enumerate().skip(1) {
+        send_room(
+            &mut clients[index],
+            1,
+            RoomActionDto::Join {
+                room,
+                character: if index % 2 == 0 {
+                    RoomCharacter::C00
+                } else {
+                    RoomCharacter::C01
+                },
+            },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[index]);
+    }
+    for (index, _) in players.iter().enumerate() {
+        send_room(
+            &mut clients[index],
+            2,
+            RoomActionDto::SetReady { ready: true },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[0]);
+    }
+    send_room(&mut clients[0], 3, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let start: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+    let round = start.round_id;
+    for client in clients.iter_mut().take(players.len()) {
+        send(client, &LoadingAck { round_id: round });
+    }
+    for _ in 0..100 {
+        let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+        if server.phase() == ServerPhase::Playing {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Playing);
+    round
+}
+
+#[test]
+fn log_vong_doi_round_mang_round_id_that() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    let round = drive_wire_round_to_result(&mut server, &mut clients);
+
+    // Mỗi mốc vòng đời round đều có dòng log riêng, mang `round_id` **thật** (khớp dây).
+    let start = first_log_line(&buffer, "round.start");
+    assert_eq!(start["round_id"], serde_json::json!(round));
+    assert_eq!(start["phase"], serde_json::json!("loading"));
+    assert_eq!(start["players"], serde_json::json!(2));
+
+    assert_eq!(count_log_lines(&buffer, "round.loading"), 2);
+    let loading = first_log_line(&buffer, "round.loading");
+    assert_eq!(loading["round_id"], serde_json::json!(round));
+    assert_eq!(loading["phase"], serde_json::json!("loading"));
+
+    let playing = first_log_line(&buffer, "round.playing");
+    assert_eq!(playing["round_id"], serde_json::json!(round));
+    assert_eq!(playing["phase"], serde_json::json!("playing"));
+
+    let result = first_log_line(&buffer, "round.result");
+    assert_eq!(result["round_id"], serde_json::json!(round));
+    assert_eq!(result["phase"], serde_json::json!("results"));
+    assert!(result["outcome"].is_string());
+
+    // `round.end` khi phòng về waiting (mọi người ack kết quả).
+    for client in clients.iter_mut() {
+        send(client, &ResultAck { round_id: round });
+    }
+    for _ in 0..100 {
+        let _ = server.poll(200_000, Duration::from_millis(20)).unwrap();
+        if server.phase() == ServerPhase::Waiting {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Waiting);
+    let end = first_log_line(&buffer, "round.end");
+    assert_eq!(end["round_id"], serde_json::json!(round));
+    assert_eq!(end["outcome"], serde_json::json!("completed"));
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_khi_client_dong_ket_noi() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    // Client đóng socket (EOF) ⇒ `player.disconnect` với lý do `client_closed`.
+    clients[1].writer.close().expect("đóng kết nối client");
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("client_closed"));
+    assert_eq!(disconnect["revoke_reason"], serde_json::json!("disconnect"));
+    assert!(disconnect["player_id"].is_u64());
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_server_shutdown() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    server.shutdown_sessions(1_000);
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("server_shutdown"));
+    assert_eq!(
+        disconnect["revoke_reason"],
+        serde_json::json!("server_shutdown")
+    );
+    // `Drop` gọi lại `shutdown_sessions` ⇒ không log trùng.
+    let before = count_log_lines(&buffer, "player.disconnect");
+    server.shutdown_sessions(2_000);
+    assert_eq!(count_log_lines(&buffer, "player.disconnect"), before);
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_kicked() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    let room = state.room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let joined = recv_room_state(&mut clients[1]);
+
+    // Host kick khỏi phòng người chơi thứ hai (V1: kick chỉ rời phòng).
+    let guest = joined.members[1].player;
+    send_room(&mut clients[0], 2, RoomActionDto::Kick { target: guest });
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("kicked"));
+    assert_eq!(disconnect["player_id"], serde_json::json!(guest));
+    // Người bị kick đã bị gỡ khỏi roster ⇒ ngữ cảnh phải lấy từ ảnh phòng **trước** khi áp
+    // lệnh: vẫn biết họ rời phòng nào (phòng đang chờ ⇒ không có round).
+    assert_eq!(disconnect["room_id"], serde_json::json!(room));
+    assert!(disconnect["round_id"].is_null(), "{disconnect}");
+}
+
+/// Kịch bản dùng chung: A/B trong phòng (trận đang chạy), C đứng sảnh, D chưa auth.
+///
+/// - `clients[0]`, `clients[1]`: vào phòng, ready, start ⇒ trận đang chạy.
+/// - `clients[2]`: đăng nhập xong nhưng **không vào phòng** (đứng sảnh).
+/// - `clients[3]`: chỉ handshake, **chưa auth** ⇒ hết hạn auth sau 100 ms.
+///
+/// Trả `(server, clients, buffer, room_id, round_id)`.
+fn scenario_room_plus_lobby() -> (Server, Vec<WireClient>, SharedLogBuffer, u64, u64) {
+    let players = [PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)];
+    let (mut server, mut clients) = server_with_clients_config(&players, 100, 250);
+    let buffer = attach_log_buffer(&mut server);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players[..3]);
+    // Hạn auth ngắn để D (chưa auth) bị đóng khi test đẩy đồng hồ.
+    server.set_auth_deadline_ms(100);
+    let round = start_wire_round(&mut server, &mut clients, &players[..2]);
+    let room = server.room_view().expect("phòng còn tồn tại").id.0;
+    (server, clients, buffer, room, round)
+}
+
+/// `room_id`/`round_id` trong log là ngữ cảnh **của người đó**: account ngoài phòng hoặc
+/// connection chưa auth không được mang ID phòng/trận của người khác (review #169).
+#[test]
+fn log_disconnect_chi_gan_ngu_canh_phong_cho_thanh_vien() {
+    let (mut server, mut clients, buffer, room, round) = scenario_room_plus_lobby();
+
+    // C đứng sảnh đóng socket (EOF) ⇒ log của C không được mang phòng/trận của A/B.
+    clients[2].writer.close().expect("đóng kết nối C");
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let c = disconnect_line_for(&buffer, 3);
+    assert_eq!(c["reason"], serde_json::json!("client_closed"));
+    assert_eq!(c["revoke_reason"], serde_json::json!("disconnect"));
+    assert!(c["room_id"].is_null(), "C đứng sảnh không gắn room_id: {c}");
+    assert!(
+        c["round_id"].is_null(),
+        "C đứng sảnh không gắn round_id: {c}"
+    );
+
+    // A là thành viên thật của phòng và của roster round ⇒ log mang đúng phòng + round.
+    clients[0].writer.close().expect("đóng kết nối A");
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let a = disconnect_line_for(&buffer, 1);
+    assert_eq!(a["reason"], serde_json::json!("client_closed"));
+    assert_eq!(a["room_id"], serde_json::json!(room));
+    assert_eq!(a["round_id"], serde_json::json!(round));
+    assert!(a["session_id"].is_i64(), "{a}");
+
+    // D chưa auth ⇒ hết hạn handshake/auth ⇒ `auth_failed`, không có ngữ cảnh phòng.
+    let _ = server.poll(200, Duration::from_millis(200)).unwrap();
+    let d = disconnect_line_with_reason(&buffer, "auth_failed");
+    assert!(
+        d["account_id"].is_null(),
+        "D chưa auth không có account_id: {d}"
+    );
+    assert!(d["room_id"].is_null(), "D chưa auth không gắn room_id: {d}");
+    assert!(
+        d["round_id"].is_null(),
+        "D chưa auth không gắn round_id: {d}"
+    );
+
+    // Mỗi phiên đóng chỉ ghi **một** dòng disconnect (không phát trùng).
+    assert_eq!(disconnect_lines(&buffer).len(), 3);
+}
+
+/// Đường timeout liveness phải ghi JSON thật: `reason`, `revoke_reason` và định danh
+/// (review #169 — trước đó chỉ có test "phiên bị thu hồi", không kiểm log).
+#[test]
+fn log_disconnect_ghi_ly_do_timeout_no_input() {
+    // Chỉ một phiên đã auth ⇒ chỉ một dòng disconnect khi hết hạn liveness.
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients_config(&players, 100, 250);
+    let buffer = attach_log_buffer(&mut server);
+    wire_handshake(&mut server, &mut clients);
+    authenticate_player(&mut server, &mut clients[0], players[0]);
+
+    // Im lặng quá hạn liveness (250 ms không `Pong`) ⇒ `timeout_no_input`.
+    let _ = server.poll(300, Duration::ZERO).unwrap();
+    let disconnect = disconnect_line_for(&buffer, 1);
+    assert_eq!(disconnect["reason"], serde_json::json!("timeout_no_input"));
+    assert_eq!(
+        disconnect["revoke_reason"],
+        serde_json::json!("timeout_no_input")
+    );
+    assert_eq!(disconnect["account_id"], serde_json::json!(1));
+    assert!(disconnect["player_id"].is_u64(), "{disconnect}");
+    assert!(disconnect["session_id"].is_i64(), "{disconnect}");
+    // Chưa vào phòng ⇒ không có ngữ cảnh phòng/round.
+    assert!(disconnect["room_id"].is_null(), "{disconnect}");
+    assert!(disconnect["round_id"].is_null(), "{disconnect}");
+
+    // Phiên đã đóng ⇒ các vòng poll sau không sinh dòng disconnect thứ hai.
+    let _ = server.poll(400, Duration::ZERO).unwrap();
+    assert_eq!(disconnect_lines(&buffer).len(), 1);
+}
+
+/// Chờ server xử lý frame đã gửi rồi đọc frame trả lời trên TCP thật.
+///
+/// Server chỉ xử lý frame trong [`Server::poll`] ⇒ poll trước, đọc sau (đọc chặn có
+/// timeout nên test không treo vô hạn khi server hỏng).
+fn tcp_reply(server: &mut Server, client: &mut boom_net::TcpTransport) -> Vec<u8> {
+    for _ in 0..3 {
+        let _ = server.poll(0, Duration::from_millis(50)).unwrap();
+    }
+    client
+        .recv_frame()
+        .unwrap()
+        .expect("client phải nhận frame")
+}
+
+/// TCP thật: client đóng socket khi còn dữ liệu chưa đọc ⇒ kernel gửi **RST** (không phải
+/// FIN êm) ⇒ luồng đọc server báo lỗi ⇒ `player.disconnect` lý do `client_closed`
+/// (EOF và reset dùng chung mã `client_closed`, ADR 0011 §8.1).
+#[test]
+fn log_disconnect_ghi_ly_do_khi_tcp_reset() {
+    let a = Authority::new(ServerConfig::v1(), setup());
+    let h = handshake_config(&a);
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.keep().join("auth.sqlite3");
+    let store = SqliteAccountStore::open(&db_path, SqliteOptions::default()).unwrap();
+    let auth = AuthService::new(
+        AuthConfig::default(),
+        "test-instance-reset".to_owned(),
+        Box::new(OsRandomSource),
+    )
+    .unwrap();
+    let mut server = Server::with_auth(a, h.clone(), auth, Box::new(store), 0).unwrap();
+    let buffer = attach_log_buffer(&mut server);
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let stream = std::net::TcpStream::connect(addr).unwrap();
+    // Handle thứ hai: dò dữ liệu server gửi mà **không** lấy ra khỏi buffer nhận.
+    let probe = stream.try_clone().unwrap();
+    // Timeout đọc ⇒ không treo vô hạn khi server không trả lời.
+    probe
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut client = boom_net::TcpTransport::from_stream(stream).unwrap();
+    server.accept_tcp(&listener, PlayerId(1), 0).unwrap();
+
+    // Handshake + auth trên TCP thật.
+    let hello_frame = encode_frame(&hello(h.rules_hash), &ProtocolLimits::v1()).unwrap();
+    client.send_frame(&hello_frame).unwrap();
+    let welcome = tcp_reply(&mut server, &mut client);
+    let (envelope, _) = read_envelope(&welcome).unwrap();
+    assert_eq!(envelope.kind, MessageKind::Welcome);
+    let (username, password) = test_credentials(PlayerId(1));
+    let auth_frame = encode_frame(
+        &Auth {
+            op: AuthOp::Register,
+            username,
+            password,
+        },
+        &ProtocolLimits::v1(),
+    )
+    .unwrap();
+    client.send_frame(&auth_frame).unwrap();
+    let auth_ok = tcp_reply(&mut server, &mut client);
+    let (envelope, _) = read_envelope(&auth_ok).unwrap();
+    assert_eq!(envelope.kind, MessageKind::AuthOk);
+
+    // Client gửi `Ping` ⇒ server trả `Pong`; client **không** đọc ⇒ dữ liệu nằm lại trong
+    // buffer nhận ⇒ đóng socket lúc này sinh RST thay vì FIN êm.
+    client
+        .send_frame(&encode_frame(&Ping(7), &ProtocolLimits::v1()).unwrap())
+        .unwrap();
+    for _ in 0..3 {
+        let _ = server.poll(0, Duration::from_millis(50)).unwrap();
+    }
+    let mut probe_buf = [0u8; 1];
+    let peeked = probe
+        .peek(&mut probe_buf)
+        .expect("phải có dữ liệu server gửi chưa đọc");
+    assert!(
+        peeked > 0,
+        "phải có dữ liệu chưa đọc để đóng socket sinh RST"
+    );
+    drop(client);
+    drop(probe);
+
+    // Server thấy RST ⇒ ghi `player.disconnect` lý do `client_closed` đúng một lần.
+    for _ in 0..300 {
+        let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+        if !disconnect_lines(&buffer).is_empty() {
+            break;
+        }
+    }
+    let disconnect = disconnect_line_for(&buffer, 1);
+    assert_eq!(disconnect["reason"], serde_json::json!("client_closed"));
+    assert_eq!(disconnect["revoke_reason"], serde_json::json!("disconnect"));
+    assert_eq!(disconnect["account_id"], serde_json::json!(1));
+    assert!(disconnect["session_id"].is_i64(), "{disconnect}");
+    let _ = server.poll(0, Duration::from_millis(50)).unwrap();
+    assert_eq!(disconnect_lines(&buffer).len(), 1);
+}
+
+/// Dừng server: ngữ cảnh phòng/round chỉ gắn cho người **thực sự** trong phòng; tài
+/// khoản đứng sảnh thì null (review #169).
+#[test]
+fn log_disconnect_khi_server_dung_chi_gan_ngu_canh_theo_roster() {
+    let (mut server, _clients, buffer, room, round) = scenario_room_plus_lobby();
+
+    server.shutdown_sessions(1_000);
+
+    // A/B là thành viên thật của phòng và roster round.
+    for account in [1, 2] {
+        let line = disconnect_line_for(&buffer, account);
+        assert_eq!(line["reason"], serde_json::json!("server_shutdown"));
+        assert_eq!(line["room_id"], serde_json::json!(room));
+        assert_eq!(line["round_id"], serde_json::json!(round));
+    }
+    // C đứng sảnh ⇒ không có ngữ cảnh phòng/trận.
+    let c = disconnect_line_for(&buffer, 3);
+    assert_eq!(c["reason"], serde_json::json!("server_shutdown"));
+    assert!(c["room_id"].is_null(), "{c}");
+    assert!(c["round_id"].is_null(), "{c}");
+    // D chưa auth ⇒ không có phiên đã đăng nhập nên không có dòng disconnect.
+    assert_eq!(disconnect_lines(&buffer).len(), 3);
+}
+
+/// Timeout khi A/B đang chơi: C ở sảnh và D chưa auth không được nhận ID trận A/B.
+#[test]
+fn log_disconnect_timeout_loc_roster_va_khong_phat_trung() {
+    let (mut server, _clients, buffer, room, round) = scenario_room_plus_lobby();
+    let _ = server.poll(300, Duration::ZERO).unwrap();
+    for account in [1, 2, 3] {
+        let line = disconnect_line_for(&buffer, account);
+        assert_eq!(line["reason"], "timeout_no_input");
+        assert_eq!(line["revoke_reason"], "timeout_no_input");
+        assert!(line["session_id"].is_i64(), "{line}");
+        if account == 3 {
+            assert!(line["room_id"].is_null(), "{line}");
+            assert!(line["round_id"].is_null(), "{line}");
+        } else {
+            assert_eq!(line["room_id"], room);
+            assert_eq!(line["round_id"], round);
+        }
+    }
+    let unauth = disconnect_line_with_reason(&buffer, "auth_failed");
+    assert!(unauth["account_id"].is_null());
+    assert!(unauth["room_id"].is_null());
+    assert!(unauth["round_id"].is_null());
+    let count = disconnect_lines(&buffer).len();
+    assert_eq!(count, 4);
+    let _ = server.poll(400, Duration::ZERO).unwrap();
+    server.shutdown_sessions(400);
+    assert_eq!(disconnect_lines(&buffer).len(), count);
+}
+
+#[test]
+fn log_disconnect_eof_chua_auth_khong_gan_tran_nguoi_khac() {
+    let (mut server, mut clients, buffer, _, _) = scenario_room_plus_lobby();
+    clients[3].writer.close().unwrap();
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let lines = disconnect_lines(&buffer);
+    assert_eq!(lines.len(), 1);
+    let line = &lines[0];
+    assert_eq!(line["reason"], "client_closed");
+    assert!(line["account_id"].is_null());
+    assert!(line["room_id"].is_null());
+    assert!(line["round_id"].is_null());
 }
