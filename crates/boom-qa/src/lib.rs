@@ -14,10 +14,9 @@
 //!
 //! - Harness **không** kết luận gì về độ trùng khớp với client/server gốc: nó chỉ đo bản Rust
 //!   hiện tại (SCOPE_V1 §7.8, REWRITE_PLAN "đo nguồn").
-//! - Giai đoạn 1 bot nói DTO trực tiếp, **không dự đoán state**: số correction luôn bằng 0.
-//!   Khi module net của `boom-client` (PR #89) sẵn sàng, thay bằng implementation khác của
-//!   [`bot::BotClient`] — harness không phải đổi: cài [`bot::BotFactory`] riêng rồi gọi
-//!   [`harness::run_with`] (xem `docs/specification/QA_NETWORK.md`).
+//! - Input và round fingerprint dùng source/API client chung ([`prediction`], [`room`]);
+//!   auth/phòng vẫn dùng adapter DTO của harness, chưa chạy facade NetClient đầy đủ.
+//! - Correction đo sai số vị trí cùng tick; recovery RoundResult còn chờ contract #166.
 //! - Mọi giá trị luật trận đọc từ profile rules (`crates/boom-qa/rules/*.toml`), không có hằng số
 //!   luật trong code (AGENTS §3).
 
@@ -31,7 +30,18 @@ pub use bot::{
     BotClient, BotConfig, BotError, BotFactory, BotPhase, BotStats, DirectDtoBot,
     DirectDtoBotFactory,
 };
-pub use harness::{QaError, RunConfig, run, run_with};
+pub use harness::{QaError, RecoveryScenario, RunConfig, run, run_scenario, run_with};
 pub use metrics::Samples;
 pub use profile::{ProfileError, QaProfile};
 pub use report::{REPORT_SCHEMA, RunReport};
+
+// Dùng chính implementation client, không fork/copy prediction. boom-client hiện là binary;
+// chưa mở phạm vi Cargo.toml/lib client trong #166 nên include source chuẩn qua path.
+#[allow(dead_code)]
+#[path = "../../boom-client/src/net/prediction.rs"]
+pub(crate) mod prediction;
+
+/// API phòng thuần dùng cùng client: fingerprint, roster và round identity.
+#[allow(dead_code)]
+#[path = "../../boom-client/src/net/room.rs"]
+pub(crate) mod room;
