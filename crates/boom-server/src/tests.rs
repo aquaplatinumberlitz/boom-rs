@@ -1575,6 +1575,63 @@ fn snapshot_dto_roundtrips_state_hash_via_boom_sync() {
     assert_eq!(restored.tick, a.tick().unwrap());
 }
 
+/// Server điền **tên hiển thị** của thành viên phòng từ account store (ADR 0009 Addendum B §B.6).
+///
+/// Tên hiển thị do **server** điền, không phải client khai (ADR 0005): tên lấy từ
+/// `AuthOk.display_name` (tức tên đăng nhập). `LobbyRoom.name` là tên hiển thị của **chủ phòng**.
+#[test]
+fn server_dien_ten_hien_thi_thanh_vien_phong() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let room = recv_room_state(&mut clients[0]).room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut clients[1]);
+    let state = recv_room_state_members(&mut clients[0], 2);
+    let names: Vec<&str> = state
+        .members
+        .iter()
+        .map(|member| member.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        vec!["player1", "player2"],
+        "tên hiển thị lấy từ account store, theo thứ tự thành viên trong phòng"
+    );
+
+    // `LobbyRoom.name` là **tên hiển thị của chủ phòng** (ADR 0009 Addendum B §B.6).
+    let lobby = recv_lobby(&mut clients[0]);
+    assert_eq!(lobby.rooms.len(), 1);
+    assert_eq!(lobby.rooms[0].name, "player1");
+}
+
+/// Tên fallback khi mất phiên là `player{account_id}` (ADR 0009 Addendum B §B.6).
+#[test]
+fn ten_fallback_khi_mat_phien_la_player_account_id() {
+    assert_eq!(
+        crate::server::fallback_display_name(PlayerId(42)),
+        "player42"
+    );
+}
+
 struct SlowWriter {
     inner: MemoryTransport,
     delay: Duration,

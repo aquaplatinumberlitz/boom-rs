@@ -974,6 +974,10 @@ impl ScheduledHarness {
                     CharacterId::C00 => RoomCharacter::C00,
                     CharacterId::C01 => RoomCharacter::C01,
                 },
+                // Tên hiển thị: fixture chạy `Authority` trực tiếp nên không có account store;
+                // điền tên giả để roster có đủ trường (server thật điền tên từ account store —
+                // ADR 0009 Addendum B §B.6).
+                name: format!("fixture-{}", member.player.0),
             })
             .collect();
         let start = RoundStart {

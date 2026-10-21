@@ -1131,6 +1131,7 @@ impl SoloClient {
                 player: SOLO_ACCOUNT_ID,
                 slot,
                 character: RoomCharacter::C00,
+                name: "a".into(),
             }],
             start_tick: 0,
         }
@@ -1171,6 +1172,7 @@ impl SoloClient {
                 slot: 0,
                 character: RoomCharacter::C00,
                 ready: false,
+                name: "a".into(),
             }],
             round: None,
         };

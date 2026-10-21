@@ -25,6 +25,14 @@ mod fixture;
 #[cfg(test)]
 mod tests;
 
+/// Backend UI nối server thật (ADR 0009 Addendum B §B.6).
+///
+/// **Chưa có caller trong binary**: luồng `--connect` hiện vẫn lấy thông tin đăng nhập từ
+/// cờ `--user`/`--password` (xem `main.rs`), nên module này chưa được nối vào CLI. Vì vậy
+/// `dead_code` tắt cho tới khi màn login UI được nối vào luồng `--connect`.
+#[allow(dead_code)]
+pub mod ui_backend;
+
 pub use prediction::{
     ALPHA_ONE, BombShadow, PredictError, Predictor, SnapshotOutcome, world_from_snapshot,
 };
@@ -42,8 +50,8 @@ use boom_core::{Mode, Phase, PlayerInput, Rules, SimulationState, World, mode_by
 use boom_net::{TcpTransport, Transport};
 use boom_proto::dto::auth::{Auth, AuthOk, AuthOp};
 use boom_proto::{
-    Hello, InputBatch, LoadingAck, ResultAck, RoomAction, RoomCharacter, RoundEvent, RoundStart,
-    Welcome,
+    Hello, InputBatch, LoadingAck, ProtocolLimits, ResultAck, RoomAction, RoomCharacter,
+    RoundEvent, RoundStart, Welcome,
 };
 
 /// Thông tin đăng nhập client dùng **sau** `Welcome` (ADR 0009 Addendum A §A.1).
@@ -253,6 +261,14 @@ impl<W: Transport> NetClient<W> {
     /// Tài khoản đã đăng nhập (sau `AuthOk`).
     pub fn account(&self) -> Option<&AuthOk> {
         self.account.as_ref()
+    }
+
+    /// Miền giới hạn giao thức của phiên hiện tại.
+    ///
+    /// Client dùng để hiển thị giới hạn của phiên (vd. số người tối đa trong sảnh) thay vì
+    /// hard-code — giá trị nằm trong `ProtocolLimits` có revision (ADR 0009 §3.5).
+    pub fn limits(&self) -> &ProtocolLimits {
+        self.session.limits()
     }
 
     /// Build id của server (fingerprint ADR 0011 §8.3), lấy từ `Welcome`.
