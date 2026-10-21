@@ -383,6 +383,29 @@ impl PresentationJournal {
         self.seen.clear();
     }
 
+    /// Lượt hiện tại của sổ: khoá dedup event là `(round_id, EventId)`.
+    ///
+    /// Đây là **nguồn chuẩn duy nhất** của lượt trình diễn: client đọc lượt này để biết
+    /// event nào thuộc lượt đang chơi.
+    #[must_use]
+    pub fn round_id(&self) -> u32 {
+        self.round_id
+    }
+
+    /// Ghi hiệu ứng **mở đầu lượt** cho các nhân vật trong `slots`.
+    ///
+    /// Mở đầu lượt là **client tự sinh**: core V1 chưa có event mở đầu lượt, nên mục này
+    /// **không** có khoá event (ADR 0005, R-089). Khi event server xác nhận cùng đối
+    /// tượng tới thì mục dự đoán bị thay.
+    ///
+    /// `slots` là **slot trận** của người chơi: offline là id người chơi trong state core,
+    /// mạng là slot trong roster của `RoundStart` (ADR 0009 Addendum B §B.2).
+    pub fn record_start(&mut self, slots: &[u8], tick: u32) {
+        for slot in slots {
+            self.record_local(PresentationKind::Start, Subject::Player(*slot), tick);
+        }
+    }
+
     /// Ghi mục từ event server đã xác nhận.
     ///
     /// Trả `false` nếu event không có hiệu ứng trình diễn, hoặc event **lặp** (đã thấy
