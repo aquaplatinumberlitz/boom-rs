@@ -38,6 +38,142 @@ use boom_server::{Authority, HandshakeConfig, InputError, MatchSetup, Server, Se
 
 use super::{ClientSession, Credentials, NetClient, hello_for_profile};
 
+/// Rào reader: lần nhận kế tiếp chỉ bắt đầu sau khi frame trước đã được enqueue.
+/// Dùng cho reader thread của cả client và server, không thay đổi ClientSession.
+pub struct EnqueuedReader<T> {
+    inner: T,
+    progress: ReaderProgress,
+    pending: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct ReaderProgress(Arc<std::sync::atomic::AtomicU64>);
+
+impl ReaderProgress {
+    pub fn wait_for(&self, frames: u64) {
+        for _ in 0..MAX_WAIT_ROUNDS {
+            if self.0.load(std::sync::atomic::Ordering::Acquire) >= frames {
+                return;
+            }
+            thread::yield_now();
+        }
+        panic!("reader chưa enqueue đủ {frames} frame");
+    }
+}
+
+impl<T: Transport> EnqueuedReader<T> {
+    pub fn new(inner: T) -> (Self, ReaderProgress) {
+        let progress = ReaderProgress::default();
+        (
+            Self {
+                inner,
+                progress: progress.clone(),
+                pending: false,
+            },
+            progress,
+        )
+    }
+}
+
+impl<T: Transport> Transport for EnqueuedReader<T> {
+    fn send_frame(&mut self, frame: &[u8]) -> Result<(), NetError> {
+        self.inner.send_frame(frame)
+    }
+    fn recv_frame(&mut self) -> Result<Option<Vec<u8>>, NetError> {
+        if self.pending {
+            self.progress
+                .0
+                .fetch_add(1, std::sync::atomic::Ordering::Release);
+        }
+        let frame = self.inner.recv_frame()?;
+        self.pending = frame.is_some();
+        Ok(frame)
+    }
+    fn close(&mut self) -> Result<(), NetError> {
+        self.inner.close()
+    }
+    fn is_closed(&self) -> bool {
+        self.inner.is_closed()
+    }
+}
+
+/// Writer dùng chung để test gửi marker Ping mà không thêm API production.
+pub struct SharedWriter<T>(Arc<Mutex<T>>);
+impl<T> Clone for SharedWriter<T> {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+impl<T> SharedWriter<T> {
+    pub fn new(inner: T) -> Self {
+        Self(Arc::new(Mutex::new(inner)))
+    }
+}
+impl<T: Transport> Transport for SharedWriter<T> {
+    fn send_frame(&mut self, frame: &[u8]) -> Result<(), NetError> {
+        self.0.lock().expect("writer").send_frame(frame)
+    }
+    fn recv_frame(&mut self) -> Result<Option<Vec<u8>>, NetError> {
+        self.0.lock().expect("writer").recv_frame()
+    }
+    fn close(&mut self) -> Result<(), NetError> {
+        self.0.lock().expect("writer").close()
+    }
+    fn is_closed(&self) -> bool {
+        self.0.lock().expect("writer").is_closed()
+    }
+}
+
+/// Phản hồi Pong(u64::MAX) làm marker FIFO cho writer thread của server.
+/// Marker chỉ phục vụ rào test, không đi qua fault PRNG hay tới client.
+pub struct FlushWriter<T> {
+    inner: T,
+    progress: ReaderProgress,
+}
+impl<T: Transport> FlushWriter<T> {
+    pub fn new(inner: T) -> (Self, ReaderProgress) {
+        let progress = ReaderProgress::default();
+        (
+            Self {
+                inner,
+                progress: progress.clone(),
+            },
+            progress,
+        )
+    }
+}
+impl ReaderProgress {
+    pub fn count(&self) -> u64 {
+        self.0.load(std::sync::atomic::Ordering::Acquire)
+    }
+}
+impl<T: Transport> Transport for FlushWriter<T> {
+    fn send_frame(&mut self, frame: &[u8]) -> Result<(), NetError> {
+        if read_envelope(frame).expect("envelope").0.kind == MessageKind::Pong
+            && decode_frame::<boom_proto::Pong>(frame, &ProtocolLimits::v1())
+                .expect("pong")
+                .0
+                == u64::MAX
+        {
+            self.progress
+                .0
+                .fetch_add(1, std::sync::atomic::Ordering::Release);
+            Ok(())
+        } else {
+            self.inner.send_frame(frame)
+        }
+    }
+    fn recv_frame(&mut self) -> Result<Option<Vec<u8>>, NetError> {
+        self.inner.recv_frame()
+    }
+    fn close(&mut self) -> Result<(), NetError> {
+        self.inner.close()
+    }
+    fn is_closed(&self) -> bool {
+        self.inner.is_closed()
+    }
+}
+
 /// Profile rules cố định cho test (khác `data/rules/v1-dev.toml` nhưng cùng schema).
 const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
 
@@ -50,19 +186,6 @@ pub const ACCOUNT_PASSWORD: &str = "matkhau123";
 /// điều hành không được quyết định kết quả test. Vòng chờ **không tiến đồng hồ ảo** nên độ
 /// trễ thực tế của luồng đọc không làm lệch kịch bản.
 const MAX_WAIT_ROUNDS: u32 = 200_000;
-
-/// Trần thời gian thật khi **biết chắc** còn frame đang chờ (bơm client / poll server).
-///
-/// Chỉ dùng khi bộ đếm frame cho biết còn frame chưa xử lý: thời gian thật ở đây chỉ là
-/// **trần an toàn** (đợi luồng đọc đẩy frame vào hàng đợi), không quyết định kết quả test.
-const RELAXED_WAIT: Duration = Duration::from_millis(200);
-
-/// Trần thời gian thật khi **không** còn frame chờ (chỉ để lấy frame vừa được luồng đọc
-/// đẩy vào hàng đợi ứng dụng).
-///
-/// Luồng đọc lấy frame khỏi mạng ảo rồi **mới** đẩy vào hàng đợi ứng dụng: có một khe nhỏ
-/// giữa hai việc đó. Chờ ngắn ở đây đảm bảo client không bỏ sót frame vừa tới nơi.
-const SHORT_WAIT: Duration = Duration::from_millis(5);
 
 /// Ngưỡng "trễ nhiều tick" dùng trong test: input phải tới trễ hơn ngần này so với lúc gửi.
 ///
@@ -204,13 +327,14 @@ struct Shared {
     /// Lỗi mạng áp cho chiều này; **bật sau handshake** (mất `Hello` thì phiên hỏng, không
     /// phải lỗi mạng).
     faults: ScheduledFaults,
+    drop_results: bool,
     /// Số frame **đã tới hàng đợi nhận** của endpoint (đã đến hạn giao, chờ luồng đọc lấy),
     /// tính theo endpoint **nhận**.
     ///
     /// Khác [`Self::sent`]: frame còn trên đường (chưa đến hạn giao) **không** tính ở đây.
     queued: [u64; 2],
-    /// Số frame **đã giao cho ứng dụng nhận** (đã lấy khỏi hàng đợi), tính theo endpoint
-    /// **nhận**.
+    /// Số frame reader đã enqueue vào channel ứng dụng, tính theo endpoint nhận.
+    /// recv_frame kế tiếp xác nhận enqueue; try_recv đồng bộ xác nhận ngay khi lấy frame.
     delivered: [u64; 2],
 }
 
@@ -233,7 +357,7 @@ pub struct ScheduledCounters {
 }
 
 impl ScheduledCounters {
-    /// Số frame chiều này **đã tới nơi** (đối phương đã lấy khỏi hàng đợi nhận).
+    /// Số frame reader đã enqueue (hoặc fixture đã nhận đồng bộ qua try_recv).
     pub fn delivered_frames(&self) -> u64 {
         let inner = self.inner.lock().expect("khoá mạng ảo");
         inner.delivered[self.receiver]
@@ -311,6 +435,7 @@ pub struct ScheduledTransport {
     endpoint: Endpoint,
     rng: Rng,
     closed: bool,
+    pending: bool,
 }
 
 impl ScheduledTransport {
@@ -325,12 +450,14 @@ impl ScheduledTransport {
             endpoint: Endpoint::A,
             rng: Rng::new(seed.wrapping_add(0x9E37_79B9_7F4A_7C15)),
             closed: false,
+            pending: false,
         };
         let b = Self {
             net,
             endpoint: Endpoint::B,
             rng: Rng::new(seed.wrapping_add(0x3C6E_F372_FE94_F82B)),
             closed: false,
+            pending: false,
         };
         (a, b)
     }
@@ -364,10 +491,15 @@ impl Transport for ScheduledTransport {
         if self.closed {
             return Err(NetError::Closed);
         }
-        let faults = self.net.inner.lock().expect("khoá mạng ảo").faults;
+        let (faults, drop_results) = {
+            let inner = self.net.inner.lock().expect("khoá mạng ảo");
+            (inner.faults, inner.drop_results)
+        };
         // Quyết định lỗi mạng trước khi khoá mạng (PRNG thuộc endpoint này); thứ tự gọi PRNG
         // cố định nên cùng seed cho cùng thứ tự gửi ⇒ cùng lỗi mạng trên mọi OS.
-        let lost = self.roll(faults.loss_permille);
+        let lost = self.roll(faults.loss_permille)
+            || (drop_results
+                && read_envelope(frame).expect("envelope").0.kind == MessageKind::RoundResult);
         let jitter = if faults.jitter_ms == 0 {
             0
         } else {
@@ -422,10 +554,14 @@ impl Transport for ScheduledTransport {
             return Err(NetError::Closed);
         }
         let mut inner = self.net.inner.lock().expect("khoá mạng ảo");
+        if self.pending {
+            inner.delivered[self.endpoint.index()] += 1;
+            self.pending = false;
+        }
         loop {
             if let Some(frame) = inner.ready[self.endpoint.index()].pop_front() {
-                // Frame đã tới nơi: đếm để ứng dụng biết chắc peer đã lấy frame này.
-                inner.delivered[self.endpoint.index()] += 1;
+                // Chỉ xác nhận ở recv_frame kế tiếp, sau tx.send của reader thread.
+                self.pending = true;
                 return Ok(Some(frame));
             }
             if inner.closed[self.endpoint.peer().index()]
@@ -1046,28 +1182,22 @@ impl ScheduledHarness {
     /// **không tiến đồng hồ ảo** nên độ trễ thực tế của luồng đọc client không làm lệch
     /// kịch bản.
     ///
-    /// Lần bơm có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** ⇒ thời gian thật ở đây chỉ là
-    /// trần an toàn, không quyết định kết quả.
+    /// Chờ reader enqueue đủ frame đến hạn rồi drain một lần với Duration::ZERO.
     fn pump_clients(&mut self) {
-        for index in 0..self.clients.len() {
+        for client in &mut self.clients {
+            let counters = client.in_counters();
+            let target = counters.queued_frames();
+            let mut ready = false;
             for _ in 0..MAX_WAIT_ROUNDS {
-                let queued = self.clients[index].in_counters().queued_frames();
-                let delivered = self.clients[index].in_counters().delivered_frames();
-                let wait = if delivered < queued {
-                    RELAXED_WAIT
-                } else {
-                    SHORT_WAIT
-                };
-                self.clients[index].net.pump(wait).expect("bơm message");
-                let events = self.clients[index].net.take_events();
-                self.clients[index].events.extend(events);
-                let after = self.clients[index].in_counters().delivered_frames();
-                if after == delivered {
-                    // Không có frame nào tới trong lúc bơm: client đã xử lý hết frame có mặt.
+                if counters.delivered_frames() >= target {
+                    ready = true;
                     break;
                 }
-                // Có frame tới trong lúc bơm: client xử lý ở vòng sau (đồng hồ đứng yên).
+                thread::yield_now();
             }
+            assert!(ready, "client chưa enqueue đủ {target} frame");
+            client.net.pump(Duration::ZERO).expect("bơm message");
+            client.events.extend(client.net.take_events());
         }
     }
 
@@ -1239,9 +1369,20 @@ pub struct RoomClient {
     in_net: Arc<ScheduledNet>,
     /// Event đã nhận (đã dedup theo `(round_id, EventId)`).
     events: Vec<RoundEvent>,
+    writer_progress: ReaderProgress,
 }
 
 impl RoomClient {
+    /// Thống kê riêng chiều server→client, tránh assert tổng che mất coverage chiều này.
+    pub fn inbound_stats(&self) -> NetStats {
+        self.in_net.stats()
+    }
+
+    /// Fault xác định cho regression: làm mất mọi RoundResult của client này.
+    pub fn drop_round_results(&self) {
+        self.in_net.inner.lock().expect("khoá mạng ảo").drop_results = true;
+    }
+
     /// Event đã nhận của client.
     pub fn events(&self) -> &[RoundEvent] {
         &self.events
@@ -1367,6 +1508,7 @@ impl RoomHarness {
         let mut nets: Vec<(Arc<ScheduledNet>, Arc<ScheduledNet>)> = Vec::new();
         let mut handles = Vec::new();
         let mut identities = Vec::new();
+        let mut writers = Vec::new();
         for index in 0..count {
             // Định danh **kết nối** trong phiên: server dùng làm khoá session, **không** phải
             // slot trận (ADR 0009 Addendum B §B.2).
@@ -1382,6 +1524,8 @@ impl RoomHarness {
                 ScheduledTransport::pair(seed.wrapping_add(index as u64));
             let out_net = client_writer.net();
             let in_net = client_reader.net();
+            let (server_writer, progress) = FlushWriter::new(server_writer);
+            writers.push(progress);
             nets.push((Arc::clone(&out_net), Arc::clone(&in_net)));
             server
                 .accept(
@@ -1411,15 +1555,9 @@ impl RoomHarness {
             }));
             identities.push(connection);
         }
-        // Vòng IO của server phải chạy để trả `Welcome`/`AuthOk` cho client.
-        //
-        // Đồng hồ ảo tiến theo **bước cố định** ([`ROOM_STEP_MS`]) chứ không theo số vòng
-        // thực: số vòng handshake phụ thuộc lịch chạy thread (không tất định), còn phần
-        // lẻ của đồng hồ ảo quyết định **bước** mà frame tới nơi ⇒ phải cố định để kịch
-        // bản tất định.
-        let mut now_ms = 0u64;
+        // Handshake giữ clock tại 0; số lượt poll phụ thuộc scheduler không đổi origin.
+        let now_ms = 0u64;
         while handles.iter().any(|handle| !handle.is_finished()) {
-            now_ms += ROOM_STEP_MS;
             for (out_net, in_net) in &nets {
                 out_net.advance_to(now_ms);
                 in_net.advance_to(now_ms);
@@ -1443,6 +1581,7 @@ impl RoomHarness {
                 out_net,
                 in_net,
                 events: Vec::new(),
+                writer_progress: writers[index].clone(),
             });
         }
         // Lỗi mạng chỉ bật **sau** handshake: mất `Hello`/`Welcome` là hỏng phiên chứ không
@@ -1599,38 +1738,58 @@ impl RoomHarness {
     /// Điều kiện dựa trên **bộ đếm frame** của mạng ảo, không đo thời gian thật. Vòng chờ
     /// **không tiến đồng hồ ảo** nên độ trễ thực tế của luồng đọc không làm lệch kịch bản.
     ///
-    /// Lần poll có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** (đã tới hàng đợi nhận mà
-    /// luồng đọc chưa lấy) ⇒ thời gian thật ở đây chỉ là trần an toàn, không quyết định kết quả.
+    /// Reader xác nhận enqueue; marker Ping/Pong ở poll kế tiếp rào writer FIFO.
     fn poll_server(&mut self) {
-        for _ in 0..MAX_WAIT_ROUNDS {
-            let queued: Vec<u64> = self
-                .clients
-                .iter()
-                .map(|client| client.out_counters().queued_frames())
-                .collect();
-            let delivered: Vec<u64> = self
-                .clients
-                .iter()
-                .map(|client| client.out_counters().delivered_frames())
-                .collect();
-            let pending = queued
-                .iter()
-                .zip(&delivered)
-                .any(|(queued, delivered)| queued > delivered);
-            let wait = if pending { RELAXED_WAIT } else { SHORT_WAIT };
-            let _ = self.server.poll(self.now_ms, wait).expect("server poll");
-            let after: Vec<u64> = self
-                .clients
-                .iter()
-                .map(|client| client.out_counters().delivered_frames())
-                .collect();
-            if after == delivered {
-                // Không có frame nào tới trong lúc poll: server đã xử lý hết frame có mặt.
-                return;
+        for client in &self.clients {
+            let counters = client.out_counters();
+            let target = counters.queued_frames();
+            let mut ready = false;
+            for _ in 0..MAX_WAIT_ROUNDS {
+                if counters.delivered_frames() >= target {
+                    ready = true;
+                    break;
+                }
+                thread::yield_now();
             }
-            // Có frame tới trong lúc poll: server xử lý ở vòng sau (đồng hồ ảo đứng yên).
+            assert!(ready, "server chưa enqueue đủ {target} frame");
         }
-        panic!("server không xử lý hết frame client gửi");
+        self.server
+            .poll(self.now_ms, Duration::ZERO)
+            .expect("server poll");
+        // Poll trước đã xếp toàn bộ output. Marker ở poll kế tiếp đứng SAU output đó.
+        for client in &self.clients {
+            let mut inner = client.out_net.inner.lock().expect("khoá mạng ảo");
+            inner.ready[1].push_back(
+                encode_frame(&boom_proto::Ping(u64::MAX), &ProtocolLimits::v1()).expect("marker"),
+            );
+            inner.queued[1] += 1;
+            drop(inner);
+            client.out_net.signal.notify_all();
+        }
+        for client in &self.clients {
+            let counters = client.out_counters();
+            let target = counters.queued_frames();
+            let mut ready = false;
+            for _ in 0..MAX_WAIT_ROUNDS {
+                if counters.delivered_frames() >= target {
+                    ready = true;
+                    break;
+                }
+                thread::yield_now();
+            }
+            assert!(ready, "server chưa enqueue marker");
+        }
+        let targets: Vec<_> = self
+            .clients
+            .iter()
+            .map(|c| c.writer_progress.count() + 1)
+            .collect();
+        self.server
+            .poll(self.now_ms, Duration::ZERO)
+            .expect("poll marker");
+        for (client, target) in self.clients.iter().zip(targets) {
+            client.writer_progress.wait_for(target);
+        }
     }
 
     /// Bơm hàng đợi đọc của mọi client tới khi **mọi frame server gửi** đã được xử lý.
@@ -1639,28 +1798,22 @@ impl RoomHarness {
     /// **không tiến đồng hồ ảo** nên độ trễ thực tế của luồng đọc client không làm lệch
     /// kịch bản.
     ///
-    /// Lần bơm có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** ⇒ thời gian thật ở đây chỉ là
-    /// trần an toàn, không quyết định kết quả.
+    /// Chờ reader enqueue đủ frame đến hạn rồi drain một lần với Duration::ZERO.
     fn pump_clients(&mut self) {
-        for index in 0..self.clients.len() {
+        for client in &mut self.clients {
+            let counters = client.in_counters();
+            let target = counters.queued_frames();
+            let mut ready = false;
             for _ in 0..MAX_WAIT_ROUNDS {
-                let queued = self.clients[index].in_counters().queued_frames();
-                let delivered = self.clients[index].in_counters().delivered_frames();
-                let wait = if delivered < queued {
-                    RELAXED_WAIT
-                } else {
-                    SHORT_WAIT
-                };
-                self.clients[index].net.pump(wait).expect("bơm message");
-                let events = self.clients[index].net.take_events();
-                self.clients[index].events.extend(events);
-                let after = self.clients[index].in_counters().delivered_frames();
-                if after == delivered {
-                    // Không có frame nào tới trong lúc bơm: client đã xử lý hết frame có mặt.
+                if counters.delivered_frames() >= target {
+                    ready = true;
                     break;
                 }
-                // Có frame tới trong lúc bơm: client xử lý ở vòng sau (đồng hồ đứng yên).
+                thread::yield_now();
             }
+            assert!(ready, "client chưa enqueue đủ {target} frame");
+            client.net.pump(Duration::ZERO).expect("bơm message");
+            client.events.extend(client.net.take_events());
         }
     }
 }

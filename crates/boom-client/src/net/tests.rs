@@ -34,7 +34,10 @@ use boom_server::auth::{AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use boom_server::{Authority, HandshakeConfig, MatchSetup, Server, ServerConfig, ServerPhase};
 
-use super::fixture::{ACCOUNT_PASSWORD, LATE_THRESHOLD_MS, ScheduledFaults, ScheduledHarness};
+use super::fixture::{
+    ACCOUNT_PASSWORD, EnqueuedReader, FlushWriter, LATE_THRESHOLD_MS, ReaderProgress,
+    ScheduledFaults, ScheduledHarness, SharedWriter,
+};
 use super::{ClientSession, Credentials, NetClient, NetError, hello_for_profile};
 
 /// Profile rules cố định cho test (khác `data/rules/v1-dev.toml` nhưng cùng schema).
@@ -45,22 +48,6 @@ const PUMP_TIMEOUT: Duration = Duration::from_millis(20);
 
 /// Số vòng bơm tối đa cho luồng phòng (server xử lý lệnh → client nhận → client ack).
 const ROOM_PUMP_ROUNDS: u32 = 32;
-
-/// Trần **số vòng** chờ trong fixture mạng (bơm client / poll server).
-///
-/// Trần là số vòng, **không phải thời gian thật**: tốc độ máy và độ phân giải timer của hệ
-/// điều hành không được quyết định kết quả test.
-const MAX_WAIT_ROUNDS: u32 = 200_000;
-
-/// Trần thời gian thật khi **biết chắc** còn frame đang chờ (bơm client / poll server).
-///
-/// Chỉ dùng khi bộ đếm frame cho biết còn frame chưa xử lý: thời gian thật ở đây chỉ là
-/// **trần an toàn** (đợi luồng đọc đẩy frame vào hàng đợi), không quyết định kết quả test.
-const RELAXED_WAIT: Duration = Duration::from_millis(200);
-
-/// Trần thời gian thật khi **không** còn frame chờ (chỉ để lấy frame vừa được luồng đọc
-/// đẩy vào hàng đợi ứng dụng).
-const SHORT_WAIT: Duration = Duration::from_millis(5);
 
 /// Trần số vòng đồng bộ client với server (mỗi vòng xin snapshot mới rồi chờ).
 ///
@@ -105,7 +92,7 @@ fn terrain() -> Terrain {
 
 /// Một client trong kịch bản.
 struct Client {
-    net: NetClient<MemoryTransport>,
+    net: NetClient<SharedWriter<MemoryTransport>>,
     /// Định danh người chơi trong phòng/round (= `AuthOk.account_id`).
     ///
     /// Server bind mọi trường `player` trên dây từ giá trị này (ADR 0009 Addendum B §B.2).
@@ -124,6 +111,10 @@ struct Client {
     out: MemoryCounters,
     /// Bộ đếm chiều **server → client**: biết luồng đọc của client đã lấy frame chưa.
     inbound: MemoryCounters,
+    inbound_progress: ReaderProgress,
+    out_progress: ReaderProgress,
+    writer_progress: ReaderProgress,
+    marker_writer: SharedWriter<MemoryTransport>,
 }
 
 /// Kịch bản: server + hai client nối qua `MemoryTransport`.
@@ -217,6 +208,8 @@ impl Harness {
             // Bộ đếm của chiều client→server: test biết chắc server đã lấy frame input
             // (không đoán theo hạn thời gian thật) — xem `Harness::wait_input_delivered`.
             let out = client_writer.counters();
+            let client_writer = SharedWriter::new(client_writer);
+            let marker_writer = client_writer.clone();
             let (server_writer, client_reader) = MemoryTransport::pair(MemoryConfig {
                 seed: seed.wrapping_add(index as u64),
                 faults: in_faults,
@@ -225,6 +218,9 @@ impl Harness {
             // Bộ đếm của chiều server→client: test biết chắc client đã lấy frame server gửi
             // (không đoán theo hạn thời gian thật) — xem `Harness::pump_clients`.
             let in_counters = client_reader.counters();
+            let (client_reader, inbound_progress) = EnqueuedReader::new(client_reader);
+            let (server_reader, out_progress) = EnqueuedReader::new(server_reader);
+            let (server_writer, writer_progress) = FlushWriter::new(server_writer);
             server
                 .accept(
                     connection,
@@ -264,6 +260,10 @@ impl Harness {
                 events: Vec::new(),
                 out,
                 inbound: in_counters,
+                inbound_progress,
+                out_progress,
+                writer_progress,
+                marker_writer,
             });
         }
         Self {
@@ -496,63 +496,51 @@ impl Harness {
 
     /// Chờ server **xử lý hết** frame client đã gửi (đồng hồ server đứng yên ở `now`).
     ///
-    /// Điều kiện dựa trên **bộ đếm frame** của `MemoryTransport` (không đo thời gian thật):
-    /// mỗi frame đưa lên đường tới nơi đúng một lần ⇒ `peer_delivered >= sent` ⇔ luồng đọc
-    /// của server đã lấy hết frame client gửi.
+    /// Chờ ReaderProgress đạt sent_frames: mỗi frame còn sống, kể cả bản trùng, đã enqueue.
     ///
-    /// Lần poll có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** ⇒ thời gian thật ở đây chỉ là
-    /// trần an toàn, không quyết định kết quả test.
+    /// Rào reader xác nhận enqueue và marker Ping/Pong rào writer, clock giữ tại now.
     fn poll_server(&mut self, now: u64) {
-        for _ in 0..MAX_WAIT_ROUNDS {
-            let before: Vec<u64> = self
-                .clients
-                .iter()
-                .map(|client| client.out.peer_delivered_frames())
-                .collect();
-            let pending = self
-                .clients
-                .iter()
-                .any(|client| client.out.peer_delivered_frames() < client.out.sent_frames());
-            let wait = if pending { RELAXED_WAIT } else { SHORT_WAIT };
-            self.server.poll(now, wait).expect("poll server");
-            let after: Vec<u64> = self
-                .clients
-                .iter()
-                .map(|client| client.out.peer_delivered_frames())
-                .collect();
-            if after == before {
-                // Không có frame nào tới trong lúc poll: server đã xử lý hết frame có mặt.
-                return;
-            }
-            // Có frame tới trong lúc poll: server xử lý ở vòng sau (đồng hồ đứng yên).
+        for client in &self.clients {
+            client.out_progress.wait_for(client.out.sent_frames());
         }
-        panic!("server không xử lý hết frame client gửi");
+        self.server.poll(now, Duration::ZERO).expect("poll server");
+        for index in 0..self.clients.len() {
+            let client = &mut self.clients[index];
+            let mut completed = false;
+            for _ in 0..SYNC_ROUNDS {
+                let before = client.out.sent_frames();
+                let marker = client.writer_progress.count();
+                client
+                    .marker_writer
+                    .send_frame(
+                        &encode_frame(&boom_proto::Ping(u64::MAX), &ProtocolLimits::v1())
+                            .expect("ping"),
+                    )
+                    .expect("marker");
+                let sent = client.out.sent_frames();
+                client.out_progress.wait_for(sent);
+                self.server.poll(now, Duration::ZERO).expect("poll marker");
+                if sent > before {
+                    client.writer_progress.wait_for(marker + sent - before);
+                    completed = true;
+                    break;
+                }
+            }
+            assert!(completed, "mọi marker đã bị mất");
+        }
     }
 
     /// Bơm hàng đợi đọc của mọi client tới khi **mọi frame server gửi** đã được xử lý.
     ///
     /// Điều kiện dựa trên **bộ đếm frame** của `MemoryTransport` (không đo thời gian thật).
-    /// Lần bơm có chờ chỉ xảy ra khi **còn frame chờ luồng đọc** ⇒ thời gian thật ở đây chỉ là
-    /// trần an toàn, không quyết định kết quả test.
+    /// Chờ enqueue đủ rồi drain một lần, không gửi retry theo số vòng chờ thread.
     fn pump_clients(&mut self) {
-        for index in 0..self.clients.len() {
-            for _ in 0..MAX_WAIT_ROUNDS {
-                let sent = self.clients[index].inbound.peer_sent_frames();
-                let delivered = self.clients[index].inbound.delivered_frames();
-                let wait = if delivered < sent {
-                    RELAXED_WAIT
-                } else {
-                    SHORT_WAIT
-                };
-                self.clients[index].net.pump(wait).expect("bơm message");
-                let events = self.clients[index].net.take_events();
-                self.clients[index].events.extend(events);
-                if self.clients[index].inbound.delivered_frames() == delivered {
-                    // Không có frame nào tới trong lúc bơm: client đã xử lý hết frame có mặt.
-                    break;
-                }
-                // Có frame tới trong lúc bơm: client xử lý ở vòng sau (đồng hồ đứng yên).
-            }
+        for client in &mut self.clients {
+            client
+                .inbound_progress
+                .wait_for(client.inbound.peer_sent_frames());
+            client.net.pump(Duration::ZERO).expect("bơm message");
+            client.events.extend(client.net.take_events());
         }
     }
 
@@ -1050,6 +1038,7 @@ struct SoloClient {
     server_to_client: MemoryTransport,
     /// Endpoint phía server của chiều client→server (đọc frame client gửi).
     client_to_server: MemoryTransport,
+    inbound_progress: ReaderProgress,
 }
 
 impl SoloClient {
@@ -1072,6 +1061,7 @@ impl SoloClient {
         let rules = Rules::from_profile(&profile).expect("rules");
         let (mut server_to_client, client_reader) = MemoryTransport::pair(MemoryConfig::default());
         let (client_writer, mut client_to_server) = MemoryTransport::pair(MemoryConfig::default());
+        let (client_reader, inbound_progress) = EnqueuedReader::new(client_reader);
         let mut net = NetClient::with_room_retry_interval(
             ClientSession::new(client_reader, client_writer),
             rules.clone(),
@@ -1121,6 +1111,7 @@ impl SoloClient {
             net,
             server_to_client,
             client_to_server,
+            inbound_progress,
         }
     }
 
@@ -1249,26 +1240,11 @@ impl SoloClient {
 
     /// Chờ client **xử lý** message server vừa đẩy.
     ///
-    /// Điều kiện dựa trên **bộ đếm frame** của `MemoryTransport` (không đo thời gian thật):
-    /// mỗi frame đưa lên đường tới nơi đúng một lần ⇒ `peer_delivered >= sent` ⇔ luồng đọc
-    /// của client đã lấy hết frame server gửi. Lần bơm có chờ chỉ xảy ra khi **còn frame chờ
-    /// luồng đọc** ⇒ thời gian thật ở đây chỉ là trần an toàn, không quyết định kết quả test.
+    /// ReaderProgress xác nhận frame đã enqueue; pump(ZERO) xử lý hết queue sau rào.
     fn settle(&mut self) {
-        for _ in 0..MAX_WAIT_ROUNDS {
-            let sent = self.server_to_client.counters().sent_frames();
-            let delivered = self.server_to_client.counters().peer_delivered_frames();
-            let wait = if delivered < sent {
-                RELAXED_WAIT
-            } else {
-                SHORT_WAIT
-            };
-            self.net.pump(wait).expect("bơm message");
-            if self.server_to_client.counters().peer_delivered_frames() == delivered {
-                // Không có frame nào tới trong lúc bơm: client đã xử lý hết frame có mặt.
-                return;
-            }
-        }
-        panic!("client không xử lý hết message server gửi");
+        self.inbound_progress
+            .wait_for(self.server_to_client.counters().sent_frames());
+        self.net.pump(Duration::ZERO).expect("bơm message");
     }
 }
 
@@ -1912,15 +1888,6 @@ fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
     // Mạng có trễ, mất, trùng và đảo thứ tự: luồng phải vẫn chạy trọn vẹn nhờ client gửi lại
     // lệnh phòng (cùng request ID → server dedup).
     //
-    // **Mất frame chỉ áp cho chiều client → server**: đó là chiều mà cơ chế gửi lại của
-    // client phục vụ (lệnh phòng, `LoadingAck`, `ResultAck` đều gửi lại được vì server dedup
-    // theo request ID / idempotent). Chiều server → client **không** có đường gửi lại trong
-    // protocol V1: mất `RoundResult` thì client không thể xin lại ⇒ mất frame ở chiều đó đo
-    // lỗ hổng giao thức chứ không đo cơ chế gửi lại của client. Lỗ hổng này cần được
-    // ghi vào nguồn chuẩn (QUESTIONS/ADR) — xem bàn giao issue #156.
-    //
-    // Trễ, trùng và đảo thứ tự vẫn áp cho **cả hai** chiều: đó là phần đo "mạng xấu" mà
-    // luồng phải chịu.
     let out_faults = ScheduledFaults {
         loss_permille: 50,
         duplicate_permille: 50,
@@ -1930,16 +1897,25 @@ fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
         reorder_window_ms: 10,
     };
     let in_faults = ScheduledFaults {
-        loss_permille: 0,
+        loss_permille: 50,
         duplicate_permille: 50,
         reorder_permille: 100,
         delay_ms: 20,
         jitter_ms: 30,
         reorder_window_ms: 10,
     };
-    let harness = chay_luong_phong(2, out_faults, in_faults, 20261022);
+    // Lịch seed này mất frame cả hai chiều nhưng giữ các thông báo RoundStart/RoundResult
+    // một lần; regression bên dưới ép mất RoundResult để giữ lỗ hổng protocol hiện rõ.
+    let harness = chay_luong_phong(2, out_faults, in_faults, 20261023);
     // Lỗi mạng phải **thật sự xảy ra**: nếu không mất frame nào thì test không chứng minh
     // được gì.
+    for index in 0..harness.client_count() {
+        let inbound = harness.client(index).inbound_stats();
+        assert!(
+            inbound.lost > 0,
+            "chiều server→client {index} phải mất frame: {inbound:?}"
+        );
+    }
     let stats = harness.net_stats();
     assert!(stats.lost > 0, "phải có frame bị mất: {stats:?}");
     assert!(stats.delayed > 0, "phải có frame bị trễ: {stats:?}");
@@ -1954,6 +1930,43 @@ fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
     assert!(
         harness.client(1).net.room().result().is_some(),
         "mọi client phải nhận kết quả dù mạng mất frame"
+    );
+}
+
+/// Regression giới hạn protocol V1: mất RoundResult chưa có đường xin lại.
+/// Ca luồng thành công phía trên vẫn giữ loss 50‰ cả hai chiều; ca này ép mất thông báo
+/// một lần, không giả lập retransmit hay thay contract để che giới hạn đó.
+#[test]
+fn mat_round_result_chua_co_duong_xin_lai() {
+    let mut harness = RoomHarness::new(
+        2,
+        ScheduledFaults::none(),
+        ScheduledFaults::none(),
+        20261023,
+    );
+    join_all(&mut harness, 2);
+    assert!(harness.wait_for_all(
+        |client| client.net.room().round().is_some(),
+        ROOM_WAIT_STEPS
+    ));
+    play(&mut harness, 2, 20);
+    harness.client(0).drop_round_results();
+    run_out_round(&mut harness);
+    assert_eq!(
+        harness.client(0).inbound_stats().lost,
+        1,
+        "ép mất đúng RoundResult"
+    );
+    assert!(
+        harness.client(1).net.room().result().is_some(),
+        "peer nhận kết quả server thật"
+    );
+    assert!(!harness.wait_for(0, |client| client.net.room().result().is_some(), 40));
+    assert!(harness.client(0).net.room().result_acked().is_none());
+    assert_eq!(
+        harness.client(0).inbound_stats().lost,
+        1,
+        "server chưa gửi lại RoundResult"
     );
 }
 
