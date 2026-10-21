@@ -420,3 +420,28 @@ Trạng thái duyệt ảnh là **quy trình của dự án** (`images_review.cs
 [Q-012](../../research/QUESTIONS.md). Không claim **nội dung** chữ trong ảnh: phần đọc chữ chỉ là
 **bằng chứng mô tả** của [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1),
 không phải bản dịch — bản dịch chuẩn là `catalog.csv` của `boom-re-l10n`.
+
+## 13. RE KR 00967 — bị nhốt (R-126…R-131)
+
+Đọc tĩnh client KR `00967` cho [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147) / Q-018.
+Định danh build (SHA-256 `cf72da11…e63b`, imagebase `0x400000`, `RVA = VA − 0x400000`) và bảng VA/RVA ở
+[evidence KR static trapped](../../evidence/measurements/kr-static-trapped-2026-10-21/README.md);
+suy luận, giới hạn và cách đối chiếu ở [KR_RE_TRAPPED](../../research/findings/KR_RE_TRAPPED.md).
+Dãy số bắt đầu ở R-126 vì R-119…R-125 (movement) thuộc PR #152; nếu #152 chưa merge thì §12 chưa có
+trong tệp này nhưng dãy số vẫn không trùng.
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-126 | Mã state của bomber (getter/setter virtual `+100`/`+104`): `3` = **bị nhốt**, `13` = đang chết, `14` = chết, `2` = stop, `8` = stop sau nhóm khoá, `9..12` = đi 4 hướng, `19..22` = đi 4 hướng ở nhóm khoá; `{0,1,4,13,14}` là các state **không** được đi | — | `kr_static` + `vn_static` / confirmed | Consumer `sub_B952E0` KR `0x00B952E0` (set `3` khi cờ sống bật và state không thuộc nhóm đi/chết; `13→14→2`); nghĩa "3 = bị nhốt" khớp packet C→S 120 subtype 11 ở [`oc_e-game.md`](../../../docs/research/findings/VN_FEATURES_REFERENCE.md) §5b (VN) |
+| R-127 | Người **bị nhốt vẫn di chuyển được**: input không bị chặn ở state `3`; cổng di chuyển chỉ loại `{0,1,4,13,14}`; với state `3` cổng chỉ đóng khi bộ đếm giữ `this[235]`/`this[236]` còn `> 0` | — | `kr_static` / confirmed | `sub_B95180` `0x00B95180` (chỉ bỏ qua state `13`,`14`,`1`), `sub_B95970` `0x00B95970` (cổng), `CGOBomber::MoveGate` `0x00B93830` dùng cổng đó rồi gọi `0x00B93890` |
+| R-128 | Họ state đi được chọn theo nhóm: đang ở nhóm khoá (`15..18` hoặc `19..22`) thì đặt `dir+19`, ngược lại `dir+9`; đổi nhóm xong thì state là `22` (mode khoá) hoặc `8` (mode thường) | 4 hướng × 2 họ | `kr_static` / confirmed | `sub_B95840` `0x00B95840` (chọn `a2+9`/`a2+19`), `sub_B95E00` `0x00B95E00` (nhận diện nhóm), `sub_B95BD0` `0x00B95BD0` |
+| R-129 | Đổi nhóm khoá đặt **bộ đếm giữ 20 bước cập nhật** (`this[235]` hoặc `this[236] = 20`), giảm 1 mỗi bước; trong lúc `> 0` cổng di chuyển trả `false` ⇒ đóng di chuyển 20 bước. Ở 30 ms/bước (R-013) tương đương ≈ 600 ms — **quy đổi, chưa đo trên KR**, và **không** phải thời gian bị nhốt | 20 bước (≈600 ms quy đổi) | `kr_static` / confirmed (cơ chế); đơn vị ms là quy đổi | `sub_B95BD0` `0x00B95BD0` (đặt `20`), `sub_B952E0` `0x00B952E0` (giảm), `sub_B95DA0`/`sub_B95DD0` (đọc), `sub_B95970` (dùng làm cổng) |
+| R-130 | Chuỗi chết: state `13` (đang chết) → gọi `vf128` + `sub_B936F0(this[59], this[58])` → state `14`; state `14` → (nếu `this[234] == 1` thì đổi nhóm khoá về mode thường) → state `2`. `this[58]`/`this[59]` chưa xác định nghĩa | — | `kr_static` / confirmed (chuỗi state); nghĩa hai trường con `unknown` | `sub_B952E0` `0x00B952E0` case `13`/`14` |
+| R-131 | **Chưa định vị** timer nhốt → chết. Client có tên hàng đợi defer `kCGameStage_DeferBomberLockedIn` (`0x017953C8`) và `kCGameStage_DeferBomberReleaseOrDie` (`0x01795074`) nhưng bảng tên chỉ đăng ký id, không trỏ hàm; khoảng packet 6359 ms (R-026) **không** phải timer nội bộ | — (không mang giá trị) | `kr_static` / unknown | Bảng tên tại `0x01795074`, `0x017953C8`; xref duy nhất là bảng đăng ký. Bước tiếp: tìm bộ thực thi defer theo id rồi lấy case tương ứng; nếu thân hàm ở `.themida` thì dừng và ghi entry VM theo DEVIRT_METHOD |
+
+R-127 **phủ định** mô hình `trapped` đứng yên đang dùng ở R-036/R-108 (BnB design): client KR vẫn nhận
+input và vẫn gọi đường di chuyển cho bomber ở state `3`. Giá trị profile hiện hành
+(`player.trap_to_death_ms`, `player.trap_touch_distance_px`) **không đổi** trong PR này — và R-129
+**không** được dùng làm `trap_to_death_ms`: 20 bước là bộ đếm chuyển nhóm trình diễn, không phải thời
+gian bị nhốt. Bảng khác biệt và đề xuất ở
+[KR_RE_TRAPPED §7](../../research/findings/KR_RE_TRAPPED.md#7-khác-biệt-với-profile-hiện-tại-và-với-bnb).
