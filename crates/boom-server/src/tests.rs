@@ -6,13 +6,12 @@ use std::sync::{Arc, Condvar, Mutex};
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
-use boom_core::{CharacterStats, Dir, Life, Stat, World, mode_by_id};
+use boom_core::{CharacterStats, CharacterStatsTable, Dir, Life, Stat, World, mode_by_id};
 use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
 use crate::{
-    Authority, CharacterStatsTable, InputError, MatchOutcome, MatchSetup, ReplaySetup,
-    ServerConfig, ServerPhase,
+    Authority, InputError, MatchOutcome, MatchSetup, ReplaySetup, ServerConfig, ServerPhase,
 };
 
 const RULES: &str = include_str!("../../../fixtures/rules/skeleton-test.toml");
@@ -824,14 +823,21 @@ fn auth_attempt(
     panic!("không nhận AuthOk/AuthFail sau retry");
 }
 
-fn authenticate_player(server: &mut Server, client: &mut WireClient, player: PlayerId) {
+fn authenticate_player(server: &mut Server, client: &mut WireClient, player: PlayerId) -> AuthOk {
     let (username, password) = test_credentials(player);
-    auth_attempt(server, client, AuthOp::Register, &username, &password).unwrap();
+    auth_attempt(server, client, AuthOp::Register, &username, &password).unwrap()
 }
 
 fn authenticate(server: &mut Server, clients: &mut [WireClient], players: &[PlayerId]) {
     for (index, &player) in players.iter().enumerate() {
-        authenticate_player(server, &mut clients[index], player);
+        let ok = authenticate_player(server, &mut clients[index], player);
+        // Định danh người chơi trong phòng là `account_id` (ADR 0009 Addendum B §B.2); DB tạm
+        // mới mỗi test nên account id cấp theo thứ tự đăng ký — test dùng chung số thứ tự
+        // cho cả định danh kết nối lẫn định danh người chơi trong phòng.
+        assert_eq!(
+            ok.account_id, player.0,
+            "account id phải trùng định danh kết nối để test dùng chung một số thứ tự"
+        );
     }
 }
 
