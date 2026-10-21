@@ -4,6 +4,10 @@
 //! v2; ở đây chỉ ghép entry thành clip và kiểm dãi frame (chỉ số ảnh trong miền, rect
 //! nằm trong ảnh) theo schema của [`boom_content::animation`].
 //!
+//! **Bảng mapping** (state → entry) là **data**: [`boom_content::assets`] nạp từ
+//! `data/assets/animation-v1.toml`, mỗi dòng mang nhãn bằng chứng và claim RULES_V1.
+//! Module này chỉ đọc pack theo bảng đó, không khai báo tên entry.
+//!
 //! Nguồn:
 //!
 //! - [MAPS §3](../../../../docs/specification/assets/MAPS.md) — layout frame 48 byte.
@@ -13,320 +17,30 @@
 //! **Thời lượng frame không có nguồn trong pack**: blob `CDataI16Alpha` v2 chỉ có 12 số
 //! mỗi frame và không mang trường thời gian (MAPS §3), còn consumer phía client thì
 //! chưa định vị được. Vì vậy mọi clip ở đây mang `FrameTiming::Unknown` kèm lý do —
-//! không tự đặt một hằng số thời lượng (R-079, Q-003).
+//! không tự đặt một hằng số thời lượng (R-079, Q-003). Lý do nằm ở bảng data, không
+//! hard-code trong code.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use boom_content::animation::{
-    AnimationClip, AnimationError, AnimationFrame, AnimationSet, CanvasSize, Direction, FlameKind,
-    FrameTiming, ImageSize, Pivot, PresentationState, SourceRect, SpriteLayer, validate_frames,
+    AnimationClip, AnimationError, AnimationSet, CanvasSize, ImageSize, Pivot, SourceRect,
+    validate_frames,
 };
-use boom_content::rules::{Source, Status};
+use boom_content::assets::{AnimationMapping, AssetError, AssetTables};
 
 use crate::legacy_map::Build;
 use crate::pack::{Pack, PackError};
 use crate::sprite::{self, SpriteError};
 
-/// Pack chứa sprite nhân vật.
-pub const CHARACTER_PACK: &str = "FxCharacter";
-
-/// Pack chứa sprite bom, lửa và bong bóng bị nhốt.
-pub const BOMB_PACK: &str = "FxDesktop";
-
-/// Pack chứa icon item và lửa nhạt (motion blur).
-pub const FX_PACK: &str = "fx";
-
-/// Claim RULES_V1: entry animation V1 có trong pack KR 00967 và dãi frame hợp lệ.
-pub const CLAIM_CONFIRMED: &str = "R-077";
-
-/// Claim RULES_V1: mapping state → animation mới là ứng viên (chưa có consumer).
-pub const CLAIM_CANDIDATE: &str = "R-078";
-
-/// Lý do dùng cho mọi clip khi chưa có nguồn thời lượng frame.
-pub const NO_TIMING_SOURCE: &str = "pack client gốc không mang trường thời lượng frame \
-    (blob CDataI16Alpha v2 chỉ có 12 số mỗi frame, MAPS §3) và consumer phía client chưa \
-    định vị được; V1 chưa chốt thời lượng nên không tự đặt (R-079, Q-003)";
-
-/// Nhân vật V1 (SCOPE_V1 §1).
-const CHARACTERS: &[&str] = &["C00", "C01"];
-
-/// Hướng đi của V1.
-const DIRECTIONS: &[Direction] = &[
-    Direction::Up,
-    Direction::Down,
-    Direction::Left,
-    Direction::Right,
-];
-
-/// Lớp sprite của nhân vật: nền và lớp ngoại hình điều chỉnh.
-const LAYERS: &[SpriteLayer] = &[SpriteLayer::Static, SpriteLayer::Adjust];
-
-/// Icon item rơi của V1 (SCOPE_V1 §1).
-const ITEMS: &[&str] = &["Bomb", "Fire", "Roller"];
-
-/// Một entry pack cần trích thành clip.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClipSource {
-    /// ID ổn định của clip, ví dụ `c00.walk.down.static`.
-    pub id: String,
-    /// State trình diễn mà clip phục vụ.
-    pub state: PresentationState,
-    /// Pack chứa entry.
-    pub pack: String,
-    /// Đường dẫn entry trong pack.
-    pub entry: String,
-    /// Lớp sprite; `None` cho clip không chia lớp.
-    pub layer: Option<SpriteLayer>,
-    /// Nguồn bằng chứng (AGENTS §4).
-    pub source: Source,
-    /// Trạng thái bằng chứng.
-    pub status: Status,
-    /// Claim RULES_V1 liên quan.
-    pub claims: Vec<String>,
-    /// Thời lượng frame của clip.
-    pub timing: FrameTiming,
-    /// Ghi chú: lý do, giới hạn, ứng viên.
-    pub note: Option<String>,
-}
-
-/// Khai báo một clip cần trích; dựng thành [`ClipSource`] bằng [`ClipDecl::build`].
-struct ClipDecl {
-    id: String,
-    pack: &'static str,
-    entry: String,
-    layer: Option<SpriteLayer>,
-    state: PresentationState,
-    status: Status,
-    claim: &'static str,
-    note: &'static str,
-}
-
-impl ClipDecl {
-    fn build(self) -> ClipSource {
-        ClipSource {
-            id: self.id,
-            state: self.state,
-            pack: self.pack.to_owned(),
-            entry: self.entry,
-            layer: self.layer,
-            source: Source::KrStatic,
-            status: self.status,
-            claims: vec![self.claim.to_owned()],
-            timing: FrameTiming::Unknown {
-                reason: NO_TIMING_SOURCE.to_owned(),
-            },
-            note: Some(self.note.to_owned()),
-        }
-    }
-}
-
-/// Bảng entry animation cần có cho state trình diễn của V1.
+/// Bảng clip animation V1, nạp từ `data/assets/animation-v1.toml`.
 ///
-/// Bảng này là **dữ liệu content** (RULES_V1 R-077/R-078/R-084), không phải luật chơi: state
-/// nào dùng clip nào là quyết định chọn nội dung của V1, còn frame/pivot đọc từ pack.
+/// # Errors
 ///
-/// Trạng thái bằng chứng theo từng nhóm:
-///
-/// - `walk` (4 hướng), `dead`, bom đếm fuse, icon item và hiệu ứng nổ: `confirmed` —
-///   tên entry khớp state và dãi frame đọc được trong pack KR 00967.
-/// - `idle` (`Blink`/`BlinkSmall`), `start`, `trapped` (`FaintLayer` + bong bóng) và
-///   lửa: `candidate` — entry có trong pack nhưng **chưa có consumer nào xác nhận**
-///   state nào dùng nó (Q-003); cùng mức với manifest closure (issue #34).
-#[must_use]
-pub fn v1_clip_sources() -> Vec<ClipSource> {
-    let mut out = Vec::new();
-    for character in CHARACTERS {
-        let id_prefix = character.to_lowercase();
-        for direction in DIRECTIONS {
-            for layer in LAYERS {
-                out.push(
-                    ClipDecl {
-                        id: format!(
-                            "{id_prefix}.walk.{}.{}",
-                            direction.as_str().to_lowercase(),
-                            layer.as_str().to_lowercase()
-                        ),
-                        pack: CHARACTER_PACK,
-                        entry: format!(
-                            "Character/{character}-Walk{}_ALayer{}",
-                            direction.as_str(),
-                            layer.as_str()
-                        ),
-                        layer: Some(*layer),
-                        state: PresentationState::Walk(*direction),
-                        status: Status::Confirmed,
-                        claim: CLAIM_CONFIRMED,
-                        note: "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận \
-                               theo tên entry và dãi frame đọc được trong pack KR 00967",
-                    }
-                    .build(),
-                );
-            }
-        }
-        for layer in LAYERS {
-            let layer_name = layer.as_str().to_lowercase();
-            out.push(
-                ClipDecl {
-                    id: format!("{id_prefix}.idle.blink.{layer_name}"),
-                    pack: CHARACTER_PACK,
-                    entry: format!("Character/{character}-Blink_ALayer{}", layer.as_str()),
-                    layer: Some(*layer),
-                    state: PresentationState::Idle,
-                    status: Status::Candidate,
-                    claim: CLAIM_CANDIDATE,
-                    note: "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận \
-                           state idle dùng clip này (Q-003)",
-                }
-                .build(),
-            );
-            out.push(
-                ClipDecl {
-                    id: format!("{id_prefix}.idle.blink_small.{layer_name}"),
-                    pack: CHARACTER_PACK,
-                    entry: format!("Character/{character}-BlinkSmall_ALayer{}", layer.as_str()),
-                    layer: Some(*layer),
-                    state: PresentationState::Idle,
-                    status: Status::Candidate,
-                    claim: CLAIM_CANDIDATE,
-                    note: "ứng viên clip đứng yên (nháy mắt, biến thể nhỏ): chưa có consumer nào \
-                           xác nhận state idle dùng clip này (Q-003)",
-                }
-                .build(),
-            );
-            out.push(
-                ClipDecl {
-                    id: format!("{id_prefix}.start.{layer_name}"),
-                    pack: CHARACTER_PACK,
-                    entry: format!("Character/{character}-Start_ALayer{}", layer.as_str()),
-                    layer: Some(*layer),
-                    state: PresentationState::Start,
-                    status: Status::Candidate,
-                    claim: CLAIM_CANDIDATE,
-                    note: "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của \
-                           V1 dùng clip này (Q-003)",
-                }
-                .build(),
-            );
-            out.push(
-                ClipDecl {
-                    id: format!("{id_prefix}.trapped.{layer_name}"),
-                    pack: CHARACTER_PACK,
-                    entry: format!("Character/{character}-FaintLayer{}", layer.as_str()),
-                    layer: Some(*layer),
-                    state: PresentationState::Trapped,
-                    status: Status::Candidate,
-                    claim: CLAIM_CANDIDATE,
-                    note: "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng \
-                           clip này (Q-003)",
-                }
-                .build(),
-            );
-            out.push(
-                ClipDecl {
-                    id: format!("{id_prefix}.dead.{layer_name}"),
-                    pack: CHARACTER_PACK,
-                    entry: format!("Character/{character}-DieLayer{}", layer.as_str()),
-                    layer: Some(*layer),
-                    state: PresentationState::Dead,
-                    status: Status::Confirmed,
-                    claim: CLAIM_CONFIRMED,
-                    note: "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh \
-                           0×0 — dữ liệu thật của client gốc)",
-                }
-                .build(),
-            );
-        }
-    }
-
-    out.push(
-        ClipDecl {
-            id: "bomb.fuse".to_owned(),
-            pack: BOMB_PACK,
-            entry: "Bomb/Bomb00".to_owned(),
-            layer: None,
-            state: PresentationState::BombFuse,
-            status: Status::Confirmed,
-            claim: CLAIM_CONFIRMED,
-            note: "hình bom đặt trên ô; 4 frame là 4 mức đếm fuse, còn tần suất đổi mức thì \
-                   chưa có nguồn",
-        }
-        .build(),
-    );
-    out.push(
-        ClipDecl {
-            id: "trapped.bubble".to_owned(),
-            pack: BOMB_PACK,
-            entry: "Bomb/Bubble00".to_owned(),
-            layer: None,
-            state: PresentationState::Trapped,
-            status: Status::Candidate,
-            claim: CLAIM_CANDIDATE,
-            note: "bong bóng bị nhốt; 9 frame là chuỗi bong bóng to lên rồi vỡ, chưa có consumer \
-                   nào xác nhận (Q-003)",
-        }
-        .build(),
-    );
-    out.push(
-        ClipDecl {
-            id: "flame.main".to_owned(),
-            pack: BOMB_PACK,
-            entry: "Bomb/Fire00".to_owned(),
-            layer: None,
-            state: PresentationState::Flame(FlameKind::Main),
-            status: Status::Candidate,
-            claim: CLAIM_CANDIDATE,
-            note: "hình lửa: **một** blob 100 frame gộp nhiều phần; cách chia tâm/thân/đuôi và \
-                   thứ tự hướng chưa xác nhận được (Q-003)",
-        }
-        .build(),
-    );
-    for direction in DIRECTIONS {
-        out.push(
-            ClipDecl {
-                id: format!("flame.motion_blur.{}", direction.as_str().to_lowercase()),
-                pack: FX_PACK,
-                entry: format!("MotionBlur/Blur_Fire01_{}", direction.as_str()),
-                layer: None,
-                state: PresentationState::Flame(FlameKind::MotionBlur(*direction)),
-                status: Status::Candidate,
-                claim: CLAIM_CANDIDATE,
-                note: "lửa nhạt (motion blur) theo hướng: bằng chứng client phân biệt hướng lửa, \
-                       nhưng chưa có consumer nào xác nhận state nào vẽ clip này (Q-003)",
-            }
-            .build(),
-        );
-    }
-    out.push(
-        ClipDecl {
-            id: "explosion.main".to_owned(),
-            pack: BOMB_PACK,
-            entry: "Bomb/BombExplosion001".to_owned(),
-            layer: None,
-            state: PresentationState::Explosion,
-            status: Status::Confirmed,
-            claim: CLAIM_CONFIRMED,
-            note: "hiệu ứng nổ: **một** clip 10 frame liên tục, pack không tách tâm/nhánh/đuôi \
-                   nên không có clip riêng theo phần (R-084)",
-        }
-        .build(),
-    );
-    for item in ITEMS {
-        out.push(
-            ClipDecl {
-                id: format!("item.{}", item.to_lowercase()),
-                pack: FX_PACK,
-                entry: format!("Item/{item}"),
-                layer: None,
-                state: PresentationState::Item,
-                status: Status::Confirmed,
-                claim: CLAIM_CONFIRMED,
-                note: "icon item rơi trên nền; 1 frame",
-            }
-            .build(),
-        );
-    }
-    out
+/// Trả [`AssetError`] khi bảng data sai quy tắc (dữ liệu nhúng trong crate được test
+/// chặn nên trên build thường lỗi này không xảy ra).
+pub fn v1_clip_sources() -> Result<Vec<AnimationMapping>, AssetError> {
+    Ok(AssetTables::v1()?.animation.clips)
 }
 
 /// Lỗi khi trích clip animation từ pack.
@@ -340,6 +54,8 @@ pub enum ExtractError {
     Animation(AnimationError),
     /// Hai clip trùng ID.
     DuplicateId(String),
+    /// Bảng mapping data sai quy tắc.
+    Assets(AssetError),
 }
 
 impl std::fmt::Display for ExtractError {
@@ -349,6 +65,7 @@ impl std::fmt::Display for ExtractError {
             Self::Sprite(e) => write!(f, "{e}"),
             Self::Animation(e) => write!(f, "{e}"),
             Self::DuplicateId(id) => write!(f, "ID clip {id} bị trùng"),
+            Self::Assets(e) => write!(f, "bảng mapping animation sai quy tắc: {e}"),
         }
     }
 }
@@ -359,6 +76,7 @@ impl std::error::Error for ExtractError {
             Self::Pack(e) => Some(e),
             Self::Sprite(e) => Some(e),
             Self::Animation(e) => Some(e),
+            Self::Assets(e) => Some(e),
             Self::DuplicateId(_) => None,
         }
     }
@@ -382,7 +100,13 @@ impl From<AnimationError> for ExtractError {
     }
 }
 
-/// Trích clip từ pack theo bảng entry.
+impl From<AssetError> for ExtractError {
+    fn from(value: AssetError) -> Self {
+        Self::Assets(value)
+    }
+}
+
+/// Trích clip từ pack theo bảng mapping.
 ///
 /// Mỗi pack chỉ được mở một lần (theo nhóm entry) để không giữ nhiều `.idd` cùng lúc.
 /// Kết quả giữ **thứ tự của `sources`**.
@@ -394,9 +118,9 @@ impl From<AnimationError> for ExtractError {
 pub fn extract_clips(
     pack_dir: &Path,
     build: Build,
-    sources: &[ClipSource],
+    sources: &[AnimationMapping],
 ) -> Result<AnimationSet, ExtractError> {
-    let mut by_pack: BTreeMap<&str, Vec<&ClipSource>> = BTreeMap::new();
+    let mut by_pack: BTreeMap<&str, Vec<&AnimationMapping>> = BTreeMap::new();
     for source in sources {
         by_pack
             .entry(source.pack.as_str())
@@ -424,7 +148,7 @@ pub fn extract_clips(
 }
 
 /// Đọc một entry trong pack và dựng clip.
-fn read_clip(pack: &Pack, source: &ClipSource) -> Result<AnimationClip, ExtractError> {
+fn read_clip(pack: &Pack, source: &AnimationMapping) -> Result<AnimationClip, ExtractError> {
     let blob = pack.read_named(&source.entry)?;
     let parsed = sprite::parse(&blob)?;
     let images: Vec<ImageSize> = parsed
@@ -464,14 +188,14 @@ fn convert_frame(
     clip: &str,
     index: usize,
     frame: &sprite::Frame,
-) -> Result<AnimationFrame, ExtractError> {
+) -> Result<boom_content::animation::AnimationFrame, ExtractError> {
     let image_index =
         u32::try_from(frame.image_index).map_err(|_| AnimationError::NegativeImageIndex {
             clip: clip.to_owned(),
             frame: index,
             index: frame.image_index,
         })?;
-    Ok(AnimationFrame {
+    Ok(boom_content::animation::AnimationFrame {
         image_index,
         source: SourceRect {
             x0: frame.source.x0,
@@ -496,6 +220,8 @@ fn convert_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use boom_content::animation::FrameTiming;
+    use boom_content::rules::Status;
 
     /// Thư mục chứa pack KR thật; test bỏ qua khi chưa đặt `BOOM_KR_PACK_DIR`.
     fn pack_root() -> Option<std::path::PathBuf> {
@@ -503,19 +229,24 @@ mod tests {
         Some(std::path::PathBuf::from(path))
     }
 
+    /// Bảng clip V1 từ data (nguồn chuẩn duy nhất).
+    fn v1_table() -> Vec<AnimationMapping> {
+        v1_clip_sources().expect("bảng clip V1 trong data/assets/ phải hợp lệ")
+    }
+
     #[test]
     fn v1_table_covers_every_state_and_has_unique_ids() {
-        let sources = v1_clip_sources();
+        let sources = v1_table();
         let mut ids: Vec<&str> = sources.iter().map(|source| source.id.as_str()).collect();
         let count = ids.len();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), count, "ID clip phải là duy nhất");
 
-        for character in CHARACTERS {
-            let prefix = character.to_lowercase();
-            for direction in DIRECTIONS {
-                let id = format!("{prefix}.walk.{}.static", direction.as_str().to_lowercase());
+        // Mọi state của V1 phải có clip: đi 4 hướng, đứng yên, bắt đầu, bị nhốt, chết.
+        for character in ["c00", "c01"] {
+            for direction in ["up", "down", "left", "right"] {
+                let id = format!("{character}.walk.{direction}.static");
                 assert!(
                     sources.iter().any(|source| source.id == id),
                     "thiếu clip {id}"
@@ -528,7 +259,7 @@ mod tests {
                 "trapped.static",
                 "dead.static",
             ] {
-                let id = format!("{prefix}.{suffix}");
+                let id = format!("{character}.{suffix}");
                 assert!(
                     sources.iter().any(|source| source.id == id),
                     "thiếu clip {id}"
@@ -555,9 +286,10 @@ mod tests {
         }
     }
 
+    /// Tên entry trong bảng phải khớp quy ước đặt tên của pack KR 00967.
     #[test]
     fn v1_table_entry_paths_match_pack_naming() {
-        let sources = v1_clip_sources();
+        let sources = v1_table();
         let entry_of = |id: &str| {
             sources
                 .iter()
@@ -604,7 +336,7 @@ mod tests {
     /// Không clip nào được mang thời lượng đoán mò: chưa có nguồn thì là `unknown`.
     #[test]
     fn no_clip_carries_a_guessed_frame_duration() {
-        for source in v1_clip_sources() {
+        for source in v1_table() {
             assert_eq!(
                 source.timing.ms(),
                 None,
@@ -615,6 +347,23 @@ mod tests {
         }
     }
 
+    /// Nhãn bằng chứng của clip phải tách hai tầng (R-077 `confirmed` / R-078 `candidate`).
+    #[test]
+    fn clip_labels_follow_the_evidence_claims() {
+        for source in v1_table() {
+            let expected = match source.claims.first().map(String::as_str) {
+                Some("R-077") | Some("R-084") => Status::Confirmed,
+                Some("R-078") => Status::Candidate,
+                other => panic!("claim không lạ trong bảng clip: {other:?}"),
+            };
+            assert_eq!(
+                source.status, expected,
+                "nhãn bằng chứng của clip {} sai",
+                source.id
+            );
+        }
+    }
+
     /// Nghiệm thu trên pack KR thật: mọi state V1 có entry và dãi frame hợp lệ.
     #[test]
     fn every_v1_state_has_entry_and_valid_frames() {
@@ -622,7 +371,7 @@ mod tests {
             eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
             return;
         };
-        let sources = v1_clip_sources();
+        let sources = v1_table();
         let set = extract_clips(&root, Build::Kr, &sources).expect("trích clip V1");
         assert_eq!(set.clips.len(), sources.len());
         set.validate().expect("tập clip phải hợp lệ");
@@ -678,7 +427,7 @@ mod tests {
             eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
             return;
         };
-        let sources = v1_clip_sources();
+        let sources = v1_table();
         let set = extract_clips(&root, Build::Kr, &sources).expect("trích clip V1");
         let clip = set.get("c00.dead.static").expect("clip chết");
         let last = clip.frames.last().expect("clip chết có frame");
