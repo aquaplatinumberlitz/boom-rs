@@ -1,5 +1,8 @@
 # Cổng CI ba OS (SCOPE_V1 nghiệm thu #8: replay cùng hash trên Windows/Linux/macOS).
 # Toolchain lấy từ rust-toolchain.toml. Cần remote GitHub để chạy (ADR 0003).
+#
+# Job `smoke` (V1-036): dựng gói trên từng OS, chạy binary trong gói và kiểm lỗi
+# thiếu file báo rõ; log (version + fingerprint) lưu thành artifact.
 name: ci
 on:
   push:
@@ -24,3 +27,39 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
       - run: cargo xtask ci
+
+  # Smoke cài/chạy gói (V1-036): build binary trên OS này → dựng gói → chạy binary
+  # trong gói (server content/health --offline, client --help) và kiểm các ca thiếu
+  # pack/rules/l10n đều báo lỗi rõ. Log lưu artifact kèm version + fingerprint.
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: rustup show active-toolchain
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libgl1-mesa-dev
+      # Build debug: smoke kiểm binary **chạy được** trên OS này; bản phát hành
+      # (`release.yml`) build --release và mở đúng archive đã đóng.
+      - name: Build binary
+        run: cargo build -p boom-client -p boom-server -p boom-assets
+      - name: Gom gói
+        run: python tools/check_package.py pack --bin-dir target/debug --out dist/boom-rs-smoke
+      - name: "Smoke: chạy binary trong gói"
+        run: >
+          python tools/check_package.py smoke dist/boom-rs-smoke
+          --log dist/smoke-log.txt --version dev
+      - name: Upload log smoke
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-log-${{ matrix.os }}
+          path: dist/smoke-log.txt
+          if-no-files-found: error

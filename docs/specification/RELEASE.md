@@ -1,7 +1,8 @@
 # Phát hành V1 — bố cục gói, dựng bundle, yêu cầu hệ thống
 
 Phạm vi: **V1-036 phần 1** (GitHub issue #102) + **V1-036 phần 2** (GitHub issue #119:
-license thực tế + font trong gói, kiểm bộ đóng gói). Nguồn chuẩn về *gói phát hành*; luật
+license thực tế + font trong gói, kiểm bộ đóng gói) + **V1-036 phần 3** (GitHub issue #167:
+smoke cài/chạy gói trên Windows/Linux/macOS trong CI). Nguồn chuẩn về *gói phát hành*; luật
 chơi vẫn ở [RULES_V1](gameplay/RULES_V1.md), bố cục engine ở
 [ARCHITECTURE](../planning/ARCHITECTURE.md), điều kiện nghiệm thu ở
 [SCOPE_V1](../planning/SCOPE_V1.md) §6 (gate G6).
@@ -20,7 +21,9 @@ chơi vẫn ở [RULES_V1](gameplay/RULES_V1.md), bố cục engine ở
 | Script kiểm bộ đóng gói (chặn pack/bundle/asset game, kiểm thành phần bắt buộc) | **Đã làm** (phần 2, §3) |
 | Không kèm pack/bundle/asset game trong gói | **Đã làm** (người dùng tự dựng bundle) |
 | Báo lỗi rõ (đường dẫn + cách sửa) khi thiếu file rules/bundle/l10n hoặc sai hash | **Đã làm** (client + `boom-server content`) |
-| Ký số artifact, installer, đo cấu hình máy tối thiểu | **Chưa làm** (ngoài phạm vi issue #102) |
+| Smoke cài/chạy gói trên 3 OS: **mở gói đã đóng**, chạy binary trong gói, lỗi thiếu pack/rules/l10n báo rõ | **Đã làm** (phần 3, §3.2) |
+| Log smoke (version + fingerprint + từng ca) lưu thành artifact CI | **Đã làm** (phần 3, §3.2) |
+| Ký số artifact, installer, đo cấu hình máy tối thiểu | **Chưa làm** (ngoài phạm vi issue #102/#167) |
 | License cho **chính crate của dự án** (`boom-*` chưa khai `license` trong `Cargo.toml`) | **Chưa làm** (cần integrator chọn, §9) |
 
 ## 2. Bố cục gói phát hành
@@ -76,21 +79,28 @@ Quy tắc:
 | Chạy tự động | đẩy tag `v*` (phiên bản lấy từ tên tag, bỏ tiền tố `v`) |
 | Job `check` | `cargo xtask ci` trên ubuntu (cổng bàn giao [AGENTS §7](../../AGENTS.md)) · `python tools/check_package.py test` (tự kiểm công cụ đóng gói) |
 | Job `package` | ma trận 3 OS: `ubuntu-latest` (x86_64), `windows-latest` (x86_64), `macos-latest` (aarch64) |
-| Bước trong job | build release → gom gói (`bin/`, `data/`, `assets/fonts/`, README trích từ §8) → `cargo fetch` (nguồn crate **mọi** nền tảng) → sinh `LICENSES` → **kiểm bộ đóng gói** → kiểm binary → đóng gói |
-| Artifact | mỗi OS một artifact `boom-rs-<phiên bản>-<os>-<arch>` (zip cho Windows, tar.gz cho Linux/macOS) |
-| Kiểm trong job | `boom-server --help`, `boom-client --help` (exit 0) · `boom-server content` với file trong gói (exit 0) · thiếu file rules → exit khác 0 và thông điệp có đường dẫn |
+| Bước trong job | build release → gom gói (`pack`: `bin/`, `data/`, `assets/fonts/`, README trích từ §8) → `cargo fetch` (nguồn crate **mọi** nền tảng) → sinh `LICENSES` → **kiểm bộ đóng gói** → đóng gói → **mở gói đã đóng + smoke** (§3.2) |
+| Artifact | mỗi OS một artifact `boom-rs-<phiên bản>-<os>-<arch>` (zip cho Windows, tar.gz cho Linux/macOS) · một artifact log `…-smoke` (§3.2) |
 
 `workflow_dispatch` trên nhánh để thử: job `package` cần job `check` xanh trước.
 
 ### 3.1 Công cụ đóng gói (`tools/check_package.py`)
 
-Một script, ba lệnh (offline, không gọi mạng):
+Một script, sáu lệnh (offline, không gọi mạng):
 
 ```bash
-python3 tools/check_package.py licenses --out <gói>/LICENSES   # sinh LICENSES
-python3 tools/check_package.py check <gói>                      # kiểm bộ đóng gói
-python3 tools/check_package.py test                             # tự kiểm script
+python3 tools/check_package.py pack --bin-dir target/release --out <gói>   # dựng gói
+python3 tools/check_package.py licenses --out <gói>/LICENSES                # sinh LICENSES
+python3 tools/check_package.py check <gói>                                 # kiểm bộ đóng gói
+python3 tools/check_package.py unpack <archive> --out <thư mục>            # mở gói đã đóng
+python3 tools/check_package.py smoke <gói> --log <file>                    # chạy binary trong gói
+python3 tools/check_package.py test                                        # tự kiểm script
 ```
+
+`pack` dựng gói theo đúng bố cục §2: `bin/` (3 binary trong `--bin-dir`), `data/rules/`,
+`data/l10n/`, `assets/fonts/` (font OFL) và `README.md` **trích nguyên văn** từ §8 của
+tài liệu này. `pack` không kèm `LICENSES` (sinh bằng `licenses`), không kèm
+pack/bundle/asset game.
 
 `check` kiểm:
 
@@ -145,6 +155,42 @@ binary → báo thiếu; toàn văn license đủ điều khoản → nhận đ�
 license dùng làm **mẫu đối chiếu** và dữ liệu vào nằm ở `tools/fixtures/licenses/`
 (nguyên văn, có SHA-256 + nguồn trong README của thư mục).
 
+### 3.2 Smoke cài/chạy gói trên ba OS (V1-036 phần 3)
+
+Build xanh **không** đồng nghĩa gói chạy được. `smoke` (lệnh `check_package.py smoke`)
+chạy **binary thật** lấy từ `bin/` của gói; trong `release.yml` đó là gói **đã giải nén
+từ archive đã đóng** (không phải thư mục dựng tạm):
+
+| Ca | Lệnh | Kỳ vọng |
+|---|---|---|
+| `--help` | `boom-server --help` · `boom-client --help` | exit `0`, in danh sách lệnh |
+| Nội dung | `boom-server content --rules <gói>/data/rules/v1-dev.toml --l10n <gói>/data/l10n/vi-v1.toml` | exit `0`, in profile + hash rules + locale chuỗi |
+| Vận hành | `boom-server health --offline` | in **JSON** có `scope: offline` + fingerprint (`server_version`, `rules_hash`, `content_sha256`); mã `0` (healthy) hoặc `1` (unhealthy) — gói **không** kèm DB identity, DB do `serve` tạo sau; mã `3` (lỗi cấu hình) là lỗi thật |
+| Thiếu rules | `boom-server content --rules <file thiếu>` · `boom-client --rules <file thiếu>` | exit `2`, thông điệp **nêu đường dẫn** và **cách sửa** (`sửa:`) |
+| Thiếu chuỗi | `boom-server content --l10n <file thiếu>` | exit `2`, nêu đường dẫn + cách sửa |
+| Thiếu bundle (pack) | `boom-server content --bundle <thư mục thiếu>` · `boom-client --bundle <thư mục thiếu>` | exit `2`, nêu thư mục bundle + cách dựng lại từ pack (`boom-assets bundle … --pack-dir …`) |
+| Thiếu pack | `boom-assets bundle --map Village00 --out <dir> --pack-dir <thư mục thiếu>` | exit khác `0`, nêu thư mục pack |
+
+Lệnh được chạy trong thư mục tạm và output được giải mã **UTF-8** (không phụ thuộc
+encoding console Windows), nên thông điệp tiếng Việt kiểm được giống nhau trên ba OS.
+
+Chạy ở đâu:
+
+- `.github/workflows/ci.yml` — job `smoke`, ma trận 3 OS, chạy **mỗi PR**: build debug →
+  `pack` → `smoke` → upload artifact `smoke-log-<os>` (log smoke).
+- `.github/workflows/release.yml` — job `package`, sau khi **đóng gói**: `unpack` archive
+  thật → `check` (đủ thành phần, không pack/asset game) → `smoke` trên gói đã mở →
+  upload artifact `…-smoke` (log smoke).
+
+Log smoke (`.txt`) ghi: phiên bản gói, OS, commit git, fingerprint (từ `health --offline`:
+`server_version`, `rules_hash`, `content_sha256`, profile rules + hash của **file rules
+trong gói**), SHA-256 từng file trong gói, và output + mã thoát của từng ca.
+
+> **Giới hạn:** smoke **không** có pack/bundle thật trong gói (gói cố tình không kèm asset
+> game), nên ca "thiếu bundle" chỉ chứng minh đường báo lỗi, chưa chứng minh client đọc
+> được bundle hợp lệ. `boom-assets bundle` báo lỗi và nêu thư mục pack nhưng **không** có
+> dòng `sửa:` (chỉ client và `boom-server content` có).
+
 ## 4. Dựng bundle từ pack của bạn
 
 Client **không** đọc pack: client chỉ tiêu thụ bundle đã validate
@@ -189,6 +235,7 @@ mã khác 0.
 | Thiếu bundle / metadata / atlas | `không nạp được bundle: <dir>` + `sửa: dựng lại bundle …` | 2 |
 | Sai hash nội dung bundle | `content_hash không khớp: metadata ghi <a>, nội dung tính <b>` | 2 |
 | Sai hash file atlas | `file <file> không khớp SHA-256: …` | 2 |
+| Thiếu thư mục pack (dựng bundle) | `<thư mục pack>: lỗi pack: …/FxMap.idx: …` (nêu thư mục pack; **không** có dòng `sửa:`) | `boom-assets bundle`: 1 |
 | Sai cú pháp dòng lệnh | `tham số … không hỗ trợ` | 3 |
 
 Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (file nội dung thiếu/sai) ·
@@ -205,6 +252,7 @@ Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (f
 | Client (Linux) | thư viện hệ thống cho macroquad: `libX11`, `libXi`, `libGL`, `libasound` | [ADR 0010](../decisions/0010-client-stack-choice.md), cùng danh sách CI dùng |
 | Client (Windows/macOS) | không cần thư viện hệ thống ngoài | build release.yml |
 | Server | SQLite `bundled` ⇒ không cần cài libsqlite3 | [ADR 0011](../decisions/0011-identity-persistence-log-v1.md) §10 |
+| Binary trong gói chạy được trên OS của gói | `boom-server --help`/`content`/`health --offline` và `boom-client --help` chạy từ `bin/` của gói đã mở | smoke 3 OS trong `ci.yml` + `release.yml` (§3.2) |
 | Dung lượng gói | chưa đo (xem phần chưa đo) | — |
 
 ### Chưa đo (phải đo trước khi phát hành)
@@ -304,3 +352,7 @@ bin/boom-server --help    # danh sách lệnh
   ([SCOPE_V1](../planning/SCOPE_V1.md) §6).
 - Bố cục gói và bước đóng gói là **design** của dự án; định dạng bundle là
   [design](assets/BUNDLES.md) chưa được chốt hoàn toàn (ARCHITECTURE §8).
+- Smoke (§3.2) **không** chạy client/server với bundle thật: gói cố tình không kèm
+  pack/bundle/asset game, nên ca "thiếu bundle" chỉ chứng minh đường báo lỗi chứ không
+  chứng minh client đọc được bundle hợp lệ. Chạy client thật với bundle cần pack KR của
+  người dùng (không commit vào repo) — nằm ngoài phạm vi V1-036 phần 3.

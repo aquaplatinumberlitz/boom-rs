@@ -107,31 +107,14 @@ jobs:
           ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
-          EXT=""
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            EXT=".exe"
-          fi
           NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
           export NAME
           export PKG="dist/${NAME}"
           rm -rf dist
-          mkdir -p "${PKG}/bin" "${PKG}/data/rules" "${PKG}/data/l10n" "${PKG}/assets/fonts"
-          for bin in boom-client boom-server boom-assets; do
-            cp "target/release/${bin}${EXT}" "${PKG}/bin/"
-          done
-          cp data/rules/*.toml "${PKG}/data/rules/"
-          cp data/l10n/*.toml "${PKG}/data/l10n/"
-          # Font OFL (V1-035): không phải asset game, được phân phối kèm OFL.txt.
-          cp assets/fonts/* "${PKG}/assets/fonts/"
-          # README chạy nhanh: trích từ docs/specification/RELEASE.md (một nguồn chuẩn).
-          python - <<'PY'
-          import os, pathlib
-          doc = pathlib.Path("docs/specification/RELEASE.md").read_text(encoding="utf-8")
-          start = doc.index("<!-- QUICKSTART:START -->") + len("<!-- QUICKSTART:START -->")
-          end = doc.index("<!-- QUICKSTART:END -->")
-          out = pathlib.Path(os.environ["PKG"]) / "README.md"
-          out.write_text(doc[start:end].strip() + "\n", encoding="utf-8")
-          PY
+          mkdir -p dist
+          # Bố cục gói theo docs/specification/RELEASE.md §2 (một nguồn chuẩn):
+          # bin/, data/rules/, data/l10n/, assets/fonts/ và README trích từ §8.
+          python tools/check_package.py pack --bin-dir target/release --out "${PKG}"
           test -s "${PKG}/README.md" || { echo "LỖI: không trích được README"; exit 1; }
           echo "Gói: ${PKG}"
 
@@ -167,56 +150,6 @@ jobs:
           export PKG="dist/${NAME}"
           python tools/check_package.py check "${PKG}"
 
-      - name: Kiểm binary trong gói
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          OS_NAME: ${{ matrix.os_name }}
-          ARCH: ${{ matrix.arch }}
-        run: |
-          set -euo pipefail
-          EXT=""
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            EXT=".exe"
-          fi
-          NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
-          PKG="dist/${NAME}"
-          # `--help` phải chạy được trên nền tảng này (exit 0).
-          "${PKG}/bin/boom-server${EXT}" --help > /dev/null
-          "${PKG}/bin/boom-client${EXT}" --help > /dev/null
-          # Bộ nội dung trong gói phải nạp được (exit 0).
-          "${PKG}/bin/boom-server${EXT}" content \
-            --rules "${PKG}/data/rules/v1-dev.toml" \
-            --l10n "${PKG}/data/l10n/vi-v1.toml"
-          # Thiếu file phải báo lỗi rõ (đường dẫn + cách sửa) và exit khác 0.
-          # `grep` theo mảng byte ASCII để không phụ thuộc encoding console Windows.
-          set +e
-          OUT="$("${PKG}/bin/boom-server${EXT}" content --rules "${PKG}/data/rules/khong-co.toml" 2>&1)"
-          CODE=$?
-          set -e
-          if [ "$CODE" -eq 0 ]; then
-            echo "LỖI: thiếu file rules mà vẫn exit 0"
-            exit 1
-          fi
-          echo "$OUT" | grep -q "file rules" || {
-            echo "LỖI: thông điệp không nêu file rules"
-            echo "$OUT"
-            exit 1
-          }
-          set +e
-          OUT="$("${PKG}/bin/boom-client${EXT}" --rules "${PKG}/data/rules/khong-co.toml" 2>&1)"
-          CODE=$?
-          set -e
-          if [ "$CODE" -eq 0 ]; then
-            echo "LỖI: thiếu file rules mà client vẫn exit 0"
-            exit 1
-          fi
-          echo "$OUT" | grep -q "file rules" || {
-            echo "LỖI: client không nêu file rules"
-            echo "$OUT"
-            exit 1
-          }
-          echo "Kiểm binary: OK"
-
       - name: Đóng gói
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -236,9 +169,39 @@ jobs:
           PY
           ls -l
 
+      # Mở **archive đã đóng** rồi chạy binary trong đó (V1-036): bằng chứng gói
+      # cài/chạy được trên OS này, không chỉ thư mục dựng tạm. Log (version +
+      # fingerprint + từng ca) lưu thành artifact.
+      - name: Mở gói và smoke
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH: ${{ matrix.arch }}
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          set -euo pipefail
+          NAME="boom-rs-${VERSION}-${OS_NAME}-${ARCH}"
+          export NAME
+          rm -rf dist/smoke
+          mkdir -p dist/smoke
+          python tools/check_package.py unpack "dist/${NAME}.${ARCHIVE}" --out dist/smoke
+          # Gói đã mở phải đạt kiểm thành phần (đủ file, không pack/asset game).
+          python tools/check_package.py check "dist/smoke/${NAME}"
+          # Chạy binary trong gói: content/health --offline, client --help, và các
+          # ca thiếu pack/rules/l10n phải báo lỗi rõ (đường dẫn + cách sửa).
+          python tools/check_package.py smoke "dist/smoke/${NAME}" \
+            --log "dist/smoke-log.txt" --version "${VERSION}"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}
           path: dist/boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}.*
+          if-no-files-found: error
+
+      - name: Upload log smoke
+        uses: actions/upload-artifact@v4
+        with:
+          name: boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}-smoke
+          path: dist/smoke-log.txt
           if-no-files-found: error
