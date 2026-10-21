@@ -736,6 +736,7 @@ mod tests {
 
     use super::*;
 
+    use std::io::Read as _;
     use std::path::{Path, PathBuf};
     #[cfg(unix)]
     use std::process::{Command, Stdio};
@@ -812,6 +813,153 @@ empty = "floor"
                 if envelope.kind == kind {
                     return decode_frame(&frame, &ProtocolLimits::v1())
                         .map_err(|err| err.to_string());
+                }
+            }
+        }
+    }
+
+    /// Client TCP thật với bộ đệm tự quản.
+    ///
+    /// Khác [`Client`] (dùng `TcpTransport`), client này giữ byte chưa đọc trong bộ đệm và
+    /// **không** đóng socket khi hết thời gian chờ: cần quan sát "server im lặng" để kiểm
+    /// server không gửi `Snapshot` khi phòng còn ở loading barrier (ADR 0009 §4.3).
+    struct RawClient {
+        stream: TcpStream,
+        buf: Vec<u8>,
+    }
+
+    impl RawClient {
+        fn connect(addr: SocketAddr) -> Result<Self, String> {
+            let stream = TcpStream::connect(addr).map_err(|err| err.to_string())?;
+            stream.set_nodelay(true).map_err(|err| err.to_string())?;
+            Ok(Self {
+                stream,
+                buf: Vec::new(),
+            })
+        }
+
+        fn send<M: Message>(&mut self, message: &M) -> Result<(), String> {
+            let frame =
+                encode_frame(message, &ProtocolLimits::v1()).map_err(|err| err.to_string())?;
+            boom_net::write_frame(&mut self.stream, &frame, boom_net::FrameLimits::V1)
+                .map_err(|err| err.to_string())
+        }
+
+        /// Đọc thêm byte cho tới khi có dữ liệu hoặc hết thời gian chờ.
+        ///
+        /// `Ok(false)` = server im lặng trong khoảng chờ.
+        fn fill(&mut self, wait: Duration) -> Result<bool, String> {
+            let deadline = Instant::now() + wait;
+            let mut chunk = [0u8; 4096];
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Ok(false);
+                }
+                // Sàn 1 ms: timeout dưới 1 ms làm `SO_RCVTIMEO` bằng 0 ⇒ đọc chặn vô hạn.
+                self.stream
+                    .set_read_timeout(Some(remaining.max(Duration::from_millis(1))))
+                    .map_err(|err| err.to_string())?;
+                match self.stream.read(&mut chunk) {
+                    Ok(0) => return Err("server đóng kết nối".to_owned()),
+                    Ok(n) => {
+                        self.buf.extend_from_slice(&chunk[..n]);
+                        return Ok(true);
+                    }
+                    Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(err)
+                        if err.kind() == io::ErrorKind::WouldBlock
+                            || err.kind() == io::ErrorKind::TimedOut =>
+                    {
+                        // Hết thời gian chờ: kiểm tra mốc rồi thử lại (socket có thể trả
+                        // timeout sớm hơn hạn một chút).
+                        if Instant::now() >= deadline {
+                            return Ok(false);
+                        }
+                    }
+                    Err(err) => return Err(format!("đọc socket lỗi: {err}")),
+                }
+            }
+        }
+
+        /// Cắt một frame trọn vẹn khỏi bộ đệm (tiền tố độ dài 4 byte).
+        fn take_frame(&mut self) -> Option<Vec<u8>> {
+            if self.buf.len() < 4 {
+                return None;
+            }
+            let len =
+                u32::from_le_bytes([self.buf[0], self.buf[1], self.buf[2], self.buf[3]]) as usize;
+            if self.buf.len() < 4 + len {
+                return None;
+            }
+            let frame = self.buf[4..4 + len].to_vec();
+            self.buf.drain(..4 + len);
+            Some(frame)
+        }
+
+        /// Đọc frame tiếp theo; `Ok(None)` = hết thời gian chờ mà chưa có frame trọn vẹn.
+        fn next_frame(&mut self, wait: Duration) -> Result<Option<Vec<u8>>, String> {
+            let deadline = Instant::now() + wait;
+            loop {
+                if let Some(frame) = self.take_frame() {
+                    return Ok(Some(frame));
+                }
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Ok(None);
+                }
+                if !self.fill(remaining)? {
+                    return Ok(None);
+                }
+            }
+        }
+
+        /// Nhận message đầu tiên có `kind` (bỏ qua kind khác).
+        fn recv_of<M: Message>(&mut self, kind: MessageKind) -> Result<M, String> {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                let Some(frame) = self.next_frame(remaining)? else {
+                    return Err(format!("timeout chờ {kind:?}"));
+                };
+                let (envelope, _) = read_envelope(&frame).map_err(|err| err.to_string())?;
+                if envelope.kind == kind {
+                    return decode_frame(&frame, &ProtocolLimits::v1())
+                        .map_err(|err| err.to_string());
+                }
+            }
+        }
+
+        /// Đọc mọi frame tới khi server im lặng `wait`; trả về các kind đã nhận.
+        fn recv_kinds_until_silence(&mut self, wait: Duration) -> Result<Vec<MessageKind>, String> {
+            let deadline = Instant::now() + wait;
+            let mut kinds = Vec::new();
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                let Some(frame) = self.next_frame(remaining)? else {
+                    return Ok(kinds);
+                };
+                let (envelope, _) = read_envelope(&frame).map_err(|err| err.to_string())?;
+                kinds.push(envelope.kind);
+            }
+        }
+
+        /// Nhận `RoomState` có đúng số thành viên.
+        fn recv_room_state(&mut self, members: usize) -> Result<RoomState, String> {
+            loop {
+                let state: RoomState = self.recv_of(MessageKind::RoomState)?;
+                if state.members.len() == members {
+                    return Ok(state);
+                }
+            }
+        }
+
+        /// Nhận `RoomState` có đúng số thành viên **và tất cả đã ready**.
+        fn recv_room_state_all_ready(&mut self, members: usize) -> Result<RoomState, String> {
+            loop {
+                let state: RoomState = self.recv_of(MessageKind::RoomState)?;
+                if state.members.len() == members && state.members.iter().all(|m| m.ready) {
+                    return Ok(state);
                 }
             }
         }
@@ -1081,6 +1229,141 @@ empty = "floor"
         )?;
 
         Ok(ClientOutcome { account_id })
+    }
+
+    /// Luồng kiểm thứ tự snapshot: `RoundStart` → (im lặng khi còn ở loading barrier) →
+    /// `LoadingAck` → `Snapshot` của lượt (ADR 0009 §4.3).
+    fn drive_loading_barrier(addr: SocketAddr, config: &OperationalConfig) -> Result<(), String> {
+        let mut host = RawClient::connect(addr)?;
+        let mut guest = RawClient::connect(addr)?;
+        for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
+            step(
+                &format!("gửi Hello ({name})"),
+                client.send(&Hello {
+                    wire_schema: 1,
+                    state_schema: 1,
+                    rules_profile_id: config.rules_profile_id.clone(),
+                    rules_hash: config.rules_hash,
+                    content_sha256: config.content_sha256,
+                    client_build: "test".to_owned(),
+                    capabilities: Vec::new(),
+                }),
+            )?;
+            let welcome: Welcome = step(
+                &format!("nhận Welcome ({name})"),
+                client.recv_of(MessageKind::Welcome),
+            )?;
+            if welcome.rules_hash != config.rules_hash {
+                return Err("Welcome mang rules hash khác server".to_owned());
+            }
+            step(
+                &format!("gửi Auth ({name})"),
+                client.send(&Auth {
+                    op: AuthOp::Register,
+                    username: format!("player-{name}"),
+                    password: "password123".to_owned(),
+                }),
+            )?;
+            let _: AuthOk = step(
+                &format!("nhận AuthOk ({name})"),
+                client.recv_of(MessageKind::AuthOk),
+            )?;
+        }
+
+        step(
+            "gửi Create",
+            host.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Create {
+                    character: RoomCharacter::C00,
+                },
+            }),
+        )?;
+        let state = step("nhận RoomState (host)", host.recv_room_state(1))?;
+        let room = state.room_id;
+        step(
+            "gửi Join",
+            guest.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Join {
+                    room,
+                    character: RoomCharacter::C01,
+                },
+            }),
+        )?;
+        step("nhận RoomState (guest)", guest.recv_room_state(2))?;
+        step("nhận RoomState (host)", host.recv_room_state(2))?;
+        for client in [&mut host, &mut guest] {
+            step(
+                "gửi SetReady",
+                client.send(&RoomCommandDto {
+                    request: 2,
+                    action: RoomActionDto::SetReady { ready: true },
+                }),
+            )?;
+        }
+        step(
+            "nhận RoomState (host, mọi người ready)",
+            host.recv_room_state_all_ready(2),
+        )?;
+        step(
+            "nhận RoomState (guest, mọi người ready)",
+            guest.recv_room_state_all_ready(2),
+        )?;
+
+        step(
+            "gửi Start",
+            host.send(&RoomCommandDto {
+                request: 3,
+                action: RoomActionDto::Start,
+            }),
+        )?;
+        let start: RoundStart = step(
+            "nhận RoundStart (host)",
+            host.recv_of(MessageKind::RoundStart),
+        )?;
+        let _: RoundStart = step(
+            "nhận RoundStart (guest)",
+            guest.recv_of(MessageKind::RoundStart),
+        )?;
+        let round = start.round_id;
+
+        // Phòng còn ở loading barrier: server **không** được gửi `Snapshot` nào.
+        for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
+            let kinds = step(
+                &format!("đọc frame khi còn loading ({name})"),
+                client.recv_kinds_until_silence(Duration::from_millis(300)),
+            )?;
+            if kinds.contains(&MessageKind::Snapshot) {
+                return Err(format!(
+                    "server gửi Snapshot khi phòng còn ở loading barrier ({name}): {kinds:?}"
+                ));
+            }
+        }
+
+        // Qua barrier: snapshot của lượt phải tới, và lượt đã chạy (`tick > 0`).
+        for client in [&mut host, &mut guest] {
+            step(
+                "gửi LoadingAck",
+                client.send(&LoadingAck { round_id: round }),
+            )?;
+        }
+        for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
+            let snapshot: Snapshot = step(
+                &format!("nhận Snapshot ({name})"),
+                client.recv_of(MessageKind::Snapshot),
+            )?;
+            if u64::from(snapshot.round_id) != round {
+                return Err(format!(
+                    "snapshot thuộc round {} khác round {round}",
+                    snapshot.round_id
+                ));
+            }
+            if snapshot.tick == 0 {
+                return Err("snapshot đầu của lượt phải có tick > 0 (lượt đã chạy)".to_owned());
+            }
+        }
+        Ok(())
     }
 
     // --- Acceptance: slot trận lấy từ roster theo `account_id`, không theo thứ tự TCP ---
@@ -1670,6 +1953,36 @@ empty = "floor"
         assert_ne!(base.rules_hash, other.rules_hash);
         assert_eq!(other.stats.c00.speed.value, 6);
         assert_eq!(base.stats.c00.speed.value, 5);
+    }
+
+    /// Server **không** gửi `Snapshot` khi phòng còn ở loading barrier (ADR 0009 §4.3).
+    ///
+    /// Sau `RoundStart` nhưng trước khi mọi người gửi `LoadingAck`, trên dây không được có
+    /// `Snapshot` nào; ngay khi barrier qua thì snapshot của lượt phải tới (và lượt đã chạy).
+    #[test]
+    fn serve_khong_gui_snapshot_khi_phong_dang_loading() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+
+        let stop = StopFlag::default();
+        let mut runtime =
+            ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
+        let addr = runtime.local_addr();
+        let effective = runtime.config().clone();
+
+        let client_stop = stop.clone();
+        let client_config = effective.clone();
+        let handle = thread::spawn(move || {
+            let _guard = StopOnDrop(client_stop);
+            drive_loading_barrier(addr, &client_config)
+        });
+
+        runtime.run().expect("vòng tick dừng sạch");
+        handle
+            .join()
+            .expect("luồng client không panic")
+            .expect("phải kiểm được thứ tự snapshot");
     }
 
     #[test]

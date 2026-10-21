@@ -1101,6 +1101,79 @@ fn memory_transport_input_dedup_and_window() {
 }
 
 #[test]
+fn wire_khong_gui_snapshot_khi_phong_dang_loading_barrier() {
+    // ADR 0009 §4.3: "Server gửi snapshot đầu sau khi round bắt đầu" — lúc phòng còn ở loading
+    // barrier thì **không** có `Snapshot` nào trên dây; vừa qua barrier thì có.
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let room = recv_room_state(&mut clients[0]).room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut clients[1]);
+    let _ = recv_room_state(&mut clients[0]);
+    for (index, _) in players.iter().enumerate() {
+        send_room(
+            &mut clients[index],
+            2,
+            RoomActionDto::SetReady { ready: true },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[0]);
+    }
+    send_room(&mut clients[0], 3, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let start: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+    let round = start.round_id;
+    assert_eq!(server.phase(), ServerPhase::Loading);
+
+    // Vài nhịp server (chu kỳ snapshot 16 ms): vẫn phải **không** có Snapshot nào.
+    for now in [16u64, 32, 48, 64] {
+        let _ = server.poll(now, Duration::from_millis(50)).unwrap();
+    }
+    assert_eq!(server.phase(), ServerPhase::Loading);
+    for c in clients.iter_mut() {
+        assert!(
+            try_recv_of::<Snapshot>(c, MessageKind::Snapshot, Duration::from_millis(50)).is_none(),
+            "server không được gửi Snapshot khi phòng còn ở loading barrier"
+        );
+    }
+
+    // Qua barrier: snapshot của lượt phải tới, và lượt đã chạy (`tick > 0`).
+    for c in clients.iter_mut() {
+        send(c, &LoadingAck { round_id: round });
+    }
+    for _ in 0..100 {
+        let _ = server.poll(80, Duration::from_millis(20)).unwrap();
+        if server.phase() == ServerPhase::Playing {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Playing);
+    for c in clients.iter_mut() {
+        let snapshot: Snapshot = recv_of(c, MessageKind::Snapshot);
+        assert_eq!(u64::from(snapshot.round_id), round);
+        assert!(snapshot.tick > 0, "snapshot đầu của lượt phải có tick > 0");
+    }
+}
+
+#[test]
 fn memory_transport_two_and_four_clients_two_rounds() {
     for players in [
         vec![PlayerId(1), PlayerId(2)],

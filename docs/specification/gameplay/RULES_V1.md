@@ -1,6 +1,9 @@
 # Luật trận V1 — claim, bằng chứng và giá trị được chọn
 
-Cập nhật 2026-10-21. Nguồn chuẩn cho **claim luật chơi V1**; giá trị engine dùng nằm ở
+Cập nhật 2026-10-21 (ADR 0013 — thứ tự ưu tiên nguồn luật: KR/VN `confirmed` → BnB `design`;
+lựa chọn hiện hành ở §11).
+Cập nhật 2026-10-20 (thêm §12 — nền và ảnh UI của client V1: R-090…R-093).
+Cập nhật 2026-10-19. Nguồn chuẩn cho **claim luật chơi V1**; giá trị engine dùng nằm ở
 [`data/rules/v1-dev.toml`](../../../data/rules/v1-dev.toml), mỗi giá trị trỏ claim ID ở đây.
 Nhãn nguồn/trạng thái theo [AGENTS §4](../../../AGENTS.md#4-bằng-chứng). VN được dùng trực tiếp
 ([ADR 0002](../../decisions/0002-vn-kr-trusted-sources.md)); thứ tự giá trị theo
@@ -338,3 +341,38 @@ hơn tầng ghi ở đây; validator chạy trong `cargo xtask ci`, test ở `to
 Ngoại lệ phải tường minh: 12 khóa `characters.*` (candidate theo R-117, ADR 0013) và `drop.weight_*`
 (số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052). Validator **không** so giá trị số với
 claim và không tự kết luận claim đúng; reviewer kiểm nguồn.
+
+## 12. Nền và ảnh UI của client V1
+
+Hai loại asset UI khác nhau về chỗ nằm trong atlas của bundle. **Nền màn hình** là JPEG nên ở
+trạng thái `excluded`, **không** vào atlas (bộ giải mã sprite của V1 chỉ đọc blob
+`CDataI16Alpha` — I16). **Ảnh UI có chữ** thì **có** trong atlas, nhưng ở trạng thái
+`needs_review_text` nên bị chặn hiển thị cho tới khi có quyết định duyệt ảnh; tới lúc đó client
+vẽ text từ catalog. Vì vậy V1 dựng nền bằng màu và vẽ chữ từ catalog — đây là quyết định
+**design** của dự án, không phải luật chơi.
+
+Bằng chứng phần client gốc là **đọc trực tiếp từ pack**: ba nền là JPEG 800×600 (đo trên blob
+đã giải mã của pack KR 00967 và của bản VN), và ảnh UI của luồng V1 **có chữ nằm trong ảnh**
+(đọc trên PNG giải mã). Chữ được ghi **theo từng asset đã đọc**; phần chưa đọc rõ thì ghi "chưa
+xác nhận" — **không** suy ngôn ngữ chữ từ việc hai build khác byte. Chừa của nền và ảnh:
+[UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1),
+[IMAGE_REVIEW](../localization/IMAGE_REVIEW.md) và [BUNDLES §8](../assets/BUNDLES.md#8-giới-hạn-đã-biết).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-090 | Nền màn hình của client gốc là **ảnh JPEG 800×600 có chữ nằm trong ảnh**, **không phải** sprite I16: `FxDesktop/LoginStage/CAStage` (556.273 B), `FxStage/Lobby/CAStage` (225.527 B), `FxMap/Prepare/CAStage` (231.612 B). Chữ đọc **theo từng asset**: KR login = lời thoại tiếng Hàn + biểu tượng "ALL"/"전체이용가" (góc trên phải); KR lobby = hai tab "대전 모드"/"몬스터 모드" + nhãn "레벨"; KR prepare = nhãn "캐릭터선택"/"팀선택"/"맵" + nút "자동 준비"; bản VN login = logo Boom + dòng bản quyền tiếng Anh ở góc dưới phải (ghi "NexonKorea Corporation"; **không** có chữ Việt), bản VN lobby/prepare = nhãn tiếng Việt ("ĐẠI CHIẾN"/"NHIỆM VỤ"; "NHÂN VẬT"/"CHỌN ĐỔI"/"BẢN ĐỒ"/"TỰ ĐỒNG") | 800×600 JPEG | `kr_static` + `vn_static` / confirmed | Đo blob đã giải mã (`boom-assets pack-extract /home/admin/boomkr-full <stem> <entry> <out>`): magic `FFD8FFE0` (Lobby, Prepare) / `FFD8FFE1` (Login), marker **SOF0 (`FFC0`)**, 800×600, 8-bit, 3 thành phần; bản VN (`/home/admin/boom-re/assets/fx/{LoginStage,Lobby,Prepare}/CAStage.bin`) cũng SOF0 800×600 8-bit 3 thành phần, **khác byte** (488.361/227.530/232.346 B) — khác byte **không** kéo theo kết luận về chữ; chữ đọc trên ảnh giải mã — [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1); ảnh trong cache review ảnh mà §3 dùng để đọc chữ có **pixel giống hệt** blob trích từ pack (đối chiếu RGB 800×600, cả KR lẫn VN) nên đọc chữ trên ảnh đó là bằng chứng cho blob trong pack. Locator tái lập: `/home/admin/boom-re-l10n/l10n/.cache/image-review/manifest.json` (entry `FxDesktop/LoginStage/CAStage`, `FxStage/Lobby/CAStage`, `FxMap/Prepare/CAStage`) → PNG `images/0a129afd5e751013c7878d83-0.png` (login KR), `images/b279b18e1df7ec638dc24663-0.png` (lobby KR), `images/4225a1799b64a164d0c5f31d-0.png` (prepare KR), `images/e5004c4fb85c5be40af35e82-0.png` (login VN), `images/ad1683ba3b1c388a7a9894af-0.png` (lobby VN), `images/1fc4e2555d111efe70cb4d9f-0.png` (prepare VN) |
+| R-091 | Quyết định V1 về nền: **không** đưa nền màn hình vào atlas (bộ giải mã bundle chỉ đọc sprite I16, và nền còn chữ/nhãn ngoài scope FFA) ⇒ client **dựng nền bằng màu**, chữ lấy từ catalog. Đưa nền vào bundle cần bộ giải mã JPEG + bản ảnh đã che chữ — quyết định kiến trúc, thuộc integrator | — | `design` / design | `crates/boom-assets/src/closure.rs` (`UI_ASSETS`: `login.background`, `lobby.background`, `room.background` → `excluded` kèm lý do); [BUNDLES §8](../assets/BUNDLES.md#8-giới-hạn-đã-biết); [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+| R-092 | Ảnh UI của luồng V1 **có chữ nằm trong ảnh** (8 ảnh `needs_review_text`): nút tạo phòng `FxStage/Lobby/LB_Bt_T_Create-NM` (9 frame), dialog tạo phòng `FxStage/Lobby/Dlg_LB-NMCreate`, nút ready `FxMap/Prepare/PRE_Bt_Ready` (6 frame), nút start `FxMap/Prepare/PRE_Bt_Start` (6 frame), dialog thông tin phòng `FxMap/Prepare/Dlg_PRE-NMRoominfo`, art kết quả `FxStage/Game/Win`/`Lose`/`Draw`. Chữ đọc **theo từng asset**: 5 ảnh đầu — KR chữ Hàn ("방만들기", "준비", "시작", "방정보변경"), bản VN chữ Việt đọc được ("TẠO PHÒNG", "SẴN SÀNG", "BẮT ĐẦU", "THÔNG TIN"); art kết quả — KR chữ **Latin** "WIN!!"/"LOSE!!"/"DRAW!!", còn **bản VN chưa đọc rõ** (frame 0 chỉ đọc được "THN"/"SC"/"HO", chuỗi frame chưa ghép đủ) ⇒ phần chữ VN của art kết quả **chưa xác nhận** | — | `kr_static` + `vn_static` / confirmed (chỉ phần đã đọc trực tiếp) | Entry có thật trong pack KR 00967, đã đóng gói trong atlas bundle (`[[sprites]].source_sha256` cho cả 8; SHA-256 ở [`kr_v1_content.json`](../../evidence/inventory/kr_v1_content.json) cho 4 ảnh nút/dialog); ảnh giải mã đọc trực tiếp trong cache review ảnh của `boom-re-l10n` — [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1); `crates/boom-assets/src/closure.rs` (`UI_ASSETS`) |
+| R-093 | Quyết định V1 về ảnh có chữ: bảng UI của bundle có **ba** trạng thái (`selected`/`needs_review_text`/`excluded`) và **không** có trạng thái "đã duyệt" ⇒ ảnh `needs_review_text` chỉ hiển thị khi có quyết định duyệt ảnh ([IMAGE_REVIEW](../localization/IMAGE_REVIEW.md)); tới lúc đó client **vẽ text từ catalog**, còn phần tử `excluded` thay bằng text/màu theo lý do ghi trong bảng | 8 ảnh `needs_review_text` | `design` / design | [BUNDLES §3.3](../assets/BUNDLES.md#33-phần-tử-ui); `crates/boom-assets/src/closure.rs` (`UiState`, `UI_ASSETS` — 8 phần tử `needs_review_text` trong 23 phần tử); [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+
+R-090/R-092 là **bằng chứng `confirmed` đọc từ static**: nền là JPEG 800×600 (đo trực tiếp trên
+blob đã giải mã của pack KR 00967 và của bản VN) và ảnh UI có chữ nằm trong ảnh (đọc trên PNG
+giải mã). Phần ngôn ngữ chỉ khẳng định **ở asset đã đọc**; art kết quả của bản VN **chưa xác
+nhận**. Việc hai build khác byte **không** phải bằng chứng về chữ. R-091/R-093 là **quyết định
+`design` của V1**: không đưa nền vào atlas, và vẽ text từ catalog tới khi ảnh được duyệt.
+
+Trạng thái duyệt ảnh là **quy trình của dự án** (`images_review.csv` ở `boom-re-l10n`: 3.038
+ứng viên, tất cả `pending`), **không** phải thuộc tính client gốc; theo dõi ở
+[Q-012](../../research/QUESTIONS.md). Không claim **nội dung** chữ trong ảnh: phần đọc chữ chỉ là
+**bằng chứng mô tả** của [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1),
+không phải bản dịch — bản dịch chuẩn là `catalog.csv` của `boom-re-l10n`.

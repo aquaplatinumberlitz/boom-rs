@@ -7,6 +7,9 @@
 //! Auth T5 đi qua wire Addendum A: `Hello` → `Welcome` (fingerprint) → `Auth` →
 //! `AuthOk`/`AuthFail`; `Logout` revoke + đóng; Ping/Pong liveness. Room/loading/result đi qua
 //! Addendum B sau `AuthOk`. Server bind `player`/account từ session, không tin payload.
+//!
+//! Snapshot của lượt chỉ đi **sau** loading barrier (ADR 0009 §4.3): lúc phòng còn ở loading,
+//! state trận chưa chạy (`tick == 0`) nên trên dây không có `Snapshot` nào.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -1282,7 +1285,16 @@ impl Server {
         Ok(())
     }
 
+    /// Gửi snapshot của lượt cho một kết nối.
+    ///
+    /// ADR 0009 §4.3: server chỉ gửi snapshot **sau khi round bắt đầu** — tức sau loading
+    /// barrier (SCOPE_V1 §3). Lúc phòng còn ở loading, state trận chưa chạy (`tick == 0`)
+    /// nên snapshot chỉ mô tả phòng đang loading: không gửi. Nhịp gửi định kỳ không bị
+    /// dịch vì vậy: `next_snapshot_ms` chỉ đổi khi snapshot thật sự đi.
     fn send_snapshot(&mut self, player: PlayerId) -> Result<(), ServerError> {
+        if !self.authority.snapshot_allowed() {
+            return Ok(());
+        }
         if !self.is_member(player) {
             return Ok(());
         }
