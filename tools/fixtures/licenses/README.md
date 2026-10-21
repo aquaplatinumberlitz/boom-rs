@@ -5,9 +5,22 @@ Mỗi file là **nguyên văn** một toàn văn license, dùng làm **mẫu đ�
 kiểm. Không phải license của dự án, không dùng để phân phối, không phải asset game.
 
 Vì sao cần mẫu: một file chỉ là **toàn văn** license khi nội dung nó khớp mẫu ở
-**mọi đơn vị điều khoản** (câu) của mẫu — không chỉ nhờ tên file, không chỉ khớp câu
+**mọi điều khoản** (câu) của mẫu — không chỉ nhờ tên file, không chỉ khớp câu
 đầu hay tiêu đề mục. Nhờ vậy file bị cắt cụt hoặc file chỉ có tiêu đề mục đều bị bác
 bỏ (xem `LICENSE_TEMPLATES` trong `tools/check_package.py`).
+
+Đối chiếu là **nghiêm**: mỗi điều khoản của mẫu là một cụm từ **liên tiếp** phải có
+trọn vẹn trong nội dung crate (sau khi chuẩn hoá khoảng trắng và dấu câu) — không có
+"tỉ lệ từ khớp" nào che được việc mất một điều khoản hay mất một phần của điều khoản.
+Chỉ hai khác biệt được phép và phải **liệt kê rõ** trong `LICENSE_TEMPLATES`:
+
+1. **Dòng bản quyền** và phần đầu (tên, phiên bản, URL) — nằm ngoài phần điều khoản,
+   mỗi crate ghi riêng.
+2. **Tên chủ thể** — cụm từ chung trong điều khoản (`the copyright holder`) được crate
+   thay bằng tên thật (vd `Xiph.org Foundation`); khai báo ở `slots` của mẫu.
+
+Điều khoản crate viết lại (vd MIT của crate `bytemuck 1.25.2` thêm
+`(including the next paragraph)`) phải khai báo tường minh ở `ClauseVariant`.
 
 | File | SPDX id | Nguồn (nguyên văn) | SHA-256 |
 |---|---|---|---|

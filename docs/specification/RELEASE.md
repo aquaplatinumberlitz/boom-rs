@@ -109,14 +109,28 @@ python3 tools/check_package.py test                             # tự kiểm sc
   **mẫu toàn văn chuẩn** của license đó ở **mọi điều khoản** (đối chiếu từng câu, xem
   `LICENSE_TEMPLATES` trong `tools/check_package.py`; mẫu nằm ở
   `tools/fixtures/licenses/`); so khớp bỏ qua khác biệt xuống dòng, dấu câu, hoa/thường.
-  Tên file chỉ dùng để **đối chiếu**, không đủ để kết luận. Vì đối chiếu **toàn văn**:
+  Tên file chỉ dùng để **đối chiếu**, không đủ để kết luận.
+  Đối chiếu là **nghiêm, không dùng ngưỡng mờ**: mỗi điều khoản của mẫu là một cụm từ
+  **liên tiếp** phải có **trọn vẹn** trong nội dung crate. Vì vậy:
   - file **mất một điều khoản** (vd MIT bỏ câu `shall be included in all copies or
     substantial portions of the Software.`) → **không** còn là toàn văn;
+  - file **mất một phần** của điều khoản (vd MIT bỏ `or substantial portions`, còn
+    `shall be included in all copies of the Software.`) → **không** còn là toàn văn;
+  - file có điều khoản **viết lại** (vd `some copies` thay `all copies or substantial
+    portions`) → **không** còn là toàn văn;
   - file chỉ có **tiêu đề mục** (vd Apache-2.0 chỉ có `1. Definitions.` …) → **không**
     phải toàn văn;
-  - **biến thể hợp lệ** vẫn được chấp nhận: crate thêm/bớt ít từ so với văn bản chuẩn
-    (vd mục 3 BSD-3-Clause thay `the copyright holder` bằng tên chủ bản quyền thật, MIT
-    thêm `(including the next paragraph)`) → vẫn là toàn văn;
+  - chỉ **hai khác biệt được phép**, đều phải **liệt kê rõ** trong mẫu:
+    (1) **dòng bản quyền** và phần đầu (tên, phiên bản, URL — nằm ngoài phần điều khoản,
+    mỗi crate ghi riêng); (2) **tên chủ thể** — cụm từ chung trong điều khoản
+    (`the copyright holder`) được crate thay bằng tên thật (vd `Xiph.org Foundation` của
+    crate `ogg 0.7.1`); điều khoản viết lại (vd MIT của crate `bytemuck 1.25.2` thêm
+    `(including the next paragraph)`) phải khai báo tường minh trong `ClauseVariant`.
+    Khác biệt chưa liệt kê ⇒ file **không** được tính là toàn văn và công cụ **báo
+    lỗi**;
+  - nội dung **thừa** xen giữa các điều khoản vẫn được phép (vd phần `APPENDIX` của
+    Apache-2.0, tiêu đề riêng của crate, một file chứa nhiều license): công cụ xác
+    minh là file có **đủ** điều khoản, không kiểm tra phần thừa có gây hại không;
 - **bác bỏ file không xác minh được**: file rỗng, file bị cắt cụt, file tên khai
   `LICENSE-MIT` nhưng chứa license khác → công cụ in lỗi (nêu crate + tên file) và
   **không sinh gói**; không dùng văn bản tự chép để lấp chỗ trống;
@@ -274,8 +288,10 @@ bin/boom-server --help    # danh sách lệnh
   từ file license của crate nguồn lúc build (không tải mạng): phần đầu/bản quyền có thể
   khác câu chữ so với bản SPDX chuẩn. File nguồn được xác minh bằng cách khớp **mẫu
   toàn văn chuẩn** ở mọi điều khoản (không chỉ tin tên file, không chỉ khớp câu đầu hay
-  tiêu đề mục); file không xác minh được thì công cụ báo
-  lỗi và không sinh gói. Crate **của chính dự án** (`boom-*`) chưa khai `license` trong
+  tiêu đề mục) — đối chiếu **nghiêm**, mỗi điều khoản phải có trọn vẹn, không có ngưỡng
+  mờ; chỉ dòng bản quyền và tên chủ thể được phép khác, và phải **liệt kê rõ** trong
+  `LICENSE_TEMPLATES` (`slots`/`ClauseVariant`) — crate mới có câu chữ khác thì công cụ
+  báo lỗi và không sinh gói. Crate **của chính dự án** (`boom-*`) chưa khai `license` trong
   `Cargo.toml` nên không có trong `LICENSES`; chọn license cho dự án là việc của
   integrator, chưa làm ở V1-036 phần 2.
 - Với biểu thức license nhiều nhánh (`OR`), gói phân phối theo một nhánh; nhánh khác (vd

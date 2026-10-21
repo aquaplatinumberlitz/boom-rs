@@ -15,13 +15,18 @@ Nguyên tắc:
   phần phát hành báo lỗi, không lấp chỗ trống bằng văn bản tự chế.
 - **Xác minh nội dung, không tin tên file.** Một file chỉ là *toàn văn* license khi
   nội dung khớp **mẫu toàn văn chuẩn** của license đó (`LICENSE_TEMPLATES`, xem
-  `tools/fixtures/licenses/`): mọi **đơn vị điều khoản** của mẫu đều phải có trong
-  file, không chỉ nhờ tên file, câu đầu hay tiêu đề mục. File rỗng/cụt, file tên
-  khai license nhưng chứa license khác, hay file có tên nhưng nội dung không xác minh
-  được → công cụ **báo lỗi và không sinh gói**.
-- **Biến thể hợp lệ được chấp nhận.** Crate đôi khi thêm/bớt ít từ so với văn bản
-  chuẩn (vd mục 3 của BSD-3-Clause thay "the copyright holder" bằng tên chủ bản
-  quyền thật) → vẫn được coi là toàn văn; nhưng mất một điều khoản thì **không**.
+  `tools/fixtures/licenses/`): mọi **điều khoản** của mẫu phải có **trọn vẹn**
+  trong file, không chỉ nhờ tên file, câu đầu hay tiêu đề mục. File rỗng/cụt, file
+  tên khai license nhưng chứa license khác, hay file có tên nhưng nội dung không xác
+  minh được → công cụ **báo lỗi và không sinh gói**.
+- **Đối chiếu nghiêm, không dùng ngưỡng mờ.** Mỗi điều khoản của mẫu là một cụm từ
+  **liên tiếp**; nội dung crate phải chứa đúng cụm từ đó (sau khi chuẩn hoá khoảng
+  trắng và dấu câu). Không có "tỉ lệ từ khớp" nào che được việc mất một điều khoản.
+- **Chỉ khác biệt đã liệt kê rõ mới được phép.** (1) **Dòng bản quyền** và phần đầu
+  (tên, phiên bản, URL) — mỗi crate ghi riêng, nằm ngoài phần điều khoản; (2) **tên
+  chủ thể** — cụm từ chung trong điều khoản ("the copyright holder") được crate thay
+  bằng tên thật (vd "Xiph.org Foundation"). Điều khoản viết lại phải được **liệt kê
+  tường minh** trong `ClauseVariant`; không liệt kê ⇒ file bị bác bỏ.
 - **Một nguồn chuẩn.** `docs/specification/RELEASE.md` là nơi mô tả bố cục gói;
   danh sách file/thư mục cấm trong script phải khớp với mô tả đó.
 - **Không asset game trong gói.** `check` chặn pack/bundle/atlas/ảnh/âm thanh theo
@@ -33,7 +38,6 @@ Mã thoát: `0` thành công · `1` có vi phạm/ lỗi (in rõ từng mục).
 from __future__ import annotations
 
 import argparse
-import difflib
 import hashlib
 import json
 import re
@@ -43,7 +47,6 @@ import unittest
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -125,20 +128,41 @@ FILE_NAME_FAMILIES = {
 }
 
 
-class LicenseTemplate(NamedTuple):
+@dataclass(frozen=True)
+class ClauseVariant:
+    """Biến thể **điều khoản** được chấp nhận, liệt kê rõ kèm nguồn.
+
+    Mẫu chuẩn là văn bản SPDX; crate thật đôi khi viết khác một điều khoản. Chỉ
+    những khác biệt **được liệt kê ở đây** mới được chấp nhận — khác biệt chưa
+    liệt kê ⇒ file không xác minh được toàn văn ⇒ công cụ báo lỗi, không tính là
+    toàn văn.
+    """
+
+    clause: str  # điều khoản gốc trong mẫu chuẩn (nguyên văn)
+    variant: str  # câu chữ thay thế được chấp nhận
+    source: str  # nguồn (crate thật) để đối chiếu
+
+
+@dataclass(frozen=True)
+class LicenseTemplate:
     """Mẫu **toàn văn chuẩn** của một license SPDX, dùng để đối chiếu file license crate.
 
     - `terms_start`: mốc bắt đầu phần **điều khoản**. Phần trước mốc này là tiêu đề,
-      phiên bản, dòng bản quyền và URL — không phải điều khoản nên không bắt buộc
+      phiên bản, **dòng bản quyền** và URL — không phải điều khoản nên không bắt buộc
       (crate ghi mỗi kiểu khác nhau).
     - `parts`: các phần của mẫu, mỗi phần là `(tên file trong `tools/fixtures/licenses/`,
       mốc kết thúc hoặc `None`) — mốc kết thúc dùng để cắt phần phụ (appendix) không
       thuộc điều khoản.
+    - `slots`: các cụm từ trong mẫu được phép thay bằng **tên chủ thể** thật (vd "the
+      copyright holder" → "Xiph.org Foundation"). Đây là khác biệt **được liệt kê rõ**.
+    - `variants`: các điều khoản được phép viết theo câu chữ khác (liệt kê rõ, kèm nguồn).
     """
 
     ident: str
     terms_start: str
     parts: tuple[tuple[str, str | None], ...]
+    slots: tuple[str, ...] = ()
+    variants: tuple[ClauseVariant, ...] = ()
 
 
 #: Mẫu toàn văn chuẩn của các license SPDX mà tool xác minh được.
@@ -159,14 +183,28 @@ LICENSE_TEMPLATES: tuple[LicenseTemplate, ...] = (
         "Apache-2.0", "TERMS AND CONDITIONS FOR USE",
         (("apache-2.0-spdx.txt", "END OF TERMS AND CONDITIONS"),),
     ),
-    LicenseTemplate("MIT", "Permission is hereby granted", (("mit-spdx.txt", None),)),
+    LicenseTemplate(
+        "MIT", "Permission is hereby granted", (("mit-spdx.txt", None),),
+        variants=(
+            ClauseVariant(
+                clause=("The above copyright notice and this permission notice shall be "
+                        "included in all copies or substantial portions of the Software."),
+                variant=("The above copyright notice and this permission notice (including "
+                         "the next paragraph) shall be included in all copies or "
+                         "substantial portions of the Software."),
+                source="crate `bytemuck 1.25.2` (crates.io), file `LICENSE-MIT`",
+            ),
+        ),
+    ),
     LicenseTemplate(
         "BSD-3-Clause", "Redistribution and use in source and binary forms",
         (("bsd-3-clause.txt", None),),
+        slots=("copyright holder",),
     ),
     LicenseTemplate(
         "BSD-2-Clause", "Redistribution and use in source and binary forms",
         (("bsd-2-clause.txt", None),),
+        slots=("copyright holder",),
     ),
     LicenseTemplate("0BSD", "Permission to use, copy, modify", (("0bsd.txt", None),)),
     LicenseTemplate("Zlib", "This software is provided", (("zlib.txt", None),)),
@@ -192,12 +230,15 @@ LICENSE_SUPERSEDES: dict[str, str] = {
 #: ngắn hơn là tiêu đề mục ("1. Definitions.") — không mang nghĩa điều khoản.
 MIN_UNIT_CHARS = 40
 
-#: Tỉ lệ phần điều khoản phải khớp để coi là **biến thể hợp lệ** (crate thêm/bớt ít
-#: từ so với văn bản chuẩn). Mất hẳn một điều khoản thì tỉ lệ rất thấp → bị bác bỏ.
-VARIANT_COVERAGE = 0.85
+#: Số từ tối đa mà một **tên chủ thể** (slot) được chiếm. Chủ thể là tên riêng
+#: ("Xiph.org Foundation") nên ngắn; dài hơn thì không còn là tên nữa.
+MAX_SLOT_TOKENS = 6
 
-#: Số từ dùng làm **neo** khi tìm cửa sổ ứng viên của một điều khoản (đo biến thể).
-ANCHOR_WORDS = 4
+#: Ký hiệu một đoạn "tên chủ thể" trong pattern điều khoản.
+SLOT = "slot"
+
+#: Ký hiệu một đoạn văn bản cố định trong pattern điều khoản.
+LITERAL = "literal"
 
 #: Cụm từ bắt buộc của **thông báo** license (file chỉ trỏ tới toàn văn ở nơi khác).
 #: File như vậy không phải toàn văn nên không dùng làm nguồn toàn văn, nhưng vẫn hợp lệ.
@@ -497,75 +538,128 @@ def template_clauses(template: LicenseTemplate) -> list[str]:
     return clauses
 
 
-@lru_cache(maxsize=None)
-def template_units(template: LicenseTemplate) -> list[str]:
-    """Các **đơn vị điều khoản** (đã chuẩn hoá) của một mẫu toàn văn."""
-    return [flatten(normalize_words(clause)) for clause in template_clauses(template)]
+def find_block(flat: str, block: str, start: int) -> int:
+    """Vị trí (ký tự) của cụm từ `block` trong `flat`, đúng ranh giới từ, từ `start`.
 
-
-def unit_coverage(unit_words: list[str], window: list[str]) -> float:
-    """Tỉ lệ (0..1) phần của điều khoản `unit_words` tìm thấy trong `window`.
-
-    Đo bằng **câu con chung dài nhất** trên các *từ* nên không quan tới khác biệt
-    xuống dòng, dấu câu, hay từ bị lệch chỗ (crate thay "the copyright holder" bằng
-    tên chủ bản quyền thật vẫn khớp gần như trọn vẹn). Mất hẳn một điều khoản thì
-    tỉ lệ thấp → file bị bác bỏ.
+    `flat` là văn bản đã chuẩn hoá (các từ nối bằng một dấu cách). Trả về -1 nếu
+    không có. Cụm từ phải nằm trọn vẹn giữa hai ranh giới từ ⇒ không khớp nhầm vào
+    giữa một từ.
     """
-    if not unit_words:
-        return 0.0
-    matcher = difflib.SequenceMatcher(None, unit_words, window, autojunk=False)
-    matched = sum(block.size for block in matcher.get_matching_blocks())
-    return matched / len(unit_words)
+    if not block:
+        return start
+    # `padded` thêm một dấu cách ở đầu để cụm từ bắt đầu ngay đầu văn bản cũng
+    # khớp; chỉ số trả về là chỉ số trong `flat` (nhờ dấu cách đứng trước cụm từ).
+    padded = " " + flat + " "
+    needle = " " + block + " "
+    return padded.find(needle, start)
 
 
-def find_anchor(haystack: list[str], anchor: list[str]) -> list[int]:
-    """Vị trí (chỉ số từ) mà cụm từ `anchor` xuất hiện trong `haystack`."""
-    if not anchor:
-        return []
-    size = len(anchor)
-    return [index for index in range(len(haystack) - size + 1)
-            if haystack[index:index + size] == anchor]
+def clause_pattern(clause: str, slots: tuple[str, ...]) -> list[tuple[str, str]]:
+    """Chuyển một điều khoản của mẫu thành **pattern** để đối chiếu.
 
-
-def unit_covered(unit: str, candidate: str, candidate_words: list[str]) -> bool:
-    """Điều khoản `unit` có xuất hiện trong nội dung `candidate` không.
-
-    Khớp **đúng** (đủ cụm từ liên tiếp) là đủ. Ngoài ra chấp nhận **biến thể hợp
-    lệ**: crate thêm/bớt ít từ so với văn bản chuẩn — vd mục 3 của BSD-3-Clause thay
-    "the copyright holder" bằng tên chủ bản quyền thật.
-
-    Biến thể được đo trên **cửa sổ bắt đầu bằng đầu điều khoản** ( neo theo vài từ
-    đầu), nên điều khoản đã bị xoá khỏi file vẫn bị bác bỏ dù các từ của nó có
-    xuất hiện chỗ khác trong văn bản.
+    Pattern là danh sách các đoạn: đoạn văn bản cố định (`literal`) và các khoảng
+    trống dành cho **tên chủ thể** (`slot`). Mọi đoạn cố định phải xuất hiện **trọn
+    vẹn, liên tiếp** trong nội dung đối chiếu ⇒ mất một cụm từ trong điều khoản là
+    bị bác bỏ (không có ngưỡng mờ nào che được).
     """
-    if unit in candidate:
-        return True
-    unit_words = unit.split()
-    if len(unit_words) < 2:
-        return False
-    for size in (ANCHOR_WORDS, 2):
-        if size > len(unit_words):
+    tokens = normalize_words(clause)
+    slot_tokens = [normalize_words(slot) for slot in slots]
+    pattern: list[tuple[str, str]] = []
+    index = 0
+    while index < len(tokens):
+        hit = None
+        for candidate in slot_tokens:
+            if candidate and tokens[index:index + len(candidate)] == candidate:
+                hit = candidate
+                break
+        if hit is not None:
+            if not pattern or pattern[-1][0] != SLOT:
+                pattern.append((SLOT, flatten(hit)))
+            index += len(hit)
             continue
-        for position in find_anchor(candidate_words, unit_words[:size]):
-            window = candidate_words[position:position + len(unit_words) + ANCHOR_WORDS]
-            if unit_coverage(unit_words, window) >= VARIANT_COVERAGE:
-                return True
-    return False
+        if pattern and pattern[-1][0] == LITERAL:
+            pattern[-1] = (LITERAL, f"{pattern[-1][1]} {tokens[index]}")
+        else:
+            pattern.append((LITERAL, tokens[index]))
+        index += 1
+    return pattern
+
+
+def clause_patterns(template: LicenseTemplate, clause: str) -> list[list[tuple[str, str]]]:
+    """Các pattern được chấp nhận cho một điều khoản: mẫu chuẩn + biến thể đã liệt kê."""
+    patterns = [clause_pattern(clause, template.slots)]
+    unit = flatten(normalize_words(clause))
+    for variant in template.variants:
+        if flatten(normalize_words(variant.clause)) != unit:
+            continue
+        patterns.append([(LITERAL, flatten(normalize_words(variant.variant)))])
+    return patterns
+
+
+def match_pattern(pattern: list[tuple[str, str]], flat: str, start: int,
+                  vocabulary: set[str]) -> int:
+    """Vị trí (ký tự) trong `flat` khớp `pattern`, tìm từ `start`; -1 nếu không khớp.
+
+    Khoảng `slot` được điền bằng **tên chủ thể**: một cụm từ ngắn (≤ `MAX_SLOT_TOKENS`
+    từ) có ít nhất một từ **không có trong mẫu chuẩn** (tên riêng của crate). Nhờ vậy
+    thay "the copyright holder" bằng "Xiph.org Foundation" là hợp lệ, còn xoá hẳn
+    cụm từ đó (chỉ còn từ của mẫu) thì bị bác bỏ.
+    """
+    if not pattern:
+        return start
+    kind, text = pattern[0]
+    if kind == LITERAL:
+        index = find_block(flat, text, start)
+        if index < 0:
+            return -1
+        return match_pattern(pattern[1:], flat, index + len(text), vocabulary)
+    # Khoảng tên chủ thể: đoạn cố định kế tiếp phải nằm ngay sau tên chủ thể.
+    if len(pattern) < 2 or pattern[1][0] != LITERAL:
+        return -1
+    following = pattern[1][1]
+    index = start
+    while True:
+        index = find_block(flat, following, index)
+        if index < 0:
+            return -1
+        name = flat[start:index].strip()
+        if (name == text
+                or (1 <= len(name.split()) <= MAX_SLOT_TOKENS
+                    and any(token not in vocabulary for token in name.split()))):
+            matched = match_pattern(pattern[2:], flat, index + len(following), vocabulary)
+            if matched >= 0:
+                return matched
+        index += 1
 
 
 def match_template(template: LicenseTemplate, text: str) -> bool:
     """Nội dung `text` có phải **toàn văn** license theo mẫu chuẩn không.
 
-    Đủ điều khoản: mọi đơn vị điều khoản của mẫu đều phải có trong nội dung.
+    Đối chiếu **nghiêm**: mọi điều khoản của mẫu phải có trong nội dung, mỗi điều
+    khoản là một cụm từ **liên tiếp** khớp tuyệt đối (sau khi chuẩn hoá khoảng trắng
+    và dấu câu). Chỉ hai khác biệt được phép, đều **liệt kê rõ** trong mẫu: dòng
+    bản quyền ở phần đầu (nằm ngoài phần điều khoản) và *tên chủ thể* thay cho cụm
+    từ chung trong điều khoản. Biến thể khác ⇒ file không phải toàn văn.
     """
-    candidate_words = normalize_words(text)
-    candidate = flatten(candidate_words)
-    if flatten(normalize_words(template.terms_start)) not in candidate:
+    flat = flatten(normalize_words(text))
+    if flatten(normalize_words(template.terms_start)) not in flat:
         return False
-    units = template_units(template)
-    if not units:
+    clauses = template_clauses(template)
+    if not clauses:
         return False
-    return all(unit_covered(unit, candidate, candidate_words) for unit in units)
+    vocabulary = set(normalize_words(template_text(template)))
+    cursor = 0
+    for clause in clauses:
+        matched = -1
+        for pattern in clause_patterns(template, clause):
+            matched = match_pattern(pattern, flat, cursor, vocabulary)
+            if matched >= 0:
+                break
+        if matched < 0:
+            return False
+        # Điều khoản sau phải nằm **sau** điều khoản này (giữ đúng thứ tự điều khoản).
+        cursor = matched + 1
+    return True
 
 
 def detect_full_by_content(text: str) -> list[str]:
@@ -1154,6 +1248,15 @@ WINDOWS_MIT_TEXT = _fixture("windows-link-0.2.1-license-mit.txt")
 MIT_MISSING_CLAUSE = MIT_TEXT.replace(
     "shall be included in all copies or substantial portions of the Software.", "")
 
+#: MIT **mất một phần phạm vi áp dụng** của điều khoản (`or substantial portions`) —
+#: ca âm của review #128 vòng 3: điều khoản còn đủ từ nên ngưỡng mờ 85% nhận nhầm
+#: là toàn văn; nay đối chiếu nghiêm nên bị bác bỏ.
+MIT_MISSING_SCOPE = MIT_TEXT.replace(" or substantial portions", "")
+
+#: MIT có điều khoản bị **viết lại** (đủ từ nhưng đổi nghĩa) — phải bị bác bỏ.
+MIT_REWRITTEN_CLAUSE = MIT_TEXT.replace(
+    "all copies or substantial portions", "some copies of the Software")
+
 #: Apache-2.0 **chỉ có tiêu đề mục**, không có nội dung điều khoản — ca âm còn lại
 #: của review #128 vòng 2 (trước đây vẫn bị nhận là toàn văn).
 APACHE_HEADINGS_ONLY = """\
@@ -1394,6 +1497,40 @@ class PackageToolTests(unittest.TestCase):
                 self.assertNotIn(ident, report.texts,
                                  f"không được xuất làm toàn văn: {label}")
 
+    # -- Đối chiếu nghiêm: mất một phần điều khoản cũng bị bác bỏ (review #128 vòng 3) --
+
+    def test_detect_by_content_rejects_missing_scope(self):
+        """Mất *một phần* điều khoản (không mất cả câu) cũng phải bị bác bỏ.
+
+        Trước đây cơ chế đo "tỉ lệ từ khớp" (85%) chấp nhận file này là toàn văn vì
+        còn 17/20 từ khớp — nay đối chiếu nghiêm nên bị bác bỏ.
+        """
+        self.assertNotEqual(detect_by_content(MIT_MISSING_SCOPE)[1], "full")
+        self.assertEqual(detect_by_content(MIT_MISSING_SCOPE), (None, "other"))
+
+    def test_build_report_rejects_missing_scope(self):
+        """Ca âm của reviewer (vòng 3): `build_report` phải báo lỗi, không xuất MIT."""
+        with _TempDir() as root:
+            root = Path(root)
+            crate_dir = _make_crate(root, "repro", "1.0.0", {"LICENSE-MIT": MIT_MISSING_SCOPE})
+            crates = [Crate("repro", "1.0.0", "MIT", None, None, crate_dir)]
+            report = build_report(crates)
+            self.assertTrue(report.problems)
+            self.assertNotIn("MIT", report.texts)
+
+    def test_detect_by_content_rejects_rewritten_clause(self):
+        """Điều khoản bị **viết lại** (đủ từ nhưng đổi nghĩa) phải bị bác bỏ."""
+        self.assertEqual(detect_by_content(MIT_REWRITTEN_CLAUSE), (None, "other"))
+
+    def test_subject_name_may_be_replaced_but_not_deleted(self):
+        """Tên chủ thể thay được; **xoá hẳn** cụm từ đó thì không được."""
+        template = next(t for t in LICENSE_TEMPLATES if t.ident == "BSD-3-Clause")
+        text = template_text(template)
+        renamed = text.replace("the copyright holder", "the Xiph.org Foundation")
+        self.assertEqual(detect_by_content(renamed), ("BSD-3-Clause", "full"))
+        deleted = re.sub(r"the copyright holder", "", text, flags=re.IGNORECASE)
+        self.assertNotEqual(detect_by_content(deleted)[1], "full")
+
     def test_templates_detect_their_own_full_text(self):
         """Mỗi mẫu chuẩn phải tự khớp (bảo đảm mẫu trong repo không hỏng)."""
         for template in LICENSE_TEMPLATES:
@@ -1402,7 +1539,13 @@ class PackageToolTests(unittest.TestCase):
                 self.assertEqual(detect_by_content(text), (template.ident, "full"))
 
     def test_detect_by_content_accepts_known_variants(self):
-        """Biến thể hợp lệ (crate thêm/bớt ít từ) vẫn là toàn văn license."""
+        """Biến thể **đã liệt kê rõ** vẫn là toàn văn license.
+
+        - MIT của `bytemuck 1.25.2`: thêm "(including the next paragraph)" — khai báo
+          trong `ClauseVariant` của mẫu MIT.
+        - BSD-3-Clause của `ogg 0.7.1`: mục 3 thay "the copyright holder" bằng tên
+          chủ bản quyền thật — khai báo trong `slots` của mẫu BSD-3-Clause.
+        """
         # MIT của `bytemuck 1.25.2`: thêm "(including the next paragraph)".
         self.assertEqual(detect_by_content(MIT_TEXT.replace(
             "The above copyright notice and this permission notice shall be included",
