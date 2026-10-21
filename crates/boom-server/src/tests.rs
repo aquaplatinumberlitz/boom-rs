@@ -11,7 +11,8 @@ use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
 use crate::{
-    Authority, InputError, MatchOutcome, MatchSetup, ReplaySetup, ServerConfig, ServerPhase,
+    Authority, InputError, Logger, MatchOutcome, MatchSetup, OperationalConfig, ReplaySetup,
+    ServerConfig, ServerPhase, SharedLogBuffer,
 };
 
 const RULES: &str = include_str!("../../../fixtures/rules/skeleton-test.toml");
@@ -3719,4 +3720,232 @@ fn repeated_hello_is_allowed_before_auth_but_not_after() {
     let _ = server.poll(0, Duration::from_millis(200)).unwrap();
     let reject: Reject = recv(&mut clients[0]);
     assert_eq!(reject.reason, RejectReason::SessionRejected);
+}
+
+// --- Log vòng đời round và lý do disconnect (ADR 0011 §8.1, V1-029) ---
+
+/// Dòng log đầu tiên có `event` = `name` (không có ⇒ test đỏ, không bỏ qua âm thầm).
+fn first_log_line(buffer: &SharedLogBuffer, name: &str) -> serde_json::Value {
+    buffer
+        .lines()
+        .into_iter()
+        .find(|line| line.get("event").and_then(|value| value.as_str()) == Some(name))
+        .unwrap_or_else(|| {
+            panic!(
+                "không có sự kiện `{name}` trong log: {:?}",
+                buffer
+                    .lines()
+                    .iter()
+                    .map(|line| line.get("event").cloned())
+                    .collect::<Vec<_>>()
+            )
+        })
+}
+
+/// Số dòng log có `event` = `name`.
+fn count_log_lines(buffer: &SharedLogBuffer, name: &str) -> usize {
+    buffer
+        .lines()
+        .iter()
+        .filter(|line| line.get("event").and_then(|value| value.as_str()) == Some(name))
+        .count()
+}
+
+/// Gắn logger JSON ghi vào buffer để test đọc được dòng log.
+fn attach_log_buffer(server: &mut Server) -> SharedLogBuffer {
+    let buffer = SharedLogBuffer::new();
+    let logger = Arc::new(Logger::new(
+        OperationalConfig::default().fingerprint(),
+        "test-instance".to_owned(),
+        1,
+        Box::new(buffer.clone()),
+    ));
+    server.set_logger(logger);
+    buffer
+}
+
+/// Đưa hai client qua phòng → start → loading → hết round; trả `round_id` trên dây.
+fn drive_wire_round_to_result(server: &mut Server, clients: &mut [WireClient]) -> u64 {
+    let players = [PlayerId(1), PlayerId(2)];
+    wire_handshake(server, clients);
+    authenticate(server, clients, &players);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    let room = state.room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut clients[1]);
+
+    for (index, _) in players.iter().enumerate() {
+        send_room(
+            &mut clients[index],
+            2,
+            RoomActionDto::SetReady { ready: true },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[0]);
+    }
+    send_room(&mut clients[0], 3, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let start: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+    let round = start.round_id;
+
+    for client in clients.iter_mut() {
+        send(client, &LoadingAck { round_id: round });
+    }
+    for _ in 0..100 {
+        let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+        if server.phase() == ServerPhase::Playing {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Playing);
+
+    // Chạy tới khi có kết quả (giống kịch bản round đầy đủ).
+    let _ = server.poll(200_000, Duration::ZERO).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Results);
+    for client in clients.iter_mut() {
+        let result: RoundResult = recv_of(client, MessageKind::RoundResult);
+        assert_eq!(result.round_id, round);
+    }
+    round
+}
+
+#[test]
+fn log_vong_doi_round_mang_round_id_that() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    let round = drive_wire_round_to_result(&mut server, &mut clients);
+
+    // Mỗi mốc vòng đời round đều có dòng log riêng, mang `round_id` **thật** (khớp dây).
+    let start = first_log_line(&buffer, "round.start");
+    assert_eq!(start["round_id"], serde_json::json!(round));
+    assert_eq!(start["phase"], serde_json::json!("loading"));
+    assert_eq!(start["players"], serde_json::json!(2));
+
+    assert_eq!(count_log_lines(&buffer, "round.loading"), 2);
+    let loading = first_log_line(&buffer, "round.loading");
+    assert_eq!(loading["round_id"], serde_json::json!(round));
+    assert_eq!(loading["phase"], serde_json::json!("loading"));
+
+    let playing = first_log_line(&buffer, "round.playing");
+    assert_eq!(playing["round_id"], serde_json::json!(round));
+    assert_eq!(playing["phase"], serde_json::json!("playing"));
+
+    let result = first_log_line(&buffer, "round.result");
+    assert_eq!(result["round_id"], serde_json::json!(round));
+    assert_eq!(result["phase"], serde_json::json!("results"));
+    assert!(result["outcome"].is_string());
+
+    // `round.end` khi phòng về waiting (mọi người ack kết quả).
+    for client in clients.iter_mut() {
+        send(client, &ResultAck { round_id: round });
+    }
+    for _ in 0..100 {
+        let _ = server.poll(200_000, Duration::from_millis(20)).unwrap();
+        if server.phase() == ServerPhase::Waiting {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Waiting);
+    let end = first_log_line(&buffer, "round.end");
+    assert_eq!(end["round_id"], serde_json::json!(round));
+    assert_eq!(end["outcome"], serde_json::json!("completed"));
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_khi_client_dong_ket_noi() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    // Client đóng socket (EOF) ⇒ `player.disconnect` với lý do `client_closed`.
+    clients[1].writer.close().expect("đóng kết nối client");
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("client_closed"));
+    assert_eq!(disconnect["revoke_reason"], serde_json::json!("disconnect"));
+    assert!(disconnect["player_id"].is_u64());
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_server_shutdown() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    server.shutdown_sessions(1_000);
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("server_shutdown"));
+    assert_eq!(
+        disconnect["revoke_reason"],
+        serde_json::json!("server_shutdown")
+    );
+    // `Drop` gọi lại `shutdown_sessions` ⇒ không log trùng.
+    let before = count_log_lines(&buffer, "player.disconnect");
+    server.shutdown_sessions(2_000);
+    assert_eq!(count_log_lines(&buffer, "player.disconnect"), before);
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_kicked() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    let room = state.room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let joined = recv_room_state(&mut clients[1]);
+
+    // Host kick khỏi phòng người chơi thứ hai (V1: kick chỉ rời phòng).
+    let guest = joined.members[1].player;
+    send_room(&mut clients[0], 2, RoomActionDto::Kick { target: guest });
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("kicked"));
+    assert_eq!(disconnect["player_id"], serde_json::json!(guest));
 }
