@@ -1,0 +1,66 @@
+# Chuỗi nổ: hai bom nổ cùng tick và **cùng phủ một khối mềm** — khối vỡ **một** lần và
+# rơi **một** item, không roll lặp theo số bom (R-109).
+#
+# Bom (2,1) nổ ở tick 10, tầm 3: phủ (1,1)…(5,1) nên kéo bom (4,1) nổ dây chuyền cùng tick;
+# bom (4,1) cũng phủ (5,1). Khối mềm (5,1) bị cả hai bom phủ.
+#
+# seed 9: lần rút đầu của RNG ra 228‰ < 350‰ (`drop.brick_item_chance`) nên khối vỡ có
+# item; lần rút sau ra 2556 < 3650 nên loại là Bomb (`drop.weight_bomb`).
+name = "Chuỗi nổ phủ cùng một khối mềm thì khối vỡ một lần và rơi một item"
+features = ["V1-015", "V1-016"]
+claims = ["R-106", "R-109", "R-112"]
+status = "active"
+seed = 9
+ticks = 15
+map = [
+    "#########",
+    "#0...+..#",
+    "#########",
+]
+
+# Người chơi đứng ngoài vùng lửa để bước `life` không xen vào kết quả của `blocks`.
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [7, 1]
+
+[[bomb]]
+cell = [2, 1]
+owner = 0
+range = 3
+fuse = 10
+
+[[bomb]]
+cell = [4, 1]
+owner = 0
+range = 3
+fuse = 1000
+
+[[expect]]
+tick = 11
+event = "bomb_exploded"
+count = 2
+
+[[expect]]
+tick = 11
+event = "block_destroyed"
+where = { x = 5, y = 1 }
+count = 1
+
+[[expect]]
+tick = 11
+event = "item_revealed"
+where = { x = 5, y = 1, kind = 0 }
+count = 1
+
+[[expect]]
+tick = 11
+at = [5, 1]
+kind = "floor"
+item = "Bomb"
+
+[[expect]]
+tick = 11
+item_count = 1

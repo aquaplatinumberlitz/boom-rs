@@ -108,15 +108,20 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 Bốn claim `design` R-056…R-059 là quyết định V1 trước ADR 0012 (R-058 nay superseded by R-109) cho luồng nhặt, chưa có bằng chứng client KR/VN cho
 các ca biên: thứ tự khi hai người cùng tick (Q-007), và nhặt khi chỉ số đã ở trần (Q-007, `cap`).
 Luồng chung đã có bằng chứng: client xin nhặt (117), server xác nhận (158) rồi item mới mất
-(R-054), nên V1 cho server quyết cả trường hợp "đã chạm trần" — giữ item trên nền thay vì xóa
-đi. Khi có trace, thay các claim này bằng `confirmed` hoặc mở câu hỏi ở
+(R-054), nên V1 cho server quyết cả trường hợp "đã chạm trần". ADR 0012 đã đổi ca biên đó theo
+BnB (`server/game.js:577–581`): item rời nền **trước** rồi mới áp hiệu ứng, nên **ở trần item
+vẫn mất** (R-109, `systems/pickup.rs`). Khi có trace, thay các claim này bằng `confirmed` hoặc
+mở câu hỏi ở
 [QUESTIONS](../../research/QUESTIONS.md).
 
 Hai claim lịch sử `design` R-067/R-068 (nay superseded by R-106/R-109) định nghĩa cách V1 giấu item và cách lửa đối xử với item trên nền;
 chưa có bằng chứng client KR/VN cho hai điểm này. R-068 chọn "lửa không phá item" vì item lộ ra
 nằm đúng ô mà lửa vừa phá khối: nếu lửa phá item trên nền thì item vừa lộ ra sẽ mất ngay, và
-protocol cũ không có gói thu hồi item ngoài xác nhận nhặt (R-054). Khi có trace, thay bằng claim
-`confirmed` hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
+protocol cũ không có gói thu hồi item ngoài xác nhận nhặt (R-054). ADR 0012 đã đổi cả hai điểm
+theo BnB: **không giấu item trước lượt nữa** mà **rơi item khi gạch vỡ** (35%, ba loại V1), và
+**lửa đốt item cũ trước khi sinh item mới** ở ô vừa vỡ — nên item vừa rơi không bị đốt bởi
+chính vụ nổ đó (R-106, R-109; `systems/blocks.rs`). Khi có trace, thay bằng claim `confirmed`
+hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 
 ## 6. Giá trị được chọn cho profile dev
 
@@ -318,9 +323,11 @@ Các claim lựa chọn là quyết định áp dụng; nhãn của bằng chứ
 R-100 **superseded by R-110/R-113**; R-101 **superseded by R-110**;
 R-102 **superseded by R-114**; R-103 **superseded by R-115**;
 R-104 **superseded by R-111**; R-105 **superseded by R-117**;
-R-106 phần trọng số/chance **superseded by R-112**, phần roll khi vỡ còn thuộc #131.
+R-106 phần trọng số/chance **superseded by R-112**; phần roll khi vỡ do #131 triển khai
+(`systems/blocks.rs`: rơi item lúc gạch vỡ, 35%, ba loại V1).
 R-107/R-108 thông số **superseded by R-116**, cơ chế vẫn áp dụng;
-R-109 giữ backlog #131/#132, không biến thành bằng chứng gốc.
+R-109 giữ backlog #132; phần #131 (roll khi vỡ, lửa đốt item cũ, nhặt ở cap) do #131 triển khai
+trong `systems/{blocks,pickup}.rs`, không biến thành bằng chứng gốc.
 
 | ID | Khóa / lựa chọn hiện hành | Giá trị | Nguồn / trạng thái | Locator và giới hạn |
 |---|---|---|---|---|

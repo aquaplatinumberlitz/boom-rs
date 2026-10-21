@@ -30,6 +30,10 @@
 //! Kênh này nằm **ngoài state**: nó chỉ sống trong tick, nên không vào state hash và không
 //! vào snapshot — state là nguồn duy nhất của tick (xem `scratch.rs`).
 //!
+//! **Mỗi ô một lần:** kênh blast sắp theo ô và khử trùng, nên một khối mềm bị nhiều bom
+//! trong cùng chuỗi nổ phủ vẫn chỉ vào kênh **một** lần ⇒ `blocks` chỉ vỡ khối đó một lần và
+//! chỉ rơi **một** item (không roll lặp theo số bom, R-109).
+//!
 //! Quyền ghi và event được phép: bảng trong `systems/mod.rs`. Kịch bản nghiệm thu:
 //! `fixtures/scenarios/explosion/` (`active`). Giá trị luật lấy từ `World::rules()`.
 
@@ -328,6 +332,47 @@ mod tests {
                 .any(|e| matches!(e.kind, EventKind::BombExploded { .. })),
             "mỗi bom chỉ nổ một lần"
         );
+    }
+
+    #[test]
+    fn chain_covering_the_same_block_rolls_the_drop_once() {
+        // Kênh blast của tick khử trùng ô, nên một khối mềm bị nhiều bom trong chuỗi nổ phủ
+        // chỉ vỡ **một** lần và chỉ rơi **một** item — không roll lặp (R-109).
+        let w = world(&["#########", "#0...+..#", "#########"]);
+        let mut s = solo(&w);
+        // Người chơi đứng ngoài vùng lửa để bước `life` không xen vào kết quả của `blocks`.
+        let (x, y) = w.center_of(Cell::new(7, 1));
+        s.players[0].x = x;
+        s.players[0].y = y;
+        // RNG của lượt do test kiểm soát: lần rút đầu trúng nên khối vỡ rơi item.
+        s.rng = crate::rng::Rng::new(2);
+        // Bom thứ nhất nổ ở tick 0 và kéo theo bom thứ hai trong cùng tick (chain).
+        let first = add_bomb(&mut s, Cell::new(2, 1), 3, 0);
+        let second = add_bomb(&mut s, Cell::new(4, 1), 3, 100);
+        let events = step(&w, &mut s);
+
+        assert!(
+            events.iter().any(
+                |e| matches!(&e.kind, EventKind::BombExploded { bomb, chained, .. }
+                    if *bomb == first && !*chained)
+            ),
+            "bom thứ nhất nổ"
+        );
+        assert!(
+            events.iter().any(
+                |e| matches!(&e.kind, EventKind::BombExploded { bomb, chained, .. }
+                    if *bomb == second && *chained)
+            ),
+            "bom thứ hai nổ dây chuyền cùng tick"
+        );
+        let destroyed = events
+            .iter()
+            .filter(|e| matches!(e.kind, EventKind::BlockDestroyed { .. }))
+            .count();
+        assert_eq!(destroyed, 1, "khối mềm chỉ vỡ một lần");
+        assert_eq!(s.items.len(), 1, "chỉ rơi một item, không roll lặp");
+        assert_eq!(s.items[0].cell, Cell::new(5, 1));
+        assert_eq!(s.field.kind(Cell::new(5, 1)), Some(CellKind::Floor));
     }
 
     #[test]

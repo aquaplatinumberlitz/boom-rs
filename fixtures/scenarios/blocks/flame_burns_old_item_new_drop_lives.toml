@@ -1,0 +1,69 @@
+# Lửa đốt item **cũ** trước, item **mới** rơi ở ô vừa vỡ thì còn sống (R-109;
+# BnB `game.js:415–417,424–430`: đốt hết item cũ rồi mới phá khối và rơi item mới).
+#
+# Ô (1,1) là nền có item cũ nằm sẵn; ô (2,1) là khối mềm. Cùng một vụ nổ phủ hai ô đó.
+# seed 9: lần rút đầu của RNG ra 228‰ < 350‰ nên khối vỡ có item; lần rút sau ra 2556 < 3650
+# nên loại là Bomb.
+#
+# Người chơi đứng ở ô (1,1) — ô có item cũ — nhưng item đó bị đốt ở bước `blocks` **trước**
+# bước `pickup`, nên người chơi không nhặt được item cũ.
+name = "Lửa đốt item cũ nhưng item mới rơi ở ô vừa vỡ thì còn sống"
+features = ["V1-016"]
+claims = ["R-106", "R-109", "R-112"]
+status = "active"
+seed = 9
+ticks = 4
+map = [
+    "#####",
+    "#0+.#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[item]]
+cell = [1, 1]
+kind = "Fire"
+
+[[blast]]
+cell = [1, 1]
+
+[[blast]]
+cell = [2, 1]
+
+[[expect]]
+tick = 1
+event = "item_destroyed"
+where = { x = 1, y = 1 }
+count = 1
+
+[[expect]]
+tick = 1
+event = "item_revealed"
+where = { x = 2, y = 1, kind = 0 }
+count = 1
+
+# Item cũ bị đốt nên người chơi đứng ngay ô đó không nhặt được gì.
+[[expect]]
+tick = 1
+event = "item_picked"
+count = 0
+
+[[expect]]
+tick = 1
+at = [1, 1]
+item = "none"
+
+[[expect]]
+tick = 1
+at = [2, 1]
+kind = "floor"
+item = "Bomb"
+
+[[expect]]
+tick = 1
+item_count = 1
