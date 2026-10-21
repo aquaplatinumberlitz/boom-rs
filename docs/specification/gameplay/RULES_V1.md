@@ -330,3 +330,10 @@ R-109 giữ backlog #131/#132, không biến thành bằng chứng gốc.
 | R-116 | `player.collision_half_px`, `player.corner_assist_px`, `player.trap_touch_distance_px` giữ BnB | 13/12/28 px | `oss` / design | R-107/R-108/BnB `server/game.js:31–32,546–567` SHA §10; chưa có KR/VN confirmed cùng đại lượng; R-028 không xác nhận khoảng cách |
 | R-117 | Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
 | R-118 | `presentation.frame_duration_ms` giữ design riêng | 100 ms | `design` / design | R-085; R-079 unknown; BnB không cung cấp nhịp clip KR. RE consumer frame/timing có thể thay sau |
+
+Bảng trên là nguồn chuẩn lựa chọn; validator [`tools/rules_precedence.py`](../../../tools/rules_precedence.py)
+đọc chính bảng này và kiểm profile [`data/rules/`](../../../data/rules/) không dùng tầng thấp hơn
+tầng ghi ở đây cho **cùng đại lượng, cùng đơn vị**; validator chạy trong `cargo xtask ci`, test ở
+`tools/test_rules_precedence.py`. Ngoại lệ phải tường minh: 12 khóa `characters.*` (candidate theo
+R-117, ADR 0013) và `drop.weight_*` (số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052).
+Validator **không** so giá trị số với claim và không tự kết luận claim đúng; reviewer kiểm nguồn.
