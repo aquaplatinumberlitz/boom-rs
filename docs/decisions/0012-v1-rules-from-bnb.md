@@ -1,9 +1,12 @@
 # 0012 — V1 chọn game rules từ BnB
 
-Status: **Accepted**, 2026-10-21, theo quyết định trực tiếp của chủ dự án:
+Status: **Partly superseded by 0013**, 2026-10-21, theo quyết định trực tiếp của chủ dự án:
 “Chốt game rules lấy từ https://github.com/tpoisonooo/BnB — cập nhật game rules theo repo, cập nhật lại docs.”
 Chủ dự án chỉ định cả trường hợp BnB khác giá trị KR/VN đã confirmed: **profile V1 dùng BnB**.
 Tác giả: Codex (co-integrator). Review PR: Claude; Accepted ghi nguồn quyết định, không thay approval PR.
+
+Phần BnB đè KR/VN confirmed và template nhân vật bị thay bởi [ADR 0013](0013-rule-source-precedence.md).
+Nội dung dưới giữ lịch sử; BnB vẫn lấp chỗ trống và backlog #131/#132 còn hiệu lực, có thể bị RE KR thay sau.
 
 ## Nguồn và giới hạn
 

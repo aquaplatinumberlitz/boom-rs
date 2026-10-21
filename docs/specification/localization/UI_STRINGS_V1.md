@@ -229,7 +229,7 @@ Cột **Trạng thái dùng** là quyết định của dự án cho V1-032, l�
 closure (`crates/boom-assets/src/closure.rs`) và được ghi vào mục `[[ui]]` của bundle
 (schema 4, xem [BUNDLES §3.3](../assets/BUNDLES.md)). Bằng chứng phần client gốc (ảnh có
 chữ nằm trong ảnh) và quyết định V1 (vẽ text từ catalog tới khi ảnh được duyệt) ở
-[RULES_V1 §11](../gameplay/RULES_V1.md#11-nền-và-ảnh-ui-của-client-v1) (R-090…R-093). Ba trạng thái:
+[RULES_V1 §12](../gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1) (R-090…R-093). Ba trạng thái:
 
 | Trạng thái | Nghĩa | Ảnh trong atlas | Hiển thị được |
 |---|---|---|---|
