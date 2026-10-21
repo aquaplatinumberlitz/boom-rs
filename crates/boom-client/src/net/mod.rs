@@ -30,7 +30,7 @@ pub use prediction::{
 };
 pub use room::{
     AutoAction, AutoRoomFlow, LocalContent, PendingAck, RoomError, RoomEvent, RoomFlow,
-    RoundExpectation, RoundPlan, world_for_round,
+    RoundExpectation, RoundPlan, RoundStartOutcome, world_for_round,
 };
 pub use session::{ClientMessage, ClientSession, NetError};
 
@@ -102,6 +102,11 @@ impl From<PredictError> for NetError {
 ///
 /// **Tham số vận hành** (design), không phải luật chơi: mạng có thể mất frame, client gửi lại
 /// lệnh phòng (cùng request ID → server dedup) để không kẹt ở sảnh/phòng.
+///
+/// Khoảng này dùng cho **hai** nhịp gửi lại — lệnh phòng và ack phòng — nhưng mỗi nhịp có
+/// **đồng hồ riêng** ([`NetClient::last_auto_send`] và [`NetClient::last_ack_send`]): nếu
+/// chung một đồng hồ thì nhịp của lệnh phòng sẽ "nuốt" nhịp của ack, và frame ack mất sẽ
+/// không được gửi lại ⇒ client phải chờ timeout phía server.
 const ROOM_RETRY_INTERVAL: Duration = Duration::from_millis(500);
 
 /// Bước một tick của client: bơm message, dự đoán, gửi cửa sổ lệnh.
@@ -153,10 +158,19 @@ pub struct NetClient<W: Transport> {
     last_auto: Option<(u64, AutoAction)>,
     /// Mốc gửi lần gần nhất của lệnh phòng trong luồng tự động.
     last_auto_send: Instant,
+    /// Mốc gửi lần gần nhất của **ack phòng** (`LoadingAck`/`ResultAck`).
+    ///
+    /// **Tách khỏi** [`NetClient::last_auto_send`]: hai nhịp gửi lại phải độc lập, nếu chung
+    /// một đồng hồ thì lệnh phòng gửi lại liên tục sẽ chặn ack gửi lại, và frame ack mất
+    /// sẽ không bao giờ được gửi lại (client chỉ chờ timeout phía server).
+    last_ack_send: Instant,
     /// Khoảng cách tối thiểu giữa hai lần gửi lại lệnh phòng đang chờ phản hồi.
     ///
     /// Mặc định [`ROOM_RETRY_INTERVAL`]. Fixture đặt [`Duration::ZERO`] để gửi lại **mỗi** vòng
     /// bơm: mạng ảo chạy theo đồng hồ ảo nên thời gian thật không được quyết định kết quả test.
+    ///
+    /// Khoảng này dùng cho **cả hai** nhịp gửi lại (lệnh phòng và ack phòng); mỗi nhịp có
+    /// đồng hồ riêng nên chúng không chen nhau.
     room_retry_interval: Duration,
 }
 
@@ -198,6 +212,7 @@ impl<W: Transport> NetClient<W> {
             round_world: None,
             last_auto: None,
             last_auto_send: Instant::now(),
+            last_ack_send: Instant::now(),
             room_retry_interval: interval,
         }
     }
@@ -557,8 +572,7 @@ impl<W: Transport> NetClient<W> {
                 // Kết quả do server quyết (ADR 0005): client giữ lại rồi ack để về phòng.
                 let round_id = result.round_id;
                 self.room.on_round_result(result);
-                self.session.send_result_ack(&ResultAck { round_id })?;
-                self.room.mark_result_acked(round_id);
+                self.send_result_ack(round_id)?;
                 self.drive_auto(RoomEvent::RoundResult)?;
             }
             ClientMessage::RoomRejected(rejected) => {
@@ -581,6 +595,10 @@ impl<W: Transport> NetClient<W> {
     /// Fingerprint lệch ⇒ client **không** ack loading: loading barrier của server hủy start
     /// (SCOPE_V1 §3) thay vì client chơi sai rules/content. Lỗi được lưu lại để caller hiện
     /// ra ngoài (xem [`NetClient::room_error`]).
+    ///
+    /// `RoundStart` **cũ** hoặc **trùng** round đang chơi thì bỏ: không đổi kế hoạch round,
+    /// không đổi slot trận, không ack và không chạy luồng tự động (xem
+    /// [`RoomFlow::on_round_start`]).
     fn handle_round_start(&mut self, start: RoundStart) -> Result<(), NetError> {
         let expectation = RoundExpectation {
             profile_id: self.profile_id.clone(),
@@ -588,12 +606,16 @@ impl<W: Transport> NetClient<W> {
             content_sha256: self.content_sha256,
             mode: self.mode.id().to_owned(),
         };
-        let plan = match self.room.on_round_start(start, &expectation) {
-            Ok(plan) => plan,
+        let outcome = match self.room.on_round_start(start, &expectation) {
+            Ok(outcome) => outcome,
             Err(_) => {
                 // Lỗi đã lưu trong luồng phòng: không ack loading.
                 return Ok(());
             }
+        };
+        let RoundStartOutcome::Started(plan) = outcome else {
+            // `RoundStart` cũ/trùng: bỏ trước mọi side effect.
+            return Ok(());
         };
         // Slot trận của client: mục roster có `player == account_id` (không phải
         // `Welcome.player_id` — đó là định danh kết nối).
@@ -607,11 +629,24 @@ impl<W: Transport> NetClient<W> {
                 return Ok(());
             }
         }
-        self.session.send_loading_ack(&LoadingAck {
-            round_id: plan.round_id,
-        })?;
-        self.room.mark_loading_acked(plan.round_id);
+        self.send_loading_ack(plan.round_id)?;
         self.drive_auto(RoomEvent::RoundStart)?;
+        Ok(())
+    }
+
+    /// Gửi `LoadingAck` cho round và ghi nhận mốc gửi (nhịp gửi lại **riêng** của ack).
+    fn send_loading_ack(&mut self, round_id: u64) -> Result<(), NetError> {
+        self.session.send_loading_ack(&LoadingAck { round_id })?;
+        self.room.mark_loading_acked(round_id);
+        self.last_ack_send = Instant::now();
+        Ok(())
+    }
+
+    /// Gửi `ResultAck` cho round và ghi nhận mốc gửi (nhịp gửi lại **riêng** của ack).
+    fn send_result_ack(&mut self, round_id: u64) -> Result<(), NetError> {
+        self.session.send_result_ack(&ResultAck { round_id })?;
+        self.room.mark_result_acked(round_id);
+        self.last_ack_send = Instant::now();
         Ok(())
     }
 
@@ -687,11 +722,17 @@ impl<W: Transport> NetClient<W> {
     /// `LoadingAck`/`ResultAck` là idempotent (ADR 0009 Addendum B §B.2) nên gửi lại không đổi
     /// ý nghĩa; nếu không gửi lại, một frame bị mất sẽ làm loading barrier timeout hoặc khiến
     /// client chờ vô hạn ở màn kết quả.
+    ///
+    /// Nhịp gửi lại dùng **đồng hồ riêng** ([`NetClient::last_ack_send`]), không dùng chung
+    /// với nhịp gửi lại lệnh phòng ([`NetClient::last_auto_send`]): nếu chung, mỗi lần gửi
+    /// lại lệnh phòng sẽ đẩy mốc của ack về hiện tại ⇒ ack **không bao giờ** được gửi lại
+    /// khi lệnh phòng còn pending (mà lệnh phòng thì luôn pending sau mỗi `RoundResult`:
+    /// client chờ `SetReady` cho vòng sau).
     fn ack_retry(&mut self) -> Result<(), NetError> {
         let Some(pending) = self.room.pending_ack() else {
             return Ok(());
         };
-        if self.last_auto_send.elapsed() < self.room_retry_interval {
+        if self.last_ack_send.elapsed() < self.room_retry_interval {
             return Ok(());
         }
         match pending {
@@ -702,7 +743,7 @@ impl<W: Transport> NetClient<W> {
                 self.session.send_result_ack(&ResultAck { round_id })?;
             }
         }
-        self.last_auto_send = Instant::now();
+        self.last_ack_send = Instant::now();
         Ok(())
     }
 

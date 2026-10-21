@@ -203,6 +203,28 @@ impl RoundPlan {
     }
 }
 
+/// Kết quả xử lý `RoundStart`.
+///
+/// `RoundStart` là **lifecycle message** của round: nó mang slot trận của client và mở
+/// lượt. Mạng có thể đưa tới trễ hoặc lặp lại, nên client phải phân biệt ba trường hợp
+/// **trước mọi side effect** (đổi `my_slot`, đổi kế hoạch round, gửi `LoadingAck`):
+///
+/// - [`RoundStartOutcome::Started`]: round mới ⇒ dựng kế hoạch và ack loading.
+/// - [`RoundStartOutcome::Duplicate`]: lặp lại round đang chơi ⇒ **idempotent**, trạng thái
+///   không đổi (ack đã gửi rồi; nếu ack bị mất thì nhịp gửi lại ack lo).
+/// - [`RoundStartOutcome::Stale`]: thuộc round **cũ** ⇒ bỏ, không đụng gì. Bỏ qua thì
+///   kế hoạch round không bị lùi (nếu lùi thì snapshot của round mới bị bỏ theo điều kiện
+///   so với kế hoạch, và input đi kèm slot của round cũ).
+#[derive(Clone, Debug)]
+pub enum RoundStartOutcome {
+    /// Round mới: kế hoạch đã dựng, client phải ack loading.
+    Started(RoundPlan),
+    /// `RoundStart` lặp lại của round đang chơi: không đổi trạng thái.
+    Duplicate,
+    /// `RoundStart` của round cũ: bỏ, không có side effect.
+    Stale,
+}
+
 /// Ack mà client đã gửi nhưng chưa thấy bằng chứng server đã nhận.
 ///
 /// Mạng có thể mất frame, mà protocol V1 **không** có kind riêng để xác nhận ack
@@ -377,11 +399,35 @@ impl RoomFlow {
     ///
     /// Trả về `Err` khi fingerprint lệch: client **không** được ack loading nữa (để loading
     /// barrier của server hủy start thay vì chơi sai nội dung).
+    ///
+    /// ## Thứ tự kiểm: round cũ/trùng **trước mọi side effect**
+    ///
+    /// `RoundStart` mang ID round của server; server cấp ID round **tăng dần** (`boom-room`
+    /// `alloc_round`), nên ID nhỏ hơn ⇒ thuộc round cũ. Mạng có thể đưa `RoundStart` cũ tới
+    /// trễ *sau* `RoundStart` mới: nếu áp nó thì kế hoạch round bị lùi, `my_slot` bị ghi đè
+    /// bằng slot của round cũ, và mọi snapshot của round mới bị bỏ (client chỉ nhận
+    /// snapshot khớp kế hoạch) — predictor không tự cứu được vì snapshot mới bị chặn trước
+    /// nó. Vì vậy:
+    ///
+    /// - `round_id` nhỏ hơn round đang chơi ⇒ [`RoundStartOutcome::Stale`]: bỏ, **không**
+    ///   đụng `my_slot`/kế hoạch/lỗi.
+    /// - `round_id` bằng round đang chơi ⇒ [`RoundStartOutcome::Duplicate`]: xử lý
+    ///   idempotent, trạng thái không đổi.
     pub fn on_round_start(
         &mut self,
         start: RoundStart,
         expected: &RoundExpectation,
-    ) -> Result<RoundPlan, RoomError> {
+    ) -> Result<RoundStartOutcome, RoomError> {
+        // Bỏ message thuộc round cũ/trùng **trước mọi side effect** (kể cả side effect
+        // của việc kiểm fingerprint: ghi đè lỗi đang hiển thị).
+        if let Some(current) = self.round.as_ref() {
+            if start.round_id < current.round_id {
+                return Ok(RoundStartOutcome::Stale);
+            }
+            if start.round_id == current.round_id {
+                return Ok(RoundStartOutcome::Duplicate);
+            }
+        }
         if start.rules_profile_id != expected.profile_id {
             return Err(self.fail(RoomError::ProfileMismatch {
                 expected: expected.profile_id.clone(),
@@ -435,7 +481,7 @@ impl RoomFlow {
         };
         self.error = None;
         self.round = Some(plan.clone());
-        Ok(plan)
+        Ok(RoundStartOutcome::Started(plan))
     }
 
     /// Nhận `RoundResult`: kết quả do server quyết, client chỉ giữ lại.
@@ -942,15 +988,106 @@ mod tests {
     #[test]
     fn round_start_khop_fingerprint_thi_nhan_round() {
         let mut flow = flow_of_player();
-        let plan = flow
+        let outcome = flow
             .on_round_start(round_start(), &expectation())
             .expect("fingerprint phải khớp");
+        let RoundStartOutcome::Started(plan) = outcome else {
+            panic!("round mới phải được nhận");
+        };
         assert_eq!(plan.round_id, 3);
         assert_eq!(plan.seed, 99);
         assert_eq!(plan.map, "Village00");
         assert_eq!(plan.mode, "battle_ffa");
         assert_eq!(flow.round().map(|plan| plan.round_id), Some(3));
         assert!(flow.error().is_none());
+    }
+
+    #[test]
+    fn round_start_trung_cung_round_thi_idempotent() {
+        // `RoundStart` lặp lại của round đang chơi (server gửi lại khi nhận lệnh `Start`
+        // trùng, ADR 0009 Addendum B §B.2): xử lý **idempotent** — trạng thái không đổi và
+        // không báo lỗi.
+        let mut flow = flow_of_player();
+        let start = round_start();
+        let first = flow
+            .on_round_start(start.clone(), &expectation())
+            .expect("round mới phải được nhận");
+        assert!(matches!(first, RoundStartOutcome::Started(_)));
+        let again = flow
+            .on_round_start(start, &expectation())
+            .expect("round trùng không phải lỗi");
+        assert!(
+            matches!(again, RoundStartOutcome::Duplicate),
+            "round trùng phải idempotent"
+        );
+        assert_eq!(flow.round().map(|plan| plan.round_id), Some(3));
+        assert_eq!(flow.my_slot(), Some(0));
+        assert!(flow.error().is_none());
+    }
+
+    #[test]
+    fn round_start_cu_khong_lam_lui_round_moi() {
+        // `RoundStart` của round cũ tới trễ sau `RoundStart` của round mới: bỏ **trước mọi
+        // side effect** — không đổi kế hoạch round, không ghi lùi slot trận (kể cả khi
+        // roster của round cũ đặt slot khác), không báo lỗi.
+        let mut flow = flow_of_player();
+        let mut old = round_start();
+        old.round_id = 1;
+        old.roster = vec![RoundMember {
+            player: 1,
+            slot: 5,
+            character: RoomCharacter::C00,
+        }];
+        let mut new = round_start();
+        new.round_id = 2;
+        new.roster = vec![RoundMember {
+            player: 1,
+            slot: 1,
+            character: RoomCharacter::C01,
+        }];
+        flow.on_round_start(new, &expectation())
+            .expect("round mới phải được nhận");
+        assert_eq!(flow.my_slot(), Some(1));
+
+        let outcome = flow
+            .on_round_start(old, &expectation())
+            .expect("round cũ không phải lỗi");
+        assert!(
+            matches!(outcome, RoundStartOutcome::Stale),
+            "round cũ phải bị bỏ"
+        );
+        assert_eq!(
+            flow.round().map(|plan| plan.round_id),
+            Some(2),
+            "round cũ không được làm lùi kế hoạch round"
+        );
+        assert_eq!(
+            flow.my_slot(),
+            Some(1),
+            "round cũ không được ghi lùi slot trận"
+        );
+    }
+
+    #[test]
+    fn round_start_cu_khong_xoa_loi_dang_co() {
+        // `RoundStart` cũ không được đụng lỗi đang hiển thị: bỏ message cũ **trước** mọi
+        // side effect, kể cả side effect của việc kiểm fingerprint (ghi đè `error`).
+        let mut flow = flow_of_player();
+        flow.on_round_start(round_start(), &expectation())
+            .expect("round mới phải được nhận");
+        flow.set_error(RoomError::MapMissing {
+            map: "Village00".into(),
+        });
+        let mut old = round_start();
+        old.round_id = 1;
+        let outcome = flow
+            .on_round_start(old, &expectation())
+            .expect("round cũ không phải lỗi");
+        assert!(matches!(outcome, RoundStartOutcome::Stale));
+        assert!(
+            flow.error().is_some(),
+            "round cũ không được xóa lỗi đang có"
+        );
     }
 
     #[test]
