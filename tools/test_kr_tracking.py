@@ -36,8 +36,12 @@ class TrackingIntegrityTests(unittest.TestCase):
             verification=dict(status="passed", command="synthetic acceptance check", result="fixture passed"),
             review=dict(status="approved", result="synthetic independent review"))
 
+    def first_open(self):
+        """Mục đầu tiên chưa done — sổ thật có thể đã có nhiều mục done."""
+        return next(f for f in self.features if f["implementation"] != "done")
+
     def test_fake_done_without_acceptance_is_rejected(self):
-        f = self.features[0]
+        f = self.first_open()
         f["implementation"] = "done"
         with self.assertRaises(ValueError):
             validate_features(self.features, self.baseline, ROOT)
@@ -70,16 +74,16 @@ class TrackingIntegrityTests(unittest.TestCase):
 
     def test_only_done_earns_credit_and_drops_are_excluded(self):
         # Tương đối với dữ liệu thật: sổ tiến độ có thể đã có mục done.
-        self.assertNotEqual(self.features[0]["implementation"], "done")
+        target = self.first_open()
         base = metrics(self.features)
-        self.complete_record(self.features[0])
+        self.complete_record(target)
         m = metrics(self.features)
         self.assertEqual((m["V1"]["done"], m["V1"]["total"]), (base["V1"]["done"] + 1, 37))
         self.assertEqual(
             (m["catalog"]["done"], m["catalog"]["total"], m["excluded"]),
             (base["catalog"]["done"] + 1, 112, 2),
         )
-        self.features[0]["implementation"] = "in_review"
+        target["implementation"] = "in_review"
         self.assertEqual(metrics(self.features)["V1"]["percent"], base["V1"]["percent"])
 
     def test_scope_change_cannot_silently_change_denominator(self):
