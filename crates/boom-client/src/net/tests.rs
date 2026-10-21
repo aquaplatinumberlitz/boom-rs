@@ -38,7 +38,7 @@ use super::fixture::{
     ACCOUNT_PASSWORD, EnqueuedReader, FlushWriter, LATE_THRESHOLD_MS, ReaderProgress,
     ScheduledFaults, ScheduledHarness, SharedWriter,
 };
-use super::{ClientSession, Credentials, NetClient, NetError, hello_for_profile};
+use super::{ClientMessage, ClientSession, Credentials, NetClient, NetError, hello_for_profile};
 
 /// Profile rules cố định cho test (khác `data/rules/v1-dev.toml` nhưng cùng schema).
 const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
@@ -2032,7 +2032,7 @@ fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
         reorder_window_ms: 10,
     };
     // Lịch seed này mất frame cả hai chiều nhưng giữ các thông báo RoundStart/RoundResult
-    // một lần; regression bên dưới ép mất RoundResult để giữ lỗ hổng protocol hiện rõ.
+    // một lần; regression bên dưới ép mất RoundResult rồi kiểm recovery.
     let harness = chay_luong_phong(2, out_faults, in_faults, 20261023);
     // Lỗi mạng phải **thật sự xảy ra**: nếu không mất frame nào thì test không chứng minh
     // được gì.
@@ -2060,11 +2060,9 @@ fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
     );
 }
 
-/// Regression giới hạn protocol V1: mất RoundResult chưa có đường xin lại.
-/// Ca luồng thành công phía trên vẫn giữ loss 50‰ cả hai chiều; ca này ép mất thông báo
-/// một lần, không giả lập retransmit hay thay contract để che giới hạn đó.
+/// Mất frame kết quả đầu: NetClient xin lại bảng đã commit từ server thật.
 #[test]
-fn mat_round_result_chua_co_duong_xin_lai() {
+fn mat_round_result_xin_lai_dung_bang_authority() {
     let mut harness = RoomHarness::new(
         2,
         ScheduledFaults::none(),
@@ -2088,8 +2086,12 @@ fn mat_round_result_chua_co_duong_xin_lai() {
         harness.client(1).net.room().result().is_some(),
         "peer nhận kết quả server thật"
     );
-    assert!(!harness.wait_for(0, |client| client.net.room().result().is_some(), 40));
-    assert!(harness.client(0).net.room().result_acked().is_none());
+    assert!(harness.wait_for(0, |client| client.net.room().result().is_some(), 200));
+    assert_eq!(
+        harness.client(0).net.room().result(),
+        harness.client(1).net.room().result()
+    );
+    assert!(harness.client(0).net.room().result_acked().is_some());
     assert_eq!(
         harness.client(0).inbound_stats().lost,
         1,
@@ -2362,5 +2364,102 @@ fn result_ack_mat_frame_duoc_gui_lai_khi_lenh_phong_con_pending() {
     assert!(
         kinds.contains(&MessageKind::ResultAck),
         "`ResultAck` mất phải được gửi lại, không nhờ timeout phía server: {kinds:?}"
+    );
+}
+
+#[test]
+fn round_result_lap_va_cu_khong_kich_hoat_lai_ui() {
+    let mut client = SoloClient::new();
+    client.push_round_start(2);
+    client.push_round_result(2);
+    let result = client.net.room().result().cloned().unwrap();
+    client.drain_kinds();
+    client.push_round_result(2);
+    assert_eq!(client.net.room().result(), Some(&result));
+    assert!(!client.drain_kinds().contains(&MessageKind::ResultAck));
+    client.push_round_start(3);
+    client.drain_kinds();
+    client.push_round_result(2);
+    assert!(!client.drain_kinds().contains(&MessageKind::ResultAck));
+}
+
+/// Nhịp retry độc lập auto-ready, tăng backoff và dừng khi hết retention hoặc đổi round.
+#[test]
+fn round_result_retry_backoff_va_dung() {
+    let mut client = SoloClient::new();
+    client.push_round_start(2);
+    let mut state = solo_state(7);
+    state.phase = boom_core::Phase::Ended(boom_core::Outcome::Draw);
+    client.push_snapshot(&solo_snapshot(&state, 2, 1));
+    client.drain_kinds();
+    for tick in 2..=28 {
+        client.net.pump(Duration::ZERO).unwrap();
+        let kinds = client.drain_kinds();
+        assert_eq!(
+            kinds.contains(&MessageKind::RoundResultRequest),
+            [4, 12, 28].contains(&tick),
+            "pump {tick}"
+        );
+    }
+    client
+        .net
+        .handle(ClientMessage::RoomRejected(boom_proto::RoomRejected {
+            request: 2,
+            reason: boom_proto::RoomRejectReason::StaleRequest,
+        }))
+        .unwrap();
+    for _ in 0..128 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        !client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
+    );
+    client.push_round_start(3);
+    client.drain_kinds();
+    for _ in 0..128 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        !client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
+    );
+}
+
+#[test]
+fn round_result_round_ended_event_cung_mo_recovery() {
+    let mut client = SoloClient::new();
+    client.push_round_start(2);
+    client.drain_kinds();
+    client
+        .net
+        .handle(ClientMessage::RoundEvents(boom_proto::RoundEvents {
+            round_id: 2,
+            events: vec![boom_proto::RoundEvent {
+                id: boom_proto::EventId { tick: 100, seq: 0 },
+                name: "round_ended".into(),
+                fields: vec![],
+            }],
+        }))
+        .unwrap();
+    for _ in 0..4 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
+    );
+    client.push_round_result(2);
+    client.drain_kinds();
+    for _ in 0..128 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        !client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
     );
 }

@@ -26,7 +26,7 @@
 //! `Snapshot` (resync) và dựng lại `SimulationState` bằng `boom_sync::from_snapshot`, rồi so
 //! hash của state mình dựng với hash server. Trận chỉ "hội tụ" khi **mọi** bot khớp.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::mpsc::{self, Receiver, TryRecvError};
@@ -287,6 +287,8 @@ pub enum RecoveryScenario {
     Disconnect,
     /// Bỏ Pong tới khi server thu hồi phiên vì hết liveness.
     Liveness,
+    /// Mất frame RoundResult đầu ở mỗi bot; kiểm request recovery và bảng authority.
+    RoundResultLoss,
 }
 
 /// Chạy cùng bot/predictor với một lỗi vòng đời có kiểm soát.
@@ -428,6 +430,7 @@ fn run_impl(
     let mut drain_started = None;
     let mut fault_round = None;
     let mut fault_disconnected = false;
+    let mut dropped_results = BTreeMap::<usize, boom_proto::RoundResult>::new();
     let drain_ms = u64::from(
         config.profile.network.one_way_delay_ms()
             + config.profile.network.jitter_ms
@@ -479,8 +482,10 @@ fn run_impl(
         }
 
         // Bot nhận frame rồi gửi lệnh.
-        if scenario != RecoveryScenario::Steady
-            && fault_round.is_none()
+        if matches!(
+            scenario,
+            RecoveryScenario::Disconnect | RecoveryScenario::Liveness
+        ) && fault_round.is_none()
             && server.phase() == ServerPhase::Playing
             && server.authority().tick().unwrap_or(0) >= 10
             && bots
@@ -506,6 +511,28 @@ fn run_impl(
             loop {
                 match bot.frames.try_recv() {
                     Ok(frame) => {
+                        if scenario == RecoveryScenario::RoundResultLoss
+                            && boom_proto::read_envelope(&frame)
+                                .map(|(envelope, _)| {
+                                    envelope.kind == boom_proto::MessageKind::RoundResult
+                                })
+                                .unwrap_or(false)
+                        {
+                            let result: boom_proto::RoundResult =
+                                boom_proto::decode_frame(&frame, &boom_proto::ProtocolLimits::v1())
+                                    .map_err(|err| QaError::Bot(err.to_string()))?;
+                            if let Some(committed) = dropped_results.get(&bot.index) {
+                                if result.round_id == committed.round_id && &result != committed {
+                                    return Err(QaError::Bot(
+                                        "Bảng recovery khác bảng đã commit".into(),
+                                    ));
+                                }
+                            } else {
+                                fault_round.get_or_insert(result.round_id);
+                                dropped_results.insert(bot.index, result);
+                                continue;
+                            }
+                        }
                         pending.extend(
                             bot.client
                                 .on_frame(now, &frame)
@@ -625,6 +652,8 @@ fn run_impl(
                 .all(|bot| bot.client.stats().results_acked >= config.rounds())
             && rounds.len() >= config.rounds() as usize;
         let recovery_done = scenario == RecoveryScenario::Steady
+            || (scenario == RecoveryScenario::RoundResultLoss
+                && dropped_results.len() == config.clients)
             || (fault_disconnected
                 && bots
                     .last()
@@ -748,8 +777,12 @@ fn run_impl(
         fault_round,
         fault_disconnected,
         drained: drain_started.is_some() && !timed_out,
-        recovered: fault_round.is_some() && fault_disconnected && !timed_out
-            && rounds.last().is_some_and(|round| round.converged),
+        recovered: if scenario == RecoveryScenario::RoundResultLoss {
+            dropped_results.len() == config.clients && converged
+        } else {
+            fault_round.is_some() && fault_disconnected && !timed_out
+                && rounds.last().is_some_and(|round| round.converged)
+        },
         profile: config.profile.name.clone(),
         rules_profile: rules_profile.profile_id.clone(),
         map: harness.map.clone(),
@@ -829,6 +862,17 @@ mod recovery_tests {
             seed: 7,
             rounds: Some(1),
         }
+    }
+
+    #[test]
+    fn mat_round_result_bon_bot_xin_lai_va_hoi_tu() {
+        let report = run_scenario(&config(), RecoveryScenario::RoundResultLoss).unwrap();
+        assert!(
+            !report.timed_out && report.converged && report.drained,
+            "{report:?}"
+        );
+        assert_eq!(report.rounds.last().unwrap().bot_hashes.len(), 4);
+        assert!(report.bots.iter().all(|bot| bot.results_acked >= 1));
     }
 
     #[test]

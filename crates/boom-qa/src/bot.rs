@@ -337,6 +337,9 @@ pub struct DirectDtoBot {
     ping_nonce: u64,
     /// Lượt nào bot đang giữ `ResultAck`, chờ state cuối lượt.
     pending_result_ack: Option<u64>,
+    received_results: BTreeSet<u64>,
+    result_request_at_ms: u64,
+    result_retry_ms: u64,
     /// Các lượt đã biết kết thúc (chống đếm hai lần khi frame trùng/đảo thứ tự).
     finished_rounds: BTreeSet<u64>,
     /// Các lượt đã gửi `ResultAck`.
@@ -399,6 +402,9 @@ impl DirectDtoBot {
             pending_pings: BTreeMap::new(),
             ping_nonce: 0,
             pending_result_ack: None,
+            received_results: BTreeSet::new(),
+            result_request_at_ms: 0,
+            result_retry_ms: 0,
             finished_rounds: BTreeSet::new(),
             acked_rounds: BTreeSet::new(),
             round_end_at_ms: 0,
@@ -750,6 +756,8 @@ impl DirectDtoBot {
         self.last_snapshot = None;
         self.last_snapshot_seq = 0;
         self.pending_result_ack = None;
+        self.result_request_at_ms = 0;
+        self.result_retry_ms = 0;
         self.start_sent = false;
         true
     }
@@ -839,7 +847,9 @@ impl DirectDtoBot {
 
     /// Bot đã có state cuối lượt thì được ack kết quả.
     fn ack_if_have_state(&mut self, round_id: u64) -> Result<Vec<Vec<u8>>, BotError> {
-        if !self.stats.round_hashes.contains_key(&round_id) {
+        if !self.received_results.contains(&round_id)
+            || !self.stats.round_hashes.contains_key(&round_id)
+        {
             return Ok(Vec::new());
         }
         self.release_result_ack(round_id)
@@ -950,6 +960,7 @@ impl DirectDtoBot {
             // Kết quả của lượt cũ đến trễ: bỏ qua.
             return Ok(Vec::new());
         }
+        self.received_results.insert(round_id);
         self.round_end_at_ms = now_ms;
         self.note_round_finished(round_id);
         self.phase = BotPhase::Results;
@@ -1350,6 +1361,16 @@ impl BotClient for DirectDtoBot {
                     }
                 }
             }
+        }
+        if let Some(round_id) = self.round_id
+            && self.finished_rounds.contains(&round_id)
+            && !self.received_results.contains(&round_id)
+            && now_ms.saturating_sub(self.result_request_at_ms)
+                >= self.result_retry_ms.max(self.config.retry_ms)
+        {
+            out.push(self.encode(&boom_proto::RoundResultRequest { round_id })?);
+            self.result_request_at_ms = now_ms;
+            self.result_retry_ms = (self.result_retry_ms.max(self.config.retry_ms) * 2).min(2000);
         }
         if self.handshaken()
             && now_ms.saturating_sub(self.last_ping_at_ms) >= self.config.ping_interval_ms
