@@ -33,7 +33,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use boom_content::animation::{AnimationClip, PresentationState};
-use boom_content::assets::{AssetError, AssetTables, UiMapping};
+use boom_content::assets::{AssetError, AssetTables, AudioMapping, UiMapping};
 use boom_content::bundle::{
     AtlasPage, AudioAsset, Bundle, BundleError, Cell, Clip, EvidenceStatus, Frame, NonImageAsset,
     Sprite as BundleSprite, SpriteImage, UiElement, UiState, Unknown, sha256_hex,
@@ -549,16 +549,24 @@ pub fn build_bundle_with(
 
     // Audio V1: payload thô + hash, cùng quy tắc entry/mapping AUDIO_V1. Chỉ nhận định dạng
     // macroquad đọc được; mp3/unknown bị bỏ qua có log thay vì đưa file không phát được.
+    //
+    // Metadata entry đọc từ **chính bảng cue được truyền vào** (nguồn chuẩn), không từ
+    // bảng audio mặc định trong crate: entry ngoài bảng mặc định vẫn phải được đọc thật,
+    // không được coi là thiếu (review Codex #139). Entry không có trong pack thì dựng
+    // bundle lỗi — bỏ qua âm thanh âm thầm làm `content_hash` không còn ràng buộc được
+    // nội dung hiển thị.
     let sound_pack = Pack::open(pack_dir, "FxSound", Build::Kr)?;
-    let infos = audio::v1_entries(&sound_pack)?;
-    let info_by_entry: std::collections::BTreeMap<&str, &audio::AudioInfo> = infos
-        .iter()
-        .map(|info| (info.entry.as_str(), info))
-        .collect();
+    let mut info_by_entry: std::collections::BTreeMap<String, audio::AudioInfo> =
+        std::collections::BTreeMap::new();
+    for entry in audio_entries_of(&tables.audio.cues) {
+        let info = audio::read_entry(&sound_pack, entry)?;
+        info_by_entry.insert(entry.to_owned(), info);
+    }
     let mut audio_assets = Vec::new();
     let mut audio_files = Vec::new();
     for usage in &tables.audio.cues {
         let Some(info) = info_by_entry.get(usage.entry.as_str()) else {
+            // Không xảy ra: metadata đã nạp cho mọi entry mà cue trỏ tới.
             eprintln!(
                 "audio: thiếu entry {} — bỏ qua cue {}",
                 usage.entry, usage.event
@@ -621,6 +629,21 @@ pub fn build_bundle_with(
         pages: page_bytes,
         audio: audio_files,
     })
+}
+
+/// Các entry âm thanh mà các cue của bảng trỏ tới, dedup và giữ thứ tự bảng.
+///
+/// Bảng truyền vào là nguồn chuẩn: entry nào **không** có trong bảng audio mặc định của
+/// crate vẫn phải được đọc từ pack, không được coi là thiếu (review Codex #139).
+fn audio_entries_of(cues: &[AudioMapping]) -> Vec<&str> {
+    let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    let mut entries: Vec<&str> = Vec::new();
+    for cue in cues {
+        if seen.insert(cue.entry.as_str()) {
+            entries.push(cue.entry.as_str());
+        }
+    }
+    entries
 }
 
 /// Sprite đã giải mã từ pack, sẵn sàng đưa ảnh vào atlas.
@@ -1328,6 +1351,99 @@ mod tests {
             "80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc",
             "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
         );
+    }
+
+    /// Nghiệm thu review Codex #139: bảng audio **truyền vào** là nguồn chuẩn — entry mà
+    /// cue trỏ tới nằm ngoài bảng audio mặc định của crate vẫn phải được đọc thật.
+    ///
+    /// Trước khi sửa, `build_bundle_with` nạp lại bảng audio mặc định để lấy metadata
+    /// entry: entry mới bị coi là thiếu và cue bị bỏ khỏi bundle dù asset có thật.
+    #[test]
+    fn audio_cue_outside_the_default_table_is_still_built() {
+        let Some(root) = pack_root() else {
+            eprintln!("bỏ qua: chưa đặt BOOM_KR_PACK_DIR");
+            return;
+        };
+        let base = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let mut tables = AssetTables::v1().expect("bảng V1");
+        let cue = tables
+            .audio
+            .cues
+            .iter_mut()
+            .find(|cue| cue.event == "bomb_placed")
+            .expect("cue bomb_placed");
+        // Entry có thật trong pack `FxSound` nhưng không có trong bảng audio mặc định.
+        cue.entry = "Wave/BombExplosion002".to_owned();
+        let changed = build_bundle_with(&root, V1_MAP, &tables).expect("dựng bundle");
+
+        // Cue không bị bỏ, và mang entry mới.
+        assert_eq!(
+            changed.bundle.audio.len(),
+            base.bundle.audio.len(),
+            "không được bỏ cue nào"
+        );
+        let audio = changed
+            .bundle
+            .audio
+            .iter()
+            .find(|audio| audio.id == "bomb_placed")
+            .expect("cue bomb_placed vẫn phải có trong bundle");
+        assert_eq!(audio.entry, "Wave/BombExplosion002", "phải mang entry mới");
+        assert_eq!(audio.format, "ogg", "entry mới là Ogg");
+        assert_eq!(audio.bytes, 23168, "kích thước payload của entry mới");
+
+        // Hash phải là hash của entry mới, không phải của entry cũ.
+        let pack = Pack::open(&root, "FxSound", Build::Kr).expect("mở pack FxSound");
+        let expected = audio::read_entry(&pack, "Wave/BombExplosion002").expect("đọc entry mới");
+        assert_eq!(audio.sha256, expected.sha256, "hash phải của entry mới");
+        let old = base
+            .bundle
+            .audio
+            .iter()
+            .find(|audio| audio.id == "bomb_placed")
+            .expect("cue bomb_placed của bundle gốc");
+        assert_ne!(old.sha256, audio.sha256, "hash phải đổi theo entry");
+
+        // Đổi entry ⇒ `content_hash` đổi.
+        assert_ne!(
+            base.bundle.content_hash, changed.bundle.content_hash,
+            "đổi entry của cue phải đổi content_hash"
+        );
+    }
+
+    /// Bảng audio truyền vào là nguồn chuẩn: entry của cue ngoài bảng mặc định vẫn phải
+    /// được đọc, và entry lặp chỉ đọc một lần (review Codex #139).
+    ///
+    /// Test này không cần pack thật nên chạy được ở CI.
+    #[test]
+    fn audio_entries_come_from_the_given_table() {
+        let mut tables = AssetTables::v1().expect("bảng V1");
+        let cue = tables
+            .audio
+            .cues
+            .iter_mut()
+            .find(|cue| cue.event == "bomb_placed")
+            .expect("cue bomb_placed");
+        cue.entry = "Wave/BombExplosion002".to_owned();
+        let entries = audio_entries_of(&tables.audio.cues);
+        assert!(
+            entries.contains(&"Wave/BombExplosion002"),
+            "entry ngoài bảng audio mặc định vẫn phải được đọc"
+        );
+        assert_eq!(
+            entries.len(),
+            tables.audio.cues.len(),
+            "bảng V1 không có entry lặp"
+        );
+
+        // Entry lặp chỉ được đọc một lần.
+        let mut cues = tables.audio.cues.clone();
+        cues.push(cues[0].clone());
+        let entries = audio_entries_of(&cues);
+        let mut unique = entries.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(entries.len(), unique.len(), "entry lặp phải được dedup");
     }
 
     /// Nghiệm thu issue #123: đổi **một** mapping ⇒ `content_hash` đổi.

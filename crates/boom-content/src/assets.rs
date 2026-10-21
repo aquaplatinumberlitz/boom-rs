@@ -20,7 +20,8 @@
 //! - ID trùng trong một bảng;
 //! - dòng thiếu trường bắt buộc (entry, state, lý do…);
 //! - state/hướng không hợp lệ;
-//! - thời lượng `unknown` mang giá trị, hoặc `known` thiếu claim;
+//! - thời lượng `unknown` mang giá trị, `known` thiếu claim, hoặc thời lượng mang nhãn
+//!   bằng chứng sai (nhãn của thời lượng được kiểm y hệt nhãn của một dòng mapping);
 //! - nhãn sai (nguồn `design` mang nhãn `confirmed`, `confirmed` mà nguồn không phải
 //!   client gốc, dòng mapping mang nhãn `unknown`…).
 
@@ -185,6 +186,15 @@ enum TimingSpec {
 
 impl TimingSpec {
     /// Đổi sang [`FrameTiming`] của schema animation, kèm kiểm tra quy tắc.
+    ///
+    /// Thời lượng là **giá trị có bằng chứng** nên nhãn của nó được kiểm y hệt nhãn của một
+    /// dòng mapping (AGENTS §4): `design` không được mang nhãn `confirmed`/`candidate`,
+    /// `confirmed` cần nguồn đọc được từ client gốc, và `unknown` không được mang giá trị
+    /// (ngược lại `FrameTiming::validate` cũng từ chối). Thời lượng `known` bắt buộc có
+    /// claim — kể cả khi nguồn là `design`.
+    ///
+    /// `kind`/`id` là của dòng mang thời lượng: `clip` + ID clip cho thời lượng riêng,
+    /// `clip` + `default_timing` cho thời lượng mặc định của bảng.
     fn into_timing(self, kind: &'static str, id: &str) -> Result<FrameTiming, AssetError> {
         match self {
             Self::Known {
@@ -193,6 +203,10 @@ impl TimingSpec {
                 status,
                 claims,
             } => {
+                // Nhãn của thời lượng: dùng chung validator với dòng mapping. `need_claims`
+                // để false vì phần thiếu claim báo bằng `BadTiming` (thông điệp riêng của
+                // thời lượng) bên dưới.
+                validate_evidence(kind, id, source, status, &claims, false)?;
                 if ms == 0 {
                     return Err(AssetError::BadTiming {
                         kind,
@@ -206,15 +220,6 @@ impl TimingSpec {
                         id: id.to_owned(),
                         message: "thời lượng `known` phải có ít nhất một claim".to_owned(),
                     });
-                }
-                for claim in &claims {
-                    if !is_claim_id(claim) {
-                        return Err(AssetError::BadClaim {
-                            kind,
-                            id: id.to_owned(),
-                            claim: claim.clone(),
-                        });
-                    }
                 }
                 Ok(FrameTiming::Known {
                     ms,
@@ -1452,6 +1457,74 @@ claims = ["R-077"]
             AnimationTable::from_toml(&text),
             Err(AssetError::BadTiming { .. })
         ));
+    }
+
+    /// Nhãn bằng chứng của **thời lượng** cũng phải đúng: `design` không được mang nhãn
+    /// `confirmed`, `confirmed` cần nguồn đọc được từ client gốc, `unknown` không được
+    /// mang giá trị (AGENTS §4 — review Codex #139).
+    #[test]
+    fn timing_known_label_is_checked() {
+        // Nhãn sai trong thời lượng riêng của clip.
+        for (source, status) in [
+            ("design", "confirmed"),
+            ("web", "confirmed"),
+            ("kr_static", "unknown"),
+        ] {
+            let text = CLIP.replace(
+                "claims = [\"R-077\"]",
+                &format!(
+                    "claims = [\"R-077\"]\ntiming = {{ known = {{ ms = 100, source = \"{source}\", \
+                     status = \"{status}\", claims = [\"R-085\"] }} }}"
+                ),
+            );
+            assert!(
+                matches!(
+                    AnimationTable::from_toml(&text),
+                    Err(AssetError::BadLabel { kind: "clip", .. })
+                ),
+                "thời lượng mang nhãn {source}/{status} phải bị từ chối"
+            );
+        }
+
+        // Nhãn sai trong `default_timing` cũng bị từ chối, và báo đúng dòng.
+        let text = CLIP.replace(
+            "default_timing = { unknown = { reason = \"chưa có nguồn thời lượng\" } }",
+            "default_timing = { known = { ms = 100, source = \"web\", status = \"confirmed\", \
+             claims = [\"R-085\"] } }",
+        );
+        assert!(matches!(
+            AnimationTable::from_toml(&text),
+            Err(AssetError::BadLabel {
+                kind: "clip",
+                ref id,
+                ..
+            }) if id == "default_timing"
+        ));
+
+        // Nhãn đúng thì thời lượng được nhận: nguồn client gốc + `confirmed`, và `design`
+        // thì phải mang nhãn `design` (design thuần không được nâng thành `confirmed`).
+        let text = CLIP.replace(
+            "claims = [\"R-077\"]",
+            "claims = [\"R-077\"]\ntiming = { known = { ms = 100, source = \"kr_static\", \
+             status = \"confirmed\", claims = [\"R-085\"] } }",
+        );
+        let table = AnimationTable::from_toml(&text).expect("thời lượng nhãn đúng phải nạp được");
+        let clip = &table.clips[0];
+        assert_eq!(
+            clip.timing.ms(),
+            Some(100),
+            "thời lượng hợp lệ phải mang giá trị"
+        );
+
+        let text = CLIP.replace(
+            "claims = [\"R-077\"]",
+            "claims = [\"R-077\"]\ntiming = { known = { ms = 100, source = \"design\", \
+             status = \"design\", claims = [\"R-085\"] } }",
+        );
+        assert!(
+            AnimationTable::from_toml(&text).is_ok(),
+            "thời lượng design/design kèm claim phải hợp lệ"
+        );
     }
 
     /// Nhãn bằng chứng sai bị từ chối (nhãn `confirmed` cần nguồn đọc được từ client gốc).
