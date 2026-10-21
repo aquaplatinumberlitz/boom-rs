@@ -1,4 +1,5 @@
 use boom_content::hash::Fnv1a64;
+use boom_content::rules::CharacterSpec;
 
 use crate::num::{Mpx, Tick};
 use crate::sim::Dir;
@@ -30,6 +31,19 @@ pub struct CharacterStats {
     pub speed: Stat,
     pub bombs: Stat,
     pub range: Stat,
+}
+
+impl CharacterStats {
+    /// Chỉ số từ bảng đọc được trong rules profile (`boom-content::rules::CharacterSpec`).
+    ///
+    /// Profile đã kiệm cấp hiện tại ≤ trần khi nạp (`boom-content`); ở đây chỉ đổi kiểu.
+    pub fn from_spec(spec: &CharacterSpec) -> Self {
+        Self {
+            speed: Stat::new(spec.speed_value, spec.speed_max),
+            bombs: Stat::new(spec.bombs_value, spec.bombs_max),
+            range: Stat::new(spec.range_value, spec.range_max),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

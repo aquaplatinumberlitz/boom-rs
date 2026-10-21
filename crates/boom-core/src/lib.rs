@@ -29,7 +29,7 @@ pub use event::{EventId, EventKind, EventSink, SimulationEvent, event_digest};
 pub use mode::{FfaBattle, Mode, Outcome, mode_by_id, modes};
 pub use num::{Cell, Mpx, Tick, ms_to_ticks};
 pub use rng::Rng;
-pub use rules::{ItemDef, ItemEffect, Rules};
+pub use rules::{CharacterStatsTable, ItemDef, ItemEffect, Rules};
 pub use sim::{CoreError, Dir, PlayerInput, PlayerSetup, World};
 pub use state::{
     Bomb, CharacterStats, EntityId, Field, Flame, FloorItem, IdAllocator, ItemKind, Life, Phase,
