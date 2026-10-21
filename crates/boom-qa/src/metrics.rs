@@ -4,7 +4,7 @@
 
 use serde::Serialize;
 
-/// Một tập mẫu số nguyên (ms) có phân vị.
+/// Một tập mẫu số nguyên có phân vị; caller quy định đơn vị (ms hoặc mpx).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Samples {
     values: Vec<u64>,

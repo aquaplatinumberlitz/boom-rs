@@ -10,13 +10,18 @@ nào trong [RULES_V1](gameplay/RULES_V1.md).
 | Mục | Nội dung |
 |---|---|
 | Server | `boom-server` thật, identity SQLite trong thư mục tạm (ADR 0011 §10) |
-| Client | Bot headless nói DTO trực tiếp (`boom-proto`), không dự đoán state |
+| Client | Bot headless dùng `Predictor` của client cho input/prediction/reconciliation; lifecycle qua DTO |
 | Kết nối | `boom-net::MemoryTransport`, hai chiều, lỗi mạng theo seed |
 | Luật trận | Profile rules riêng của harness (`crates/boom-qa/rules/*.toml`) |
 
-Harness **không** dùng client thật (`boom-client`): giai đoạn 1 bot nói DTO trực tiếp. Điểm thay
-thế là trait `boom_qa::bot::BotClient`, để khi module net của `boom-client` sẵn sàng thì thêm một
-implementation mà không phải đổi harness.
+Harness dùng trực tiếp source chuẩn `boom-client/src/net/prediction.rs` qua `#[path]` trong
+`boom-qa/src/lib.rs`: cùng API `predict/apply_snapshot/window/acknowledge`, không chép thuật toán. `RoomFlow` cũng
+include source client chung để kiểm fingerprint/roster/round cũ trước side effect.
+`boom-client` hiện chỉ có binary và #166 không mở quyền sửa Cargo/lib client; cách include này
+không kéo renderer/GPU vào QA. Tên public `DirectDtoBot`/factory giữ tương thích; phần lifecycle
+vẫn nói DTO, còn input dùng predictor thật và resend cửa sổ lệnh chưa ack với payload bất biến.
+Chưa dùng trọn `NetClient`/`ClientSession` cho auth/phòng: không coi phép đo này là nghiệm thu
+retry/timeout của facade đó.
 
 ### Thay implementation bot
 
@@ -24,7 +29,7 @@ Harness **không** tự dựng bot: nó gọi `boom_qa::bot::BotFactory` cho t�
 
 | Entry point | Bot dùng | Ai dùng |
 |---|---|---|
-| `boom_qa::harness::run(&RunConfig)` | `DirectDtoBotFactory` (bot nói DTO trực tiếp) | CLI `boom-qa`, test |
+| `boom_qa::harness::run(&RunConfig)` | `DirectDtoBotFactory` (predictor chung + lifecycle DTO) | CLI `boom-qa`, test |
 | `boom_qa::harness::run_with(&RunConfig, &dyn BotFactory)` | factory do bên ngoài cài | implementation bot khác (ví dụ bot dự đoán state) |
 
 `BotFactory::create(&BotConfig) -> Box<dyn BotClient>` nhận cấu hình harness đã tính sẵn cho bot
@@ -162,6 +167,28 @@ lượt. Nếu hết hạn mà chưa có snapshot, bot vẫn ack (để lượt 
 
 Báo cáo `converged` của một lượt = mọi bot đều có hash và hash đó bằng hash server.
 
+### Correction cùng tick (schema báo cáo 2)
+
+Bot lưu vị trí dự đoán của chính mình theo tick. Khi nhận snapshot mới được Predictor chấp nhận,
+so tọa độ server với vị trí đã dự đoán **ở cùng tick**, dùng khoảng cách Manhattan `|dx| + |dy|`
+đơn vị mpx. Bao gồm mẫu 0; snapshot trùng/cũ và tick chưa từng dự đoán không tạo mẫu. Vì vậy
+`corrections.count` đếm mẫu khác 0; `amplitude_mpx` có count/min/mean/p50/p95/max; không có mẫu
+thì phân vị là null. Đây là sai số dự đoán lịch sử trước reconciliation, không phải khoảng nhảy
+hình giữa hai frame và không đo bằng ms.
+
+### Drain và recovery
+
+Sau khi mọi bot đã có hash/ack, harness tiếp tục bơm cả bốn chiều nhận của client và server,
+chặn lệnh phòng mới để không tự mở lượt tiếp. Khoảng drain tối thiểu bằng hai lần
+`one_way_delay + jitter + reorder_window`, cộng bốn bước poll. Chỉ thành công khi server về
+Waiting; timeout không được báo drained.
+
+`--scenario disconnect` đóng kết nối client cuối sau tick 10 của Playing; `liveness` bỏ riêng
+Pong của client đó tới khi server đóng phiên. Harness mở phiên mới, auth lại cùng tài khoản,
+vào phòng ở lượt sau theo policy V1 (không nhập lại giữa trận). Lượt bị ngắt vẫn ghi thiếu hash,
+không che lỗi bằng hash lấy từ server. `recovered` chỉ true khi lượt sau có đủ bốn hash khớp và
+đã drain; `converged` vẫn giữ nghĩa mọi lượt đều hội tụ, nên có thể false ở kịch bản recovery.
+
 ## Chạy
 
 ```sh
@@ -173,7 +200,7 @@ cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --json-out qa.j
 ```
 
 Lệnh in ra **bảng markdown** rồi **JSON** của cùng một báo cáo. Mã thoát khác 0 khi hết ngân
-sách thời gian, hoặc có lượt không hội tụ.
+sách thời gian, chưa drain, hoặc không hội tụ (với recovery: không phục hồi ở lượt sau).
 
 Chẩn đoán chi tiết: đặt `BOOM_QA_TRACE=1` để in sự kiện server và từng frame bot nhận/gửi.
 
@@ -198,14 +225,46 @@ phòng và dựng lại được hash của lượt.
 
 - Harness đo **bản Rust hiện tại**, không kết luận gì về độ trùng khớp với client/server gốc
   (SCOPE_V1 §7.8).
-- Giai đoạn 1 bot **không dự đoán state**, nên `corrections` luôn bằng 0 và không đo được biên độ
-  sửa. Muốn đo correction phải dùng implementation bot dùng module net của `boom-client`
-  (task tiếp theo của V1-027). `boom-client` hiện là crate **chỉ có binary** (không có `lib.rs`),
-  nên task đó cần tách phần `net` ra target lib (hoặc chuyển sang crate dùng chung) — việc này
-  ngoài phạm vi file của issue này.
+- Chưa có đường xin lại bảng `RoundResult` khi mất frame. Snapshot Ended chỉ chứng minh state/hash,
+  không chứng minh đã nhận bảng kết quả/rank. Phần đổi contract dừng chờ Claude theo
+  [đề xuất #166](https://github.com/aquaplatinumberlitz/boom-rs/issues/166#issuecomment-6325761895).
 - Bản đồ và profile rules của harness là **fixture kiểm thử**, không phải map `FxMap/Map/Village00`
   của V1 (SCOPE_V1 §1) và không phải profile phát hành.
-- Harness **chưa** kịch bản "mất kết nối giữa trận" (SCOPE_V1 §7.7): theo policy V1, người chơi
-  mất kết nối giữa vòng không được nhập lại, nên bot mất kết nối giữa lượt sẽ không có state hash
-  của lượt đó ⇒ lượt bị báo không hội tụ và lần chạy hết ngân sách. Kịch bản này thuộc task
-  khác của V1-023.
+- Recovery test không yêu cầu client đã rời có hash của lượt bị ngắt; cần đủ bốn hash ở lượt sau.
+
+## Nghiệm thu phần 2 (#166)
+
+CI chạy ba test trong `boom-qa/src/harness.rs::recovery_tests`: bốn predictor drain/hội tụ,
+disconnect giữa trận rồi auth/rejoin, và mất Pong tới hết liveness rồi auth/rejoin.
+Timer test là design vận hành: Ping 50 ms, timeout 500 ms; không đổi timer mặc định profile.
+Auth vẫn qua SQLite + AuthService/Argon2id thật, nhưng tham số hash fixture là 64 KiB/1 vòng/1 luồng
+để auth không chặn poll lâu hơn timer liveness thử nghiệm. Không đổi cấu hình server production;
+không dùng báo cáo này để benchmark auth hoặc đánh giá độ bền mật khẩu.
+
+Đo dài thủ công, giữ profile mạng SCOPE_V1:
+
+```sh
+cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --json-out qa.json
+cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario disconnect --json-out qa-disconnect.json
+cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario liveness --server-ping-ms 100 --liveness-ms 2000 --json-out qa-liveness.json
+```
+
+Chưa đóng V1-027 chỉ từ test nhanh; còn bộ đo dài nhiều seed và quyết định recovery RoundResult.
+
+### Kết quả đo thủ công 2026-10-22 (Codex)
+
+Baseline code `eff7f94c258e154c60a7c36a60ceaefdf7f5deba` + thay đổi #166, Linux,
+4 bot, seed 42, profile `scope-v1`, 2 lượt hoàn tất mỗi bot; CLI như trên, ba lệnh đều exit 0.
+Liveness dùng Ping 100 ms / timeout 2000 ms; hai kịch bản khác giữ timer profile.
+
+| Scenario | Thời gian (ms) | Mẫu sai số | p50 / p95 (mpx) | Lượt:số hash | Kết quả |
+|---|---|---|---|---|---|
+| Steady | 47329 | 6135 | 4000 / 6000 | 1:4/4, 2:4/4 | PASS |
+| Disconnect | 69964 | 8301 | 4000 / 6000 | 1:3/4, 2:4/4, 3:4/4 | PASS |
+| Liveness | 70794 | 8574 | 4000 / 6000 | 1:3/4, 2:4/4, 3:4/4 | PASS |
+
+Lượt 1 của recovery thiếu hash bot3 theo chủ đích; lượt 2/3 có đủ bốn hash khớp server.
+`converged=false` cho toàn lần recovery giữ nguyên sự thiếu đó; `recovered=true`, `drained=true`,
+`timed_out=false`. Steady có cả hai lượt hội tụ. Correction là phép đo sai số lịch sử đã nêu,
+không là bằng chứng cảm giác điều khiển hoặc fidelity KR. Chưa chạy đủ ma trận 2/4 bot × 3 seed;
+chưa nghiệm thu đường xin lại bảng RoundResult.

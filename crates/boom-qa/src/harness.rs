@@ -38,7 +38,7 @@ use boom_content::rules::RulesProfile;
 use boom_core::{CharacterStatsTable, World, mode_by_id};
 use boom_net::{MemoryTransport, Transport};
 use boom_room::PlayerId;
-use boom_server::auth::{AuthConfig, AuthService};
+use boom_server::auth::{Argon2Settings, AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use boom_server::{
     Authority, HandshakeConfig, InternalServerEvent, MatchSetup, Server, ServerConfig, ServerPhase,
@@ -277,6 +277,23 @@ pub fn run(config: &RunConfig) -> Result<RunReport, QaError> {
     run_with(config, &DirectDtoBotFactory)
 }
 
+/// Lỗi được tiêm đúng một lần giữa trận, vào client cuối.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RecoveryScenario {
+    /// Mạng theo profile, không ngắt chủ động.
+    #[default]
+    Steady,
+    /// Đóng kết nối giữa trận, auth và vào lại ở lượt sau.
+    Disconnect,
+    /// Bỏ Pong tới khi server thu hồi phiên vì hết liveness.
+    Liveness,
+}
+
+/// Chạy cùng bot/predictor với một lỗi vòng đời có kiểm soát.
+pub fn run_scenario(config: &RunConfig, scenario: RecoveryScenario) -> Result<RunReport, QaError> {
+    run_impl(config, &DirectDtoBotFactory, scenario)
+}
+
 /// Chạy một phiên QA với **factory bot** do bên ngoài cài, rồi trả về báo cáo.
 ///
 /// Đây là **điểm thay thế**: harness không tự dựng bot, nên một implementation khác của
@@ -285,6 +302,14 @@ pub fn run(config: &RunConfig) -> Result<RunReport, QaError> {
 /// tính sẵn cho từng bot (tên, tài khoản, `PlayerId`, vai trò host, thế giới, profile
 /// rules, nhịp input/ping…).
 pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunReport, QaError> {
+    run_impl(config, factory, RecoveryScenario::Steady)
+}
+
+fn run_impl(
+    config: &RunConfig,
+    factory: &dyn BotFactory,
+    scenario: RecoveryScenario,
+) -> Result<RunReport, QaError> {
     let harness = &config.profile.harness;
     let rules_text = builtin_rules(&harness.rules_profile).map_err(QaError::Profile)?;
     let rules_profile = RulesProfile::from_toml(rules_text)
@@ -400,6 +425,15 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
     let mut resolved = 0u32;
     let mut retired_count = 0u32;
     let mut timed_out = false;
+    let mut drain_started = None;
+    let mut fault_round = None;
+    let mut fault_disconnected = false;
+    let drain_ms = u64::from(
+        config.profile.network.one_way_delay_ms()
+            + config.profile.network.jitter_ms
+            + config.profile.network.reorder_window_ms,
+    ) * 2
+        + harness.step_ms * 4;
 
     loop {
         let now = start.elapsed().as_millis() as u64;
@@ -445,7 +479,29 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
         }
 
         // Bot nhận frame rồi gửi lệnh.
+        if scenario != RecoveryScenario::Steady
+            && fault_round.is_none()
+            && server.phase() == ServerPhase::Playing
+            && server.authority().tick().unwrap_or(0) >= 10
+            && bots
+                .last()
+                .is_some_and(|bot| bot.client.phase() == BotPhase::Playing)
+        {
+            fault_round = public_round_id(&server);
+            if scenario == RecoveryScenario::Disconnect {
+                let bot = bots.last_mut().expect("bots");
+                bot.writer
+                    .close()
+                    .map_err(|err| QaError::Net(err.to_string()))?;
+                bot.dead = true;
+                fault_disconnected = true;
+            }
+        }
+        let fault_index = bots.len() - 1;
         for bot in &mut bots {
+            if bot.dead {
+                continue;
+            }
             let mut pending: Vec<Vec<u8>> = Vec::new();
             loop {
                 match bot.frames.try_recv() {
@@ -463,6 +519,9 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
                             eprintln!("[harness] t={now} {} bị đóng phiên", bot.name);
                         }
                         bot.dead = true;
+                        if bot.index == fault_index && fault_round.is_some() {
+                            fault_disconnected = true;
+                        }
                         break;
                     }
                 }
@@ -472,7 +531,25 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
                     .on_tick(now)
                     .map_err(|err| QaError::Bot(format!("{}: {err}", bot.name)))?,
             );
+            if bot.dead {
+                continue;
+            }
             for frame in pending {
+                let kind = boom_proto::read_envelope(&frame)
+                    .map_err(|err| QaError::Net(err.to_string()))?
+                    .0
+                    .kind;
+                if drain_started.is_some() && kind == boom_proto::MessageKind::RoomCommand {
+                    continue;
+                }
+                if scenario == RecoveryScenario::Liveness
+                    && fault_round.is_some()
+                    && bot.index == fault_index
+                    && bot.reconnects == 0
+                    && kind == boom_proto::MessageKind::Pong
+                {
+                    continue;
+                }
                 bot.writer
                     .send_frame(&frame)
                     .map_err(|err| QaError::Net(err.to_string()))?;
@@ -547,8 +624,25 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
                 .iter()
                 .all(|bot| bot.client.stats().results_acked >= config.rounds())
             && rounds.len() >= config.rounds() as usize;
-        if done {
-            break;
+        let recovery_done = scenario == RecoveryScenario::Steady
+            || (fault_disconnected
+                && bots
+                    .last()
+                    .is_some_and(|bot| bot.reconnects > 0 && bot.client.phase() >= BotPhase::Room)
+                && rounds
+                    .last()
+                    .is_some_and(|round| Some(round.round_id) > fault_round)
+                && rounds.last().is_some_and(|round| {
+                    bots.iter().all(|bot| {
+                        bot.client.stats().round_hashes.get(&round.round_id)
+                            == Some(&round.server_hash)
+                    })
+                }));
+        if done && recovery_done {
+            let since = *drain_started.get_or_insert(now);
+            if now.saturating_sub(since) >= drain_ms && server.phase() == ServerPhase::Waiting {
+                break;
+            }
         }
         if now > harness.timeout_ms {
             timed_out = true;
@@ -614,6 +708,12 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
         .map(|bot| bot.client.stats().max_correction_mpx)
         .max()
         .unwrap_or(0);
+    let mut amplitudes = Samples::new();
+    for bot in &bots {
+        for value in bot.client.stats().correction_mpx.values() {
+            amplitudes.push(*value);
+        }
+    }
     let mut rtt = Samples::new();
     for bot in &bots {
         for value in bot.client.stats().rtt.values() {
@@ -640,7 +740,16 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
         .collect();
 
     let report = RunReport {
+        server_ping_interval_ms: harness.server_ping_interval_ms,
+        server_liveness_timeout_ms: harness.server_liveness_timeout_ms,
+        drain_ms,
         schema: crate::report::REPORT_SCHEMA,
+        scenario: format!("{scenario:?}"),
+        fault_round,
+        fault_disconnected,
+        drained: drain_started.is_some() && !timed_out,
+        recovered: fault_round.is_some() && fault_disconnected && !timed_out
+            && rounds.last().is_some_and(|round| round.converged),
         profile: config.profile.name.clone(),
         rules_profile: rules_profile.profile_id.clone(),
         map: harness.map.clone(),
@@ -670,7 +779,8 @@ pub fn run_with(config: &RunConfig, factory: &dyn BotFactory) -> Result<RunRepor
         corrections: CorrectionReport {
             count: corrections,
             max_amplitude_mpx: max_correction,
-            note: "giai đoạn 1 bot nói DTO trực tiếp, không dự đoán state nên không có correction"
+            amplitude_mpx: LatencyReport::from_samples(&amplitudes),
+            note: "Predictor client chung; sai số Manhattan tại cùng tick, gồm mẫu 0; không phải độ trễ ms"
                 .to_owned(),
         },
         converged,
@@ -691,6 +801,75 @@ fn qa_auth_config() -> AuthConfig {
     AuthConfig {
         rate_limit_max_failures: 64,
         register_rate_limit_max_attempts: 64,
+        // QA mạng không benchmark mật khẩu: hash fixture nhẹ để auth không chặn
+        // server poll lâu hơn timer liveness thử nghiệm. Không đổi server production.
+        argon2: Argon2Settings {
+            m_cost: 64,
+            t_cost: 1,
+            p_cost: 1,
+            ..Argon2Settings::default()
+        },
         ..AuthConfig::default()
+    }
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+
+    fn config() -> RunConfig {
+        let mut profile = QaProfile::builtin("fast").unwrap();
+        // Giữ lỗi mạng theo profile fast. Rút ngắn timer vận hành để CI kiểm timeout thật.
+        profile.harness.server_ping_interval_ms = 50;
+        profile.harness.server_liveness_timeout_ms = 500;
+        profile.harness.timeout_ms = 20_000;
+        RunConfig {
+            profile,
+            clients: 4,
+            seed: 7,
+            rounds: Some(1),
+        }
+    }
+
+    #[test]
+    fn bon_predictor_drain_va_hoi_tu() {
+        let report = run_scenario(&config(), RecoveryScenario::Steady).unwrap();
+        assert!(report.converged && report.drained, "{report:?}");
+        assert_eq!(report.rounds.last().unwrap().bot_hashes.len(), 4);
+        assert!(report.corrections.amplitude_mpx.count > 0, "{report:?}");
+        assert!(report.corrections.amplitude_mpx.p95.is_some());
+    }
+
+    fn recovery(scenario: RecoveryScenario) {
+        let report = run_scenario(&config(), scenario).unwrap();
+        assert!(!report.timed_out, "{report:?}");
+        assert!(
+            report.fault_disconnected && report.recovered && report.drained,
+            "{report:?}"
+        );
+        let last = report.rounds.last().unwrap();
+        assert!(
+            last.converged && Some(last.round_id) > report.fault_round,
+            "{report:?}"
+        );
+        assert_eq!(last.bot_hashes.len(), 4);
+        assert!(report.bots.last().unwrap().reconnects > 0);
+        let abandoned = report
+            .rounds
+            .iter()
+            .find(|round| Some(round.round_id) == report.fault_round)
+            .unwrap();
+        assert!(!abandoned.converged);
+        assert!(!abandoned.bot_hashes.iter().any(|(name, _)| name == "bot3"));
+    }
+
+    #[test]
+    fn disconnect_giua_tran_auth_rejoin_va_hoi_tu_luot_sau() {
+        recovery(RecoveryScenario::Disconnect);
+    }
+
+    #[test]
+    fn mat_pong_het_liveness_auth_rejoin_va_hoi_tu_luot_sau() {
+        recovery(RecoveryScenario::Liveness);
     }
 }
