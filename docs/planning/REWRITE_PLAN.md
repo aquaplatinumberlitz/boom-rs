@@ -1,6 +1,6 @@
 # Kế hoạch tổng viết lại engine Boom KR bằng Rust
 
-Cập nhật: 2026-10-21. **Kế hoạch tổng hiện hành**, thay vai trò điều hành của
+Cập nhật: 2026-10-22 (hàng đợi RE theo consumer và giới hạn nguồn). **Kế hoạch tổng hiện hành**, thay vai trò điều hành của
 [REWRITE_PLAN_2026-10-19 cũ](../archive/plans/REWRITE_PLAN_2026-10-19.md).
 Cập nhật: 2026-10-20 (§Nguyên tắc fidelity: % feature done và số claim `confirmed` không phải
 % fidelity; trỏ [SCOPE_V1 §10](SCOPE_V1.md#10-sai-khác-có-chủ-ý-so-với-client-gốc) và Q-009).
@@ -144,14 +144,63 @@ Khi mở economy phải có transaction/idempotency, ownership và nguồn balan
 
 ## Việc tiếp theo — đợt 1 (GitHub issues)
 
-Ưu tiên luồng RE KR, owner **dsh**, review Claude/Codex: Q-017/#146 movement/hitbox/corner/speed;
-Q-018/#147 trapped; Q-019/#148 nổ/lửa theo hướng và timing frame; Q-020/#149 item/cap; Q-021/#150 UI V1.
-Mỗi task trả claim có địa chỉ/hàm consumer + evidence metadata; đổi profile bằng PR riêng có review.
-Tool kiểm thứ tự nguồn [#145](https://github.com/aquaplatinumberlitz/boom-rs/issues/145) do OpenCode thực hiện; #131/#132 giữ backlog BnB cho chỗ trống server.
+### Hàng đợi RE client KR cho dsh (2026-10-22)
+
+Owner **dsh-RE**, reviewer Claude/Codex; dùng phiên cố định hiện có, làm **tuần tự**.
+Ưu tiên theo ảnh hưởng gameplay V1 và đường consumer có thể truy tiếp, không theo số issue hay
+số asset. Đây là hàng đợi trong kế hoạch hiện hành, không mở scope hoặc tăng tỷ lệ feature done.
+Nguồn backlog: [QUESTIONS](../research/QUESTIONS.md), [RULES_V1](../specification/gameplay/RULES_V1.md),
+[SCOPE_V1 §10](SCOPE_V1.md#10-sai-khác-có-chủ-ý-so-với-client-gốc),
+[BUNDLES §6–8](../specification/assets/BUNDLES.md), [AUDIO_V1](../specification/assets/AUDIO_V1.md).
+
+**Điểm xuất phát:** PR [#152](https://github.com/aquaplatinumberlitz/boom-rs/pull/152) (movement),
+[#157](https://github.com/aquaplatinumberlitz/boom-rs/pull/157) (trapped),
+[#181](https://github.com/aquaplatinumberlitz/boom-rs/pull/181) (item) là kết quả đang review,
+không tự coi đã tích hợp; PR [#175](https://github.com/aquaplatinumberlitz/boom-rs/pull/175) (flame)
+đã nhập mỏ neo và giới hạn, **chưa tìm được consumer**.
+PR [#177](https://github.com/aquaplatinumberlitz/boom-rs/pull/177) đổi trapped movement đang draft:
+cổng không chặn **không** tự chứng minh quãng đi dương. Lượt ưu tiên 1 đã được chủ dự án giao;
+các lượt sau chỉ nhận khi điều phối giao issue/phạm vi cụ thể.
+
+| Thứ tự | Task nhỏ có thể giao | Câu hỏi / issue gốc | Điểm bắt đầu và đầu ra cần có |
+|---|---|---|---|
+| 1 — đang giao | **Tốc độ, quãng đi khi nhốt và nhịp gọi** | Q-004/Q-005/Q-017/Q-018; [#146](https://github.com/aquaplatinumberlitz/boom-rs/issues/146), [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147); chặn #177 | Từ `0x00B95180` truy object/controller tại `bomber+0xE0`, hàm thực sự trả `(dir,len)` và caller cập nhật. Kiểm byte offset vtable với index (không đồng nhất `+8` byte với index 8/`+0x20`), phân biệt controller `+0xD4` với `+0xE0` và các miền mã state. Trả công thức/quãng đi theo cấp, điều kiện `len=0`/dương khi nhốt, và nhịp gọi; chưa biết nhịp thì chỉ ghi px/bước, không suy px/s. Đầu ra trực tiếp trả lời R-125/R-127, không chỉ thêm tên hàm. |
+| 2 | **Collision và bomb-pass** | Q-005/Q-017; #146; V1-011/012/013 | Theo `CMovable::MoveSimple` `0x01310200`, `CGOBomber::Move` `0x00B93890`, truy vấn ô `0x00EA0FD0`/`0x00E9F9B0` trong PR #152. Chốt polarity ô chặn/đi được, hộp và mốc toạ độ, điều kiện trợ góc, bom vừa đặt cho ai đi ra và lúc nào mất pass. Đối chiếu tường/gạch/bom và C00/C01; không đổi nửa hộp sang 20 px chỉ vì đọc được rect 40×40 ở hệ neo khác. |
+| 3 | **BomberAttr và hiệu ứng/cap của ba item V1** | Q-005/Q-007/Q-020; [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149); V1-017/018/019 | Từ getter/consumer speed vừa tìm, `CBomberAttr` `0x0134FD40`, bomber vtable `0x01745FE8`; lần nhánh áp Bomb/Fire/Roller sau xác nhận pickup. Cần ánh xạ f2–f7 vào base/max có consumer, phép tăng/kẹp, và xử lý nhặt tại cap; chỉ có dãy số hoặc loader chưa đủ. Không đánh đồng Roller với Shoe. |
+| 4 | **Timer nhốt, chạm/chọc và biên chuyển life** | Q-006/Q-018; #147; V1-020 | Từ handler hàng đợi defer, tên `DeferBomberLockedIn`/`DeferBomberReleaseOrDie` và state machine `0x00B952E0`. Tìm setter/tăng-giảm timer với đơn vị, điều kiện kiểm chạm, khoảng cách/hộp, thứ tự hết hạn với chạm/lửa trong cùng bước. VN-B01/R-028 đã xác nhận chạm địch làm chết: không đo lại chỉ vì khác region; chỉ truy phần định lượng/ordering còn thiếu. Cứu đồng đội/kim ghi tham chiếu, không tự mở scope V1 FFA. |
+| 5 | **Propagation/chain và thời gian gây damage của lửa** | Q-006/Q-019; [#148](https://github.com/aquaplatinumberlitz/boom-rs/issues/148); V1-014/015 | Theo đường nhận nổ và consumer bom/lưới, đối chiếu VN `oc_e-game` §5a. Chốt ô đầu/cuối tia, tường/gạch/bom chặn hay xuyên, nhánh kích nổ dây chuyền và thời gian vùng gây damage. Phân biệt damage TTL với animation; không lấy fuse 2,5 s của emulator làm fuse gốc. Nếu client chỉ nhận quyết định server thì ghi ranh giới đó, không suy luật server thất lạc. |
+| 6 | **State → animation và thời lượng frame** | Q-003/Q-019; #148; V1-031 | Đi từ ODT R-094 (C00/C01 90 state) qua parser/template `0x00BA3530`/`0x00BA40F0`/`0x00BA41D0`/`0x00BA42F0` tới consumer `(frame,duration)`/elapsed. Cần đơn vị duration, loop/hold/end, state thật cho idle/trapped/dead và cách chọn tâm/thân/đuôi/hướng lửa. Không RE lại blob frame để tìm ms: blob đã không có trường thời gian; không mặc định 100 ms của V1 là gốc. Vtable effect khác mode chỉ là đầu mối, phải chứng minh consumer áp dụng Battle thường. |
+| 7 | **Neo ảnh, canvas/pivot, lớp và blend** | Q-002/Q-003; V1-030/031; cần task RE riêng khi giao | Đối chiếu đường render VN `CDataI16Alpha` từ `0x00A3D850` sang KR. Lấy công thức dùng f0/f1/f2/f8…f11, thứ tự `Static`/`Adjust`, clipping/alpha và quan hệ với vị trí thế giới. BUNDLES §7 hiện là design; kiểm decoder khớp tool tham chiếu không chứng minh consumer render đúng. Chọn vài sprite Village00 + C00/C01 làm ca đối chiếu, không quét toàn bộ asset. |
+| 8 | **Consumer âm thanh cho event V1** | Q-015; V1-034; cần task RE riêng khi giao | Xref `Wave/%s`, `BombExplosion%03d` và các entry ở AUDIO_V1 tới hàm phát sound. Chốt entry cho nổ/nhốt/chết/nhặt/vỡ gạch, cách chọn biến thể, BGM và policy voice nếu đọc được. Asset có tên/cùng hash không chứng minh event chọn nó; 8 voice/dedup hiện là design. Có thể chuyển lên trước lượt 7 nếu đã thấy caller trực tiếp hoặc nhánh render bị VM chặn. |
+| 9 | **UI V1, tọa độ và locator chữ/tên nhân vật** | Q-012/Q-021; [#150](https://github.com/aquaplatinumberlitz/boom-rs/issues/150); V1-032/033/035 | Chỉ login→lobby→room→match→result: consumer layout, kích thước render/native framebuffer, hitbox/focus/scale, resource/key thật và C00/C01→tên. JPEG 800×600 không tự chứng minh framebuffer thật. Trả locator cho khóa thiếu, không tự viết lại bản dịch hoặc duyệt ảnh thay người. Không mở quảng trường/shop/mode later. |
+| 10 — có điều kiện | **Vai trò ItemAttr/drop-table/placement** | Q-007/Q-020; #149; V1-016 | Tiếp `sub_1196A70` `0x01196A70`, reader của vùng `+244048` stride 192 và `+28` stride 244 (PR #181), rồi map drop/placement trong MAPS §1. Chốt mỗi field là gì và **ai dùng**: client chọn hay chỉ hiển thị item server gửi trước trận. Phân biệt weight với phần trăm, placement probability với xác suất một gạch có item. Nếu policy nằm ở server không còn thì ghi unknown/design; không truy vô hạn để tìm lại 35% từ client. Có thể làm ngay sau lượt 3 nếu chung consumer đã mở. |
+
+**Cách chốt một lượt:** một câu hỏi nhỏ, baseline/build + VA/RVA + input/output + caller/consumer
+và metadata tái tạo; nếu có giá trị thì đơn vị/ngữ cảnh phải rõ. Claim `confirmed` chỉ cho phần đã chứng minh.
+Nếu đường còn lại vào VM, thiếu trạng thái runtime hay thiếu logic server: ghi entry/blocker và phạm vi đã tìm,
+chuyển task kế tiếp có đường native; không lặp một lượt chỉ để tìm lại các mỏ neo đã ghi. Mỗi lượt quay lại
+bổ sung **đường truy mới hoặc điều kiện kiểm mới**, không chỉ nộp thêm một danh sách địa chỉ.
+
+Trước khi giao, tạo task hẹp hoặc bổ sung acceptance ở issue gốc, xác định owner file; không để hai agent
+cùng cấp claim ID/sửa RULES_V1. PR #177 đang giữ R-132/R-133: kiểm main và PR đang mở khi cấp ID mới.
+Khi dsh tìm được consumer cho một việc xếp sau, có thể ghi lại cùng lượt nhưng không mở rộng implementation.
+Đổi profile/cơ chế Rust là PR riêng sau review; oracle/harness ở [#180](https://github.com/aquaplatinumberlitz/boom-rs/issues/180)
+nhận evidence mới để đối chiếu, **không** biến regression thành bằng chứng gốc.
+
+**Không giao dsh RE vào lúc này:** auth Nexon/NGM, crypto/520 opcode để tương thích client cũ,
+server fuse/drop/rank không còn code mà không có consumer client, full semantics Themida/anti-cheat,
+1.151 map hoặc mode/shop/economy/guild later; pack decoder đã làm; giao thức/auth/DB/QA/build Rust mới.
+Duyệt 23 text/ảnh Việt hóa và đo GPU/phần cứng là việc review/QA, không phải RE tĩnh.
+Đo oracle runtime theo Q-009 vẫn đang hoãn; không tự đổi thành chạy client online.
+Archive chỉ giữ đầu mối, không dùng backlog/gate cũ để mở lại scope.
+
+Tool kiểm thứ tự nguồn [#145](https://github.com/aquaplatinumberlitz/boom-rs/issues/145) đã có;
+BnB giữ làm nguồn design cho chỗ trống, không thay consumer KR/VN confirmed.
 
 
-Bảng việc là issue của `aquaplatinumberlitz/boom-rs` (nhãn `wave:1`); quy trình nhận/bàn giao ở
-TEAM_WORKFLOW §5–6. Mọi task dưới đây chạy song song được; ràng buộc ghi trong từng issue.
+Bảng phân công đợt 1 dưới đây giữ lịch sử tổ chức luồng; trạng thái thực tế xem issue/registry,
+không suy rằng task chưa làm chỉ vì còn trong bảng. Hàng đợi RE hiện hành là mục ngay trên;
+không tự mở lại phép đo Wine hoặc task cũ từ bảng này. Quy trình nhận/bàn giao ở TEAM_WORKFLOW §5–6.
 
 | Issue | Việc | Phụ thuộc | Worker | Điều phối/review | Lượt |
 |---|---|---|---|---|---|
