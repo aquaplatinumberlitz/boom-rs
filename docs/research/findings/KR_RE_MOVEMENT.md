@@ -59,6 +59,11 @@ mỗi tick      ->  CGOBomber cập nhật điều khiển 0xB95180
                                             dir ngang -> 0x1310EE0(dir, cột đích, &len)
 ```
 
+**Phạm vi bằng chứng:** đường trên là đường **dispatch input + mô phỏng trong tick** đã trace. Nó **không**
+chứng minh KR không gửi gói C→S mang vị trí: controller (`bomber+0xE0`) và các đường mạng/khác chưa được
+trace, và R-047 là bằng chứng của build VN chứ không phải phủ định cho KR. Vì vậy R-123 chỉ `confirmed`
+cho phần dispatch/mô phỏng; phần phủ định để `candidate` với phạm vi đã tìm (Q-017).
+
 Tóm tắt tự viết của `CMovable::MoveSimple` (không phải nguyên văn):
 
 ```
