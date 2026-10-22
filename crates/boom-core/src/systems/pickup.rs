@@ -2,7 +2,7 @@
 //!
 //! Luật V1 (design, RULES_V1 R-056…R-059, R-109):
 //! 1. Người còn sống (`Life::Alive`) có tâm trong ô có item trên nền thì nhặt. Người `Trapped`
-//!    hoặc `Dead` không nhặt (R-059): người bị nhốt đứng yên trong V1 (R-036).
+//!    hoặc `Dead` không nhặt (R-059): quyền nhặt độc lập với quyền di chuyển R-127.
 //! 2. Người chơi được duyệt theo id tăng dần (`SimulationState::players` đã sắp), nên hai người
 //!    cùng đứng trong một ô trong cùng tick chỉ người id nhỏ nhận: item bị xóa khỏi nền ngay khi
 //!    được nhặt (R-056).

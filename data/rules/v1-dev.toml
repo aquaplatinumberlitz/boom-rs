@@ -29,6 +29,14 @@ status = "confirmed"
 claims = ["R-010", "R-110"]
 note = "ADR 0013; khôi phục nguồn confirmed cùng đại lượng; giới hạn áp dụng xem claim lựa chọn"
 
+[player.trapped_can_move]
+value = 1
+unit = "bool"
+source = "kr_static"
+status = "confirmed"
+claims = ["R-127", "R-132"]
+note = "KR 00967: cổng input và movement cho phép người bị nhốt đi; tốc độ riêng chưa xác nhận (R-133)"
+
 [player.speed_px_per_s_per_level]
 value = 24
 unit = "px/s"

@@ -66,7 +66,7 @@ claim design bị thay thế có ghi superseded. Chưa coi cơ chế mới đã 
 | R-033 | Lửa phủ ô đặt bom + tối đa `range` ô mỗi hướng; khối cứng/mép lưới chặn, khối mềm đầu tiên có lửa rồi dừng. Bom đến hạn hoặc bị lửa chạm nổ cùng tick, xử lý theo `id` tăng dần, mỗi bom một lần; nhiều lửa cùng ô giữ `until` lớn nhất, hòa chọn `source` id nhỏ | — | `design` (từ R-030) | Task #5, `systems/explosion.rs`; R-030; **superseded by R-109** (ADR 0012; lịch sử implementation) |
 | R-034 | V1 trước ADR 0012: "chạm" = hai người chơi cùng một ô lưới tại bước life; chỉ người `Alive` làm vỡ bong bóng, hai người `Trapped` chạm nhau không đổi trạng thái | — | `design` / design | SCOPE_V1 §4; issue #8 (cùng ô); `systems/life.rs`; **superseded by R-108** (ADR 0012; lịch sử implementation) |
 | R-035 | V1 trước ADR 0012: trong một tick, người `Alive` đứng trên lửa bị nhốt trước; chỉ người đã `Trapped` từ đầu bước life mới xét chết; nếu vừa hết `trap_ticks` vừa bị chạm thì `player_died.by` là người chạm; nhiều người `Alive` cùng ô thì chọn id nhỏ nhất | — | `design` / design | SCOPE_V1 §4; ARCHITECTURE §5.2; issue #8; **superseded by R-108** (ADR 0012; lịch sử implementation) |
-| R-036 | Người bị nhốt không di chuyển trong V1 (đứng tại chỗ tới khi chết) | — | `design` / design | SCOPE_V1 §4; R-029 (`web` / candidate) nói "đi rất chậm" nhưng chưa có px/s; quyết định cho V1-012 |
+| R-036 | Lịch sử: người bị nhốt không di chuyển trong V1 (đứng tại chỗ tới khi chết) | — | `design` / design | SCOPE_V1 §4; R-029 (`web` / candidate) nói "đi rất chậm" nhưng chưa có px/s; quyết định cho V1-012; **superseded by R-127** (KR confirmed, #176) |
 
 Hai claim lịch sử `design` R-034/R-035 (nay superseded by R-108) chỉ định nghĩa cách engine V1 hiện thực hóa "chạm" và thứ tự trong
 tick; chưa có bằng chứng client KR/VN cho trường hợp biên. Khi có trace, thay bằng claim `confirmed`
@@ -101,7 +101,7 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 | R-056 | V1: người còn sống (`Alive`) có tâm trong ô có item trên nền thì nhặt; duyệt người chơi theo id tăng dần nên hai người cùng ô trong cùng tick chỉ người id nhỏ nhận; item mất khỏi nền sau khi nhặt và phát `item_picked` | — | `design` (từ R-054) | Task #7, `systems/pickup.rs`; R-054; SCOPE_V1 §4 |
 | R-057 | V1: ItemBomb +1 số bom, ItemFire +1 tầm nổ, ItemRoller +1 cấp tốc độ; lượng lấy từ profile (`item.*_delta`), kẹp theo trần chỉ số; bom đã đặt giữ tầm chụp lúc đặt | — | `design` (từ R-025, R-032, R-045) | Task #7, `systems/pickup.rs`; R-025; R-032; R-045 |
 | R-058 | V1: chỉ số đã ở trần thì không nhặt — item vẫn nằm trên nền, không áp hiệu ứng, không phát event; nhặt là atomic (item chỉ mất khi hiệu ứng áp được) | — | `design` | Task #7; R-054 (item mất sau khi server xác nhận); SCOPE_V1 §4; Q-007; **superseded by R-109** (ADR 0012; lịch sử implementation) |
-| R-059 | V1: người bị nhốt (`Trapped`) hoặc đã chết không nhặt item; người bị nhốt đứng yên nên cũng không tới ô item | — | `design` | Task #7; R-036 (đứng yên), R-028 |
+| R-059 | V1: người bị nhốt (`Trapped`) hoặc đã chết không nhặt item; quyền nhặt độc lập với quyền di chuyển (R-127); không suy từ việc đứng yên | — | `design` | Task #7; R-028; #176 giữ policy nhặt, bỏ lý do đứng yên |
 | R-067 | V1 giấu item khi bắt đầu lượt: duyệt khối mềm theo hàng rồi cột, mỗi khối rút một số phần nghìn so với `drop.brick_item_chance`; trúng thì chọn loại theo trọng số `Rules::items` (bảng trọng số cộng dồn, lấy mẫu không lệch bằng `Rng::below`) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-050, R-051, R-053; **superseded by R-106** (ADR 0012; lịch sử implementation) |
 | R-068 | V1: lửa **không** phá item đang nằm trên nền; item chỉ rời nền khi người chơi nhặt (R-054) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-030, R-054; **superseded by R-109** (ADR 0012; lịch sử implementation) |
 
@@ -308,7 +308,7 @@ quyết định trên; bảng sai khác và issue triển khai nằm trong ADR 0
 | R-105 | Ánh xạ cân bằng design C00→baobao, C01→haidao (không phải identity KR) | C00 speed 6–10/bomb 1–6/range 1–7; C01 speed 5–9/bomb 1–8/range 2–7 | `oss` / design | BnB `server/characters.js:17–27`; #133 sau #117 |
 | R-106 | Roll khi vỡ gạch; V1 chỉ giữ ba loại, chuẩn hóa tương đối BnB bubble/potion/shoe | 350 permille; Bomb:Fire:Roller = 20:28:16 | `oss` / design | BnB `server/game.js:20,425–439`; bỏ loại ngoài scope, không giữ xác suất tuyệt đối 20/28/16% |
 | R-107 | Hộp va chạm và assist khi bị chặn; pass bom tới khi hộp rời hoàn toàn | half 13 px (26×26), assist ≤12 px | `oss` / design | BnB `server/game.js:31–32,150–153,173–275,392–399`; #130 |
-| R-108 | Trapped đứng yên; giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035, giữ đứng yên R-036 |
+| R-108 | Trapped đứng yên; giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035; riêng phần đứng yên **superseded by R-127** (KR confirmed), timer và touch giữ nguyên |
 | R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout. Biên TTL: ttl 1 → 0 ⇒ vụ nổ bị xóa **trước** khi áp sát thương (không có ô lửa, không ai bị nhốt) nhưng gạch trong blast vẫn vỡ, vì BnB phá gạch lúc nổ | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
 
 R-014/R-023/R-027/R-044/R-046 giữ `oss`/candidate như bằng chứng lịch sử; không phải claim lựa chọn.
@@ -325,7 +325,7 @@ R-102 **superseded by R-114**; R-103 **superseded by R-115**;
 R-104 **superseded by R-111**; R-105 **superseded by R-117**;
 R-106 phần trọng số/chance **superseded by R-112**; phần roll khi vỡ do #131 triển khai
 (`systems/blocks.rs`: rơi item lúc gạch vỡ, 35%, ba loại V1).
-R-107/R-108 thông số **superseded by R-116**, cơ chế vẫn áp dụng;
+R-107/R-108 thông số **superseded by R-116**; cơ chế còn áp dụng trừ đứng yên khi nhốt (R-127);
 R-109 giữ backlog #132; phần #131 (roll khi vỡ, lửa đốt item cũ, nhặt ở cap) do #131 triển khai
 trong `systems/{blocks,pickup}.rs`, không biến thành bằng chứng gốc.
 
@@ -340,6 +340,20 @@ trong `systems/{blocks,pickup}.rs`, không biến thành bằng chứng gốc.
 | R-116 | `player.collision_half_px`, `player.corner_assist_px`, `player.trap_touch_distance_px` giữ BnB | 13/12/28 px | `oss` / design | R-107/R-108/BnB `server/game.js:31–32,546–567` SHA §10; chưa có KR/VN confirmed cùng đại lượng; R-028 không xác nhận khoảng cách |
 | R-117 | Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
 | R-118 | `presentation.frame_duration_ms` giữ design riêng | 100 ms | `design` / design | R-085; R-079 unknown; BnB không cung cấp nhịp clip KR. RE consumer frame/timing có thể thay sau |
+
+### Áp dụng kết quả RE trapped (#176)
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-132 | `player.trapped_can_move`: bật quyền nhận input di chuyển cho người bị nhốt; người chết không đi | 1 (0 = tắt, 1 = bật) | `kr_static` / confirmed | R-127; `0x00B95180` → `0x00B95970` → `0x00B93830`; [KR_RE_TRAPPED §2](../../research/findings/KR_RE_TRAPPED.md#2-người-bị-nhốt-vẫn-di-chuyển-r-127); #176 |
+| R-133 | Lựa chọn tạm V1: người bị nhốt dùng cùng bảng `player.speed_px_per_s_per_level` × cấp đang có; chưa thêm hệ số chậm hoặc khoá 20 bước vì chưa nối được cơ chế đó với lúc bị nhốt. Đây là lựa chọn vận hành dev, **không** phải tốc độ trapped KR đã xác nhận | dùng R-114 hiện hành | `design` / design | R-127 (quyền đi), R-125/Q-017/Q-018 (tốc độ còn thiếu); `systems/movement.rs`; #176 |
+
+Nguồn KR có consumer được ưu tiên theo ADR 0013 và chỉ đạo chủ dự án 2026-10-22.
+Không dùng chữ `confirmed` để nâng thông số chưa đọc: timer R-115, touch R-116 và tốc độ R-114
+vẫn giữ nguồn cũ. R-126/R-128…R-130 là mô tả state của client gốc, chưa tự ánh xạ bộ đếm 20 bước
+sang timer core. Collision/grace vẫn dùng implementation hiện hành (R-107/R-116); quyền đi R-132 không xác nhận lại thông số collision.
+Trapped vẫn không đặt bom (R-029/design V1) và không nhặt item (R-059).
+Thay rule này đổi profile hash, nên client/server/replay phải dùng cùng profile mới.
 
 ### Bảng lựa chọn theo khóa (máy-đọc)
 
@@ -365,6 +379,7 @@ chưa tách được theo từng khóa thì validator **fail closed** (báo lỗ
 | `player.speed_px_per_s_per_level` | R-114 | speed_px_per_s_per_level | px/s | `oss` | design | BnB 5c108e8 |
 | `bomb.fuse_ms` | R-115 | bomb_fuse | ms | `oss` | design | BnB 5c108e8 |
 | `bomb.flame_ms` | R-115 | bomb_flame | ms | `oss` | design | BnB 5c108e8 |
+| `player.trapped_can_move` | R-132 | trapped_movement_enabled | bool | `kr_static` | confirmed | KR 00967 |
 | `player.trap_to_death_ms` | R-115 | trap_to_death_timer | ms | `oss` | design | BnB 5c108e8 |
 | `player.collision_half_px` | R-116 | collision_box_half | px | `oss` | design | BnB 5c108e8 |
 | `player.corner_assist_px` | R-116 | corner_assist | px | `oss` | design | BnB 5c108e8 |
@@ -446,8 +461,8 @@ trong tệp này nhưng dãy số vẫn không trùng.
 | R-130 | Chuỗi chết: state `13` (đang chết) → gọi `vf128` + `sub_B936F0(this[59], this[58])` → state `14`; state `14` → (nếu `this[234] == 1` thì đổi nhóm khoá về mode thường) → state `2`. `this[58]`/`this[59]` chưa xác định nghĩa | — | `kr_static` / confirmed (chuỗi state); nghĩa hai trường con `unknown` | `sub_B952E0` `0x00B952E0` case `13`/`14` |
 | R-131 | **Chưa định vị** timer nhốt → chết. Client có tên hàng đợi defer `kCGameStage_DeferBomberLockedIn` (`0x017953C8`) và `kCGameStage_DeferBomberReleaseOrDie` (`0x01795074`) nhưng bảng tên chỉ đăng ký id, không trỏ hàm; khoảng packet 6359 ms (R-026) **không** phải timer nội bộ | — (không mang giá trị) | `kr_static` / unknown | Bảng tên tại `0x01795074`, `0x017953C8`; xref duy nhất là bảng đăng ký. Bước tiếp: tìm bộ thực thi defer theo id rồi lấy case tương ứng; nếu thân hàm ở `.themida` thì dừng và ghi entry VM theo DEVIRT_METHOD |
 
-R-127 **phủ định** mô hình `trapped` đứng yên đang dùng ở R-036/R-108 (BnB design): client KR vẫn nhận
-input và vẫn gọi đường di chuyển cho bomber ở state `3`. Giá trị profile hiện hành
+R-127 **phủ định** mô hình `trapped` đứng yên trước đây ở R-036/R-108 (BnB design): client KR vẫn nhận
+input và vẫn gọi đường di chuyển cho bomber ở state `3`. #176 áp dụng qua R-132, tốc độ dev R-133. Giá trị profile hiện hành
 (`player.trap_to_death_ms`, `player.trap_touch_distance_px`) **không đổi** trong PR này — và R-129
 **không** được dùng làm `trap_to_death_ms`: 20 bước là bộ đếm chuyển nhóm trình diễn, không phải thời
 gian bị nhốt. Bảng khác biệt và đề xuất ở

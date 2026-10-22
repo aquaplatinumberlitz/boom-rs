@@ -122,6 +122,11 @@ class PrecedenceTests(unittest.TestCase):
         self.assertTrue(any("tầng thấp hơn" in error and "grid.tile_px" in error
                             for error in errors), errors)
 
+    def test_bnb_cannot_replace_kr_trapped_movement(self):
+        errors = self.errors({"player.trapped_can_move": {"source": "oss", "status": "design"}})
+        self.assertTrue(any("tầng thấp hơn" in error and "player.trapped_can_move" in error
+                            for error in errors), errors)
+
     def test_candidate_cannot_override_confirmed(self):
         errors = self.errors({"grid.tile_px": {"source": "kr_static", "status": "candidate"}})
         self.assertTrue(any("grid.tile_px" in error for error in errors), errors)

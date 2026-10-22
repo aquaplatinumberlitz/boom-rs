@@ -225,7 +225,7 @@ Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành--
 | G-05 | Nhốt → chết | Đo được khoảng packet **6,359 s** (`vn_runtime` / confirmed) — là khoảng packet có xử lý/gửi, **không** phải timer nội bộ | **4 s** (`oss` / design — BnB); **không** phải 6,30 s cũ của R-076 (claim đã superseded) | R-026, R-076 (superseded), R-115 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-006 |
 | G-06 | Tốc độ nhân vật | Quan sát thô 5→6 px/tick ở 30 ms, checksum chưa xác thực (`candidate`) | **24 px/s mỗi cấp** (`oss` / design — BnB); **không** phải 33 px/s cũ của R-075 (claim đã superseded) | R-043, R-045, R-075 (superseded), R-114 ([RULES_V1 §4](../specification/gameplay/RULES_V1.md#4-nhân-vật-và-tốc-độ); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-005 |
 | G-07 | Nhịp tick | 30 ms/bước đo được ở **client** (`vn_runtime` / confirmed) — **không** xác nhận tick server | **30 Hz** (`oss` / design — BnB); 33 Hz cũ của R-074 đã superseded | R-013, R-074 (superseded), R-113 ([RULES_V1 §2](../specification/gameplay/RULES_V1.md#2-trận-và-thời-gian); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-004 |
-| G-08 | Người bị nhốt có di chuyển không | "Đi rất chậm" (`web`/`candidate`), chưa có px/s | Đứng yên (`design` — R-036; BnB cũng đứng yên nên cơ chế này giữ theo ADR 0012) | R-029, R-036, R-108 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-005 |
+| G-08 | Người bị nhốt có di chuyển không | KR cho phép đi (R-127 `kr_static`/`confirmed`); chưa có tốc độ khi nhốt | Đi được theo KR R-127 (`confirmed`); tốc độ tạm dùng bảng hiện hành (`design` R-133), chưa chốt hệ số chậm | R-127, R-132, R-133 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-017/Q-018 |
 | G-09 | Xác suất gạch có item | Chưa biết (`unknown`); OSS dùng 0,35 (`candidate`) | **35%** (350 permille; `oss` / design — BnB) | R-053, R-067 (superseded), R-112 ([RULES_V1 §5](../specification/gameplay/RULES_V1.md#5-item-rơi-và-nhặt); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-007 |
 | G-10 | Âm thanh event→entry | Chưa có trace consumer; A10 của `features.md` còn "chưa điều tra" | Mapping event→entry và policy chồng tiếng là `design` | R-082, R-083 ([RULES_V1 §10](../specification/gameplay/RULES_V1.md#10-âm-thanh)); [AUDIO_V1](../specification/assets/AUDIO_V1.md) | Q-015 |
 | G-11 | Ảnh UI đã Việt hóa | Bản VN có ảnh chữ Việt ở nút/dialog (`vn_static` / confirmed); art kết quả của bản VN chưa đọc rõ; chưa có quyết định duyệt nào | 3.038 ảnh `pending`; 8 ảnh của luồng V1 chờ duyệt | R-092 (`kr_static`+`vn_static` / confirmed), R-093 (`design` / design) ([RULES_V1 §12](../specification/gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1)); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1); [IMAGE_REVIEW](../specification/localization/IMAGE_REVIEW.md) | Q-012 |
@@ -241,7 +241,7 @@ Sổ trên ghi **giá trị đang dùng**. Nguồn của từng giá trị sau A
 sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
 
 - **Đã về gốc KR/VN** (khôi phục nguồn `confirmed` cùng đại lượng): thời hạn vòng **120 s** và
-  cỡ ô **40 px** (R-110), **Bomb/Fire +1** (R-111), trọng số rơi **3650:2800:2000** (R-112 —
+  cỡ ô **40 px** (R-110), **người bị nhốt đi được** (R-127/R-132, #176), **Bomb/Fire +1** (R-111), trọng số rơi **3650:2800:2000** (R-112 —
   *số* bảng VN `confirmed`, vai trò bảng vẫn `unknown` R-052, nên áp làm trọng số ba item V1 là
   quyết định áp dụng chứ không phải xác suất drop gốc), chỉ số C00/C01 theo `BomberAttr` KR
   (R-117 — ngoại lệ `candidate` có chủ ý, xem D-08). Theo ADR 0012/trước ADR 0013 các giá trị này
@@ -254,7 +254,7 @@ sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
   xác suất gạch có item **35%** (R-112 — R-053 `unknown`).
 - **`design` riêng** (BnB **không** cung cấp cùng đại lượng, nên **không** phải lựa chọn từ BnB):
   nhịp clip **100 ms** (R-118 — R-079 `unknown`; ADR 0013 giữ `design` riêng vì BnB không có nhịp
-  clip KR).
+  clip KR); tốc độ khi bị nhốt tạm dùng bảng tốc độ hiện hành (R-133), chưa xác nhận hệ số chậm KR.
 
 **Profile đã đổi giá trị, cơ chế thì chưa.** Profile
 [`v1-dev`](../../data/rules/v1-dev.toml) đã mang giá trị R-110…R-118, nhưng các **cơ chế** BnB

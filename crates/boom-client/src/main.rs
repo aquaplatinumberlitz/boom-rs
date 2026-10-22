@@ -2904,6 +2904,13 @@ unit = "px"
 source = "design"
 status = "design"
 
+[player.trapped_can_move]
+value = 1
+unit = "bool"
+source = "design"
+status = "design"
+claims = ["R-127", "R-132"]
+
 [player.trap_to_death_ms]
 value = 400
 unit = "ms"

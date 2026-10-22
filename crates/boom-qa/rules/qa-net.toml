@@ -37,6 +37,14 @@ unit = "ms"
 source = "design"
 status = "design"
 
+[player.trapped_can_move]
+value = 1
+unit = "bool"
+source = "design"
+status = "design"
+claims = ["R-127", "R-132"]
+note = "Fixture bật cơ chế KR R-127; các thông số còn lại của fixture không phải oracle gốc"
+
 [player.speed_px_per_s_per_level]
 value = 120
 unit = "px/s"

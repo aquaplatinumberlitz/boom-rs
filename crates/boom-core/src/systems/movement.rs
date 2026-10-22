@@ -9,7 +9,8 @@
 //!   tâm hàng đang đứng rồi thử lại, chỉ khi lệch không quá `player.corner_assist_px`.
 //! - `grace` cấp cho **mọi** người có hộp chồng ô bom lúc đặt, và bị xóa khi hộp rời hẳn ô
 //!   (R-107; BnB `server/game.js:150–153,392–399`). Không ai thêm lại sau khi mất.
-//! - Người bị nhốt đứng yên (R-036; BnB `server/game.js:631–633`), không có slow movement.
+//! - Người bị nhốt đi được theo `player.trapped_can_move` (KR R-127/R-132); người chết
+//!   không đi. Tốc độ riêng khi bị nhốt chưa biết: V1 dùng bảng tốc độ hiện hành (R-133 design).
 //!
 //! Thứ tự xóa `grace`: BnB xóa ở đầu tick (`updateBombPass`) trước khi người chơi di chuyển,
 //! V1 xóa ở cuối bước movement. Hai cách cho cùng kết quả: người chơi rời hẳn ô bom trong
@@ -52,7 +53,12 @@ impl System for Movement {
             ..
         } = state;
         for (player, input) in players.iter_mut().zip(inputs) {
-            if player.life != Life::Alive || input.dir == Dir::None {
+            let can_move = match player.life {
+                Life::Alive => true,
+                Life::Trapped { .. } => world.rules().trapped_can_move,
+                Life::Dead => false,
+            };
+            if !can_move || input.dir == Dir::None {
                 continue;
             }
             if player.facing != input.dir {
@@ -281,12 +287,71 @@ mod tests {
     }
 
     #[test]
-    fn trapped_player_does_not_move() {
+    fn trapped_player_moves_until_blocked() {
         let w = world(&["#####", "#0..#", "#####"]);
         let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
         s.players[0].life = Life::Trapped { since: 0 };
         run(&w, &mut s, Dir::Right, 20);
+        assert_eq!(s.players[0].x, Mpx(100_000));
+        assert_eq!(s.players[0].life, Life::Trapped { since: 0 });
+        assert_eq!(s.players[0].facing, Dir::Right);
+    }
+
+    #[test]
+    fn dead_player_ignores_direction_and_turn_events() {
+        let w = world(&["#####", "#0..#", "#####"]);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.players[0].life = Life::Dead;
+        let before = s.players[0].clone();
+        let mut events = Vec::new();
+        s.step(&w, &[walk(Dir::Right)], &mut events).unwrap();
+        assert_eq!(s.players[0], before);
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e.kind, crate::event::EventKind::PlayerTurned { .. }))
+        );
+    }
+
+    #[test]
+    fn profile_can_disable_trapped_movement_without_disabling_alive_movement() {
+        let mut r = rules();
+        r.trapped_can_move = false;
+        let w = World::new(
+            Terrain::from_ascii(&["#####", "#0..#", "#####"]).unwrap(),
+            r,
+            mode_by_id("battle_ffa").unwrap(),
+        )
+        .unwrap();
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.players[0].life = Life::Trapped { since: 0 };
+        run(&w, &mut s, Dir::Right, 1);
         assert_eq!(s.players[0].x, Mpx(60_000));
+        s.players[0].life = Life::Alive;
+        run(&w, &mut s, Dir::Right, 1);
+        assert!(s.players[0].x > Mpx(60_000));
+    }
+
+    #[test]
+    fn trapped_player_leaves_grace_but_cannot_reenter_bomb() {
+        let w = world(&["#####", "#0..#", "#####"]);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.players[0].life = Life::Trapped { since: 0 };
+        s.bombs.push(Bomb {
+            id: EntityId(1),
+            owner: 0,
+            cell: Cell::new(1, 1),
+            range: 1,
+            explodes_at: 1000,
+            grace: vec![0],
+        });
+        run(&w, &mut s, Dir::Right, 20);
+        assert_eq!(s.players[0].x, Mpx(100_000));
+        assert!(s.bombs[0].grace.is_empty());
+        run(&w, &mut s, Dir::Left, 20);
+        // Bước 2 px dừng ở x=94: bước tiếp sẽ chồm ô bom kết thúc ở x=80.
+        assert_eq!(s.players[0].x, Mpx(94_000));
+        assert_eq!(s.players[0].life, Life::Trapped { since: 0 });
     }
 
     #[test]

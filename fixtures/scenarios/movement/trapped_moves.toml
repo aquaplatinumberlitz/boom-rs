@@ -1,0 +1,32 @@
+# KR R-127: người bị nhốt đi được. R-133: tốc độ fixture không phải tốc độ KR.
+# Đến mép tường ở x=160 px, hộp nửa 13 px dừng tâm ở x=146 px.
+name = "Người bị nhốt nhận input và dừng trước tường"
+features = ["V1-011", "V1-012"]
+claims = ["R-127", "R-132", "R-133"]
+status = "active"
+ticks = 60
+map = [
+    "#####",
+    "#0..#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+life = "trapped"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 60
+player = 0
+cell = [3, 1]
+pos_mpx = [146000, 60000]
+life = "trapped"

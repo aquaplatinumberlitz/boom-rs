@@ -149,7 +149,7 @@ mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới 
 | `SimulationState` | `state/mod.rs` | `tick, phase, rng, ids, players, field, bombs, flames, items`; mỗi phần tự hash trong file của nó |
 | `TickScratch` | `scratch.rs` | Dữ liệu **của một tick**, truyền giữa các system (kênh blast: ô vừa bị vụ nổ phủ). **Không thuộc state**: không hash, không snapshot, không có trong DTO. Ở đường gameplay `SimulationState::step` tự tạo scratch rỗng mỗi tick, nên kết quả tick luôn suy ra từ state + input |
 | `EntityId`, `IdAllocator` | `state/mod.rs` | ID bom/item cấp tăng dần từ 1 trong lượt; chỉ cấp qua `ids.next_id()` |
-| `Player`, `Life`, `Stat` | `state/player.rs` | `Life::Trapped { since }` vẫn tính là chưa chết |
+| `Player`, `Life`, `Stat` | `state/player.rs` | `Life::Trapped { since }` vẫn tính là chưa chết; movement nhận input khi `Rules::trapped_can_move` (R-127/R-132), không đổi `since` |
 | `Field` | `state/field.rs` | Loại ô đổi được trong lượt + item giấu trong khối mềm |
 | `Bomb { id, owner, cell, range, explodes_at, grace }` | `state/bomb.rs` | Tầm chụp lúc đặt (R-032); `grace` = người được phép đi ra khỏi bom |
 | `Flame { cell, until, source, owner }` | `state/flame.rs` | `until` là tick cuối còn lửa (bao gồm); mỗi ô một flame |

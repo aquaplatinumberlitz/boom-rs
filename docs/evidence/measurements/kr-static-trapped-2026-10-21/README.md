@@ -60,3 +60,13 @@ Không mở DB gốc, không chạy client.
   trực tiếp vtable/byte trong phiên này; kết luận chỉ từ decompile + xrefs.
 - Chưa có trace runtime; "20 bước ≈ 600 ms" là quy đổi theo R-013 (30 ms/bước, đo trên VN), chưa đo KR.
 - Số state `3` = bị nhốt ghép từ code KR + tài liệu packet VN, không phải nhãn có sẵn trong binary.
+
+## Đối chiếu consumer trước khi áp dụng (#176, 2026-10-22)
+
+Codex đọc bundle đã export của dsh cho `0x00B95970` và kết quả REA cho `0x00B95180`,
+rồi gọi lại REA `procedure_pseudo_code` tại `0x00B93830` trên binary bản sao có cùng SHA-256.
+Hàm kiểm cổng `0x00B95970` rồi chuyển nguyên hướng/quãng đường sang `0x00B93890`;
+đối chiếu này xác nhận đường gọi của R-127, không đo tốc độ trapped hay timer KR.
+Evidence `ev_e945af3e122cceb19b4d35e256dbc56b364c75adc67b6be1338d75ac88106546`;
+bản JSON lưu ngoài repo: `/home/admin/boom-team/tmp/re-kr/rea-review-176-movegate.json`.
+Không thêm decompile nguyên văn vào repository.

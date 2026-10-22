@@ -6,6 +6,8 @@ nguồn `kr_static`. Claim ở [RULES_V1 §13](../../specification/gameplay/RULE
 [evidence](../../evidence/measurements/kr-static-trapped-2026-10-21/README.md).
 Không có binary, pack, IDA DB hay decompile nguyên văn trong repo.
 
+Áp dụng engine: [#176](https://github.com/aquaplatinumberlitz/boom-rs/issues/176), R-132/R-133 trong RULES_V1 §11. Quyền đi là KR confirmed; tốc độ tạm dùng bảng hiện hành là design, timer/touch giữ nguyên.
+
 **Kết luận chính:** KR **cho người bị nhốt di chuyển** (R-127) — ngược với R-036/R-108 của V1
 (`trapped` đứng yên, lấy từ BnB). Đây là claim `confirmed` có consumer, không phải suy đoán từ asset.
 
@@ -58,8 +60,7 @@ Ba mắt xích, đều có consumer:
 3. **MoveGate dùng đúng cổng đó.** `CGOBomber::MoveGate` `0xB93830` trả `0` (không đi) khi
    `sub_B95970` trả `0`; ngược lại gọi `CGOBomber::Move` `0xB93890` với nguyên `len`.
 
-Hệ quả: `trapped` **không** phải trạng thái đứng yên trong client KR. V1 đang mô hình hoá theo BnB
-(R-108) nên khác client gốc.
+Hệ quả: `trapped` **không** phải trạng thái đứng yên trong client KR. V1 trước #176 mô hình hoá theo BnB (R-108); #176 thay quyền đi theo R-127.
 
 **Chưa chứng minh:** tốc độ khi bị nhốt có bị giảm hay không. `len` đi từ controller tới `MoveSimple`
 không bị nhân/chia trong chuỗi này; nếu có giảm thì nằm trong controller (`vf8`), chưa định vị.
@@ -119,7 +120,7 @@ cơ chế tự thoát — theo AGENTS §4 "asset tồn tại ≠ tính năng ch�
 
 | Khóa / claim | Hiện tại | KR đọc được | Đề xuất |
 |---|---|---|---|
-| `trapped` đứng yên (R-036, R-108) | đứng yên | **đi được**, có họ state đi riêng | đổi mô hình: `trapped` vẫn nhận input; PR cơ chế riêng |
+| `trapped` đứng yên (R-036, R-108) | đứng yên | **đi được**, có họ state đi riêng | áp dụng qua #176: `trapped` nhận input, R-132/R-133 |
 | `player.trap_to_death_ms` (R-115) | `4000` (`oss`/design) | chưa xác định (R-131) | giữ |
 | `player.trap_touch_distance_px` (R-116) | `28` (`oss`/design) | chưa đọc (đường chạm/cứu chưa lần ra) | giữ |
 | Cứu/chọc (R-028 `vn_runtime`) | địch chạm → chết | chưa đọc được nhánh chạm | giữ, Q-018 |

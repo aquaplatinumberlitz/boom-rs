@@ -883,7 +883,7 @@ mod tests {
     }
 
     #[test]
-    fn bi_nhot_hay_chet_giu_nguyen_trong_du_doan() {
+    fn du_doan_cho_nguoi_bi_nhot_di_chuyen_nhung_nguoi_chet_dung_yen() {
         for life in [boom_core::Life::Trapped { since: 3 }, boom_core::Life::Dead] {
             let mut predictor = Predictor::new(world(), 0).expect("predictor");
             let mut state = two_player_state(7);
@@ -905,11 +905,19 @@ mod tests {
                 predicted.players[0].life, life,
                 "life không đổi khi dự đoán"
             );
-            assert_eq!(
-                (predicted.players[0].x, predicted.players[0].y),
-                (before.players[0].x, before.players[0].y),
-                "người chơi đã chết/bị nốt không được dịch chuyển khi dự đoán"
-            );
+            if matches!(life, boom_core::Life::Trapped { .. }) {
+                assert!(
+                    predicted.players[0].x > before.players[0].x,
+                    "R-127: người bị nhốt vẫn đi"
+                );
+                assert_eq!(predicted.players[0].y, before.players[0].y);
+            } else {
+                assert_eq!(
+                    (predicted.players[0].x, predicted.players[0].y),
+                    (before.players[0].x, before.players[0].y),
+                    "người chết không di chuyển"
+                );
+            }
         }
     }
 

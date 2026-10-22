@@ -44,6 +44,8 @@ pub struct Rules {
     pub flame_ticks: Tick,
     /// Từ lúc bị nhốt tới lúc tự chết.
     pub trap_ticks: Tick,
+    /// Người bị nhốt nhận input di chuyển (KR 00967, R-127/R-132).
+    pub trapped_can_move: bool,
     /// Khoảng cách (px) để người chạm làm vỡ bong bóng: mỗi trục lệch **nhỏ hơn** ngưỡng này
     /// thì chạm (R-108).
     pub trap_touch_distance: Mpx,
@@ -106,6 +108,7 @@ impl Rules {
             fuse_ticks: ms("bomb.fuse_ms")?,
             flame_ticks: ms("bomb.flame_ms")?,
             trap_ticks: ms("player.trap_to_death_ms")?,
+            trapped_can_move: p.int_in("player.trapped_can_move", "bool", 0, 1)? == 1,
             trap_touch_distance: Mpx::from_px(i32_of(p.int_in(
                 "player.trap_touch_distance_px",
                 "px",
@@ -164,4 +167,39 @@ fn i32_of(v: i64) -> i32 {
 
 fn u32_of(v: i64) -> u32 {
     u32::try_from(v).expect("miền đã kiểm nằm trong u32")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PROFILE: &str = include_str!("../../../data/rules/v1-dev.toml");
+
+    #[test]
+    fn trapped_movement_is_required_bounded_and_changes_identity() {
+        let enabled = RulesProfile::from_toml(PROFILE).unwrap();
+        let mut disabled = enabled.clone();
+        disabled
+            .rules
+            .get_mut("player.trapped_can_move")
+            .unwrap()
+            .value = Some(0);
+        assert!(Rules::from_profile(&enabled).unwrap().trapped_can_move);
+        assert!(!Rules::from_profile(&disabled).unwrap().trapped_can_move);
+        assert_ne!(enabled.identity_hash(), disabled.identity_hash());
+        disabled
+            .rules
+            .get_mut("player.trapped_can_move")
+            .unwrap()
+            .value = Some(2);
+        assert!(matches!(
+            Rules::from_profile(&disabled),
+            Err(ProfileError::OutOfRange(..))
+        ));
+        disabled.rules.remove("player.trapped_can_move");
+        assert!(matches!(
+            Rules::from_profile(&disabled),
+            Err(ProfileError::Missing(..))
+        ));
+    }
 }

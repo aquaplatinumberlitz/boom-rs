@@ -365,8 +365,43 @@ mod tests {
     }
 
     #[test]
-    fn moving_player_keeps_facing_and_does_not_move_when_trapped() {
-        // Trapped đứng yên (R-036): input không đổi vị trí.
+    fn held_input_keeps_moving_after_flame_traps_player() {
+        let w = world_with(rules(), &["#######", "#0...1#", "#######"]);
+        let mut s = SimulationState::new_round(&w, &[setup(0), setup(1)], 1).unwrap();
+        place(&mut s, 0, 60_000, 60_000);
+        place(&mut s, 1, 220_000, 60_000);
+        s.flames.push(Flame {
+            cell: crate::num::Cell::new(1, 1),
+            source: EntityId(1),
+            owner: 1,
+            until: 2,
+        });
+        let inputs = [
+            PlayerInput {
+                dir: Dir::Right,
+                place_bomb: false,
+            },
+            PlayerInput::default(),
+        ];
+        let mut events = Vec::new();
+        s.step(&w, &inputs, &mut events).unwrap();
+        let trapped_x = s.players[0].x;
+        assert_eq!(s.players[0].life, Life::Trapped { since: 0 });
+        s.step(&w, &inputs, &mut events).unwrap();
+        assert!(s.players[0].x > trapped_x);
+        assert_eq!(s.players[0].life, Life::Trapped { since: 0 });
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| matches!(e.kind, EventKind::PlayerTrapped { player: 0, .. }))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn trapped_player_moves_without_resetting_its_timer() {
+        // R-127: input vẫn di chuyển; mốc bị nhốt không đổi sau movement.
         let (w, mut s) = pair(rules());
         let before = (s.players[1].x, s.players[1].y);
         let mut events = Vec::new();
@@ -385,6 +420,8 @@ mod tests {
             &mut events,
         )
         .unwrap();
-        assert_eq!((s.players[1].x, s.players[1].y), before);
+        assert!(s.players[1].x > before.0);
+        assert_eq!(s.players[1].y, before.1);
+        assert_eq!(s.players[1].life, Life::Trapped { since: 0 });
     }
 }

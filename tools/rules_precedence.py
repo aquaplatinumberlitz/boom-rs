@@ -231,6 +231,17 @@ def expectations() -> list[Quantity]:
             forbidden=(("R-043", "raw px/tick, checksum chưa xác thực"),),
         ),
         Quantity(
+            key="player.trapped_can_move",
+            quantity="trapped_movement_enabled",
+            unit="bool",
+            context="KR 00967; quyền nhận input, không xác nhận tốc độ khi nhốt",
+            tier="kr_confirmed",
+            sources=("kr_static",),
+            status="confirmed",
+            selection="R-132",
+            support=("R-127",),
+        ),
+        Quantity(
             key="player.trap_to_death_ms",
             quantity="trap_to_death_timer",
             unit="ms",
