@@ -653,3 +653,35 @@ Hệ quả:
   chưa đối chiếu server, không dùng để đổi contract V1 ở PR này.
 - Nếu cần đóng Q-018: bước tiếp là devirt/đọc VM tại `0x00B534D0 → 0x02012376`, hoặc đo runtime
   (entry/seed, state 3, thời điểm packet 167) theo Q-009 — không suy từ VN.
+
+## § (đánh số khi merge) — RE KR 00967 — render: accessor frame, neo tile và lớp Static/Adjust (R-209…R-211)
+
+Đọc tĩnh cho [#201](https://github.com/aquaplatinumberlitz/boom-rs/issues/201) / Q-002/Q-003, V1-030/031
+(mục 7 hàng đợi RE). Số mục để trống theo yêu cầu phiên (dải **R-209…R-249**); integrator đánh số khi
+merge. Điểm đầu VN `CDataI16Alpha__Load` `0x00A3D850` (client VN `unpacked_ca.exe`, SHA-256
+`13a0a33cccc8f5f5124cdd8dac863b68118e6dda83340649b897fc41faed364a`, imagebase `0x400000`), đối chiếu
+KR `00967` (`cf72da11…e63b`). Chi tiết/giới hạn ở [KR_RE_RENDER](../../research/findings/KR_RE_RENDER.md)
+và [evidence](../../evidence/measurements/kr-static-render-2026-10-23/README.md).
+
+Bối cảnh: [MAPS §3](../assets/MAPS.md) đã đo 12×`i32` mỗi frame (f0/f1 đăng ký, f2 flag, f3 ảnh,
+f4–f7 rect, f8/f9 canvas, f10/f11 pivot) nhưng **chưa có consumer render**. Lượt này tìm được
+**accessor** của lớp dữ liệu ở VN, **neo tile** và **quy ước tên lớp `LayerStatic`/`LayerAdjust`**;
+**chưa** tìm được hàm vẽ dùng f8–f11, nên câu hỏi công thức đặt ảnh + thứ tự lớp + clip/alpha vẫn mở
+(blocker có phạm vi §4 findings).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-209 | **Accessor frame của `CDataI16Alpha` (VN) — f4..f11 là một khối liên tiếp, f0/f1/f2 đọc/ghi riêng.** `vf8(frame)` trả `frame + 16` = con trỏ tới **f4..f11** (`0x8D50DF`); `vf9` = `f6−f4` (rộng rect), `vf10` = `f7−f5` (cao rect) (`0x8D50F3`, `0x8D510B`); `vf11` = `f0`, `vf12` = `f1`, `vf13` = `f2` (`0x8D5123`, `0x8D5136`, `0x8D514A`); `vf14(frame,a,b)` **ghi f0/f1** (`0x8D515E`) ⇒ đăng ký **thay đổi được** theo frame; `vf15(frame)` lấy ảnh theo `f3` qua `vf16`, `vf16(index)` trả kích thước ảnh (`0x8D5180`, `0x8D519B`). Frame record 48 B, index `f3` | 12×`i32`/frame; rect/canvas/pivot: px | `vn_static` / confirmed (accessor); **consumer của f8–f11 chưa có** | VN `0x8D50DF`, `0x8D50F3`, `0x8D510B`, `0x8D5123`, `0x8D5136`, `0x8D514A`, `0x8D515E`, `0x8D5180`, `0x8D519B` (RVA `0x4D50DF`…`0x4D519B`); [MAPS §3](../assets/MAPS.md) |
+| R-210 | **Neo thế giới của tile/object (VN): `x = cột·40`, `y = hàng·40 + 39`.** `CGOTile::vf33` `0x5BED20` ghi `this[19] = 40·a5` và `this[22] = 40·a4 + 39` (a5 = cột, a4 = hàng), rồi gọi `vf+20(this, a3, -1)` và `vf+12(this, 1)`. Đơn vị **px**, ô 40 px; mốc là **1 px trên mép dưới ô** (`row·40+39`), không phải tâm ô | px; ô 40 | `vn_static` / confirmed (công thức + vị trí ghi); caller map/loader: `candidate` | VN `0x5BED20` (RVA `0x1BED20`), `CGOTileFixed__vf33` `0x5BEE9E` |
+| R-211 | **Mỗi object có cặp sprite lớp `LayerStatic`/`LayerAdjust`.** Loader VN ghép tên `<tên>LayerStatic` bằng `strcat` (`0x5C8107` trong `sub_5C7F8E`, `0x5C9F66` trong `sub_5C9741`); bảng tên lớp có cả `LayerStatic` (`0xC3797C`) và `LayerAdjust` (`0xC79760`). KR cũng ghép `<tên>LayerStatic` (`0xBA3384` trong `sub_BA3100`, `0xBB34C5`/`0xBB3545` trong `sub_BB2620`); chuỗi `LayerAdjust` KR ở `0x17902D8` (chỉ thấy trong bảng dữ liệu `0x19A64B4`). **Thứ tự vẽ Static→Adjust, clip và alpha chưa chứng minh** | tên entry; 2 lớp | `vn_static` + `kr_static` / confirmed (tên lớp); **thứ tự/clip/alpha: unknown** | VN `0x5C7F8E`/`0x5C9741`; KR `sub_BA3100`/`sub_BB2620`, `0x19A64B4` |
+
+Hệ quả:
+
+- **Không đổi BUNDLES §7** hay code/profile: quy ước đặt ảnh hiện tại vẫn là `design`. Lượt này **không**
+  chứng minh công thức `canvas.x = cột·T − pivot_x`, `canvas.y = (hàng+1)·T − canvas_h`; cũng **không**
+  chứng minh thứ tự `Static` trước `Adjust`. Đề xuất: giữ nguyên, ghi rõ Q-003 vẫn mở; nếu cần đổi thì
+  task riêng có review.
+- Neo tile `x=cột·40`, `y=hàng·40+39` khớp R-009 (neo hiển thị nhân vật) và củng cố BUNDLES §7 mục 1
+  (mép dưới ô) — nhưng **không** chứng minh vùng ảnh canh đáy canvas.
+- f0/f1 **thay đổi được** (setter vf14): mọi mô hình coi f0/f1 là hằng số của sprite cần kiểm lại; frame
+  record vẫn 48 B, 12 field.
