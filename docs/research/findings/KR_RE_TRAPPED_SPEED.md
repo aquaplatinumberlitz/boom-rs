@@ -100,14 +100,17 @@ bomber; nếu giữ `confirmed` thì phải bổ sung consumer thuộc lớp bom
 
 ## 6. Provenance công cụ (ghi rõ)
 
-- **IDA MCP trực tiếp** trên DB **bản sao** `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe.i64`:
-  `execute_python` + `ida_bytes`/`ida_xref`/`ida_hexrays` cho: quét store `+0xE0`/`+0xD4`, quét
-  `0x8D`/disp `0x584`, quét dword trong `.rdata` cho 4 địa chỉ hàm, đọc slot vtable 22–26 của 3 lớp,
-  đọc `??_R2CGOGameBomber@@8` (danh sách lớp cơ sở), decompile `0xB93A60`, `0xB77B10`, `0xB44000`.
-- **REA 6.7.0** (`open_binary` bản sao, `provider_id: ida`): `binary_session` và `get_evidence_bundle`
-  hoạt động, nhưng **mọi operation cấp target** đều trả
-  `unreadable_output` — `IDA MCP returned malformed or unsupported producer data: success: Invalid input: expected true; session: Invalid input: expected object, received undefined`
-  (`batch_decompile 0xB93A60/0xB95180`, `xrefs 0xB93A60`). `retryable:false`, không phải lỗi tạm;
-  không retry. Vì vậy không có `evidence_id` nào cho lượt này — bằng chứng là IDA trực tiếp, và REA
-  6.7.0 cần được xem là **hỏng cho provider IDA cấp target** cho tới khi có bản sửa.
-- `close_binary` → `{"result":null}` (target đã đóng, không có bundle để export vì 0 record).
+- **REA 6.7.0** (`open_binary` bản sao, `provider_id: ida`, seed DB): `xrefs 0xB93A60` →
+  `ev_e4565b5af7657ad73d2cf0806e5d76f36974c8c15bde173738d71c6ef036d80d` (1 xref duy nhất `0x1746EA0`);
+  `batch_decompile [0xB93A60, 0xB95180]` →
+  `ev_9e2c7e089309a3142baa4668a7ea2a22eb0b5d0791fb70cf0ade95a51a5b4b82`. Bundle export
+  `/home/admin/boom-team/tmp/re-kr/evidence-trapped-speed-147.json` (2 record) trước `close_binary`
+  (`{"result":null}`).
+- **IDA MCP trực tiếp** trên DB **bản sao**: các phép quét byte/dword, đọc slot vtable 22–26 của 3 lớp,
+  đọc `??_R2CGOGameBomber@@8`, decompile `0xB77B10`/`0xB44000` — `read_bytes`/`search_bytes` là operation
+  REA không khai báo, nên đây là fallback được phép, làm tuần tự sau khi đóng REA.
+- **Sự cố đã xử lý**: lượt đầu REA trả `unreadable_output` cho mọi operation cấp target vì DB bản sao đã
+  bị phiên IDA trực tiếp trước đó ghi lại (SHA-256 `e612361a…` → `20904663…`), khiến launcher seed
+  fail-closed (`Seed database changed; refresh its pin explicitly before reuse`) và REA báo lỗi schema
+  thay vì lỗi upstream. Đã refresh pin trong `~/.config/rea/helpers/ida-db-seeds.json` (có backup
+  `…bak-20261022-213458`) rồi chạy lại — OK. Quy ước: IDA trực tiếp phải mở **bản sao của bản sao**.
