@@ -64,3 +64,34 @@ engine seed database đã phân tích. Không mở DB gốc, không chạy clien
    vtable để lấy constructor rồi đọc các hàm lân cận.
 4. Nếu cả hai đường đều vào `.themida` thì dừng và ghi entry VM theo
    [DEVIRT_METHOD](../../../research/findings/DEVIRT_METHOD.md).
+
+## Bổ sung 2026-10-23 — R-151 blocker: duration ODT/nhịp update (R-141 frame)
+
+REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63b`; bundle
+`.re-work/evidence-r151-anim-148.json` (20 record, không commit). Không đọc lại blob 48 byte; R-079
+giữ `unknown`.
+
+| Kiểm | VA | Kết quả |
+|---|---|---|
+| `CGOFlame` update | `0xB711C0` (vtable `0x1745EF0`, slot 24 `0x1745F50`) | `++flame[i+51]` mỗi lần update; xoá khi `>= GetAnimCount(flame[i+36])`; **không** đọc `dt`/elapsed/duration ODT |
+| GetAnimCount | `B333D0` → `BA3FF0` → `B8E5A0(template+4)` | số animation/frame của template |
+| Per-anim field | `BA40F0` (`[anim+4]`), `BA41D0` (`[anim]`), stride 8 | field thứ hai; chưa chứng minh là duration/ms |
+| Consumer nhánh | `BA3530` | so `B33170()` với `[record+4]`; `1` = `[+4]==-1`, `5` = dưới ngưỡng, `4` = reset `B33190(0)` + frame `B331E0`, `3` = `B33200(count-1)` giữ cuối, `2` = `B33200(0)` quay đầu; đơn vị/getter chưa rõ |
+| Tổng field | `BA4160` cộng `BA40F0` | caller `B338F0`/`B9CEC0`/`B9FDD0`; `B33B30` dùng `sub_15625C2` = **RNG**, không elapsed |
+| State code | `B44000` | kiểm mã `24`/`27–30`/`39–42` + `B33230`; chưa nối nhãn ODT idle/walk/trapped/dead |
+| Nhịp update | `0xB711C0` xref | chỉ data `0x1745F50`; không thấy call site trực tiếp ⇒ chưa quy đổi frame→ms |
+
+**Kết luận:** R-141 confirmed lửa/segment đếm **frame** (không lặp claim). **R-151**: `BA3530` đã
+thấy nhánh consumer `[record+4]` (so/reset/tiến/giữ-cuối/quay-đầu, mã `1/2/3/4/5`); **blocker** chỉ
+còn đơn vị/cadence/getter, state→nhãn và consumer tâm/thân/đuôi/hướng lửa. **Đề xuất presentation:
+giữ frame-based, không đặt ms; không đổi `bomb.flame_ms` hay profile.**
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_7ff15ec058e6221ae2a6398c54d0bdd3dd4d8752f9f6a129aa97d60603928f8d` | `batch_decompile` `B711C0`/`B333D0`/`BA3FF0`/`BA40F0` | frame counter/GetAnimCount |
+| `ev_719cc83beac83d74646cc55759c5e7e805547d2be1f7a15c6d06adfb29739710` | `xrefs` `B711C0` | chỉ vtable `0x1745F50` |
+| `ev_b03800902665906819d03a66f788684b2ae98e57e109d988950b2af791ab6e11` | `batch_decompile` `B33980`/`BA4160`/`B33AA0` | tổng field/frame count |
+| `ev_582f04e64a5b5797cf47c4f62a56d69c95ce4dba65ebb544e8b923f4f1970e54` | `batch_decompile` `B338F0`/`B33B30`/`F016B0` | consumer/RNG phase |
+| `ev_630f12978d13751bbb0f9be5fc428f8938fc17cde371b646897bfd3a5255ddd7` | `batch_decompile` `B9CEC0`/`B9FDD0` | effect dùng `BA4160` |
+| `ev_2ae5cf02c0cdedc46533eb46360c1243004d15cb388a9e6d7e761d2ab9f237e0` | `batch_decompile` `15625C2` | RNG |
+| `ev_2a06c640eab604e3b430f5959a636b2f53bc281dc2adb4f3ee7afa0620c55e68` | `batch_decompile` `B77B10`/`B44000` | update/state mã |
