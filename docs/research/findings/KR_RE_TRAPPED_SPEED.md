@@ -50,9 +50,9 @@ nếu sub_B96D50(this+0xE0):
 - Getter `sub_B96310` → `sub_B971C0` = `return *(this)` (đã đọc: `0xB971A0/B0/C0` đều là getter một dòng).
 - `vf[+8]` là **byte offset +8** (slot 2 trên x86), không phải "vtable index 8"; đây là chỗ lấy
   `(dir, len)` dưới dạng out-param.
-- `this` của `sub_B95180` là đối tượng `CGOPet` (nó là slot 24 của `CGOPet`), nên `this+0xE0` là
-  sub-object của `CGOPet`. **Không** phải trường `bomber+0xE0`. Controller của bomber là sub-object
-  **nhúng tại byte +1412** (R-135), khác đối tượng này.
+- Trong đường đã trace từ `0xB93A60` (slot 24 của `??_7CGOPet@@6B@`), `sub_B95180` nhận `this` là
+  đối tượng `CGOPet`; do đó `this+0xE0` là sub-object của `CGOPet`. **Không** phải trường
+  `bomber+0xE0`. Controller của bomber là sub-object **nhúng tại byte +1412** (R-135), khác đối tượng này.
 - Quét store vào `+0xE0`/`+0xD4` (mọi thanh ghi nguồn, mod=10, có/không SIB): 66 + 62 điểm; trong dải
   `0xB3xxxx–0xB9xxxx` thấy `0xB8C3F0` (máy trạng thái hiệu ứng), `0xB9D540`/`0xB9D750`
   (`CGOTileGround` ctor), `0xB6B3F0` (`CGOChatBalloon` ctor); ctor `CGOGameBomber` `0xB79DC0`
@@ -84,9 +84,9 @@ nếu sub_B96D50(this+0xE0):
 
   Danh sách này **không** được khẳng định là toàn bộ caller; xref có thể bỏ sót hoặc không thấy
   đường gián tiếp. Vì vậy **không** có kết luận bao phủ kiểu "mọi caller không thuộc lớp bomber".
-- Trong phạm vi đã đọc, **chưa thấy** lớp bomber gọi `CMovable::MoveSimple`; vị trí/độ dài của
-  bomber phải đến từ một đường khác (chưa định vị). Đây là "chưa chứng minh", không phải "đã chứng
-  minh không dùng".
+- Trong phạm vi đã đọc, **chưa thấy** lớp bomber gọi `CMovable::MoveSimple`; **đường cập nhật vị
+  trí/`len` của bomber chưa định vị**. Đây là phép tìm âm tính trong phạm vi đã đọc, **không** loại trừ
+  wrapper/đường gián tiếp; "chưa chứng minh", không phải "đã chứng minh không dùng".
 
 ## 4. Hệ quả cho claim đang mở
 
@@ -106,10 +106,11 @@ R-132.
 
 1. **Tìm mover của bomber**: đọc hết `CGOBomber` slot 24 `0xB44000` (5.482 B) và `CGOGameBomber`
    slot 24 `0xB77B10`; tìm nơi cập nhật vị trí (`sub_B335C0/B335E0` là getter x,y; setter ở vtable
-   `+116` của đối tượng vị trí như trong `MoveSimple`). Đây là chỗ phải có `len` của bomber.
+   `+116` của đối tượng vị trí như trong `MoveSimple`). Đây là đầu mối cần truy cho `len`/mover của
+   bomber; chưa chứng minh hai cập nhật trực tiếp tính `len` (có thể delegate/tiêu thụ trạng thái khác).
 2. **Đối chiếu VN** (đòn bẩy): VN `CMovable::MoveSimple 0x95199B` — kiểm caller của nó trong VN;
-   nếu VN cũng chỉ dùng cho AI/pet thì giả thuyết "bomber đi bằng đường khác" được củng cố ở cả hai
-   build, nhưng vẫn **không** thay thế consumer KR. Hướng đúng là tìm lớp `CGOBomber` bên VN
+   nếu VN cũng chỉ dùng cho AI/pet thì giả thuyết "bomber không dùng cùng chuỗi này" được củng cố ở cả hai
+   build, nhưng vẫn **không** thay thế consumer KR. Hướng cần kiểm là tìm lớp `CGOBomber` bên VN
    (notebook `oc_e-game.md` §5a-3 nói input đi vào controller `bomber+1524`, tương ứng `+1412` của
    KR — cùng một sub-object).
 3. **Controller của bomber**: xác định vtable của sub-object nhúng tại `+1412` (ctor gán cùng một
