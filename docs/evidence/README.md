@@ -13,7 +13,7 @@
 | [measurements/kr-static-flame-2026-10-21/README.md](measurements/kr-static-flame-2026-10-21/README.md) | Điều tra nổ/lửa + thời lượng frame KR: mỏ neo, evidence_id, giới hạn công cụ; **chưa có claim**, dùng cho lượt sau |
 | [measurements/kr-static-2026-10-21/README.md](measurements/kr-static-2026-10-21/README.md) | Định danh build KR/VN và bảng VA/RVA của phép đọc tĩnh movement/va chạm (R-119…R-125); metadata, không có binary hay decompile. Phạm vi lớp: consumer đã trace là `CGOPet`/AI (R-134/R-135); R-119…R-122 `confirmed` chỉ cho `CMovable`, bomber là `candidate`/chưa chứng minh |
 | [measurements/kr-static-item-2026-10-21/README.md](measurements/kr-static-item-2026-10-21/README.md) | Điều tra item/cap KR: bộ nạp `ItemAttr` + cấu trúc bảng, provenance IDA trực tiếp; **chưa có claim** |
-| [measurements/kr-static-trapped-speed-2026-10-22/README.md](measurements/kr-static-trapped-speed-2026-10-22/README.md) | Truy vết `(dir,len)` khi bị nhốt: `CGOPet`; R-136 dispatch dir→sub-object `+1412`→reader; R-137 caller setter là NPC/AI (`B479E0`/`F087E0`), input dir→position player `unknown`; bảng kiểm, `evidence_id`, giới hạn quét cục bộ |
+| [measurements/kr-static-trapped-speed-2026-10-22/README.md](measurements/kr-static-trapped-speed-2026-10-22/README.md) | Truy vết `(dir,len)` khi bị nhốt: `CGOPet`; R-136 dispatch dir→sub-object `+1412`→reader; R-137 direct caller setter là NPC/AI (`B479E0`/`F087E0`), call gián tiếp slot `+116` trong update bomber; input dir→position player `unknown`; bảng kiểm, `evidence_id`, giới hạn quét cục bộ |
 | [DOCS_MIGRATION.json](DOCS_MIGRATION.json) | Bản đồ đường dẫn cũ→mới, không phải bằng chứng luật chơi |
 
 Không commit client/pack/binary/database hoặc cache ảnh lớn vào repo chỉ để tạo evidence.
