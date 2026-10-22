@@ -4,7 +4,10 @@
 //!   kiểm bất biến contract sau mỗi tick. `boom-replay` dùng chung phần này.
 //! - [`scenario`]: kịch bản nghiệm thu có kỳ vọng; mọi file trong `fixtures/scenarios/` chạy trong
 //!   `cargo test -p boom-scenario` (lọc bằng biến môi trường `SCENARIO=<chuỗi>`).
+//! - [`oracle`]: đối chiếu kỳ vọng từ nguồn gốc KR/VN với kết quả engine (V1-037); oracle là
+//!   file trong `fixtures/oracle/`, báo cáo sinh từ đó là `docs/research/ORACLE_REPORT.md`.
 
+pub mod oracle;
 pub mod scenario;
 pub mod setup;
 

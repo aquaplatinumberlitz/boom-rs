@@ -1,0 +1,26 @@
+# Oracle: phân phối thống kê trọng số rơi item — Bomb.
+# Kiểm tra thống kê với seed cố định: vỡ `blocks` khối mềm trong một tick, đếm loại item rơi ra
+# rồi so tỷ trọng với tỷ trọng của bảng VN 3650:2800:2000.
+# 3650 / (3650+2800+2000) = 431,95‰ ⇒ kỳ vọng 432‰, dung sai ±40‰ (xấp xỉ 3σ với số mẫu này).
+# `blocks` là **số khối thật**: bản đồ dựng đúng số khối khai và engine đếm số khối vỡ được
+# (`block_destroyed`) để ghi vào báo cáo — dung sai thống kê bám đúng cỡ mẫu đó.
+[oracle]
+id = "O-008"
+name = "Phân phối rơi item — Bomb ≈ 432‰"
+feature = "V1-037"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051", "R-112"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "drop_item_weight_share_bomb"
+unit = "permille"
+expected = 432
+tolerance = 40
+profile = "data/rules/v1-dev.toml"
+note = "Tỷ trọng kỳ vọng tính từ bảng trọng số VN (3650:2800:2000); xác suất rơi gốc vẫn unknown (R-052, R-053). Dung sai ±40‰ theo cỡ mẫu 4096 khối khai (≈1450 item rơi, σ ≈ 13‰ nên ±40‰ ≈ 3σ); số khối vỡ thật do engine báo trong báo cáo."
+
+[oracle.check]
+kind = "distribution"
+item = "Bomb"
+blocks = 4096
+seed = 20261022

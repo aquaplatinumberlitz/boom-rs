@@ -1,0 +1,23 @@
+# Oracle: phân phối thống kê trọng số rơi item — Roller.
+# 2000 / (3650+2800+2000) = 236,69‰ ⇒ kỳ vọng 237‰, dung sai ±40‰. Xem O-008 (cỡ mẫu 4096 khối
+# khai, số khối vỡ thật do engine báo trong báo cáo).
+[oracle]
+id = "O-010"
+name = "Phân phối rơi item — Roller ≈ 237‰"
+feature = "V1-037"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051", "R-112"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "drop_item_weight_share_roller"
+unit = "permille"
+expected = 237
+tolerance = 40
+profile = "data/rules/v1-dev.toml"
+note = "Tỷ trọng kỳ vọng tính từ bảng trọng số VN (3650:2800:2000); xác suất rơi gốc vẫn unknown (R-052, R-053)."
+
+[oracle.check]
+kind = "distribution"
+item = "Roller"
+blocks = 4096
+seed = 20261022

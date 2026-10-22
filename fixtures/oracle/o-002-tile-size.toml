@@ -1,0 +1,20 @@
+# Oracle: cỡ ô 40 px.
+# Nguồn: VN VBNB_116 (`confirmed`) — R-001 (MAPS §1.1, `idiv 0x28` tại `0x735DA9`) và R-110
+# (lựa chọn hiện hành theo ADR 0013). Engine đọc cùng đại lượng ở `grid.tile_px`.
+[oracle]
+id = "O-002"
+name = "Cỡ ô 40 px"
+feature = "V1-037"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-001", "R-110"]
+evidence = ["docs/specification/gameplay/RULES_V1.md", "0x735DA9"]
+quantity = "tile_size"
+unit = "px"
+expected = 40
+tolerance = 0
+profile = "data/rules/v1-dev.toml"
+
+[oracle.check]
+kind = "rule"
+rule = "grid.tile_px"
