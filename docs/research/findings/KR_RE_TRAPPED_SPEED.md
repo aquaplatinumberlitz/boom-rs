@@ -26,6 +26,9 @@ nguyên văn trong repo.
 - Lượt nối tiếp **R-136**: `vf3` (`0xB32390`) ghi dir vào protected field `+0x1C` của sub-object
   (`bomber+1440` = `0x5A0`); reader `0xB40D60` trả field này. **Chưa nối** từ reader/predicate tới
   setter vị trí `0xB334C0`/`0xB43750` hay `CMovable::MoveSimple` — mover/`len` vẫn **unknown** (§7).
+- Lượt **R-137** truy ngược setter: caller native là **NPC/AI** (`0xB479E0` từ `0xF087E0` của
+  `CGOHedgehogBomber`, cùng các wrapper NPC captain/square); `B479E0` ghi `[+0x930]/[+0x934]` từ x,y
+  của caller, không phải từ dispatch dir. Input dir→position của player vẫn **unknown** (§8).
 - R-125 và R-127 **chưa đóng**; R-134 chỉ xác nhận **đường đã trace** thuộc `CGOPet`.
 
 ## 1. Vì sao trước đây tưởng là bomber
@@ -188,3 +191,42 @@ R-132.
   vì REA fail trước khi cấp evidence; output IDA trực tiếp nằm trong bundle local
   `.re-work/evidence-bomber-mover-146.json` (không commit) — sandbox chặn ghi ra ngoài workspace.
   Không đưa DB/binary/decompile vào repo.
+
+## 8. Lượt setter 2026-10-22 — caller native và nguồn clamp (R-137)
+
+### 8.1 Công cụ / phạm vi
+
+- REA vẫn fail `EROFS` ở `~/.cache/rea/seeded-workspaces` (đã ghi §7.1); dùng lại **IDA MCP trực tiếp**
+  trên bản sao riêng của bản sao (binary+DB copy trong workspace, SHA binary `cf72da11…e63b`), một
+  phiên idalib tuần tự, không sửa config/pin, không chạy client.
+- Chỉ truy ngược từ setter `0xB43750`/`0xB334C0` và writer `[+0x930]/[+0x934]`; không đọc lại
+  dispatch/reader R-136.
+- Output IDA trực tiếp nằm trong bundle local `.re-work/evidence-bomber-setter-146.json` (không
+  commit) — sandbox chặn ghi ra ngoài workspace.
+
+### 8.2 Cạnh caller → setter
+
+| Cạnh | VA (RVA) | Quan sát |
+|---|---|---|
+| Setter | `0xB43750` (`0x743750`) → `0xB334C0` (`0x7334C0`) | `0xB43750` là vtable slot **+116**; gọi `sub_B334C0(a2,a3)` tại `0xB43764`; `0xB334C0` ghi protected x/y tại `+0x4C`/`+0x58` qua `0x55FD30` |
+| Caller chính | `0xB479E0` (`0x7479E0`) | Vtable slot **95** (byte `+0x17C`) của `CGOGameBomber::vftable` `0x1745FE8` (ptr tại `0x1746164`); gọi `0xB43750(this, a3, a4)` tại `0xB47A7B`; sau đó ghi `[this+0x930]=a3`/`[this+0x934]=a4` tại `0xB47AD8`/`0xB47AE4` |
+| Caller của `B479E0` | `0xF087E0` (`0xB087E0`), call `0xF087FD` (`0xB087FD`) | Direct caller **duy nhất** trong xref trực tiếp. `0xF087E0` là vtable slot 95 của `CGOHedgehogBomber::vftable` `0x176E2C8` (ptr tại `0x176E444`), gọi `sub_B479E0(a2,a3,a4)` — `a2` là đối tượng bomber, `a3/a4` là x,y |
+| Wrapper setter | `0x69BD60` (`0x29BD60`), `0x69FE80` (`0x29FE80`), `0xF06770` (`0xB06770`), `0x11260C0` (`0xD260C0`) | Gọi `0xB43750(this,a2,a3)` rồi cập nhật sub-object `+3254`/`+3253`/`+3202`; các pointer này nằm trong vtable `CGONpcCaptain2Bomber`/`CGONpcCaptainBomber`/`CGOCaptainBomber`/`CGOLobbySquareBomber`/`CGOSquareBomber`/`CGOSquareNPCGuideBomber` (slot 29, byte +0x74) — đều là lớp NPC/AI, không phải `CGOGameBomber` |
+| Nguồn clamp | `0xB44000` (`0x744000`) đọc `0xB44975` (`0x744975`)/`0xB44A08` (`0x744A08`) | `0xB44000` chỉ **đọc** `[this+0x930]`/`[+0x934]` để clamp vị trí; không gọi `B479E0`/`B43750`/`B334C0` |
+| Event path | `0xB57340` (`0x757340`), `0xB77EA0` (`0x777EA0`) | Không thấy call tới `B479E0`/`B43750`/`B334C0`; không nối được input dir |
+
+### 8.3 Kết luận / blocker
+
+- **Đã chứng minh**: caller native của setter trong phạm vi xref trực tiếp là **NPC/AI** — `B479E0`
+  (một virtual của base bomber) được gọi từ `F087E0` của `CGOHedgehogBomber`, và các wrapper NPC
+  captain/square gọi trực tiếp `B43750`. `B479E0` nhận x,y từ caller (`a3/a4`), gọi setter, rồi ghi
+  chính x,y đó vào `[+0x930]/[+0x934]`. Đây là **correction/position sync của NPC/AI**, không phải
+  input dir của `CGOGameBomber` người chơi.
+- **Chưa chứng minh**: `CGOGameBomber` (player) có gọi `B479E0`/`B43750` qua đường khác hay không.
+  Vtable player có slot 95 = `B479E0`, nhưng **không có caller native trực tiếp** thuộc player được
+  thấy; nguồn `a3/a4` của `F087E0` cũng chưa truy được vì call site là indirect vtable slot.
+  Vì vậy input dir → position của player vẫn **unknown**; không thay R-125/R-127.
+- Không thấy công thức `len`/speed/trapped; không suy px/s/nhịp server.
+- **Bước tiếp**: tìm producer `a3/a4` của `F087E0` (bảng dispatch/network/AI) để biết correction hay
+  AI target; nếu thấy entry VM thì dừng. Nếu vẫn không nối được, **dừng mover** và chuyển mục 3
+  BomberAttr/item theo chỉ đạo review #189 — không lặp lại cùng mỏ neo.

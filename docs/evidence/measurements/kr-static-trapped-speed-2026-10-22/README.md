@@ -4,7 +4,7 @@ Metadata cho lượt truy vết bổ sung R-125/R-127, Refs
 [#146](https://github.com/aquaplatinumberlitz/boom-rs/issues/146) /
 [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147) / #176.
 Kết luận và suy luận ở [KR_RE_TRAPPED_SPEED](../../../research/findings/KR_RE_TRAPPED_SPEED.md);
-claim ở [RULES_V1 §15](../../../specification/gameplay/RULES_V1.md#15-re-kr-00967--phạm-vi-lớp-của-chuỗi-movement-r-134-r-135).
+claim ở [RULES_V1 §15](../../../specification/gameplay/RULES_V1.md#15-re-kr-00967--phạm-vi-lớp-của-chuỗi-movement-r-134r-137).
 Không có binary, pack, DB hay decompile nguyên văn.
 
 ## Định danh build
@@ -86,6 +86,27 @@ cập nhật vị trí/`len` của bomber vẫn **unknown**; không có công th
 Bước tiếp: caller của `0xB43750`/`0xB334C0`, event path `0xB57340`/`0xB77EA0`, input state `sub_8444F0`,
 và nguồn clamp `[this+0x930]`/`[this+0x934]`.
 
+## Bổ sung 2026-10-22 — caller setter và nguồn clamp (R-137)
+
+Truy ngược từ setter vị trí `0xB43750`→`0xB334C0` và writer `[+0x930]/[+0x934]`. Cùng giới hạn
+sandbox: REA fail `EROFS` ở `~/.cache/rea/seeded-workspaces`; dùng IDA MCP trực tiếp trên bản sao
+riêng của bản sao, một phiên idalib tuần tự, không sửa config/pin.
+
+| Kiểm | VA (RVA) | Kết quả |
+|---|---|---|
+| Setter | `0xB43750` (`0x743750`) → `0xB334C0` (`0x7334C0`) | `0xB43750` gọi `B334C0(a2,a3)` tại `0xB43764`; `B334C0` ghi protected `+0x4C`/`+0x58` qua `0x55FD30` |
+| Caller `B479E0` | `0xB479E0` (`0x7479E0`), call `0xB47A7B` | Vtable slot 95 (`+0x17C`) của `CGOGameBomber::vftable` `0x1745FE8` (ptr `0x1746164`); gọi `B43750(this,a3,a4)`, rồi ghi `[this+0x930]=a3`/`[this+0x934]=a4` tại `0xB47AD8`/`0xB47AE4` |
+| Caller của `B479E0` | `0xF087E0` (`0xB087E0`), call `0xF087FD` | Direct caller duy nhất trong xref; là slot 95 của `CGOHedgehogBomber::vftable` `0x176E2C8` (ptr `0x176E444`), gọi `B479E0(a2,a3,a4)` |
+| Wrapper setter | `0x69BD60`/`0x69FE80`/`0xF06770`/`0x11260C0` | Gọi `B43750(this,a2,a3)`; vtable thuộc `CGONpcCaptain2Bomber`/`CGONpcCaptainBomber`/`CGOCaptainBomber`/`CGOLobbySquareBomber`/`CGOSquareBomber`/`CGOSquareNPCGuideBomber` (slot 29, `+0x74`) — NPC/AI |
+| Clamp | `0xB44000` (`0x744000`), read `0xB44975`/`0xB44A08` | Chỉ đọc `[this+0x930]`/`[+0x934]` để clamp; không gọi `B479E0`/`B43750`/`B334C0` |
+| Event path | `0xB57340`/`0xB77EA0` | Không thấy call tới `B479E0`/`B43750`/`B334C0`; không nối input dir |
+
+**Kết luận:** caller native tìm được của setter là **NPC/AI** (`CGOHedgehogBomber` và các NPC captain/
+square). `B479E0` nhận x,y từ caller, gọi setter rồi ghi cùng x,y vào `[+0x930]/[+0x934]` — đường
+position sync/correction, không phải input dir của player. Player `CGOGameBomber` có slot 95 nhưng
+không có caller native trực tiếp được thấy; nguồn `a3/a4` của `F087E0` chưa truy được (indirect slot).
+Input dir → position của player vẫn **unknown**; không đổi R-125/R-127.
+
 ## Giới hạn
 
 - Không có công thức `(dir,len)` cho bomber: `vf[+8]` (byte +8 = slot 2 x86) là của controller `+0xE0`
@@ -93,6 +114,9 @@ và nguồn clamp `[this+0x930]`/`[this+0x934]`.
   nhận `dir`; R-136 chỉ nối tới reader, chưa tới setter vị trí.
 - Không xác định được mover/`len` của bomber trong lượt này; slot 24 `0xB44000`/`0xB77B10` đã đọc
   nhưng không đọc field `+0x5A0` và không gọi `CMovable::MoveSimple`.
+- R-137 chỉ thấy caller của setter thuộc **NPC/AI**; không có caller native trực tiếp của player được
+  thấy. Không kết luận player không có đường khác (indirect/VM chưa loại trừ); input dir→position vẫn
+  `unknown`.
 - Danh sách caller `CMovable::MoveSimple` chưa phân lớp đủ (còn `0x64F2F0`, `0x684E60`, `0xF2C420`,
   `0xFC6160`, một caller `0xFA…` thiếu VA); không loại trừ đường gián tiếp/wrapper/VM từ bomber.
 - Chưa đối chiếu VN cho câu hỏi "VN có dùng `CMovable::MoveSimple` cho bomber không" — bước tiếp số 2.
