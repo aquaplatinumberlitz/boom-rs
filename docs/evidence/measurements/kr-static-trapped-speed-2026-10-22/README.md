@@ -109,13 +109,13 @@ claim): `B479E0(a2,x,y)` đặt vị trí rồi lưu `[+0x930]/[+0x934]` để `
 Phạm vi: toàn bộ code bản sao (section `0x401000–0xB65C00` và `.priv` `0xB66000–0x1A98000`); 5 site
 tĩnh, không site nào trỏ `B479E0`:
 
-| Site | Hàm chứa | Đối tượng / vtable | Slot 95 |
-|---|---|---|---|
-| `0xF2BDC5` | `sub_F2B760` | `CGONpcBasicMon` primary `0x17712D4` (object `this-0xB8`) | `0xF2D7C0` |
-| `0xF34EB7` | `sub_F34DF0` | vtable `0x17719E4` | `0xF34ED0` |
-| `0xF3EAD1` | `sub_F3E5D0` | vtable `0x177346C` | `0xF3E3C0` |
-| `0x12C2596` | `sub_12C2020` | object UI từ `sub_125E150` (không có x/y bomber) | chưa xác định |
-| `0x12C2B5C` | `sub_12C2620` | object UI từ `sub_125E150` (không có x/y bomber) | chưa xác định |
+| Site | Hàm chứa | Đối tượng / vtable | Nguồn `(x,y)` | Slot 95 |
+|---|---|---|---|---|
+| `0xF2BDC5` | `sub_F2B760` | `CGONpcBasicMon` primary `0x17712D4` (object `this-0xB8`) | không arg | `0xF2D7C0` |
+| `0xF34EB7` | `sub_F34DF0` | vtable `0x17719E4` | không arg | `0xF34ED0` |
+| `0xF3EAD1` | `sub_F3E5D0` | vtable `0x177346C` | `(v13,v14)` tile từ `sub_B929C0`/`sub_B92A60` | `0xF3E3C0` |
+| `0x12C2596` | `sub_12C2020` | object UI từ `sub_125E150` | không arg | chưa xác định |
+| `0x12C2B5C` | `sub_12C2620` | object UI từ `sub_125E150` | không arg | chưa xác định |
 
 ### Packet vị trí S→C: VN opcode 176 ↔ KR opcode 183
 

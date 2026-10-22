@@ -246,13 +246,13 @@ Phạm vi: toàn bộ code có trong bản sao (section `0x401000–0xB65C00` v�
 5 site tĩnh duy nhất (không có `call DWORD PTR [reg+0x17C]` raw; 5 site là `mov reg,[vtable+0x17C];
 call reg`):
 
-| Site | Hàm chứa | Vtable/đối tượng | Slot 95 thực tế |
-|---|---|---|---|
-| `0xF2BDC5` | `sub_F2B760` (slot 10 của `CGONpcBasicMon`) | object chính tại `this-0xB8`, vtable `0x17712D4` | `0xF2D7C0` — **không** `B479E0` |
-| `0xF34EB7` | `sub_F34DF0` | vtable `0x17719E4` | `0xF34ED0` — **không** |
-| `0xF3EAD1` | `sub_F3E5D0` | vtable `0x177346C` | `0xF3E3C0` — **không** |
-| `0x12C2596` | `sub_12C2020` (UI/quest dialog) | object từ `sub_125E150`, không có x/y bomber | chưa xác định — không phải đường vị trí |
-| `0x12C2B5C` | `sub_12C2620` (UI/quest dialog) | object từ `sub_125E150`, không có x/y bomber | chưa xác định — không phải đường vị trí |
+| Site | Hàm chứa | Vtable/đối tượng | Nguồn `(x,y)` | Slot 95 thực tế |
+|---|---|---|---|---|
+| `0xF2BDC5` | `sub_F2B760` (slot 10 của `CGONpcBasicMon`) | object chính tại `this-0xB8`, vtable `0x17712D4` | không truyền arg | `0xF2D7C0` — **không** `B479E0` |
+| `0xF34EB7` | `sub_F34DF0` | vtable `0x17719E4` | không truyền arg | `0xF34ED0` — **không** |
+| `0xF3EAD1` | `sub_F3E5D0` | vtable `0x177346C` | `(v13,v14)` = toạ độ tile từ `sub_B929C0`/`sub_B92A60` trong switch hướng | `0xF3E3C0` — **không** |
+| `0x12C2596` | `sub_12C2020` (UI/quest dialog) | object từ `sub_125E150` | không truyền arg (không có x/y bomber) | chưa xác định — không phải đường vị trí |
+| `0x12C2B5C` | `sub_12C2620` (UI/quest dialog) | object từ `sub_125E150` | không truyền arg (không có x/y bomber) | chưa xác định — không phải đường vị trí |
 
 Kết luận: **3 site bomber-family có slot 95 xác định ≠ `B479E0`**; 2 site UI không có x/y, không phải
 đường vị trí bomber. Không thấy site nào gọi `B479E0`; nó chỉ có một direct caller `0xF087E0`.
