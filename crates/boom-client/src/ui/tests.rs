@@ -186,11 +186,11 @@ fn wrong_password_shows_the_login_failed_key() {
 fn texts_come_from_the_l10n_keys() {
     let model = model();
     // Khóa chưa có text → placeholder rõ ràng, không phải chữ tự soạn.
-    assert_eq!(title_of(&model), "⟨login.title⟩");
+    assert_eq!(title_of(&model), "«login.title»");
     let labels = button_labels(&model);
     assert_eq!(
         labels,
-        vec!["⟨login.submit⟩", "⟨login.register⟩", "Thoát game"]
+        vec!["«login.submit»", "«login.register»", "Thoát game"]
     );
 
     // Khóa có text chốt → lấy nguyên văn từ file chuỗi.
@@ -314,7 +314,7 @@ fn only_selected_ui_elements_are_drawn_as_images() {
     // `result.win` có text chốt trong file chuỗi → khung hiện text catalog.
     assert!(frames.contains(&"Thắng"), "khung: {frames:?}");
     // `result.background` chưa có text → placeholder.
-    assert!(frames.contains(&"⟨result.background⟩"), "khung: {frames:?}");
+    assert!(frames.contains(&"«result.background»"), "khung: {frames:?}");
     // Và không được vẽ ảnh của hai phần tử đó.
     assert!(!images.contains(&"FxStage/Game/Win"));
 }

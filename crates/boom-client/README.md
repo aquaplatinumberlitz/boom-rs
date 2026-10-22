@@ -182,10 +182,28 @@ cho thoát ứng dụng; lượt luôn kết thúc bằng màn kết quả vì s
 ### Chữ (V1-035)
 
 - Chữ lấy từ `data/l10n/vi-v1.toml` (nhúng vào client) qua `boom_content::l10n`.
-- Khóa chưa có text → hiện placeholder rõ ràng `⟨khóa⟩`; client **không** tự viết chữ.
+- Khóa chưa có text → hiện placeholder rõ ràng `«khóa»`; client **không** tự viết chữ.
 - `\r\n` trong chuỗi được chuẩn hóa thành `\n` lúc hiển thị (file nguồn giữ nguyên).
-- Font: ưu tiên font hệ thống có dấu tiếng Việt (DejaVu/Noto/Segoe/Arial/Helvetica), ghi đè
-  bằng `BOOM_FONT`. Font chuẩn của V1 (Be Vietnam Pro) chưa có trong repo.
+- Font: **Be Vietnam Pro 1.002** (SIL OFL 1.1) nhúng trong binary (`assets/fonts/`) — không
+  phụ thuộc font hệ thống, nên ảnh chụp và golden layout khớp trên mọi máy.
+- Hộp chữ giới hạn chữ **cả hai chiều**: xuống dòng theo bề rộng hộp và **cắt theo chiều
+  cao hộp** (UI_STRINGS_V1 §5.2.2) — chữ không bao giờ tràn ra ngoài hộp.
+- Nội dung **động** có policy riêng: ô nhập giữ phần **cuối** (thấy phần vừa gõ), khung chat
+  xếp tin theo chiều cao thật (tin mới nhất sát đáy, tin cũ bị cuộn), bảng giới hạn bề rộng
+  cột cho vừa khung và dòng cao theo nội dung thật.
+
+### Màn trận và HUD chẩn đoán
+
+- Màn trận của người chơi là **scene** (bản đồ + nhân vật), không phải layout `ui`: chữ cho
+  người chơi ở đó (tên map, trạng thái lượt) lấy từ **cùng** file chuỗi qua
+  `ui::layout::match_status_texts`.
+- HUD **chẩn đoán** (số đo tick/âm thanh/phím, `dự đoán`, `chờ ack`, `kết quả`) là việc QA,
+  không phải chữ cho người chơi: **mặc định tắt**, bật bằng cờ `--debug-hud`.
+
+```sh
+# QA: bật HUD chẩn đoán (tick/âm thanh/phím) trên màn trận.
+cargo run -p boom-client -- --connect 127.0.0.1:9000 --debug-hud
+```
 
 ### Ảnh UI (V1-032)
 
@@ -234,9 +252,9 @@ không màn nào là dead end, text lấy đúng khóa l10n, và phần tử `ne
   cần runner P6 kiểm lại.
 - **UI V1 chưa có backend mạng**: `ui::demo::DemoBackend` là dữ liệu giả; bản mạng nối vào sau khi
   #89/#99 merge (task riêng).
-- UI V1 chưa có font chuẩn của V1 (Be Vietnam Pro) trong repo và chưa có golden wrap/focus/scale
-  (UI_STRINGS_V1 §6): ảnh chụp hiện dùng font hệ thống.
-- 66/110 khóa chuỗi V1 chưa có text nên màn hình hiện placeholder `⟨khóa⟩`; phần việc bổ sung khóa
+- UI V1 đã có font chuẩn (Be Vietnam Pro 1.002, SIL OFL 1.1) trong repo và golden layout
+  wrap; còn thiếu golden ảnh theo khung/focus/scale (UI_STRINGS_V1 §6).
+- 81/125 khóa chuỗi V1 chưa có text nên màn hình hiện placeholder `«khóa»`; phần việc bổ sung khóa
   thuộc `boom-re-l10n` (UI_STRINGS_V1 §6.1), không phải của client.
 - 8 ảnh UI có chữ ở trạng thái `needs_review_text` chưa được duyệt nên client vẽ khung màu + text
   catalog; duyệt ảnh theo quy trình [IMAGE_REVIEW](../../docs/specification/localization/IMAGE_REVIEW.md)

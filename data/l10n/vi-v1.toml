@@ -81,6 +81,11 @@ status = "catalog-reused"
 text = "Quay lại"
 note = "Lấy `catalog.vi`."
 
+[strings."lobby.background"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.background`; client hiện placeholder."
+
 [strings."lobby.channel"]
 status = "unknown"
 reason = "no-locator"
@@ -125,6 +130,11 @@ status = "image-pending"
 reason = "image-pending-review"
 image = "FxStage:Lobby/LB_Bt_T_Create-NM"
 note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog được chốt."
+
+[strings."lobby.create_dialog"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.create_dialog`; client hiện placeholder."
 
 [strings."lobby.empty"]
 status = "unknown"
@@ -218,6 +228,11 @@ status = "catalog-translated"
 text = "Trạng thái"
 note = "Lấy `catalog.vi`."
 
+[strings."lobby.show_all"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.show_all`; client hiện placeholder."
+
 [strings."lobby.state_playing"]
 status = "unknown"
 reason = "no-locator"
@@ -233,6 +248,11 @@ status = "unknown"
 reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.title`; chưa render."
 
+[strings."lobby.wait_room"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.wait_room`; client hiện placeholder."
+
 [strings."login.account"]
 catalog_id = "NewUserDlgID"
 status = "review"
@@ -243,6 +263,11 @@ note = "Catalog chỉ là nhãn ID; reviewer chọn key, không tự soạn. C�
 status = "unknown"
 reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.account_rule`; chưa render."
+
+[strings."login.background"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.background`; client hiện placeholder."
 
 [strings."login.empty"]
 status = "unknown"
@@ -277,6 +302,11 @@ status = "unknown"
 reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.title`; chưa render."
 
+[strings."match.background"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.background`; client hiện placeholder."
+
 [strings."match.disconnect_eliminated"]
 catalog_id = "ErrDisconnectByServer"
 status = "review"
@@ -301,6 +331,11 @@ status = "review"
 reason = "needs-review"
 note = "Catalog là nhãn tutorial 'Nút Bắt đầu'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
 
+[strings."match.hud"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.hud`; client hiện placeholder."
+
 [strings."match.item_bomb"]
 status = "unknown"
 reason = "no-locator"
@@ -315,6 +350,11 @@ note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_fire`; ch�
 status = "unknown"
 reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_roller`; chưa render."
+
+[strings."match.navigation"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.navigation`; client hiện placeholder."
 
 [strings."match.pickup"]
 status = "unknown"
@@ -380,6 +420,11 @@ status = "unknown"
 reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.auto_return`; chưa render."
 
+[strings."result.background"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.background`; client hiện placeholder."
+
 [strings."result.continue"]
 status = "unknown"
 reason = "no-locator"
@@ -396,6 +441,16 @@ catalog_id = "TournamentNoWinner"
 status = "catalog-translated"
 text = "Không có người thắng"
 note = "Lấy `catalog.vi`; reviewer chốt ngữ cảnh giải đấu."
+
+[strings."result.info_bar"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.info_bar`; client hiện placeholder."
+
+[strings."result.info_good"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.info_good`; client hiện placeholder."
 
 [strings."result.lose"]
 catalog_id = "StateLose"
@@ -442,6 +497,11 @@ catalog_id = "AllMustReady"
 status = "catalog-translated"
 text = "Mọi người chơi phải ở trạng thái sẵn sàng."
 note = "Lấy `catalog.vi`."
+
+[strings."room.background"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.background`; client hiện placeholder."
 
 [strings."room.character"]
 status = "image-pending"
@@ -491,6 +551,16 @@ catalog_id = "RoomInfoDlgID"
 status = "catalog-translated"
 text = "ID"
 note = "Lấy `catalog.vi`."
+
+[strings."room.info_dialog"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.info_dialog`; client hiện placeholder."
+
+[strings."room.info_label"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.info_label`; client hiện placeholder."
 
 [strings."room.info_title"]
 status = "image-pending"
@@ -578,6 +648,11 @@ status = "image-pending"
 reason = "image-pending-review"
 image = "FxMap:Prepare/PRE_Bt_Ready"
 note = "Cùng nút ready; duyệt ảnh hoặc render text từ key catalog."
+
+[strings."room.ready_indicator"]
+status = "unknown"
+reason = "no-locator"
+note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.ready_indicator`; client hiện placeholder."
 
 [strings."room.slot_empty"]
 status = "unknown"

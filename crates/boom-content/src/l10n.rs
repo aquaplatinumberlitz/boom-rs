@@ -13,7 +13,7 @@
 //!   (`%s`, `{0}`, `<font …>`, CRLF, `|`). Hai khóa dùng chung một `catalog_id` phải có
 //!   **cùng số lượng placeholder** — lệch là lỗi nạp.
 //! - Loader **không** tự viết chữ cho khóa thiếu: [`Text::Missing`] mang lý do để client hiện
-//!   placeholder rõ ràng `⟨khóa⟩` (xem [`placeholder`]).
+//!   placeholder rõ ràng `«khóa»` (xem [`placeholder`]).
 //!
 //! ## NFC
 //!
@@ -103,7 +103,7 @@ pub struct Missing<'a> {
 pub enum Text<'a> {
     /// Chuỗi đã chốt, hiển thị nguyên văn.
     Some(&'a str),
-    /// Chưa có chuỗi; client hiện placeholder `⟨khóa⟩` và không tự viết chữ.
+    /// Chưa có chuỗi; client hiện placeholder `«khóa»` và không tự viết chữ.
     Missing(Missing<'a>),
 }
 
@@ -125,11 +125,36 @@ impl<'a> Text<'a> {
     }
 }
 
-/// Placeholder rõ ràng cho khóa chưa có text: `⟨app.loading⟩`.
+/// Dấu mở của placeholder cho khóa chưa có text: `«` (U+00AB).
+///
+/// Chọn ký tự **có glyph** trong font OFL đã bundle (Be Vietnam Pro 1.002): `⟨`
+/// (U+27E8) không có trong font nên placeholder cũ hiện hộp báo thiếu ở hai dấu
+/// ngoặc (UI_STRINGS_V1 §5.1.1).
+pub const PLACEHOLDER_OPEN: char = '«';
+
+/// Dấu đóng của placeholder cho khóa chưa có text: `»` (U+00BB).
+pub const PLACEHOLDER_CLOSE: char = '»';
+
+/// Placeholder rõ ràng cho khóa chưa có text: `«app.loading»`.
 ///
 /// Client dùng chuỗi này khi [`Text::Missing`]; không tự viết chữ thay khóa.
 pub fn placeholder(key: &str) -> String {
-    format!("⟨{key}⟩")
+    format!("{PLACEHOLDER_OPEN}{key}{PLACEHOLDER_CLOSE}")
+}
+
+/// Khóa nằm trong một placeholder, nếu chuỗi đó là placeholder.
+///
+/// Dùng để kiểm chuỗi hiển thị: chuỗi nào là placeholder của một khóa **không có
+/// trong file chuỗi** thì là lỗi (client gõ sai khóa), còn placeholder của khóa có
+/// trong file nhưng chưa có text thì là trạng thái chờ người duyệt.
+#[must_use]
+pub fn placeholder_key(text: &str) -> Option<&str> {
+    let body = text.strip_prefix(PLACEHOLDER_OPEN)?;
+    let body = body.strip_suffix(PLACEHOLDER_CLOSE)?;
+    if body.is_empty() || body.contains(PLACEHOLDER_OPEN) || body.contains(PLACEHOLDER_CLOSE) {
+        return None;
+    }
+    Some(body)
 }
 
 /// Bộ chuỗi UI V1 đã Việt hóa.
@@ -719,7 +744,12 @@ note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; ch
 
     #[test]
     fn placeholder_is_explicit() {
-        assert_eq!(placeholder("app.loading"), "⟨app.loading⟩");
+        assert_eq!(placeholder("app.loading"), "«app.loading»");
+        // Placeholder nhận ra được để kiểm "khóa không có trong file".
+        assert_eq!(placeholder_key("«app.loading»"), Some("app.loading"));
+        assert_eq!(placeholder_key("«a«b»"), None);
+        assert_eq!(placeholder_key("«»"), None);
+        assert_eq!(placeholder_key("Đang tải..."), None);
     }
 
     #[test]
@@ -870,7 +900,7 @@ note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; ch
     fn file_in_repo_is_valid() {
         let text = include_str!("../../../data/l10n/vi-v1.toml");
         let l10n = L10n::from_toml(text).unwrap();
-        assert_eq!(l10n.len(), 110);
+        assert_eq!(l10n.len(), 125);
         let with_text = l10n
             .keys()
             .filter(|key| l10n.text(key).as_str().is_some())
@@ -880,7 +910,7 @@ note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; ch
             .keys()
             .filter(|key| l10n.text(key).missing().is_some())
             .count();
-        assert_eq!(missing, 66);
+        assert_eq!(missing, 81);
     }
 
     #[test]
