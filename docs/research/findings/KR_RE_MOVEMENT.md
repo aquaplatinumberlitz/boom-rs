@@ -59,8 +59,8 @@ IDA MCP trực tiếp trên **database bản sao** đã phân tích sẵn (`kr-f
 Đường bomber — chỉ phần đã trace:
 input (phím) -> CGameContext input dispatch 0xE13D00
                  -> bomber = getBomber(slot)            (0xE12FC0)
-                 -> controller = bomber[353]  (byte +1412)
-                 -> controller->vf3(dir)                (dir 0..3, dir 4 = đặt bom)
+                 -> controller = (byte*)bomber + 1412   // sub-object NHÚNG; con trỏ vtable nằm tại đây
+                 -> controller->vf[+12](dir)            // slot 3 (byte +12) của vtable đó; dir 0..3, dir 4 = đặt bom
    // chưa thấy nơi đọc lại dir hoặc tạo/giữ len cho bomber
 
 Đường CMovable — consumer đã trace; theo R-134/R-135 (PR #185 pending) là CGOPet/AI,
@@ -77,9 +77,10 @@ KHÔNG phải bomber:
 
 **Phạm vi bằng chứng:** với bomber, đường đã trace chỉ chứng minh **hướng đi vào controller**
 (`vf3(dir)`). Chuỗi mô phỏng trong tick là của `CGOPet`/AI, **không** được gộp thành mô phỏng bomber.
-Đường này cũng **không** chứng minh KR không gửi gói C→S mang vị trí: controller (`bomber+0xE0`) và
-các đường mạng/khác chưa được trace, và R-047 là bằng chứng của build VN chứ không phải phủ định cho
-KR. Vì vậy R-123 chỉ `confirmed` cho phần dispatch; mô phỏng bomber và phần phủ định để
+Đường này cũng **không** chứng minh KR không gửi gói C→S mang vị trí: controller bomber nhúng tại
+`+1412` và các đường mạng/khác chưa được trace, và R-047 là bằng chứng của build VN chứ không phải
+phủ định cho KR. (`+0xE0` là controller sub-object của `CGOPet`/AI ở nhánh pet §5, **không** phải
+controller bomber.) Vì vậy R-123 chỉ `confirmed` cho phần dispatch; mô phỏng bomber và phần phủ định để
 `candidate`/chưa chứng minh với phạm vi đã tìm (Q-017).
 
 Tóm tắt tự viết của `CMovable::MoveSimple` (không phải nguyên văn):
@@ -147,8 +148,8 @@ truy được tới:
 
 - mover `0x00B93890(dir, len)` — vòng lặp, `len` nguyên vẹn từ tham số;
 - `0x00B93830(dir, len)` — gọi cổng `0x00B95970` (kiểm trạng thái) rồi mover `0x00B93890`;
-- `0x00B95180()` — lấy cặp `(dir, len)` từ **sub-object `+0xE0`** qua `vf8` (offset `+0x20`),
-  rồi gọi `0x00B93830`.
+- `0x00B95180()` — lấy cặp `(dir, len)` từ **sub-object `+0xE0` của `CGOPet`** qua `vf[+8]`
+  (byte +8 = slot 2 trên x86), rồi gọi `0x00B93830`.
 
 Theo R-134/R-135 của PR #185 (pending), chuỗi này thuộc `CGOPet`/AI và sub-object `+0xE0` là của
 `CGOPet`, **không phải bomber**. Với bomber, đường đã trace mới chỉ là
