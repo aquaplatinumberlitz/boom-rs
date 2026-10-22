@@ -653,3 +653,13 @@ Hệ quả:
   chưa đối chiếu server, không dùng để đổi contract V1 ở PR này.
 - Nếu cần đóng Q-018: bước tiếp là devirt/đọc VM tại `0x00B534D0 → 0x02012376`, hoặc đo runtime
   (entry/seed, state 3, thời điểm packet 167) theo Q-009 — không suy từ VN.
+
+## § (đánh số khi merge) — RE KR 00967 — UI V1: rect/hitbox và layout phòng (R-152)
+
+Tiếp nối #150/Q-012/Q-021, V1-032/033/035. Build KR `00967`; REA MCP bản sao `kr-full.exe`.
+Chi tiết/phạm vi ở [KR_RE_UI](../../research/findings/KR_RE_UI.md) và
+[evidence UI](../../evidence/measurements/kr-static-ui-2026-10-23/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-152 | **UI V1 — hitbox danh sách phòng + layout Ready**: `sub_549180` (lobby room list) lặp 6 ô, dùng bảng `0x19D8A58` = `(20,90)`, `(194,90)`, `(20,160)`, `(194,160)`, `(20,230)`, `(194,230)`; `width/height` lấy từ control vtable `+36`/`+40`; click `sub_1504A5C` đọc fields `+136`/`+140`, trừ gốc container `sub_149BBA0`/`sub_149BEF0`; hit khi `left ≤ x < left+width` và `top ≤ y < top+height` (đơn vị **UI/input px**, không scale trong hàm). `sub_6F47C0` (màn PrepareStage) tạo Ready bằng `sub_6F8790(..., "PRE_Bt_Ready")` + `sub_54BEF0(512,494,0x10000000,0x10000000)`; room info `(344,61,…)`, hai nút nhân vật `(541,231)`/`(690,231)`, nền `(800,600,40,48)`; caller `sub_6E3DF0` tại `0x6E3E64`. Key resource = ghép `base + "/" + key` (`6F8790`, `%s/%s`), base lấy từ object `+267088`; key pack tương ứng `Prepare/PRE_Bt_Ready`. **Chưa chứng minh**: diễn giải 4-int của `54BEF0` thành rect/scale, native framebuffer (800×600 chỉ là literal layout, không phải JPEG/FrameBuffer), focus path; `C00/C01→tên` vẫn `unknown` (`room.character_c00/c01` chưa có locator) | — | `kr_static` / **confirmed** (hit test 6 ô + công thức); `candidate` (Ready placement/key, rect interpretation); `unknown` (native size/scale/focus, C00/C01 name, các màn login/result) | `549180` (RVA `149180`); bảng `19D8A58`; `1504A5C`; `149BBA0`/`149BEF0`; `6F47C0` (RVA `2F47C0`); `6F8790`; `54BEF0`; `6E3DF0`; evidence §12 |
