@@ -485,8 +485,20 @@ impl RoomFlow {
     }
 
     /// Nhận `RoundResult`: kết quả do server quyết, client chỉ giữ lại.
-    pub fn on_round_result(&mut self, result: RoundResult) {
+    pub fn on_round_result(&mut self, result: RoundResult) -> bool {
+        if self
+            .round
+            .as_ref()
+            .is_none_or(|round| round.round_id != result.round_id)
+            || self
+                .result
+                .as_ref()
+                .is_some_and(|old| old.round_id == result.round_id)
+        {
+            return false;
+        }
         self.result = Some(result);
+        true
     }
 
     /// Ghi nhận đã gửi `LoadingAck` cho round `round_id`.

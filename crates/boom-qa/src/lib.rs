@@ -16,12 +16,13 @@
 //!   hiện tại (SCOPE_V1 §7.8, REWRITE_PLAN "đo nguồn").
 //! - Input và round fingerprint dùng source/API client chung ([`prediction`], [`room`]);
 //!   auth/phòng vẫn dùng adapter DTO của harness, chưa chạy facade NetClient đầy đủ.
-//! - Correction đo sai số vị trí cùng tick; recovery RoundResult còn chờ contract #166.
+//! - Correction đo sai số vị trí cùng tick; bot chỉ ack sau khi có bảng RoundResult và hash cuối.
 //! - Mọi giá trị luật trận đọc từ profile rules (`crates/boom-qa/rules/*.toml`), không có hằng số
 //!   luật trong code (AGENTS §3).
 
 pub mod bot;
 pub mod harness;
+mod harness_io;
 pub mod metrics;
 pub mod profile;
 pub mod report;
@@ -35,13 +36,6 @@ pub use metrics::Samples;
 pub use profile::{ProfileError, QaProfile};
 pub use report::{REPORT_SCHEMA, RunReport};
 
-// Dùng chính implementation client, không fork/copy prediction. boom-client hiện là binary;
-// chưa mở phạm vi Cargo.toml/lib client trong #166 nên include source chuẩn qua path.
-#[allow(dead_code)]
-#[path = "../../boom-client/src/net/prediction.rs"]
-pub(crate) mod prediction;
-
-/// API phòng thuần dùng cùng client: fingerprint, roster và round identity.
-#[allow(dead_code)]
-#[path = "../../boom-client/src/net/room.rs"]
-pub(crate) mod room;
+// Dùng API client chung cho prediction và phòng, giữ tên import nội bộ của harness.
+pub(crate) use boom_client::net as prediction;
+pub(crate) use boom_client::net as room;
