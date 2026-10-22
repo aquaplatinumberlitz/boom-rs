@@ -2,8 +2,8 @@
 
 Kết quả đọc tĩnh client KR `00967` cho [#148](https://github.com/aquaplatinumberlitz/boom-rs/issues/148) /
 Q-019 (mục 5 hàng đợi RE: propagation/chain và thời gian gây damage của lửa).
-Claim trong [RULES_V1 §16](../../specification/gameplay/RULES_V1.md#16-re-kr-00967--nổ-lan-vật-cản-và-dây-chuyền-r-138r-140)
-(R-138…R-140); metadata và `evidence_id` ở
+Claim trong [RULES_V1 §17](../../specification/gameplay/RULES_V1.md#17-re-kr-00967--nổ-lan-vật-cản-và-dây-chuyền-r-139r-141)
+(R-139…R-141); metadata và `evidence_id` ở
 [evidence KR static flame-chain](../../evidence/measurements/kr-static-flame-chain-2026-10-22/README.md).
 
 ## 1. Phạm vi, build và phương pháp
@@ -119,7 +119,7 @@ Caller đã thấy (xref trực tiếp): `sub_E84650` (2 site — hàm áp descr
 
 ## 5. Đăng ký ô và "thời gian" — tách animation khỏi damage
 
-### 5.1. Ô nổ được đăng ký thành **message**, không phải timer ms
+### 5.1. Ô nổ được đăng ký thành **message** (không có biến đếm ms trong hàm calc)
 
 `sub_EBD3F0(map, object, cellIndex)` dựng message `{object, id = 27, cellData, map+6468}` rồi gọi
 `sub_EDB7E0` → `sub_EC2420(object, message)`: kiểm sức chứa (`sub_EDB280`) rồi **push vào danh sách
@@ -140,8 +140,9 @@ hàm calc.
 
 ### 5.3. Damage TTL: chưa tìm thấy, và không lấy 2500 ms của emulator
 
-- Trong đường đã đọc **không** có hằng ms nào cho "vùng lửa gây damage"; damage được áp theo sự kiện
-  ô (message id 27) sau khi ô được tính.
+- Trong đường đã đọc **không** có hằng ms nào cho "vùng lửa gây damage". Mỗi ô được đẩy thành message
+  id 27 vào list message của object, nhưng **consumer (áp damage) chưa trace** — nên mô hình damage
+  (một lần hay cửa sổ thời gian) là **candidate/unknown**, không suy từ đoạn này.
 - Hằng `2500` trong binary xuất hiện ở `sub_E15810`/`sub_E15840`
   (`stage[490607] != 0 && sub_E131A0(stage) <= 0x9C4`) và ở nhánh chống hack `sub_E78350`
   ("Detected hacking…" + `sub_E529C60(stage+6924) > 2500`), **không** phải fuse của bom. Không thấy
@@ -149,7 +150,8 @@ hàm calc.
 - `CGOBomb::Init` từ descriptor (`0x00B384E0`) nhận `desc+168/172` (u64) → bomb `[+98]/[+99]`,
   `desc+96` → slot `+104` (nghĩa chưa xác định, **không** phải ô), `desc+156` → `sub_B3BA90`; nghĩa
   `desc+168` **chưa xác định** (có thể là mốc thời gian/fuse do server gửi) — **không** suy ra 2500.
-- Kết luận có phạm vi: **damage TTL ≠ animation TTL**; giá trị damage window của KR **unknown**.
+- Kết luận có phạm vi: thời gian sống hiển thị của lửa là **animation** (số frame), **không** phải một
+  damage timer đã biết; giá trị damage window của KR **unknown**.
 
 ## 6. Ranh giới client/server (bắt buộc ghi)
 

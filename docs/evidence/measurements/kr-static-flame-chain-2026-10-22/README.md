@@ -2,8 +2,8 @@
 
 Metadata cho lượt điều tra [#148](https://github.com/aquaplatinumberlitz/boom-rs/issues/148) / Q-019,
 mục 5 hàng đợi RE (propagation/chain và thời gian gây damage của lửa). Claim tương ứng:
-[RULES_V1 §16](../../../specification/gameplay/RULES_V1.md#16-re-kr-00967--nổ-lan-vật-cản-và-dây-chuyền-r-138r-140)
-(R-138…R-140); suy luận, giới hạn và bước tiếp ở
+[RULES_V1 §17](../../../specification/gameplay/RULES_V1.md#17-re-kr-00967--nổ-lan-vật-cản-và-dây-chuyền-r-139r-141)
+(R-139…R-141); suy luận, giới hạn và bước tiếp ở
 [KR_RE_FLAME_CHAIN](../../../research/findings/KR_RE_FLAME_CHAIN.md).
 
 ## Định danh build
@@ -31,10 +31,10 @@ Không chạy hai analysis worker song song: REA mở → export bundle → đó
 
 | `evidence_id` | operation | Đối tượng | Dùng cho |
 |---|---|---|---|
-| `ev_4fd7d146f8136905aaa23a5b375598418d46fea8300551873660c5f47c21872b` | `procedure_pseudo_code` | `0x00E9C520` | R-138 (calc vùng nổ theo hướng) |
-| `ev_d667d89c13df7ffe72a2cfb39560bea219f57873673d0dc4d1eca9bbd7afceef` | `procedure_pseudo_code` | `0x00E9CDC0` | R-139 (calc dây chuyền) |
-| `ev_a86e37b2b769d7f1d2189b68ff6c4b5f057aed675ff8849184aac54ceed26b07` | `procedure_pseudo_code` | `0x00B711C0` | R-140 (segment timer của `CGOFlame`) |
-| `ev_bd381d4f9084eb583d0185eff670edd190494de4cdd3b4d3c56fd6a807e05f20` | `procedure_pseudo_code` | `0x00B333D0` | R-140 (`GetAnimCount` = số frame) |
+| `ev_4fd7d146f8136905aaa23a5b375598418d46fea8300551873660c5f47c21872b` | `procedure_pseudo_code` | `0x00E9C520` | R-139 (calc vùng nổ theo hướng) |
+| `ev_d667d89c13df7ffe72a2cfb39560bea219f57873673d0dc4d1eca9bbd7afceef` | `procedure_pseudo_code` | `0x00E9CDC0` | R-140 (calc dây chuyền) |
+| `ev_a86e37b2b769d7f1d2189b68ff6c4b5f057aed675ff8849184aac54ceed26b07` | `procedure_pseudo_code` | `0x00B711C0` | R-141 (segment timer của `CGOFlame`) |
+| `ev_bd381d4f9084eb583d0185eff670edd190494de4cdd3b4d3c56fd6a807e05f20` | `procedure_pseudo_code` | `0x00B333D0` | R-141 (`GetAnimCount` = số frame) |
 | `ev_ff03ae20e14d3338d14a84546b8876a2cfe8c977c2c1bc542d338e095a5e19f7` | `procedure_pseudo_code` | `0x00ACC340` | loại trừ: hàm dựng descriptor vẽ, **không** phải trigger dây chuyền |
 | `ev_cfe43f097228e4830d4b9953bbea8c10e05765c668249e109bb0d5bdf280176b` | `procedure_pseudo_code` | `0x00E9F9B0` | kiểm thứ tự ô `(hàng, cột)`: `CGOTileFixed`/`CGOTilePassable`; đối chiếu nhãn hướng R-120 |
 
