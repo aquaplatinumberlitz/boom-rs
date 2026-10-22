@@ -1,0 +1,21 @@
+# Oracle: trọng số rơi item Fire = 2800.
+# Nguồn: VN VBNB_116 (`confirmed`) — R-051 (bảng ItemAttr, loader `sub_89F3DE`) và R-112
+# (lựa chọn hiện hành theo ADR 0013). Xem O-005 về giới hạn R-052.
+[oracle]
+id = "O-006"
+name = "Trọng số rơi item Fire 2800"
+feature = "V1-037"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051", "R-112"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "drop_item_weight_fire"
+unit = "weight"
+expected = 2800
+tolerance = 0
+profile = "data/rules/v1-dev.toml"
+note = "R-052: vai trò bảng ItemAttr còn unknown — oracle kiểm số bảng engine dùng, không khẳng định đây là xác suất drop gốc."
+
+[oracle.check]
+kind = "rule"
+rule = "drop.weight_fire"

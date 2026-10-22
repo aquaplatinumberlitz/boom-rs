@@ -108,6 +108,17 @@ pub struct Report {
     pub failures: Vec<String>,
 }
 
+/// Đọc phần dựng trận của một file scenario mà **không chạy**.
+///
+/// Oracle dùng hàm này để đo trên đúng cấu hình của kịch bản (bản đồ, người chơi, input và
+/// profile luật mà file đó dùng).
+pub fn load_setup(path: &Path) -> Result<(Setup, u32), Error> {
+    let text = std::fs::read_to_string(path)?;
+    let file: ScenarioFile = parse_checked(&text, SCENARIO_KEYS)?;
+    validate(&file)?;
+    Ok((file.setup, file.ticks))
+}
+
 pub fn run_file(path: &Path) -> Result<Report, Error> {
     let text = std::fs::read_to_string(path)?;
     let file: ScenarioFile = parse_checked(&text, SCENARIO_KEYS)?;

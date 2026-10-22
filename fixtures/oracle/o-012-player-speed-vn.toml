@@ -1,0 +1,26 @@
+# Oracle: tốc độ người chơi theo quan sát VN (5 px mỗi tick 30 ms).
+# Nguồn: VN VBNB_116 runtime (`candidate`) — R-043 (quan sát thô 5 px/tick, checksum x/y chưa xác
+# thực) và R-045 (Roller +1 cấp); claim thiết kế của V1 là R-114 (24 px/s mỗi cấp theo BnB).
+# 5 px / 30 ms = 166,7 px/s ⇒ kỳ vọng 167 px/s ± 5 px/s.
+# Kịch bản `vn_engine_diff/speed_5px_per_30ms.toml` (status pending) dùng profile test
+# (60 Hz, 24 px/s mỗi cấp) nên engine chạy 120 px/s — sai khác đã ghi ở G-06.
+[oracle]
+id = "O-012"
+name = "Tốc độ người chơi theo quan sát VN"
+feature = "V1-037"
+source = "vn_runtime"
+status = "candidate"
+claims = ["R-043", "R-045", "R-114"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "player_speed"
+unit = "px/s"
+expected = 167
+tolerance = 5
+diff = "G-06"
+note = "R-043 là quan sát thô một run (checksum chưa xác thực) nên dung sai ±5 px/s; chênh lệch đo được hiện nằm ở G-06 và chờ đo client gốc theo Q-009."
+
+[oracle.check]
+kind = "scenario"
+scenario = "fixtures/scenarios/vn_engine_diff/speed_5px_per_30ms.toml"
+measure = "player_speed"
+player = 0

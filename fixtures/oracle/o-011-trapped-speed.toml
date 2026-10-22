@@ -1,0 +1,25 @@
+# Oracle: người bị nhốt có di chuyển không.
+# Nguồn: web (`candidate`) — R-029 ("bị nhốt: không đặt bom, đi rất chậm"; nguồn chưa có px/s) và
+# claim thiết kế của V1 là R-036 (đứng yên) / R-108 (cơ chế chạm, timer nhốt).
+# Nguồn gốc **chưa có số** để so (chưa đo được px/s), nên oracle chỉ ghi kết quả engine và trỏ
+# khoảng trống G-08 ở SCOPE_V1 §10 — chưa đo được client gốc (Q-009).
+[oracle]
+id = "O-011"
+name = "Người bị nhốt có di chuyển không"
+feature = "V1-037"
+source = "web"
+status = "candidate"
+claims = ["R-029", "R-036", "R-108"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "trapped_player_speed"
+unit = "px/s"
+expected = "unknown"
+tolerance = 0
+diff = "G-08"
+note = 'R-029 là candidate web ("đi rất chậm") và chưa có px/s; engine V1 đứng yên theo R-036 (0 px/s). Khoảng trống G-08 chờ đo client gốc theo Q-009.'
+
+[oracle.check]
+kind = "scenario"
+scenario = "fixtures/scenarios/movement/trapped_stands_still.toml"
+measure = "player_speed"
+player = 0

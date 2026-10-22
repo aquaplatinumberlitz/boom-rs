@@ -1,0 +1,21 @@
+# Oracle: thời hạn vòng 120 s.
+# Nguồn: VN VBNB_116 (`confirmed`) — R-010 (client: `oc_e` "Hết giờ", `ctx+490518`) và
+# R-110 (lựa chọn hiện hành theo ADR 0013). Engine đọc cùng đại lượng ở `round.duration_ms`.
+[oracle]
+id = "O-001"
+name = "Thời hạn vòng 120 s"
+feature = "V1-037"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-010", "R-110"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "round_duration"
+unit = "ms"
+expected = 120000
+tolerance = 0
+profile = "data/rules/v1-dev.toml"
+note = "R-011: map có cờ thì byte thời gian từ server ghi đè giá trị này; oracle chỉ kiểm giá trị mặc định của profile."
+
+[oracle.check]
+kind = "rule"
+rule = "round.duration_ms"

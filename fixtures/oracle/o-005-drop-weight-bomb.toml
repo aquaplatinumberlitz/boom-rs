@@ -1,0 +1,23 @@
+# Oracle: trọng số rơi item Bomb = 3650.
+# Nguồn: VN VBNB_116 (`confirmed`) — R-051 (bảng ItemAttr, loader `sub_89F3DE`) và R-112
+# (lựa chọn hiện hành theo ADR 0013). Số bảng là `confirmed`; vai trò bảng (client hay server
+# dùng để rơi) còn `unknown` (R-052), nên V1 dùng số đó làm trọng số ba item — quyết định áp
+# dụng, không phải xác suất drop gốc.
+[oracle]
+id = "O-005"
+name = "Trọng số rơi item Bomb 3650"
+feature = "V1-037"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051", "R-112"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "drop_item_weight_bomb"
+unit = "weight"
+expected = 3650
+tolerance = 0
+profile = "data/rules/v1-dev.toml"
+note = "R-052: vai trò bảng ItemAttr còn unknown — oracle kiểm số bảng engine dùng, không khẳng định đây là xác suất drop gốc."
+
+[oracle.check]
+kind = "rule"
+rule = "drop.weight_bomb"
