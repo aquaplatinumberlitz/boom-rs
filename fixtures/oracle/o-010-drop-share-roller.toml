@@ -1,5 +1,6 @@
 # Oracle: phân phối thống kê trọng số rơi item — Roller.
-# 2000 / (3650+2800+2000) = 236,69‰ ⇒ kỳ vọng 237‰, dung sai ±40‰. Xem O-008.
+# 2000 / (3650+2800+2000) = 236,69‰ ⇒ kỳ vọng 237‰, dung sai ±40‰. Xem O-008 (cỡ mẫu 4096 khối
+# khai, số khối vỡ thật do engine báo trong báo cáo).
 [oracle]
 id = "O-010"
 name = "Phân phối rơi item — Roller ≈ 237‰"

@@ -1,5 +1,6 @@
 # Oracle: phân phối thống kê trọng số rơi item — Fire.
-# 2800 / (3650+2800+2000) = 331,36‰ ⇒ kỳ vọng 331‰, dung sai ±40‰. Xem O-008.
+# 2800 / (3650+2800+2000) = 331,36‰ ⇒ kỳ vọng 331‰, dung sai ±40‰. Xem O-008 (cỡ mẫu 4096 khối
+# khai, số khối vỡ thật do engine báo trong báo cáo).
 [oracle]
 id = "O-009"
 name = "Phân phối rơi item — Fire ≈ 331‰"

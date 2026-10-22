@@ -13,8 +13,13 @@ của file đó — thiếu thì validator báo lỗi.
 - **Đại lượng / đơn vị**: tên và đơn vị theo bảng chọn của
 [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013) —
 ADR 0013 chỉ so **cùng đại lượng, cùng đơn vị**.
+- **Đơn vị là bắt buộc**: mỗi phép đo có một đơn vị cố định (`rule` lấy đơn vị trong
+profile, `scenario` là `px/s` hoặc `ms`, `distribution` là `permille`); oracle khai khác là
+metadata sai ⇒ validator báo lỗi, không quy đổi âm thầm.
 - **Kỳ vọng**: giá trị của nguồn gốc, kèm dung sai.
 - **Kết quả engine**: giá trị engine đo được trong lần chạy này.
+- **Cỡ mẫu**: với phép đo phân phối, số khối vỡ **do engine đếm** (`block_destroyed`) — đây
+là số mẫu thật mà dung sai thống kê bám theo, không phải con số khai trong metadata.
 - **Trạng thái**: `khớp` (trong dung sai) · `lệch (đã ghi nhận D-xx/G-xx)` (sai khác đã có trong
 [SCOPE_V1 §10](../planning/SCOPE_V1.md#10-sai-khác-có-chủ-ý-so-với-client-gốc)) ·
 `lệch (chưa ghi nhận)` (**lỗi** của `cargo xtask ci`) · `chưa có số` (nguồn gốc chưa có giá trị
@@ -35,9 +40,9 @@ claim: nó chỉ cho biết engine có khớp nguồn gốc hay không.
 | O-005 | drop_item_weight_bomb (weight) | vn_static / confirmed (R-051, R-112) | 3650 | 3650 | khớp | profile data/rules/v1-dev.toml |
 | O-006 | drop_item_weight_fire (weight) | vn_static / confirmed (R-051, R-112) | 2800 | 2800 | khớp | profile data/rules/v1-dev.toml |
 | O-007 | drop_item_weight_roller (weight) | vn_static / confirmed (R-051, R-112) | 2000 | 2000 | khớp | profile data/rules/v1-dev.toml |
-| O-008 | drop_item_weight_share_bomb (permille) | vn_static / confirmed (R-051, R-112) | 432 ± 40 | 418 | khớp | 4096 khối vỡ → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
-| O-009 | drop_item_weight_share_fire (permille) | vn_static / confirmed (R-051, R-112) | 331 ± 40 | 335 | khớp | 4096 khối vỡ → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
-| O-010 | drop_item_weight_share_roller (permille) | vn_static / confirmed (R-051, R-112) | 237 ± 40 | 246 | khớp | 4096 khối vỡ → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
+| O-008 | drop_item_weight_share_bomb (permille) | vn_static / confirmed (R-051, R-112) | 432 ± 40 | 418 | khớp | khối khai 4096 · engine vỡ 4096 khối → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
+| O-009 | drop_item_weight_share_fire (permille) | vn_static / confirmed (R-051, R-112) | 331 ± 40 | 335 | khớp | khối khai 4096 · engine vỡ 4096 khối → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
+| O-010 | drop_item_weight_share_roller (permille) | vn_static / confirmed (R-051, R-112) | 237 ± 40 | 246 | khớp | khối khai 4096 · engine vỡ 4096 khối → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
 | O-011 | trapped_player_speed (px/s) | web / candidate (R-029, R-036, R-108) | chưa có số | 0 | chưa có số (gap G-08) | kịch bản fixtures/scenarios/movement/trapped_stands_still.toml · profile skeleton-test · 60 tick ở 60 Hz |
 | O-012 | player_speed (px/s) | vn_runtime / candidate (R-043, R-045, R-114) | 167 ± 5 | 120 | lệch (đã ghi nhận G-06) | kịch bản fixtures/scenarios/vn_engine_diff/speed_5px_per_30ms.toml · profile skeleton-test · 61 tick ở 60 Hz |
 | O-013 | trap_to_death (ms) | vn_runtime / confirmed (R-026, R-115) | 6359 ± 5 | 6300 | lệch (đã ghi nhận G-05) | kịch bản fixtures/scenarios/vn_engine_diff/trap_death_6359ms.toml · profile skeleton-test · 378 tick ở 60 Hz |
@@ -69,7 +74,7 @@ SCOPE_V1 §10 và vẫn mở ở [QUESTIONS](QUESTIONS.md).
 - **O-007** — Trọng số rơi item Roller 2000: feature V1-037, nguồn vn_static / confirmed, claim R-051, R-112. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).
   - Ghi chú: R-052: vai trò bảng ItemAttr còn unknown — oracle kiểm số bảng engine dùng, không khẳng định đây là xác suất drop gốc.
 - **O-008** — Phân phối rơi item — Bomb ≈ 432‰: feature V1-037, nguồn vn_static / confirmed, claim R-051, R-112. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).
-  - Ghi chú: Tỷ trọng kỳ vọng tính từ bảng trọng số VN (3650:2800:2000); xác suất rơi gốc vẫn unknown (R-052, R-053).
+  - Ghi chú: Tỷ trọng kỳ vọng tính từ bảng trọng số VN (3650:2800:2000); xác suất rơi gốc vẫn unknown (R-052, R-053). Dung sai ±40‰ theo cỡ mẫu 4096 khối khai (≈1450 item rơi, σ ≈ 13‰ nên ±40‰ ≈ 3σ); số khối vỡ thật do engine báo trong báo cáo.
 - **O-009** — Phân phối rơi item — Fire ≈ 331‰: feature V1-037, nguồn vn_static / confirmed, claim R-051, R-112. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).
   - Ghi chú: Tỷ trọng kỳ vọng tính từ bảng trọng số VN (3650:2800:2000); xác suất rơi gốc vẫn unknown (R-052, R-053).
 - **O-010** — Phân phối rơi item — Roller ≈ 237‰: feature V1-037, nguồn vn_static / confirmed, claim R-051, R-112. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).

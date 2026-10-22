@@ -18,5 +18,14 @@ lượng, đơn vị, kỳ vọng và dung sai — thiếu thì validator báo l
 gốc mà **chưa** có mục ở SCOPE_V1 §10 là lỗi của `cargo xtask ci`; sai khác đã ghi nhận và
 kỳ vọng chưa có số chỉ được báo trong báo cáo.
 
+**Đơn vị là metadata bắt buộc** (ADR 0013: chỉ so *cùng đại lượng, cùng đơn vị*): mỗi phép đo có
+một đơn vị cố định — `rule` lấy đơn vị khai trong profile, `scenario` là `px/s` (tốc độ) hoặc `ms`
+(thời gian nhốt→chết), `distribution` là `permille`. Oracle khai đơn vị khác là metadata sai ⇒
+validator báo lỗi, không đo và không quy đổi âm thầm.
+
+**Số mẫu phải là số thật**: phép đo phân phối dựng bản đồ với đúng số khối mềm khai trong metadata
+và đếm số khối engine thực sự vỡ (`block_destroyed`) để ghi vào báo cáo — cỡ mẫu trong báo cáo là
+số đo được, nên dung sai thống kê bám đúng cỡ mẫu đó.
+
 Báo cáo là **đối chiếu**, không phải bằng chứng mới: nó không nâng tầng bằng chứng của claim và
 không thay thế kịch bản nghiệm thu trong `fixtures/scenarios/`.

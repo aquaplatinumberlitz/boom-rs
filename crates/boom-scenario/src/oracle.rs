@@ -44,6 +44,15 @@
 //! - `scenario`: chạy một file trong `fixtures/scenarios/` và đo (`player_speed`,
 //!   `trap_to_death`);
 //! - `distribution`: rút trọng số rơi item nhiều lần với seed cố định, so tỷ trọng.
+//!
+//! **Đơn vị là metadata bắt buộc** (ADR 0013: chỉ so *cùng đại lượng, cùng đơn vị*): mỗi phép đo
+//! có một đơn vị cố định — `rule` lấy đơn vị khai trong profile, `scenario` là `px/s` (tốc độ) hoặc
+//! `ms` (thời gian nhốt→chết), `distribution` là `permille`. Oracle khai đơn vị khác là metadata
+//! sai ⇒ validator báo lỗi, không đo và không quy đổi âm thầm.
+//!
+//! **Số mẫu phải là số thật**: `distribution` dựng bản đồ với đúng số khối mềm khai trong
+//! metadata và đếm số khối engine thực sự vỡ (`block_destroyed`) để ghi vào báo cáo — con số
+//! mẫu trong báo cáo là số đo được, không phải số khai.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -64,6 +73,18 @@ pub const REPORT_PATH: &str = "docs/research/ORACLE_REPORT.md";
 pub const RULES_V1: &str = "docs/specification/gameplay/RULES_V1.md";
 /// Nguồn chuẩn sổ sai khác có chủ ý (§10).
 pub const SCOPE_V1: &str = "docs/planning/SCOPE_V1.md";
+/// Đơn vị của phép đo phân phối: tỷ trọng rơi item tính bằng **phần nghìn** (khớp
+/// `drop.brick_item_chance` của profile).
+pub const DISTRIBUTION_UNIT: &str = "permille";
+/// Số khối mềm **tối thiểu** trong một lần đo phân phối: dưới ngưỡng này mẫu quá nhỏ để nói
+/// được gì về phân phối.
+pub const MIN_DISTRIBUTION_BLOCKS: u32 = 100;
+/// Số khối mềm **tối đa** trong một lần đo phân phối (map tối đa 129×128 ô).
+///
+/// Trần này do **ngân sách event của engine** quyết định: mỗi khối vỡ phát tối đa 2 event
+/// (`block_destroyed` + `item_revealed`) mà engine giới hạn 65535 event mỗi tick, nên 16384 khối
+/// (32768 event) vẫn nằm xa trần; map cũng vừa để một lần đo chạy nhanh trong CI.
+pub const MAX_DISTRIBUTION_BLOCKS: u32 = 16_384;
 
 /// Kỳ vọng của oracle: số đo được, hoặc `unknown` khi nguồn gốc chưa có giá trị
 /// (AGENTS §4: `unknown` không mang giá trị).
@@ -96,6 +117,28 @@ pub enum Measure {
     TrapToDeath,
 }
 
+impl Measure {
+    /// Đơn vị **bắt buộc** của phép đo này.
+    ///
+    /// ADR 0013: chỉ so **cùng đại lượng, cùng đơn vị**. Phép đo luôn trả về một đơn vị cố
+    /// định, nên oracle khai đơn vị khác là metadata sai — validator chặn, không đoán
+    /// (xem [`validate`]).
+    pub fn unit(self) -> &'static str {
+        match self {
+            Self::PlayerSpeed => "px/s",
+            Self::TrapToDeath => "ms",
+        }
+    }
+
+    /// Tên phép đo để in lỗi metadata.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::PlayerSpeed => "player_speed",
+            Self::TrapToDeath => "trap_to_death",
+        }
+    }
+}
+
 /// Cách đo một oracle.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -119,7 +162,8 @@ pub enum Check {
     Distribution {
         /// Loại item cần đo (Bomb | Fire | Roller).
         item: String,
-        /// Số khối mềm vỡ trong một lần đo.
+        /// Số khối mềm vỡ trong một lần đo (bản đồ dựng đúng số này; trần hợp lệ:
+        /// `MIN_DISTRIBUTION_BLOCKS`…`MAX_DISTRIBUTION_BLOCKS`).
         blocks: u32,
         /// Seed cố định của lần đo.
         seed: u64,
@@ -370,7 +414,10 @@ fn validate(
             if rule.trim().is_empty() {
                 return Err(format!("{where_}: check `rule` thiếu khoá rule").into());
             }
-            require_profile(oracle, &where_)?;
+            // Đơn vị của phép đo `rule` là đơn vị profile khai cho khoá đó — nguồn chuẩn.
+            let profile = require_profile(oracle, &where_)?;
+            let unit = rule_unit(root, profile, rule).map_err(|e| format!("{where_}: {e}"))?;
+            require_unit(&where_, &oracle.unit, &format!("rule `{rule}`"), &unit)?;
         }
         Check::Scenario {
             scenario,
@@ -389,16 +436,37 @@ fn validate(
                     format!("{where_}: đo `trap_to_death` cần biết người chơi (`player`)").into(),
                 );
             }
+            // Phép đo trả về một đơn vị cố định: oracle khai khác là metadata sai (ADR 0013).
+            require_unit(
+                &where_,
+                &oracle.unit,
+                &format!("phép đo `{}`", measure.name()),
+                measure.unit(),
+            )?;
         }
         Check::Distribution { item, blocks, .. } => {
             if !matches!(item.as_str(), "Bomb" | "Fire" | "Roller") {
                 return Err(format!("{where_}: loại item `{item}` không có trong bảng V1").into());
             }
-            if *blocks < 100 {
-                return Err(
-                    format!("{where_}: cần ít nhất 100 khối vỡ để phân phối có ý nghĩa").into(),
-                );
+            if *blocks < MIN_DISTRIBUTION_BLOCKS {
+                return Err(format!(
+                    "{where_}: cần ít nhất {MIN_DISTRIBUTION_BLOCKS} khối vỡ để phân phối có ý nghĩa"
+                )
+                .into());
             }
+            if *blocks > MAX_DISTRIBUTION_BLOCKS {
+                return Err(format!(
+                    "{where_}: tối đa {MAX_DISTRIBUTION_BLOCKS} khối vỡ trong một lần đo"
+                )
+                .into());
+            }
+            // Tỷ trọng đo ra là phần nghìn; oracle khai đơn vị khác là metadata sai (ADR 0013).
+            require_unit(
+                &where_,
+                &oracle.unit,
+                "phép đo `distribution`",
+                DISTRIBUTION_UNIT,
+            )?;
             require_profile(oracle, &where_)?;
         }
     }
@@ -410,12 +478,39 @@ fn validate(
     Ok(())
 }
 
-fn require_profile(oracle: &Oracle, where_: &str) -> Result<(), Error> {
+/// Profile luật mà phép đo cần; trả về đường dẫn để dùng tiếp.
+fn require_profile<'a>(oracle: &'a Oracle, where_: &str) -> Result<&'a Path, Error> {
     let Some(profile) = &oracle.profile else {
         return Err(format!("{where_}: phép đo cần profile luật (`profile`)").into());
     };
     if profile.as_os_str().is_empty() {
         return Err(format!("{where_}: `profile` rỗng").into());
+    }
+    Ok(profile.as_path())
+}
+
+/// Đơn vị mà profile khai cho một khoá rule — nguồn chuẩn của đơn vị khi phép đo là `rule`.
+fn rule_unit(root: &Path, profile_path: &Path, rule: &str) -> Result<String, Error> {
+    let text = std::fs::read_to_string(root.join(profile_path))?;
+    let profile = RulesProfile::from_toml(&text)?;
+    let entry = profile
+        .rules
+        .get(rule)
+        .ok_or_else(|| format!("profile {} không có khoá `{rule}`", profile_path.display()))?;
+    Ok(entry.unit.clone())
+}
+
+/// Chặn oracle khai sai đơn vị so với phép đo.
+///
+/// ADR 0013: chỉ so **cùng đại lượng, cùng đơn vị** — `mpx/s` không phải `px/s`, `percent` không
+/// phải `permille`. Đơn vị là metadata của oracle, nên sai là **lỗi metadata** (fail closed),
+/// không phải chuyện quy đổi âm thầm trong lúc đo.
+fn require_unit(where_: &str, declared: &str, what: &str, required: &str) -> Result<(), Error> {
+    if declared != required {
+        return Err(format!(
+            "{where_}: {what} có đơn vị `{required}` nhưng oracle khai `{declared}`"
+        )
+        .into());
     }
     Ok(())
 }
@@ -648,6 +743,10 @@ fn measure_scenario(
 }
 
 /// Đo phân phối trọng số rơi item: vỡ nhiều khối mềm rồi đếm loại item rơi ra.
+///
+/// Bản đồ dựng **đúng** `blocks` khối mềm (không phải một bản đồ cố định), và số khối vỡ được
+/// **đếm từ engine** (`block_destroyed`) nên số mẫu ghi trong báo cáo là số thật, không phải con
+/// số khai trong metadata.
 fn measure_distribution(
     oracle: &Oracle,
     root: &Path,
@@ -659,39 +758,72 @@ fn measure_distribution(
         .profile
         .as_ref()
         .ok_or_else(|| format!("{}: thiếu profile", oracle.id))?;
+    let sample = distribution_sample(root, profile_path, item, blocks, seed)
+        .map_err(|e| format!("{}: {e}", oracle.id))?;
+    let share = sample.share_permille();
+    let detail = format!(
+        "khối khai {blocks} · engine vỡ {} khối → {} item rơi · seed {seed} · profile {}",
+        sample.broken_blocks,
+        sample.items,
+        profile_path.display()
+    );
+    Ok((share.to_string(), detail))
+}
+
+/// Số liệu thô của một lần đo phân phối: số khối engine thực sự vỡ và số item rơi.
+///
+/// Tách riêng khỏi phép đo để **kiểm chứng được số mẫu**: test đổi `blocks` thì số khối vỡ và
+/// số item rơi phải đổi theo, không được đo chung một tập mẫu cố định.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DistributionSample {
+    /// Số khối mềm khai trong metadata oracle.
+    pub declared_blocks: u32,
+    /// Số khối mềm engine thực sự vỡ (đếm từ event `block_destroyed`).
+    pub broken_blocks: u32,
+    /// Số item rơi ra từ các khối vỡ.
+    pub items: u64,
+    /// Số item rơi đúng loại đang đo.
+    pub picked: u64,
+}
+
+impl DistributionSample {
+    /// Tỷ trọng item đang đo, tính bằng phần nghìn (làm tròn xuống).
+    pub fn share_permille(&self) -> u64 {
+        if self.items == 0 {
+            return 0;
+        }
+        self.picked * 1000 / self.items
+    }
+}
+
+/// Đo phân phối trọng số rơi item với `blocks` khối mềm và seed cố định.
+///
+/// Bản đồ dựng **đúng** `blocks` khối mềm: ô spawn cho người chơi, còn lại là khối mềm; ô nào
+/// thừa ra của hình chữ nhật là nền (không vỡ được) nên không tính vào mẫu. Số khối engine vỡ
+/// được đếm từ event `block_destroyed`; lệch với số khai thì báo lỗi — mẫu phải khớp metadata.
+pub fn distribution_sample(
+    root: &Path,
+    profile_path: &Path,
+    item: &str,
+    blocks: u32,
+    seed: u64,
+) -> Result<DistributionSample, Error> {
+    if !(MIN_DISTRIBUTION_BLOCKS..=MAX_DISTRIBUTION_BLOCKS).contains(&blocks) {
+        return Err(format!(
+            "số khối {blocks} ngoài khoảng hợp lệ {MIN_DISTRIBUTION_BLOCKS}..={MAX_DISTRIBUTION_BLOCKS}"
+        )
+        .into());
+    }
     let text = std::fs::read_to_string(root.join(profile_path))?;
     let profile = RulesProfile::from_toml(&text)?;
     let rules = Rules::from_profile(&profile)?;
     let Some(index) = rules.items.iter().position(|i| i.key == item) else {
-        return Err(format!("{}: item `{item}` không có trong profile", oracle.id).into());
+        return Err(format!("item `{item}` không có trong profile").into());
     };
 
-    // Bản đồ toàn khối mềm, một ô spawn để người chơi có chỗ đứng (không bị blast).
-    let width = 64usize;
-    let height = 64usize;
-    let mut map = Vec::with_capacity(height);
-    for y in 0..height {
-        let mut row = String::with_capacity(width);
-        for x in 0..width {
-            row.push(if (x, y) == (0, 0) { '0' } else { '+' });
-        }
-        map.push(row);
-    }
-    let mut blasts = Vec::with_capacity(width * height);
-    for y in 0..height {
-        for x in 0..width {
-            if (x, y) != (0, 0) {
-                blasts.push(BlastEntry {
-                    cell: [
-                        i32::try_from(x).expect("lưới nhỏ"),
-                        i32::try_from(y).expect("lưới nhỏ"),
-                    ],
-                });
-            }
-        }
-    }
+    let (map, blasts) = soft_block_map(blocks);
     let setup = Setup {
-        rules: Some(profile_path.clone()),
+        rules: Some(profile_path.to_path_buf()),
         seed: Some(seed),
         map,
         blast: blasts,
@@ -712,27 +844,74 @@ fn measure_distribution(
         m.step()?;
     }
 
+    let mut broken: u32 = 0;
     let mut total: u64 = 0;
     let mut picked: u64 = 0;
     for event in &m.events {
-        if let boom_core::EventKind::ItemRevealed { kind, .. } = event.kind {
-            total += 1;
-            if usize::from(kind.0) == index {
-                picked += 1;
+        match event.kind {
+            boom_core::EventKind::BlockDestroyed { .. } => broken += 1,
+            boom_core::EventKind::ItemRevealed { kind, .. } => {
+                total += 1;
+                if usize::from(kind.0) == index {
+                    picked += 1;
+                }
             }
+            _ => {}
         }
     }
-    if total == 0 {
-        return Err(format!("{}: không có item nào rơi để đo", oracle.id).into());
+    if broken != blocks {
+        return Err(format!(
+            "engine vỡ {broken} khối nhưng oracle khai {blocks} khối — số mẫu lệch metadata"
+        )
+        .into());
     }
-    // Tỷ trọng tính theo phần nghìn, làm tròn xuống.
-    let share = picked * 1000 / total;
-    let detail = format!(
-        "{} khối vỡ → {total} item rơi · seed {seed} · profile {}",
-        blocks,
-        profile_path.display()
-    );
-    Ok((share.to_string(), detail))
+    if total == 0 {
+        return Err("không có item nào rơi để đo".into());
+    }
+    Ok(DistributionSample {
+        declared_blocks: blocks,
+        broken_blocks: broken,
+        items: total,
+        picked,
+    })
+}
+
+/// Dựng bản đồ toàn khối mềm với **đúng** `blocks` khối, kèm kênh blast phủ hết chúng.
+///
+/// Bản đồ là hình chữ nhật: chiều rộng gần như căn bậc hai của `blocks + 1` (chừa một ô spawn
+/// cho người chơi), chiều cao đủ chứa hết. Ô không dùng làm khối mềm thì là nền (`.`) — không vỡ
+/// được nên không tính vào mẫu. Nhờ vậy số khối mềm luôn đúng bằng `blocks` khai.
+fn soft_block_map(blocks: u32) -> (Vec<String>, Vec<BlastEntry>) {
+    let total = blocks as usize + 1; // +1 ô spawn cho người chơi
+    let mut width = 1usize;
+    while width * width < total {
+        width += 1;
+    }
+    let height = total.div_ceil(width);
+    let mut map = Vec::with_capacity(height);
+    let mut blasts = Vec::with_capacity(blocks as usize);
+    let mut left = blocks as usize;
+    for y in 0..height {
+        let mut row = String::with_capacity(width);
+        for x in 0..width {
+            if x == 0 && y == 0 {
+                row.push('0'); // ô spawn: người chơi đứng, không bị blast
+            } else if left > 0 {
+                row.push('+');
+                left -= 1;
+                blasts.push(BlastEntry {
+                    cell: [
+                        i32::try_from(x).expect("lưới nhỏ"),
+                        i32::try_from(y).expect("lưới nhỏ"),
+                    ],
+                });
+            } else {
+                row.push('.'); // nền dư: không vỡ được, không tính vào mẫu
+            }
+        }
+        map.push(row);
+    }
+    (map, blasts)
 }
 
 /// Sinh báo cáo Markdown (tất định: không có thời gian, không có đường dẫn tuyệt đối).
@@ -754,8 +933,13 @@ pub fn render(outcomes: &[Outcome], gaps: &ScopeGaps) -> String {
          - **Đại lượng / đơn vị**: tên và đơn vị theo bảng chọn của\n\
            [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013) —\n\
            ADR 0013 chỉ so **cùng đại lượng, cùng đơn vị**.\n\
+         - **Đơn vị là bắt buộc**: mỗi phép đo có một đơn vị cố định (`rule` lấy đơn vị trong\n\
+           profile, `scenario` là `px/s` hoặc `ms`, `distribution` là `permille`); oracle khai khác là\n\
+           metadata sai ⇒ validator báo lỗi, không quy đổi âm thầm.\n\
          - **Kỳ vọng**: giá trị của nguồn gốc, kèm dung sai.\n\
          - **Kết quả engine**: giá trị engine đo được trong lần chạy này.\n\
+         - **Cỡ mẫu**: với phép đo phân phối, số khối vỡ **do engine đếm** (`block_destroyed`) — đây\n\
+           là số mẫu thật mà dung sai thống kê bám theo, không phải con số khai trong metadata.\n\
          - **Trạng thái**: `khớp` (trong dung sai) · `lệch (đã ghi nhận D-xx/G-xx)` (sai khác đã có trong\n\
            [SCOPE_V1 §10](../planning/SCOPE_V1.md#10-sai-khác-có-chủ-ý-so-với-client-gốc)) ·\n\
            `lệch (chưa ghi nhận)` (**lỗi** của `cargo xtask ci`) · `chưa có số` (nguồn gốc chưa có giá trị\n\
@@ -956,6 +1140,25 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
+    /// Parse một file oracle trong test.
+    fn parse_oracle(text: &str) -> Oracle {
+        let parsed: OracleFile = toml::from_str(text).expect("TOML oracle hợp lệ");
+        parsed.oracle
+    }
+
+    /// Chạy validator trên một file oracle trong test.
+    fn validate_text(text: &str) -> Result<(), Error> {
+        let claims = claim_ids(&root()).unwrap();
+        let gaps = scope_gaps(&root()).unwrap();
+        validate(
+            &parse_oracle(text),
+            Path::new("<test>"),
+            &root(),
+            &claims,
+            &gaps,
+        )
+    }
+
     #[test]
     fn every_oracle_file_is_valid() {
         let dir = root().join(ORACLE_DIR);
@@ -1058,5 +1261,234 @@ rule = "grid.tile_px"
         assert_eq!(measured.get("O-011"), Some(&"0"));
         assert_eq!(measured.get("O-012"), Some(&"120"));
         assert_eq!(measured.get("O-013"), Some(&"6300"));
+    }
+
+    /// Oracle phân phối mẫu: cùng metadata với O-008 nhưng `blocks` đổi theo tham số.
+    fn distribution_oracle(blocks: u32) -> Oracle {
+        parse_oracle(&format!(
+            r#"[oracle]
+id = "O-996"
+name = "Phân phối rơi item — Bomb"
+feature = "V1-037"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "drop_item_weight_share_bomb"
+unit = "permille"
+expected = 432
+tolerance = 40
+profile = "data/rules/v1-dev.toml"
+
+[oracle.check]
+kind = "distribution"
+item = "Bomb"
+blocks = {blocks}
+seed = 20261022
+"#
+        ))
+    }
+
+    #[test]
+    fn distribution_sample_size_follows_the_declared_blocks() {
+        // Số mẫu phải theo đúng `blocks` khai trong metadata: bản đồ dựng đúng số khối mềm đó và
+        // engine vỡ đúng số khối đó. Đổi `blocks` thì mẫu phải đổi theo — không đo chung một tập
+        // mẫu cố định rồi chỉ đổi con số trong báo cáo.
+        let profile = Path::new("data/rules/v1-dev.toml");
+        let small = distribution_sample(&root(), profile, "Bomb", 100, 20261022).unwrap();
+        let large = distribution_sample(&root(), profile, "Bomb", 10_000, 20261022).unwrap();
+
+        assert_eq!(small.broken_blocks, 100, "mẫu nhỏ phải vỡ đúng 100 khối");
+        assert_eq!(
+            large.broken_blocks, 10_000,
+            "mẫu lớn phải vỡ đúng 10000 khối"
+        );
+        assert_eq!(small.declared_blocks, 100);
+        assert_eq!(large.declared_blocks, 10_000);
+        assert!(
+            large.items > small.items,
+            "mẫu lớn phải rơi nhiều item hơn: {} vs {}",
+            large.items,
+            small.items
+        );
+        assert!(small.items > 0 && large.items > 0, "phải có item rơi để đo");
+        assert!(
+            large.picked > small.picked,
+            "mẫu lớn phải rơi nhiều item Bomb hơn: {} vs {}",
+            large.picked,
+            small.picked
+        );
+        // Tỷ trọng tính từ mẫu thật: phần nghìn trong khoảng [0, 1000].
+        assert!(small.share_permille() <= 1000 && large.share_permille() <= 1000);
+    }
+
+    #[test]
+    fn distribution_at_the_upper_bound_still_runs() {
+        // Trần `blocks` phải chạy được trong CI (mẫu lớn nhất mà oracle cho phép khai).
+        let profile = Path::new("data/rules/v1-dev.toml");
+        let sample =
+            distribution_sample(&root(), profile, "Bomb", MAX_DISTRIBUTION_BLOCKS, 20261022)
+                .expect("đo được ở trần");
+        assert_eq!(sample.broken_blocks, MAX_DISTRIBUTION_BLOCKS);
+        assert!(sample.items > 0);
+    }
+
+    #[test]
+    fn distribution_detail_reports_the_blocks_actually_broken() {
+        // Ghi chú trong báo cáo phải nêu số khối engine thực sự vỡ, không chỉ số khai trong metadata.
+        let oracle = distribution_oracle(1234);
+        let (_, detail) =
+            measure_distribution(&oracle, &root(), "Bomb", 1234, 20261022).expect("đo được");
+        assert!(
+            detail.contains("khối khai 1234") && detail.contains("engine vỡ 1234 khối"),
+            "ghi chú phải nêu cả số khai và số khối thật: {detail}"
+        );
+    }
+
+    #[test]
+    fn distribution_blocks_out_of_range_is_rejected() {
+        // Số khối ngoài khoảng hợp lệ là metadata sai: quá nhỏ thì mẫu vô nghĩa, quá lớn thì lần
+        // đo kéo dài vô hạn.
+        let too_small = distribution_oracle(MIN_DISTRIBUTION_BLOCKS - 1);
+        let claims = claim_ids(&root()).unwrap();
+        let gaps = scope_gaps(&root()).unwrap();
+        let err = validate(&too_small, Path::new("<test>"), &root(), &claims, &gaps)
+            .expect_err("số khối quá nhỏ phải bị từ chối");
+        assert!(
+            err.to_string().contains("ít nhất"),
+            "lỗi phải nêu ngưỡng: {err}"
+        );
+
+        let too_large = distribution_oracle(MAX_DISTRIBUTION_BLOCKS + 1);
+        let err = validate(&too_large, Path::new("<test>"), &root(), &claims, &gaps)
+            .expect_err("số khối quá lớn phải bị từ chối");
+        assert!(
+            err.to_string().contains("tối đa"),
+            "lỗi phải nêu trần: {err}"
+        );
+
+        // Chặn ngay ở phép đo (không chỉ ở validator) để không chạm trần event của engine.
+        let profile = Path::new("data/rules/v1-dev.toml");
+        let err = distribution_sample(&root(), profile, "Bomb", MAX_DISTRIBUTION_BLOCKS + 1, 1)
+            .expect_err("số khối quá trần phải bị từ chối");
+        assert!(
+            err.to_string().contains("ngoài khoảng hợp lệ"),
+            "lỗi phải nêu khoảng hợp lệ: {err}"
+        );
+    }
+
+    #[test]
+    fn distribution_unit_mismatch_is_rejected() {
+        // Đơn vị sai là metadata sai (ADR 0013): `percent` không phải `permille` — oracle không
+        // được kết luận "khớp" dưới nhãn percent.
+        let text = r#"[oracle]
+id = "O-995"
+name = "Phân phối rơi item — Bomb"
+feature = "V1-037"
+source = "vn_static"
+status = "confirmed"
+claims = ["R-051"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "drop_item_weight_share_bomb"
+unit = "percent"
+expected = 432
+tolerance = 40
+profile = "data/rules/v1-dev.toml"
+
+[oracle.check]
+kind = "distribution"
+item = "Bomb"
+blocks = 4096
+seed = 20261022
+"#;
+        let err = validate_text(text).expect_err("đơn vị sai phải là lỗi");
+        let message = err.to_string();
+        assert!(
+            message.contains("permille") && message.contains("percent"),
+            "lỗi phải nêu cả đơn vị đúng và đơn vị khai: {message}"
+        );
+    }
+
+    #[test]
+    fn scenario_unit_mismatch_is_rejected() {
+        // Đơn vị sai là metadata sai (ADR 0013): `mpx/s` không phải `px/s` — tốc độ đo được không
+        // được kết luận "khớp" dưới nhãn mpx/s.
+        let text = r#"[oracle]
+id = "O-994"
+name = "Tốc độ người chơi"
+feature = "V1-037"
+source = "vn_runtime"
+status = "candidate"
+claims = ["R-043"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "player_speed"
+unit = "mpx/s"
+expected = 167
+tolerance = 5
+
+[oracle.check]
+kind = "scenario"
+scenario = "fixtures/scenarios/movement/trapped_stands_still.toml"
+measure = "player_speed"
+player = 0
+"#;
+        let err = validate_text(text).expect_err("đơn vị sai phải là lỗi");
+        let message = err.to_string();
+        assert!(
+            message.contains("px/s") && message.contains("mpx/s"),
+            "lỗi phải nêu cả đơn vị đúng và đơn vị khai: {message}"
+        );
+    }
+
+    #[test]
+    fn rule_unit_mismatch_is_rejected() {
+        // Đơn vị của `rule` là đơn vị profile khai — oracle khai khác là lỗi metadata.
+        let text = r#"[oracle]
+id = "O-993"
+name = "Thời hạn vòng 120 s"
+feature = "V1-037"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-010"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "round_duration"
+unit = "s"
+expected = 120
+tolerance = 0
+profile = "data/rules/v1-dev.toml"
+
+[oracle.check]
+kind = "rule"
+rule = "round.duration_ms"
+"#;
+        let err = validate_text(text).expect_err("đơn vị sai phải là lỗi");
+        let message = err.to_string();
+        assert!(
+            message.contains("ms") && message.contains("`s`"),
+            "lỗi phải nêu cả đơn vị đúng và đơn vị khai: {message}"
+        );
+    }
+
+    #[test]
+    fn every_oracle_unit_matches_its_measurement() {
+        // Mọi oracle trong repo phải khai đúng đơn vị của phép đo — validator chặn sai nên
+        // `load_dir` thành công là bằng chứng đơn vị khớp.
+        let dir = root().join(ORACLE_DIR);
+        let oracles = load_dir(&dir, &root()).expect("mọi file oracle phải hợp lệ");
+        for oracle in &oracles {
+            let required = match &oracle.check {
+                Check::Rule { rule } => {
+                    let profile = oracle.profile.as_ref().expect("rule cần profile");
+                    rule_unit(&root(), profile, rule).expect("profile có khoá rule")
+                }
+                Check::Scenario { measure, .. } => measure.unit().to_owned(),
+                Check::Distribution { .. } => DISTRIBUTION_UNIT.to_owned(),
+            };
+            assert_eq!(
+                oracle.unit, required,
+                "{}: đơn vị phải là `{required}`",
+                oracle.id
+            );
+        }
     }
 }
