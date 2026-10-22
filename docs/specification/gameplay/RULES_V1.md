@@ -465,3 +465,36 @@ R-125 giữ nguyên R-114 (`24 px/s/level`, `oss`/design) vì chưa có consumer
 
 R-134/R-135 nêu ở mục này là **tham chiếu PR #185 đang mở**, chưa có trên `main`; chỉ khi #185 merge
 mới trở thành claim trong nguồn chuẩn. Không dùng chúng để thay R-119…R-125 trong PR này.
+
+## 14. RE KR 00967 — bị nhốt (R-126…R-131)
+
+Đọc tĩnh client KR `00967` cho [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147) / Q-018.
+Định danh build (SHA-256 `cf72da11…e63b`, imagebase `0x400000`, `RVA = VA − 0x400000`) và bảng VA/RVA ở
+[evidence KR static trapped](../../evidence/measurements/kr-static-trapped-2026-10-21/README.md);
+suy luận, giới hạn và cách đối chiếu ở [KR_RE_TRAPPED](../../research/findings/KR_RE_TRAPPED.md).
+Dãy số bắt đầu ở R-126 vì R-119…R-125 (movement) đã có trên `main` ở §13; mục này không sửa các claim
+movement. R-134/R-135 (phạm vi lớp `CGOPet`) vẫn ở PR #185, **chưa merge** tại thời điểm này.
+
+**Phạm vi lớp (bổ sung sau review #157):** chuỗi `0xB95180 → 0xB93830 → (0xB95970, 0xB93890)` và state
+machine `0xB95xxx` có consumer đã trace là **`CGOPet`** (`0xB93A60` = slot 24 `??_7CGOPet@@6B@`). Đây
+**không** phải bằng chứng cho bomber người chơi, và cũng **không** loại trừ đường gián tiếp/wrapper/VM
+từ bomber — chỉ giới hạn phạm vi đường đã trace. R-134/R-135 ở PR #185 **chưa merge** tại thời điểm này:
+tham chiếu pending, chưa có trên `main`.
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-126 | **Trong cụm `0xB95xxx` (consumer đã trace: `CGOPet`):** các số state `{0,1,2,3,4,8,9..12,13,14,15..18,19..22}` và điều kiện/chuyển state đã đọc: `sub_B952E0` đặt `3` khi `sub_B95AC0(this) != 0`, `state != 3`, `sub_B956C0(this,-1) == 0` và state không thuộc `{13,14,15..18,19..22}`; khi `sub_B95AC0(this) == 0` và `state == 3` thì đặt `2`; `13→14→2`; `sub_B95840` chọn `dir+9`/`dir+19`; `sub_B95BD0` đặt bộ đếm `20` — **confirmed trong phạm vi pet**. **Nhãn ngữ nghĩa** `3` = "bị nhốt", và các nhãn gameplay khác, là **candidate**: chưa có enum/consumer chung định nghĩa `sub_B95AC0`/`sub_B956C0`/virtual `+56`/`+60`; trùng số `3` với packet VN không chứng minh cùng nghĩa. **Claim riêng của bomber:** packet C→S VN 120 subtype 11 = state 3 là `vn_runtime`/confirmed (R-026), **không** ghép sang pet | — | `kr_static` / confirmed (số state, điều kiện, chuyển state trong cụm `CGOPet`); `kr_static` / **candidate** (nhãn "3 = bị nhốt" của cụm pet — chưa có enum/consumer chung); `vn_runtime` / confirmed (packet bomber state 3, claim riêng R-026, không ghép sang pet) | Consumer `sub_B952E0` KR `0x00B952E0`; `sub_B95840` `0x00B95840`, `sub_B95BD0` `0x00B95BD0`, hàm `sub_B95AC0` `0x00B95AC0`, `sub_B956C0` `0x00B956C0`. Nhãn "bị nhốt" **không** có trong binary; packet VN 120/11 ở [`VN_FEATURES_REFERENCE`](../../../docs/research/findings/VN_FEATURES_REFERENCE.md) §5b là ngữ cảnh bomber, claim riêng R-026. **Phạm vi lớp:** `sub_B952E0` được gọi từ `0xB93A60` (`CGOPet` slot 24); chưa có consumer thuộc lớp bomber người chơi |
+| R-127 | Cổng input/di chuyển cho state `3` **chưa chứng minh cho bomber người chơi**: chuỗi đã trace `sub_B95180` → `0xB93830` (rồi `0xB93830` gọi cổng `sub_B95970` và mover `0xB93890`) nằm trong đường cập nhật `CGOPet` (`0xB93A60` = slot 24 `??_7CGOPet@@6B@`); **trong phạm vi `CGOPet`**, `sub_B95180` chỉ bỏ qua state `13`,`14`,`1` và `sub_B95970` chỉ loại `{0,1,4,13,14}`, nên state `3` qua cổng. Với bomber người chơi **chưa** có consumer thuộc lớp bomber; `len`/mover **unknown** — không suy ra "bị nhốt đi được" | — | `kr_static` / **candidate** (bomber); quan sát `CGOPet` chỉ trong phạm vi lớp, **không** nâng thành luật người chơi | `sub_B95180` `0x00B95180`, `0xB93830`, `sub_B95970` `0x00B95970`, `0xB93890`. `0xB93830` gọi cổng **trước** rồi mover — không phải `0xB95180 → 0xB95970 → 0xB93830`. `(dir,len)` là out-param của virtual call tại **byte +8** (slot 2 trên x86) của controller pet `*(pet+0xE0)` (getter `0x00B96310`/`0x00B971C0`); **không** gán `+0xE0` cho bomber — input dispatch bomber dùng sub-object **nhúng** tại byte `+1412`. Thân virtual byte +8 chưa định vị nên **không** suy ra `len > 0` cho state `3`. Đối chiếu `web`/NAMU R-029 "đi rất chậm" cũng chỉ là candidate |
+| R-128 | Họ state đi được chọn theo nhóm: đang ở nhóm khoá (`15..18` hoặc `19..22`) thì đặt `dir+19`, ngược lại `dir+9`; đổi nhóm xong thì state là `22` (mode khoá) hoặc `8` (mode thường) | 4 hướng × 2 họ | `kr_static` / confirmed | `sub_B95840` `0x00B95840` (chọn `a2+9`/`a2+19`), `sub_B95E00` `0x00B95E00` (nhận diện nhóm), `sub_B95BD0` `0x00B95BD0`. Phạm vi lớp: cùng cụm `0xB95xxx`, consumer đã trace là `CGOPet`; chưa chứng minh cho bomber người chơi |
+| R-129 | Đổi nhóm khoá đặt **bộ đếm giữ 20 bước cập nhật** (`this[235]` hoặc `this[236] = 20`), giảm 1 mỗi bước; trong lúc `> 0` cổng di chuyển trả `false` ⇒ đóng di chuyển 20 bước. Ở 30 ms/bước (R-013) tương đương ≈ 600 ms — **quy đổi, chưa đo trên KR**, và **không** phải thời gian bị nhốt | 20 bước (≈600 ms quy đổi) | `kr_static` / confirmed (cơ chế); đơn vị ms là quy đổi | `sub_B95BD0` `0x00B95BD0` (đặt `20`), `sub_B952E0` `0x00B952E0` (giảm), `sub_B95DA0`/`sub_B95DD0` (đọc), `sub_B95970` (dùng làm cổng). Phạm vi lớp: cùng cụm `0xB95xxx`; chưa có consumer thuộc lớp bomber người chơi |
+| R-130 | Chuỗi chết: state `13` (đang chết) → gọi `vf128` + `sub_B936F0(this[59], this[58])` → state `14`; state `14` → (nếu `this[234] == 1` thì đổi nhóm khoá về mode thường) → state `2`. `this[58]`/`this[59]` chưa xác định nghĩa | — | `kr_static` / confirmed (chuỗi state); nghĩa hai trường con `unknown` | `sub_B952E0` `0x00B952E0` case `13`/`14`. Phạm vi lớp: cùng cụm `0xB95xxx`; chưa chứng minh là chuỗi chết của bomber người chơi |
+| R-131 | **Chưa định vị** timer nhốt → chết. Client có tên hàng đợi defer `kCGameStage_DeferBomberLockedIn` (`0x017953C8`) và `kCGameStage_DeferBomberReleaseOrDie` (`0x01795074`) nhưng bảng tên chỉ đăng ký id, không trỏ hàm; khoảng packet 6359 ms (R-026) **không** phải timer nội bộ | — (không mang giá trị) | `kr_static` / unknown | Bảng tên tại `0x01795074`, `0x017953C8`; xref duy nhất là bảng đăng ký. Bước tiếp: tìm bộ thực thi defer theo id rồi lấy case tương ứng; nếu thân hàm ở `.themida` thì dừng và ghi entry VM theo DEVIRT_METHOD |
+
+R-127 **không** còn là bằng chứng cho bomber người chơi: chuỗi cổng `0xB95180 → 0xB93830 →
+(0xB95970, 0xB93890)` thuộc đường cập nhật `CGOPet` (R-134/R-135 ở PR #185, **chưa merge**), và
+`len`/mover của bomber vẫn `unknown`. Vì vậy mô hình `trapped` đứng yên của R-036/R-108 **không bị phủ
+định** bởi lượt đọc này; chỉ ghi nhận quan sát trong phạm vi `CGOPet`. Giá trị profile hiện hành
+(`player.trap_to_death_ms`, `player.trap_touch_distance_px`) **không đổi** trong PR này — và R-129
+**không** được dùng làm `trap_to_death_ms`: 20 bước là bộ đếm chuyển nhóm trình diễn, không phải thời
+gian bị nhốt. Bảng khác biệt và đề xuất ở
+[KR_RE_TRAPPED §7](../../research/findings/KR_RE_TRAPPED.md#7-khác-biệt-với-profile-hiện-tại-và-với-bnb).
