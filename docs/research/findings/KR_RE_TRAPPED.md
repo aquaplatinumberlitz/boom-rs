@@ -8,7 +8,7 @@ Không có binary, pack, IDA DB hay decompile nguyên văn trong repo.
 
 **Kết luận chính:** chưa chứng minh được bomber người chơi bị nhốt có di chuyển. Chuỗi cổng/di chuyển
 đã trace (`0xB95180 → 0xB93830`; `0xB93830` gọi cổng `0xB95970` rồi mover `0xB93890`) nằm trong đường
-cập nhật **`CGOPet`** — theo R-134/R-135 ở PR #185 (chưa merge, tham chiếu pending). Với bomber người
+cập nhật **`CGOPet`** — theo R-134/R-135 (RULES_V1 §15, PR #185). Với bomber người
 chơi, "bị nhốt đi được" vẫn là `candidate`/chưa chứng minh; khác R-036/R-108 (BnB design `trapped`
 đứng yên) **không** phải cơ sở để đổi luật người chơi.
 
@@ -107,7 +107,7 @@ Ba mắt xích, trong **phạm vi lớp đã trace**:
 3. **Cổng được dùng đúng.** `0xB93830` trả `0` (không đi) khi `sub_B95970` trả `0`; ngược lại gọi
    `0xB93890` với nguyên `len` (không nhân/chia trong `0xB93830`/`0xB93890`/`CMovable::MoveSimple`).
 
-**Phạm vi lớp (R-134/R-135, PR #185 — chưa merge, tham chiếu pending):** trong phạm vi xref đã quét,
+**Phạm vi lớp (R-134/R-135, RULES_V1 §15, PR #185):** trong phạm vi xref đã quét,
 caller duy nhất của `0xB95180` là `0xB93A82` trong `sub_B93A60` `0xB93A60`; `0xB93A60` là slot 24 của
 `??_7CGOPet@@6B@` (`0x1746E40`). Slot 24 của `CGOGameBomber`/`CGOBomber` là hàm khác và không gọi
 chuỗi trên. Vì vậy chuỗi này là đường **`CGOPet`/AI**, **không** phải bằng chứng cho bomber người chơi.
