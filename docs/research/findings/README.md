@@ -16,6 +16,7 @@ ghi provenance; VN là [trusted source ngang KR](../../decisions/0002-vn-kr-trus
 | [WEB_RULES_NAMU](WEB_RULES_NAMU.md) | Luật chơi/thông số trích từ namu (item, mode, monster, EXP, map, strategy) — candidate, chưa đối chiếu build |
 | [OSS_REIMPLEMENTATIONS](OSS_REIMPLEMENTATIONS.md) | Hằng số gameplay từ bản remake mã nguồn mở (fuse/trap/tick/speed px/s/drop weight) — candidate |
 | [KR_RE_MOVEMENT](KR_RE_MOVEMENT.md) | RE tĩnh KR 00967: movement, hộp bàn chân 40×40, neo toạ độ, trợ góc, cách đối chiếu VN↔KR (R-119…R-125). Phạm vi lớp: consumer đã trace là `CGOPet`/AI; R-119…R-122 confirmed chỉ cho `CMovable`, bomber là candidate/chưa chứng minh (R-134/R-135, PR #185 pending) |
+| [KR_RE_TRAPPED](KR_RE_TRAPPED.md) | RE tĩnh KR 00967: số state/chuyển state và phạm vi lớp `CGOPet`/bomber của chuỗi cổng–mover, nhóm state khoá, chuỗi chết (R-126…R-131); nhãn `3` = "bị nhốt" của pet là candidate |
 
 Nghiên cứu KR chuyên sâu hiện ở `/home/admin/boomkr-re/docs/`; xem `kr.md`, `kr-content.md`,
 `kr-data.md`. Đây là repo tham chiếu ngoài worktree; không copy code hoặc coi mọi kết luận cũ đã được audit.

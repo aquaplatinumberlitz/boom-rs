@@ -151,7 +151,7 @@ truy được tới:
 - `0x00B95180()` — lấy cặp `(dir, len)` từ **sub-object `+0xE0` của `CGOPet`** qua `vf[+8]`
   (byte +8 = slot 2 trên x86), rồi gọi `0x00B93830`.
 
-Theo R-134/R-135 của PR #185 (pending), chuỗi này thuộc `CGOPet`/AI và sub-object `+0xE0` là của
+Theo R-134/R-135 (RULES_V1 §15, PR #185), chuỗi này thuộc `CGOPet`/AI và sub-object `+0xE0` là của
 `CGOPet`, **không phải bomber**. Với bomber, đường đã trace mới chỉ là
 `0x00E13D00 → controller nhúng +1412 → vf3(dir)` (nhận hướng); **chưa thấy** nơi tạo/đọc `len` hay
 mover của bomber. Vì vậy:

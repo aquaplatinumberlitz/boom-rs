@@ -4,7 +4,7 @@ Metadata cho lượt truy vết bổ sung R-125/R-127, Refs
 [#146](https://github.com/aquaplatinumberlitz/boom-rs/issues/146) /
 [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147) / #176.
 Kết luận và suy luận ở [KR_RE_TRAPPED_SPEED](../../../research/findings/KR_RE_TRAPPED_SPEED.md);
-claim ở [RULES_V1 §14](../../../specification/gameplay/RULES_V1.md#14-re-kr-00967--phạm-vi-lớp-của-chuỗi-movement-r-134-r-135).
+claim ở [RULES_V1 §15](../../../specification/gameplay/RULES_V1.md#15-re-kr-00967--phạm-vi-lớp-của-chuỗi-movement-r-134-r-135).
 Không có binary, pack, DB hay decompile nguyên văn.
 
 ## Định danh build
