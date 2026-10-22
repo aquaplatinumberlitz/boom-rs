@@ -1,6 +1,6 @@
 # boom-replay golden v1 fnv1a64-v0 profile skeleton-test mode battle_ffa content 20bda34f6cc31800fb947a1013c12937404dcfe93a84feeb06068978d6597a39
-tick 1 state 0x360c921eab2494ab
-tick 10 state 0x01ec752d1693a73e
-final tick 10 state 0x01ec752d1693a73e
+tick 1 state 0xc02b7fcc4139167b
+tick 10 state 0x3b9c8b6068b7b5de
+final tick 10 state 0x3b9c8b6068b7b5de
 events 0 digest 0x4d25767f9dce13f5
 outcome playing

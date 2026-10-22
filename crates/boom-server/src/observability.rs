@@ -3,6 +3,9 @@
 //! Mọi dòng log là một object JSON trên stdout. Trường bắt buộc của ADR 0011 §8.1 được thêm ở
 //! đây, không phụ thuộc caller nhớ. Không có API nhận token/mật khẩu/PHC string; `Secret<T>` của
 //! identity (khi merge) chỉ được log qua định danh không nhạy cảm.
+//!
+//! Module này giữ **ngữ vựng log**: tên sự kiện, mã lý do disconnect, nhãn pha round và các
+//! trường ngữ cảnh dùng chung. Nơi phát sự kiện là lớp gọi (server/runtime), không phải ở đây.
 
 use std::collections::BTreeMap;
 use std::io::{self, Write};
@@ -43,6 +46,119 @@ pub mod events {
     /// (ADR 0009 Addendum B §B.2). Không phải lỗi sequence: client chỉ chưa biết
     /// slot của mình.
     pub const INPUT_SLOT_MISMATCH: &str = "input.slot_mismatch";
+    /// Round vừa được tạo: loading barrier mở, roster đã chốt.
+    pub const ROUND_START: &str = "round.start";
+    /// Một người chơi đã báo xong loading (vẫn ở pha loading).
+    pub const ROUND_LOADING: &str = "round.loading";
+    /// Loading barrier đóng ⇒ trận bắt đầu chạy.
+    pub const ROUND_PLAYING: &str = "round.playing";
+    /// Kết quả round đã chốt (thắng/hòa/hủy).
+    pub const ROUND_RESULT: &str = "round.result";
+    /// Round kết thúc: về phòng chờ hoặc bị hủy.
+    pub const ROUND_END: &str = "round.end";
+    /// Người chơi mất kết nối hoặc rời phòng; lý do nằm ở trường `reason`.
+    pub const PLAYER_DISCONNECT: &str = "player.disconnect";
+    /// Nạp content thành công; dòng này mang `content_sha256` thật.
+    pub const CONTENT_LOAD_OK: &str = "content.load_ok";
+    /// Nạp content thất bại: `error_code` + đường dẫn file, **không** ghi nội dung file.
+    ///
+    /// Tên đúng theo ADR 0011 §8.1 là `content.load_fail` (không phải `content.load_failed`).
+    pub const CONTENT_LOAD_FAIL: &str = "content.load_fail";
+}
+
+/// Nhãn pha vòng đời round ghi vào trường `phase` (ADR 0011 §8.1).
+///
+/// Nhãn khớp `ServerPhase::label()` của authority: `loading`, `playing`, `results`, `waiting`.
+pub mod phases {
+    /// Phòng chờ (chưa có round).
+    pub const WAITING: &str = "waiting";
+    /// Loading barrier đang mở.
+    pub const LOADING: &str = "loading";
+    /// Trận đang chạy.
+    pub const PLAYING: &str = "playing";
+    /// Kết quả đã chốt, chờ ack.
+    pub const RESULTS: &str = "results";
+}
+
+/// Lý do disconnect ghi vào trường `reason` (ADR 0011 §8.1).
+///
+/// Tách khỏi `revoke_reason` (mã lý do **thu hồi phiên** trong DB, ADR 0011 §6.1): một
+/// người chơi có thể rời phòng (`kicked`) mà phiên vẫn sống, và ngược lại phiên bị thu hồi
+/// vì `expired` không phải là disconnect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DisconnectReason {
+    /// Client đóng socket (EOF/RST) hoặc chủ động rời (logout).
+    ClientClosed,
+    /// Im lặng quá hạn liveness (không có `Pong`).
+    TimeoutNoInput,
+    /// Bị host kick khỏi phòng.
+    Kicked,
+    /// Server tắt (SIGTERM/Ctrl-C).
+    ServerShutdown,
+    /// Lỗi giao thức (frame sai, kind lạ, handshake sai).
+    ProtocolError,
+    /// Không hoàn tất handshake/auth trong hạn.
+    AuthFailed,
+}
+
+impl DisconnectReason {
+    /// Mã lý do ổn định ghi vào log (ADR 0011 §8.1).
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ClientClosed => "client_closed",
+            Self::TimeoutNoInput => "timeout_no_input",
+            Self::Kicked => "kicked",
+            Self::ServerShutdown => "server_shutdown",
+            Self::ProtocolError => "protocol_error",
+            Self::AuthFailed => "auth_failed",
+        }
+    }
+}
+
+/// Ngữ cảnh phòng/round gắn vào log vận hành (ADR 0011 §8.1).
+///
+/// `room_id`/`round_id` là **ngữ cảnh của chính người đó**: chỉ gắn khi tài khoản thực sự
+/// thuộc roster phòng (và roster của round). Tài khoản đứng sảnh, connection chưa auth
+/// hoặc người đã rời phòng **không** mang ngữ cảnh nào ⇒ hai trường để trống (null),
+/// không gắn ID phòng/trận của người khác vào log của họ.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RoomContext {
+    /// ID phòng **public** (giống `RoomState.room_id` mà client thấy).
+    pub room_id: Option<u64>,
+    /// ID round **public** (giống `RoundStart.round_id` trên dây).
+    pub round_id: Option<u32>,
+}
+
+impl RoomContext {
+    /// Ngữ cảnh rỗng: không gắn `room_id`/`round_id`.
+    pub const NONE: Self = Self {
+        room_id: None,
+        round_id: None,
+    };
+
+    /// Ghi `room_id`/`round_id` vào trường log; thiếu thì để trống ⇒ `null` (Logger tự điền).
+    pub fn apply(&self, fields: &mut LogFields) {
+        if let Some(room_id) = self.room_id {
+            fields.insert("room_id", json!(room_id));
+        }
+        if let Some(round_id) = self.round_id {
+            fields.insert("round_id", json!(round_id));
+        }
+    }
+}
+
+/// Trường ngữ cảnh của sự kiện vòng đời round (ADR 0011 §8.1).
+///
+/// Mọi sự kiện `round.*` đều mang `round_id` thật (ID public trên dây) để đối chiếu log với
+/// `RoundStart`/`RoundResult` mà client nhận được.
+pub fn round_fields(round_id: u64, room_id: Option<u64>, phase: &str) -> LogFields {
+    let mut fields = LogFields::new();
+    fields.insert("round_id", serde_json::json!(round_id));
+    if let Some(room_id) = room_id {
+        fields.insert("room_id", serde_json::json!(room_id));
+    }
+    fields.insert("phase", serde_json::json!(phase));
+    fields
 }
 
 /// Mức log cố định.
@@ -244,6 +360,43 @@ impl Write for SharedLogBuffer {
     }
 }
 
+/// Writer dùng chung cho **nhiều** `Logger`.
+///
+/// `Logger` giữ writer riêng nên hai logger không thể ghi vào cùng một chỗ. Kiểu này bọc
+/// writer trong `Arc<Mutex<..>>`: logger bootstrap (dựng **trước** khi nạp content, để lỗi
+/// nạp cũng đi qua log JSON) và logger thật (fingerprint đầy đủ) ghi vào cùng một chỗ —
+/// stdout ở production, buffer trong bộ nhớ ở test.
+#[derive(Clone)]
+pub struct SharedLogSink {
+    inner: Arc<Mutex<Box<dyn Write + Send>>>,
+}
+
+impl SharedLogSink {
+    /// Bọc một writer bất kỳ (stdout, buffer, file…).
+    pub fn new(sink: Box<dyn Write + Send>) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(sink)),
+        }
+    }
+
+    /// Writer mới trỏ vào **cùng** sink (để dựng `Logger` thứ hai).
+    pub fn writer(&self) -> Box<dyn Write + Send> {
+        Box::new(self.clone())
+    }
+}
+
+impl Write for SharedLogSink {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let mut sink = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        sink.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        let mut sink = self.inner.lock().unwrap_or_else(|err| err.into_inner());
+        sink.flush()
+    }
+}
+
 /// Sinh boot id đơn giản, không phải bí mật; `instance_id` chỉ để đối chiếu log/artifact.
 pub fn new_instance_id() -> String {
     format!("{:016x}", now_ms() ^ u64::from(std::process::id()))
@@ -351,5 +504,60 @@ mod tests {
             rfc3339_utc_ms(1_700_000_000_123),
             "2023-11-14T22:13:20.123Z"
         );
+    }
+
+    #[test]
+    fn round_fields_luon_round_id_va_pha() {
+        let fields = round_fields(7, Some(3), phases::LOADING);
+        assert_eq!(fields.get("round_id"), Some(&json!(7)));
+        assert_eq!(fields.get("room_id"), Some(&json!(3)));
+        assert_eq!(fields.get("phase"), Some(&json!("loading")));
+        // Không có phòng thì không ghi `room_id` giả (trường bắt buộc vẫn là null).
+        let fields = round_fields(8, None, phases::PLAYING);
+        assert!(!fields.contains_key("room_id"));
+    }
+
+    #[test]
+    fn ma_ly_do_disconnect_khop_adr_0011() {
+        assert_eq!(DisconnectReason::ClientClosed.as_str(), "client_closed");
+        assert_eq!(
+            DisconnectReason::TimeoutNoInput.as_str(),
+            "timeout_no_input"
+        );
+        assert_eq!(DisconnectReason::Kicked.as_str(), "kicked");
+        assert_eq!(DisconnectReason::ServerShutdown.as_str(), "server_shutdown");
+        assert_eq!(DisconnectReason::ProtocolError.as_str(), "protocol_error");
+        assert_eq!(DisconnectReason::AuthFailed.as_str(), "auth_failed");
+    }
+
+    #[test]
+    fn shared_log_sink_ghi_vao_cung_mot_cho() {
+        let buffer = SharedLogBuffer::new();
+        let sink = SharedLogSink::new(Box::new(buffer.clone()));
+        let first = Logger::new(
+            OperationalConfig::default().fingerprint(),
+            "boot".into(),
+            1,
+            sink.writer(),
+        );
+        let second = Logger::new(
+            OperationalConfig::default().fingerprint(),
+            "boot".into(),
+            1,
+            sink.writer(),
+        );
+        first.info("round.start", LogFields::new());
+        second.info("round.end", LogFields::new());
+        let events: Vec<String> = buffer
+            .lines()
+            .iter()
+            .map(|line| {
+                line.get("event")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or_default()
+                    .to_owned()
+            })
+            .collect();
+        assert_eq!(events, vec!["round.start", "round.end"]);
     }
 }

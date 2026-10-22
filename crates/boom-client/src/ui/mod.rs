@@ -18,11 +18,11 @@
 //! - [SCOPE_V1 §3](../../../../docs/planning/SCOPE_V1.md) — policy phòng và vòng đời
 //!   (kết quả do server quyết, rời trận chủ động là bị loại).
 //!
-//! ## Chưa có mạng
+//! ## Nguồn dữ liệu
 //!
 //! Nguồn dữ liệu là trait [`model::UiBackend`]. Bản offline giả lập là
-//! [`demo::DemoBackend`] (chế độ `--ui-demo`); bản mạng nối vào sau khi #89/#99 merge
-//! (task riêng) — model và layout không đổi.
+//! [`demo::DemoBackend`] (chế độ `--ui-demo`); bản mạng là
+//! [`crate::net::ui_backend::NetBackend`] (server thật) — model và layout không đổi.
 
 pub mod app;
 pub mod demo;

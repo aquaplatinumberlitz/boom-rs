@@ -1,0 +1,38 @@
+# R-100 / BnB `server/game.js:616–646`: 90 tick đầu lượt **đóng băng** — không movement, không
+# đặt bom, không timer — và đồng hồ lượt chỉ chạy sau warmup: hết giờ ở tick 90 + 7200 = 7290
+# (state.tick), tức event `round_ended` ở tick 7289. Overlay `bnb-timing` đặt warmup = 90 tick
+# ở 60 Hz (profile V1: 3000 ms ở 30 Hz).
+name = "Warmup đóng băng lượt rồi đồng hồ lượt mới chạy"
+features = ["V1-021"]
+claims = ["R-100"]
+status = "active"
+ticks = 7300
+overlays = ["../../rules/bnb-timing.toml"]
+map = [
+    "######",
+    "#0...#",
+    "######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+
+[[expect]]
+tick = 7290
+event = "round_ended"
+where = { winner = -1 }
+count = 1
+
+[end]
+outcome = "draw"

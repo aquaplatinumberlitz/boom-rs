@@ -1,8 +1,9 @@
-# Ca biên: chỉ số đã ở trần thì không nhặt — item vẫn nằm trên nền, không áp hiệu ứng và
-# không phát event (R-058). Nhặt là atomic: item chỉ mất khi hiệu ứng áp được (SCOPE_V1 §4).
-name = "Đã chạm trần thì item ở lại trên nền, không nhặt"
+# Ca biên: chỉ số **đã ở trần** thì item vẫn **mất** — BnB gỡ item khỏi nền trước khi áp
+# hiệu ứng nên ở trần hiệu ứng không tăng nhưng item đã rời nền (R-109; `game.js:577–581`).
+# Trước ADR 0012 V1 giữ item trên nền (R-058, đã superseded).
+name = "Đã chạm trần thì item vẫn mất khỏi nền, chỉ số không tăng"
 features = ["V1-017"]
-claims = ["R-025", "R-058"]
+claims = ["R-056", "R-109"]
 status = "active"
 ticks = 20
 map = [
@@ -26,11 +27,13 @@ tick = 0
 player = 0
 dir = "right"
 
-# Người chơi bước vào ô (2,1) ở tick 10; số bom đã ở trần nên không có event nhặt.
+# Người chơi bước vào ô (2,1) ở tick 10; số bom đã ở trần nên không tăng, nhưng item rời nền
+# nên vẫn phát event nhặt.
 [[expect]]
 tick = 10
 event = "item_picked"
-count = 0
+where = { player = 0, kind = 0 }
+count = 1
 
 [[expect]]
 tick = 20
@@ -39,9 +42,9 @@ bombs = 3
 
 [[expect]]
 tick = 20
-item_count = 1
+item_count = 0
 
 [[expect]]
 tick = 20
 at = [2, 1]
-item = "Bomb"
+item = "none"

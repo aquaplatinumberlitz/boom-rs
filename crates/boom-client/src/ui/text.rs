@@ -22,6 +22,11 @@ pub struct Texts {
 }
 
 impl Texts {
+    /// Dùng bộ chuỗi đã nạp từ gói phát hành.
+    pub fn from_l10n(l10n: L10n) -> Self {
+        Self { l10n }
+    }
+
     /// Nạp từ nội dung TOML của file chuỗi.
     pub fn from_toml(text: &str) -> Result<Self, L10nError> {
         Ok(Self {

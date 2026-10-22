@@ -1,13 +1,24 @@
-//! Giấu item đầu lượt, phá khối mềm, lộ item — V1-016.
+//! Phá khối mềm, lửa đốt item và **rơi item khi gạch vỡ** — V1-016.
 //!
-//! **Đầu lượt** (`on_round_start`): duyệt các khối mềm theo thứ tự hàng rồi cột, mỗi khối
-//! rút đúng một số phần nghìn; số nhỏ hơn `Rules::brick_item_chance_permille` thì khối mềm đó
-//! giấu một item, loại chọn theo trọng số `Rules::items` (lấy mẫu không lệch bằng `Rng::below`).
-//! Item được quyết trước trận (R-050), nên cùng seed cho cùng bố cục item giấu (R-067).
+//! **Roll khi gạch vỡ** (R-106, R-109; BnB `server/game.js:424–430`): V1 **không** giấu item
+//! trước lượt nữa. Mỗi khối mềm bị vụ nổ phủ sẽ vỡ thành nền, rồi mới rút một số phần nghìn:
+//! nhỏ hơn `Rules::brick_item_chance_permille` (`drop.brick_item_chance`) thì khối vỡ **rơi ra
+//! một item**, loại chọn theo trọng số `Rules::items` (bảng trọng số cộng dồn, lấy mẫu không lệch
+//! bằng `Rng::below`). Cùng seed cho cùng bố cục item rơi.
 //!
-//! **Trong lượt** (`run`): ô nào có lửa và là khối mềm thì khối vỡ thành nền (`block_destroyed`);
-//! nếu khối vừa vỡ giấu item thì item lộ ra, nằm trên nền (`item_revealed`). Lửa không phá
-//! item đang nằm trên nền (R-068): item chỉ rời nền khi người chơi nhặt (R-054).
+//! **Lửa đốt item cũ trước, item mới sinh sau** (R-109; BnB `server/game.js:415–417,424–430`):
+//! BnB đốt item nằm trên nền ở ô bị vụ nổ phủ *trong lúc xử lý bom*, rồi mới phá khối và rơi
+//! item mới ở ô vừa vỡ. V1 giữ đúng thứ tự đó: `blocks` đốt item cũ ở **mọi** ô bị vụ nổ phủ
+//! trước, rồi mới vỡ khối và rơi item mới — nên item vừa rơi không bị đốt bởi chính vụ nổ đó.
+//!
+//! **Mỗi ô một lần** (R-109): kênh blast của tick (`TickScratch`) đã sắp theo ô và khử trùng,
+//! nên một khối mềm bị nhiều bom trong cùng chuỗi nổ phủ vẫn chỉ vỡ **một** lần và chỉ rơi
+//! **một** item — không roll lặp theo số bom.
+//!
+//! **Thứ tự rút RNG:** mỗi khối vỡ rút đúng **một** số phần nghìn (kể cả khi trượt), và chỉ khi
+//! trúng mới rút thêm một số để chọn loại item — giống BnB (`game.js:429` rút một số cho xác
+//! suất, `rollItem()` rút thêm một số cho loại). Các khối được rút theo thứ tự ô (hàng rồi
+//! cột) của kênh blast, **không** theo thứ tự chèn của `Map` JS: khác biệt có chủ ý (ADR 0012).
 //!
 //! Quyền ghi và event được phép: bảng trong `systems/mod.rs`. Kịch bản nghiệm thu:
 //! `fixtures/scenarios/blocks/` (`active`). Luật và nguồn: RULES_V1; giá trị lấy từ `Rules`.
@@ -15,9 +26,9 @@
 use boom_content::map::CellKind;
 
 use crate::event::{EventKind, EventSink};
-use crate::num::Cell;
 use crate::rng::Rng;
 use crate::rules::ItemDef;
+use crate::scratch::TickScratch;
 use crate::sim::{PlayerInput, World};
 use crate::state::{FloorItem, ItemKind, SimulationState};
 use crate::system::System;
@@ -36,59 +47,67 @@ impl System for Blocks {
         "blocks"
     }
 
-    fn on_round_start(&self, world: &World, state: &mut SimulationState) {
+    fn run(
+        &self,
+        world: &World,
+        state: &mut SimulationState,
+        _inputs: &[PlayerInput],
+        events: &mut EventSink<'_>,
+        scratch: &mut TickScratch,
+    ) {
         let rules = world.rules();
         let total_weight: u32 = rules.items.iter().map(|i| i.weight).sum();
-        // Ô khối mềm, thứ tự hàng rồi cột: thứ tự duyệt là thứ tự rút RNG.
-        let cells: Vec<Cell> = {
-            let field = &state.field;
-            field
-                .cells()
-                .filter(|c| field.kind(*c) == Some(CellKind::Breakable))
-                .collect()
-        };
-        for cell in cells {
-            // Mỗi khối mềm rút đúng một số phần nghìn, kể cả khi không giấu item, để dòng RNG
-            // chỉ phụ thuộc số khối mềm chứ không phụ thuộc giá trị xác suất của profile.
+
+        // Ô bị vụ nổ phủ: kênh blast của tick đã sắp theo ô và khử trùng, nên mỗi ô vào
+        // đúng một lần dù chuỗi nổ có nhiều bom.
+        let blasted = scratch.take_blasts();
+
+        // **Bước 1 — lửa đốt item cũ** (BnB `game.js:415–417`): item nằm trên nền ở ô bị vụ
+        // nổ phủ bị đốt. Làm trước khi rơi item mới để item vừa rơi ở ô vừa vỡ không bị đốt bởi
+        // chính vụ nổ đó (BnB đốt hết rồi mới rơi).
+        for cell in &blasted {
+            let Some(index) = state.items.iter().position(|it| it.cell == *cell) else {
+                continue;
+            };
+            let item = state.items.remove(index);
+            events.emit(EventKind::ItemDestroyed {
+                item: item.id,
+                cell: *cell,
+            });
+        }
+
+        // **Bước 2 — khối mềm vỡ rồi mới rơi item** (BnB `game.js:424–430`): ô bị vụ nổ phủ mà
+        // là khối mềm thì vỡ thành nền (`block_destroyed`); xác suất có item lấy từ profile.
+        for cell in &blasted {
+            if state.field.kind(*cell) != Some(CellKind::Breakable) {
+                continue;
+            }
+            state.field.set_kind(*cell, CellKind::Floor);
+            events.emit(EventKind::BlockDestroyed { cell: *cell });
+            // Mỗi khối vỡ rút đúng một số phần nghìn, kể cả khi không rơi item, để dòng RNG
+            // chỉ phụ thuộc số khối vỡ chứ không phụ thuộc kết quả rút.
             if state.rng.below(PERMILLE) >= rules.brick_item_chance_permille {
                 continue;
             }
             let Some(kind) = pick_by_weight(&mut state.rng, &rules.items, total_weight) else {
-                // Không có loại item nào có trọng số: khối mềm không giấu được gì.
+                // Không có loại item nào có trọng số: khối vỡ không rơi được gì.
                 continue;
             };
-            state.field.set_hidden(cell, Some(kind));
-        }
-    }
-
-    fn run(
-        &self,
-        _world: &World,
-        state: &mut SimulationState,
-        _inputs: &[PlayerInput],
-        events: &mut EventSink<'_>,
-    ) {
-        // Ô có lửa: khối mềm vỡ thành nền. Lửa không phá item đang nằm trên nền (R-068).
-        let flaming: Vec<Cell> = state.flames.iter().map(|f| f.cell).collect();
-        for cell in flaming {
-            if state.field.kind(cell) != Some(CellKind::Breakable) {
-                continue;
-            }
-            state.field.set_kind(cell, CellKind::Floor);
-            events.emit(EventKind::BlockDestroyed { cell });
-            let Some(kind) = state.field.hidden(cell) else {
-                continue;
-            };
-            state.field.set_hidden(cell, None);
             let id = state.ids.next_id();
-            state.items.push(FloorItem { id, kind, cell });
-            state.items.sort_by_key(|i| i.id);
+            state.items.push(FloorItem {
+                id,
+                kind,
+                cell: *cell,
+            });
             events.emit(EventKind::ItemRevealed {
                 item: id,
                 kind,
-                cell,
+                cell: *cell,
             });
         }
+        // Item mới có id lớn hơn mọi item đang có, nên danh sách vẫn sắp theo id (bất biến
+        // contract) sau khi thêm; sắp lại một lần cho chắc.
+        state.items.sort_by_key(|i| i.id);
     }
 }
 
@@ -114,11 +133,13 @@ mod tests {
     use boom_content::map::Terrain;
     use boom_content::rules::RulesProfile;
 
-    use crate::event::{EventId, SimulationEvent};
+    use crate::event::{EventId, EventSink, SimulationEvent};
     use crate::mode::mode_by_id;
+    use crate::num::Cell;
     use crate::rules::Rules;
     use crate::sim::PlayerSetup;
-    use crate::state::{CharacterStats, EntityId, Flame, Stat};
+    use crate::state::{CharacterStats, EntityId, Stat};
+    use crate::system::System;
 
     const PROFILE: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
 
@@ -155,71 +176,171 @@ mod tests {
         rows
     }
 
-    fn hidden_items(state: &SimulationState) -> Vec<(Cell, ItemKind)> {
-        state
-            .field
-            .cells()
-            .filter_map(|c| state.field.hidden(c).map(|k| (c, k)))
-            .collect()
-    }
-
     fn new_round<S: AsRef<str>>(rows: &[S], seed: u64) -> SimulationState {
         let w = world(rows);
         SimulationState::new_round(&w, &[setup()], seed).unwrap()
     }
 
-    fn step(w: &World, state: &mut SimulationState) -> Vec<SimulationEvent> {
+    /// Chạy **riêng** system `blocks`: kênh blast do `explosion` ghi, `blocks` đọc rồi xóa,
+    /// nên test phần này phải dựng sẵn kênh rồi gọi thẳng system.
+    fn run_blocks(
+        w: &World,
+        state: &mut SimulationState,
+        scratch: &mut TickScratch,
+    ) -> Vec<SimulationEvent> {
         let mut events = Vec::new();
-        state
-            .step(w, &[PlayerInput::default()], &mut events)
-            .unwrap();
+        let mut sink = EventSink::new(state.tick, &mut events);
+        BLOCKS.run(w, state, &[PlayerInput::default()], &mut sink, scratch);
         state.check_invariants(w).unwrap();
         events
     }
 
-    fn flame(cell: Cell, until: u32) -> Flame {
-        Flame {
-            cell,
-            until,
-            source: EntityId(0),
-            owner: 0,
-        }
+    /// Ô vừa bị vụ nổ phủ: kênh mà `explosion` ghi, `blocks` đọc để phá khối mềm.
+    fn blast(cell: Cell) -> Vec<Cell> {
+        vec![cell]
+    }
+
+    /// Item nằm trên nền ở ô `cell` (dựng sẵn như fixture).
+    fn floor_item(state: &mut SimulationState, cell: Cell, kind: ItemKind) -> EntityId {
+        let id = state.ids.next_id();
+        state.items.push(FloorItem { id, kind, cell });
+        id
+    }
+
+    /// Số phần nghìn mà RNG rút ra ở lần đầu: dùng để chọn seed có xác suất trúng/trượt.
+    fn first_permille(seed: u64) -> u32 {
+        let mut rng = Rng::new(seed);
+        rng.below(PERMILLE)
+    }
+
+    /// Seed mà lần rút đầu **trượt** (không rơi item).
+    fn missing_seed() -> u64 {
+        (1u64..)
+            .find(|s| first_permille(*s) >= rules().brick_item_chance_permille)
+            .expect("có seed trượt")
+    }
+
+    /// Seed mà lần rút đầu **trúng** (rơi item).
+    fn hit_seed() -> u64 {
+        (1u64..)
+            .find(|s| first_permille(*s) < rules().brick_item_chance_permille)
+            .expect("có seed trúng")
+    }
+
+    /// Loại item mà seed `s` rơi ra: đọc dòng RNG đúng thứ tự luật định (xác suất trước,
+    /// rồi mới tới loại). Test này ghim **thứ tự rút**, không ghim thuật toán chọn theo trọng
+    /// số — thuật toán đó có test riêng trên mẫu lớn.
+    fn rolled_kind(s: u64) -> ItemKind {
+        let mut rng = Rng::new(s);
+        let _chance = rng.below(PERMILLE);
+        let items = rules().items.clone();
+        let total: u32 = items.iter().map(|i| i.weight).sum();
+        pick_by_weight(&mut rng, &items, total).expect("luôn chọn được loại")
     }
 
     #[test]
-    fn hidden_items_are_decided_before_the_round_starts() {
-        let rows = soft_map(6, 4);
-        let state = new_round(&rows, 7);
-        // Item giấu chỉ nằm trong khối mềm.
-        for cell in state.field.cells() {
-            if state.field.hidden(cell).is_some() {
-                assert_eq!(state.field.kind(cell), Some(CellKind::Breakable));
+    fn broken_block_drops_one_item() {
+        let rows = ["#####", "#0+.#", "#####"];
+        let w = world(&rows);
+        let mut state = new_round(&rows, 1);
+        // RNG của lượt do test kiểm soát: lần rút đầu trúng nên khối vỡ rơi item.
+        state.rng = Rng::new(hit_seed());
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        let events = run_blocks(&w, &mut state, &mut scratch);
+
+        assert_eq!(
+            events,
+            vec![
+                SimulationEvent {
+                    id: EventId { tick: 0, seq: 0 },
+                    kind: EventKind::BlockDestroyed {
+                        cell: Cell::new(2, 1)
+                    },
+                },
+                SimulationEvent {
+                    id: EventId { tick: 0, seq: 1 },
+                    kind: EventKind::ItemRevealed {
+                        item: EntityId(1),
+                        kind: rolled_kind(hit_seed()),
+                        cell: Cell::new(2, 1),
+                    },
+                },
+            ]
+        );
+        assert_eq!(state.field.kind(Cell::new(2, 1)), Some(CellKind::Floor));
+        assert_eq!(
+            state.items,
+            vec![FloorItem {
+                id: EntityId(1),
+                kind: rolled_kind(hit_seed()),
+                cell: Cell::new(2, 1),
+            }]
+        );
+    }
+
+    #[test]
+    fn broken_block_may_drop_nothing() {
+        let rows = ["#####", "#0+.#", "#####"];
+        let w = world(&rows);
+        let mut state = new_round(&rows, 1);
+        state.rng = Rng::new(missing_seed());
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        let events = run_blocks(&w, &mut state, &mut scratch);
+
+        assert_eq!(events.len(), 1, "chỉ có `block_destroyed`");
+        assert_eq!(
+            events[0].kind,
+            EventKind::BlockDestroyed {
+                cell: Cell::new(2, 1)
             }
-        }
-        // Chưa có item nào nằm trên nền lúc đầu lượt: item chỉ lộ ra khi khối vỡ.
-        assert!(state.items.is_empty());
+        );
+        assert!(state.items.is_empty(), "lần rút trượt thì không rơi item");
+        assert_eq!(state.field.kind(Cell::new(2, 1)), Some(CellKind::Floor));
     }
 
     #[test]
-    fn same_seed_gives_same_hidden_items_and_other_seed_differs() {
+    fn same_seed_gives_same_drops_and_other_seed_differs() {
         let rows = soft_map(8, 6);
-        let a = new_round(&rows, 7);
-        let b = new_round(&rows, 7);
-        assert_eq!(hidden_items(&a), hidden_items(&b));
-        let differs = (1..40).any(|seed| hidden_items(&new_round(&rows, seed)) != hidden_items(&a));
-        assert!(differs, "đổi seed phải đổi được bố cục item giấu");
+        let drops = |seed: u64| -> Vec<(Cell, ItemKind)> {
+            let w = world(&rows);
+            let mut state = new_round(&rows, seed);
+            let mut scratch = TickScratch::new();
+            // Vụ nổ phủ toàn bộ khối mềm: mọi khối vỡ trong một tick.
+            let cells: Vec<Cell> = state
+                .field
+                .cells()
+                .filter(|c| state.field.kind(*c) == Some(CellKind::Breakable))
+                .collect();
+            scratch.merge_blasts(cells);
+            run_blocks(&w, &mut state, &mut scratch);
+            state.items.iter().map(|i| (i.cell, i.kind)).collect()
+        };
+        assert_eq!(drops(7), drops(7), "cùng seed cho cùng item rơi");
+        let differs = (1..40).any(|seed| drops(seed) != drops(7));
+        assert!(differs, "đổi seed phải đổi được bố cục item rơi");
     }
 
     #[test]
-    fn hidden_kind_follows_item_weights() {
-        // Mẫu lớn: tỉ lệ loại item giấu phải bám trọng số trong `Rules::items`.
+    fn drop_kind_follows_item_weights() {
+        // Mẫu lớn: tỉ lệ loại item rơi phải bám trọng số trong `Rules::items`.
         let rows = soft_map(40, 40);
         let mut counts = [0usize; 3];
         let mut total = 0usize;
         for seed in 0..40u64 {
-            let state = new_round(&rows, seed);
-            for (_, kind) in hidden_items(&state) {
-                counts[usize::from(kind.0)] += 1;
+            let w = world(&rows);
+            let mut state = new_round(&rows, seed);
+            let mut scratch = TickScratch::new();
+            let cells: Vec<Cell> = state
+                .field
+                .cells()
+                .filter(|c| state.field.kind(*c) == Some(CellKind::Breakable))
+                .collect();
+            scratch.merge_blasts(cells);
+            run_blocks(&w, &mut state, &mut scratch);
+            for item in &state.items {
+                counts[usize::from(item.kind.0)] += 1;
                 total += 1;
             }
         }
@@ -235,6 +356,35 @@ mod tests {
                 "loại {i}: {got}‰ khác {expected}‰ quá 20‰"
             );
         }
+    }
+
+    #[test]
+    fn drop_chance_matches_the_profile() {
+        // Xác suất gạch có item lấy từ profile (`drop.brick_item_chance`).
+        let rows = soft_map(40, 40);
+        let mut dropped = 0usize;
+        let mut broken = 0usize;
+        for seed in 0..20u64 {
+            let w = world(&rows);
+            let mut state = new_round(&rows, seed);
+            let mut scratch = TickScratch::new();
+            let cells: Vec<Cell> = state
+                .field
+                .cells()
+                .filter(|c| state.field.kind(*c) == Some(CellKind::Breakable))
+                .collect();
+            broken += cells.len();
+            scratch.merge_blasts(cells);
+            run_blocks(&w, &mut state, &mut scratch);
+            dropped += state.items.len();
+        }
+        let chance = rules().brick_item_chance_permille;
+        let got = (dropped as u32 * 1000) / broken as u32;
+        let expected = chance * 1000 / PERMILLE;
+        assert!(
+            got.abs_diff(expected) <= 20,
+            "tỉ lệ rơi {got}‰ khác {expected}‰ quá 20‰"
+        );
     }
 
     #[test]
@@ -261,92 +411,151 @@ mod tests {
     }
 
     #[test]
-    fn flame_breaks_block_once_and_reveals_item() {
+    fn blast_breaks_block_once_and_drops_one_item() {
         let rows = ["#####", "#0+.#", "#####"];
         let w = world(&rows);
         let mut state = new_round(&rows, 1);
-        // Giấu sẵn item trong khối mềm như scenario dựng sẵn.
-        state.field.set_hidden(Cell::new(2, 1), Some(ItemKind(2)));
-        state.flames.push(flame(Cell::new(2, 1), 5));
-        let events = step(&w, &mut state);
+        state.rng = Rng::new(hit_seed());
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        let events = run_blocks(&w, &mut state, &mut scratch);
 
-        assert_eq!(
-            events,
-            vec![
-                SimulationEvent {
-                    id: EventId { tick: 0, seq: 0 },
-                    kind: EventKind::BlockDestroyed {
-                        cell: Cell::new(2, 1)
-                    },
-                },
-                SimulationEvent {
-                    id: EventId { tick: 0, seq: 1 },
-                    kind: EventKind::ItemRevealed {
-                        item: EntityId(1),
-                        kind: ItemKind(2),
-                        cell: Cell::new(2, 1),
-                    },
-                },
-            ]
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::BlockDestroyed { .. }))
         );
-        assert_eq!(state.field.kind(Cell::new(2, 1)), Some(CellKind::Floor));
-        assert_eq!(state.field.hidden(Cell::new(2, 1)), None);
-        assert_eq!(
-            state.items,
-            vec![FloorItem {
-                id: EntityId(1),
-                kind: ItemKind(2),
-                cell: Cell::new(2, 1),
-            }]
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e.kind, EventKind::ItemRevealed { .. }))
         );
+        assert_eq!(state.items.len(), 1);
 
-        // Lửa còn ở ô đó nhưng khối đã vỡ: không phá thêm lần nữa.
-        let later = step(&w, &mut state);
+        // Khối đã vỡ: không phá thêm lần nữa, không rơi thêm item.
+        let later = run_blocks(&w, &mut state, &mut scratch);
         assert!(later.is_empty(), "khối mềm chỉ vỡ một lần");
         assert_eq!(state.items.len(), 1);
     }
 
     #[test]
-    fn flame_keeps_item_lying_on_the_floor() {
-        // R-068: lửa không phá item đang nằm trên nền.
+    fn blast_burns_the_item_lying_on_the_floor() {
+        // R-109: lửa đốt item nằm trên nền ở ô bị vụ nổ phủ.
         let rows = ["#####", "#0..#", "#####"];
         let w = world(&rows);
         let mut state = new_round(&rows, 1);
-        let id = state.ids.next_id();
-        state.items.push(FloorItem {
-            id,
-            kind: ItemKind(1),
-            cell: Cell::new(2, 1),
-        });
-        state.flames.push(flame(Cell::new(2, 1), 5));
-        let events = step(&w, &mut state);
+        let id = floor_item(&mut state, Cell::new(2, 1), ItemKind(1));
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        let events = run_blocks(&w, &mut state, &mut scratch);
 
         assert!(
-            !events
+            events
                 .iter()
-                .any(|e| matches!(e.kind, EventKind::ItemDestroyed { .. })),
-            "lửa không được phá item trên nền"
+                .any(|e| matches!(&e.kind, EventKind::ItemDestroyed { item, .. } if *item == id)),
+            "lửa phải đốt item trên nền"
         );
-        assert_eq!(state.items.len(), 1, "item trên nền còn nguyên");
+        assert!(state.items.is_empty(), "item bị đốt thì rời nền");
     }
 
     #[test]
-    fn block_without_hidden_item_reveals_nothing() {
+    fn new_drop_survives_the_blast_that_made_it() {
+        // Lửa đốt item cũ trước, item mới sinh sau: item vừa rơi ở ô vừa vỡ còn sống.
         let rows = ["#####", "#0+.#", "#####"];
         let w = world(&rows);
         let mut state = new_round(&rows, 1);
-        // Bỏ item giấu do đầu lượt tự chọn, để khối mềm rỗng.
-        state.field.set_hidden(Cell::new(2, 1), None);
-        state.flames.push(flame(Cell::new(2, 1), 5));
-        let events = step(&w, &mut state);
+        state.rng = Rng::new(hit_seed());
+        // Item cũ nằm ở ô nền (1,1), khối mềm ở ô (2,1): cùng một vụ nổ phủ.
+        let old = floor_item(&mut state, Cell::new(1, 1), ItemKind(1));
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts([Cell::new(1, 1), Cell::new(2, 1)]);
+        let events = run_blocks(&w, &mut state, &mut scratch);
 
-        assert_eq!(events.len(), 1);
-        assert_eq!(
-            events[0].kind,
-            EventKind::BlockDestroyed {
-                cell: Cell::new(2, 1)
-            }
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(&e.kind, EventKind::ItemDestroyed { item, .. } if *item == old)),
+            "item cũ bị đốt"
         );
-        assert!(state.items.is_empty(), "khối rỗng không lộ item nào");
+        assert_eq!(state.items.len(), 1, "chỉ còn item mới rơi ở ô vừa vỡ");
+        assert_eq!(state.items[0].cell, Cell::new(2, 1));
+    }
+
+    #[test]
+    fn blast_channel_is_deduplicated_so_the_drop_rolls_once() {
+        // Cùng một ô vào kênh blast nhiều lần (nhiều bom trong chuỗi nổ phủ): khối vỡ một
+        // lần, rơi **một** item — không roll lặp.
+        let rows = ["#####", "#0+.#", "#####"];
+        let w = world(&rows);
+        let mut state = new_round(&rows, 1);
+        state.rng = Rng::new(hit_seed());
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts([Cell::new(2, 1), Cell::new(2, 1), Cell::new(2, 1)]);
+        let events = run_blocks(&w, &mut state, &mut scratch);
+
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| matches!(e.kind, EventKind::BlockDestroyed { .. }))
+                .count(),
+            1,
+            "khối mềm chỉ vỡ một lần"
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| matches!(e.kind, EventKind::ItemRevealed { .. }))
+                .count(),
+            1,
+            "chỉ rơi một item, không roll lặp"
+        );
+        assert_eq!(state.items.len(), 1);
+    }
+
+    #[test]
+    fn fixture_blast_channel_gives_the_same_result_as_a_real_explosion() {
+        // Đường fixture (kênh blast dựng sẵn, dùng để test riêng `blocks`) phải cho cùng kết
+        // quả với đường gameplay (vụ nổ thật của `explosion`): cùng ô bị phủ ⇒ cùng khối vỡ,
+        // cùng item rơi ra.
+        let rows = ["#####", "#0+.#", "#####"];
+        let w = world(&rows);
+
+        // (a) đường fixture: dựng sẵn kênh blast.
+        let mut fixture = new_round(&rows, 1);
+        fixture.rng = Rng::new(hit_seed());
+        let mut scratch = TickScratch::new();
+        scratch.merge_blasts(blast(Cell::new(2, 1)));
+        run_blocks(&w, &mut fixture, &mut scratch);
+
+        // (b) đường gameplay: bom nổ thật ở tick 0, tầm 1 ⇒ vụ nổ phủ ô (1,1) và (2,1).
+        let mut gameplay = new_round(&rows, 1);
+        gameplay.rng = Rng::new(hit_seed());
+        let bomb_id = gameplay.ids.next_id();
+        gameplay.bombs.push(crate::state::Bomb {
+            id: bomb_id,
+            owner: 0,
+            cell: Cell::new(1, 1),
+            range: 1,
+            explodes_at: 0,
+            grace: vec![],
+        });
+        let mut events = Vec::new();
+        gameplay
+            .step(&w, &[PlayerInput::default()], &mut events)
+            .expect("step");
+
+        assert_eq!(
+            fixture.field.kind(Cell::new(2, 1)),
+            gameplay.field.kind(Cell::new(2, 1)),
+            "cả hai đường phải vỡ cùng khối mềm"
+        );
+        let kinds = |s: &SimulationState| -> Vec<(Cell, ItemKind)> {
+            s.items.iter().map(|i| (i.cell, i.kind)).collect()
+        };
+        assert_eq!(
+            kinds(&fixture),
+            kinds(&gameplay),
+            "cả hai đường phải rơi cùng item ở cùng ô"
+        );
     }
 }

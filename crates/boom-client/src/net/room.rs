@@ -950,6 +950,7 @@ mod tests {
                 player: 1,
                 slot: 0,
                 character: RoomCharacter::C00,
+                name: "a".into(),
             }],
             start_tick: 0,
         }
@@ -1037,6 +1038,7 @@ mod tests {
             player: 1,
             slot: 5,
             character: RoomCharacter::C00,
+            name: "a".into(),
         }];
         let mut new = round_start();
         new.round_id = 2;
@@ -1044,6 +1046,7 @@ mod tests {
             player: 1,
             slot: 1,
             character: RoomCharacter::C01,
+            name: "a".into(),
         }];
         flow.on_round_start(new, &expectation())
             .expect("round mới phải được nhận");
@@ -1176,11 +1179,13 @@ mod tests {
                 player: 1,
                 slot: 0,
                 character: RoomCharacter::C00,
+                name: "a".into(),
             },
             RoundMember {
                 player: 2,
                 slot: 1,
                 character: RoomCharacter::C01,
+                name: "a".into(),
             },
         ];
         flow.on_round_start(start, &expectation())
@@ -1205,12 +1210,14 @@ mod tests {
                     slot: 0,
                     character: RoomCharacter::C00,
                     ready: true,
+                    name: "a".into(),
                 },
                 RoomMember {
                     player: 7,
                     slot: 1,
                     character: RoomCharacter::C01,
                     ready: false,
+                    name: "a".into(),
                 },
             ],
             round: None,
@@ -1267,6 +1274,7 @@ mod tests {
                 slot: 0,
                 character: RoomCharacter::C00,
                 ready: true,
+                name: "a".into(),
             }],
             round: None,
         });

@@ -1,0 +1,61 @@
+# R-100: trong warmup (90 tick ở 60 Hz, xem overlay `bnb-timing`) core **không chạy** system
+# nào — không movement, không đặt bom. Người 0 giữ hướng phải và bấm bom từ tick 0: trong
+# warmup vị trí đứng yên và bom không xuất hiện; sau warmup thì đi được và bom đặt được.
+name = "Warmup không cho đi và không cho đặt bom"
+features = ["V1-013", "V1-021"]
+claims = ["R-100"]
+status = "active"
+ticks = 95
+overlays = ["../../rules/bnb-timing.toml"]
+map = [
+    "######",
+    "#0...#",
+    "######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [4, 1]
+
+# Bấm bom trong warmup bị bỏ qua; bấm lại sau warmup thì bom mới xuất hiện.
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+bomb = true
+
+[[input]]
+tick = 90
+player = 0
+bomb = true
+
+[[expect]]
+tick = 90
+player = 0
+pos_mpx = [60000, 60000]
+
+[[expect]]
+tick = 90
+bomb_count = 0
+
+[[expect]]
+tick = 91
+player = 0
+pos_mpx = [62000, 60000]
+
+[[expect]]
+tick = 91
+bomb_count = 1
+
+[end]
+outcome = "playing"

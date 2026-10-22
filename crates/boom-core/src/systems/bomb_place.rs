@@ -14,6 +14,7 @@
 
 use crate::event::{EventKind, EventSink};
 use crate::num::Cell;
+use crate::scratch::TickScratch;
 use crate::sim::{PlayerInput, World};
 use crate::state::{Bomb, Life, SimulationState};
 use crate::system::System;
@@ -44,6 +45,7 @@ impl System for BombPlace {
         state: &mut SimulationState,
         inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
+        _scratch: &mut TickScratch,
     ) {
         // Quyết định trước rồi mới ghi state: bom vừa đặt trong tick này cũng phải chặn người sau
         // ở cùng ô và tính vào hạn mức của chủ. Thứ tự duyệt là thứ tự id của người chơi.

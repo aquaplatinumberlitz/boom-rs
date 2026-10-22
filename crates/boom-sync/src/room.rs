@@ -108,6 +108,10 @@ pub fn to_room_state(view: &RoomView) -> RoomState {
 }
 
 /// Đổi DTO `RoomState` về `RoomView`, kiểm các bất biến tối thiểu mà DTO có thể chở.
+///
+/// Tên hiển thị (`RoomMember::name`, `RoundMember::name`) **bị bỏ qua**: core `boom-room` không
+/// có khái niệm tên, nên adapter không suy diễn và không đụng contract core
+/// (ADR 0009 Addendum B §B.6).
 pub fn from_room_state(state: &RoomState) -> Result<RoomView, RoomSyncError> {
     let mut members = Vec::with_capacity(state.members.len());
     let mut slots = Vec::new();
@@ -244,6 +248,10 @@ fn to_member(member: &MemberView) -> RoomMemberDto {
         slot: member.slot.0,
         character: character_to_dto(member.character),
         ready: member.ready,
+        // Tên hiển thị **không** có trong `RoomView` (core không biết tên): server điền sau
+        // adapter, giống `LobbyRoom.name`/`RoomChatMessage.from_name`
+        // (ADR 0009 Addendum B §B.6). Adapter không suy diễn tên.
+        name: String::new(),
     }
 }
 
@@ -257,6 +265,8 @@ fn to_round(round: &RoundView) -> RoundInfo {
                 player: member.player.0,
                 slot: member.slot.0,
                 character: character_to_dto(member.character),
+                // Tên hiển thị do server điền (ADR 0009 Addendum B §B.6).
+                name: String::new(),
             })
             .collect(),
     }
@@ -327,6 +337,28 @@ mod tests {
         let dto = to_room_state(&original);
         let back = from_room_state(&dto).unwrap();
         assert_eq!(back, original);
+    }
+
+    /// Adapter **không** suy diễn tên hiển thị (ADR 0009 Addendum B §B.6).
+    ///
+    /// `to_room_state` để `name` rỗng (tên do server điền từ account store sau adapter) và
+    /// `from_room_state` bỏ qua `name` (core `boom-room` không có khái niệm tên).
+    #[test]
+    fn adapter_khong_suy_dien_ten_hien_thi() {
+        let original = view();
+        let dto = to_room_state(&original);
+        assert!(
+            dto.members.iter().all(|member| member.name.is_empty()),
+            "adapter không được điền tên: server điền sau adapter"
+        );
+
+        let mut named = dto.clone();
+        named.members[0].name = "ten hien thi".to_owned();
+        assert_eq!(
+            from_room_state(&named).unwrap(),
+            original,
+            "tên hiển thị không được đi vào contract core `boom-room`"
+        );
     }
 
     #[test]

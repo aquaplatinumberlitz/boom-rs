@@ -3,6 +3,8 @@
 //! Mỗi loại dữ liệu nằm trong file riêng và tự đóng góp vào state hash qua `hash_into`.
 //! Field công khai là contract: thêm/đổi field công khai phải qua integrator; field riêng tư mà một
 //! system cần thì thêm trong file của loại đó và nhớ đưa vào `hash_into` của nó.
+//! Dữ liệu chỉ sống trong một tick (kênh blast) không nằm ở state mà ở [`crate::TickScratch`]:
+//! không hash, không snapshot, không phải contract của state.
 //! Ma trận ai được ghi field nào: ARCHITECTURE §5.
 
 mod bomb;

@@ -1,7 +1,8 @@
-# trap 6300 ms = 378 tick; nhốt từ tick 0 nên chết trong step 378 (tick 379).
+# trap 6300 ms = 378 tick ở 60 Hz. Timer nhốt tính **cả tick bị nhốt** (R-108): người bị nhốt từ
+# tick 0 nên chết ở tick 377 (step 378), không phải tick 378.
 name = "Bị nhốt quá player.trap_to_death_ms thì chết"
 features = ["V1-020"]
-claims = ["R-026"]
+claims = ["R-026", "R-108"]
 status = "active"
 ticks = 400
 map = [
@@ -18,12 +19,12 @@ range = [1, 7]
 life = "trapped"
 
 [[expect]]
-tick = 378
+tick = 377
 player = 0
 life = "trapped"
 
 [[expect]]
-tick = 379
+tick = 378
 event = "player_died"
 where = { player = 0, by = -1 }
 count = 1

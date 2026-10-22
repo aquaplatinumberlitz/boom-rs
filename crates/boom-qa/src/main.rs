@@ -9,9 +9,8 @@
 
 use std::process::ExitCode;
 
-use boom_qa::harness::RunConfig;
+use boom_qa::harness::{RecoveryScenario, RunConfig, run_scenario};
 use boom_qa::profile::QaProfile;
-use boom_qa::run;
 
 const USAGE: &str = "\
 dùng: boom-qa [--profile <tên>] [--clients <2..4>] [--seed <n>] [--rounds <n>] [--json-out <file>]
@@ -20,6 +19,9 @@ dùng: boom-qa [--profile <tên>] [--clients <2..4>] [--seed <n>] [--rounds <n>]
   --clients <n>     số bot headless, 2..4 (mặc định: 2)
   --seed <n>        seed lỗi mạng + input ngẫu nhiên của bot (mặc định: 0)
   --rounds <n>      số trận (mặc định: lấy theo hồ sơ)
+  --scenario <tên> steady | disconnect | liveness (mặc định steady)
+  --server-ping-ms <n> chu kỳ server Ping cho thí nghiệm liveness
+  --liveness-ms <n> hạn liveness cho thí nghiệm
   --json-out <file> ghi thêm báo cáo JSON ra file
   --help            in ra màn hình trợ giúp
 ";
@@ -41,6 +43,9 @@ struct Args {
     seed: u64,
     rounds: Option<u32>,
     json_out: Option<String>,
+    scenario: RecoveryScenario,
+    ping_ms: Option<u64>,
+    liveness_ms: Option<u64>,
 }
 
 fn parse_args() -> Result<Option<Args>, String> {
@@ -50,6 +55,9 @@ fn parse_args() -> Result<Option<Args>, String> {
         seed: 0,
         rounds: None,
         json_out: None,
+        scenario: RecoveryScenario::Steady,
+        ping_ms: None,
+        liveness_ms: None,
     };
     let mut raw = std::env::args().skip(1);
     while let Some(arg) = raw.next() {
@@ -59,6 +67,20 @@ fn parse_args() -> Result<Option<Args>, String> {
         };
         match arg.as_str() {
             "--profile" => args.profile = value()?,
+            "--scenario" => {
+                args.scenario = match value()?.as_str() {
+                    "steady" => RecoveryScenario::Steady,
+                    "disconnect" => RecoveryScenario::Disconnect,
+                    "liveness" => RecoveryScenario::Liveness,
+                    other => return Err(format!("scenario lạ: {other}")),
+                }
+            }
+            "--server-ping-ms" => {
+                args.ping_ms = Some(value()?.parse().map_err(|_| "ping-ms phải là số")?)
+            }
+            "--liveness-ms" => {
+                args.liveness_ms = Some(value()?.parse().map_err(|_| "liveness-ms phải là số")?)
+            }
             "--clients" => {
                 let raw_value = value()?;
                 args.clients = raw_value
@@ -98,14 +120,20 @@ fn run_cli() -> Result<ExitCode, String> {
         print!("{USAGE}");
         return Ok(ExitCode::SUCCESS);
     };
-    let profile = QaProfile::builtin(&args.profile).map_err(|err| err.to_string())?;
+    let mut profile = QaProfile::builtin(&args.profile).map_err(|err| err.to_string())?;
+    if let Some(ms) = args.ping_ms {
+        profile.harness.server_ping_interval_ms = ms;
+    }
+    if let Some(ms) = args.liveness_ms {
+        profile.harness.server_liveness_timeout_ms = ms;
+    }
     let config = RunConfig {
         profile,
         clients: args.clients,
         seed: args.seed,
         rounds: args.rounds,
     };
-    let report = run(&config).map_err(|err| err.to_string())?;
+    let report = run_scenario(&config, args.scenario).map_err(|err| err.to_string())?;
     print!("{}", report.to_markdown());
     println!("{}", report.to_json());
     if let Some(path) = &args.json_out
@@ -113,7 +141,7 @@ fn run_cli() -> Result<ExitCode, String> {
     {
         return Err(format!("không ghi được JSON ra `{path}`: {err}"));
     }
-    if report.timed_out || !report.converged {
+    if report.timed_out || !report.drained || !(report.converged || report.recovered) {
         return Ok(ExitCode::FAILURE);
     }
     Ok(ExitCode::SUCCESS)

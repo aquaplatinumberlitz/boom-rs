@@ -24,6 +24,14 @@ unit = "ms"
 source = "design"
 status = "design"
 
+# Warmup đóng băng đầu lượt (R-100): hồ sơ QA chạy lượt ngắn, không đóng băng (0 ms) — cùng
+# giá trị với `fixtures/rules/skeleton-test.toml`.
+[round.warmup_ms]
+value = 0
+unit = "ms"
+source = "design"
+status = "design"
+
 [player.speed_px_per_s_per_level]
 value = 120
 unit = "px/s"
@@ -48,6 +56,14 @@ status = "design"
 [player.trap_to_death_ms]
 value = 6300
 unit = "ms"
+source = "design"
+status = "design"
+
+# Khoảng cách chạm làm vỡ bong bóng: mỗi trục lệch nhỏ hơn 28 px (R-108). Cùng giá trị với
+# `data/rules/v1-dev.toml` và `fixtures/rules/skeleton-test.toml`.
+[player.trap_touch_distance_px]
+value = 28
+unit = "px"
 source = "design"
 status = "design"
 

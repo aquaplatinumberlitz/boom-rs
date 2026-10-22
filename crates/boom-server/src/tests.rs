@@ -4,14 +4,15 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
-use boom_content::map::Terrain;
+use boom_content::map::{Terrain, is_walkable};
 use boom_content::rules::RulesProfile;
 use boom_core::{CharacterStats, CharacterStatsTable, Dir, Life, Stat, World, mode_by_id};
 use boom_proto::{InputBatch, InputBits, InputCommand};
 use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
 
 use crate::{
-    Authority, InputError, MatchOutcome, MatchSetup, ReplaySetup, ServerConfig, ServerPhase,
+    Authority, InputError, Logger, MatchOutcome, MatchSetup, OperationalConfig, ReplaySetup,
+    ServerConfig, ServerPhase, SharedLogBuffer,
 };
 
 const RULES: &str = include_str!("../../../fixtures/rules/skeleton-test.toml");
@@ -631,12 +632,13 @@ use std::time::{Duration, Instant};
 
 use boom_net::{MemoryConfig, MemoryTransport, Transport};
 use boom_proto::dto::auth::{Auth, AuthFail, AuthFailReason, AuthOk, AuthOp, Logout};
+use boom_proto::dto::{DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP};
 use boom_proto::{
     Hello, InputRejectReason, InputRejected, LoadingAck, LobbyList, LobbyListRequest, Message,
     MessageKind, Ping, Pong, Reject, RejectReason, ResultAck, RoomAction as RoomActionDto,
     RoomCharacter, RoomChat, RoomChatMessage, RoomCommand as RoomCommandDto, RoomRejectReason,
-    RoomRejected, RoomState, RoundResult, RoundStart, Snapshot, Welcome, decode_frame,
-    encode_frame, limits::ProtocolLimits, read_envelope,
+    RoomRejected, RoomState, RoundResult, RoundStart, Snapshot, SnapshotRequest, Welcome,
+    decode_frame, encode_frame, limits::ProtocolLimits, read_envelope,
 };
 
 use crate::auth::{AuthConfig, AuthService};
@@ -646,6 +648,255 @@ use crate::{HandshakeConfig, Server};
 struct WireClient {
     writer: MemoryTransport,
     reader: MemoryTransport,
+}
+
+/// Tổng số vòng chờ cho một yêu cầu trong kịch bản mạng lỗi.
+///
+/// Trần là **số vòng**, không phải thời gian thật: tốc độ máy và độ phân giải timer của hệ
+/// điều hành (Windows `sleep(1 ms)` thực tế ~15.6 ms) không ảnh hưởng kết quả kiểm.
+const WAIT_ROUNDS: usize = 200_000;
+
+/// Số lần gửi tối đa cho một yêu cầu.
+///
+/// Gửi lại **chỉ** khi mạng thật sự nuốt frame — quyết định lấy từ PRNG theo seed nên biết
+/// *tức thì*, không phải đoán theo hạn thời gian thật.
+const SEND_ATTEMPTS: usize = 300;
+
+/// Lấy frame kế tiếp nếu đúng loại `kind`; frame khác loại bị bỏ (không chặn).
+fn take_kind<M: Message>(c: &mut WireClient, kind: MessageKind) -> Option<M> {
+    let frame = c.reader.try_recv_frame().expect("đọc frame")?;
+    let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+    if envelope.kind == kind {
+        Some(decode_frame(&frame, &ProtocolLimits::v1()).expect("giải mã frame"))
+    } else {
+        None
+    }
+}
+
+/// Gửi frame trên chiều client→server; trả `true` nếu mạng đã nuốt frame (mất).
+///
+/// Quyết định mất lấy từ PRNG theo seed ⇒ biết **tức thì**, không cần chờ theo thời gian
+/// thật. Đây là mấu chốt để test không phụ thuộc tốc độ máy: chỉ gửi lại khi frame thật sự
+/// bị mất, nên server không dồn câu trả lời vô hạn (hàng đợi gửi đi của server có trần; đầy
+/// thì bị coi như consumer chậm và session bị đóng — xem `Server::send_raw`).
+fn send_tracked<M: Message>(c: &mut WireClient, message: &M) -> bool {
+    let before = c.writer.dropped_frames();
+    send(c, message);
+    c.writer.dropped_frames() > before
+}
+
+/// Gửi yêu cầu tới server và chờ câu trả lời loại `kind`.
+///
+/// - Yêu cầu bị mạng nuốt → gửi lại ngay, không tốn ngân sách chờ.
+/// - Câu trả lời bị mạng nuốt → gửi lại yêu cầu.
+/// - Yêu cầu tới nơi → chờ theo **điều kiện**, trần số vòng (`budget`), mỗi vòng bơm server
+///   bằng `poll` không chặn rồi `yield_now` (không ngủ theo timer hệ điều hành).
+///
+/// `accept` lọc câu trả lời: frame không thoả điều kiện bị bỏ và vẫn chờ tiếp, không gửi lại.
+fn ask_where<Req: Message, Rep: Message, F: FnMut(&Rep) -> bool>(
+    server: &mut Server,
+    client: &mut WireClient,
+    now_ms: u64,
+    budget: &mut usize,
+    message: &Req,
+    kind: MessageKind,
+    mut accept: F,
+) -> Option<Rep> {
+    for _ in 0..SEND_ATTEMPTS {
+        let dropped_out = client.writer.dropped_frames();
+        send(client, message);
+        if client.writer.dropped_frames() > dropped_out {
+            // Mạng nuốt yêu cầu: gửi lại ngay.
+            continue;
+        }
+        // Số frame **server gửi** đã bị nuốt, đo sau khi gửi yêu cầu: server chưa xử lý yêu
+        // cầu này nên mọi frame bị nuốt từ đây trở đi là câu trả lời của yêu cầu này.
+        let dropped_in = client.reader.peer_dropped_frames();
+        while *budget > 0 {
+            *budget -= 1;
+            server.poll(now_ms, Duration::ZERO).expect("poll server");
+            if let Some(reply) = take_kind::<Rep>(client, kind)
+                && accept(&reply)
+            {
+                return Some(reply);
+            }
+            if client.reader.peer_dropped_frames() > dropped_in {
+                // Mạng nuốt câu trả lời: gửi lại yêu cầu.
+                break;
+            }
+            std::thread::yield_now();
+        }
+        if *budget == 0 {
+            // Hết ngân sách chờ: không gửi thêm (server sẽ dồn câu trả lời vô hạn).
+            break;
+        }
+    }
+    None
+}
+
+/// Như [`ask_where`] nhưng không lọc câu trả lời.
+fn ask<Req: Message, Rep: Message>(
+    server: &mut Server,
+    client: &mut WireClient,
+    now_ms: u64,
+    budget: &mut usize,
+    message: &Req,
+    kind: MessageKind,
+) -> Option<Rep> {
+    ask_where(server, client, now_ms, budget, message, kind, |_| true)
+}
+
+/// Chờ luồng đọc của server **lấy hết** frame client đã gửi — **không tiến đồng hồ server**.
+///
+/// Đồng hồ server đứng yên ⇒ không tick nào chạy ⇒ lệnh input đang chờ trong hàng đợi
+/// của authority **không bị retire** vì đồng hồ chạy trước khi lệnh tới server
+/// (ADR 0009 §3.3: lệnh cũ hơn `server_tick - late` bị retire, không áp dụng).
+///
+/// [`MemoryTransport`] đếm frame **đưa lên đường** ([`MemoryTransport::sent_frames`]) và
+/// frame **đã giao cho ứng dụng nhận** ([`MemoryTransport::peer_delivered_frames`]): mỗi
+/// frame đưa lên đường tới nơi đúng một lần, nên hai số bằng nhau ⇔ mọi frame client gửi
+/// đã tới tay luồng đọc của server. Trả `true` nếu đủ, `false` nếu hết ngân sách chờ.
+fn wait_frames_delivered(
+    server: &mut Server,
+    clients: &mut [WireClient],
+    now: u64,
+    budget: &mut usize,
+) -> bool {
+    while *budget > 0 {
+        if clients
+            .iter()
+            .all(|c| c.writer.peer_delivered_frames() >= c.writer.sent_frames())
+        {
+            return true;
+        }
+        *budget -= 1;
+        server.poll(now, Duration::ZERO).expect("poll server");
+        std::thread::yield_now();
+    }
+    clients
+        .iter()
+        .all(|c| c.writer.peer_delivered_frames() >= c.writer.sent_frames())
+}
+
+/// Hướng chắc chắn **đi được** từ ô người chơi đang đứng (ô kề bên là nền).
+///
+/// Bản đồ test có tường ở biên nên một hướng cố định có thể bị chặn ⇒ vị trí không đổi
+/// dù lệnh đã áp dụng. Chọn hướng theo địa hình để **vị trí chắc chắn đổi** khi lệnh
+/// được áp dụng thật.
+fn walkable_dir(world: &World, x: i32, y: i32) -> u8 {
+    let tile = world.rules().tile.0;
+    let (cx, cy) = (x.div_euclid(tile), y.div_euclid(tile));
+    // (mã hướng, delta ô) theo thứ tự ưu tiên: phải, xuống, trái, lên.
+    for (code, (dx, dy)) in [
+        (DIR_RIGHT, (1, 0)),
+        (DIR_DOWN, (0, 1)),
+        (DIR_LEFT, (-1, 0)),
+        (DIR_UP, (0, -1)),
+    ] {
+        if world
+            .terrain()
+            .kind(cx + dx, cy + dy)
+            .is_some_and(is_walkable)
+        {
+            return code;
+        }
+    }
+    panic!("ô ({cx},{cy}) không có hướng nào đi được");
+}
+
+/// Rào `Ping` → `Pong`: chứng minh server đã **xử lý** batch input gửi trước đó.
+///
+/// Luồng đọc của server lấy frame theo thứ tự và server xử lý kênh vào theo thứ tự FIFO
+/// ⇒ `Pong` (trả lời `Ping` gửi **sau** input) chứng minh batch input đã được xử lý.
+///
+/// `Ping` gửi sau khi batch input **đã tới nơi** ([`wait_frames_delivered`]) ⇒ nhờ đồng
+/// hồ ảo của mạng đã chạy tới mốc giao của batch, `Ping` luôn tới **sau** batch, kể cả
+/// khi mạng có jitter (thứ tự giao theo mốc giao, không theo thứ tự gửi).
+///
+/// Server **từ chối** input là lỗi thật ⇒ báo ngay kèm lý do thay vì chờ mãi.
+fn wait_pong_barrier(server: &mut Server, client: &mut WireClient, now: u64, budget: &mut usize) {
+    for _ in 0..SEND_ATTEMPTS {
+        // Số frame **server gửi** đã bị nuốt, đo trước khi gửi `Ping`.
+        let dropped_in = client.reader.peer_dropped_frames();
+        if send_tracked(client, &Ping(now)) {
+            // Mạng nuốt `Ping`: gửi lại ngay (server chưa thấy frame này).
+            continue;
+        }
+        while *budget > 0 {
+            *budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            let Some(frame) = client.reader.try_recv_frame().expect("đọc frame") else {
+                std::thread::yield_now();
+                continue;
+            };
+            let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+            match envelope.kind {
+                MessageKind::Pong => return,
+                MessageKind::InputRejected => {
+                    let rejected: InputRejected =
+                        decode_frame(&frame, &ProtocolLimits::v1()).expect("InputRejected");
+                    panic!(
+                        "server từ chối input: {:?} (seq đầu {}, số lệnh {}, tick server {})",
+                        rejected.reason,
+                        rejected.first_seq,
+                        rejected.command_count,
+                        rejected.server_tick
+                    );
+                }
+                _ => {}
+            }
+            if client.reader.peer_dropped_frames() > dropped_in {
+                // Mạng nuốt câu trả lời: gửi lại `Ping`.
+                break;
+            }
+        }
+        if *budget == 0 {
+            // Hết ngân sách chờ: không gửi thêm.
+            break;
+        }
+    }
+    panic!("không nhận Pong (rào) sau khi gửi input");
+}
+
+/// Xin `Snapshot` cho tới khi `accept` đúng — bỏ các snapshot cũ đã queue trước đó.
+///
+/// `SnapshotRequest` idempotent nên gửi lại được. Yêu cầu bị mạng nuốt → gửi lại ngay;
+/// câu trả lời bị nuốt → gửi lại yêu cầu. Hết ngân sách thì trả `None`.
+fn wait_snapshot_where<F: FnMut(&Snapshot) -> bool>(
+    server: &mut Server,
+    client: &mut WireClient,
+    now: u64,
+    budget: &mut usize,
+    request: &SnapshotRequest,
+    mut accept: F,
+) -> Option<Snapshot> {
+    for _ in 0..SEND_ATTEMPTS {
+        // Số frame **server gửi** đã bị nuốt, đo trước khi gửi yêu cầu.
+        let dropped_in = client.reader.peer_dropped_frames();
+        if send_tracked(client, request) {
+            // Mạng nuốt yêu cầu: gửi lại ngay.
+            continue;
+        }
+        while *budget > 0 {
+            *budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            if let Some(snapshot) = take_kind::<Snapshot>(client, MessageKind::Snapshot)
+                && accept(&snapshot)
+            {
+                return Some(snapshot);
+            }
+            if client.reader.peer_dropped_frames() > dropped_in {
+                // Mạng nuốt câu trả lời: gửi lại yêu cầu.
+                break;
+            }
+            std::thread::yield_now();
+        }
+        if *budget == 0 {
+            // Hết ngân sách chờ: không gửi thêm.
+            break;
+        }
+    }
+    None
 }
 
 fn handshake_config(a: &Authority) -> HandshakeConfig {
@@ -714,14 +965,13 @@ fn send<M: Message>(c: &mut WireClient, message: &M) {
 }
 
 fn recv_raw(c: &mut WireClient) -> Vec<u8> {
-    let start = Instant::now();
-    loop {
-        match c.reader.try_recv_frame().unwrap() {
-            Some(frame) => return frame,
-            None if start.elapsed() > Duration::from_secs(2) => panic!("timeout chờ frame"),
-            None => std::thread::sleep(Duration::from_millis(1)),
+    for _ in 0..WAIT_ROUNDS {
+        if let Some(frame) = c.reader.try_recv_frame().expect("đọc frame") {
+            return frame;
         }
+        std::thread::yield_now();
     }
+    panic!("timeout chờ frame");
 }
 
 fn recv<M: Message>(c: &mut WireClient) -> M {
@@ -730,37 +980,13 @@ fn recv<M: Message>(c: &mut WireClient) -> M {
 }
 
 fn recv_of<M: Message>(c: &mut WireClient, kind: MessageKind) -> M {
-    let start = Instant::now();
-    loop {
-        match c.reader.try_recv_frame().unwrap() {
-            Some(frame) => {
-                let (envelope, _) = read_envelope(&frame).unwrap();
-                if envelope.kind == kind {
-                    return decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
-                }
-            }
-            None if start.elapsed() > Duration::from_secs(2) => {
-                panic!("timeout chờ {kind:?}")
-            }
-            None => std::thread::sleep(Duration::from_millis(1)),
+    for _ in 0..WAIT_ROUNDS {
+        if let Some(message) = take_kind::<M>(c, kind) {
+            return message;
         }
+        std::thread::yield_now();
     }
-}
-
-fn try_recv_of<M: Message>(c: &mut WireClient, kind: MessageKind, timeout: Duration) -> Option<M> {
-    let start = Instant::now();
-    loop {
-        if let Some(frame) = c.reader.try_recv_frame().unwrap() {
-            let (envelope, _) = read_envelope(&frame).unwrap();
-            if envelope.kind == kind {
-                return Some(decode_frame(&frame, &ProtocolLimits::v1()).unwrap());
-            }
-        } else if start.elapsed() >= timeout {
-            return None;
-        } else {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-    }
+    panic!("timeout chờ {kind:?}")
 }
 
 fn send_room(c: &mut WireClient, request: u64, action: RoomActionDto) {
@@ -771,32 +997,38 @@ fn test_credentials(player: PlayerId) -> (String, String) {
     (format!("player{}", player.0), "password123".to_owned())
 }
 
-fn recv_auth_response(
-    client: &mut WireClient,
-    timeout: Duration,
-) -> Option<Result<AuthOk, AuthFailReason>> {
-    let start = Instant::now();
-    loop {
-        if let Some(frame) = client.reader.try_recv_frame().unwrap() {
-            let (envelope, _) = read_envelope(&frame).unwrap();
-            match envelope.kind {
-                MessageKind::AuthOk => {
-                    return Some(Ok(decode_frame(&frame, &ProtocolLimits::v1()).unwrap()));
-                }
-                MessageKind::AuthFail => {
-                    let fail: AuthFail = decode_frame(&frame, &ProtocolLimits::v1()).unwrap();
-                    return Some(Err(fail.reason));
-                }
-                _ => {}
-            }
-        } else if start.elapsed() >= timeout {
-            return None;
-        } else {
-            std::thread::sleep(Duration::from_millis(1));
+/// Đọc một frame trả lời của bước đăng nhập.
+///
+/// - `Some(Ok(AuthOk))` / `Some(Err(AuthFail))`: server đã trả lời auth.
+/// - `None`: frame không phải trả lời auth (bị bỏ) hoặc chưa có frame nào.
+///
+/// `Reject` là lỗi giao thức (ví dụ `Auth` lặp sau `AuthOk` ⇒ server đóng phiên): báo ngay
+/// thay vì chờ mãi, để lỗi hiện rõ thay vì thành "không nhận LobbyList" ở bước sau.
+fn recv_auth_response(client: &mut WireClient) -> Option<Result<AuthOk, AuthFailReason>> {
+    let frame = client.reader.try_recv_frame().expect("đọc frame")?;
+    let (envelope, _) = read_envelope(&frame).expect("đọc envelope");
+    match envelope.kind {
+        MessageKind::AuthOk => Some(Ok(
+            decode_frame(&frame, &ProtocolLimits::v1()).expect("AuthOk")
+        )),
+        MessageKind::AuthFail => {
+            let fail: AuthFail = decode_frame(&frame, &ProtocolLimits::v1()).expect("AuthFail");
+            Some(Err(fail.reason))
         }
+        MessageKind::Reject => {
+            let reject: Reject = decode_frame(&frame, &ProtocolLimits::v1()).expect("Reject");
+            panic!("server từ chối phiên lúc đăng nhập: {:?}", reject.reason);
+        }
+        _ => None,
     }
 }
 
+/// Đăng nhập một client, chịu được mạng mất frame mà **không** gửi lặp `Auth`.
+///
+/// `Auth` là frame **không idempotent**: server coi `Auth` lặp sau `AuthOk` là lỗi giao thức
+/// (`Server::handle_frame`) ⇒ gửi `Reject` rồi **đóng phiên**, mọi yêu cầu sau đó không được
+/// trả lời. Vì vậy chỉ gửi lại khi mạng **thật sự** nuốt frame (biết tức thì qua
+/// [`MemoryTransport::dropped_frames`]), không gửi lại theo hạn thời gian thật.
 fn auth_attempt(
     server: &mut Server,
     client: &mut WireClient,
@@ -804,21 +1036,29 @@ fn auth_attempt(
     username: &str,
     password: &str,
 ) -> Result<AuthOk, AuthFailReason> {
-    for _ in 0..300 {
-        send(
-            client,
-            &Auth {
-                op,
-                username: username.to_owned(),
-                password: password.to_owned(),
-            },
-        );
-        let _ = server
-            .poll(server.now_ms(), Duration::from_millis(20))
-            .unwrap();
-        if let Some(result) = recv_auth_response(client, Duration::from_millis(250)) {
-            return result;
+    let mut budget = WAIT_ROUNDS;
+    let auth = Auth {
+        op,
+        username: username.to_owned(),
+        password: password.to_owned(),
+    };
+    for _ in 0..SEND_ATTEMPTS {
+        if send_tracked(client, &auth) {
+            // Mạng nuốt `Auth`: gửi lại ngay (server chưa thấy frame nào).
+            continue;
         }
+        while budget > 0 {
+            budget -= 1;
+            server
+                .poll(server.now_ms(), Duration::ZERO)
+                .expect("poll server");
+            if let Some(result) = recv_auth_response(client) {
+                return result;
+            }
+            std::thread::yield_now();
+        }
+        // Hết ngân sách chờ: không gửi thêm (frame đã tới server ⇒ không gửi lặp `Auth`).
+        break;
     }
     panic!("không nhận AuthOk/AuthFail sau retry");
 }
@@ -1148,9 +1388,22 @@ fn wire_khong_gui_snapshot_khi_phong_dang_loading_barrier() {
         let _ = server.poll(now, Duration::from_millis(50)).unwrap();
     }
     assert_eq!(server.phase(), ServerPhase::Loading);
+    // Rào bằng helper chờ-theo-điều-kiện của nhánh này ([`wait_snapshot_where`]): client
+    // **xin** `Snapshot` rồi chờ theo điều kiện, trần **số vòng** (`WAIT_ROUNDS`) — không
+    // phụ thuộc hạn thời gian thật (độ phân giải timer Windows ~15,6 ms).
+    //
+    // Ở pha loading barrier server **không** được gửi `Snapshot` (ADR 0009 §4.3) — kể cả
+    // khi client xin ⇒ hết ngân sách chờ ⇒ `None`. Mọi frame `Snapshot` đã nằm sẵn trong
+    // hàng đợi (server phát sai ngay lúc `Start`) cũng bị đọc ra ở đây ⇒ assert đỏ đúng
+    // như trước, và cửa sổ quan sát dài hơn hẳn cửa sổ 50 ms cũ.
     for c in clients.iter_mut() {
+        let mut budget = WAIT_ROUNDS;
+        let request = SnapshotRequest {
+            round_id: u32::try_from(round).unwrap(),
+            last_snapshot_seq: 0,
+        };
         assert!(
-            try_recv_of::<Snapshot>(c, MessageKind::Snapshot, Duration::from_millis(50)).is_none(),
+            wait_snapshot_where(&mut server, c, 64, &mut budget, &request, |_| true).is_none(),
             "server không được gửi Snapshot khi phòng còn ở loading barrier"
         );
     }
@@ -1323,6 +1576,63 @@ fn snapshot_dto_roundtrips_state_hash_via_boom_sync() {
     assert_eq!(restored.tick, a.tick().unwrap());
 }
 
+/// Server điền **tên hiển thị** của thành viên phòng từ account store (ADR 0009 Addendum B §B.6).
+///
+/// Tên hiển thị do **server** điền, không phải client khai (ADR 0005): tên lấy từ
+/// `AuthOk.display_name` (tức tên đăng nhập). `LobbyRoom.name` là tên hiển thị của **chủ phòng**.
+#[test]
+fn server_dien_ten_hien_thi_thanh_vien_phong() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let room = recv_room_state(&mut clients[0]).room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut clients[1]);
+    let state = recv_room_state_members(&mut clients[0], 2);
+    let names: Vec<&str> = state
+        .members
+        .iter()
+        .map(|member| member.name.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        vec!["player1", "player2"],
+        "tên hiển thị lấy từ account store, theo thứ tự thành viên trong phòng"
+    );
+
+    // `LobbyRoom.name` là **tên hiển thị của chủ phòng** (ADR 0009 Addendum B §B.6).
+    let lobby = recv_lobby(&mut clients[0]);
+    assert_eq!(lobby.rooms.len(), 1);
+    assert_eq!(lobby.rooms[0].name, "player1");
+}
+
+/// Tên fallback khi mất phiên là `player{account_id}` (ADR 0009 Addendum B §B.6).
+#[test]
+fn ten_fallback_khi_mat_phien_la_player_account_id() {
+    assert_eq!(
+        crate::server::fallback_display_name(PlayerId(42)),
+        "player42"
+    );
+}
+
 struct SlowWriter {
     inner: MemoryTransport,
     delay: Duration,
@@ -1485,11 +1795,14 @@ fn closed_session_shuts_down_stuck_transport_and_threads() {
     }
     assert_eq!(server.session_count(), 0);
     assert!(shutdown_called.load(Ordering::SeqCst));
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while (!reader_done.load(Ordering::SeqCst) || !writer_done.load(Ordering::SeqCst))
-        && Instant::now() < deadline
-    {
-        std::thread::sleep(Duration::from_millis(1));
+    // Chờ hai luồng thoát theo **số vòng**, không theo hạn thời gian thật: tín hiệu
+    // shutdown đã bắn nên luồng thoát ngay khi được xếp lịch; trần số vòng giữ test
+    // không phụ thuộc tốc độ máy mà vẫn dừng khi lỗi thật.
+    for _ in 0..WAIT_ROUNDS {
+        if reader_done.load(Ordering::SeqCst) && writer_done.load(Ordering::SeqCst) {
+            break;
+        }
+        std::thread::yield_now();
     }
     assert!(
         reader_done.load(Ordering::SeqCst),
@@ -2463,17 +2776,15 @@ fn lossy_memory(seed: u64, loss_permille: u16) -> MemoryConfig {
 
 fn lossy_handshake(server: &mut Server, clients: &mut [WireClient], h: &HandshakeConfig) {
     for c in clients.iter_mut() {
-        let mut welcome = None;
-        for _ in 0..300 {
-            send(c, &hello(h.rules_hash));
-            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
-            if let Some(msg) =
-                try_recv_of::<Welcome>(c, MessageKind::Welcome, Duration::from_millis(250))
-            {
-                welcome = Some(msg);
-                break;
-            }
-        }
+        let mut budget = WAIT_ROUNDS;
+        let welcome = ask::<Hello, Welcome>(
+            server,
+            c,
+            0,
+            &mut budget,
+            &hello(h.rules_hash),
+            MessageKind::Welcome,
+        );
         assert!(welcome.is_some(), "không nhận Welcome qua mạng lossy");
     }
 }
@@ -2485,109 +2796,234 @@ fn retry_room_state(
     action: RoomActionDto,
     now: u64,
 ) -> RoomState {
-    for _ in 0..300 {
-        send_room(client, request, action.clone());
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if let Some(state) =
-            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(250))
-        {
-            return state;
-        }
-    }
-    panic!("không nhận RoomState sau retry");
+    let mut budget = WAIT_ROUNDS;
+    let state = ask::<RoomCommandDto, RoomState>(
+        server,
+        client,
+        now,
+        &mut budget,
+        &RoomCommandDto { request, action },
+        MessageKind::RoomState,
+    );
+    state.unwrap_or_else(|| panic!("không nhận RoomState sau retry"))
 }
 
 fn retry_ready(server: &mut Server, client: &mut WireClient, player: u64, request: u64, now: u64) {
-    for _ in 0..300 {
-        send_room(client, request, RoomActionDto::SetReady { ready: true });
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if let Some(state) =
-            try_recv_of::<RoomState>(client, MessageKind::RoomState, Duration::from_millis(250))
-            && state.members.iter().any(|m| m.player == player && m.ready)
-        {
-            return;
-        }
-    }
-    panic!("ready không tới server sau retry");
+    let mut budget = WAIT_ROUNDS;
+    let ready = ask_where::<RoomCommandDto, RoomState, _>(
+        server,
+        client,
+        now,
+        &mut budget,
+        &RoomCommandDto {
+            request,
+            action: RoomActionDto::SetReady { ready: true },
+        },
+        MessageKind::RoomState,
+        |state| state.members.iter().any(|m| m.player == player && m.ready),
+    );
+    assert!(ready.is_some(), "ready không tới server sau retry");
 }
 
 fn retry_start(server: &mut Server, client: &mut WireClient, request: u64, now: u64) -> RoundStart {
-    for _ in 0..300 {
-        send_room(client, request, RoomActionDto::Start);
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if let Some(start) =
-            try_recv_of::<RoundStart>(client, MessageKind::RoundStart, Duration::from_millis(250))
-        {
-            return start;
-        }
-    }
-    panic!("Start/RoundStart không qua mạng lossy");
+    let mut budget = WAIT_ROUNDS;
+    let start = ask::<RoomCommandDto, RoundStart>(
+        server,
+        client,
+        now,
+        &mut budget,
+        &RoomCommandDto {
+            request,
+            action: RoomActionDto::Start,
+        },
+        MessageKind::RoundStart,
+    );
+    start.unwrap_or_else(|| panic!("Start/RoundStart không qua mạng lossy"))
 }
 
 fn retry_loading(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
-    for _ in 0..300 {
+    let mut budget = WAIT_ROUNDS;
+    for _ in 0..SEND_ATTEMPTS {
+        let mut lost = false;
         for c in clients.iter_mut() {
-            send(c, &LoadingAck { round_id: round });
+            lost |= send_tracked(c, &LoadingAck { round_id: round });
         }
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if server.phase() == ServerPhase::Playing {
-            return;
+        if lost {
+            // Một `LoadingAck` bị mất: gửi lại cả loạt (ack lặp là idempotent).
+            continue;
         }
+        while budget > 0 {
+            budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            if server.phase() == ServerPhase::Playing {
+                return;
+            }
+            std::thread::yield_now();
+        }
+        // Hết ngân sách chờ: không gửi thêm.
+        break;
     }
     panic!("LoadingAck không vượt barrier sau retry");
 }
 
+/// Gửi input cho mọi người chơi và **chứng minh lệnh đã được áp dụng**.
+///
+/// Không chỉ kiểm `applied_seq`: lệnh bị *retire* (quá hạn) cũng làm `applied_seq` tăng mà
+/// vị trí **không đổi** (xem `late_input_is_retired_and_not_applied`), nên phải thấy **vị
+/// trí người chơi đổi** và hướng đã áp dụng trong `Snapshot`.
+///
+/// Các bước — không bước nào phụ thuộc lịch chạy thread hay đồng hồ thật:
+///
+/// 1. Gửi `InputBatch` (seq = 1) với hướng **chắc chắn đi được** từ ô người chơi đứng.
+///    Mạng nuốt frame thì gửi lại cả loạt (server dedup theo sequence).
+/// 2. **Đồng hồ server đứng yên** chờ luồng đọc của server lấy đủ frame: không tick nào
+///    chạy ⇒ lệnh đang chờ không bị retire vì đồng hồ chạy trước khi lệnh tới server.
+/// 3. Rào bằng `Ping` → `Pong` cho **từng** client: luồng đọc lấy frame theo thứ tự và
+///    server xử lý kênh vào theo thứ tự FIFO ⇒ `Pong` chứng minh batch input **đã được
+///    server xử lý** (mỗi kết nối một hàng đợi riêng nên phải rào từng client).
+/// 4. Tiến tới deadline tick kế tiếp tính từ rules và mốc bắt đầu round.
+///    Assert chỉ đúng một tick chạy, không dùng số lượt poll để tiến clock.
+/// 5. Kiểm state server **và** `Snapshot`: vị trí **đã đổi**, hướng đúng và ack đúng sequence.
 fn retry_input(
     server: &mut Server,
     clients: &mut [WireClient],
     players: &[PlayerId],
+    world: &World,
     round: u64,
     now: u64,
 ) {
-    for attempt in 0..100 {
+    let mut budget = WAIT_ROUNDS;
+    for _ in 0..SEND_ATTEMPTS {
+        // Vị trí trước lệnh + hướng chắc chắn đi được (để vị trí chắc chắn đổi khi áp dụng).
+        let mut before: Vec<(i32, i32)> = Vec::with_capacity(players.len());
+        let mut dirs: Vec<u8> = Vec::with_capacity(players.len());
+        for player in players {
+            let (x, y) = server
+                .authority()
+                .player_position(*player)
+                .expect("người chơi phải có vị trí trong trận");
+            before.push((x, y));
+            dirs.push(walkable_dir(world, x, y));
+        }
+
+        // 1. Gửi input.
+        let mut lost = false;
         for (index, _) in players.iter().enumerate() {
-            send(
-                &mut clients[index],
-                &InputBatch {
-                    round_id: u32::try_from(round).unwrap(),
-                    player: index as u8,
-                    ack_snapshot: 0,
-                    commands: vec![InputCommand {
-                        seq: 1,
-                        target_tick: server.authority().tick().unwrap_or(0).saturating_add(1),
-                        bits: InputBits::new(4, false).unwrap(),
-                    }],
-                },
+            let batch = InputBatch {
+                round_id: u32::try_from(round).unwrap(),
+                player: index as u8,
+                ack_snapshot: 0,
+                commands: vec![InputCommand {
+                    seq: 1,
+                    // Áp dụng ở tick hiện tại: tick kế tiếp là tick áp dụng lệnh này.
+                    target_tick: server.authority().tick().unwrap_or(0),
+                    bits: InputBits::new(dirs[index], false).unwrap(),
+                }],
+            };
+            lost |= send_tracked(&mut clients[index], &batch);
+        }
+        if lost {
+            // Input bị mất: gửi lại cả loạt (server dedup theo sequence).
+            continue;
+        }
+
+        // 2. Chờ server nhận đủ input — đồng hồ server đứng yên (không tick nào chạy).
+        if !wait_frames_delivered(server, clients, now, &mut budget) {
+            // Hết ngân sách chờ: không gửi thêm.
+            break;
+        }
+
+        // 3. Rào `Ping` → `Pong` cho **từng** client: mỗi kết nối có hàng đợi vào riêng,
+        //    nên chỉ rào client 0 không bảo đảm batch của client khác đã được xử lý.
+        for client in clients.iter_mut() {
+            wait_pong_barrier(server, client, now, &mut budget);
+        }
+
+        // 4. Tiến đúng một tick: tick này áp dụng lệnh input đang chờ.
+        let tick_before = server.authority().tick().expect("tick đang chơi");
+        let clock = now + 1_000 / u64::from(world.rules().ticks_per_second);
+        server.poll(clock, Duration::ZERO).expect("poll tick input");
+        let tick_after = server.authority().tick().expect("tick sau input");
+        assert_eq!(tick_after, tick_before + 1, "chỉ tiến đúng một tick");
+
+        // 5. Chứng minh lệnh **được áp dụng**: vị trí đổi, hướng đúng, ack đúng sequence.
+        for (index, _) in players.iter().enumerate() {
+            // State server (authority) trước khi kiểm snapshot: vị trí phải đã đổi.
+            let after = server
+                .authority()
+                .player_position(players[index])
+                .expect("người chơi phải có vị trí trong trận");
+            assert_ne!(
+                after, before[index],
+                "lệnh input của người chơi slot {index} không được áp dụng (vị trí không đổi)"
             );
-        }
-        let _ = server
-            .poll(
-                now.saturating_add(34 * (attempt + 1)),
-                Duration::from_millis(20),
+            let request = SnapshotRequest {
+                round_id: u32::try_from(round).unwrap(),
+                last_snapshot_seq: 0,
+            };
+            let snapshot = wait_snapshot_where(
+                server,
+                &mut clients[index],
+                clock,
+                &mut budget,
+                &request,
+                |snapshot| {
+                    snapshot.round_id == u32::try_from(round).unwrap()
+                        && snapshot.tick == tick_after
+                        && snapshot
+                            .players
+                            .iter()
+                            .any(|p| p.id == index as u8 && (p.x, p.y) != before[index])
+                },
             )
-            .unwrap();
-        if players
-            .iter()
-            .all(|player| server.authority().applied_seq(*player) == Some(1))
-        {
-            for c in clients.iter_mut() {
-                let _: Snapshot = recv_of(c, MessageKind::Snapshot);
-            }
-            return;
+            .unwrap_or_else(|| {
+                panic!(
+                    "lệnh input của người chơi slot {index} không được áp dụng (vị trí không đổi)"
+                )
+            });
+            let state = snapshot
+                .players
+                .iter()
+                .find(|p| p.id == index as u8)
+                .expect("snapshot phải có người chơi");
+            assert_eq!((state.x, state.y), after, "snapshot phải khớp authority");
+            assert_eq!(
+                state.facing, dirs[index],
+                "hướng người chơi slot {index} phải là hướng đã gửi"
+            );
+            let ack = snapshot
+                .acks
+                .iter()
+                .find(|a| a.player == index as u8)
+                .expect("snapshot phải có ack input");
+            assert_eq!(ack.last_seq, 1, "sequence 1 phải được giải quyết");
         }
+        return;
     }
     panic!("input không tới server sau retry");
 }
 
 fn retry_result_ack(server: &mut Server, clients: &mut [WireClient], round: u64, now: u64) {
-    for _ in 0..300 {
+    let mut budget = WAIT_ROUNDS;
+    for _ in 0..SEND_ATTEMPTS {
+        let mut lost = false;
         for c in clients.iter_mut() {
-            send(c, &ResultAck { round_id: round });
+            lost |= send_tracked(c, &ResultAck { round_id: round });
         }
-        let _ = server.poll(now, Duration::from_millis(20)).unwrap();
-        if server.phase() == ServerPhase::Waiting {
-            return;
+        if lost {
+            // `ResultAck` bị mất: gửi lại cả loạt (ack lặp là idempotent).
+            continue;
         }
+        while budget > 0 {
+            budget -= 1;
+            server.poll(now, Duration::ZERO).expect("poll server");
+            if server.phase() == ServerPhase::Waiting {
+                return;
+            }
+            std::thread::yield_now();
+        }
+        // Hết ngân sách chờ: không gửi thêm.
+        break;
     }
     panic!("ResultAck không về Waiting sau retry");
 }
@@ -2599,6 +3035,8 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
         vec![PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)],
     ] {
         let setup = setup();
+        // Giữ bản sao world để biết ô nào đi được (xác nhận input thật sự làm người chơi di chuyển).
+        let world = setup.world.clone();
         let a = Authority::new(ServerConfig::v1(), setup);
         let h = handshake_config(&a);
         let dir = tempfile::tempdir().unwrap();
@@ -2635,20 +3073,25 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
             .collect();
         lossy_handshake(&mut server, &mut clients, &h);
         authenticate(&mut server, &mut clients, &players);
+        // Chốt phiên còn sống sau bước auth: `Auth` lặp sẽ khiến server đóng phiên, và mọi
+        // yêu cầu sau đó không được trả lời (báo lỗi ở đây rõ hơn "không nhận LobbyList").
+        assert_eq!(
+            server.session_count(),
+            players.len(),
+            "mọi phiên phải còn sau bước auth"
+        );
 
-        let mut lobby = None;
-        for _ in 0..100 {
-            send(&mut clients[0], &LobbyListRequest {});
-            let _ = server.poll(0, Duration::from_millis(20)).unwrap();
-            if let Some(list) = try_recv_of::<LobbyList>(
+        let lobby = {
+            let mut budget = WAIT_ROUNDS;
+            ask::<LobbyListRequest, LobbyList>(
+                &mut server,
                 &mut clients[0],
+                0,
+                &mut budget,
+                &LobbyListRequest {},
                 MessageKind::LobbyList,
-                Duration::from_millis(50),
-            ) {
-                lobby = Some(list);
-                break;
-            }
-        }
+            )
+        };
         assert!(lobby.is_some(), "không nhận LobbyList lossy");
 
         let state = retry_room_state(
@@ -2684,7 +3127,7 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
         assert_eq!(start.roster.len(), players.len());
         let round = start.round_id;
         retry_loading(&mut server, &mut clients, round, 0);
-        retry_input(&mut server, &mut clients, &players, round, 0);
+        retry_input(&mut server, &mut clients, &players, &world, round, 0);
 
         let _ = server.poll(200_000, Duration::ZERO).unwrap();
         for c in clients.iter_mut() {
@@ -2709,8 +3152,9 @@ fn wire_room_full_lifecycle_with_delay_loss_seed() {
             &mut server,
             &mut clients,
             &players,
+            &world,
             start2.round_id,
-            200_016,
+            200_000,
         );
         let _ = server.poll(400_000, Duration::ZERO).unwrap();
         for c in clients.iter_mut() {
@@ -3276,4 +3720,551 @@ fn repeated_hello_is_allowed_before_auth_but_not_after() {
     let _ = server.poll(0, Duration::from_millis(200)).unwrap();
     let reject: Reject = recv(&mut clients[0]);
     assert_eq!(reject.reason, RejectReason::SessionRejected);
+}
+
+// --- Log vòng đời round và lý do disconnect (ADR 0011 §8.1, V1-029) ---
+
+/// Dòng log đầu tiên có `event` = `name` (không có ⇒ test đỏ, không bỏ qua âm thầm).
+fn first_log_line(buffer: &SharedLogBuffer, name: &str) -> serde_json::Value {
+    buffer
+        .lines()
+        .into_iter()
+        .find(|line| line.get("event").and_then(|value| value.as_str()) == Some(name))
+        .unwrap_or_else(|| {
+            panic!(
+                "không có sự kiện `{name}` trong log: {:?}",
+                buffer
+                    .lines()
+                    .iter()
+                    .map(|line| line.get("event").cloned())
+                    .collect::<Vec<_>>()
+            )
+        })
+}
+
+/// Số dòng log có `event` = `name`.
+fn count_log_lines(buffer: &SharedLogBuffer, name: &str) -> usize {
+    buffer
+        .lines()
+        .iter()
+        .filter(|line| line.get("event").and_then(|value| value.as_str()) == Some(name))
+        .count()
+}
+
+/// Các dòng log `player.disconnect` theo thứ tự phát.
+fn disconnect_lines(buffer: &SharedLogBuffer) -> Vec<serde_json::Value> {
+    buffer
+        .lines()
+        .into_iter()
+        .filter(|line| {
+            line.get("event").and_then(|value| value.as_str()) == Some("player.disconnect")
+        })
+        .collect()
+}
+
+/// Dòng log `player.disconnect` của một tài khoản (`account_id`).
+fn disconnect_line_for(buffer: &SharedLogBuffer, account_id: i64) -> serde_json::Value {
+    disconnect_lines(buffer)
+        .into_iter()
+        .find(|line| line.get("account_id").and_then(|value| value.as_i64()) == Some(account_id))
+        .unwrap_or_else(|| {
+            panic!(
+                "không có player.disconnect cho account {account_id}: {:?}",
+                disconnect_lines(buffer)
+            )
+        })
+}
+
+/// Dòng log `player.disconnect` có `reason` = `reason` (dùng cho connection chưa auth:
+/// không có `account_id` nào để tra).
+fn disconnect_line_with_reason(buffer: &SharedLogBuffer, reason: &str) -> serde_json::Value {
+    disconnect_lines(buffer)
+        .into_iter()
+        .find(|line| line.get("reason").and_then(|value| value.as_str()) == Some(reason))
+        .unwrap_or_else(|| {
+            panic!(
+                "không có player.disconnect với reason `{reason}`: {:?}",
+                disconnect_lines(buffer)
+            )
+        })
+}
+
+/// Gắn logger JSON ghi vào buffer để test đọc được dòng log.
+fn attach_log_buffer(server: &mut Server) -> SharedLogBuffer {
+    let buffer = SharedLogBuffer::new();
+    let logger = Arc::new(Logger::new(
+        OperationalConfig::default().fingerprint(),
+        "test-instance".to_owned(),
+        1,
+        Box::new(buffer.clone()),
+    ));
+    server.set_logger(logger);
+    buffer
+}
+
+/// Đưa hai client qua phòng → start → loading → hết round; trả `round_id` trên dây.
+fn drive_wire_round_to_result(server: &mut Server, clients: &mut [WireClient]) -> u64 {
+    let players = [PlayerId(1), PlayerId(2)];
+    wire_handshake(server, clients);
+    authenticate(server, clients, &players);
+
+    let round = start_wire_round(server, clients, &players);
+
+    // Chạy tới khi có kết quả (giống kịch bản round đầy đủ).
+    let _ = server.poll(200_000, Duration::ZERO).unwrap();
+    assert_eq!(server.phase(), ServerPhase::Results);
+    for client in clients.iter_mut() {
+        let result: RoundResult = recv_of(client, MessageKind::RoundResult);
+        assert_eq!(result.round_id, round);
+    }
+    round
+}
+
+/// Đưa `players[0]` tạo phòng, các người còn lại vào phòng, tất cả ready rồi start ⇒
+/// trận đang chạy (loading barrier đã qua); trả `round_id` trên dây.
+///
+/// Chỉ `players` đầu `clients` được dùng: client thừa (đứng sảnh) không vào phòng và
+/// không nhận `LoadingAck`.
+fn start_wire_round(server: &mut Server, clients: &mut [WireClient], players: &[PlayerId]) -> u64 {
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    let room = state.room_id;
+    for (index, _) in players.iter().enumerate().skip(1) {
+        send_room(
+            &mut clients[index],
+            1,
+            RoomActionDto::Join {
+                room,
+                character: if index % 2 == 0 {
+                    RoomCharacter::C00
+                } else {
+                    RoomCharacter::C01
+                },
+            },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[index]);
+    }
+    for (index, _) in players.iter().enumerate() {
+        send_room(
+            &mut clients[index],
+            2,
+            RoomActionDto::SetReady { ready: true },
+        );
+        let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(&mut clients[0]);
+    }
+    send_room(&mut clients[0], 3, RoomActionDto::Start);
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let start: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+    let round = start.round_id;
+    for client in clients.iter_mut().take(players.len()) {
+        send(client, &LoadingAck { round_id: round });
+    }
+    for _ in 0..100 {
+        let _ = server.poll(0, Duration::from_millis(10)).unwrap();
+        if server.phase() == ServerPhase::Playing {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Playing);
+    round
+}
+
+#[test]
+fn log_vong_doi_round_mang_round_id_that() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    let round = drive_wire_round_to_result(&mut server, &mut clients);
+
+    // Mỗi mốc vòng đời round đều có dòng log riêng, mang `round_id` **thật** (khớp dây).
+    let start = first_log_line(&buffer, "round.start");
+    assert_eq!(start["round_id"], serde_json::json!(round));
+    assert_eq!(start["phase"], serde_json::json!("loading"));
+    assert_eq!(start["players"], serde_json::json!(2));
+
+    assert_eq!(count_log_lines(&buffer, "round.loading"), 2);
+    let loading = first_log_line(&buffer, "round.loading");
+    assert_eq!(loading["round_id"], serde_json::json!(round));
+    assert_eq!(loading["phase"], serde_json::json!("loading"));
+
+    let playing = first_log_line(&buffer, "round.playing");
+    assert_eq!(playing["round_id"], serde_json::json!(round));
+    assert_eq!(playing["phase"], serde_json::json!("playing"));
+
+    let result = first_log_line(&buffer, "round.result");
+    assert_eq!(result["round_id"], serde_json::json!(round));
+    assert_eq!(result["phase"], serde_json::json!("results"));
+    assert!(result["outcome"].is_string());
+
+    // `round.end` khi phòng về waiting (mọi người ack kết quả).
+    for client in clients.iter_mut() {
+        send(client, &ResultAck { round_id: round });
+    }
+    for _ in 0..100 {
+        let _ = server.poll(200_000, Duration::from_millis(20)).unwrap();
+        if server.phase() == ServerPhase::Waiting {
+            break;
+        }
+    }
+    assert_eq!(server.phase(), ServerPhase::Waiting);
+    let end = first_log_line(&buffer, "round.end");
+    assert_eq!(end["round_id"], serde_json::json!(round));
+    assert_eq!(end["outcome"], serde_json::json!("completed"));
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_khi_client_dong_ket_noi() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    // Client đóng socket (EOF) ⇒ `player.disconnect` với lý do `client_closed`.
+    clients[1].writer.close().expect("đóng kết nối client");
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("client_closed"));
+    assert_eq!(disconnect["revoke_reason"], serde_json::json!("disconnect"));
+    assert!(disconnect["player_id"].is_u64());
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_server_shutdown() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    server.shutdown_sessions(1_000);
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("server_shutdown"));
+    assert_eq!(
+        disconnect["revoke_reason"],
+        serde_json::json!("server_shutdown")
+    );
+    // `Drop` gọi lại `shutdown_sessions` ⇒ không log trùng.
+    let before = count_log_lines(&buffer, "player.disconnect");
+    server.shutdown_sessions(2_000);
+    assert_eq!(count_log_lines(&buffer, "player.disconnect"), before);
+}
+
+#[test]
+fn log_disconnect_ghi_ly_do_kicked() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let buffer = attach_log_buffer(&mut server);
+
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+
+    send_room(
+        &mut clients[0],
+        1,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let state = recv_room_state(&mut clients[0]);
+    let room = state.room_id;
+    send_room(
+        &mut clients[1],
+        1,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let joined = recv_room_state(&mut clients[1]);
+
+    // Host kick khỏi phòng người chơi thứ hai (V1: kick chỉ rời phòng).
+    let guest = joined.members[1].player;
+    send_room(&mut clients[0], 2, RoomActionDto::Kick { target: guest });
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+
+    let disconnect = first_log_line(&buffer, "player.disconnect");
+    assert_eq!(disconnect["reason"], serde_json::json!("kicked"));
+    assert_eq!(disconnect["player_id"], serde_json::json!(guest));
+    // Người bị kick đã bị gỡ khỏi roster ⇒ ngữ cảnh phải lấy từ ảnh phòng **trước** khi áp
+    // lệnh: vẫn biết họ rời phòng nào (phòng đang chờ ⇒ không có round).
+    assert_eq!(disconnect["room_id"], serde_json::json!(room));
+    assert!(disconnect["round_id"].is_null(), "{disconnect}");
+}
+
+/// Kịch bản dùng chung: A/B trong phòng (trận đang chạy), C đứng sảnh, D chưa auth.
+///
+/// - `clients[0]`, `clients[1]`: vào phòng, ready, start ⇒ trận đang chạy.
+/// - `clients[2]`: đăng nhập xong nhưng **không vào phòng** (đứng sảnh).
+/// - `clients[3]`: chỉ handshake, **chưa auth** ⇒ hết hạn auth sau 100 ms.
+///
+/// Trả `(server, clients, buffer, room_id, round_id)`.
+fn scenario_room_plus_lobby() -> (Server, Vec<WireClient>, SharedLogBuffer, u64, u64) {
+    let players = [PlayerId(1), PlayerId(2), PlayerId(3), PlayerId(4)];
+    let (mut server, mut clients) = server_with_clients_config(&players, 100, 250);
+    let buffer = attach_log_buffer(&mut server);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players[..3]);
+    // Hạn auth ngắn để D (chưa auth) bị đóng khi test đẩy đồng hồ.
+    server.set_auth_deadline_ms(100);
+    let round = start_wire_round(&mut server, &mut clients, &players[..2]);
+    let room = server.room_view().expect("phòng còn tồn tại").id.0;
+    (server, clients, buffer, room, round)
+}
+
+/// `room_id`/`round_id` trong log là ngữ cảnh **của người đó**: account ngoài phòng hoặc
+/// connection chưa auth không được mang ID phòng/trận của người khác (review #169).
+#[test]
+fn log_disconnect_chi_gan_ngu_canh_phong_cho_thanh_vien() {
+    let (mut server, mut clients, buffer, room, round) = scenario_room_plus_lobby();
+
+    // C đứng sảnh đóng socket (EOF) ⇒ log của C không được mang phòng/trận của A/B.
+    clients[2].writer.close().expect("đóng kết nối C");
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let c = disconnect_line_for(&buffer, 3);
+    assert_eq!(c["reason"], serde_json::json!("client_closed"));
+    assert_eq!(c["revoke_reason"], serde_json::json!("disconnect"));
+    assert!(c["room_id"].is_null(), "C đứng sảnh không gắn room_id: {c}");
+    assert!(
+        c["round_id"].is_null(),
+        "C đứng sảnh không gắn round_id: {c}"
+    );
+
+    // A là thành viên thật của phòng và của roster round ⇒ log mang đúng phòng + round.
+    clients[0].writer.close().expect("đóng kết nối A");
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let a = disconnect_line_for(&buffer, 1);
+    assert_eq!(a["reason"], serde_json::json!("client_closed"));
+    assert_eq!(a["room_id"], serde_json::json!(room));
+    assert_eq!(a["round_id"], serde_json::json!(round));
+    assert!(a["session_id"].is_i64(), "{a}");
+
+    // D chưa auth ⇒ hết hạn handshake/auth ⇒ `auth_failed`, không có ngữ cảnh phòng.
+    let _ = server.poll(200, Duration::from_millis(200)).unwrap();
+    let d = disconnect_line_with_reason(&buffer, "auth_failed");
+    assert!(
+        d["account_id"].is_null(),
+        "D chưa auth không có account_id: {d}"
+    );
+    assert!(d["room_id"].is_null(), "D chưa auth không gắn room_id: {d}");
+    assert!(
+        d["round_id"].is_null(),
+        "D chưa auth không gắn round_id: {d}"
+    );
+
+    // Mỗi phiên đóng chỉ ghi **một** dòng disconnect (không phát trùng).
+    assert_eq!(disconnect_lines(&buffer).len(), 3);
+}
+
+/// Đường timeout liveness phải ghi JSON thật: `reason`, `revoke_reason` và định danh
+/// (review #169 — trước đó chỉ có test "phiên bị thu hồi", không kiểm log).
+#[test]
+fn log_disconnect_ghi_ly_do_timeout_no_input() {
+    // Chỉ một phiên đã auth ⇒ chỉ một dòng disconnect khi hết hạn liveness.
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients_config(&players, 100, 250);
+    let buffer = attach_log_buffer(&mut server);
+    wire_handshake(&mut server, &mut clients);
+    authenticate_player(&mut server, &mut clients[0], players[0]);
+
+    // Im lặng quá hạn liveness (250 ms không `Pong`) ⇒ `timeout_no_input`.
+    let _ = server.poll(300, Duration::ZERO).unwrap();
+    let disconnect = disconnect_line_for(&buffer, 1);
+    assert_eq!(disconnect["reason"], serde_json::json!("timeout_no_input"));
+    assert_eq!(
+        disconnect["revoke_reason"],
+        serde_json::json!("timeout_no_input")
+    );
+    assert_eq!(disconnect["account_id"], serde_json::json!(1));
+    assert!(disconnect["player_id"].is_u64(), "{disconnect}");
+    assert!(disconnect["session_id"].is_i64(), "{disconnect}");
+    // Chưa vào phòng ⇒ không có ngữ cảnh phòng/round.
+    assert!(disconnect["room_id"].is_null(), "{disconnect}");
+    assert!(disconnect["round_id"].is_null(), "{disconnect}");
+
+    // Phiên đã đóng ⇒ các vòng poll sau không sinh dòng disconnect thứ hai.
+    let _ = server.poll(400, Duration::ZERO).unwrap();
+    assert_eq!(disconnect_lines(&buffer).len(), 1);
+}
+
+/// Chờ server xử lý frame đã gửi rồi đọc frame trả lời trên TCP thật.
+///
+/// Server chỉ xử lý frame trong [`Server::poll`] ⇒ poll trước, đọc sau (đọc chặn có
+/// timeout nên test không treo vô hạn khi server hỏng).
+fn tcp_reply(server: &mut Server, client: &mut boom_net::TcpTransport) -> Vec<u8> {
+    for _ in 0..3 {
+        let _ = server.poll(0, Duration::from_millis(50)).unwrap();
+    }
+    client
+        .recv_frame()
+        .unwrap()
+        .expect("client phải nhận frame")
+}
+
+/// TCP thật: client đóng socket khi còn dữ liệu chưa đọc ⇒ kernel gửi **RST** (không phải
+/// FIN êm) ⇒ luồng đọc server báo lỗi ⇒ `player.disconnect` lý do `client_closed`
+/// (EOF và reset dùng chung mã `client_closed`, ADR 0011 §8.1).
+#[test]
+fn log_disconnect_ghi_ly_do_khi_tcp_reset() {
+    let a = Authority::new(ServerConfig::v1(), setup());
+    let h = handshake_config(&a);
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.keep().join("auth.sqlite3");
+    let store = SqliteAccountStore::open(&db_path, SqliteOptions::default()).unwrap();
+    let auth = AuthService::new(
+        AuthConfig::default(),
+        "test-instance-reset".to_owned(),
+        Box::new(OsRandomSource),
+    )
+    .unwrap();
+    let mut server = Server::with_auth(a, h.clone(), auth, Box::new(store), 0).unwrap();
+    let buffer = attach_log_buffer(&mut server);
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let stream = std::net::TcpStream::connect(addr).unwrap();
+    // Handle thứ hai: dò dữ liệu server gửi mà **không** lấy ra khỏi buffer nhận.
+    let probe = stream.try_clone().unwrap();
+    // Timeout đọc ⇒ không treo vô hạn khi server không trả lời.
+    probe
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let mut client = boom_net::TcpTransport::from_stream(stream).unwrap();
+    server.accept_tcp(&listener, PlayerId(1), 0).unwrap();
+
+    // Handshake + auth trên TCP thật.
+    let hello_frame = encode_frame(&hello(h.rules_hash), &ProtocolLimits::v1()).unwrap();
+    client.send_frame(&hello_frame).unwrap();
+    let welcome = tcp_reply(&mut server, &mut client);
+    let (envelope, _) = read_envelope(&welcome).unwrap();
+    assert_eq!(envelope.kind, MessageKind::Welcome);
+    let (username, password) = test_credentials(PlayerId(1));
+    let auth_frame = encode_frame(
+        &Auth {
+            op: AuthOp::Register,
+            username,
+            password,
+        },
+        &ProtocolLimits::v1(),
+    )
+    .unwrap();
+    client.send_frame(&auth_frame).unwrap();
+    let auth_ok = tcp_reply(&mut server, &mut client);
+    let (envelope, _) = read_envelope(&auth_ok).unwrap();
+    assert_eq!(envelope.kind, MessageKind::AuthOk);
+
+    // Client gửi `Ping` ⇒ server trả `Pong`; client **không** đọc ⇒ dữ liệu nằm lại trong
+    // buffer nhận ⇒ đóng socket lúc này sinh RST thay vì FIN êm.
+    client
+        .send_frame(&encode_frame(&Ping(7), &ProtocolLimits::v1()).unwrap())
+        .unwrap();
+    for _ in 0..3 {
+        let _ = server.poll(0, Duration::from_millis(50)).unwrap();
+    }
+    let mut probe_buf = [0u8; 1];
+    let peeked = probe
+        .peek(&mut probe_buf)
+        .expect("phải có dữ liệu server gửi chưa đọc");
+    assert!(
+        peeked > 0,
+        "phải có dữ liệu chưa đọc để đóng socket sinh RST"
+    );
+    drop(client);
+    drop(probe);
+
+    // Server thấy RST ⇒ ghi `player.disconnect` lý do `client_closed` đúng một lần.
+    for _ in 0..300 {
+        let _ = server.poll(0, Duration::from_millis(20)).unwrap();
+        if !disconnect_lines(&buffer).is_empty() {
+            break;
+        }
+    }
+    let disconnect = disconnect_line_for(&buffer, 1);
+    assert_eq!(disconnect["reason"], serde_json::json!("client_closed"));
+    assert_eq!(disconnect["revoke_reason"], serde_json::json!("disconnect"));
+    assert_eq!(disconnect["account_id"], serde_json::json!(1));
+    assert!(disconnect["session_id"].is_i64(), "{disconnect}");
+    let _ = server.poll(0, Duration::from_millis(50)).unwrap();
+    assert_eq!(disconnect_lines(&buffer).len(), 1);
+}
+
+/// Dừng server: ngữ cảnh phòng/round chỉ gắn cho người **thực sự** trong phòng; tài
+/// khoản đứng sảnh thì null (review #169).
+#[test]
+fn log_disconnect_khi_server_dung_chi_gan_ngu_canh_theo_roster() {
+    let (mut server, _clients, buffer, room, round) = scenario_room_plus_lobby();
+
+    server.shutdown_sessions(1_000);
+
+    // A/B là thành viên thật của phòng và roster round.
+    for account in [1, 2] {
+        let line = disconnect_line_for(&buffer, account);
+        assert_eq!(line["reason"], serde_json::json!("server_shutdown"));
+        assert_eq!(line["room_id"], serde_json::json!(room));
+        assert_eq!(line["round_id"], serde_json::json!(round));
+    }
+    // C đứng sảnh ⇒ không có ngữ cảnh phòng/trận.
+    let c = disconnect_line_for(&buffer, 3);
+    assert_eq!(c["reason"], serde_json::json!("server_shutdown"));
+    assert!(c["room_id"].is_null(), "{c}");
+    assert!(c["round_id"].is_null(), "{c}");
+    // D chưa auth ⇒ không có phiên đã đăng nhập nên không có dòng disconnect.
+    assert_eq!(disconnect_lines(&buffer).len(), 3);
+}
+
+/// Timeout khi A/B đang chơi: C ở sảnh và D chưa auth không được nhận ID trận A/B.
+#[test]
+fn log_disconnect_timeout_loc_roster_va_khong_phat_trung() {
+    let (mut server, _clients, buffer, room, round) = scenario_room_plus_lobby();
+    let _ = server.poll(300, Duration::ZERO).unwrap();
+    for account in [1, 2, 3] {
+        let line = disconnect_line_for(&buffer, account);
+        assert_eq!(line["reason"], "timeout_no_input");
+        assert_eq!(line["revoke_reason"], "timeout_no_input");
+        assert!(line["session_id"].is_i64(), "{line}");
+        if account == 3 {
+            assert!(line["room_id"].is_null(), "{line}");
+            assert!(line["round_id"].is_null(), "{line}");
+        } else {
+            assert_eq!(line["room_id"], room);
+            assert_eq!(line["round_id"], round);
+        }
+    }
+    let unauth = disconnect_line_with_reason(&buffer, "auth_failed");
+    assert!(unauth["account_id"].is_null());
+    assert!(unauth["room_id"].is_null());
+    assert!(unauth["round_id"].is_null());
+    let count = disconnect_lines(&buffer).len();
+    assert_eq!(count, 4);
+    let _ = server.poll(400, Duration::ZERO).unwrap();
+    server.shutdown_sessions(400);
+    assert_eq!(disconnect_lines(&buffer).len(), count);
+}
+
+#[test]
+fn log_disconnect_eof_chua_auth_khong_gan_tran_nguoi_khac() {
+    let (mut server, mut clients, buffer, _, _) = scenario_room_plus_lobby();
+    clients[3].writer.close().unwrap();
+    let _ = server.poll(0, Duration::from_millis(200)).unwrap();
+    let lines = disconnect_lines(&buffer);
+    assert_eq!(lines.len(), 1);
+    let line = &lines[0];
+    assert_eq!(line["reason"], "client_closed");
+    assert!(line["account_id"].is_null());
+    assert!(line["room_id"].is_null());
+    assert!(line["round_id"].is_null());
 }

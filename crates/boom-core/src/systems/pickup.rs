@@ -1,6 +1,6 @@
 //! Nhặt item Bomb/Fire/Roller — V1-017…V1-019.
 //!
-//! Luật V1 (design, RULES_V1 R-056…R-059):
+//! Luật V1 (design, RULES_V1 R-056…R-059, R-109):
 //! 1. Người còn sống (`Life::Alive`) có tâm trong ô có item trên nền thì nhặt. Người `Trapped`
 //!    hoặc `Dead` không nhặt (R-059): người bị nhốt đứng yên trong V1 (R-036).
 //! 2. Người chơi được duyệt theo id tăng dần (`SimulationState::players` đã sắp), nên hai người
@@ -9,17 +9,20 @@
 //! 3. Hiệu ứng theo `ItemDef.effect` và `ItemDef.amount` của profile: Bomb → số bom đặt được,
 //!    Fire → tầm nổ, Roller → cấp tốc độ; giá trị bị kẹp theo trần của chỉ số (R-057). Bom đã
 //!    đặt giữ tầm chụp lúc đặt (R-032), nên nhặt Fire không đổi bom đã đặt.
-//! 4. Chỉ số đã ở trần thì không nhặt: item vẫn nằm trên nền, không áp hiệu ứng và không phát
-//!    event (R-058). Nhặt là atomic: item chỉ mất khi hiệu ứng áp được (SCOPE_V1 §4).
+//! 4. **Đã chạm trần thì item vẫn mất** (R-109; BnB `server/game.js:569–589`): BnB gỡ item
+//!    khỏi nền **trước** khi áp hiệu ứng, nên ở trần hiệu ứng không tăng nhưng item đã mất.
+//!    V1 giữ đúng thứ tự đó: item rời nền rồi mới áp hiệu ứng, kẹp theo trần chỉ số. Event
+//!    `item_picked` phát khi item rời nền (kể cả lúc ở trần) vì item **đã** bị nhặt.
 //!
-//! Item giấu trong khối mềm không nằm trên nền nên không nhặt được; nó lộ ra ở bước `blocks`
-//! (V1-016) rồi mới được nhặt ở bước sau.
+//! Item giấu trong khối mềm không nằm trên nền nên không nhặt được; item rơi khi gạch vỡ
+//! (V1-016) nằm trên nền nên được nhặt ở bước sau.
 //!
 //! Quyền ghi và event được phép: bảng trong `systems/mod.rs`. Kịch bản nghiệm thu:
 //! `fixtures/scenarios/pickup/`. Luật và nguồn: RULES_V1; giá trị lấy từ `Rules`.
 
 use crate::event::{EventKind, EventSink};
 use crate::rules::{ItemDef, ItemEffect};
+use crate::scratch::TickScratch;
 use crate::sim::{PlayerInput, World};
 use crate::state::{Life, Player, SimulationState, Stat};
 use crate::system::System;
@@ -40,6 +43,7 @@ impl System for Pickup {
         state: &mut SimulationState,
         _inputs: &[PlayerInput],
         events: &mut EventSink<'_>,
+        _scratch: &mut TickScratch,
     ) {
         // Duyệt theo thứ tự id của người chơi: hai người cùng ô trong một tick thì người id nhỏ
         // nhặt trước, item biến mất khỏi nền nên người sau không còn gì để nhặt (R-056).
@@ -56,11 +60,10 @@ impl System for Pickup {
                 continue;
             };
             let player_id = state.players[i].id;
-            if !apply_effect(&mut state.players[i], def) {
-                // Đã chạm trần: giữ item trên nền, không nhặt (R-058).
-                continue;
-            }
+            // BnB `server/game.js:577–581`: item được gỡ khỏi nền **trước** khi áp hiệu ứng,
+            // nên ở trần hiệu ứng không tăng nhưng item vẫn mất (R-109).
             state.items.remove(index);
+            apply_effect(&mut state.players[i], def);
             events.emit(EventKind::ItemPicked {
                 item: item.id,
                 kind: item.kind,
@@ -71,18 +74,16 @@ impl System for Pickup {
 }
 
 /// Áp hiệu ứng item lên chỉ số tương ứng, kẹp theo trần của chỉ số.
-/// `false` nghĩa là chỉ số đã ở trần nên không nhặt (R-058); item vẫn nằm trên nền.
-fn apply_effect(player: &mut Player, def: &ItemDef) -> bool {
+///
+/// Ở trần thì chỉ số không đổi (`Stat::add` kẹp theo trần) — item vẫn mất khỏi nền vì đã bị
+/// nhặt (R-109).
+fn apply_effect(player: &mut Player, def: &ItemDef) {
     let stat: &mut Stat = match def.effect {
         ItemEffect::BombCapacity => &mut player.bombs,
         ItemEffect::BlastRange => &mut player.range,
         ItemEffect::SpeedLevel => &mut player.speed,
     };
-    if stat.value >= stat.max {
-        return false;
-    }
     stat.add(def.amount);
-    true
 }
 
 #[cfg(test)]
@@ -200,7 +201,35 @@ mod tests {
     }
 
     #[test]
-    fn at_cap_item_stays_and_no_event() {
+    fn at_cap_item_is_lost_and_event_is_emitted() {
+        // R-109 (BnB `server/game.js:577–581`): item gỡ khỏi nền **trước** khi áp hiệu ứng,
+        // nên ở trần chỉ số không tăng nhưng item vẫn mất.
+        let w = world(&["0.."]);
+        let mut s =
+            SimulationState::new_round(&w, &[setup(0, stat(3, 3), stat(1, 7), stat(5, 7))], 1)
+                .unwrap();
+        let cell = Cell::new(1, 0);
+        put_player(&mut s, &w, 0, cell);
+        let item_id = place_item(&mut s, &w, cell, "Bomb");
+        let mut events = Vec::new();
+        s.step(&w, &[PlayerInput::default()], &mut events).unwrap();
+        assert_eq!(s.players[0].bombs.value, 3, "đã ở trần thì không tăng");
+        assert!(s.items.is_empty(), "item ở cap vẫn mất khỏi nền");
+        let picked: Vec<_> = events
+            .iter()
+            .filter(|e| e.kind.name() == "item_picked")
+            .collect();
+        assert_eq!(picked.len(), 1, "item đã rời nền thì phát event");
+        assert_eq!(
+            picked[0].kind.fields(),
+            vec![("item", i64::from(item_id)), ("kind", 0), ("player", 0),]
+        );
+        s.check_invariants(&w).unwrap();
+    }
+
+    #[test]
+    fn item_at_cap_does_not_stack() {
+        // Chỉ số không vượt trần khi nhặt ở cap.
         let w = world(&["0.."]);
         let mut s =
             SimulationState::new_round(&w, &[setup(0, stat(3, 3), stat(1, 7), stat(5, 7))], 1)
@@ -210,12 +239,8 @@ mod tests {
         place_item(&mut s, &w, cell, "Bomb");
         let mut events = Vec::new();
         s.step(&w, &[PlayerInput::default()], &mut events).unwrap();
-        assert_eq!(s.players[0].bombs.value, 3, "đã ở trần thì không tăng");
-        assert_eq!(s.items.len(), 1, "item phải còn trên nền");
-        assert!(
-            !events.iter().any(|e| e.kind.name() == "item_picked"),
-            "không phát event khi không nhặt"
-        );
+        assert_eq!(s.players[0].bombs.value, 3);
+        assert_eq!(s.players[0].bombs.max, 3);
         s.check_invariants(&w).unwrap();
     }
 
