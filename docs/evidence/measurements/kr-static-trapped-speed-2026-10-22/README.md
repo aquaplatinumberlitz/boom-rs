@@ -59,12 +59,40 @@ helper trả `{"error": …}` (không có `success`/`session`), và REA 6.7.0 b�
 Sau khi làm mới pin của DB bản sao rồi chạy lại, REA hoạt động lại và cấp 2 `evidence_id` ở trên. Không
 ghi đường dẫn cấu hình/backup cá nhân vào repo.
 
+## Bổ sung 2026-10-22 — dispatch dir vào sub-object `+1412` (R-136)
+
+Lượt nối tiếp R-135: tìm reader của hướng sau dispatch `0x00E13D00` và thử nối tới setter vị trí.
+**REA 6.7.0** (CLI, `provider_id: ida`, dùng `REA_IDA_MCP_CONFIG` hiện có) bind bản sao nhưng operation
+cấp target trả `execution_failure` — `EROFS: read-only file system,
+mkdtemp '/home/admin/.cache/rea/seeded-workspaces/rea-ida-Wm52UW'`. Không sửa config/pin; fallback
+tuần tự sang **IDA MCP trực tiếp trên bản sao riêng của bản sao** (binary + DB copy trong workspace;
+SHA-256 binary khớp). Một phiên idalib, không chạy song song, không chạy client. Không có `evidence_id`
+REA cho lượt này.
+
+| Kiểm | VA (RVA) | Kết quả |
+|---|---|---|
+| Dispatch dir | `0x00E13D00` (`0xA13D00`), call `0x00E13DFD` (`0xA13DFD`) | `v19[353]` = vtable pointer của sub-object `+1412`; gọi `[v19[353]+12]` với `this = v19+353`, arg = dir |
+| Factory/ctor | `0xAECE00` (`0x6ECE00`), `0xAECEB6`; `0xB79DC0` (`0x779DC0`) | `sub_E12A30` → `sub_AECE00` → `sub_B79DC0`; ctor gán `+0x584` = `CGOGameBomber::vftable` `0x01745FE8` |
+| Ctor thay thế | `0xB73410` (`0x773410`) → `0xB3BE30` (`0x73BE30`) | Gán `CGOGameBomber::vftable` rồi gọi ctor `CGOBomber`; thân sau ghi đè `+0x584` = `CGOBomber::vftable` `0x01744964`. Cả hai vtable slot `+12` = `0xB32390` |
+| `vf3`/setter field | `0xB32390` (`0x732390`) | `sub_55FD30(this+0x1C, dir)`; ghi `0x80000000` vào `+0x70`/`+0x7C` |
+| Field | `bomber+1440` (`0x5A0`) = `+1412 + 0x1C` | Protected field nhận dir; chưa có enum/label |
+| Reader | `0xB40D60` (`0x740D60`) | `sub_57A870(this+1440)`; trả giá trị field |
+| Predicate | `0xB40030`, `0xB40290`, `0xB405E0`, `0xB407E0`, `0xB40A50`, `0xB422F0`, `0xB42880`, `0xB45570` | Chỉ dùng kết quả reader làm điều kiện; không truyền vào setter vị trí |
+| Vị trí | getter `0xB335C0`/`0xB335E0` (`0x7335C0`/`0x7335E0`); setter `0xB334C0`/`0xB33520`/`0xB33540`/`0xB43750` (`0x7334C0`/`0x733520`/`0x733540`/`0x743750`) | `0xB43750` → `0xB334C0(this,x,y)`; chưa thấy caller nào lấy dir/field `+1440` để tính x,y |
+| Update slot 24 | `0xB77B10` (`0x777B10`) → `0xB44000` (`0x744000`) | Không đọc `+0x5A0`; ghi đè vị trí tại `0xB4498D`/`0xB449D9`/`0xB44A23`/`0xB44A6F` từ `[this+0x930]`/`[this+0x934]` (clamp); không gọi `CMovable::MoveSimple` |
+
+**Kết luận:** đã nối dispatch→vf3→field→reader; **chưa nối** reader/predicate tới setter vị trí. Đường
+cập nhật vị trí/`len` của bomber vẫn **unknown**; không có công thức len/speed/trapped trên các cạnh này.
+Bước tiếp: caller của `0xB43750`/`0xB334C0`, event path `0xB57340`/`0xB77EA0`, input state `sub_8444F0`,
+và nguồn clamp `[this+0x930]`/`[this+0x934]`.
+
 ## Giới hạn
 
 - Không có công thức `(dir,len)` cho bomber: `vf[+8]` (byte +8 = slot 2 x86) là của controller `+0xE0`
   **của `CGOPet`**, không phải bomber; controller bomber nhúng tại byte `+1412` mới chỉ chứng minh
-  nhận `dir`.
-- Không xác định được mover/`len` của bomber trong lượt này (slot 24 `0xB44000`/`0xB77B10` chưa đọc hết).
+  nhận `dir`; R-136 chỉ nối tới reader, chưa tới setter vị trí.
+- Không xác định được mover/`len` của bomber trong lượt này; slot 24 `0xB44000`/`0xB77B10` đã đọc
+  nhưng không đọc field `+0x5A0` và không gọi `CMovable::MoveSimple`.
 - Danh sách caller `CMovable::MoveSimple` chưa phân lớp đủ (còn `0x64F2F0`, `0x684E60`, `0xF2C420`,
   `0xFC6160`, một caller `0xFA…` thiếu VA); không loại trừ đường gián tiếp/wrapper/VM từ bomber.
 - Chưa đối chiếu VN cho câu hỏi "VN có dùng `CMovable::MoveSimple` cho bomber không" — bước tiếp số 2.
