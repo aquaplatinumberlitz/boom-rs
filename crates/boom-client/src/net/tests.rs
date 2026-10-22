@@ -23,7 +23,7 @@ use boom_content::rules::RulesProfile;
 use boom_core::{
     CharacterStats, CharacterStatsTable, Dir, PlayerInput, Rules, Stat, World, mode_by_id,
 };
-use boom_net::{MemoryConfig, MemoryFaults, MemoryTransport, Timing, Transport};
+use boom_net::{MemoryConfig, MemoryCounters, MemoryFaults, MemoryTransport, Timing, Transport};
 use boom_proto::dto::auth::AuthFailReason;
 use boom_proto::{
     MessageKind, ProtocolLimits, RejectReason, RoomAction as RoomActionDto, RoomCharacter,
@@ -34,8 +34,11 @@ use boom_server::auth::{AuthConfig, AuthService};
 use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
 use boom_server::{Authority, HandshakeConfig, MatchSetup, Server, ServerConfig, ServerPhase};
 
-use super::fixture::{ACCOUNT_PASSWORD, LATE_THRESHOLD_MS, ScheduledFaults, ScheduledHarness};
-use super::{ClientSession, Credentials, NetClient, NetError, hello_for_profile};
+use super::fixture::{
+    ACCOUNT_PASSWORD, EnqueuedReader, FlushWriter, LATE_THRESHOLD_MS, ReaderProgress,
+    ScheduledFaults, ScheduledHarness, SharedWriter,
+};
+use super::{ClientMessage, ClientSession, Credentials, NetClient, NetError, hello_for_profile};
 
 /// Profile rules cố định cho test (khác `data/rules/v1-dev.toml` nhưng cùng schema).
 const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml");
@@ -43,11 +46,14 @@ const RULES: &str = include_str!("../../../../fixtures/rules/skeleton-test.toml"
 /// Thời gian chờ message khi bơm hàng đợi đọc.
 const PUMP_TIMEOUT: Duration = Duration::from_millis(20);
 
-/// Thời gian chờ message khi bơm luồng phòng (server phải poll trước rồi client mới nhận).
-const ROOM_PUMP_TIMEOUT: Duration = Duration::from_millis(2);
-
 /// Số vòng bơm tối đa cho luồng phòng (server xử lý lệnh → client nhận → client ack).
 const ROOM_PUMP_ROUNDS: u32 = 32;
+
+/// Trần số vòng đồng bộ client với server (mỗi vòng xin snapshot mới rồi chờ).
+///
+/// Điều kiện dừng là "state confirmed của mọi client khớp tick server" — không phải hằng số
+/// thời gian ⇒ máy chậm vẫn xanh.
+const SYNC_ROUNDS: u32 = 2_000;
 
 /// Số bước mô phỏng trong một kịch bản.
 const STEPS: u64 = 30;
@@ -86,7 +92,7 @@ fn terrain() -> Terrain {
 
 /// Một client trong kịch bản.
 struct Client {
-    net: NetClient<MemoryTransport>,
+    net: NetClient<SharedWriter<MemoryTransport>>,
     /// Định danh người chơi trong phòng/round (= `AuthOk.account_id`).
     ///
     /// Server bind mọi trường `player` trên dây từ giá trị này (ADR 0009 Addendum B §B.2).
@@ -101,6 +107,14 @@ struct Client {
     slot: Option<u8>,
     /// Event đã nhận (đã dedup theo `(round_id, EventId)`).
     events: Vec<RoundEvent>,
+    /// Bộ đếm chiều **client → server**: biết luồng đọc của server đã lấy frame chưa.
+    out: MemoryCounters,
+    /// Bộ đếm chiều **server → client**: biết luồng đọc của client đã lấy frame chưa.
+    inbound: MemoryCounters,
+    inbound_progress: ReaderProgress,
+    out_progress: ReaderProgress,
+    writer_progress: ReaderProgress,
+    marker_writer: SharedWriter<MemoryTransport>,
 }
 
 /// Kịch bản: server + hai client nối qua `MemoryTransport`.
@@ -191,11 +205,22 @@ impl Harness {
                 faults: out_faults,
                 timing: Timing::Virtual,
             });
+            // Bộ đếm của chiều client→server: test biết chắc server đã lấy frame input
+            // (không đoán theo hạn thời gian thật) — xem `Harness::wait_input_delivered`.
+            let out = client_writer.counters();
+            let client_writer = SharedWriter::new(client_writer);
+            let marker_writer = client_writer.clone();
             let (server_writer, client_reader) = MemoryTransport::pair(MemoryConfig {
                 seed: seed.wrapping_add(index as u64),
                 faults: in_faults,
                 timing: Timing::Virtual,
             });
+            // Bộ đếm của chiều server→client: test biết chắc client đã lấy frame server gửi
+            // (không đoán theo hạn thời gian thật) — xem `Harness::pump_clients`.
+            let in_counters = client_reader.counters();
+            let (client_reader, inbound_progress) = EnqueuedReader::new(client_reader);
+            let (server_reader, out_progress) = EnqueuedReader::new(server_reader);
+            let (server_writer, writer_progress) = FlushWriter::new(server_writer);
             server
                 .accept(
                     connection,
@@ -233,6 +258,12 @@ impl Harness {
                 connection,
                 slot: None,
                 events: Vec::new(),
+                out,
+                inbound: in_counters,
+                inbound_progress,
+                out_progress,
+                writer_progress,
+                marker_writer,
             });
         }
         Self {
@@ -344,7 +375,7 @@ impl Harness {
     /// loading barrier qua (`tick_origin_ms`), nên `ticks` của harness bắt đầu bằng số
     /// tick server đã chạy.
     fn sync_with_server(&mut self) {
-        for _ in 0..ROOM_PUMP_ROUNDS {
+        for _ in 0..SYNC_ROUNDS {
             let playing = self.server.authority().phase() == ServerPhase::Playing;
             let tick = self.server.authority().tick();
             let synced = playing
@@ -458,20 +489,64 @@ impl Harness {
     ///
     /// Đồng hồ server giữ nguyên 0 nên lượt chưa chạy tick trong lúc dựng phòng.
     fn pump_once(&mut self) {
-        self.server.poll(0, ROOM_PUMP_TIMEOUT).expect("poll phòng");
+        self.poll_server(0);
         self.record_state();
+        self.pump_clients();
+    }
+
+    /// Chờ server **xử lý hết** frame client đã gửi (đồng hồ server đứng yên ở `now`).
+    ///
+    /// Chờ ReaderProgress đạt sent_frames: mỗi frame còn sống, kể cả bản trùng, đã enqueue.
+    ///
+    /// Rào reader xác nhận enqueue và marker Ping/Pong rào writer, clock giữ tại now.
+    fn poll_server(&mut self, now: u64) {
+        for client in &self.clients {
+            client.out_progress.wait_for(client.out.sent_frames());
+        }
+        self.server.poll(now, Duration::ZERO).expect("poll server");
+        for index in 0..self.clients.len() {
+            let client = &mut self.clients[index];
+            let mut completed = false;
+            for _ in 0..SYNC_ROUNDS {
+                let before = client.out.sent_frames();
+                let marker = client.writer_progress.count();
+                client
+                    .marker_writer
+                    .send_frame(
+                        &encode_frame(&boom_proto::Ping(u64::MAX), &ProtocolLimits::v1())
+                            .expect("ping"),
+                    )
+                    .expect("marker");
+                let sent = client.out.sent_frames();
+                client.out_progress.wait_for(sent);
+                self.server.poll(now, Duration::ZERO).expect("poll marker");
+                if sent > before {
+                    client.writer_progress.wait_for(marker + sent - before);
+                    completed = true;
+                    break;
+                }
+            }
+            assert!(completed, "mọi marker đã bị mất");
+        }
+    }
+
+    /// Bơm hàng đợi đọc của mọi client tới khi **mọi frame server gửi** đã được xử lý.
+    ///
+    /// Điều kiện dựa trên **bộ đếm frame** của `MemoryTransport` (không đo thời gian thật).
+    /// Chờ enqueue đủ rồi drain một lần, không gửi retry theo số vòng chờ thread.
+    fn pump_clients(&mut self) {
         for client in &mut self.clients {
-            client.net.pump(ROOM_PUMP_TIMEOUT).expect("bơm message");
+            client
+                .inbound_progress
+                .wait_for(client.inbound.peer_sent_frames());
+            client.net.pump(Duration::ZERO).expect("bơm message");
             client.events.extend(client.net.take_events());
         }
     }
 
     /// Một bước: client nhận snapshot và reconcile, dự đoán rồi gửi, server chạy tick.
     fn tick(&mut self, dirs: [Dir; 2]) {
-        for client in &mut self.clients {
-            client.net.pump(PUMP_TIMEOUT).expect("bơm message");
-            client.events.extend(client.net.take_events());
-        }
+        self.pump_clients();
         for (index, client) in self.clients.iter_mut().enumerate() {
             client
                 .net
@@ -487,20 +562,16 @@ impl Harness {
         let now = self.origin_ms + (self.ticks * 1_000) / u64::from(self.hz);
         self.ticks += 1;
         if self.ticks > 1 {
-            // Nhận input **trước** khi server chạy tick: hai lần poll ở mốc chưa tới tick kế
-            // tiếp (tick không chạy) để chắc chắn cả hai frame input của client nằm trong hàng
-            // đợi; rồi poll ở mốc tick để áp input vào đúng tick client đã gán `target_tick`.
+            // Nhận input **trước** khi server chạy tick:
+            // 1. Chờ luồng đọc của server **lấy đủ** frame client đã gửi (đồng hồ server đứng
+            //    yên ở `before` ⇒ không tick nào chạy, không lệch tick nào).
+            // 2. Poll **có chờ** ⇒ chắc chắn batch input đã vào kênh vào và được server xử lý
+            //    trước khi tick kế tiếp chạy ⇒ lệnh áp dụng đúng tick client đã gán
+            //    `target_tick`, không phải tick sau (lệch một tick làm vị trí dự đoán lệch).
             let before = now - 1;
-            self.server
-                .poll(before, Duration::from_millis(2))
-                .expect("poll nhận input");
-            self.server
-                .poll(before, Duration::from_millis(2))
-                .expect("poll nhận input");
+            self.poll_server(before);
         }
-        self.server
-            .poll(now, Duration::from_millis(2))
-            .expect("poll");
+        self.poll_server(now);
         self.record_state();
         for client in &self.clients {
             if let Some(state) = client.net.state() {
@@ -797,6 +868,131 @@ fn client_nhan_reject_khi_rules_lech() {
 }
 
 #[test]
+fn giai_ma_khoi_du_lieu_server_dong_goi() {
+    // Server đóng gói event bằng `boom_sync::to_round_events` (tên loại và tên trường lấy
+    // từ `EventKind::name()`/`EventKind::fields()` của core); client giải mã bằng
+    // `decode_event`. Hai bên phải dùng **cùng một bảng tên**: mọi loại event V1 đi qua
+    // vòng đóng gói → giải mã phải ra đúng event core.
+    use boom_core::{
+        Cell, EntityId, EventId as CoreEventId, EventKind, ItemKind, Outcome, SimulationEvent,
+    };
+    let events = vec![
+        SimulationEvent {
+            id: CoreEventId { tick: 1, seq: 0 },
+            kind: EventKind::PlayerTurned { player: 2 },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 1, seq: 1 },
+            kind: EventKind::BombPlaced {
+                bomb: EntityId(7),
+                player: 1,
+                cell: Cell::new(3, 4),
+                range: 5,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 0 },
+            kind: EventKind::BombExploded {
+                bomb: EntityId(7),
+                owner: 1,
+                cell: Cell::new(3, 4),
+                chained: true,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 1 },
+            kind: EventKind::BlockDestroyed {
+                cell: Cell::new(5, 6),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 2 },
+            kind: EventKind::ItemRevealed {
+                item: EntityId(9),
+                kind: ItemKind(2),
+                cell: Cell::new(5, 6),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 2, seq: 3 },
+            kind: EventKind::ItemDestroyed {
+                item: EntityId(9),
+                cell: Cell::new(5, 6),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 3, seq: 0 },
+            kind: EventKind::ItemPicked {
+                item: EntityId(9),
+                kind: ItemKind(2),
+                player: 0,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 4, seq: 0 },
+            kind: EventKind::PlayerTrapped { player: 1, by: 0 },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 5, seq: 0 },
+            kind: EventKind::PlayerDied {
+                player: 1,
+                by: Some(0),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 5, seq: 1 },
+            kind: EventKind::PlayerDied {
+                player: 0,
+                by: None,
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 6, seq: 0 },
+            kind: EventKind::RoundEnded {
+                outcome: Outcome::Winner(1),
+            },
+        },
+        SimulationEvent {
+            id: CoreEventId { tick: 6, seq: 1 },
+            kind: EventKind::RoundEnded {
+                outcome: Outcome::Draw,
+            },
+        },
+    ];
+    let wire = boom_sync::to_round_events(11, &events);
+    assert_eq!(wire.events.len(), events.len());
+    for (original, encoded) in events.iter().zip(wire.events.iter()) {
+        let decoded = super::decode_event(encoded).expect("phải giải mã được");
+        assert_eq!(&decoded, original, "giải mã phải ra đúng event core");
+    }
+}
+
+#[test]
+fn giai_ma_bo_event_khong_hieu_va_thieu_truong() {
+    // Event tên lạ hoặc thiếu trường thì **bỏ**: consumer không đoán giá trị
+    // (`EventKind` là `non_exhaustive`, ADR 0009 §2).
+    let id = boom_proto::EventId { tick: 1, seq: 0 };
+    assert!(
+        super::decode_event(&RoundEvent {
+            id,
+            name: "event_la".to_owned(),
+            fields: Vec::new(),
+        })
+        .is_none(),
+        "tên loại lạ phải bị bỏ"
+    );
+    assert!(
+        super::decode_event(&RoundEvent {
+            id,
+            name: "player_died".to_owned(),
+            fields: Vec::new(),
+        })
+        .is_none(),
+        "thiếu trường phải bị bỏ"
+    );
+}
+
+#[test]
 fn event_khong_phat_lai_khi_reconcile() {
     // Chiều nhận bị nhân bản toàn bộ frame: cùng một `RoundEvents` tới nhiều lần, client chỉ
     // được trình bày đúng một lần (dedup theo `(round_id, EventId)`).
@@ -967,6 +1163,7 @@ struct SoloClient {
     server_to_client: MemoryTransport,
     /// Endpoint phía server của chiều client→server (đọc frame client gửi).
     client_to_server: MemoryTransport,
+    inbound_progress: ReaderProgress,
 }
 
 impl SoloClient {
@@ -989,6 +1186,7 @@ impl SoloClient {
         let rules = Rules::from_profile(&profile).expect("rules");
         let (mut server_to_client, client_reader) = MemoryTransport::pair(MemoryConfig::default());
         let (client_writer, mut client_to_server) = MemoryTransport::pair(MemoryConfig::default());
+        let (client_reader, inbound_progress) = EnqueuedReader::new(client_reader);
         let mut net = NetClient::with_room_retry_interval(
             ClientSession::new(client_reader, client_writer),
             rules.clone(),
@@ -1038,6 +1236,7 @@ impl SoloClient {
             net,
             server_to_client,
             client_to_server,
+            inbound_progress,
         }
     }
 
@@ -1057,6 +1256,7 @@ impl SoloClient {
                 player: SOLO_ACCOUNT_ID,
                 slot,
                 character: RoomCharacter::C00,
+                name: "a".into(),
             }],
             start_tick: 0,
         }
@@ -1068,7 +1268,7 @@ impl SoloClient {
         self.server_to_client
             .send_frame(&encode_frame(start, &ProtocolLimits::v1()).expect("encode round start"))
             .expect("gửi round start");
-        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
+        self.settle();
     }
 
     /// Đẩy `RoundStart` cho client: roster mang slot trận của client theo `account_id`.
@@ -1097,13 +1297,14 @@ impl SoloClient {
                 slot: 0,
                 character: RoomCharacter::C00,
                 ready: false,
+                name: "a".into(),
             }],
             round: None,
         };
         self.server_to_client
             .send_frame(&encode_frame(&state, &ProtocolLimits::v1()).expect("encode room state"))
             .expect("gửi room state");
-        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
+        self.settle();
     }
 
     /// Đẩy `RoundResult` cho client (kết quả do server quyết).
@@ -1121,7 +1322,7 @@ impl SoloClient {
         self.server_to_client
             .send_frame(&encode_frame(&result, &ProtocolLimits::v1()).expect("encode round result"))
             .expect("gửi round result");
-        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
+        self.settle();
     }
 
     /// Đẩy một snapshot cho client.
@@ -1129,7 +1330,7 @@ impl SoloClient {
         self.server_to_client
             .send_frame(&encode_frame(snapshot, &ProtocolLimits::v1()).expect("encode snapshot"))
             .expect("gửi snapshot");
-        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
+        self.settle();
     }
 
     /// Đọc batch input client gửi (nếu có), bỏ qua frame khác (ack, lệnh phòng).
@@ -1161,7 +1362,16 @@ impl SoloClient {
                 &encode_frame(rejected, &ProtocolLimits::v1()).expect("encode input rejected"),
             )
             .expect("gửi input rejected");
-        self.net.pump(PUMP_TIMEOUT).expect("bơm message");
+        self.settle();
+    }
+
+    /// Chờ client **xử lý** message server vừa đẩy.
+    ///
+    /// ReaderProgress xác nhận frame đã enqueue; pump(ZERO) xử lý hết queue sau rào.
+    fn settle(&mut self) {
+        self.inbound_progress
+            .wait_for(self.server_to_client.counters().sent_frames());
+        self.net.pump(Duration::ZERO).expect("bơm message");
     }
 }
 
@@ -1613,8 +1823,13 @@ fn run_out_round(harness: &mut RoomHarness) {
 
 /// Chạy trọn luồng V1: vào phòng → ready → start → `RoundStart` → chơi → `RoundResult` → ack →
 /// về phòng → trận 2.
-fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHarness {
-    let mut harness = RoomHarness::new(count, faults, faults, seed);
+fn chay_luong_phong(
+    count: usize,
+    out_faults: ScheduledFaults,
+    in_faults: ScheduledFaults,
+    seed: u64,
+) -> RoomHarness {
+    let mut harness = RoomHarness::new(count, out_faults, in_faults, seed);
     join_all(&mut harness, count);
 
     // Mọi người ready → host start → `RoundStart` tới mọi client.
@@ -1734,7 +1949,12 @@ fn chay_luong_phong(count: usize, faults: ScheduledFaults, seed: u64) -> RoomHar
 
 #[test]
 fn hai_client_trong_luong_phong_day_du() {
-    let harness = chay_luong_phong(2, ScheduledFaults::none(), 20261020);
+    let harness = chay_luong_phong(
+        2,
+        ScheduledFaults::none(),
+        ScheduledFaults::none(),
+        20261020,
+    );
     assert_eq!(harness.client_count(), 2);
     assert!(
         harness.client(0).net.room().is_host(),
@@ -1745,7 +1965,12 @@ fn hai_client_trong_luong_phong_day_du() {
 
 #[test]
 fn bon_client_trong_luong_phong_day_du() {
-    let harness = chay_luong_phong(4, ScheduledFaults::none(), 20261021);
+    let harness = chay_luong_phong(
+        4,
+        ScheduledFaults::none(),
+        ScheduledFaults::none(),
+        20261021,
+    );
     assert_eq!(harness.client_count(), 4);
     for index in 0..4 {
         let client = harness.client(index);
@@ -1789,7 +2014,8 @@ fn bon_client_trong_luong_phong_day_du() {
 fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
     // Mạng có trễ, mất, trùng và đảo thứ tự: luồng phải vẫn chạy trọn vẹn nhờ client gửi lại
     // lệnh phòng (cùng request ID → server dedup).
-    let faults = ScheduledFaults {
+    //
+    let out_faults = ScheduledFaults {
         loss_permille: 50,
         duplicate_permille: 50,
         reorder_permille: 100,
@@ -1797,10 +2023,79 @@ fn luong_phong_chay_duoc_khi_mang_tre_mat_trung() {
         jitter_ms: 30,
         reorder_window_ms: 10,
     };
-    let harness = chay_luong_phong(2, faults, 20261022);
+    let in_faults = ScheduledFaults {
+        loss_permille: 50,
+        duplicate_permille: 50,
+        reorder_permille: 100,
+        delay_ms: 20,
+        jitter_ms: 30,
+        reorder_window_ms: 10,
+    };
+    // Lịch seed này mất frame cả hai chiều nhưng giữ các thông báo RoundStart/RoundResult
+    // một lần; regression bên dưới ép mất RoundResult rồi kiểm recovery.
+    let harness = chay_luong_phong(2, out_faults, in_faults, 20261023);
+    // Lỗi mạng phải **thật sự xảy ra**: nếu không mất frame nào thì test không chứng minh
+    // được gì.
+    for index in 0..harness.client_count() {
+        let inbound = harness.client(index).inbound_stats();
+        assert!(
+            inbound.lost > 0,
+            "chiều server→client {index} phải mất frame: {inbound:?}"
+        );
+    }
+    let stats = harness.net_stats();
+    assert!(stats.lost > 0, "phải có frame bị mất: {stats:?}");
+    assert!(stats.delayed > 0, "phải có frame bị trễ: {stats:?}");
+    assert!(
+        stats.reordered > 0,
+        "phải có frame tới đảo thứ tự: {stats:?}"
+    );
     assert!(
         harness.client(0).net.room().result().is_some(),
         "phải nhận kết quả dù mạng mất frame"
+    );
+    assert!(
+        harness.client(1).net.room().result().is_some(),
+        "mọi client phải nhận kết quả dù mạng mất frame"
+    );
+}
+
+/// Mất frame kết quả đầu: NetClient xin lại bảng đã commit từ server thật.
+#[test]
+fn mat_round_result_xin_lai_dung_bang_authority() {
+    let mut harness = RoomHarness::new(
+        2,
+        ScheduledFaults::none(),
+        ScheduledFaults::none(),
+        20261023,
+    );
+    join_all(&mut harness, 2);
+    assert!(harness.wait_for_all(
+        |client| client.net.room().round().is_some(),
+        ROOM_WAIT_STEPS
+    ));
+    play(&mut harness, 2, 20);
+    harness.client(0).drop_round_results();
+    run_out_round(&mut harness);
+    assert_eq!(
+        harness.client(0).inbound_stats().lost,
+        1,
+        "ép mất đúng RoundResult"
+    );
+    assert!(
+        harness.client(1).net.room().result().is_some(),
+        "peer nhận kết quả server thật"
+    );
+    assert!(harness.wait_for(0, |client| client.net.room().result().is_some(), 200));
+    assert_eq!(
+        harness.client(0).net.room().result(),
+        harness.client(1).net.room().result()
+    );
+    assert!(harness.client(0).net.room().result_acked().is_some());
+    assert_eq!(
+        harness.client(0).inbound_stats().lost,
+        1,
+        "server chưa gửi lại RoundResult"
     );
 }
 
@@ -2008,9 +2303,11 @@ fn round_start_cu_toi_tre_khong_lam_lui_round_moi() {
 /// dùng chung đồng hồ" bị che.
 const SOLO_RETRY_INTERVAL: Duration = Duration::from_millis(20);
 
-/// Chờ lâu hơn nhiều lần [`SOLO_RETRY_INTERVAL`] để nhịp gửi lại kịp chạy (biên rộng để
-/// test trên máy chậm vẫn xanh).
-const SOLO_RETRY_WAIT: Duration = Duration::from_millis(150);
+/// Trần **số vòng** chờ nhịp gửi lại của client (nhịp dùng đồng hồ thật trong client).
+///
+/// Điều kiện dừng là "client đã gửi lại `ResultAck`", không phải hằng số thời gian ⇒ máy
+/// chậm vẫn xanh.
+const RETRY_WAIT_ROUNDS: u32 = 200;
 
 #[test]
 fn result_ack_mat_frame_duoc_gui_lai_khi_lenh_phong_con_pending() {
@@ -2047,9 +2344,19 @@ fn result_ack_mat_frame_duoc_gui_lai_khi_lenh_phong_con_pending() {
 
     // Chờ hơn một nhịp rồi bơm: nhịp gửi lại lệnh phòng vẫn đang chạy (`SetReady` còn
     // pending) nhưng ack phải được gửi lại **riêng**, không nhờ timeout phía server.
-    thread::sleep(SOLO_RETRY_WAIT);
-    client.net.pump(PUMP_TIMEOUT).expect("bơm message");
-    let kinds = client.drain_kinds();
+    //
+    // Nhịp gửi lại của client dùng **đồng hồ thật** (`Instant`) ⇒ vòng chờ ở đây dùng thời
+    // gian thật, nhưng **điều kiện** quyết định khi nào dừng: tới khi client đã gửi lại
+    // `ResultAck` (không phụ thuộc một hằng số thời gian nào).
+    let mut kinds = Vec::new();
+    for _ in 0..RETRY_WAIT_ROUNDS {
+        thread::sleep(SOLO_RETRY_INTERVAL);
+        client.net.pump(PUMP_TIMEOUT).expect("bơm message");
+        kinds.extend(client.drain_kinds());
+        if kinds.contains(&MessageKind::ResultAck) {
+            break;
+        }
+    }
     assert!(
         kinds.contains(&MessageKind::RoomCommand),
         "lệnh phòng vẫn phải được gửi lại: {kinds:?}"
@@ -2057,5 +2364,102 @@ fn result_ack_mat_frame_duoc_gui_lai_khi_lenh_phong_con_pending() {
     assert!(
         kinds.contains(&MessageKind::ResultAck),
         "`ResultAck` mất phải được gửi lại, không nhờ timeout phía server: {kinds:?}"
+    );
+}
+
+#[test]
+fn round_result_lap_va_cu_khong_kich_hoat_lai_ui() {
+    let mut client = SoloClient::new();
+    client.push_round_start(2);
+    client.push_round_result(2);
+    let result = client.net.room().result().cloned().unwrap();
+    client.drain_kinds();
+    client.push_round_result(2);
+    assert_eq!(client.net.room().result(), Some(&result));
+    assert!(!client.drain_kinds().contains(&MessageKind::ResultAck));
+    client.push_round_start(3);
+    client.drain_kinds();
+    client.push_round_result(2);
+    assert!(!client.drain_kinds().contains(&MessageKind::ResultAck));
+}
+
+/// Nhịp retry độc lập auto-ready, tăng backoff và dừng khi hết retention hoặc đổi round.
+#[test]
+fn round_result_retry_backoff_va_dung() {
+    let mut client = SoloClient::new();
+    client.push_round_start(2);
+    let mut state = solo_state(7);
+    state.phase = boom_core::Phase::Ended(boom_core::Outcome::Draw);
+    client.push_snapshot(&solo_snapshot(&state, 2, 1));
+    client.drain_kinds();
+    for tick in 2..=28 {
+        client.net.pump(Duration::ZERO).unwrap();
+        let kinds = client.drain_kinds();
+        assert_eq!(
+            kinds.contains(&MessageKind::RoundResultRequest),
+            [4, 12, 28].contains(&tick),
+            "pump {tick}"
+        );
+    }
+    client
+        .net
+        .handle(ClientMessage::RoomRejected(boom_proto::RoomRejected {
+            request: 2,
+            reason: boom_proto::RoomRejectReason::StaleRequest,
+        }))
+        .unwrap();
+    for _ in 0..128 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        !client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
+    );
+    client.push_round_start(3);
+    client.drain_kinds();
+    for _ in 0..128 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        !client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
+    );
+}
+
+#[test]
+fn round_result_round_ended_event_cung_mo_recovery() {
+    let mut client = SoloClient::new();
+    client.push_round_start(2);
+    client.drain_kinds();
+    client
+        .net
+        .handle(ClientMessage::RoundEvents(boom_proto::RoundEvents {
+            round_id: 2,
+            events: vec![boom_proto::RoundEvent {
+                id: boom_proto::EventId { tick: 100, seq: 0 },
+                name: "round_ended".into(),
+                fields: vec![],
+            }],
+        }))
+        .unwrap();
+    for _ in 0..4 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
+    );
+    client.push_round_result(2);
+    client.drain_kinds();
+    for _ in 0..128 {
+        client.net.pump(Duration::ZERO).unwrap();
+    }
+    assert!(
+        !client
+            .drain_kinds()
+            .contains(&MessageKind::RoundResultRequest)
     );
 }

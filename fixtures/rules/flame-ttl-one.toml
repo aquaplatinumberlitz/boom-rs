@@ -1,0 +1,14 @@
+# Overlay cho scenario: biên TTL **một tick** — lửa không sống tick nào nào.
+# `bomb.flame_ms = 1` ở 60 Hz ⇒ `flame_ticks = 1` (ceil(1·60/1000) = 1). BnB sinh vụ nổ với
+# `ttl = 1` rồi giảm TTL ngay trong tick nổ (`server/game.js:448–451`) nên ttl 1 → 0: vụ nổ bị
+# xóa **trước** khi áp sát thương ⇒ không có ô lửa, không ai bị nhốt.
+# Blast vẫn phá gạch: BnB phá gạch lúc nổ (`server/game.js:401–431`), tức trước bước giảm TTL.
+schema = 1
+overlay_id = "flame-ttl-one"
+base = "skeleton-test"
+
+[bomb.flame_ms]
+value = 1
+unit = "ms"
+source = "design"
+status = "design"

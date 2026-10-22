@@ -305,6 +305,11 @@ impl<W: Transport> ClientSession<W> {
         self.send(ack)
     }
 
+    /// Xin lại bảng kết quả authority (§B.7), không phát lại effect.
+    pub fn request_round_result(&mut self, round_id: u64) -> Result<(), NetError> {
+        self.send(&boom_proto::RoundResultRequest { round_id })
+    }
+
     /// Đọc message tiếp theo; `Ok(None)` khi hết thời gian chờ.
     pub fn next_message(&mut self, timeout: Duration) -> Result<Option<ClientMessage>, NetError> {
         let raw = match self.inbound.recv_timeout(timeout) {
@@ -614,6 +619,7 @@ mod tests {
                     slot: 0,
                     character: boom_proto::RoomCharacter::C00,
                     ready: false,
+                    name: "a".into(),
                 }],
                 round: None,
             };

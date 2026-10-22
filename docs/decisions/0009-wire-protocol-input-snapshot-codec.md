@@ -687,8 +687,9 @@ trên kênh game **sau `AuthOk`** (Addendum A §A.1); trước đó server coi k
 | `0x0048` | `RoundStart` | S→C | Seed/rules/map/mode/roster bắt đầu round |
 | `0x0049` | `RoundResult` | S→C | Kết quả round (V1-022) |
 | `0x004A` | `RoomRejected` | S→C | Lý do lệnh phòng bị từ chối |
+| `0x004B` | `RoundResultRequest` | C→S | Xin lại kết quả đã commit (§B.7) |
 
-Không thêm kind nào ngoài dải `0x0040…0x004A`; `0x0050/0x0051` vẫn là health admin. Capability room
+Dải phòng mở rộng tới `0x004B` theo §B.7; `0x0050/0x0051` vẫn là health admin. Capability room
 được chọn trong handshake; V1 chưa có nhiều revision nên `wire_schema` giữ `1`.
 
 ### B.2 DTO và ánh xạ `boom-room`
@@ -708,9 +709,9 @@ RoomAction =
 character = C00(0) | C01(1)
 
 RoomState { room_id u64, host u64, phase, members Vec<RoomMember>, round Option<RoundInfo> }
-RoomMember { player u64, slot u8, character, ready bool }
+RoomMember { player u64, slot u8, character, ready bool, name String }
 RoundInfo { id u64, members Vec<RoundMember> }
-RoundMember { player u64, slot u8, character }
+RoundMember { player u64, slot u8, character, name String }
 phase = Waiting | Started
 
 LobbyListRequest {}
@@ -743,7 +744,8 @@ RoomRejectReason = PlayerAlreadyInRoom | PlayerNotInRoom | RoomNotFound | RoomFu
   kết nối trong phiên chứ không phải slot. Server bind slot của input từ phiên → (round, slot
   theo roster); batch khai slot khác bị **bỏ** và đếm (không tin client khai — ADR 0005).
 - `RoomState` ánh xạ `RoomView`; tên hiển thị từ account store không có trong `RoomView`, nên
-  `LobbyRoom.name`/`RoomChatMessage.from_name` do server điền, adapter phòng để trống/không suy đoán.
+  `RoomMember.name`/`RoundMember.name`/`LobbyRoom.name`/`RoomChatMessage.from_name` do **server**
+  điền, adapter phòng để trống/không suy đoán (xem §B.6).
 - `RoomRejected` giữ `request` để client bỏ dedup; lý do ánh xạ từ `RoomError`, không gộp lỗi.
 - `RoundStart`/`RoundResult` là thông báo **server→client**; client trả `LoadingAck`/`ResultAck`
   theo round. `LoadingAck` chỉ là ack, không phải input trận. `RoundStart.mode` cho client biết mode
@@ -761,7 +763,7 @@ Các giá trị là **tham số giao thức**, không phải luật chơi:
 | Tên | V1 | Ý nghĩa |
 |---|---:|---|
 | `MAX_LOBBY_ROOMS` | 64 | Số phòng tối đa trong `LobbyList` |
-| `MAX_NAME_BYTES` | 64 | Tên phòng/`from_name`/`rules_profile_id`/`map`/`mode` |
+| `MAX_NAME_BYTES` | 64 | Tên hiển thị (`RoomMember.name`/`RoundMember.name`/`LobbyRoom.name` = tên chủ phòng/`from_name`)/`rules_profile_id`/`map`/`mode` |
 | `MAX_CHAT_BYTES` | 512 | Một tin chat (byte UTF-8) |
 | `MAX_CHAT_PER_S` | 5 | Số tin chat/giây; server rate-limit, DTO chỉ kiểm độ dài |
 | `WIRE_MAX_LOBBY_ROOMS` | 256 | Trần định dạng length prefix danh sách phòng |
@@ -795,6 +797,10 @@ trong golden payload; khi gửi frame, envelope kind `0x0040` dài 16 byte đư�
 ### B.5 Kiểm
 
 - Round-trip postcard cho **mọi** DTO B.2; golden `RoomCommand` ở trên.
+- Golden `RoomState` **có tên hiển thị** (§B.6):
+  `RoomState { room_id=1, host=7, phase=Waiting, members=[{player=7, slot=0, C00, ready=true,
+  name="a"}], round=None }` ⇒ `01 07 00 01 07 00 00 01 01 61 00`; test
+  `crates/boom-proto/src/dto/room.rs::room_state_golden_bytes_with_display_name`.
 - Adapter `RoomView`→`RoomState`→frame→`RoomView` giữ nguyên room/host/phase/members/round;
   test `crates/boom-sync/src/room.rs`, gồm `Start → member leave` và `Start → host leave` (roster
   lịch sử vẫn giữ người đã rời).
@@ -804,3 +810,56 @@ trong golden payload; khi gửi frame, envelope kind `0x0040` dài 16 byte đư�
 - `RoomRejected` ánh xạ `RoomError`; không thay `Reject` handshake.
 
 Chưa làm trong Addendum B: nối `boom-server`/transport, UI, lưu chat, rate-limit runtime, TLS.
+
+### B.6 (2026-10-21) — tên hiển thị của thành viên phòng
+
+Nguồn: issue #138 (UI sảnh/phòng chạy với server thật cần tên thành viên và tên chủ phòng).
+Mọi thay đổi dưới đây là **additive**: `wire_schema` giữ `1` (Quyết định 1, ADR 0008).
+
+- `RoomMember { player u64, slot u8, character, ready bool, name String }` và
+  `RoundMember { player u64, slot u8, character, name String }`: `name` là **tên hiển thị**, do
+  **server** điền từ account store (`AuthOk.display_name`), không phải client khai (ADR 0005).
+  `name` là field **cuối** ⇒ không đổi thứ tự/kiểu của field cũ.
+- Giới hạn: `name` ≤ `MAX_NAME_BYTES` (64) theo miền phiên; trần định dạng decode
+  `WIRE_MAX_NAME_BYTES` (1024); quá miền phiên ⇒ `ProtoError::Invalid` (như `LobbyRoom.name`),
+  quá trần định dạng ⇒ từ chối lúc decode.
+- Thành viên đã mất phiên dùng fallback `player{account_id}` (như `RoomChatMessage.from_name`).
+- Adapter `boom-sync::room` **không** suy diễn tên: `to_room_state` để `name` rỗng,
+  `from_room_state` bỏ qua (core `RoomView` không có khái niệm tên).
+- Tên chủ phòng: client tra `RoomState.host` trong `RoomState.members` (bất biến "host là thành
+  viên" đã kiểm trong `RoomState::check`); **không** có field `host_name`.
+- `LobbyRoom.name` là **tên hiển thị của chủ phòng** (không phải tên phòng): tên phòng thật
+  **không có trên wire** ở V1 (`RoomCommand::Create` không mang tên) ⇒ UI hiện `#<room_id>`;
+  đưa tên phòng lên dây cần issue riêng (có thể đụng contract core `boom-room`).
+- `wire_schema` **giữ `1`**: đây là thêm field cuối (additive), không đổi nghĩa/thứ tự/kiểu field
+  cũ (ADR 0008), theo tiền lệ Addendum A/B và vì protocol V1 chưa phát hành (REWRITE_PLAN: P8).
+  `wire_schema = 1` **đóng băng** ở lần phát hành đầu tiên dùng message phòng; từ đó mọi đổi
+  layout payload ⇒ `wire_schema = 2` và server từ chối client cũ ở handshake.
+- Client build cũ + server build mới **đọc lệch** `RoomState` (postcard không self-describing):
+  quy tắc vận hành — QA luôn build đôi client+server từ cùng commit, không trộn revision.
+
+
+### B.7 (2026-10-22) — recovery `RoundResult`
+
+Nguồn: [contract Claude chốt trên #166](https://github.com/aquaplatinumberlitz/boom-rs/issues/166#issuecomment-6325987828).
+Nguồn/trạng thái: `design`/`design`; đây là giao thức Rust mới, không phải luật server KR.
+
+- `RoundResultRequest { round_id u64 }`, kind `0x004B`, C→S, kênh game, chỉ sau `AuthOk`.
+  `wire_schema` giữ `1` theo điều kiện trước phát hành ở §B.6. Golden payload round 300:
+  `ac 02`; không có player hay room do client khai.
+- Server giữ đúng DTO `RoundResult` đã commit gần nhất của mỗi phòng, trước khi phát frame đầu.
+  Giữ qua `ResultAck`, timeout và trở về Waiting; xóa khi `RoundStart` kế tiếp được tạo hoặc
+  phòng bị hủy. Không tái tính bảng từ state mới, không ghi lại event/log kết quả hay phát effect.
+- Chỉ account trong roster đã chốt của round được xin lại; bind account từ phiên đã auth,
+  không từ connection ID. Account khớp sau đăng nhập/rejoin vẫn hợp lệ trong retention.
+  Round sai/cũ/hết retention/khác phòng hoặc account ngoài roster ⇒
+  `RoomRejected { request=round_id, reason=StaleRequest }`.
+- Client thấy snapshot Ended hoặc event `round_ended` mà thiếu bảng kết quả sẽ xin lại sau 4 nhịp pump giao thức;
+  backoff 8, 16, 32, tối đa 64 nhịp. Đây là cấu hình giao thức, không phải tick luật trận.
+  Không phụ thuộc auto-ready. Dừng khi nhận kết quả, StaleRequest hoặc sang lượt mới; chỉ nhận kết quả
+  khớp round hiện tại, dedup theo round_id trước ack và luồng UI.
+- Bot QA chỉ ack khi đã có cả bảng authority và hash state cuối; retry dùng đồng hồ ms
+  của harness với backoff từ `retry_ms`, trần 2000 ms. Không suy bảng PlayerResult từ snapshot.
+- Kiểm: golden/round-trip/kênh và auth gate; mất frame đầu ⇒ xin lại đúng bảng; request trùng
+  ⇒ cùng DTO; Waiting vẫn recover; round trước sau Start ⇒ StaleRequest; ngoài roster bị từ chối;
+  client bỏ kết quả trùng/cũ; bốn bot mất frame kết quả vẫn drain và hội tụ.

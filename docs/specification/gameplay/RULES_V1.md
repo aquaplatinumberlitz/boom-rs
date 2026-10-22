@@ -1,6 +1,9 @@
 # Luật trận V1 — claim, bằng chứng và giá trị được chọn
 
-Cập nhật 2026-10-21. Nguồn chuẩn cho **claim luật chơi V1**; giá trị engine dùng nằm ở
+Cập nhật 2026-10-21 (ADR 0013 — thứ tự ưu tiên nguồn luật: KR/VN `confirmed` → BnB `design`;
+lựa chọn hiện hành ở §11).
+Cập nhật 2026-10-20 (thêm §12 — nền và ảnh UI của client V1: R-090…R-093).
+Cập nhật 2026-10-19. Nguồn chuẩn cho **claim luật chơi V1**; giá trị engine dùng nằm ở
 [`data/rules/v1-dev.toml`](../../../data/rules/v1-dev.toml), mỗi giá trị trỏ claim ID ở đây.
 Nhãn nguồn/trạng thái theo [AGENTS §4](../../../AGENTS.md#4-bằng-chứng). VN được dùng trực tiếp
 ([ADR 0002](../../decisions/0002-vn-kr-trusted-sources.md)); thứ tự giá trị theo
@@ -105,15 +108,20 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 Bốn claim `design` R-056…R-059 là quyết định V1 trước ADR 0012 (R-058 nay superseded by R-109) cho luồng nhặt, chưa có bằng chứng client KR/VN cho
 các ca biên: thứ tự khi hai người cùng tick (Q-007), và nhặt khi chỉ số đã ở trần (Q-007, `cap`).
 Luồng chung đã có bằng chứng: client xin nhặt (117), server xác nhận (158) rồi item mới mất
-(R-054), nên V1 cho server quyết cả trường hợp "đã chạm trần" — giữ item trên nền thay vì xóa
-đi. Khi có trace, thay các claim này bằng `confirmed` hoặc mở câu hỏi ở
+(R-054), nên V1 cho server quyết cả trường hợp "đã chạm trần". ADR 0012 đã đổi ca biên đó theo
+BnB (`server/game.js:577–581`): item rời nền **trước** rồi mới áp hiệu ứng, nên **ở trần item
+vẫn mất** (R-109, `systems/pickup.rs`). Khi có trace, thay các claim này bằng `confirmed` hoặc
+mở câu hỏi ở
 [QUESTIONS](../../research/QUESTIONS.md).
 
 Hai claim lịch sử `design` R-067/R-068 (nay superseded by R-106/R-109) định nghĩa cách V1 giấu item và cách lửa đối xử với item trên nền;
 chưa có bằng chứng client KR/VN cho hai điểm này. R-068 chọn "lửa không phá item" vì item lộ ra
 nằm đúng ô mà lửa vừa phá khối: nếu lửa phá item trên nền thì item vừa lộ ra sẽ mất ngay, và
-protocol cũ không có gói thu hồi item ngoài xác nhận nhặt (R-054). Khi có trace, thay bằng claim
-`confirmed` hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
+protocol cũ không có gói thu hồi item ngoài xác nhận nhặt (R-054). ADR 0012 đã đổi cả hai điểm
+theo BnB: **không giấu item trước lượt nữa** mà **rơi item khi gạch vỡ** (35%, ba loại V1), và
+**lửa đốt item cũ trước khi sinh item mới** ở ô vừa vỡ — nên item vừa rơi không bị đốt bởi
+chính vụ nổ đó (R-106, R-109; `systems/blocks.rs`). Khi có trace, thay bằng claim `confirmed`
+hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 
 ## 6. Giá trị được chọn cho profile dev
 
@@ -301,7 +309,7 @@ quyết định trên; bảng sai khác và issue triển khai nằm trong ADR 0
 | R-106 | Roll khi vỡ gạch; V1 chỉ giữ ba loại, chuẩn hóa tương đối BnB bubble/potion/shoe | 350 permille; Bomb:Fire:Roller = 20:28:16 | `oss` / design | BnB `server/game.js:20,425–439`; bỏ loại ngoài scope, không giữ xác suất tuyệt đối 20/28/16% |
 | R-107 | Hộp va chạm và assist khi bị chặn; pass bom tới khi hộp rời hoàn toàn | half 13 px (26×26), assist ≤12 px | `oss` / design | BnB `server/game.js:31–32,150–153,173–275,392–399`; #130 |
 | R-108 | Trapped đứng yên; giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035, giữ đứng yên R-036 |
-| R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
+| R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout. Biên TTL: ttl 1 → 0 ⇒ vụ nổ bị xóa **trước** khi áp sát thương (không có ô lửa, không ai bị nhốt) nhưng gạch trong blast vẫn vỡ, vì BnB phá gạch lúc nổ | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
 
 R-014/R-023/R-027/R-044/R-046 giữ `oss`/candidate như bằng chứng lịch sử; không phải claim lựa chọn.
 R-056/R-057/R-059 còn áp dụng phần alive/tâm ô/cap hiệu ứng; phần giữ item tại cap (R-058),
@@ -315,9 +323,11 @@ Các claim lựa chọn là quyết định áp dụng; nhãn của bằng chứ
 R-100 **superseded by R-110/R-113**; R-101 **superseded by R-110**;
 R-102 **superseded by R-114**; R-103 **superseded by R-115**;
 R-104 **superseded by R-111**; R-105 **superseded by R-117**;
-R-106 phần trọng số/chance **superseded by R-112**, phần roll khi vỡ còn thuộc #131.
+R-106 phần trọng số/chance **superseded by R-112**; phần roll khi vỡ do #131 triển khai
+(`systems/blocks.rs`: rơi item lúc gạch vỡ, 35%, ba loại V1).
 R-107/R-108 thông số **superseded by R-116**, cơ chế vẫn áp dụng;
-R-109 giữ backlog #131/#132, không biến thành bằng chứng gốc.
+R-109 giữ backlog #132; phần #131 (roll khi vỡ, lửa đốt item cũ, nhặt ở cap) do #131 triển khai
+trong `systems/{blocks,pickup}.rs`, không biến thành bằng chứng gốc.
 
 | ID | Khóa / lựa chọn hiện hành | Giá trị | Nguồn / trạng thái | Locator và giới hạn |
 |---|---|---|---|---|
@@ -331,7 +341,94 @@ R-109 giữ backlog #131/#132, không biến thành bằng chứng gốc.
 | R-117 | Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
 | R-118 | `presentation.frame_duration_ms` giữ design riêng | 100 ms | `design` / design | R-085; R-079 unknown; BnB không cung cấp nhịp clip KR. RE consumer frame/timing có thể thay sau |
 
-## 12. RE KR 00967 — movement và va chạm (R-119…R-125)
+### Bảng lựa chọn theo khóa (máy-đọc)
+
+Bảng dưới ràng buộc metadata **theo từng khóa profile**: claim lựa chọn, đại lượng, đơn vị,
+nguồn, trạng thái và ngữ cảnh/build áp dụng. Đây là nguồn chuẩn để validator so tầng ADR 0013
+**theo từng khóa** — ô "Nguồn / trạng thái" của bảng claim ở trên chỉ là tóm tắt và phải khớp
+đúng tập nguồn/trạng thái của các khóa thuộc claim đó; lệch thì validator báo lỗi. Dòng gộp
+chưa tách được theo từng khóa thì validator **fail closed** (báo lỗi), không đoán theo ô claim.
+
+| Khóa profile | Claim lựa chọn | Đại lượng | Đơn vị | Nguồn | Trạng thái | Ngữ cảnh / build |
+|---|---|---|---|---|---|---|
+| `grid.tile_px` | R-110 | tile_size | px | `vn_static` | confirmed | VN VBNB_116 |
+| `round.duration_ms` | R-110 | round_duration | ms | `vn_runtime` | confirmed | VN VBNB_116 |
+| `item.bomb_capacity_delta` | R-111 | item_bomb_capacity_delta | bomb | `vn_runtime` | confirmed | VN VBNB_116 |
+| `item.fire_range_delta` | R-111 | item_fire_range_delta | cell | `vn_runtime` | confirmed | VN VBNB_116 |
+| `item.roller_speed_delta` | R-111 | item_roller_speed_delta | level | `oss` | design | BnB 5c108e8 |
+| `drop.weight_bomb` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
+| `drop.weight_fire` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
+| `drop.weight_roller` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
+| `drop.brick_item_chance` | R-112 | drop_brick_item_chance | permille | `oss` | design | BnB 5c108e8 |
+| `sim.ticks_per_second` | R-113 | server_tick_rate | Hz | `oss` | design | BnB 5c108e8 |
+| `round.warmup_ms` | R-113 | round_warmup | ms | `oss` | design | BnB 5c108e8 |
+| `player.speed_px_per_s_per_level` | R-114 | speed_px_per_s_per_level | px/s | `oss` | design | BnB 5c108e8 |
+| `bomb.fuse_ms` | R-115 | bomb_fuse | ms | `oss` | design | BnB 5c108e8 |
+| `bomb.flame_ms` | R-115 | bomb_flame | ms | `oss` | design | BnB 5c108e8 |
+| `player.trap_to_death_ms` | R-115 | trap_to_death_timer | ms | `oss` | design | BnB 5c108e8 |
+| `player.collision_half_px` | R-116 | collision_box_half | px | `oss` | design | BnB 5c108e8 |
+| `player.corner_assist_px` | R-116 | corner_assist | px | `oss` | design | BnB 5c108e8 |
+| `player.trap_touch_distance_px` | R-116 | trap_touch_distance | px | `oss` | design | BnB 5c108e8 |
+| `characters.c00_speed` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_speed_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_bombs` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_bombs_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_range` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_range_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_speed` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_speed_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_bombs` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_bombs_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_range` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c01_range_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `presentation.frame_duration_ms` | R-118 | presentation_frame_duration | ms | `design` | design | V1 design |
+
+Bảng trên là nguồn chuẩn lựa chọn; validator [`tools/rules_precedence.py`](../../../tools/rules_precedence.py)
+giữ bảng kỳ vọng máy-đọc-của bảng này (định danh theo **đại lượng**, đơn vị, build/context) và **đối chiếu
+ngược với RULES_V1** trước khi kiểm profile [`data/rules/`](../../../data/rules/) không dùng tầng thấp
+hơn tầng ghi ở đây; validator chạy trong `cargo xtask ci`, test ở `tools/test_rules_precedence.py`.
+Tầng được so **theo từng khóa** từ "Bảng lựa chọn theo khóa" ở đây: bảng kỳ vọng trong tool và ô
+"Nguồn / trạng thái" của bảng claim phải khớp từng khóa với bảng đó, lệch thì CI báo lỗi.
+Ngoại lệ phải tường minh: 12 khóa `characters.*` (candidate theo R-117, ADR 0013) và `drop.weight_*`
+(số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052). Validator **không** so giá trị số với
+claim và không tự kết luận claim đúng; reviewer kiểm nguồn.
+
+## 12. Nền và ảnh UI của client V1
+
+Hai loại asset UI khác nhau về chỗ nằm trong atlas của bundle. **Nền màn hình** là JPEG nên ở
+trạng thái `excluded`, **không** vào atlas (bộ giải mã sprite của V1 chỉ đọc blob
+`CDataI16Alpha` — I16). **Ảnh UI có chữ** thì **có** trong atlas, nhưng ở trạng thái
+`needs_review_text` nên bị chặn hiển thị cho tới khi có quyết định duyệt ảnh; tới lúc đó client
+vẽ text từ catalog. Vì vậy V1 dựng nền bằng màu và vẽ chữ từ catalog — đây là quyết định
+**design** của dự án, không phải luật chơi.
+
+Bằng chứng phần client gốc là **đọc trực tiếp từ pack**: ba nền là JPEG 800×600 (đo trên blob
+đã giải mã của pack KR 00967 và của bản VN), và ảnh UI của luồng V1 **có chữ nằm trong ảnh**
+(đọc trên PNG giải mã). Chữ được ghi **theo từng asset đã đọc**; phần chưa đọc rõ thì ghi "chưa
+xác nhận" — **không** suy ngôn ngữ chữ từ việc hai build khác byte. Chừa của nền và ảnh:
+[UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1),
+[IMAGE_REVIEW](../localization/IMAGE_REVIEW.md) và [BUNDLES §8](../assets/BUNDLES.md#8-giới-hạn-đã-biết).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-090 | Nền màn hình của client gốc là **ảnh JPEG 800×600 có chữ nằm trong ảnh**, **không phải** sprite I16: `FxDesktop/LoginStage/CAStage` (556.273 B), `FxStage/Lobby/CAStage` (225.527 B), `FxMap/Prepare/CAStage` (231.612 B). Chữ đọc **theo từng asset**: KR login = lời thoại tiếng Hàn + biểu tượng "ALL"/"전체이용가" (góc trên phải); KR lobby = hai tab "대전 모드"/"몬스터 모드" + nhãn "레벨"; KR prepare = nhãn "캐릭터선택"/"팀선택"/"맵" + nút "자동 준비"; bản VN login = logo Boom + dòng bản quyền tiếng Anh ở góc dưới phải (ghi "NexonKorea Corporation"; **không** có chữ Việt), bản VN lobby/prepare = nhãn tiếng Việt ("ĐẠI CHIẾN"/"NHIỆM VỤ"; "NHÂN VẬT"/"CHỌN ĐỔI"/"BẢN ĐỒ"/"TỰ ĐỒNG") | 800×600 JPEG | `kr_static` + `vn_static` / confirmed | Đo blob đã giải mã (`boom-assets pack-extract /home/admin/boomkr-full <stem> <entry> <out>`): magic `FFD8FFE0` (Lobby, Prepare) / `FFD8FFE1` (Login), marker **SOF0 (`FFC0`)**, 800×600, 8-bit, 3 thành phần; bản VN (`/home/admin/boom-re/assets/fx/{LoginStage,Lobby,Prepare}/CAStage.bin`) cũng SOF0 800×600 8-bit 3 thành phần, **khác byte** (488.361/227.530/232.346 B) — khác byte **không** kéo theo kết luận về chữ; chữ đọc trên ảnh giải mã — [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1); ảnh trong cache review ảnh mà §3 dùng để đọc chữ có **pixel giống hệt** blob trích từ pack (đối chiếu RGB 800×600, cả KR lẫn VN) nên đọc chữ trên ảnh đó là bằng chứng cho blob trong pack. Locator tái lập: `/home/admin/boom-re-l10n/l10n/.cache/image-review/manifest.json` (entry `FxDesktop/LoginStage/CAStage`, `FxStage/Lobby/CAStage`, `FxMap/Prepare/CAStage`) → PNG `images/0a129afd5e751013c7878d83-0.png` (login KR), `images/b279b18e1df7ec638dc24663-0.png` (lobby KR), `images/4225a1799b64a164d0c5f31d-0.png` (prepare KR), `images/e5004c4fb85c5be40af35e82-0.png` (login VN), `images/ad1683ba3b1c388a7a9894af-0.png` (lobby VN), `images/1fc4e2555d111efe70cb4d9f-0.png` (prepare VN) |
+| R-091 | Quyết định V1 về nền: **không** đưa nền màn hình vào atlas (bộ giải mã bundle chỉ đọc sprite I16, và nền còn chữ/nhãn ngoài scope FFA) ⇒ client **dựng nền bằng màu**, chữ lấy từ catalog. Đưa nền vào bundle cần bộ giải mã JPEG + bản ảnh đã che chữ — quyết định kiến trúc, thuộc integrator | — | `design` / design | `crates/boom-assets/src/closure.rs` (`UI_ASSETS`: `login.background`, `lobby.background`, `room.background` → `excluded` kèm lý do); [BUNDLES §8](../assets/BUNDLES.md#8-giới-hạn-đã-biết); [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+| R-092 | Ảnh UI của luồng V1 **có chữ nằm trong ảnh** (8 ảnh `needs_review_text`): nút tạo phòng `FxStage/Lobby/LB_Bt_T_Create-NM` (9 frame), dialog tạo phòng `FxStage/Lobby/Dlg_LB-NMCreate`, nút ready `FxMap/Prepare/PRE_Bt_Ready` (6 frame), nút start `FxMap/Prepare/PRE_Bt_Start` (6 frame), dialog thông tin phòng `FxMap/Prepare/Dlg_PRE-NMRoominfo`, art kết quả `FxStage/Game/Win`/`Lose`/`Draw`. Chữ đọc **theo từng asset**: 5 ảnh đầu — KR chữ Hàn ("방만들기", "준비", "시작", "방정보변경"), bản VN chữ Việt đọc được ("TẠO PHÒNG", "SẴN SÀNG", "BẮT ĐẦU", "THÔNG TIN"); art kết quả — KR chữ **Latin** "WIN!!"/"LOSE!!"/"DRAW!!", còn **bản VN chưa đọc rõ** (frame 0 chỉ đọc được "THN"/"SC"/"HO", chuỗi frame chưa ghép đủ) ⇒ phần chữ VN của art kết quả **chưa xác nhận** | — | `kr_static` + `vn_static` / confirmed (chỉ phần đã đọc trực tiếp) | Entry có thật trong pack KR 00967, đã đóng gói trong atlas bundle (`[[sprites]].source_sha256` cho cả 8; SHA-256 ở [`kr_v1_content.json`](../../evidence/inventory/kr_v1_content.json) cho 4 ảnh nút/dialog); ảnh giải mã đọc trực tiếp trong cache review ảnh của `boom-re-l10n` — [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1); `crates/boom-assets/src/closure.rs` (`UI_ASSETS`) |
+| R-093 | Quyết định V1 về ảnh có chữ: bảng UI của bundle có **ba** trạng thái (`selected`/`needs_review_text`/`excluded`) và **không** có trạng thái "đã duyệt" ⇒ ảnh `needs_review_text` chỉ hiển thị khi có quyết định duyệt ảnh ([IMAGE_REVIEW](../localization/IMAGE_REVIEW.md)); tới lúc đó client **vẽ text từ catalog**, còn phần tử `excluded` thay bằng text/màu theo lý do ghi trong bảng | 8 ảnh `needs_review_text` | `design` / design | [BUNDLES §3.3](../assets/BUNDLES.md#33-phần-tử-ui); `crates/boom-assets/src/closure.rs` (`UiState`, `UI_ASSETS` — 8 phần tử `needs_review_text` trong 23 phần tử); [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
+
+R-090/R-092 là **bằng chứng `confirmed` đọc từ static**: nền là JPEG 800×600 (đo trực tiếp trên
+blob đã giải mã của pack KR 00967 và của bản VN) và ảnh UI có chữ nằm trong ảnh (đọc trên PNG
+giải mã). Phần ngôn ngữ chỉ khẳng định **ở asset đã đọc**; art kết quả của bản VN **chưa xác
+nhận**. Việc hai build khác byte **không** phải bằng chứng về chữ. R-091/R-093 là **quyết định
+`design` của V1**: không đưa nền vào atlas, và vẽ text từ catalog tới khi ảnh được duyệt.
+
+Trạng thái duyệt ảnh là **quy trình của dự án** (`images_review.csv` ở `boom-re-l10n`: 3.038
+ứng viên, tất cả `pending`), **không** phải thuộc tính client gốc; theo dõi ở
+[Q-012](../../research/QUESTIONS.md). Không claim **nội dung** chữ trong ảnh: phần đọc chữ chỉ là
+**bằng chứng mô tả** của [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1),
+không phải bản dịch — bản dịch chuẩn là `catalog.csv` của `boom-re-l10n`.
+
+## 13. RE KR 00967 — movement và va chạm (R-119…R-125)
 
 Đọc tĩnh client KR `00967` cho [#146](https://github.com/aquaplatinumberlitz/boom-rs/issues/146) / Q-017.
 Định danh build (SHA-256 `cf72da11…e63b`, imagebase `0x400000`, `RVA = VA − 0x400000`) và bảng VA/RVA ở
@@ -340,18 +437,31 @@ cách đối chiếu VN↔KR, dẫn xuất trợ góc và giới hạn ở
 [KR_RE_MOVEMENT](../../research/findings/KR_RE_MOVEMENT.md). Nguồn `kr_static`; `confirmed` chỉ khi đã
 thấy consumer trong logic game.
 
+**Phạm vi lớp (đọc kèm mọi claim dưới đây).** Chuỗi consumer của `CMovable::MoveSimple` `0x01310200`
+đã trace — `0x00B95180 → 0x00B93830`, rồi `0x00B93830` gọi cổng `0x00B95970` và mover `0x00B93890` —
+thuộc `CGOPet`/AI theo R-134/R-135 của PR #185 (`re-kr-trapped-speed`, **đang mở, chưa có trên
+main**). Vì vậy R-119…R-122 `confirmed` **chỉ trong phạm vi `CMovable`/consumer đã trace**;
+áp dụng hộp 40×40 và trợ góc cho **bomber người chơi là `candidate`/chưa chứng minh**. Đây **không**
+phải khẳng định bomber không dùng hay không tồn tại đường gián tiếp/wrapper từ bomber — chỉ là
+**chưa chứng minh cho bomber**. Không dùng các claim này làm luật người chơi `confirmed`.
+
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
-| R-119 | Hộp va chạm của người chơi là **hộp bàn chân đúng một ô**: `rect(x, y−39, 40, 40)` px. Neo `y` là mép **dưới** hộp nên `y = hàng·40 + 39`, `x = cột·40` khi đã thẳng ô. Mọi truy vấn ô trong bước đi suy từ hộp này: `x/40`, `(x+39)/40`, `(y−39)/40`, `y/40` | 40×40 px, neo `y−39` / `x` | `kr_static` / confirmed | Consumer `CMovable::MoveSimple` KR `0x01310200` (RVA `0x00F10200`): dựng `rect(x, y−39, 40, 40)` rồi lấy bốn chỉ số ô; hằng số đoạn đường `w+h−80` (80 = 40+40). Đối chiếu VN cùng hàm `0x0095199B` (cùng codebase); VN đã có R-009 cho neo `hàng·40+39` |
-| R-120 | Hướng di chuyển mã hoá `0..3` = **trái, lên, phải, xuống**, dùng chung một bảng vector `(dx,dy)` = `(-1,0) (0,-1) (1,0) (0,1)` chỉ số `2·dir`; giá trị `4` không phải hướng mà là hành động đặt bom | 4 hướng, thứ tự 0/1/2/3 | `kr_static` / confirmed | Consumer: `CMovable::MoveSimple` `0x01310200` (đẩy lùi theo `2·dir`), `CGOBomber::Move` `0x00B93890` (tính ô đích), bảng `0x017929B0`; input dispatch `0x00E13D00` ánh xạ action 0..3 và case 4 = đặt bom |
-| R-121 | Bước đi không vượt vật cản: hộp bàn chân được kéo dài theo hướng đi thêm `len` px (rect quét), cắt theo hình học với vật cản, rồi `nLen = w+h−80` là quãng đường **thực sự đi được**; vị trí cập nhật theo `nLen·(dx,dy)`, `len` bị trừ `nLen`, phần dư trả về cho vòng lặp ngoài | px, không vượt | `kr_static` / confirmed | Consumer `CMovable::MoveSimple` `0x01310200` (nhánh `nLen ≥ 0` cập nhật vị trí; nhánh âm là lỗi nội bộ) + vòng lặp `CGOBomber::Move` `0x00B93890` |
-| R-122 | Trợ góc: chỉ chạy khi hộp **đã thẳng hàng ô trên trục di chuyển** (`x%40 == 0` khi đi ngang, `(y−39)%40 == 0` khi đi dọc); khi đó trượt **vuông góc** để căn hộp 40 px vào một làn trống. Với `r = x%40`: `r < 6` → không trượt (trừ khi đang ở làn trái trống thì trượt trái `r`); `6 ≤ r < 34` → trượt trái `r` px nếu làn hiện tại trống, trượt phải `40−r` nếu làn hiện tại bị chặn; `r ≥ 34` → trượt phải `40−r`. Không trượt nếu làn đích bị chặn, nên trợ góc **không** cho xuyên ô | tối đa 34 px/bước; ngưỡng `r ≥ 34`, `r < 6` (viết theo tâm: `14`/`26` quanh `x+20`) | `kr_static` / confirmed | Consumer `CGOBomber::Move` `0x00B93890` gọi `0x01310C50` (kiểm thẳng hàng) rồi slot vtable `+4`/`+8` = `0x01310D30` (trượt X) / `0x01310EE0` (trượt Y); ngưỡng đọc trong `0x01310D30` |
-| R-123 | Input di chuyển đi vào **controller của bomber** (`controller->vf3(dir)`), và quỹ đạo bước đi do client tự mô phỏng trong tick của chính nó (`CGOBomber::Move` → `CMovable::MoveSimple`). Claim **không** bao gồm khẳng định KR không gửi gói C→S mang vị trí: đường mạng/controller chưa được trace hết | — | `kr_static` / confirmed (chỉ phần **dispatch + mô phỏng đã trace**); phần phủ định "không gửi vị trí" là **candidate**, phạm vi đã tìm ghi ở Q-017 | Consumer `CGameContext` input dispatch KR `0x00E13D00` (lấy bomber theo slot → `bomber[353]` controller → `vf3(dir)`, case 4 đặt bom) và chuỗi `0x00B95180 → 0x00B93830 → 0x00B93890 → 0x01310200`; VN tương ứng `0x006E5E05`; **không** dùng R-047 (`vn_static`, build VN) làm bằng chứng phủ định cho KR |
-| R-124 | Tầng va chạm quyết "ô đi được" bằng truy vấn lưới + **lớp tile** (RTTI `CGOTileFixed` / `CGOTilePassable`), không theo ID tile cứng; truy vấn chặn gộp nhiều vị từ (biên map, cờ ngữ cảnh, object trên ô) | — | `kr_static` / candidate | Consumer `CMovable::MoveSimple` `0x01310200` gọi `0x00EA0FD0(row, col, ctx)`; `0x00E9F9B0(row, col)` lấy object ô rồi kiểm lớp tile. **Giới hạn**: polarity "Fixed = chặn" chưa chốt nên chưa nâng `confirmed` |
-| R-125 | Chưa xác định consumer quy đổi **cấp tốc độ → px mỗi bước**. `CMovable::MoveSimple` chỉ nhận `len` từ caller; chuỗi `CGOBomber` `0x00B95180 → 0x00B93830 → 0x00B93890 → 0x01310200` chuyển `len` nguyên vẹn, còn phép quy đổi nằm sau `vf8` của controller `bomber+0xE0` | — (không mang giá trị) | `kr_static` / unknown | `0x00B95180` nhận `(dir, len)` từ controller `bomber+0xE0` `vf8`; lớp controller chưa định vị (không thấy store vtable vào `+0xE0`). Bước tiếp: ctor `CGOBomber` (vtable `0x01745FE8`) → sub-object `+0xE0` → `vf8`; nếu thân hàm ở `.themida` thì dừng và ghi entry VM |
+| R-119 | Trong `CMovable::MoveSimple` (consumer đã trace: `CGOPet`/AI — xem phạm vi lớp), hộp va chạm là **hộp bàn chân đúng một ô**: `rect(x, y−39, 40, 40)` px. Neo `y` là mép **dưới** hộp nên `y = hàng·40 + 39`, `x = cột·40` khi đã thẳng ô. Các truy vấn ô trong bước đi suy từ hộp này: `x/40`, `(x+39)/40`, `(y−39)/40`, `y/40`. Áp dụng cho bomber người chơi: **candidate**/chưa chứng minh | 40×40 px, neo `y−39` / `x` | `kr_static` / confirmed (chỉ `CMovable`, consumer đã trace; bomber: `candidate`) | Consumer `CMovable::MoveSimple` KR `0x01310200` (RVA `0x00F10200`): dựng `rect(x, y−39, 40, 40)` rồi lấy bốn chỉ số ô; hằng số đoạn đường `w+h−80` (80 = 40+40). Đối chiếu VN cùng hàm `0x0095199B`; VN đã có R-009 cho neo `hàng·40+39`. Đường gọi đã trace: `0x00B95180 → 0x00B93830` → cổng `0x00B95970` → mover `0x00B93890` (`CGOPet`/AI theo R-134/R-135 PR #185 pending) |
+| R-120 | Hướng di chuyển trong bảng vector của `CMovable` mã hoá `0..3` = **trái, lên, phải, xuống** với `(dx,dy)` = `(-1,0) (0,-1) (1,0) (0,1)` chỉ số `2·dir`; giá trị `4` không phải hướng mà là hành động đặt bom (từ input dispatch bomber). Bảng/hướng dùng trong `CMovable` (consumer đã trace: `CGOPet`/AI); việc bomber dùng cùng thứ tự khi dịch chuyển **chưa chứng minh** | 4 hướng, thứ tự 0/1/2/3 | `kr_static` / confirmed (bảng hướng + dispatch case 4; bomber movement: `candidate`/chưa chứng minh) | Consumer: `CMovable::MoveSimple` `0x01310200` (đẩy lùi theo `2·dir`), mover `0x00B93890` (tính ô đích; `CGOPet`/AI, R-134/R-135 pending), bảng `0x017929B0`; input dispatch `0x00E13D00` ánh xạ action 0..3 và case 4 = đặt bom (R-123) |
+| R-121 | Bước đi không vượt vật cản: hộp bàn chân được kéo dài theo hướng đi thêm `len` px (rect quét), cắt theo hình học với vật cản, rồi `nLen = w+h−80` là quãng đường **thực sự đi được**; vị trí cập nhật theo `nLen·(dx,dy)`, `len` bị trừ `nLen`, phần dư trả về cho vòng lặp ngoài. Cơ chế đọc trong `CMovable` (consumer đã trace: `CGOPet`/AI); chưa chứng minh cho bomber | px, không vượt | `kr_static` / confirmed (chỉ `CMovable`, consumer đã trace; bomber: `candidate`) | Consumer `CMovable::MoveSimple` `0x01310200` (nhánh `nLen ≥ 0` cập nhật vị trí; nhánh âm là lỗi nội bộ) + mover `0x00B93890` (`CGOPet`/AI, R-134/R-135 pending) |
+| R-122 | Trợ góc: chỉ chạy khi hộp **đã thẳng hàng ô trên trục di chuyển** (`x%40 == 0` khi đi ngang, `(y−39)%40 == 0` khi đi dọc); khi đó trượt **vuông góc** để căn hộp 40 px vào một làn trống. Với `r = x%40`: `r < 6` → không trượt (trừ khi đang ở làn trái trống thì trượt trái `r`); `6 ≤ r < 34` → trượt trái `r` px nếu làn hiện tại trống, trượt phải `40−r` nếu làn hiện tại bị chặn; `r ≥ 34` → trượt phải `40−r`. Không trượt nếu làn đích bị chặn, nên trợ góc **không** cho xuyên ô. Đọc trong `CMovable` (consumer đã trace: `CGOPet`/AI); áp dụng cho bomber: **candidate**/chưa chứng minh | tối đa 34 px/bước; ngưỡng `r ≥ 34`, `r < 6` (viết theo tâm: `14`/`26` quanh `x+20`) | `kr_static` / confirmed (chỉ `CMovable`, consumer đã trace; bomber: `candidate`) | Consumer mover `0x00B93890` (`CGOPet`/AI, R-134/R-135 pending) gọi `0x01310C50` (kiểm thẳng hàng) rồi slot vtable `+4`/`+8` = `0x01310D30` (trượt X) / `0x01310EE0` (trượt Y); ngưỡng đọc trong `0x01310D30` |
+| R-123 | Input di chuyển đi vào **controller của bomber** (`controller->vf3(dir)`); đây là phần **duy nhất** `confirmed` cho bomber trong phạm vi đã trace. Chuỗi `0x00B95180 → 0x00B93830` (rồi cổng `0x00B95970`, mover `0x00B93890`) **không** phải mô phỏng bomber: R-134/R-135 của PR #185 (pending) cho thấy nó thuộc `CGOPet`/AI, nên không gộp thành quỹ đạo bomber. Claim **không** khẳng định KR không gửi gói C→S mang vị trí | — | `kr_static` / confirmed (chỉ dispatch dir vào controller bomber); mô phỏng bomber và phủ định mạng: **chưa chứng minh**/`candidate`, phạm vi ghi ở Q-017 | `CGameContext` input dispatch KR `0x00E13D00` (lấy bomber theo slot → `bomber[353]` controller → `vf3(dir)`, case 4 đặt bom); VN tương ứng `0x006E5E05`. Chuỗi `0x00B95180 → 0x00B93830` → `0x00B95970`/`0x00B93890` → `0x01310200` là của `CGOPet`/AI (R-134/R-135, PR #185 pending) — **không** dùng làm bằng chứng mô phỏng bomber. **Không** dùng R-047 (`vn_static`, build VN) làm bằng chứng phủ định cho KR |
+| R-124 | Trong `CMovable::MoveSimple` (consumer đã trace: `CGOPet`/AI), tầng va chạm quyết "ô đi được" bằng truy vấn lưới + **lớp tile** (RTTI `CGOTileFixed` / `CGOTilePassable`), không theo ID tile cứng; truy vấn chặn gộp nhiều vị từ (biên map, cờ ngữ cảnh, object trên ô). Áp dụng cho bomber: **candidate**/chưa chứng minh | — | `kr_static` / candidate | Consumer `CMovable::MoveSimple` `0x01310200` gọi `0x00EA0FD0(row, col, ctx)`; `0x00E9F9B0(row, col)` lấy object ô rồi kiểm lớp tile. **Giới hạn**: polarity "Fixed = chặn" chưa chốt; và consumer đã trace thuộc `CGOPet`/AI (R-134/R-135 pending) |
+| R-125 | Chưa xác định consumer quy đổi **cấp tốc độ → px mỗi bước**. `CMovable::MoveSimple` chỉ nhận `len` từ caller. Chuỗi `0x00B95180 → 0x00B93830` (cổng `0x00B95970`, mover `0x00B93890`) chuyển `len` nguyên vẹn nhưng **thuộc `CGOPet`/AI** (R-134/R-135, PR #185 pending); phép quy đổi nằm sau `vf8` của controller sub-object `+0xE0` **của `CGOPet`**, không phải bomber. Với bomber, mover/`len` **chưa định vị** | — (không mang giá trị) | `kr_static` / unknown | `0x00B95180` nhận `(dir, len)` từ `vf8` của sub-object `+0xE0` (`CGOPet`); ctor `CGOBomber`/`CGOGameBomber` không gán `+0xE0` theo R-134. Bomber: dispatch `0x00E13D00` → controller `+1412` `vf3(dir)` chỉ chứng minh nhận hướng. Bước tiếp: đọc slot 24 bomber `0x00B44000`/`0x00B77B10` tìm mover/setter vị trí; nếu thân hàm ở `.themida` thì dừng và ghi entry VM |
 
-R-119 và R-122 **phủ định** thông số va chạm đang dùng ở R-116 (`13` px nửa hộp = 26×26, assist `12` px):
-KR cho hộp đúng một ô 40×40 và trợ góc là phép căn làn tối đa 34 px, không phải nới hộp. R-116 vẫn là
-giá trị profile hiện hành cho tới khi có PR đổi profile riêng theo ADR 0013; bảng khác biệt và đề xuất
-ở [KR_RE_MOVEMENT §6](../../research/findings/KR_RE_MOVEMENT.md#6-khác-biệt-với-profile-hiện-tại-và-với-bnb).
+Trong phạm vi `CMovable`/consumer đã trace (pet/AI), R-119 và R-122 khác thông số va chạm đang dùng ở
+R-116 (`13` px nửa hộp = 26×26, assist `12` px): hộp đúng một ô 40×40 và trợ góc là phép căn làn tối đa
+34 px, không phải nới hộp. **Không** dùng để kết luận cho bomber người chơi: áp dụng cho bomber chỉ là
+`candidate`/chưa chứng minh, nên R-116 vẫn là giá trị profile hiện hành; nếu muốn thử nghiệm thì để PR
+riêng theo ADR 0013, không phải luật `confirmed`. Bảng khác biệt ở
+[KR_RE_MOVEMENT §6](../../research/findings/KR_RE_MOVEMENT.md#6-khác-biệt-với-profile-hiện-tại-và-với-bnb).
 R-125 giữ nguyên R-114 (`24 px/s/level`, `oss`/design) vì chưa có consumer KR.
+
+R-134/R-135 nêu ở mục này là **tham chiếu PR #185 đang mở**, chưa có trên `main`; chỉ khi #185 merge
+mới trở thành claim trong nguồn chuẩn. Không dùng chúng để thay R-119…R-125 trong PR này.

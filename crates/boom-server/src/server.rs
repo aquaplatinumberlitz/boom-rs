@@ -7,6 +7,9 @@
 //! Auth T5 đi qua wire Addendum A: `Hello` → `Welcome` (fingerprint) → `Auth` →
 //! `AuthOk`/`AuthFail`; `Logout` revoke + đóng; Ping/Pong liveness. Room/loading/result đi qua
 //! Addendum B sau `AuthOk`. Server bind `player`/account từ session, không tin payload.
+//!
+//! Snapshot của lượt chỉ đi **sau** loading barrier (ADR 0009 §4.3): lúc phòng còn ở loading,
+//! state trận chưa chạy (`tick == 0`) nên trên dây không có `Snapshot` nào.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -26,7 +29,7 @@ use boom_proto::{
     SnapshotRequest, Welcome, decode_frame, decode_payload, encode_frame, limits::WIRE_SCHEMA,
     read_envelope,
 };
-use boom_room::{PlayerId, RoomCommand, RoomView, RoundId};
+use boom_room::{PlayerId, RoomCommand, RoomEvent, RoomView, RoundId};
 use boom_sync::{
     RoomGate, from_room_command, reject_reason, to_lobby_list, to_room_state, to_round_events,
 };
@@ -38,7 +41,9 @@ use crate::authority::{
 };
 use crate::config::HandshakeConfig;
 use crate::identity::{AccountStore, RevokeReason, SessionId, SessionStore};
-use crate::observability::{LogFields, Logger, events};
+use crate::observability::{
+    DisconnectReason, LogFields, Logger, RoomContext, events, phases, round_fields,
+};
 
 fn room_command_reject_reason(err: &ServerError) -> Option<boom_proto::RoomRejectReason> {
     use boom_proto::RoomRejectReason as Reason;
@@ -49,6 +54,40 @@ fn room_command_reject_reason(err: &ServerError) -> Option<boom_proto::RoomRejec
         ServerError::NoRoom => Some(Reason::RoomNotFound),
         ServerError::NoSession(_) | ServerError::UnknownPlayer(_) => Some(Reason::PlayerNotInRoom),
         _ => None,
+    }
+}
+
+/// Nhãn kết quả round ghi vào log (`winner`/`draw`/`aborted`).
+fn outcome_label(outcome: &MatchOutcome) -> &'static str {
+    match outcome {
+        MatchOutcome::Winner(_) => "winner",
+        MatchOutcome::Draw => "draw",
+        MatchOutcome::Aborted => "aborted",
+    }
+}
+
+/// Ngữ cảnh phòng/round của một tài khoản theo **một ảnh phòng** (ADR 0011 §8.1).
+///
+/// - `room_id` chỉ có khi tài khoản **đang là thành viên** phòng.
+/// - `round_id` chỉ có khi tài khoản nằm trong **roster của round** (roster chốt lúc start).
+///
+/// Tài khoản đứng sảnh, connection chưa auth, người đã rời phòng ⇒ không có ngữ cảnh nào
+/// (null) ⇒ log không gắn ID phòng/trận của người khác.
+fn room_context(view: Option<&RoomView>, account: PlayerId) -> RoomContext {
+    let Some(view) = view else {
+        return RoomContext::NONE;
+    };
+    if !view.members.iter().any(|member| member.player == account) {
+        return RoomContext::NONE;
+    }
+    let round_id = view
+        .round
+        .as_ref()
+        .filter(|round| round.members.iter().any(|member| member.player == account))
+        .and_then(|round| u32::try_from(round.id.0).ok());
+    RoomContext {
+        room_id: Some(view.id.0),
+        round_id,
     }
 }
 
@@ -147,6 +186,14 @@ impl AuthRuntime {
     }
 }
 
+/// Tên hiển thị **fallback** khi account store không còn giữ tài khoản.
+///
+/// Thành viên đã mất phiên dùng `player{account_id}` — giống `RoomChatMessage.from_name` — để
+/// UI không hiện dòng rỗng (ADR 0009 Addendum B §B.6).
+pub(crate) fn fallback_display_name(account: PlayerId) -> String {
+    format!("player{}", account.0)
+}
+
 #[derive(Clone, Debug)]
 struct AuthSession {
     /// ID tài khoản: **định danh người chơi trong phòng/round** (ADR 0009 Addendum B §B.2).
@@ -168,6 +215,7 @@ enum Inbound {
 
 enum Outbound {
     Frame(Vec<u8>),
+    Barrier(Sender<()>),
 }
 
 /// Hàng đợi ghi có giới hạn theo kết nối; client không đọc thì bị ngắt thay vì chặn tick.
@@ -239,6 +287,13 @@ pub struct Server {
     liveness_timeout_ms: u64,
     /// Hạn hoàn tất handshake+auth cho kết nối chưa `AuthOk`.
     auth_deadline_ms: u64,
+    /// Đã ghi `player.disconnect` lý do `server_shutdown` cho phiên của instance này.
+    ///
+    /// `shutdown_sessions` được gọi cả lúc dừng sạch lẫn trong `Drop` ⇒ cờ này giúp log
+    /// `player.disconnect` chỉ xuất hiện **một lần** cho mỗi phiên.
+    shutdown_logged: bool,
+    /// Kết quả public bất biến, gắn với phòng (ADR 0009 §B.7).
+    committed_result: Option<(u64, RoundResult)>,
 }
 
 impl Server {
@@ -260,6 +315,8 @@ impl Server {
             ping_interval_ms: 15_000,
             liveness_timeout_ms: 30_000,
             auth_deadline_ms: 10_000,
+            shutdown_logged: false,
+            committed_result: None,
         }
     }
 
@@ -336,6 +393,20 @@ impl Server {
         self.by_account.get(&account).copied()
     }
 
+    /// Tên hiển thị của một định danh người chơi (`account_id`), lấy từ account store.
+    ///
+    /// Tên hiển thị do **server** điền (ADR 0009 Addendum B §B.6): client không khai tên.
+    /// Thành viên đã mất phiên (không còn session giữ `account_id`) dùng fallback
+    /// [`fallback_display_name`] — giống `RoomChatMessage.from_name` — để UI không hiện dòng
+    /// rỗng.
+    fn display_name_of(&self, account: PlayerId) -> String {
+        self.connection_of(account)
+            .and_then(|connection| self.sessions.get(&connection))
+            .and_then(|session| session.account.as_ref())
+            .map(|account| account.display_name.clone())
+            .unwrap_or_else(|| fallback_display_name(account))
+    }
+
     /// Định danh người chơi trong phòng mà một kết nối được bind.
     ///
     /// Sau `AuthOk` đó là `account_id` (ADR 0009 Addendum B §B.2). Kết nối **chưa** có
@@ -350,8 +421,34 @@ impl Server {
     /// Dùng khi server dừng có trật tự (Ctrl-C/SIGTERM): phiên bị đánh dấu thu hồi nên
     /// người chơi đăng nhập lại được, còn `Server::drop` gọi lại hàm này (thao tác idempotent).
     pub fn shutdown_sessions(&mut self, now_ms: u64) {
+        if self.shutdown_logged {
+            return;
+        }
+        self.shutdown_logged = true;
         if let Some(auth) = self.auth.as_mut() {
             auth.shutdown_all(i64::try_from(now_ms).unwrap_or(i64::MAX));
+        }
+        // Mỗi người chơi đang có phiên: ghi `player.disconnect` lý do `server_shutdown` để
+        // vận hành biết ai rớt khi server dừng (ADR 0011 §8.1).
+        let accounts: Vec<(PlayerId, Option<SessionId>)> = self
+            .sessions
+            .values()
+            .filter_map(|session| {
+                session
+                    .account
+                    .as_ref()
+                    .map(|account| (PlayerId(account.account_id), Some(account.session_id)))
+            })
+            .collect();
+        for (account, session_id) in accounts {
+            let context = self.member_context(Some(account));
+            self.log_player_disconnect(
+                Some(account),
+                DisconnectReason::ServerShutdown,
+                RevokeReason::ServerShutdown,
+                session_id,
+                context,
+            );
         }
     }
 
@@ -378,6 +475,26 @@ impl Server {
 
     pub fn session_count(&self) -> usize {
         self.sessions.len()
+    }
+
+    /// Chờ writer gửi hết các frame đã xếp, phục vụ điều phối IO/fixture.
+    /// Không poll, không tiến đồng hồ authority; `timeout` chỉ là trần an toàn.
+    pub fn flush_outbound(&self, timeout: Duration) -> Result<(), String> {
+        let mut barriers = Vec::new();
+        for session in self.sessions.values() {
+            let (tx, rx) = mpsc::channel();
+            session
+                .out_tx
+                .try_send(Outbound::Barrier(tx))
+                .map_err(|err| err.to_string())?;
+            barriers.push(rx);
+        }
+        for barrier in barriers {
+            barrier
+                .recv_timeout(timeout)
+                .map_err(|err| err.to_string())?;
+        }
+        Ok(())
     }
 
     /// Nhận một nửa đọc và một nửa ghi của kết nối; spawn đúng một luồng đọc chặn.
@@ -446,6 +563,9 @@ impl Server {
             let mut writer = writer;
             while let Ok(out) = out_rx.recv() {
                 match out {
+                    Outbound::Barrier(done) => {
+                        let _ = done.send(());
+                    }
                     Outbound::Frame(frame) => {
                         if writer.send_frame(&frame).is_err() {
                             let _ = outbound_tx.send(Inbound::WriteFailed { player });
@@ -538,10 +658,13 @@ impl Server {
             };
             if let Err(err) = self.handle_inbound(item) {
                 // Lỗi protocol/transport của một kết nối không được giết poll/tick.
-                if matches!(
-                    err,
-                    ServerError::Proto(_) | ServerError::Sync(_) | ServerError::Net(_)
-                ) {
+                if matches!(err, ServerError::Proto(_) | ServerError::Sync(_)) {
+                    self.close_session_with_reason(
+                        player,
+                        RevokeReason::Disconnect,
+                        DisconnectReason::ProtocolError,
+                    );
+                } else if matches!(err, ServerError::Net(_)) {
                     self.close_session(player);
                 } else {
                     return Err(err);
@@ -597,7 +720,11 @@ impl Server {
                         detail: "Hello sau AuthOk là lỗi giao thức".to_owned(),
                     },
                 )?;
-                self.close_session(player);
+                self.close_session_with_reason(
+                    player,
+                    RevokeReason::Disconnect,
+                    DisconnectReason::ProtocolError,
+                );
                 return Ok(());
             }
             return self.handle_hello(player, frame);
@@ -628,18 +755,30 @@ impl Server {
                     detail: "Auth lần hai sau AuthOk là lỗi giao thức".to_owned(),
                 },
             )?;
-            self.close_session(player);
+            self.close_session_with_reason(
+                player,
+                RevokeReason::Disconnect,
+                DisconnectReason::ProtocolError,
+            );
             return Ok(());
         }
         if kind == boom_proto::MessageKind::Logout {
             let _: Logout = decode_frame(frame, &self.authority.config().protocol_limits)?;
-            self.close_session_after_flush_with_reason(player, RevokeReason::Logout);
+            self.close_session_after_flush_with_reason(
+                player,
+                RevokeReason::Logout,
+                DisconnectReason::ClientClosed,
+            );
             return Ok(());
         }
         // Đã `AuthOk` ⇒ định danh người chơi trong phòng/round là `account_id`
         // (ADR 0009 Addendum B §B.2). Mọi lệnh phòng/round bind theo định danh này.
         let Some(room_player) = self.room_player(player) else {
-            self.close_session(player);
+            self.close_session_with_reason(
+                player,
+                RevokeReason::Disconnect,
+                DisconnectReason::ProtocolError,
+            );
             return Ok(());
         };
         let limits = self.authority.config().protocol_limits;
@@ -684,8 +823,11 @@ impl Server {
                 // Bind định danh người chơi từ phiên (`account_id`) rồi mới dựng lệnh phòng:
                 // client không được khai định danh (ADR 0009 Addendum B §B.2).
                 let command = from_room_command(&dto, room_player);
+                // Ảnh phòng **trước** khi áp lệnh: người bị kick bị gỡ khỏi roster ngay
+                // khi lệnh áp dụng ⇒ sau đó không tra lại được ngữ cảnh phòng/round.
+                let before = self.authority.room_view();
                 match self.authority.room_command(command, self.now_ms) {
-                    Ok(update) => self.after_room_update(&update)?,
+                    Ok(update) => self.after_room_update(&update, before)?,
                     Err(err) => {
                         if let Some(reason) = room_command_reject_reason(&err) {
                             self.send_room_rejected(player, dto.request, reason)?;
@@ -720,6 +862,32 @@ impl Server {
                     }
                 }
             }
+            boom_proto::MessageKind::RoundResultRequest => {
+                let request: boom_proto::RoundResultRequest = decode_frame(frame, &limits)?;
+                let result = self
+                    .committed_result
+                    .as_ref()
+                    .filter(|(room, result)| {
+                        self.authority
+                            .room_view()
+                            .is_some_and(|view| view.id.0 == *room)
+                            && result.round_id == request.round_id
+                            && result
+                                .results
+                                .iter()
+                                .any(|entry| entry.player == room_player.0)
+                    })
+                    .map(|(_, result)| result.clone());
+                if let Some(result) = result {
+                    self.send(player, &result)?;
+                } else {
+                    self.send_room_rejected(
+                        player,
+                        request.round_id,
+                        boom_proto::RoomRejectReason::StaleRequest,
+                    )?;
+                }
+            }
             boom_proto::MessageKind::ResultAck => {
                 let ack: ResultAck = decode_frame(frame, &limits)?;
                 if !self.ack_round_matches(ack.round_id) {
@@ -742,7 +910,12 @@ impl Server {
                 }
             }
             _ => {
-                self.close_session(player);
+                // Kind lạ sau `AuthOk` là lỗi giao thức (ADR 0009 Addendum A).
+                self.close_session_with_reason(
+                    player,
+                    RevokeReason::Disconnect,
+                    DisconnectReason::ProtocolError,
+                );
             }
         }
         Ok(())
@@ -894,29 +1067,64 @@ impl Server {
         self.send(player, &RoomRejected { request, reason })
     }
 
-    fn after_room_update(&mut self, update: &RoomUpdate) -> Result<(), ServerError> {
+    /// Xử lý kết quả lệnh phòng: gửi trạng thái phòng cho roster, ghi log vòng đời round
+    /// và log `player.disconnect` cho người bị kick.
+    ///
+    /// `before` là ảnh phòng **trước** khi lệnh áp dụng: người bị kick đã bị gỡ khỏi
+    /// roster ⇒ không tra lại được ngữ cảnh phòng/round của họ sau khi lệnh áp dụng.
+    fn after_room_update(
+        &mut self,
+        update: &RoomUpdate,
+        before: Option<RoomView>,
+    ) -> Result<(), ServerError> {
         if let Some(view) = self.authority.room_view() {
             self.send_room_state(&view)?;
         }
         self.broadcast_lobby_list()?;
-        let round = update.round.or_else(|| {
-            if update.duplicate && self.authority.phase() == ServerPhase::Loading {
-                self.authority
-                    .room_view()
-                    .and_then(|view| view.round)
-                    .map(|r| r.id)
-            } else {
-                None
+        // Người bị kick: ghi lý do `kicked` (V1: kick chỉ rời phòng, kết nối TCP còn sống).
+        for event in &update.events {
+            if let RoomEvent::PlayerKicked { player, by, .. } = event {
+                let context = room_context(before.as_ref(), *player);
+                self.log_kicked(*player, *by, context);
             }
-        });
-        if let Some(round) = round {
+        }
+        if self.authority.room_view().is_none() {
+            self.committed_result = None;
+        }
+        if let Some(round) = update.round {
+            self.committed_result = None;
+            // Round mới: ghi vòng đời round trước khi gửi `RoundStart` cho roster.
+            self.log_round_start(round);
+            self.send_round_start(round)?;
+            return Ok(());
+        }
+        // Start lặp: không tạo round mới, nhưng client chưa nhận `RoundStart` thì gửi lại.
+        let repeated_round = if update.duplicate && self.authority.phase() == ServerPhase::Loading {
+            self.authority
+                .room_view()
+                .and_then(|view| view.round)
+                .map(|round| round.id)
+        } else {
+            None
+        };
+        if let Some(round) = repeated_round {
             self.send_round_start(round)?;
         }
         Ok(())
     }
 
     fn send_room_state(&mut self, view: &RoomView) -> Result<(), ServerError> {
-        let state = to_room_state(view);
+        let mut state = to_room_state(view);
+        // Tên hiển thị: **server** điền từ account store sau adapter (adapter không suy diễn
+        // tên — ADR 0009 Addendum B §B.6).
+        for member in &mut state.members {
+            member.name = self.display_name_of(PlayerId(member.player));
+        }
+        if let Some(round) = state.round.as_mut() {
+            for member in &mut round.members {
+                member.name = self.display_name_of(PlayerId(member.player));
+            }
+        }
         // `view.members` mang **định danh người chơi** (`account_id`); gửi về kết nối đang giữ nó.
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
         for account in members {
@@ -938,15 +1146,9 @@ impl Server {
         let views: Vec<RoomView> = self.authority.room_view().into_iter().collect();
         let mut list = to_lobby_list(&views);
         for room in &mut list.rooms {
-            // `host` là định danh người chơi (`account_id`) ⇒ tên hiển thị lấy từ session đang giữ nó.
-            let name = self
-                .connection_of(PlayerId(room.host))
-                .and_then(|connection| self.sessions.get(&connection))
-                .and_then(|session| session.account.as_ref())
-                .map(|account| account.display_name.clone());
-            if let Some(name) = name {
-                room.name = name;
-            }
+            // `LobbyRoom.name` là **tên hiển thị của chủ phòng** (ADR 0009 Addendum B §B.6):
+            // `host` là định danh người chơi (`account_id`) ⇒ tên lấy từ account store.
+            room.name = self.display_name_of(PlayerId(room.host));
         }
         list
     }
@@ -977,9 +1179,14 @@ impl Server {
         if view.round.is_none() {
             return Ok(());
         }
-        let Some(roster) = to_room_state(&view).round else {
+        let Some(mut roster) = to_room_state(&view).round else {
             return Ok(());
         };
+        // Tên hiển thị trong roster: server điền từ account store (ADR 0009 Addendum B §B.6).
+        // Roster là bản **lịch sử**: người đã rời phòng sau `Start` vẫn có tên.
+        for member in &mut roster.members {
+            member.name = self.display_name_of(PlayerId(member.player));
+        }
         let Some(seed) = self.authority.round_seed() else {
             return Ok(());
         };
@@ -1049,7 +1256,7 @@ impl Server {
             .get(&connection)
             .and_then(|session| session.account.as_ref())
             .map(|account| account.display_name.clone())
-            .unwrap_or_else(|| format!("player{}", room_player.0));
+            .unwrap_or_else(|| fallback_display_name(room_player));
         let message = RoomChatMessage {
             room_id: view.id.0,
             // `from` là định danh người chơi (`account_id`).
@@ -1109,6 +1316,7 @@ impl Server {
             outcome,
             results,
         };
+        self.committed_result = Some((view.id.0, message.clone()));
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
         for account in members {
             let Some(connection) = self.connection_of(account) else {
@@ -1128,11 +1336,54 @@ impl Server {
     fn flush_lifecycle(&mut self, events: &[InternalServerEvent]) -> Result<(), ServerError> {
         for event in events {
             match event {
+                InternalServerEvent::LoadingAcked { round, player, .. } => {
+                    // Một người đã báo xong loading; vẫn ở pha loading.
+                    let mut fields = LogFields::new();
+                    fields.insert("player_id", serde_json::json!(player.0));
+                    self.log_round_event(events::ROUND_LOADING, *round, phases::LOADING, fields);
+                }
+                InternalServerEvent::MatchStarted { round, .. } => {
+                    // Loading barrier đóng ⇒ trận bắt đầu chạy.
+                    self.log_round_event(
+                        events::ROUND_PLAYING,
+                        *round,
+                        phases::PLAYING,
+                        LogFields::new(),
+                    );
+                }
                 InternalServerEvent::RoundFinished { result, .. } => {
+                    // Kết quả round đã chốt.
+                    let mut fields = LogFields::new();
+                    fields.insert("outcome", serde_json::json!(outcome_label(&result.outcome)));
+                    if let MatchOutcome::Winner(player) = result.outcome {
+                        fields.insert("winner", serde_json::json!(player.0));
+                    }
+                    fields.insert("tick", serde_json::json!(result.tick));
+                    self.log_round_event(
+                        events::ROUND_RESULT,
+                        result.round,
+                        phases::RESULTS,
+                        fields,
+                    );
                     self.send_round_result(result)?;
                 }
-                InternalServerEvent::ReturnedToWaiting { .. }
-                | InternalServerEvent::RoundCancelled { .. } => {
+                InternalServerEvent::ReturnedToWaiting { round, .. } => {
+                    // Round kết thúc bình thường: về phòng chờ.
+                    let mut fields = LogFields::new();
+                    fields.insert("outcome", serde_json::json!("completed"));
+                    self.log_round_event(events::ROUND_END, *round, phases::WAITING, fields);
+                    if let Some(view) = self.authority.room_view() {
+                        self.send_room_state(&view)?;
+                    }
+                    self.broadcast_lobby_list()?;
+                }
+                InternalServerEvent::RoundCancelled { round, .. } => {
+                    // Round bị hủy (hết hạn loading, người chơi rời lúc loading).
+                    if let Some(round) = round {
+                        let mut fields = LogFields::new();
+                        fields.insert("outcome", serde_json::json!("cancelled"));
+                        self.log_round_event(events::ROUND_END, *round, phases::WAITING, fields);
+                    }
                     if let Some(view) = self.authority.room_view() {
                         self.send_room_state(&view)?;
                     }
@@ -1149,7 +1400,11 @@ impl Server {
         let hello: Hello = match decode_frame(frame, &limits) {
             Ok(hello) => hello,
             Err(_) => {
-                self.close_session(player);
+                self.close_session_with_reason(
+                    player,
+                    RevokeReason::Disconnect,
+                    DisconnectReason::ProtocolError,
+                );
                 return Ok(());
             }
         };
@@ -1259,6 +1514,120 @@ impl Server {
         logger.warn(events::INPUT_SLOT_MISMATCH, fields);
     }
 
+    /// ID phòng **public** (giống `RoomState.room_id` mà client thấy).
+    fn public_room_id(&self) -> Option<u64> {
+        self.authority.room_view().map(|view| view.id.0)
+    }
+
+    /// Ghi sự kiện vòng đời round (ADR 0011 §8.1).
+    ///
+    /// Mọi sự kiện `round.*` mang `round_id` **thật** (ID public trên dây) để đối chiếu log
+    /// với `RoundStart`/`RoundResult` mà client nhận được.
+    fn log_round_event(&self, event: &str, round: RoundId, phase: &str, extra: LogFields) {
+        let Some(logger) = self.logger.as_ref() else {
+            return;
+        };
+        let mut fields = round_fields(round.0, self.public_room_id(), phase);
+        for (key, value) in extra {
+            fields.insert(key, value);
+        }
+        logger.info(event, fields);
+    }
+
+    /// Ghi sự kiện `player.disconnect` (ADR 0011 §8.1): lý do + định danh, không lộ bí mật.
+    ///
+    /// `reason` là mã lý do disconnect; `revoke_reason` là mã lý do **thu hồi phiên** trong DB
+    /// (ADR 0011 §6.1) — hai trường khác nhau: bị kick thì `reason = kicked` nhưng phiên
+    /// vẫn sống ⇒ `revoke_reason` để trống (null).
+    ///
+    /// `context` là ngữ cảnh phòng/round **của người đó** (xem [`room_context`]): chỉ
+    /// truyền ngữ cảnh mà tài khoản thực sự thuộc roster, không gắn ID trận của người khác.
+    fn log_player_disconnect(
+        &self,
+        account: Option<PlayerId>,
+        reason: DisconnectReason,
+        revoke: RevokeReason,
+        session_id: Option<SessionId>,
+        context: RoomContext,
+    ) {
+        let Some(logger) = self.logger.as_ref() else {
+            return;
+        };
+        let mut fields = self.disconnect_identity_fields(account, session_id, context);
+        fields.insert("reason", serde_json::json!(reason.as_str()));
+        fields.insert("revoke_reason", serde_json::json!(revoke.as_str()));
+        logger.info(events::PLAYER_DISCONNECT, fields);
+    }
+
+    /// Trường định danh chung cho sự kiện `player.disconnect` (ADR 0011 §8.1).
+    fn disconnect_identity_fields(
+        &self,
+        account: Option<PlayerId>,
+        session_id: Option<SessionId>,
+        context: RoomContext,
+    ) -> LogFields {
+        let mut fields = LogFields::new();
+        if let Some(account) = account {
+            fields.insert(
+                "account_id",
+                serde_json::json!(i64::try_from(account.0).unwrap_or(i64::MAX)),
+            );
+            fields.insert("player_id", serde_json::json!(account.0));
+        }
+        if let Some(session_id) = session_id {
+            fields.insert("session_id", serde_json::json!(session_id.0));
+        }
+        context.apply(&mut fields);
+        fields
+    }
+
+    /// Ngữ cảnh phòng/round của tài khoản theo trạng thái authority **hiện tại**.
+    ///
+    /// Dùng cho các đường đóng session (EOF/reset, timeout, shutdown): tại thời điểm ghi
+    /// log, tài khoản vẫn còn trong roster phòng ⇒ giữ đúng ngữ cảnh của thành viên thật;
+    /// tài khoản ngoài phòng (đứng sảnh) hoặc connection chưa auth ⇒ không có ngữ cảnh.
+    fn member_context(&self, account: Option<PlayerId>) -> RoomContext {
+        let Some(account) = account else {
+            return RoomContext::NONE;
+        };
+        room_context(self.authority.room_view().as_ref(), account)
+    }
+
+    /// Ghi `round.start`: round vừa được tạo, loading barrier mở.
+    fn log_round_start(&self, round: RoundId) {
+        let mut fields = LogFields::new();
+        let players = self
+            .authority
+            .room_view()
+            .map(|view| view.members.len())
+            .unwrap_or(0);
+        fields.insert("players", serde_json::json!(players));
+        if let Some(seed) = self.authority.round_seed() {
+            fields.insert("seed", serde_json::json!(seed));
+        }
+        self.log_round_event(events::ROUND_START, round, phases::LOADING, fields);
+    }
+
+    /// Ghi `player.disconnect` lý do `kicked` cho người bị host kick khỏi phòng.
+    ///
+    /// V1: kick chỉ **rời phòng** (kết nối TCP còn sống, phiên không bị thu hồi) — log ghi
+    /// lý do `kicked` để vận hành biết vì sao người chơi rời phòng giữa trận.
+    ///
+    /// `context` là ngữ cảnh phòng/round lấy từ ảnh phòng **trước** khi lệnh kick áp dụng:
+    /// người bị kick bị gỡ khỏi roster ngay lập tức ⇒ sau đó không tra lại được ngữ cảnh.
+    fn log_kicked(&self, player: PlayerId, by: PlayerId, context: RoomContext) {
+        let Some(logger) = self.logger.as_ref() else {
+            return;
+        };
+        let mut fields = self.disconnect_identity_fields(Some(player), None, context);
+        fields.insert("kicked_by", serde_json::json!(by.0));
+        fields.insert(
+            "reason",
+            serde_json::json!(DisconnectReason::Kicked.as_str()),
+        );
+        logger.info(events::PLAYER_DISCONNECT, fields);
+    }
+
     fn send<M: Message>(&mut self, player: PlayerId, message: &M) -> Result<(), ServerError> {
         let limits = self.authority.config().protocol_limits;
         let frame = encode_frame(message, &limits)?;
@@ -1282,7 +1651,16 @@ impl Server {
         Ok(())
     }
 
+    /// Gửi snapshot của lượt cho một kết nối.
+    ///
+    /// ADR 0009 §4.3: server chỉ gửi snapshot **sau khi round bắt đầu** — tức sau loading
+    /// barrier (SCOPE_V1 §3). Lúc phòng còn ở loading, state trận chưa chạy (`tick == 0`)
+    /// nên snapshot chỉ mô tả phòng đang loading: không gửi. Nhịp gửi định kỳ không bị
+    /// dịch vì vậy: `next_snapshot_ms` chỉ đổi khi snapshot thật sự đi.
     fn send_snapshot(&mut self, player: PlayerId) -> Result<(), ServerError> {
+        if !self.authority.snapshot_allowed() {
+            return Ok(());
+        }
         if !self.is_member(player) {
             return Ok(());
         }
@@ -1328,7 +1706,12 @@ impl Server {
             .map(|(player, _)| *player)
             .collect();
         for player in auth_expired {
-            self.close_session_with_reason(player, RevokeReason::Disconnect);
+            // Không hoàn tất handshake/auth trong hạn ⇒ lý do `auth_failed`.
+            self.close_session_with_reason(
+                player,
+                RevokeReason::Disconnect,
+                DisconnectReason::AuthFailed,
+            );
         }
         let timeout = self.liveness_timeout_ms.max(1);
         let timed_out: Vec<PlayerId> =
@@ -1342,7 +1725,12 @@ impl Server {
                 .map(|(player, _)| *player)
                 .collect();
         for player in timed_out {
-            self.close_session_with_reason(player, RevokeReason::TimeoutNoInput);
+            // Im lặng quá hạn liveness (không có `Pong`) ⇒ `timeout_no_input`.
+            self.close_session_with_reason(
+                player,
+                RevokeReason::TimeoutNoInput,
+                DisconnectReason::TimeoutNoInput,
+            );
         }
         let due: Vec<PlayerId> = self
             .sessions
@@ -1400,11 +1788,22 @@ impl Server {
         Ok(())
     }
 
+    /// Đóng session vì client biến mất (EOF/RST) hoặc vì writer không còn đọc được.
     fn close_session(&mut self, player: PlayerId) {
-        self.close_session_with_reason(player, RevokeReason::Disconnect);
+        self.close_session_with_reason(
+            player,
+            RevokeReason::Disconnect,
+            DisconnectReason::ClientClosed,
+        );
     }
 
-    fn close_session_with_reason(&mut self, player: PlayerId, reason: RevokeReason) {
+    /// Đóng session, thu hồi phiên và ghi `player.disconnect` với lý do.
+    fn close_session_with_reason(
+        &mut self,
+        player: PlayerId,
+        revoke: RevokeReason,
+        reason: DisconnectReason,
+    ) {
         let Some(session) = self.sessions.remove(&player) else {
             return;
         };
@@ -1412,8 +1811,11 @@ impl Server {
             .account
             .as_ref()
             .map(|account| PlayerId(account.account_id));
-        self.revoke_account(&session, reason);
+        let session_id = session.account.as_ref().map(|account| account.session_id);
+        self.revoke_account(&session, revoke);
         self.forget_account(account);
+        let context = self.member_context(account);
+        self.log_player_disconnect(account, reason, revoke, session_id, context);
         self.notify_disconnect(account);
     }
 
@@ -1447,6 +1849,9 @@ impl Server {
         if let Some(view) = self.authority.room_view() {
             let _ = self.send_room_state(&view);
         }
+        if self.authority.room_view().is_none() {
+            self.committed_result = None;
+        }
         let _ = self.broadcast_lobby_list();
     }
 
@@ -1454,10 +1859,19 @@ impl Server {
     /// Bỏ `out_tx` làm writer thoát sau khi rút hết queue; một luồng canh gọi shutdown khi writer
     /// xong hoặc quá `GRACEFUL_CLOSE_MS`, nên writer kẹt vẫn bị thu hồi và tick không phải chờ.
     fn close_session_after_flush(&mut self, player: PlayerId) {
-        self.close_session_after_flush_with_reason(player, RevokeReason::Disconnect);
+        self.close_session_after_flush_with_reason(
+            player,
+            RevokeReason::Disconnect,
+            DisconnectReason::ProtocolError,
+        );
     }
 
-    fn close_session_after_flush_with_reason(&mut self, player: PlayerId, reason: RevokeReason) {
+    fn close_session_after_flush_with_reason(
+        &mut self,
+        player: PlayerId,
+        revoke: RevokeReason,
+        reason: DisconnectReason,
+    ) {
         let Some(mut session) = self.sessions.remove(&player) else {
             return;
         };
@@ -1465,8 +1879,11 @@ impl Server {
             .account
             .as_ref()
             .map(|account| PlayerId(account.account_id));
-        self.revoke_account(&session, reason);
+        let session_id = session.account.as_ref().map(|account| account.session_id);
+        self.revoke_account(&session, revoke);
         self.forget_account(account);
+        let context = self.member_context(account);
+        self.log_player_disconnect(account, reason, revoke, session_id, context);
         self.notify_disconnect(account);
         let shutdown = session.shutdown.take();
         let (dummy_tx, dummy_rx) = mpsc::channel();

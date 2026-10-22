@@ -1,9 +1,13 @@
-"""Bộ công cụ gói phát hành: sinh file `LICENSES` và kiểm bộ đóng gói (V1-036 phần 2).
+"""Bộ công cụ gói phát hành: dựng/mở gói, sinh `LICENSES`, kiểm bộ đóng gói và
+smoke chạy binary trong gói (V1-036).
 
-Dùng trong `.github/workflows/release.yml`:
+Dùng trong `.github/workflows/release.yml` và `.github/workflows/ci.yml`:
 
+    python3 tools/check_package.py pack --bin-dir target/release --out dist/<gói>
     python3 tools/check_package.py licenses --out dist/<gói>/LICENSES
     python3 tools/check_package.py check dist/<gói>
+    python3 tools/check_package.py unpack dist/<gói>.tar.gz --out dist/smoke
+    python3 tools/check_package.py smoke dist/smoke/<gói> --log dist/smoke-log.txt
     python3 tools/check_package.py test
 
 Nguyên tắc:
@@ -13,6 +17,13 @@ Nguyên tắc:
   (cargo fetch đã tải về lúc build). Không tự viết lại toàn văn license và không
   suy diễn license mà không có file nguồn: license không tìm thấy toàn văn thì
   phần phát hành báo lỗi, không lấp chỗ trống bằng văn bản tự chế.
+- **Smoke là chạy binary thật trong gói.** `smoke` chạy `boom-server`,
+  `boom-client`, `boom-assets` lấy từ `bin/` của gói: `--help`, `content`,
+  `health --offline`, và các ca **thiếu file phải báo lỗi rõ** (rules/l10n/bundle/
+  pack). Build xanh **không** đồng nghĩa gói chạy được (V1-036).
+- **Một nguồn chuẩn cho bố cục gói.** `pack` dựng gói theo
+  `docs/specification/RELEASE.md` §2 và `check` kiểm đúng danh sách file cấm
+  trong cùng tài liệu đó.
 - **Xác minh nội dung, không tin tên file.** Một file chỉ là *toàn văn* license khi
   nội dung khớp **mẫu toàn văn chuẩn** của license đó (`LICENSE_TEMPLATES`, xem
   `tools/fixtures/licenses/`): mọi **điều khoản** của mẫu phải có **trọn vẹn**
@@ -40,10 +51,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import platform
 import re
+import shutil
 import subprocess
 import sys
 import unittest
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -73,6 +87,20 @@ REQUIRED_FILES = ("README.md", "LICENSES", "assets/fonts/OFL.txt")
 
 #: Binary bắt buộc trong `bin/` (Windows thêm `.exe`).
 REQUIRED_BINARIES = ("boom-client", "boom-server", "boom-assets")
+
+#: Marker đọc phần README chạy nhanh trong `docs/specification/RELEASE.md`.
+#: README trong gói **trích nguyên văn** từ đó (một nguồn chuẩn).
+QUICKSTART_START = "<!-- QUICKSTART:START -->"
+QUICKSTART_END = "<!-- QUICKSTART:END -->"
+
+#: Thư mục nguồn trong repo và mẫu file chép vào gói: `data/rules` và `data/l10n` là
+#: **file dữ liệu** của bản phát hành, `assets/fonts` là font OFL (không phải asset
+#: game). Không chép pack/bundle/asset game — người dùng tự dựng bundle.
+PACK_SOURCES: tuple[tuple[str, str], ...] = (
+    ("data/rules", "*.toml"),
+    ("data/l10n", "*.toml"),
+    ("assets/fonts", "*"),
+)
 
 #: Thư mục cấm: pack/bundle/atlas/asset game (không được kèm vào gói).
 FORBIDDEN_DIRS = frozenset({
@@ -1199,6 +1227,503 @@ def cmd_check(args) -> int:
 
 
 # --------------------------------------------------------------------------------------
+# Dựng gói / mở gói
+# --------------------------------------------------------------------------------------
+
+
+def quickstart_text(source_root: Path) -> str:
+    """Phần README chạy nhanh trong `docs/specification/RELEASE.md` (một nguồn chuẩn)."""
+    doc = (source_root / "docs" / "specification" / "RELEASE.md").read_text(encoding="utf-8")
+    start = doc.index(QUICKSTART_START) + len(QUICKSTART_START)
+    end = doc.index(QUICKSTART_END)
+    return doc[start:end].strip() + "\n"
+
+
+def binary_source(bin_dir: Path, name: str) -> Path | None:
+    """Binary `name` trong thư mục build (Windows thêm `.exe`); `None` nếu không có."""
+    for candidate in (bin_dir / name, bin_dir / f"{name}.exe"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def package_binary(package_dir: Path, name: str) -> Path:
+    """Đường dẫn binary `name` trong gói phát hành (Windows thêm `.exe`)."""
+    candidate = package_dir / "bin" / name
+    if candidate.is_file():
+        return candidate
+    return candidate.with_suffix(".exe")
+
+
+def pack_package(bin_dir: Path, out_dir: Path, source_root: Path) -> list[str]:
+    """Dựng gói phát hành theo bố cục `docs/specification/RELEASE.md` §2.
+
+    Gom `bin/`, `data/rules/`, `data/l10n/`, `assets/fonts/` và `README.md` (trích
+    từ §8 của tài liệu đó). **Không** kèm `LICENSES` (sinh bằng lệnh `licenses`),
+    **không** kèm pack/bundle/asset game.
+
+    Trả về danh sách lỗi (rỗng = đạt).
+    """
+    problems: list[str] = []
+    binaries = out_dir / "bin"
+    binaries.mkdir(parents=True, exist_ok=True)
+    for name in REQUIRED_BINARIES:
+        source = binary_source(bin_dir, name)
+        if source is None:
+            problems.append(f"không có binary {name} trong {bin_dir}")
+            continue
+        shutil.copy2(source, binaries / source.name)
+    for relative, pattern in PACK_SOURCES:
+        source_dir = source_root / relative
+        target = out_dir / relative
+        target.mkdir(parents=True, exist_ok=True)
+        if not source_dir.is_dir():
+            problems.append(f"không có thư mục nguồn trong repo: {relative}")
+            continue
+        for item in sorted(source_dir.glob(pattern)):
+            if item.is_file():
+                shutil.copy2(item, target / item.name)
+    try:
+        text = quickstart_text(source_root)
+    except (OSError, ValueError) as error:
+        problems.append(f"không trích được README chạy nhanh: {error}")
+    else:
+        (out_dir / "README.md").write_text(text, encoding="utf-8")
+    return problems
+
+
+def unpack_archive(archive: Path, out_dir: Path) -> list[str]:
+    """Giải nén archive phát hành (`.zip`/`.tar.gz`) vào thư mục đích.
+
+    Dùng để **mở gói đã đóng** rồi chạy binary trong đó: kiểm archive thật, không
+    chỉ thư mục dựng tạm. Trả về danh sách lỗi (rỗng = đạt).
+    """
+    if not archive.is_file():
+        return [f"không có file archive: {archive}"]
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.unpack_archive(str(archive), str(out_dir))
+    except (OSError, ValueError) as error:
+        return [f"không mở được archive {archive}: {error}"]
+    return []
+
+
+# --------------------------------------------------------------------------------------
+# Smoke: chạy binary thật trong gói (V1-036)
+# --------------------------------------------------------------------------------------
+
+#: Thời gian tối đa cho một lệnh smoke (giây).
+SMOKE_TIMEOUT_S = 120
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    """Kết quả chạy một lệnh: mã thoát, stdout và stderr (tách riêng)."""
+
+    code: int
+    stdout: str
+    stderr: str
+
+    @property
+    def output(self) -> str:
+        """Output gộp (stdout + stderr) để kiểm nội dung thông điệp lỗi."""
+        return self.stdout + ("\n" + self.stderr if self.stderr else "")
+
+
+@dataclass(frozen=True)
+class SmokeCase:
+    """Một ca kiểm smoke: lệnh chạy và điều kiện phải đạt.
+
+    - `ok_codes`: mã thoát **được chấp nhận** (vd ca thiếu file phải thoát `2`).
+    - `must_contain`: cụm phải có trong output — dùng để kiểm lỗi báo **rõ**
+      (đường dẫn + cách sửa), không chỉ "có lỗi".
+    - `json_fields`/`json_expect`: stdout phải parse được JSON, có các field này
+      và field có đúng giá trị.
+    """
+
+    key: str
+    name: str
+    argv: tuple[str, ...]
+    ok_codes: tuple[int, ...]
+    must_contain: tuple[str, ...] = ()
+    must_not_contain: tuple[str, ...] = ()
+    json_fields: tuple[str, ...] = ()
+    json_expect: tuple[tuple[str, str], ...] = ()
+
+
+#: Runner chạy lệnh: nhận ca kiểm + thư mục làm việc, trả về [`CommandResult`].
+#: Tự kiểm dùng runner giả nên không cần binary thật.
+CommandRunner = Callable[[SmokeCase, Path], CommandResult]
+
+
+def run_command(case: SmokeCase, cwd: Path) -> CommandResult:
+    """Chạy lệnh của ca smoke; giải mã output bằng UTF-8.
+
+    Không dùng `text=True`: console Windows mặc định cp1252 sẽ hỏng thông điệp
+    tiếng Việt. Đọc byte rồi tự giải mã UTF-8 ⇒ nội dung kiểm tra giống nhau mọi OS.
+    """
+    try:
+        proc = subprocess.run(
+            list(case.argv),
+            capture_output=True,
+            cwd=str(cwd),
+            timeout=SMOKE_TIMEOUT_S,
+        )
+    except OSError as error:
+        return CommandResult(127, "", f"không chạy được lệnh: {error}")
+    except subprocess.TimeoutExpired:
+        return CommandResult(124, "", f"lệnh không kết thúc sau {SMOKE_TIMEOUT_S}s")
+    return CommandResult(
+        proc.returncode,
+        proc.stdout.decode("utf-8", "replace"),
+        proc.stderr.decode("utf-8", "replace"),
+    )
+
+
+def smoke_cases(package_dir: Path, work_dir: Path) -> list[SmokeCase]:
+    """Các ca smoke của một gói phát hành (acceptance V1-036).
+
+    Nhóm ca:
+    - binary trong gói chạy được (`--help`, `content`, `health --offline`);
+    - thiếu rules/l10n/bundle ⇒ báo lỗi **rõ** (đường dẫn + cách sửa), mã thoát `2`;
+    - thiếu pack ⇒ `boom-assets` báo lỗi và nêu thư mục pack.
+    """
+    server = package_binary(package_dir, "boom-server")
+    client = package_binary(package_dir, "boom-client")
+    assets = package_binary(package_dir, "boom-assets")
+    rules = package_dir / "data" / "rules" / "v1-dev.toml"
+    l10n = package_dir / "data" / "l10n" / "vi-v1.toml"
+    missing_rules = work_dir / "thieu-file" / "rules.toml"
+    missing_l10n = work_dir / "thieu-file" / "vi-v1.toml"
+    missing_bundle = work_dir / "thieu-bundle"
+    missing_pack = work_dir / "thieu-pack"
+    bundle_out = work_dir / "bundle-out"
+    return [
+        SmokeCase(
+            key="help-server",
+            name="boom-server --help",
+            argv=(str(server), "--help"),
+            ok_codes=(0,),
+            must_contain=("health", "content"),
+        ),
+        SmokeCase(
+            key="help-client",
+            name="boom-client --help",
+            argv=(str(client), "--help"),
+            ok_codes=(0,),
+            must_contain=("--bundle",),
+        ),
+        SmokeCase(
+            key="content-ok",
+            name="boom-server content (rules + l10n trong gói)",
+            argv=(str(server), "content", "--rules", str(rules), "--l10n", str(l10n)),
+            ok_codes=(0,),
+            must_contain=("rules:", "vi-VN"),
+        ),
+        SmokeCase(
+            key="health-offline",
+            name="boom-server health --offline",
+            argv=(str(server), "health", "--offline"),
+            # 0 = healthy; 1 = unhealthy (gói **không** kèm DB identity — `serve` tạo
+            # sau). Mã 3 = lỗi cấu hình ⇒ lỗi thật, không được chấp nhận.
+            ok_codes=(0, 1),
+            json_fields=("scope", "server_version", "rules_hash", "content_sha256"),
+            json_expect=(("scope", "offline"),),
+        ),
+        SmokeCase(
+            key="missing-rules-server",
+            name="boom-server content — thiếu file rules",
+            argv=(str(server), "content", "--rules", str(missing_rules)),
+            ok_codes=(2,),
+            must_contain=("file rules", str(missing_rules), "sửa:"),
+        ),
+        SmokeCase(
+            key="missing-rules-client",
+            name="boom-client — thiếu file rules",
+            argv=(str(client), "--rules", str(missing_rules)),
+            ok_codes=(2,),
+            must_contain=("file rules", str(missing_rules), "sửa:"),
+        ),
+        SmokeCase(
+            key="missing-l10n-server",
+            name="boom-server content — thiếu file chuỗi",
+            argv=(str(server), "content", "--rules", str(rules), "--l10n", str(missing_l10n)),
+            ok_codes=(2,),
+            must_contain=("file chuỗi", str(missing_l10n), "sửa:"),
+        ),
+        SmokeCase(
+            key="missing-bundle-server",
+            name="boom-server content — thiếu bundle",
+            argv=(str(server), "content", "--rules", str(rules), "--bundle", str(missing_bundle)),
+            ok_codes=(2,),
+            must_contain=("bundle", str(missing_bundle), "sửa:", "boom-assets bundle"),
+        ),
+        SmokeCase(
+            key="missing-bundle-client",
+            name="boom-client — thiếu bundle",
+            argv=(str(client), "--bundle", str(missing_bundle)),
+            ok_codes=(2,),
+            must_contain=("bundle", str(missing_bundle), "sửa:", "pack-dir"),
+        ),
+        SmokeCase(
+            key="missing-pack-assets",
+            name="boom-assets bundle — thiếu pack",
+            argv=(str(assets), "bundle", "--map", "Village00", "--out", str(bundle_out),
+                  "--pack-dir", str(missing_pack)),
+            ok_codes=(1,),
+            must_contain=(str(missing_pack),),
+        ),
+    ]
+
+
+def json_kind(value: object) -> str:
+    """Tên kiểu JSON (tiếng Việt) của một giá trị đã parse — dùng cho thông điệp lỗi."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "số"
+    if isinstance(value, str):
+        return "chuỗi"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
+def check_smoke_case(case: SmokeCase, result: CommandResult) -> list[str]:
+    """Kiểm một ca smoke; trả về danh sách vi phạm (rỗng = đạt)."""
+    problems: list[str] = []
+    if result.code not in case.ok_codes:
+        problems.append(
+            f"{case.name}: mã thoát {result.code} (mong đợi {list(case.ok_codes)})")
+    output = result.output
+    for needle in case.must_contain:
+        if needle not in output:
+            problems.append(f"{case.name}: output không có {needle!r}")
+    for needle in case.must_not_contain:
+        if needle in output:
+            problems.append(f"{case.name}: output có {needle!r} (không được có)")
+    if case.json_fields or case.json_expect:
+        try:
+            body = json.loads(result.stdout.strip() or "{}")
+        except json.JSONDecodeError as error:
+            problems.append(f"{case.name}: stdout không phải JSON ({error})")
+        else:
+            # JSON đúng cú pháp nhưng **không phải object** ⇒ không có field nào để
+            # kiểm, nên fingerprint/scope bắt buộc bị bỏ sót. Phải báo lỗi, không
+            # im lặng bỏ qua nhánh này (review #168 vòng 1).
+            if not isinstance(body, dict):
+                problems.append(
+                    f"{case.name}: JSON phải là object, thực tế là {json_kind(body)}")
+            else:
+                for name in case.json_fields:
+                    if name not in body:
+                        problems.append(f"{case.name}: JSON thiếu field {name!r}")
+                for name, expected in case.json_expect:
+                    if body.get(name) != expected:
+                        problems.append(
+                            f"{case.name}: JSON {name!r} = {body.get(name)!r} "
+                            f"(mong đợi {expected!r})")
+    return problems
+
+
+def health_fingerprint(result: CommandResult) -> dict:
+    """Fingerprint từ output `boom-server health --offline` (rỗng nếu không đọc được)."""
+    try:
+        body = json.loads(result.stdout.strip() or "{}")
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(body, dict):
+        return {}
+    keys = ("scope", "status", "server_version", "wire_schema", "state_schema",
+            "rules_profile_id", "rules_hash", "content_sha256", "protocol_limits_version")
+    return {key: body[key] for key in keys if key in body}
+
+
+def content_fingerprint(result: CommandResult) -> dict:
+    """Profile rules và hash từ dòng `rules: …` của `boom-server content`.
+
+    Đây là fingerprint của **file rules trong gói** (khác `health`, báo cấu hình
+    mặc định của binary).
+    """
+    for line in result.stdout.splitlines():
+        if not line.startswith("rules:"):
+            continue
+        fields = [part.strip() for part in line.split("·")]
+        fingerprint: dict = {}
+        if len(fields) >= 2:
+            fingerprint["package_rules_profile"] = fields[0].removeprefix("rules:").strip()
+            fingerprint["package_rules_hash"] = fields[1].removeprefix("hash").strip()
+        return fingerprint
+    return {}
+
+
+@dataclass
+class SmokeRun:
+    """Kết quả một lượt smoke: các ca đã chạy, output và danh sách vi phạm."""
+
+    package: Path
+    version: str
+    cases: list[SmokeCase] = field(default_factory=list)
+    results: list[CommandResult] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
+    fingerprint: dict = field(default_factory=dict)
+    files: list[tuple[str, str]] = field(default_factory=list)
+
+
+def package_fingerprint(package_dir: Path) -> list[tuple[str, str]]:
+    """SHA-256 của binary và file dữ liệu trong gói (ngón tay nội dung gói)."""
+    entries: list[tuple[str, str]] = []
+    for relative in ("bin", "data/rules", "data/l10n", "assets/fonts"):
+        directory = package_dir / relative
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.rglob("*")):
+            if not path.is_file():
+                continue
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            entries.append((path.relative_to(package_dir).as_posix(), digest))
+    return entries
+
+
+def smoke_package(
+    package_dir: Path,
+    runner: CommandRunner | None = None,
+    work_dir: Path | None = None,
+    version: str = "dev",
+) -> SmokeRun:
+    """Chạy smoke trên gói phát hành: binary thật trong `bin/` + ca lỗi thiếu file.
+
+    `runner` cho phép tự kiểm không cần binary thật (runner giả). Lệnh chạy trong
+    thư mục tạm để không ghi file nào vào gói.
+    """
+    runner = runner or run_command
+    # Đường dẫn tuyệt đối: lệnh chạy trong thư mục tạm nên đường dẫn tương đối
+    # (vd `dist/boom-rs-smoke`) sẽ không tìm thấy.
+    package_dir = package_dir.resolve()
+    run = SmokeRun(package=package_dir, version=version)
+    for name in REQUIRED_BINARIES:
+        if not package_binary(package_dir, name).is_file():
+            run.problems.append(f"thiếu binary trong gói: {name}")
+    if run.problems:
+        return run
+    with _TempDir() as tmp:
+        workspace = Path(work_dir) if work_dir else Path(tmp)
+        workspace.mkdir(parents=True, exist_ok=True)
+        for case in smoke_cases(package_dir, workspace):
+            result = runner(case, workspace)
+            run.cases.append(case)
+            run.results.append(result)
+            run.problems.extend(check_smoke_case(case, result))
+            if case.key == "health-offline":
+                run.fingerprint.update(health_fingerprint(result))
+            if case.key == "content-ok":
+                run.fingerprint.update(content_fingerprint(result))
+    run.files = package_fingerprint(package_dir)
+    return run
+
+
+def git_revision() -> str:
+    """SHA commit hiện tại (best effort; không có `git` thì ghi `unknown`)."""
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            cwd=str(ROOT),
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    if proc.returncode != 0:
+        return "unknown"
+    return proc.stdout.decode("utf-8", "replace").strip() or "unknown"
+
+
+def render_smoke_log(run: SmokeRun) -> str:
+    """Log smoke dạng text: phiên bản, fingerprint và từng ca đã chạy."""
+    out: list[str] = []
+    out.append("=== boom-rs — log smoke package (V1-036) ===")
+    out.append(f"package: {run.package}")
+    out.append(f"version: {run.version}")
+    out.append(f"os: {platform.system()} {platform.machine()}")
+    out.append(f"git: {git_revision()}")
+    out.append("")
+    if run.fingerprint:
+        out.append("--- fingerprint (boom-server health --offline) ---")
+        out.append(json.dumps(run.fingerprint, ensure_ascii=False, indent=2, sort_keys=True))
+        out.append("")
+    if run.files:
+        out.append("--- sha-256 file trong gói ---")
+        for relative, digest in run.files:
+            out.append(f"{digest}  {relative}")
+        out.append("")
+    for case, result in zip(run.cases, run.results):
+        out.append(f"--- {case.name} ---")
+        out.append(f"$ {' '.join(case.argv)}")
+        out.append(f"exit: {result.code}")
+        output = result.output.strip()
+        out.append(output if output else "(không có output)")
+        out.append("")
+    out.append("=== kết luận ===")
+    if run.problems:
+        out.append(f"KHÔNG ĐẠT: {len(run.problems)} vi phạm")
+        for problem in run.problems:
+            out.append(f"- {problem}")
+    else:
+        out.append(f"ĐẠT: {len(run.cases)} ca smoke đều đúng kỳ vọng")
+    return "\n".join(out) + "\n"
+
+
+def cmd_pack(args) -> int:
+    problems = pack_package(Path(args.bin_dir), Path(args.out), Path(args.source_dir))
+    if problems:
+        print("LỖI: không dựng được gói:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+    files = sum(1 for path in Path(args.out).rglob("*") if path.is_file())
+    print(f"Gói đã dựng: {args.out} ({files} file).")
+    return 0
+
+
+def cmd_unpack(args) -> int:
+    problems = unpack_archive(Path(args.archive), Path(args.out))
+    if problems:
+        print("LỖI: không mở được archive:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+    print(f"Đã mở gói: {args.archive} → {args.out}")
+    return 0
+
+
+def cmd_smoke(args, runner: CommandRunner | None = None) -> int:
+    package_dir = Path(args.package_dir)
+    if not package_dir.is_dir():
+        print(f"LỖI: không có thư mục gói: {package_dir}", file=sys.stderr)
+        return 1
+    # `runner` cho phép tự kiểm mô phỏng gói lỗi mà không cần binary thật.
+    run = smoke_package(package_dir, runner=runner, version=args.version)
+    if args.log:
+        log = Path(args.log)
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(render_smoke_log(run), encoding="utf-8")
+        print(f"Log smoke: {log}")
+    if run.problems:
+        print("LỖI: smoke package không đạt:", file=sys.stderr)
+        for problem in run.problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+    print(f"Smoke OK: {len(run.cases)} ca · version {run.version} · {package_dir}")
+    if run.fingerprint:
+        print(json.dumps(run.fingerprint, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+# --------------------------------------------------------------------------------------
 # Tự kiểm
 # --------------------------------------------------------------------------------------
 
@@ -1286,6 +1811,33 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 END OF TERMS AND CONDITIONS
 """
+
+
+def workflow_step_block(text: str, name: str) -> list[str]:
+    """Các dòng của bước workflow có `name` (không kể dòng `- name:`).
+
+    Không cần thư viện YAML: workflow của dự án đặt `- name:` cho mỗi bước và
+    các khóa của bước nằm thụt lền sâu hơn. Trả về `[]` nếu không có bước nào
+    tên như vậy.
+    """
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped.startswith("- name:"):
+            continue
+        value = stripped[len("- name:"):].strip().strip('"').strip("'")
+        if value != name:
+            continue
+        indent = len(line) - len(line.lstrip())
+        block: list[str] = []
+        for follow in lines[index + 1:]:
+            content = follow.strip()
+            if content and not content.startswith("#"):
+                if len(follow) - len(follow.lstrip()) <= indent:
+                    break
+            block.append(follow)
+        return block
+    return []
 
 
 class PackageToolTests(unittest.TestCase):
@@ -1609,6 +2161,299 @@ class PackageToolTests(unittest.TestCase):
             self.assertIn("windows-link 0.2.1", text)
             self.assertIn("windows-sys 0.61.2", text)
 
+    # -- Dựng gói / mở gói (V1-036) ---------------------------------------------------
+
+    def test_pack_builds_layout_without_game_assets(self):
+        """`pack` dựng đúng bố cục gói và **không** kèm asset game."""
+        with _TempDir() as root:
+            root = Path(root)
+            bin_dir = root / "build"
+            bin_dir.mkdir()
+            for name in REQUIRED_BINARIES:
+                (bin_dir / name).write_text("bin", encoding="utf-8")
+            out = root / "pkg"
+            self.assertEqual(pack_package(bin_dir, out, ROOT), [])
+            for name in REQUIRED_BINARIES:
+                self.assertTrue((out / "bin" / name).is_file(), name)
+            self.assertTrue((out / "data" / "rules" / "v1-dev.toml").is_file())
+            self.assertTrue((out / "data" / "l10n" / "vi-v1.toml").is_file())
+            self.assertTrue((out / "assets" / "fonts" / "OFL.txt").is_file())
+            readme = (out / "README.md").read_text(encoding="utf-8")
+            self.assertIn("boom-server content", readme)
+            # Không có pack/bundle/asset game trong gói.
+            self.assertEqual(
+                [problem for problem in check_package(out)
+                 if "pack/bundle/asset game" in problem],
+                [])
+
+    def test_pack_reports_missing_binary(self):
+        """Thiếu binary thì `pack` phải báo lỗi, không dựng gói nửa vời."""
+        with _TempDir() as root:
+            root = Path(root)
+            bin_dir = root / "build"
+            bin_dir.mkdir()
+            problems = pack_package(bin_dir, root / "pkg", ROOT)
+            self.assertTrue(problems)
+            joined = " | ".join(problems)
+            for name in REQUIRED_BINARIES:
+                self.assertIn(name, joined)
+
+    def test_unpack_opens_archive(self):
+        """`unpack` mở được archive đã đóng (zip/tar.gz) và trả về thư mục gói."""
+        import tarfile
+        with _TempDir() as root:
+            root = Path(root)
+            source = root / "boom-rs-dev-linux-x86_64"
+            (source / "bin").mkdir(parents=True)
+            (source / "bin" / "boom-server").write_text("bin", encoding="utf-8")
+            archive = root / "boom-rs-dev-linux-x86_64.tar.gz"
+            with tarfile.open(archive, "w:gz") as tar:
+                tar.add(source, arcname=source.name)
+            out = root / "smoke"
+            self.assertEqual(unpack_archive(archive, out), [])
+            self.assertTrue((out / "boom-rs-dev-linux-x86_64" / "bin" / "boom-server").is_file())
+
+    def test_unpack_reports_missing_archive(self):
+        """Archive không có thì báo lỗi rõ, không im lặng."""
+        with _TempDir() as root:
+            problems = unpack_archive(Path(root) / "khong-co.tar.gz", Path(root) / "out")
+            self.assertTrue(problems)
+            self.assertIn("khong-co.tar.gz", problems[0])
+
+    # -- Smoke: chạy binary trong gói (V1-036) ----------------------------------------
+
+    def test_smoke_accepts_working_package(self):
+        """Gói chạy được và lỗi thiếu file báo rõ ⇒ smoke đạt."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            run = smoke_package(package, runner=_FakeRunner(), version="0.1.0")
+            self.assertEqual(run.problems, [])
+            self.assertEqual(len(run.cases), 10)
+            self.assertEqual(run.fingerprint.get("scope"), "offline")
+            self.assertIn("server_version", run.fingerprint)
+            log = render_smoke_log(run)
+            self.assertIn("version: 0.1.0", log)
+            self.assertIn("fingerprint", log)
+
+    def test_smoke_reports_wrong_exit_code(self):
+        """Lệnh trả mã sai (vd `content` lỗi trong khi file trong gói hợp lệ) ⇒ báo lỗi."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            runner = _FakeRunner(overrides={
+                "content-ok": CommandResult(2, "", "không đọc được file rules: /x/rules.toml"),
+            })
+            run = smoke_package(package, runner=runner)
+            self.assertTrue(run.problems)
+            self.assertTrue(any("content-ok" in problem or "rules" in problem
+                                for problem in run.problems))
+
+    def test_smoke_reports_unclear_error_message(self):
+        """Thiếu file mà thông điệp **không** nêu đường dẫn/cách sửa ⇒ smoke phải báo lỗi."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            runner = _FakeRunner(overrides={
+                "missing-rules-server": CommandResult(2, "", "lỗi: không đọc được"),
+            })
+            run = smoke_package(package, runner=runner)
+            self.assertTrue(run.problems)
+            self.assertTrue(any("file rules" in problem for problem in run.problems))
+
+    def test_smoke_reports_health_not_json(self):
+        """`health --offline` phải in JSON có fingerprint ⇒ không JSON là lỗi."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            runner = _FakeRunner(overrides={
+                "health-offline": CommandResult(0, "không phải JSON", ""),
+            })
+            run = smoke_package(package, runner=runner)
+            self.assertTrue(run.problems)
+            self.assertTrue(any("JSON" in problem for problem in run.problems))
+
+    def test_smoke_reports_health_json_not_object(self):
+        """`health --offline` in JSON **không phải object** ⇒ phải báo lỗi.
+
+        Ca âm của review #168 vòng 1: JSON đúng cú pháp nhưng là array/null/scalar
+        thì không có field nào để kiểm, nên smoke phải **không** bỏ qua.
+        """
+        for label, stdout in (("array", "[]"), ("null", "null"), ("chuỗi", '"bad"'),
+                              ("số", "42"), ("boolean", "true")):
+            with self.subTest(hinh=label), _TempDir() as root:
+                root = Path(root)
+                package = self._valid_package(root)
+                runner = _FakeRunner(overrides={
+                    "health-offline": CommandResult(0, stdout, ""),
+                })
+                run = smoke_package(package, runner=runner)
+                self.assertTrue(run.problems, f"JSON {label} phải bị báo lỗi")
+                self.assertTrue(
+                    any("JSON phải là object" in problem for problem in run.problems),
+                    f"thông điệp phải nói JSON phải là object: {run.problems}")
+
+    def test_smoke_accepts_health_json_object(self):
+        """JSON object đủ field ⇒ vẫn đạt (kiểm mới không vướng ca hợp lệ)."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            run = smoke_package(package, runner=_FakeRunner())
+            self.assertEqual(run.problems, [])
+
+    def test_smoke_log_written_when_smoke_fails(self):
+        """Smoke fail vẫn ghi log (bằng chứng để debug) **và** trả mã khác 0.
+
+        Review #168 vòng 1: log là thứ duy nhất còn lại khi gói lỗi trên một OS.
+        """
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            log = root / "smoke-log.txt"
+            runner = _FakeRunner(overrides={
+                "health-offline": CommandResult(0, "[]", ""),
+            })
+            args = argparse.Namespace(
+                package_dir=str(package), log=str(log), version="0.1.0")
+            code = cmd_smoke(args, runner=runner)
+            self.assertEqual(code, 1, "smoke fail phải trả mã khác 0")
+            self.assertTrue(log.is_file(), "phải ghi log kể cả khi smoke fail")
+            text = log.read_text(encoding="utf-8")
+            self.assertIn("KHÔNG ĐẠT", text)
+            self.assertIn("JSON phải là object", text)
+            self.assertIn("version: 0.1.0", text)
+
+    def test_workflow_uploads_smoke_log_when_smoke_fails(self):
+        """Bước upload log smoke phải chạy **cả khi smoke fail** (review #168 vòng 1).
+
+        Điều kiện mặc định của GitHub Actions là `success()` ⇒ bước bị bỏ qua khi
+        smoke trả mã khác 0, mất đúng artifact cần để debug.
+        """
+        for relative in (".github/workflows/ci.yml", ".github/workflows/release.yml"):
+            with self.subTest(workflow=relative):
+                text = (ROOT / relative).read_text(encoding="utf-8")
+                block = workflow_step_block(text, "Upload log smoke")
+                self.assertTrue(block, f"không thấy bước 'Upload log smoke' trong {relative}")
+                conditions = [line.strip() for line in block
+                              if line.strip().startswith("if:")]
+                self.assertTrue(
+                    conditions,
+                    f"bước upload log phải có `if:` riêng trong {relative}")
+                condition = conditions[0]
+                self.assertIn("!cancelled()", condition)
+                self.assertIn("hashFiles(", condition)
+                joined = "\n".join(block)
+                self.assertIn("dist/smoke-log.txt", joined)
+
+    def test_workflow_smoke_step_keeps_job_failing(self):
+        """Bước smoke không được nuốt lỗi — job phải đỏ khi gói sai."""
+        for relative, step_name in (
+            (".github/workflows/ci.yml", "Smoke: chạy binary trong gói"),
+            (".github/workflows/release.yml", "Mở gói và smoke"),
+        ):
+            with self.subTest(workflow=relative):
+                text = (ROOT / relative).read_text(encoding="utf-8")
+                block = workflow_step_block(text, step_name)
+                self.assertTrue(block, f"không thấy bước {step_name!r} trong {relative}")
+                joined = "\n".join(block)
+                self.assertNotIn("continue-on-error: true", joined)
+                self.assertNotIn("continue-on-error: true", text)
+
+    def test_smoke_reports_missing_binary(self):
+        """Gói thiếu binary thì smoke báo lỗi, không chạy lệnh không tồn tại."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            (package / "bin" / "boom-server").unlink()
+            run = smoke_package(package, runner=_FakeRunner())
+            self.assertTrue(run.problems)
+            self.assertTrue(any("boom-server" in problem for problem in run.problems))
+
+    def test_smoke_resolves_package_path(self):
+        """Đường dẫn trong lệnh phải **tuyệt đối**: lệnh chạy ở thư mục tạm."""
+        with _TempDir() as root:
+            root = Path(root)
+            package = self._valid_package(root)
+            run = smoke_package(package, runner=_FakeRunner())
+            self.assertTrue(run.package.is_absolute())
+            for case in run.cases:
+                self.assertTrue(Path(case.argv[0]).is_absolute(), case.argv[0])
+                for argument in case.argv[1:]:
+                    if "/" in argument or "\\" in argument:
+                        self.assertTrue(Path(argument).is_absolute(), argument)
+
+    def test_smoke_cases_cover_required_checks(self):
+        """Bộ ca smoke phải có đủ: help/content/health và lỗi thiếu rules/l10n/bundle/pack."""
+        with _TempDir() as root:
+            cases = smoke_cases(Path(root) / "pkg", Path(root) / "work")
+            keys = {case.key for case in cases}
+            self.assertEqual(keys, {
+                "help-server", "help-client", "content-ok", "health-offline",
+                "missing-rules-server", "missing-rules-client", "missing-l10n-server",
+                "missing-bundle-server", "missing-bundle-client", "missing-pack-assets",
+            })
+
+
+class _FakeRunner:
+    """Runner giả cho tự kiểm: mô phỏng output binary theo từng ca.
+
+    Dùng để kiểm **logic kiểm** của công cụ mà không cần binary thật; binary thật
+    được kiểm bởi CI ba OS qua lệnh `smoke`.
+    """
+
+    def __init__(self, overrides: dict[str, CommandResult] | None = None):
+        self.overrides = overrides or {}
+        self.calls: list[str] = []
+
+    def __call__(self, case: SmokeCase, cwd: Path) -> CommandResult:
+        self.calls.append(case.key)
+        if case.key in self.overrides:
+            return self.overrides[case.key]
+        return self._simulate(case)
+
+    @staticmethod
+    def _arg(case: SmokeCase, flag: str) -> str:
+        return case.argv[case.argv.index(flag) + 1]
+
+    def _simulate(self, case: SmokeCase) -> CommandResult:
+        if case.key in ("help-server", "help-client"):
+            return CommandResult(0, "dùng: boom-server health | content | serve\n--bundle DIR\n", "")
+        if case.key == "content-ok":
+            return CommandResult(
+                0, "rules: kr00967-v1-dev · hash 0xf498081887ed064d · 31 rule\nchuỗi: vi-VN · 110 khóa\n", "")
+        if case.key == "health-offline":
+            return CommandResult(0, json.dumps({
+                "status": "unhealthy",
+                "scope": "offline",
+                "server_version": "0.1.0",
+                "wire_schema": "wire-r1",
+                "state_schema": "state-r1",
+                "rules_profile_id": "kr00967-v1-dev",
+                "rules_hash": "0x1",
+                "content_sha256": "0x2",
+                "protocol_limits_version": "limits-r1",
+            }), "")
+        if case.key.startswith("missing-rules"):
+            path = self._arg(case, "--rules")
+            return CommandResult(
+                2, "", f"không đọc được file rules: {path} (No such file)\n  sửa: file phải tồn tại\n")
+        if case.key == "missing-l10n-server":
+            path = self._arg(case, "--l10n")
+            return CommandResult(
+                2, "", f"không đọc được file chuỗi: {path} (No such file)\n  sửa: file phải tồn tại\n")
+        if case.key in ("missing-bundle-server", "missing-bundle-client"):
+            path = self._arg(case, "--bundle")
+            return CommandResult(
+                2, "",
+                f"không nạp được bundle: {path}\n  lỗi: thiếu bundle.toml\n  "
+                "sửa: dựng lại bundle từ pack của bạn: "
+                "`boom-assets bundle --map Village00 --out <dir> --pack-dir <thư mục pack>`\n")
+        if case.key == "missing-pack-assets":
+            path = self._arg(case, "--pack-dir")
+            return CommandResult(
+                1, "", f"{path}: lỗi pack: {path}/FxMap.idx: No such file or directory\n")
+        raise AssertionError(f"ca smoke lạ: {case.key}")
+
 
 class _TempDir:
     """Thư mục tạm (tự xoá khi thoát) — không dùng `tempfile` để tránh phụ thuộc ngoài."""
@@ -1633,9 +2478,26 @@ def cmd_test(args) -> int:
 # --------------------------------------------------------------------------------------
 
 
+def force_utf8_output() -> None:
+    """Ép stdout/stderr dùng UTF-8: console Windows mặc định cp1252, in tiếng Việt sẽ lỗi.
+
+    `UnicodeEncodeError` khi in thông điệp tiếng Việt làm job CI fail dù công cụ
+    đã làm đúng. Ép được thì ép; không được thì bỏ qua (không được làm hỏng lệnh).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):  # pragma: no cover - stream không ép được
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_output()
     parser = argparse.ArgumentParser(
-        description="Sinh LICENSES và kiểm bộ đóng gói phát hành (V1-036 phần 2).")
+        description="Dựng/mở gói phát hành, sinh LICENSES, kiểm gói và smoke chạy binary (V1-036).")
     sub = parser.add_subparsers(dest="command", required=True)
 
     licenses = sub.add_parser("licenses", help="sinh file LICENSES từ cargo metadata")
@@ -1646,6 +2508,24 @@ def main(argv: list[str] | None = None) -> int:
     check = sub.add_parser("check", help="kiểm bộ đóng gói (file cấm, thành phần bắt buộc)")
     check.add_argument("package_dir", help="thư mục gói phát hành")
     check.set_defaults(func=cmd_check)
+
+    pack = sub.add_parser("pack", help="dựng gói phát hành (bin/, data/, assets/fonts/, README)")
+    pack.add_argument("--bin-dir", required=True, help="thư mục binary build (vd target/release)")
+    pack.add_argument("--out", required=True, help="thư mục gói cần dựng")
+    pack.add_argument("--source-dir", default=str(ROOT),
+                      help="gốc repo lấy data/ và assets/fonts (mặc định: repo hiện tại)")
+    pack.set_defaults(func=cmd_pack)
+
+    unpack = sub.add_parser("unpack", help="giải nén archive phát hành (.zip/.tar.gz)")
+    unpack.add_argument("archive", help="file archive cần mở")
+    unpack.add_argument("--out", required=True, help="thư mục đích giải nén")
+    unpack.set_defaults(func=cmd_unpack)
+
+    smoke = sub.add_parser("smoke", help="chạy binary trong gói và kiểm lỗi thiếu file")
+    smoke.add_argument("package_dir", help="thư mục gói đã giải nén")
+    smoke.add_argument("--log", help="file log smoke (version + fingerprint + từng ca)")
+    smoke.add_argument("--version", default="dev", help="phiên bản gói (ghi vào log)")
+    smoke.set_defaults(func=cmd_smoke)
 
     test = sub.add_parser("test", help="tự kiểm công cụ này")
     test.set_defaults(func=cmd_test)

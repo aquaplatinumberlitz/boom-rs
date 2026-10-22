@@ -1,0 +1,201 @@
+# Profile rules cho hồ sơ QA nhanh (`fast`) — test CI.
+#
+# Cùng loại fixture với `qa-net.toml`: mọi rule `design`, không claim, không phải profile
+# phát hành. Chỉ khác `round.duration_ms` để test chạy nhanh.
+schema = 1
+profile_id = "qa-fast"
+release = false
+
+[sim.ticks_per_second]
+value = 60
+unit = "Hz"
+source = "design"
+status = "design"
+
+[grid.tile_px]
+value = 40
+unit = "px"
+source = "design"
+status = "design"
+
+[round.duration_ms]
+value = 2000
+unit = "ms"
+source = "design"
+status = "design"
+
+# Warmup đóng băng đầu lượt (R-100): hồ sơ QA chạy lượt ngắn, không đóng băng (0 ms) — cùng
+# giá trị với `fixtures/rules/skeleton-test.toml`.
+[round.warmup_ms]
+value = 0
+unit = "ms"
+source = "design"
+status = "design"
+
+[player.speed_px_per_s_per_level]
+value = 120
+unit = "px/s"
+source = "design"
+status = "design"
+
+# Cơ chế hộp va chạm và bám góc (R-107, ADR 0012): hộp 26×26 px, bám góc khi lệch ≤ 12 px.
+# Giá trị giống `data/rules/v1-dev.toml` và `fixtures/rules/skeleton-test.toml` để harness
+# chạy đúng cơ chế engine V1 (khác `skeleton-test` chỉ ở nhịp tick và thời lượng round).
+[player.collision_half_px]
+value = 13
+unit = "px"
+source = "design"
+status = "design"
+
+[player.corner_assist_px]
+value = 12
+unit = "px"
+source = "design"
+status = "design"
+
+[player.trap_to_death_ms]
+value = 6300
+unit = "ms"
+source = "design"
+status = "design"
+
+# Khoảng cách chạm làm vỡ bong bóng: mỗi trục lệch nhỏ hơn 28 px (R-108). Cùng giá trị với
+# `data/rules/v1-dev.toml` và `fixtures/rules/skeleton-test.toml`.
+[player.trap_touch_distance_px]
+value = 28
+unit = "px"
+source = "design"
+status = "design"
+
+[bomb.fuse_ms]
+value = 2500
+unit = "ms"
+source = "design"
+status = "design"
+
+[bomb.flame_ms]
+value = 500
+unit = "ms"
+source = "design"
+status = "design"
+
+[item.bomb_capacity_delta]
+value = 1
+unit = "bomb"
+source = "design"
+status = "design"
+
+[item.fire_range_delta]
+value = 1
+unit = "cell"
+source = "design"
+status = "design"
+
+[item.roller_speed_delta]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[drop.brick_item_chance]
+value = 350
+unit = "permille"
+source = "design"
+status = "design"
+
+[drop.weight_bomb]
+value = 3650
+unit = "weight"
+source = "design"
+status = "design"
+
+[drop.weight_fire]
+value = 2800
+unit = "weight"
+source = "design"
+status = "design"
+
+[drop.weight_roller]
+value = 2000
+unit = "weight"
+source = "design"
+status = "design"
+
+# Chỉ số nhân vật C00/C01 (RULES_V1 R-040/R-041): nay **nằm trong rules profile**, không
+# còn ở cấu hình server (PR #117). Harness đọc bảng này qua
+# `boom_core::CharacterStatsTable::from_profile`.
+#
+# Lựa chọn của profile kiểm thử (mọi rule ghi `source = "design"`, `status = "design"`):
+# giữ nguyên 1/5 như `qa-net` (trước khi chỉ số nằm ở `boom-server`, harness đặt cứng 1/5
+# cho cả ba chỉ số của cả hai nhân vật) để kịch bản QA không đổi hành vi.
+[characters.c00_speed]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_speed_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range_max]
+value = 5
+unit = "level"
+source = "design"
+status = "design"

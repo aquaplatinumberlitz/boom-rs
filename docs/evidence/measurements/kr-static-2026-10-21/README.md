@@ -1,9 +1,16 @@
 # Đo tĩnh KR 00967 — movement/va chạm (2026-10-21)
 
 Metadata của phép đọc tĩnh dùng cho claim `kr_static` R-119…R-125
-([RULES_V1 §12](../../../specification/gameplay/RULES_V1.md#12-re-kr-00967--movement-và-va-chạm-r-119r-125)).
+([RULES_V1 §13](../../../specification/gameplay/RULES_V1.md#13-re-kr-00967--movement-và-va-chạm-r-119r-125)).
 Không chứa binary, decompile nguyên văn hay dữ liệu pack. Kết luận và cách suy luận nằm ở
 [KR_RE_MOVEMENT](../../../research/findings/KR_RE_MOVEMENT.md).
+
+**Phạm vi lớp.** Các hàm `CMovable::MoveSimple`/trợ góc và chuỗi consumer `0x00B95180 → 0x00B93830`
+(rồi cổng `0x00B95970`, mover `0x00B93890`) đã trace thuộc `CGOPet`/AI theo R-134/R-135 của PR #185
+(`re-kr-trapped-speed`, **đang mở, chưa có trên main**). Vì vậy R-119…R-122 `confirmed` **chỉ** cho
+`CMovable` trong phạm vi consumer đã trace; áp dụng cho bomber người chơi là `candidate`/chưa chứng
+minh. R-123 chỉ `confirmed` cho dispatch `vf3(dir)` của bomber. Đây **không** phải khẳng định bomber
+không dùng hay không tồn tại đường gián tiếp/wrapper từ bomber — mới là **chưa chứng minh cho bomber**.
 
 ## Định danh build
 
@@ -25,21 +32,24 @@ server, không đụng `.themida`.
 
 ## Kết quả tra cứu (VA → RVA)
 
+Bảng này là các hàm **đã đọc**, không phải danh sách đầy đủ caller/lớp: chưa phân loại hết caller ngoài
+phạm vi và không loại trừ đường gián tiếp/wrapper/VM.
+
 | Vai trò | KR VA | KR RVA | VN VA | Cơ sở khớp |
 |---|---|---|---|---|
 | `CGameContext::Init` | `0x00E0EEC0` | `0x00A0EEC0` | `0x006ED78A` | chuỗi trace nhúng `CGameContext::Init` |
 | `CGameContext::MakeBombers` | `0x00E12A30` | `0x00A12A30` | `0x006EB9A9` | chuỗi trace nhúng `CGameContext::MakeBombers` |
-| Input dispatch của context (vf +0x20) | `0x00E13D00` | `0x00A13D00` | `0x006E5E05` | cùng slot vtable + hành vi (lấy bomber theo slot → controller vf3(dir), case 4 đặt bom) |
+| Input dispatch của context (vf +0x20) | `0x00E13D00` | `0x00A13D00` | `0x006E5E05` | cùng slot vtable + hành vi (lấy bomber theo slot → controller vf3(dir), case 4 đặt bom) — **đường bomber đã trace** |
 | `CMovable::MoveSimple` | `0x01310200` | `0x00F10200` | `0x0095199B` | chuỗi trace nhúng `CMovable::MoveSimple` |
 | Trượt vuông góc trục X (trợ góc) | `0x01310D30` | `0x00F10D30` | — | slot 1 vtable `CMovable`; cùng họ với `MoveSimple` |
 | Trượt vuông góc trục Y (trợ góc) | `0x01310EE0` | `0x00F10EE0` | — | slot 2 vtable `CMovable` |
-| Kiểm "đã thẳng hàng ô" trên trục di chuyển | `0x01310C50` | `0x00F10C50` | — | được `CGOBomber::Move` gọi trước khi trượt |
-| `CGOBomber::Move` (vòng lặp di chuyển) | `0x00B93890` | `0x00793890` | — | gọi `CMovable::MoveSimple` + hai hàm trượt + bảng hướng |
-| Cổng vào `CGOBomber::Move` | `0x00B93830` | `0x00793830` | — | gọi `0x00B93890` |
-| Cập nhật điều khiển bomber (lấy dir + độ dài) | `0x00B95180` | `0x00795180` | — | gọi `0x00B93830` với `(dir, len)` từ controller `bomber+0xE0` |
+| Kiểm "đã thẳng hàng ô" trên trục di chuyển | `0x01310C50` | `0x00F10C50` | — | được mover `0x00B93890` gọi trước khi trượt |
+| Mover `0x00B93890` (vòng lặp di chuyển; `CGOPet`/AI theo R-134/R-135 pending) | `0x00B93890` | `0x00793890` | — | gọi `CMovable::MoveSimple` + hai hàm trượt + bảng hướng |
+| Cổng vào mover `0x00B93890` | `0x00B93830` | `0x00793830` | — | gọi cổng `0x00B95970` rồi `0x00B93890` |
+| Cập nhật điều khiển `CGOPet` (lấy dir + độ dài) | `0x00B95180` | `0x00795180` | — | gọi `0x00B93830` với `(dir, len)` từ sub-object `+0xE0`; **không phải bomber** (R-134/R-135 pending) |
 | Truy vấn ô bị chặn | `0x00EA0FD0` | `0x00AA0FD0` | — | được `MoveSimple`/trượt gọi `(row, col, ctx)` |
 | Lấy object ô lưới + kiểm lớp tile | `0x00E9F9B0` | `0x00A9F9B0` | — | RTTI `CGOTileFixed`/`CGOTilePassable` |
-| Bảng vector hướng (4 hướng × `dx,dy`) | `0x017929B0` | `0x013929B0` | — | được `MoveSimple`/`CGOBomber::Move` chỉ số hoá `2*dir` |
+| Bảng vector hướng (4 hướng × `dx,dy`) | `0x017929B0` | `0x013929B0` | — | được `MoveSimple`/mover `0x00B93890` chỉ số hoá `2*dir` |
 | vtable `CMovable` | `0x0179B198` | `0x0139B198` | — | RTTI `??_7CMovable@@6B@` |
 | vtable `CGameContext` | `0x017695B8` | `0x013695B8` | `0x00C5466C` | RTTI `??_7CGameContext@@6B@` + `CGameContext::Init` ở slot 4 (VN slot 3) |
 | vtable `CHiddenCatchGameContext` | `0x01704574` | `0x01304574` | `0x00C1768C` | RTTI `??_7CHiddenCatchGameContext@@6B@` |
@@ -60,6 +70,8 @@ server, không đụng `.themida`.
 - Ngưỡng trợ góc đọc từ hằng số trong code, chưa đo trong trận; "tối đa 34 px" là suy ra từ hình học
   `r ∈ [6,34)`, không phải số đo.
 - Chưa xác định hàm quy đổi **cấp tốc độ → px mỗi bước**; `CMovable::MoveSimple` chỉ nhận độ dài còn lại
-  do caller cấp (xem `KR_RE_MOVEMENT` §5).
+  do caller cấp (xem `KR_RE_MOVEMENT` §5). Chuỗi `(dir,len)` đã đọc là của `CGOPet`, không phải bomber.
 - Polarity của `CGOTileFixed`/`CGOTilePassable` trong `0xE9F9B0` chưa chốt (candidate).
 - Không có bằng chứng cho bomb pass / đứng trên bom trong phép đọc này.
+- Phạm vi lớp: mới xác định **đường đã trace** thuộc `CGOPet`/AI; **chưa chứng minh** cho bomber và
+  không loại trừ mọi caller/lớp/wrapper/VM mà bomber có thể dùng.

@@ -1,0 +1,55 @@
+# Kết quả gameplay được xét **trước** hết giờ (BnB `server/game.js:640–645`: `checkOver()`
+# rồi mới tới điều kiện hết giờ). Bom (5,1) nổ tick 6822, người 1 bị nhốt rồi chết vì hết
+# timer nhốt ở tick 6822 + 378 - 1 = 7199 — **cùng tick** lượt hết giờ (state.tick 7200) — nên kết
+# quả là thắng của người 0, không phải hòa.
+name = "Chết đúng tick hết giờ thì kết quả gameplay thắng, không hòa"
+features = ["V1-020", "V1-021"]
+claims = ["R-010", "R-108"]
+status = "active"
+ticks = 7210
+map = [
+    "##########",
+    "#0...1...#",
+    "##########",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [5, 1]
+
+[[bomb]]
+cell = [5, 1]
+owner = 0
+range = 1
+fuse = 6822
+
+[[expect]]
+tick = 6823
+event = "player_trapped"
+where = { player = 1 }
+count = 1
+
+[[expect]]
+tick = 7200
+event = "player_died"
+where = { player = 1, by = -1 }
+count = 1
+
+[[expect]]
+tick = 7200
+event = "round_ended"
+where = { winner = 0 }
+count = 1
+
+[end]
+outcome = "winner:0"

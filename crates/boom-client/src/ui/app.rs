@@ -2,8 +2,11 @@
 //!
 //! Chế độ `--ui-demo` chạy trọn luồng màn hình V1 với nguồn dữ liệu giả lập
 //! ([`crate::ui::demo::DemoBackend`]) — đăng nhập → sảnh → phòng chờ → trận → kết
-//! quả → phòng — **không cần server**. Bản mạng nối vào sau khi #89/#99 merge
-//! (task riêng), không đổi phần model.
+//! quả → phòng — **không cần server**.
+//!
+//! [`run_ui`] chạy **cùng** vòng lặp với **bất kỳ** backend nào
+//! ([`crate::ui::model::UiBackend`]), nên bản mạng ([`crate::net::ui_backend::NetBackend`]) dùng lại
+//! đúng màn hình này mà không đổi model/layout.
 
 use std::path::{Path, PathBuf};
 
@@ -18,7 +21,7 @@ use crate::scene::{self, Scene};
 use crate::ui::demo::{DemoBackend, ShotScreen, jump_to};
 use crate::ui::draw;
 use crate::ui::layout;
-use crate::ui::model::{ActionOutcome, UiModel};
+use crate::ui::model::{ActionOutcome, UiBackend, UiModel};
 
 /// Tuỳ chọn của chế độ demo UI.
 pub struct UiOptions {
@@ -53,12 +56,26 @@ impl Content {
 
 /// Chạy chế độ demo UI: mở vòng lặp vẽ cho tới khi đóng cửa sổ (hoặc chụp ảnh).
 pub async fn run_demo(mut model: UiModel<DemoBackend>, opts: UiOptions) {
-    let font = draw::load_font();
-    // Atlas cần GL context nên phải nạp sau khi cửa sổ đã mở.
-    let content = load_content(opts.bundle.as_deref());
     if let Some(screen) = opts.shot {
         jump_to(&mut model, screen);
     }
+    run_ui(model, opts).await;
+}
+
+/// Chạy vòng lặp UI với **bất kỳ** backend nào.
+///
+/// Vòng lặp không biết backend là offline hay mạng: mỗi vòng gọi [`UiModel::tick`] (bơm nguồn
+/// dữ liệu + hỏi tiến trình lượt), rồi dựng layout và vẽ. Nhờ vậy bản mạng
+/// ([`crate::net::ui_backend::NetBackend`]) dùng lại đúng màn hình của bản demo.
+///
+/// `#[allow(dead_code)]`: chưa có caller trong binary — luồng `--connect` hiện vẫn chạy vòng
+/// lặp 3D với module `net`, chưa dùng màn hình UI này. Task tiếp theo nối màn login UI vào
+/// luồng `--connect` thì bỏ allow này.
+#[allow(dead_code)]
+pub async fn run_ui<B: UiBackend>(mut model: UiModel<B>, opts: UiOptions) {
+    let font = draw::load_font();
+    // Atlas cần GL context nên phải nạp sau khi cửa sổ đã mở.
+    let content = load_content(opts.bundle.as_deref());
     let mut frame = 0u32;
     loop {
         if handle_input(&mut model) {
@@ -89,7 +106,7 @@ pub async fn run_demo(mut model: UiModel<DemoBackend>, opts: UiOptions) {
 }
 
 /// Xử lý phím; trả về `true` nếu cần thoát ứng dụng.
-fn handle_input(model: &mut UiModel<DemoBackend>) -> bool {
+pub(crate) fn handle_input<B: UiBackend>(model: &mut UiModel<B>) -> bool {
     if is_key_pressed(KeyCode::Escape) {
         return matches!(model.back(), ActionOutcome::Quit);
     }

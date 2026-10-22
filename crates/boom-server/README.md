@@ -30,6 +30,20 @@ Server in ra log JSON Lines trên stdout. `boom-server health` hỏi trực ti�
 cargo run -p boom-server -- health
 ```
 
+### Log: vòng đời round, lý do disconnect, lỗi nạp content
+
+Mọi dòng log là một object JSON (ADR 0011 §8.1). Ba nhóm sự kiện đáng chú ý:
+
+| Sự kiện | Khi nào | Trường riêng |
+|---|---|---|
+| `content.load_ok` / `content.load_fail` | Nạp content thành công / thất bại | `content_sha256` (chỉ ở `load_ok`), `error_code` + `error_message` (đường dẫn file, **không** ghi nội dung file) |
+| `round.start` → `round.loading` → `round.playing` → `round.result` → `round.end` | Vòng đời một round: tạo round → từng người báo xong loading → barrier đóng → kết quả → về phòng chờ | `round_id` (ID public **thật**, khớp `RoundStart`/`RoundResult` trên dây), `room_id`, `phase`, `outcome` |
+| `player.disconnect` | Người chơi rời phòng/mất kết nối | `reason` (`client_closed`, `timeout_no_input`, `kicked`, `server_shutdown`, `protocol_error`, `auth_failed`), `revoke_reason` (lý do thu hồi phiên trong DB) |
+
+Lỗi nạp content đi qua **log JSON** (không chỉ stderr): logger được dựng trước bước nạp
+content nên `content.load_fail` luôn có mã lỗi + đường dẫn file. Log không bao giờ chứa
+mật khẩu, PHC string hay session token (ADR 0011 §8.1).
+
 ## Lệnh
 
 | Lệnh | Việc |

@@ -1,0 +1,49 @@
+# Timer nhốt **không chạy** trong warmup (BnB `server/game.js:546–551` chỉ chạy sau warmup):
+# người bị nhốt từ tick 0 với timer 120 tick chết ở tick 90 + 120 - 1 = 209, không phải 119.
+# Overlay `bnb-timing` đặt warmup = 90 tick và trap = 120 tick ở 60 Hz (profile V1: 3000 ms và
+# 4000 ms ở 30 Hz).
+name = "Timer nhốt đứng yên trong warmup rồi mới đếm"
+features = ["V1-020", "V1-021"]
+claims = ["R-100", "R-108"]
+status = "active"
+ticks = 220
+overlays = ["../../rules/bnb-timing.toml"]
+map = [
+    "######",
+    "#0...#",
+    "######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+life = "trapped"
+
+[[expect]]
+tick = 209
+player = 1
+life = "trapped"
+
+[[expect]]
+tick = 210
+event = "player_died"
+where = { player = 1, by = -1 }
+count = 1
+
+[[expect]]
+tick = 210
+player = 1
+life = "dead"
+
+[end]
+outcome = "winner:0"

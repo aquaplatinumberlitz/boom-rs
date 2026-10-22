@@ -37,7 +37,7 @@ use crate::auth::AuthService;
 use crate::authority::{Authority, MatchSetup, ServerError};
 use crate::config::{HandshakeConfig, OperationalConfig, ReplaySetup, ServerConfig};
 use crate::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
-use crate::observability::{LogFields, Logger, new_instance_id, now_ms};
+use crate::observability::{LogFields, Logger, SharedLogSink, events, new_instance_id, now_ms};
 use crate::server::Server;
 
 /// ID mode FFA của V1 (SCOPE_V1 §1).
@@ -269,6 +269,23 @@ fn load_bundle(dir: &Path) -> Result<Bundle, StartupError> {
     })
 }
 
+/// Mã lỗi + thông báo cho log `content.load_fail` (ADR 0011 §8.1).
+///
+/// `error_message` mang **đường dẫn file** (không mang nội dung file — ADR 0011 §8.1); thông
+/// báo chi tiết cho người vận hành vẫn do `main` in ra stderr.
+fn content_load_failure(err: &StartupError) -> (&'static str, String) {
+    match err {
+        StartupError::Rules { path, .. } => ("rules_load_failed", path.clone()),
+        StartupError::MapProfile { path, .. } => ("map_profile_load_failed", path.clone()),
+        StartupError::Bundle { path, .. } => ("bundle_load_failed", path.clone()),
+        StartupError::World { message } => ("world_build_failed", message.clone()),
+        _ => (
+            "content_load_failed",
+            "không xác định được nguồn lỗi".to_owned(),
+        ),
+    }
+}
+
 /// Lưới ô theo build từ bundle: ID tile/obj giữ nguyên như file nguồn.
 fn map_grid(bundle: &Bundle) -> MapGrid {
     let width = usize::from(bundle.width);
@@ -345,8 +362,42 @@ pub struct ServeRuntime {
 impl ServeRuntime {
     /// Khởi động server: nạp content, mở DB, bind listener, bật admin + heartbeat.
     pub fn start(config: OperationalConfig, stop: StopFlag) -> Result<Self, StartupError> {
-        let content = load_content(&config)?;
+        Self::start_with_log_sink(config, stop, Box::new(io::stdout()))
+    }
+
+    /// Như [`Self::start`] nhưng ghi log vào `sink` (test đọc JSON Lines từ buffer).
+    ///
+    /// `sink` được chia sẻ giữa logger bootstrap (dựng trước khi nạp content) và logger
+    /// thật ⇒ mọi dòng log của tiến trình nằm trong cùng một chỗ.
+    pub fn start_with_log_sink(
+        config: OperationalConfig,
+        stop: StopFlag,
+        sink: Box<dyn io::Write + Send>,
+    ) -> Result<Self, StartupError> {
         let instance_id = new_instance_id();
+        let sink = SharedLogSink::new(sink);
+
+        // Logger **trước** khi nạp content: lỗi nạp cũng phải đi qua log JSON
+        // (`content.load_fail` + `error_code`/`error_message`, ADR 0011 §8.1) chứ không
+        // chỉ in ra stderr. Fingerprint lúc này còn là giá trị tạm của file cấu hình ⇒
+        // logger này chỉ dùng cho đường lỗi nạp content.
+        let bootstrap = Logger::new(
+            config.fingerprint(),
+            instance_id.clone(),
+            config.content_epoch,
+            sink.writer(),
+        );
+        let content = match load_content(&config) {
+            Ok(content) => content,
+            Err(err) => {
+                let (code, message) = content_load_failure(&err);
+                let mut fields = LogFields::new();
+                fields.insert("error_code", serde_json::json!(code));
+                fields.insert("error_message", serde_json::json!(message));
+                bootstrap.error(events::CONTENT_LOAD_FAIL, fields);
+                return Err(err);
+            }
+        };
 
         // Cấu hình hiệu lực sau khi nạp content: fingerprint/health phải khớp content thật.
         let mut config = config;
@@ -356,11 +407,18 @@ impl ServeRuntime {
         config.content_epoch = CONTENT_EPOCH;
 
         // Logger dùng chung cho auth, admin, heartbeat và authority.
-        let logger = Arc::new(Logger::stdout(
+        let logger = Arc::new(Logger::new(
             config.fingerprint(),
             instance_id.clone(),
             config.content_epoch,
+            sink.writer(),
         ));
+        // Content đã nạp xong: `content.load_ok` mang `content_sha256` thật (ADR 0011 §8.1).
+        {
+            let mut fields = LogFields::new();
+            fields.insert("map", serde_json::json!(content.map.clone()));
+            logger.info(events::CONTENT_LOAD_OK, fields);
+        }
 
         // DB identity: giữ khóa instance ⇒ chỉ một server chạy trên một file DB (ADR 0011 §4).
         let store =
@@ -736,6 +794,7 @@ mod tests {
 
     use super::*;
 
+    use std::io::Read as _;
     use std::path::{Path, PathBuf};
     #[cfg(unix)]
     use std::process::{Command, Stdio};
@@ -751,6 +810,7 @@ mod tests {
 
     use crate::admin::run_health_cli;
     use crate::identity::{AccountId, SessionStore};
+    use crate::observability::SharedLogBuffer;
 
     /// Bảng phân loại ô cho map test: mọi ô trống là nền đi được.
     const TEST_MAP_PROFILE: &str = r#"schema = 1
@@ -812,6 +872,153 @@ empty = "floor"
                 if envelope.kind == kind {
                     return decode_frame(&frame, &ProtocolLimits::v1())
                         .map_err(|err| err.to_string());
+                }
+            }
+        }
+    }
+
+    /// Client TCP thật với bộ đệm tự quản.
+    ///
+    /// Khác [`Client`] (dùng `TcpTransport`), client này giữ byte chưa đọc trong bộ đệm và
+    /// **không** đóng socket khi hết thời gian chờ: cần quan sát "server im lặng" để kiểm
+    /// server không gửi `Snapshot` khi phòng còn ở loading barrier (ADR 0009 §4.3).
+    struct RawClient {
+        stream: TcpStream,
+        buf: Vec<u8>,
+    }
+
+    impl RawClient {
+        fn connect(addr: SocketAddr) -> Result<Self, String> {
+            let stream = TcpStream::connect(addr).map_err(|err| err.to_string())?;
+            stream.set_nodelay(true).map_err(|err| err.to_string())?;
+            Ok(Self {
+                stream,
+                buf: Vec::new(),
+            })
+        }
+
+        fn send<M: Message>(&mut self, message: &M) -> Result<(), String> {
+            let frame =
+                encode_frame(message, &ProtocolLimits::v1()).map_err(|err| err.to_string())?;
+            boom_net::write_frame(&mut self.stream, &frame, boom_net::FrameLimits::V1)
+                .map_err(|err| err.to_string())
+        }
+
+        /// Đọc thêm byte cho tới khi có dữ liệu hoặc hết thời gian chờ.
+        ///
+        /// `Ok(false)` = server im lặng trong khoảng chờ.
+        fn fill(&mut self, wait: Duration) -> Result<bool, String> {
+            let deadline = Instant::now() + wait;
+            let mut chunk = [0u8; 4096];
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Ok(false);
+                }
+                // Sàn 1 ms: timeout dưới 1 ms làm `SO_RCVTIMEO` bằng 0 ⇒ đọc chặn vô hạn.
+                self.stream
+                    .set_read_timeout(Some(remaining.max(Duration::from_millis(1))))
+                    .map_err(|err| err.to_string())?;
+                match self.stream.read(&mut chunk) {
+                    Ok(0) => return Err("server đóng kết nối".to_owned()),
+                    Ok(n) => {
+                        self.buf.extend_from_slice(&chunk[..n]);
+                        return Ok(true);
+                    }
+                    Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(err)
+                        if err.kind() == io::ErrorKind::WouldBlock
+                            || err.kind() == io::ErrorKind::TimedOut =>
+                    {
+                        // Hết thời gian chờ: kiểm tra mốc rồi thử lại (socket có thể trả
+                        // timeout sớm hơn hạn một chút).
+                        if Instant::now() >= deadline {
+                            return Ok(false);
+                        }
+                    }
+                    Err(err) => return Err(format!("đọc socket lỗi: {err}")),
+                }
+            }
+        }
+
+        /// Cắt một frame trọn vẹn khỏi bộ đệm (tiền tố độ dài 4 byte).
+        fn take_frame(&mut self) -> Option<Vec<u8>> {
+            if self.buf.len() < 4 {
+                return None;
+            }
+            let len =
+                u32::from_le_bytes([self.buf[0], self.buf[1], self.buf[2], self.buf[3]]) as usize;
+            if self.buf.len() < 4 + len {
+                return None;
+            }
+            let frame = self.buf[4..4 + len].to_vec();
+            self.buf.drain(..4 + len);
+            Some(frame)
+        }
+
+        /// Đọc frame tiếp theo; `Ok(None)` = hết thời gian chờ mà chưa có frame trọn vẹn.
+        fn next_frame(&mut self, wait: Duration) -> Result<Option<Vec<u8>>, String> {
+            let deadline = Instant::now() + wait;
+            loop {
+                if let Some(frame) = self.take_frame() {
+                    return Ok(Some(frame));
+                }
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Ok(None);
+                }
+                if !self.fill(remaining)? {
+                    return Ok(None);
+                }
+            }
+        }
+
+        /// Nhận message đầu tiên có `kind` (bỏ qua kind khác).
+        fn recv_of<M: Message>(&mut self, kind: MessageKind) -> Result<M, String> {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                let Some(frame) = self.next_frame(remaining)? else {
+                    return Err(format!("timeout chờ {kind:?}"));
+                };
+                let (envelope, _) = read_envelope(&frame).map_err(|err| err.to_string())?;
+                if envelope.kind == kind {
+                    return decode_frame(&frame, &ProtocolLimits::v1())
+                        .map_err(|err| err.to_string());
+                }
+            }
+        }
+
+        /// Đọc mọi frame tới khi server im lặng `wait`; trả về các kind đã nhận.
+        fn recv_kinds_until_silence(&mut self, wait: Duration) -> Result<Vec<MessageKind>, String> {
+            let deadline = Instant::now() + wait;
+            let mut kinds = Vec::new();
+            loop {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                let Some(frame) = self.next_frame(remaining)? else {
+                    return Ok(kinds);
+                };
+                let (envelope, _) = read_envelope(&frame).map_err(|err| err.to_string())?;
+                kinds.push(envelope.kind);
+            }
+        }
+
+        /// Nhận `RoomState` có đúng số thành viên.
+        fn recv_room_state(&mut self, members: usize) -> Result<RoomState, String> {
+            loop {
+                let state: RoomState = self.recv_of(MessageKind::RoomState)?;
+                if state.members.len() == members {
+                    return Ok(state);
+                }
+            }
+        }
+
+        /// Nhận `RoomState` có đúng số thành viên **và tất cả đã ready**.
+        fn recv_room_state_all_ready(&mut self, members: usize) -> Result<RoomState, String> {
+            loop {
+                let state: RoomState = self.recv_of(MessageKind::RoomState)?;
+                if state.members.len() == members && state.members.iter().all(|m| m.ready) {
+                    return Ok(state);
                 }
             }
         }
@@ -968,6 +1175,18 @@ empty = "floor"
         addr: SocketAddr,
         config: &OperationalConfig,
     ) -> Result<ClientOutcome, String> {
+        let (outcome, _clients) = drive_two_clients_keep_open(addr, config)?;
+        Ok(outcome)
+    }
+
+    /// Như [`drive_two_clients`] nhưng **trả lại** client để caller giữ kết nối mở.
+    ///
+    /// Test log cần client còn sống khi server dừng: nếu socket đóng trước, lý do disconnect
+    /// là `client_closed` chứ không phải `server_shutdown`.
+    fn drive_two_clients_keep_open(
+        addr: SocketAddr,
+        config: &OperationalConfig,
+    ) -> Result<(ClientOutcome, Vec<Client>), String> {
         let mut host = Client::connect(addr)?;
         let mut guest = Client::connect(addr)?;
         for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
@@ -1080,7 +1299,142 @@ empty = "floor"
             guest.recv_of(MessageKind::Snapshot),
         )?;
 
-        Ok(ClientOutcome { account_id })
+        Ok((ClientOutcome { account_id }, vec![host, guest]))
+    }
+
+    /// Luồng kiểm thứ tự snapshot: `RoundStart` → (im lặng khi còn ở loading barrier) →
+    /// `LoadingAck` → `Snapshot` của lượt (ADR 0009 §4.3).
+    fn drive_loading_barrier(addr: SocketAddr, config: &OperationalConfig) -> Result<(), String> {
+        let mut host = RawClient::connect(addr)?;
+        let mut guest = RawClient::connect(addr)?;
+        for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
+            step(
+                &format!("gửi Hello ({name})"),
+                client.send(&Hello {
+                    wire_schema: 1,
+                    state_schema: 1,
+                    rules_profile_id: config.rules_profile_id.clone(),
+                    rules_hash: config.rules_hash,
+                    content_sha256: config.content_sha256,
+                    client_build: "test".to_owned(),
+                    capabilities: Vec::new(),
+                }),
+            )?;
+            let welcome: Welcome = step(
+                &format!("nhận Welcome ({name})"),
+                client.recv_of(MessageKind::Welcome),
+            )?;
+            if welcome.rules_hash != config.rules_hash {
+                return Err("Welcome mang rules hash khác server".to_owned());
+            }
+            step(
+                &format!("gửi Auth ({name})"),
+                client.send(&Auth {
+                    op: AuthOp::Register,
+                    username: format!("player-{name}"),
+                    password: "password123".to_owned(),
+                }),
+            )?;
+            let _: AuthOk = step(
+                &format!("nhận AuthOk ({name})"),
+                client.recv_of(MessageKind::AuthOk),
+            )?;
+        }
+
+        step(
+            "gửi Create",
+            host.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Create {
+                    character: RoomCharacter::C00,
+                },
+            }),
+        )?;
+        let state = step("nhận RoomState (host)", host.recv_room_state(1))?;
+        let room = state.room_id;
+        step(
+            "gửi Join",
+            guest.send(&RoomCommandDto {
+                request: 1,
+                action: RoomActionDto::Join {
+                    room,
+                    character: RoomCharacter::C01,
+                },
+            }),
+        )?;
+        step("nhận RoomState (guest)", guest.recv_room_state(2))?;
+        step("nhận RoomState (host)", host.recv_room_state(2))?;
+        for client in [&mut host, &mut guest] {
+            step(
+                "gửi SetReady",
+                client.send(&RoomCommandDto {
+                    request: 2,
+                    action: RoomActionDto::SetReady { ready: true },
+                }),
+            )?;
+        }
+        step(
+            "nhận RoomState (host, mọi người ready)",
+            host.recv_room_state_all_ready(2),
+        )?;
+        step(
+            "nhận RoomState (guest, mọi người ready)",
+            guest.recv_room_state_all_ready(2),
+        )?;
+
+        step(
+            "gửi Start",
+            host.send(&RoomCommandDto {
+                request: 3,
+                action: RoomActionDto::Start,
+            }),
+        )?;
+        let start: RoundStart = step(
+            "nhận RoundStart (host)",
+            host.recv_of(MessageKind::RoundStart),
+        )?;
+        let _: RoundStart = step(
+            "nhận RoundStart (guest)",
+            guest.recv_of(MessageKind::RoundStart),
+        )?;
+        let round = start.round_id;
+
+        // Phòng còn ở loading barrier: server **không** được gửi `Snapshot` nào.
+        for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
+            let kinds = step(
+                &format!("đọc frame khi còn loading ({name})"),
+                client.recv_kinds_until_silence(Duration::from_millis(300)),
+            )?;
+            if kinds.contains(&MessageKind::Snapshot) {
+                return Err(format!(
+                    "server gửi Snapshot khi phòng còn ở loading barrier ({name}): {kinds:?}"
+                ));
+            }
+        }
+
+        // Qua barrier: snapshot của lượt phải tới, và lượt đã chạy (`tick > 0`).
+        for client in [&mut host, &mut guest] {
+            step(
+                "gửi LoadingAck",
+                client.send(&LoadingAck { round_id: round }),
+            )?;
+        }
+        for (name, client) in [("host", &mut host), ("guest", &mut guest)] {
+            let snapshot: Snapshot = step(
+                &format!("nhận Snapshot ({name})"),
+                client.recv_of(MessageKind::Snapshot),
+            )?;
+            if u64::from(snapshot.round_id) != round {
+                return Err(format!(
+                    "snapshot thuộc round {} khác round {round}",
+                    snapshot.round_id
+                ));
+            }
+            if snapshot.tick == 0 {
+                return Err("snapshot đầu của lượt phải có tick > 0 (lượt đã chạy)".to_owned());
+            }
+        }
+        Ok(())
     }
 
     // --- Acceptance: slot trận lấy từ roster theo `account_id`, không theo thứ tự TCP ---
@@ -1672,6 +2026,36 @@ empty = "floor"
         assert_eq!(base.stats.c00.speed.value, 5);
     }
 
+    /// Server **không** gửi `Snapshot` khi phòng còn ở loading barrier (ADR 0009 §4.3).
+    ///
+    /// Sau `RoundStart` nhưng trước khi mọi người gửi `LoadingAck`, trên dây không được có
+    /// `Snapshot` nào; ngay khi barrier qua thì snapshot của lượt phải tới (và lượt đã chạy).
+    #[test]
+    fn serve_khong_gui_snapshot_khi_phong_dang_loading() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+
+        let stop = StopFlag::default();
+        let mut runtime =
+            ServeRuntime::start(config.clone(), stop.clone()).expect("khởi động server");
+        let addr = runtime.local_addr();
+        let effective = runtime.config().clone();
+
+        let client_stop = stop.clone();
+        let client_config = effective.clone();
+        let handle = thread::spawn(move || {
+            let _guard = StopOnDrop(client_stop);
+            drive_loading_barrier(addr, &client_config)
+        });
+
+        runtime.run().expect("vòng tick dừng sạch");
+        handle
+            .join()
+            .expect("luồng client không panic")
+            .expect("phải kiểm được thứ tự snapshot");
+    }
+
     #[test]
     fn serve_runs_two_tcp_clients_through_a_round_and_revokes_sessions_on_stop() {
         let dir = tempfile::tempdir().expect("thư mục tạm");
@@ -1709,6 +2093,117 @@ empty = "floor"
             .active_session(AccountId(outcome.account_id))
             .expect("đọc phiên");
         assert!(active.is_none(), "phiên phải được thu hồi khi dừng");
+    }
+
+    /// Dòng log đầu tiên có `event` = `name` (không có ⇒ test đỏ, không bỏ qua âm thầm).
+    fn first_log_line(buffer: &SharedLogBuffer, name: &str) -> serde_json::Value {
+        buffer
+            .lines()
+            .into_iter()
+            .find(|line| line.get("event").and_then(|value| value.as_str()) == Some(name))
+            .unwrap_or_else(|| {
+                panic!(
+                    "không có sự kiện `{name}` trong log: {:?}",
+                    buffer
+                        .lines()
+                        .iter()
+                        .map(|line| line.get("event").cloned())
+                        .collect::<Vec<_>>()
+                )
+            })
+    }
+
+    /// Log JSON của tiến trình server thật: vòng đời round có `round_id`, disconnect có lý do.
+    #[test]
+    fn serve_log_json_co_round_id_va_ly_do_disconnect() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+
+        let buffer = SharedLogBuffer::new();
+        let stop = StopFlag::default();
+        {
+            let mut runtime = ServeRuntime::start_with_log_sink(
+                config.clone(),
+                stop.clone(),
+                Box::new(buffer.clone()),
+            )
+            .expect("khởi động server");
+            let addr = runtime.local_addr();
+            let effective = runtime.config().clone();
+
+            // Client giữ kết nối **mở** tới khi server dừng ⇒ lý do disconnect lúc dừng là
+            // `server_shutdown` (không phải `client_closed`).
+            let (done_tx, done_rx) = mpsc::channel::<()>();
+            let client_stop = stop.clone();
+            let client_config = effective.clone();
+            let handle = thread::spawn(move || {
+                let _guard = StopOnDrop(client_stop.clone());
+                let (outcome, clients) = drive_two_clients_keep_open(addr, &client_config)
+                    .expect("client đăng ký → phòng → start → snapshot");
+                // Dừng server nhưng **giữ kết nối** mở tới khi main báo đã dừng xong.
+                client_stop.request();
+                done_rx.recv().expect("chờ server dừng");
+                drop(clients);
+                outcome
+            });
+
+            runtime.run().expect("vòng tick dừng sạch");
+            // Thả runtime ⇒ `shutdown_sessions` chạy ⇒ log `player.disconnect`.
+            drop(runtime);
+            done_tx.send(()).expect("báo client đóng");
+            handle.join().expect("luồng client không panic");
+        }
+
+        // Content nạp xong: `content.load_ok` mang `content_sha256` thật.
+        let load_ok = first_log_line(&buffer, "content.load_ok");
+        assert!(load_ok["content_sha256"].is_string());
+
+        // Vòng đời round: mọi dòng đều có `round_id` khác null.
+        for event in ["round.start", "round.loading", "round.playing"] {
+            let line = first_log_line(&buffer, event);
+            assert!(
+                line["round_id"].is_u64(),
+                "{event} phải có round_id: {line}"
+            );
+        }
+
+        // Dừng server ⇒ mỗi phiên đang sống ghi `player.disconnect` lý do `server_shutdown`.
+        let disconnect = first_log_line(&buffer, "player.disconnect");
+        assert_eq!(disconnect["reason"], serde_json::json!("server_shutdown"));
+        assert_eq!(
+            disconnect["revoke_reason"],
+            serde_json::json!("server_shutdown")
+        );
+    }
+
+    /// Lỗi nạp content phải đi qua **log JSON**, không chỉ ra stderr.
+    #[test]
+    fn content_load_fail_duoc_ghi_qua_json_logger() {
+        let dir = tempfile::tempdir().expect("thư mục tạm");
+        let config_path = write_test_env(dir.path());
+        let mut config = OperationalConfig::from_file_with_env(&config_path).expect("đọc cấu hình");
+        // Rules profile không tồn tại ⇒ nạp content thất bại.
+        config.rules_path = dir.path().join("khong-co-rules.toml");
+
+        let buffer = SharedLogBuffer::new();
+        let stop = StopFlag::default();
+        let Err(err) = ServeRuntime::start_with_log_sink(config, stop, Box::new(buffer.clone()))
+        else {
+            panic!("nạp content phải thất bại");
+        };
+        assert!(matches!(err, StartupError::Rules { .. }));
+
+        let line = first_log_line(&buffer, "content.load_fail");
+        assert_eq!(line["error_code"], serde_json::json!("rules_load_failed"));
+        // `error_message` mang đường dẫn file, không mang nội dung file (ADR 0011 §8.1).
+        let message = line["error_message"].as_str().expect("error_message");
+        assert!(message.contains("khong-co-rules.toml"), "{message}");
+        // Log không được lộ mật khẩu/token.
+        let bytes = buffer.bytes();
+        let raw = String::from_utf8_lossy(&bytes);
+        assert!(!raw.contains("password"), "log lộ mật khẩu: {raw}");
+        assert!(!raw.contains("token"), "log lộ token: {raw}");
     }
 
     #[test]
