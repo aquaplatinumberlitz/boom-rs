@@ -16,9 +16,11 @@
 //!
 //! # Đồng hồ
 //!
-//! Mọi thời gian của lần chạy là **đồng hồ thật tính từ lúc bắt đầu** (ms kể từ 0). Server nhận
-//! `now_ms` tiêm vào, nên tick server chạy đúng nhịp thật; transport `Timing::Real` ngủ đúng số
-//! ms ảo nên độ trễ đo được là độ trễ thật, không phải số ảo.
+//! `TimingMode::Real` dùng đồng hồ thật từ lúc bắt đầu; transport ngủ theo độ trễ mạng.
+//! `TimingMode::Virtual` tiến bước cố định sau rào reader/writer, không dùng tốc độ máy để
+//! quyết tick, retry hay liveness. MemoryTransport giao ngay khi nhận hỏi: độ trễ ảo đổi thứ
+//! tự frame trong batch, không phải mô phỏng delay theo tick authority. Số đo chế độ ảo
+//! là thời gian fixture, không dùng làm benchmark độ trễ mạng thật.
 //!
 //! # Hội tụ state hash
 //!
@@ -46,10 +48,16 @@ use boom_server::{
 use sha2::{Digest, Sha256};
 
 use crate::bot::{BotClient, BotConfig, BotFactory, BotPhase, DirectDtoBotFactory};
+use crate::harness_io::{EnqueuedReader, Io, wait_until};
 use crate::metrics::Samples;
+use crate::profile::TimingMode;
 use crate::profile::{ProfileError, QaProfile, builtin_map, builtin_rules, map_rows};
 use crate::report::{
     BotStatus, CorrectionReport, InputReport, LatencyReport, NetworkReport, RoundReport, RunReport,
+};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 /// Lỗi của một lần chạy QA.
@@ -116,6 +124,8 @@ struct BotRuntime {
     config: BotConfig,
     writer: MemoryTransport,
     frames: Receiver<Vec<u8>>,
+    io: Io,
+    buffered: Vec<Vec<u8>>,
     player: PlayerId,
     name: String,
     /// Chỉ số bot trong lần chạy (0..clients).
@@ -137,9 +147,10 @@ struct BotRuntime {
 /// V1: reconnect cần **auth mới** (SCOPE_V1 §3) và tài khoản chỉ có một phiên sống, nên bot đăng
 /// nhập lại bằng `Login` (lần đăng ký đầu đã tạo tài khoản).
 ///
-/// Bot giữ **cùng `PlayerId`**: `PlayerId` là định danh người chơi trên server, đổi nó sẽ
-/// thành người khác trong phòng (và thành người khác trong roster của lượt). Server giải phóng
-/// session cũ khi thấy EOF, nên harness chờ `accept` thành công rồi mới mở phiên mới.
+/// Bot tái dùng `PlayerId` kết nối; định danh trong phòng/roster vẫn là `account_id`
+/// học từ AuthOk (ADR 0009 Addendum B). Server giải phóng
+/// session cũ khi thấy EOF. Chế độ ảo chờ reader enqueue Closed và writer đóng trước
+/// khi accept phiên mới; chế độ đo thật giữ khoảng drain vận hành.
 fn reconnect(
     server: &mut Server,
     profile: &QaProfile,
@@ -154,9 +165,21 @@ fn reconnect(
     // khi session mới đăng ký, nó sẽ đóng nhầm session mới (và phiên mới chết ngay sau
     // khi vừa mở). Vì vậy phải để server xử lý hết frame còn tồn đọng — kể cả `Closed`
     // của session cũ — TRƯỚC khi đăng ký session mới.
-    for _ in 0..RECONNECT_DRAIN_ROUNDS {
-        let _ = server.poll(now_ms, Duration::ZERO);
-        thread::sleep(Duration::from_millis(RECONNECT_DRAIN_STEP_MS));
+    if profile.network.timing == TimingMode::Virtual {
+        wait_until(|| bot.io.up.closed.load(Ordering::Acquire))?;
+        server
+            .poll(now_ms, Duration::ZERO)
+            .map_err(|err| QaError::Server(err.to_string()))?;
+        let reader = bot.io.reader.as_mut().expect("virtual reader");
+        wait_until(|| {
+            let _ = reader.try_recv_frame();
+            reader.is_eof()
+        })?;
+    } else {
+        for _ in 0..RECONNECT_DRAIN_ROUNDS {
+            let _ = server.poll(now_ms, Duration::ZERO);
+            thread::sleep(Duration::from_millis(RECONNECT_DRAIN_STEP_MS));
+        }
     }
     bot.config.seed = mix(seed, 0x51ed_270b + u64::from(bot.reconnects));
     let player = bot.player;
@@ -169,9 +192,11 @@ fn reconnect(
         attempt: bot.reconnects,
         now_ms,
     };
-    let (writer, frames) = connect(server, profile, &spec)?;
+    let (writer, frames, io) = connect(server, profile, &spec)?;
     bot.writer = writer;
     bot.frames = frames;
+    bot.buffered.clear();
+    bot.io = io;
     bot.last_seq = 0;
     bot.last_round = 0;
     bot.dead = false;
@@ -204,7 +229,7 @@ fn connect(
     server: &mut Server,
     profile: &QaProfile,
     spec: &ConnectSpec,
-) -> Result<(MemoryTransport, Receiver<Vec<u8>>), QaError> {
+) -> Result<(MemoryTransport, Receiver<Vec<u8>>, Io), QaError> {
     let salt = u64::from(spec.attempt) * 1_000 + spec.index as u64;
     let up = profile.memory_config(mix(spec.seed, salt * 2 + 1));
     let down = profile.memory_config(mix(spec.seed, salt * 2 + 2));
@@ -218,24 +243,43 @@ fn connect(
     for _ in 0..CONNECT_ATTEMPTS {
         let (client_writer, server_reader) = MemoryTransport::pair(up);
         let (server_writer, client_reader) = MemoryTransport::pair(down);
-        match server.accept(
+        let (server_reader, up_progress) = EnqueuedReader::new(server_reader);
+        let retired = Arc::new(AtomicBool::new(false));
+        let retired_signal = retired.clone();
+        match server.accept_with_shutdown(
             spec.player,
             spec.slot,
             source_ip,
             server_reader,
             server_writer,
+            move || {
+                retired_signal.store(true, Ordering::Release);
+            },
         ) {
             Ok(()) => {
                 let (tx, frames) = mpsc::channel();
-                thread::spawn(move || {
-                    let mut reader = client_reader;
-                    while let Ok(Some(frame)) = reader.recv_frame() {
-                        if tx.send(frame).is_err() {
-                            break;
+                let virtual_reader = if profile.network.timing == TimingMode::Virtual {
+                    Some(client_reader)
+                } else {
+                    thread::spawn(move || {
+                        let mut reader = client_reader;
+                        while let Ok(Some(frame)) = reader.recv_frame() {
+                            if tx.send(frame).is_err() {
+                                break;
+                            }
                         }
-                    }
-                });
-                return Ok((client_writer, frames));
+                    });
+                    None
+                };
+                return Ok((
+                    client_writer,
+                    frames,
+                    Io {
+                        reader: virtual_reader,
+                        retired,
+                        up: up_progress,
+                    },
+                ));
             }
             Err(err) => {
                 last_error = err.to_string();
@@ -400,12 +444,14 @@ fn run_impl(
             attempt: 0,
             now_ms: 0,
         };
-        let (writer, frames) = connect(&mut server, &config.profile, &spec)?;
+        let (writer, frames, io) = connect(&mut server, &config.profile, &spec)?;
         bots.push(BotRuntime {
             client: factory.create(&bot_config),
             config: bot_config,
             writer,
             frames,
+            io,
+            buffered: Vec::new(),
             player,
             name: format!("bot{index}"),
             index,
@@ -435,12 +481,43 @@ fn run_impl(
     ) * 2
         + harness.step_ms * 4;
 
+    let virtual_time = config.profile.network.timing == TimingMode::Virtual;
+    let mut simulated_ms = 0;
     loop {
-        let now = start.elapsed().as_millis() as u64;
+        let now = if virtual_time {
+            simulated_ms
+        } else {
+            start.elapsed().as_millis() as u64
+        };
+        if virtual_time {
+            for bot in &bots {
+                if !bot.dead {
+                    bot.io.up.wait(bot.writer.sent_frames())?;
+                }
+            }
+        }
         let t0 = Instant::now();
         let events = server
             .poll(now, Duration::ZERO)
             .map_err(|err| QaError::Server(err.to_string()))?;
+        if virtual_time {
+            server
+                .flush_outbound(Duration::from_secs(10))
+                .map_err(QaError::Server)?;
+            for bot in &mut bots {
+                if bot.io.retired.load(Ordering::Acquire) {
+                    // Writer phiên đã đóng phải xong trước khi xử lý EOF ở bot.
+                    let reader = bot.io.reader.as_mut().expect("virtual reader");
+                    // Giữ frame còn tồn để bot xử lý trước EOF ở dưới.
+                    wait_until(|| {
+                        if let Ok(Some(frame)) = reader.try_recv_frame() {
+                            bot.buffered.push(frame);
+                        }
+                        reader.is_eof()
+                    })?;
+                }
+            }
+        }
         let poll_us = t0.elapsed().as_micros() as u64;
         let t1 = Instant::now();
         for event in events {
@@ -504,7 +581,18 @@ fn run_impl(
             }
             let mut pending: Vec<Vec<u8>> = Vec::new();
             loop {
-                match bot.frames.try_recv() {
+                let received = if !bot.buffered.is_empty() {
+                    Ok(bot.buffered.remove(0))
+                } else if let Some(reader) = bot.io.reader.as_mut() {
+                    match reader.try_recv_frame() {
+                        Ok(Some(frame)) => Ok(frame),
+                        Ok(None) if !reader.is_eof() => Err(TryRecvError::Empty),
+                        _ => Err(TryRecvError::Disconnected),
+                    }
+                } else {
+                    bot.frames.try_recv()
+                };
+                match received {
                     Ok(frame) => {
                         pending.extend(
                             bot.client
@@ -512,7 +600,9 @@ fn run_impl(
                                 .map_err(|err| QaError::Bot(format!("{}: {err}", bot.name)))?,
                         );
                     }
-                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Empty) => {
+                        break;
+                    }
                     Err(TryRecvError::Disconnected) => {
                         // Server đóng phiên (EOF): bot sẽ được mở lại phiên nếu còn hạn.
                         if std::env::var_os("BOOM_QA_TRACE").is_some() {
@@ -553,6 +643,10 @@ fn run_impl(
                 bot.writer
                     .send_frame(&frame)
                     .map_err(|err| QaError::Net(err.to_string()))?;
+                if virtual_time {
+                    // Giữ thứ tự enqueue giữa các bot, không chỉ đợi đủ tổng số frame.
+                    bot.io.up.wait(bot.writer.sent_frames())?;
+                }
             }
         }
 
@@ -656,7 +750,11 @@ fn run_impl(
                 t1.elapsed().as_micros()
             );
         }
-        thread::sleep(Duration::from_millis(harness.step_ms));
+        if virtual_time {
+            simulated_ms += harness.step_ms.max(1);
+        } else {
+            thread::sleep(Duration::from_millis(harness.step_ms));
+        }
     }
 
     // Dọn: đóng nửa ghi của bot để server và các luồng đọc kết thúc.
@@ -664,7 +762,14 @@ fn run_impl(
         let _ = bot.writer.close();
     }
     for _ in 0..50 {
-        let _ = server.poll(start.elapsed().as_millis() as u64, Duration::ZERO);
+        let _ = server.poll(
+            if virtual_time {
+                simulated_ms
+            } else {
+                start.elapsed().as_millis() as u64
+            },
+            Duration::ZERO,
+        );
     }
 
     // Gom hash bot theo trận và so với server.
@@ -756,7 +861,7 @@ fn run_impl(
         seed: config.seed,
         clients: config.clients,
         rounds_target: config.rounds(),
-        duration_ms: start.elapsed().as_millis() as u64,
+        duration_ms: if virtual_time { simulated_ms } else { start.elapsed().as_millis() as u64 },
         network: NetworkReport {
             rtt_ms: config.profile.network.rtt_ms,
             one_way_delay_ms: config.profile.network.one_way_delay_ms(),
@@ -819,7 +924,8 @@ mod recovery_tests {
 
     fn config() -> RunConfig {
         let mut profile = QaProfile::builtin("fast").unwrap();
-        // Giữ lỗi mạng theo profile fast. Rút ngắn timer vận hành để CI kiểm timeout thật.
+        // Giữ lỗi mạng fast; kiểm liveness theo đồng hồ ảo, độc lập tải CI.
+        profile.network.timing = TimingMode::Virtual;
         profile.harness.server_ping_interval_ms = 50;
         profile.harness.server_liveness_timeout_ms = 500;
         profile.harness.timeout_ms = 20_000;
@@ -834,6 +940,10 @@ mod recovery_tests {
     #[test]
     fn bon_predictor_drain_va_hoi_tu() {
         let report = run_scenario(&config(), RecoveryScenario::Steady).unwrap();
+        assert_eq!(
+            report,
+            run_scenario(&config(), RecoveryScenario::Steady).unwrap()
+        );
         assert!(report.converged && report.drained, "{report:?}");
         assert_eq!(report.rounds.last().unwrap().bot_hashes.len(), 4);
         assert!(report.corrections.amplitude_mpx.count > 0, "{report:?}");
@@ -842,6 +952,7 @@ mod recovery_tests {
 
     fn recovery(scenario: RecoveryScenario) {
         let report = run_scenario(&config(), scenario).unwrap();
+        assert_eq!(report, run_scenario(&config(), scenario).unwrap());
         assert!(!report.timed_out, "{report:?}");
         assert!(
             report.fault_disconnected && report.recovered && report.drained,
@@ -853,7 +964,15 @@ mod recovery_tests {
             "{report:?}"
         );
         assert_eq!(last.bot_hashes.len(), 4);
-        assert!(report.bots.last().unwrap().reconnects > 0);
+        assert_eq!(report.bots.last().unwrap().reconnects, 1);
+        assert!(
+            report.bots[..3].iter().all(|bot| bot.reconnects == 0),
+            "{report:?}"
+        );
+        assert!(
+            report.bots.iter().all(|bot| bot.auth_failed == 0),
+            "{report:?}"
+        );
         let abandoned = report
             .rounds
             .iter()
