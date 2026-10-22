@@ -58,11 +58,24 @@ Ba mắt xích, đều có consumer:
 3. **MoveGate dùng đúng cổng đó.** `CGOBomber::MoveGate` `0xB93830` trả `0` (không đi) khi
    `sub_B95970` trả `0`; ngược lại gọi `CGOBomber::Move` `0xB93890` với nguyên `len`.
 
-Hệ quả: `trapped` **không** phải trạng thái đứng yên trong client KR. V1 đang mô hình hoá theo BnB
-(R-108) nên khác client gốc.
+**Phạm vi bằng chứng (quan trọng):** ba mắt xích trên chỉ chứng minh **cổng** không chặn state `3`.
+Chúng **không** chứng minh nhân vật thực sự dịch chuyển: quãng đi mỗi bước là `len` do `vf8`
+(slot `+0x20`) của object `*(bomber + 0xE0)` trả về, và thân `vf8` **chưa định vị** (cùng chỗ chặn với
+R-125). Nếu `vf8` trả `0` hoặc nhỏ hơn cho state `3` thì nhân vật vẫn đứng yên/đi chậm dù qua cổng.
 
-**Chưa chứng minh:** tốc độ khi bị nhốt có bị giảm hay không. `len` đi từ controller tới `MoveSimple`
-không bị nhân/chia trong chuỗi này; nếu có giảm thì nằm trong controller (`vf8`), chưa định vị.
+Đường duy nhất tới `CGOBomber::MoveGate` `0xB93830` là `sub_B95180` `0xB95180` (xref chỉ có một), và
+`len` không bị nhân/chia trong `0xB93830`/`0xB93890`/`CMovable::MoveSimple`. Vì vậy "đi được" là
+**candidate**; "cổng không chặn" mới là **confirmed**.
+
+V1 đang mô hình hoá `trapped` theo BnB (R-108, đứng yên) — khác client KR ở tầng cổng, nhưng chưa đủ
+để kết luận về quãng đi.
+
+**Lượt thử bổ sung (2026-10-22):** tìm setter gán object vào `bomber+0xE0` (byte) và `+0xD4` để lấy lớp
+controller. REA không có `read_bytes`/`search_bytes` nên đã đóng REA và fallback IDA trực tiếp trên DB
+**bản sao**: quét `mov [reg+0xE0/0xD4], …` được 81 điểm, lọc 21 điểm trong dải `0xB3xxxx–0xB9xxxx`;
+điểm ghi cả hai offset là `0xB6B3F0` nhưng đó là ctor `CGOChatBalloon`, không phải bomber. Ctor
+`CGOGameBomber` (`0xB79DC0`) không gán hai offset này ⇒ controller được gắn ở đường khác (chưa tìm).
+Do đó lớp controller và `vf8` vẫn **unknown**.
 
 ## 3. Nhóm state đi "khoá" và bộ đếm giữ 20 bước (R-128, R-129)
 
@@ -119,7 +132,7 @@ cơ chế tự thoát — theo AGENTS §4 "asset tồn tại ≠ tính năng ch�
 
 | Khóa / claim | Hiện tại | KR đọc được | Đề xuất |
 |---|---|---|---|
-| `trapped` đứng yên (R-036, R-108) | đứng yên | **đi được**, có họ state đi riêng | đổi mô hình: `trapped` vẫn nhận input; PR cơ chế riêng |
+| `trapped` đứng yên (R-036, R-108) | đứng yên | **cổng không chặn** state `3`; quãng đi (`len`) chưa chứng minh | chỉ đổi mô hình **sau khi** biết `len` cho state `3`; hiện giữ BnB hoặc chờ trace |
 | `player.trap_to_death_ms` (R-115) | `4000` (`oss`/design) | chưa xác định (R-131) | giữ |
 | `player.trap_touch_distance_px` (R-116) | `28` (`oss`/design) | chưa đọc (đường chạm/cứu chưa lần ra) | giữ |
 | Cứu/chọc (R-028 `vn_runtime`) | địch chạm → chết | chưa đọc được nhánh chạm | giữ, Q-018 |

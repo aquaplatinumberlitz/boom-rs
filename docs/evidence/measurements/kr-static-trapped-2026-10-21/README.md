@@ -50,6 +50,8 @@ Không mở DB gốc, không chạy client.
 | `xrefs` | `ev_5b1ff16be036534b6f9a714cb5a5b055d443584576ce1471d513b36378f5dbf8` | 8 caller của `0xB95E00` |
 | `xrefs` | `ev_7890c8d689cff1af34aab47f383f4e295dc8c0b66e8d3e92a6bdd79501cc9a1b` | caller của `0xB95AE0` (chỉ nội bộ) |
 | `procedure_pseudo_code` | `ev_bbff42efafc1021bb968bfd28c098285f8f13c57cdb3ee18e7a1ff1a2c2f69c2` | `0xB95840` |
+| `batch_decompile` | `ev_c068f66016a309c66620dcab4c609132ed4b27f67769b321866df9cf61bd722d` | `0xB73410`, `0xB79DC0` (ctor `CGOGameBomber`) |
+| `batch_decompile` | `ev_010048b7028732ff0993ebfa5d8592d2a207562adaed779aef2d0f4134f5a927` | `0xB971A0/B0/C0` — getter `return *(this)` |
 
 `evidence_id` chỉ có giá trị trong phiên REA khi target còn mở; bản bundle được export ra
 `/home/admin/boom-team/tmp/re-kr/evidence-trapped-147.json` (ngoài repo) trước khi đóng target.
@@ -60,3 +62,12 @@ Không mở DB gốc, không chạy client.
   trực tiếp vtable/byte trong phiên này; kết luận chỉ từ decompile + xrefs.
 - Chưa có trace runtime; "20 bước ≈ 600 ms" là quy đổi theo R-013 (30 ms/bước, đo trên VN), chưa đo KR.
 - Số state `3` = bị nhốt ghép từ code KR + tài liệu packet VN, không phải nhãn có sẵn trong binary.
+
+## Bổ sung 2026-10-22 — đường `len`
+
+- `sub_B95180` là **caller duy nhất** của `CGOBomber::MoveGate` `0xB93830`; `len` chỉ đến từ `vf8`
+  (slot `+0x20`) của object `*(bomber + 0xE0)` (getter `0x00B96310` → `0x00B971C0` = `return *(this)`).
+- Thân `vf8` **chưa định vị**: ctor `CGOGameBomber` `0xB79DC0` không gán `+0xE0`/`+0xD4`.
+- Fallback IDA trực tiếp (REA thiếu `search_bytes`): quét `mov [reg+0xE0], …` và `mov [reg+0xD4], …`
+  → 81 điểm, 21 trong dải `0xB3xxxx–0xB9xxxx`; điểm ghi cả hai là `0xB6B3F0` nhưng thuộc
+  `CGOChatBalloon`. Không tìm được setter của bomber trong lượt này.
