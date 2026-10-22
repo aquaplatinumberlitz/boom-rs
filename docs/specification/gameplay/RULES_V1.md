@@ -428,6 +428,44 @@ Trạng thái duyệt ảnh là **quy trình của dự án** (`images_review.cs
 **bằng chứng mô tả** của [UI_STRINGS_V1 §3](../localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1),
 không phải bản dịch — bản dịch chuẩn là `catalog.csv` của `boom-re-l10n`.
 
+## 13. RE KR 00967 — movement và va chạm (R-119…R-125)
+
+Đọc tĩnh client KR `00967` cho [#146](https://github.com/aquaplatinumberlitz/boom-rs/issues/146) / Q-017.
+Định danh build (SHA-256 `cf72da11…e63b`, imagebase `0x400000`, `RVA = VA − 0x400000`) và bảng VA/RVA ở
+[evidence KR static 2026-10-21](../../evidence/measurements/kr-static-2026-10-21/README.md);
+cách đối chiếu VN↔KR, dẫn xuất trợ góc và giới hạn ở
+[KR_RE_MOVEMENT](../../research/findings/KR_RE_MOVEMENT.md). Nguồn `kr_static`; `confirmed` chỉ khi đã
+thấy consumer trong logic game.
+
+**Phạm vi lớp (đọc kèm mọi claim dưới đây).** Chuỗi consumer của `CMovable::MoveSimple` `0x01310200`
+đã trace — `0x00B95180 → 0x00B93830`, rồi `0x00B93830` gọi cổng `0x00B95970` và mover `0x00B93890` —
+thuộc `CGOPet`/AI theo R-134/R-135 của PR #185 (`re-kr-trapped-speed`, **đang mở, chưa có trên
+main**). Vì vậy R-119…R-122 `confirmed` **chỉ trong phạm vi `CMovable`/consumer đã trace**;
+áp dụng hộp 40×40 và trợ góc cho **bomber người chơi là `candidate`/chưa chứng minh**. Đây **không**
+phải khẳng định bomber không dùng hay không tồn tại đường gián tiếp/wrapper từ bomber — chỉ là
+**chưa chứng minh cho bomber**. Không dùng các claim này làm luật người chơi `confirmed`.
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-119 | Trong `CMovable::MoveSimple` (consumer đã trace: `CGOPet`/AI — xem phạm vi lớp), hộp va chạm là **hộp bàn chân đúng một ô**: `rect(x, y−39, 40, 40)` px. Neo `y` là mép **dưới** hộp nên `y = hàng·40 + 39`, `x = cột·40` khi đã thẳng ô. Các truy vấn ô trong bước đi suy từ hộp này: `x/40`, `(x+39)/40`, `(y−39)/40`, `y/40`. Áp dụng cho bomber người chơi: **candidate**/chưa chứng minh | 40×40 px, neo `y−39` / `x` | `kr_static` / confirmed (chỉ `CMovable`, consumer đã trace; bomber: `candidate`) | Consumer `CMovable::MoveSimple` KR `0x01310200` (RVA `0x00F10200`): dựng `rect(x, y−39, 40, 40)` rồi lấy bốn chỉ số ô; hằng số đoạn đường `w+h−80` (80 = 40+40). Đối chiếu VN cùng hàm `0x0095199B`; VN đã có R-009 cho neo `hàng·40+39`. Đường gọi đã trace: `0x00B95180 → 0x00B93830` → cổng `0x00B95970` → mover `0x00B93890` (`CGOPet`/AI theo R-134/R-135 PR #185 pending) |
+| R-120 | Hướng di chuyển trong bảng vector của `CMovable` mã hoá `0..3` = **trái, lên, phải, xuống** với `(dx,dy)` = `(-1,0) (0,-1) (1,0) (0,1)` chỉ số `2·dir`. Bảng/hướng dùng trong `CMovable` (consumer đã trace: `CGOPet`/AI); việc bomber dùng cùng thứ tự khi dịch chuyển **chưa chứng minh** (dispatch dir của bomber ghi ở R-123) | 4 hướng, thứ tự 0/1/2/3 | `kr_static` / confirmed (chỉ bảng hướng trong `CMovable`/consumer đã trace; bomber movement: `candidate`/chưa chứng minh) | Consumer: `CMovable::MoveSimple` `0x01310200` (đẩy lùi theo `2·dir`), mover `0x00B93890` (tính ô đích; `CGOPet`/AI, R-134/R-135 pending), bảng `0x017929B0` |
+| R-121 | Bước đi không vượt vật cản: hộp bàn chân được kéo dài theo hướng đi thêm `len` px (rect quét), cắt theo hình học với vật cản, rồi `nLen = w+h−80` là quãng đường **thực sự đi được**; vị trí cập nhật theo `nLen·(dx,dy)`, `len` bị trừ `nLen`, phần dư trả về cho vòng lặp ngoài. Cơ chế đọc trong `CMovable` (consumer đã trace: `CGOPet`/AI); chưa chứng minh cho bomber | px, không vượt | `kr_static` / confirmed (chỉ `CMovable`, consumer đã trace; bomber: `candidate`) | Consumer `CMovable::MoveSimple` `0x01310200` (nhánh `nLen ≥ 0` cập nhật vị trí; nhánh âm là lỗi nội bộ) + mover `0x00B93890` (`CGOPet`/AI, R-134/R-135 pending) |
+| R-122 | Trợ góc: chỉ chạy khi hộp **đã thẳng hàng ô trên trục di chuyển** (`x%40 == 0` khi đi ngang, `(y−39)%40 == 0` khi đi dọc); khi đó trượt **vuông góc** để căn hộp 40 px vào một làn trống. Với `r = x%40`: `r < 6` → không trượt (trừ khi đang ở làn trái trống thì trượt trái `r`); `6 ≤ r < 34` → trượt trái `r` px nếu làn hiện tại trống, trượt phải `40−r` nếu làn hiện tại bị chặn; `r ≥ 34` → trượt phải `40−r`. Không trượt nếu làn đích bị chặn, nên trợ góc **không** cho xuyên ô. Đọc trong `CMovable` (consumer đã trace: `CGOPet`/AI); áp dụng cho bomber: **candidate**/chưa chứng minh | tối đa 34 px/bước; ngưỡng `r ≥ 34`, `r < 6` (viết theo tâm: `14`/`26` quanh `x+20`) | `kr_static` / confirmed (chỉ `CMovable`, consumer đã trace; bomber: `candidate`) | Consumer mover `0x00B93890` (`CGOPet`/AI, R-134/R-135 pending) gọi `0x01310C50` (kiểm thẳng hàng) rồi slot vtable `+4`/`+8` = `0x01310D30` (trượt X) / `0x01310EE0` (trượt Y); ngưỡng đọc trong `0x01310D30` |
+| R-123 | Input di chuyển đi vào **controller của bomber** (`controller->vf3(dir)`, slot 3 / byte +12); đây là phần **duy nhất** `confirmed` cho bomber trong phạm vi đã trace. Chuỗi `0x00B95180 → 0x00B93830` (rồi cổng `0x00B95970`, mover `0x00B93890`) **không** phải mô phỏng bomber: R-134/R-135 của PR #185 (pending) cho thấy nó thuộc `CGOPet`/AI, nên không gộp thành quỹ đạo bomber. Claim **không** khẳng định KR không gửi gói C→S mang vị trí | — | `kr_static` / confirmed (chỉ dispatch dir vào controller bomber); mô phỏng bomber và phủ định mạng: **chưa chứng minh**/`candidate`, phạm vi ghi ở Q-017 | `CGameContext` input dispatch KR `0x00E13D00` (lấy bomber theo slot → controller là sub-object nhúng tại `(byte*)bomber + 1412` → `vf3(dir)`, slot 3 / byte +12, case 4 đặt bom); VN tương ứng `0x006E5E05`. Chuỗi `0x00B95180 → 0x00B93830` → `0x00B95970`/`0x00B93890` → `0x01310200` là của `CGOPet`/AI (R-134/R-135, PR #185 pending) — **không** dùng làm bằng chứng mô phỏng bomber. **Không** dùng R-047 (`vn_static`, build VN) làm bằng chứng phủ định cho KR |
+| R-124 | Trong `CMovable::MoveSimple` (consumer đã trace: `CGOPet`/AI), tầng va chạm quyết "ô đi được" bằng truy vấn lưới + **lớp tile** (RTTI `CGOTileFixed` / `CGOTilePassable`), không theo ID tile cứng; truy vấn chặn gộp nhiều vị từ (biên map, cờ ngữ cảnh, object trên ô). Áp dụng cho bomber: **candidate**/chưa chứng minh | — | `kr_static` / candidate | Consumer `CMovable::MoveSimple` `0x01310200` gọi `0x00EA0FD0(row, col, ctx)`; `0x00E9F9B0(row, col)` lấy object ô rồi kiểm lớp tile. **Giới hạn**: polarity "Fixed = chặn" chưa chốt; và consumer đã trace thuộc `CGOPet`/AI (R-134/R-135 pending) |
+| R-125 | Chưa xác định consumer quy đổi **cấp tốc độ → px mỗi bước**. `CMovable::MoveSimple` chỉ nhận `len` từ caller. Chuỗi `0x00B95180 → 0x00B93830` (cổng `0x00B95970`, mover `0x00B93890`) chuyển `len` nguyên vẹn nhưng **thuộc `CGOPet`/AI** (R-134/R-135, PR #185 pending); phép quy đổi nằm sau `vf[+8]` (byte +8 = slot 2) của controller sub-object `+0xE0` **của `CGOPet`**, không phải bomber. Với bomber, mover/`len` **chưa định vị** | — (không mang giá trị) | `kr_static` / unknown | `0x00B95180` nhận `(dir, len)` từ `vf[+8]` (byte +8 = slot 2) của sub-object `+0xE0` (`CGOPet`); ctor `CGOBomber`/`CGOGameBomber` không gán `+0xE0` theo R-134. Bomber: dispatch `0x00E13D00` → controller nhúng `(byte*)bomber + 1412` → `vf3(dir)` (slot 3 / byte +12) chỉ chứng minh nhận hướng. Bước tiếp: đọc slot 24 bomber `0x00B44000`/`0x00B77B10` tìm mover/setter vị trí; nếu thân hàm ở `.themida` thì dừng và ghi entry VM |
+
+Trong phạm vi `CMovable`/consumer đã trace (pet/AI), R-119 và R-122 khác thông số va chạm đang dùng ở
+R-116 (`13` px nửa hộp = 26×26, assist `12` px): hộp đúng một ô 40×40 và trợ góc là phép căn làn tối đa
+34 px, không phải nới hộp. **Không** dùng để kết luận cho bomber người chơi: áp dụng cho bomber chỉ là
+`candidate`/chưa chứng minh, nên R-116 vẫn là giá trị profile hiện hành; nếu muốn thử nghiệm thì để PR
+riêng theo ADR 0013, không phải luật `confirmed`. Bảng khác biệt ở
+[KR_RE_MOVEMENT §6](../../research/findings/KR_RE_MOVEMENT.md#6-khác-biệt-với-profile-hiện-tại-và-với-bnb).
+R-125 giữ nguyên R-114 (`24 px/s/level`, `oss`/design) vì chưa có consumer KR.
+
+R-134/R-135 nêu ở mục này là **tham chiếu PR #185 đang mở**, chưa có trên `main`; chỉ khi #185 merge
+mới trở thành claim trong nguồn chuẩn. Không dùng chúng để thay R-119…R-125 trong PR này.
+
 ## 14. RE KR 00967 — phạm vi lớp của chuỗi movement (R-134, R-135)
 
 Truy vết bổ sung cho R-125/R-127, Refs [#146](https://github.com/aquaplatinumberlitz/boom-rs/issues/146) /
