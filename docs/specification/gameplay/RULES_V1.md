@@ -618,7 +618,7 @@ Phạm vi blocker:
 - **Đã đọc hết** thân `sub_E9E660` (207 dòng, 0x644 B): không có phép `cur+1`/`min(cur+1,max)`/
   setter stat; chỉ ghi `+176`, effect/vị trí, virtual `+104`/`+80`. Các **callee effect** (`EB8000`,
   `EB7A60`, virtual `+104`) chưa mở hết; chưa có runtime.
-- **Không tạo R-151**: đã đọc hết `E9E660` nhưng không thấy consumer/`cur+1`/`min`.
+- **Không tạo claim riêng cho `E9E660`**: đã đọc hết nhưng không thấy consumer/`cur+1`/`min`; R-150 giữ blocker.
 - Chưa thấy `.themida` trong các đường này; nếu mở rộng sang hàm VM thì ghi entry theo
   [DEVIRT_METHOD](../../research/findings/DEVIRT_METHOD.md).
 - Đề xuất profile: **không đổi** `characters.*`/`R-117`; giữ cấp (level), không đổi sang px. Nếu
