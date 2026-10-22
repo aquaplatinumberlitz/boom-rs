@@ -19,7 +19,7 @@ dùng: boom-qa [--profile <tên>] [--clients <2..4>] [--seed <n>] [--rounds <n>]
   --clients <n>     số bot headless, 2..4 (mặc định: 2)
   --seed <n>        seed lỗi mạng + input ngẫu nhiên của bot (mặc định: 0)
   --rounds <n>      số trận (mặc định: lấy theo hồ sơ)
-  --scenario <tên> steady | disconnect | liveness (mặc định steady)
+  --scenario <tên> steady | disconnect | liveness | round-result-loss (mặc định steady)
   --server-ping-ms <n> chu kỳ server Ping cho thí nghiệm liveness
   --liveness-ms <n> hạn liveness cho thí nghiệm
   --json-out <file> ghi thêm báo cáo JSON ra file
@@ -70,6 +70,7 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--scenario" => {
                 args.scenario = match value()?.as_str() {
                     "steady" => RecoveryScenario::Steady,
+                    "round-result-loss" => RecoveryScenario::RoundResultLoss,
                     "disconnect" => RecoveryScenario::Disconnect,
                     "liveness" => RecoveryScenario::Liveness,
                     other => return Err(format!("scenario lạ: {other}")),

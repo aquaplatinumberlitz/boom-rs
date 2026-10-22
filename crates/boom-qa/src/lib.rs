@@ -16,7 +16,7 @@
 //!   hiện tại (SCOPE_V1 §7.8, REWRITE_PLAN "đo nguồn").
 //! - Input và round fingerprint dùng source/API client chung ([`prediction`], [`room`]);
 //!   auth/phòng vẫn dùng adapter DTO của harness, chưa chạy facade NetClient đầy đủ.
-//! - Correction đo sai số vị trí cùng tick; recovery RoundResult còn chờ contract #166.
+//! - Correction đo sai số vị trí cùng tick; bot chỉ ack sau khi có bảng RoundResult và hash cuối.
 //! - Mọi giá trị luật trận đọc từ profile rules (`crates/boom-qa/rules/*.toml`), không có hằng số
 //!   luật trong code (AGENTS §3).
 

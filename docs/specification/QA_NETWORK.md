@@ -225,17 +225,18 @@ phòng và dựng lại được hash của lượt.
 
 - Harness đo **bản Rust hiện tại**, không kết luận gì về độ trùng khớp với client/server gốc
   (SCOPE_V1 §7.8).
-- Chưa có đường xin lại bảng `RoundResult` khi mất frame. Snapshot Ended chỉ chứng minh state/hash,
-  không chứng minh đã nhận bảng kết quả/rank. Phần đổi contract dừng chờ Claude theo
-  [đề xuất #166](https://github.com/aquaplatinumberlitz/boom-rs/issues/166#issuecomment-6325761895).
+- Snapshot Ended chỉ chứng minh state/hash, không thay bảng kết quả/rank. Bot thiếu bảng sẽ
+  gửi `RoundResultRequest` theo [ADR 0009 §B.7](../decisions/0009-wire-protocol-input-snapshot-codec.md#b7-2026-10-22--recovery-roundresult),
+  chỉ ack khi đã nhận bảng authority và hash cuối. Server giữ đúng bảng commit tới Start kế tiếp.
 - Bản đồ và profile rules của harness là **fixture kiểm thử**, không phải map `FxMap/Map/Village00`
   của V1 (SCOPE_V1 §1) và không phải profile phát hành.
 - Recovery test không yêu cầu client đã rời có hash của lượt bị ngắt; cần đủ bốn hash ở lượt sau.
 
 ## Nghiệm thu phần 2 (#166)
 
-CI chạy ba test trong `boom-qa/src/harness.rs::recovery_tests`: bốn predictor drain/hội tụ,
-disconnect giữa trận rồi auth/rejoin, và mất Pong tới hết liveness rồi auth/rejoin.
+CI chạy bốn test trong `boom-qa/src/harness.rs::recovery_tests`: bốn predictor drain/hội tụ,
+disconnect giữa trận rồi auth/rejoin, mất Pong tới hết liveness rồi auth/rejoin, và mất frame
+RoundResult đầu của cả bốn bot rồi xin lại kết quả/drain/hội tụ.
 Timer test là design vận hành: Ping 50 ms, timeout 500 ms; không đổi timer mặc định profile.
 
 Sửa tính tất định #178 (baseline `26435d0`, đối chiếu kỹ thuật #158): ba recovery test
@@ -281,7 +282,7 @@ cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario disc
 cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario liveness --server-ping-ms 100 --liveness-ms 2000 --json-out qa-liveness.json
 ```
 
-Chưa đóng V1-027 chỉ từ test nhanh; còn bộ đo dài nhiều seed và quyết định recovery RoundResult.
+Chưa đóng V1-027 chỉ từ test nhanh; bộ đo dài nhiều seed vẫn là điều kiện nghiệm thu release.
 
 ### Kết quả đo thủ công 2026-10-22 (Codex)
 
@@ -299,4 +300,41 @@ Lượt 1 của recovery thiếu hash bot3 theo chủ đích; lượt 2/3 có đ
 `converged=false` cho toàn lần recovery giữ nguyên sự thiếu đó; `recovered=true`, `drained=true`,
 `timed_out=false`. Steady có cả hai lượt hội tụ. Correction là phép đo sai số lịch sử đã nêu,
 không là bằng chứng cảm giác điều khiển hoặc fidelity KR. Chưa chạy đủ ma trận 2/4 bot × 3 seed;
-chưa nghiệm thu đường xin lại bảng RoundResult.
+đường xin lại bảng RoundResult được kiểm riêng bởi test recovery §B.7, không thuộc phép đo cũ này.
+
+
+Chạy fault mất bảng kết quả (cùng profile/seed có lỗi mạng):
+
+```sh
+cargo run -p boom-qa -- --profile fast --clients 4 --seed 7 --scenario round-result-loss
+```
+
+Scenario bỏ đúng frame `RoundResult` đầu ở mỗi bot; các phản hồi xin lại đi qua mạng bình thường.
+Bot không được ack chỉ từ snapshot Ended. Test `mat_round_result_bon_bot_xin_lai_va_hoi_tu`
+kiểm đủ bốn hash, ack kết quả và drain, không thay đổi cách tính % feature.
+
+
+### Kiểm recovery RoundResult 2026-10-22 (Codex)
+
+Baseline `26435d0cbb232a2e2657dd9aa01346ed71570172` + thay đổi recovery #166, Linux.
+Lệnh đo: `cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario round-result-loss`.
+Exit 0, 47.305 ms: RTT 100 ms, jitter 0–30 ms, loss/trùng/đảo thứ tự mỗi loại 1%.
+Cả bốn bot đã nhận bảng và ack 2 lượt; mỗi lượt có đủ 4/4 hash khớp server;
+`recovered=true`, `drained=true`, `converged=true`, `timed_out=false`, `snapshot_missed=0`.
+Correction có 6.115 mẫu (gồm 0), p50/p95 = 4.000/6.000 mpx; đây là regression của bản Rust,
+không phải nghiệm thu fidelity hay ngân sách latency. Bộ đo dài này là một seed/bốn bot,
+không thay ma trận release 2/4 bot × 3 seed.
+
+
+Kiểm lặp cùng thay đổi recovery: **20/20 vòng PASS**, mỗi vòng chạy:
+
+```sh
+cargo test -p boom-client net::tests
+cargo test -p boom-server recovery_round_result
+cargo test -p boom-qa recovery_tests
+```
+
+Mỗi vòng gồm 29 test client mạng, 2 test server retention/quyền và 4 test QA recovery.
+Có test mất frame đầu và nhận lại đúng bảng, duplicate, backoff/dừng retry, kết quả cũ,
+Waiting, hết retention sau Start, hủy phòng/khác phòng, account ngoài roster và rejoin
+bằng connection khác. Đây là regression của implementation theo contract Claude chốt.
