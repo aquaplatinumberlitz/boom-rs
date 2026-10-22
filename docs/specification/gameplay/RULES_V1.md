@@ -538,6 +538,30 @@ Hệ quả cho các claim liên quan:
   sync server cho player. Player input→position vẫn **unknown**, không đổi R-125/R-127.
 - **PR #177** đã đóng, không merge: R-132/R-133 không có trong nguồn chuẩn nên không còn việc hạ nhãn.
 
+## 16. RE KR 00967 — packet vị trí S→C và setter `CGOGhost` (R-138)
+
+Tiếp nối R-137, Refs [#146](https://github.com/aquaplatinumberlitz/boom-rs/issues/146) /
+[#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147). Build KR `00967`; đối chiếu VN
+bằng docs/IDB bản sao (không mở DB gốc). Chi tiết và phạm vi quét ở
+[KR_RE_TRAPPED_SPEED §9](../../research/findings/KR_RE_TRAPPED_SPEED.md) và
+[evidence KR trapped-speed](../../evidence/measurements/kr-static-trapped-speed-2026-10-22/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-138 | **Packet S→C vị trí KR opcode 183 → `CGOGhost` → setter `0xB334C0`**: `sub_E5D3A0` (dispatch kiểu `CGameStage__OnPacket`, case = opcode−20) đưa opcode 183 tới `0xE5D65B` → `sub_E65350`. Layout: `u8 id` (0..15), `u8 flags` (bit7 = absolute; low7 = `slot`); nếu absolute đọc thêm `u8 y`, `u8 x`. `id` tra `stage + 0x20 + 122628*id` = **`CGOGhost`** (ctor `0xB886B0`, vtable `0x174698C`); `slot` lưu `CGOGhost+0x9C` và dùng để khớp controller slot `[bomber+1412]` (getter `+40`). Nhánh absolute gọi `sub_B88800(ghost, id, slot, 40*x, 40*y+39)` tại `0xE654C2` → virtual `+116` = **`0xB334C0`** tại `0xB8898A` (vtable `0x174698C` slot 29 = `0x1746A00`), ghi protected `+0x4C`/`+0x58`; **không** gọi `0xB43750`/`0xB479E0`. Nhánh bit7=0 chỉ ghi `slot` vào `CGOGhost+0x9C` qua `sub_E92110` (`+0x9C` = `slot`), không đổi vị trí. Handler/`sub_B88800` **không** đọc dir field `+1440`/reader `0xB40D60` và không gọi `0xB32390`; chỉ dùng `+1412` để lấy slot. C→S ứng viên: opcode **149** (`sub_F158C0`: `u16, u32 x, u32 y, u8, u8`) và **148** (`sub_E733D0`: `u32, u8 n, u16, u16, u8, u32, u16, n×(u8,u8)`); chưa chứng minh cặp S→C 183. Ngữ nghĩa **candidate**: server position sync/teleport cho ghost người chơi, không phải input dir | — | `kr_static` / confirmed (layout, cạnh packet→`0xB334C0`, hai nhánh); `vn_static` (VN 176 layout/docs, server giả lập không gửi 176); `candidate` (ngữ nghĩa sync, cặp C→S); `unknown` (runtime cadence/authority, quan hệ với input/di chuyển) | `sub_E5D3A0` case 183 → `0xE5D65B` → `sub_E65350` (`0xE654C2`); `sub_E15D60` (`stage+0x20+122628*id`, id<16); `sub_B886B0` ctor/vtable `0x174698C`; `sub_B88800` call slot `+116` `0xB8898A`; `0xB334C0` `+0x4C`/`+0x58`; `sub_E92110` `+0x9C`; C→S `sub_F158C0` (149) / `sub_E733D0` (148); evidence `ev_...` ở findings §9.6 |
+
+Hệ quả:
+
+- **Đã nối**: opcode 183 → `CGOGhost` theo `id` → đặt vị trí tuyệt đối qua `0xB334C0`; đơn vị từ
+  handler là `x = 40*byte`, `y = 40*byte + 39` (ô 40 px). Đây là **packet→setter**, không phải
+  packet→input dir.
+- **Không nối**: packet → field `+0x5A0`/reader `0xB40D60`/`0xB32390` → input dir. R-136/R-137 giữ
+  nguyên; không suy trapped/px/s/nhịp server.
+- **C→S**: có sender 148/149 trong client, layout ghi ở claim; **chưa** chứng minh chúng là cặp của
+  S→C 183. VN 141/142 có layout khác; không suy opcode/slot giữa hai build.
+- **VN server giả lập**: không gửi 176 (không thấy trong `server/src`), docs ghi không có handler
+  S→C 141/142 và di chuyển đồng bộ qua UDP P2P — chỉ `vn_static`, không phải `vn_runtime`.
+
 ## 18. RE KR 00967 — BomberAttr → consumer Bomb/Fire/Roller/speed (R-150, blocker)
 
 Tiếp nối #149/Q-020. Claim **R-150** thuộc dải phiên 1 **R-150…R-199** (phiên 2 dùng R-200…R-249;
