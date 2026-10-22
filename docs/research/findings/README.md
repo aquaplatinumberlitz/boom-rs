@@ -26,4 +26,4 @@ Manifest/probe trong [evidence](../../evidence/README.md) là dữ liệu đã q
 
 Kết quả mới gắn với ID trong [QUESTIONS](../QUESTIONS.md), có nguồn, kết luận và giới hạn.
 Chỉ thêm một file khi chủ đề độc lập; không sinh file tổng kết theo agent/phiên.
-| [KR_RE_TRAPPED_SPEED](KR_RE_TRAPPED_SPEED.md) | Truy vết `(dir,len)` khi bị nhốt: chuỗi movement là của `CGOPet`/AI, không phải bomber (R-134, R-135) |
+| [KR_RE_TRAPPED_SPEED](KR_RE_TRAPPED_SPEED.md) | Truy vết `(dir,len)` khi bị nhốt: đường đã trace thuộc `CGOPet`/AI; quan hệ bomber với chuỗi còn `unknown` (R-134, R-135) |

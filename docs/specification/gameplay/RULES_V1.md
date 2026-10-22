@@ -474,21 +474,21 @@ Truy vết bổ sung cho R-125/R-127, Refs [#146](https://github.com/aquaplatinu
 [evidence KR trapped-speed](../../evidence/measurements/kr-static-trapped-speed-2026-10-22/README.md);
 suy luận, giới hạn và bước tiếp ở
 [KR_RE_TRAPPED_SPEED](../../research/findings/KR_RE_TRAPPED_SPEED.md).
-ID R-134/R-135 dùng ở đây vì **R-132/R-133 đã dành riêng cho PR #177**; R-119…R-131 nằm trong các PR
-đang mở (#152/#157) nên không sửa trực tiếp ở tệp này.
+R-119…R-125 đã vào `main` qua PR #152; R-126…R-131 thuộc PR #157 đang mở; R-132/R-133 thuộc PR #177
+đã đóng (không merge) nên không dùng. Không thêm ID mới trong mục này.
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
-| R-134 | Chuỗi bằng chứng di chuyển `0x00B95180 → 0x00B95970 → 0x00B93830 → 0x00B93890 → 0x01310200` (`CMovable::MoveSimple`) **chỉ thuộc `CGOPet`/AI**, không phải bomber người chơi: `0x00B93A60` (= `CGOPet` vtable slot 24) là **caller duy nhất** của `0x00B95180`; `0x00B95970` chỉ được `0x00B93830` gọi; không vtable nào chứa 4 hàm này; slot 24 của bomber là `0x00B77B10` (`CGOGameBomber`) / `0x00B44000` (`CGOBomber`) và hai thân này không tham chiếu chuỗi trên, cũng không gọi `CMovable::MoveSimple` | — | `kr_static` / confirmed (khẳng định **phạm vi lớp**, phủ định) | Vtable `??_7CGOPet@@6B@` `0x01746E40` slot 24 = `0x00B93A60`; `??_7CGOGameBomber@@6B@` `0x01745FE8` slot 24 = `0x00B77B10`; `??_7CGOBomber@@6B@` `0x01744964` slot 24 = `0x00B44000`; `??_R2CGOGameBomber@@8` `0x017CB498` liệt kê cơ sở `CGOBomber→CGOBomberBase→CGOAvatar→CGameObject→CObject` |
-| R-135 | Đường **duy nhất đã trace** đưa hướng vào bomber người chơi là input dispatch `CGameContext` `0x00E13D00`: lấy bomber theo slot rồi gọi `vf3(dir)` của sub-object **nhúng tại byte +1412** (`bomber[353]`, vtable pointer nằm ngay tại đó, ctor `0x00B73410`/`0x00B79DC0` gán vtable cho offset này). Hàm đọc lại `dir` **và** tạo/giữ `len` cho bomber **chưa định vị** — nên chưa có cơ sở cho "bị nhốt đi được" hay cho `cấp tốc độ → px/bước` của bomber | — | `kr_static` / confirmed (dispatch); `unknown` (len/mover của bomber) | `0x00E13D00` (dispatch), getter controller `0x00B96310`→`0x00B971C0` (`return *(this)`) — **của CGOPet**, không dùng cho bomber; bước tiếp: đọc slot 24 `0x00B44000`/`0x00B77B10` tìm setter vị trí |
+| R-134 | **Đường đã trace** `0x00B95180 → 0x00B93830` (trong `0x00B93830`: nhánh kiểm cổng gọi `0x00B95970`, rồi mover `0x00B93890 → 0x01310200` = `CMovable::MoveSimple`) là đường của `CGOPet`: `0x00B93A60` = slot 24 vtable `??_7CGOPet@@6B@` là caller trực tiếp của `0x00B95180` theo xref; slot 24 của bomber là `0x00B77B10` (`CGOGameBomber`) / `0x00B44000` (`CGOBomber`), và trong **thân hai hàm đã đọc** không thấy gọi chuỗi trên. Kết luận này **chỉ** cho đường đã trace: **không** loại trừ đường gián tiếp/wrapper/con trỏ tính toán/VM từ bomber và **không** kết luận bomber không dùng chuỗi này. Quan hệ bomber với chuỗi: **unknown** | — | `kr_static` / confirmed (đường đã trace thuộc `CGOPet`); quan hệ bomber: `unknown`/chưa chứng minh | Vtable `??_7CGOPet@@6B@` `0x01746E40` slot 24 = `0x00B93A60`; `??_7CGOGameBomber@@6B@` `0x01745FE8` slot 24 = `0x00B77B10`; `??_7CGOBomber@@6B@` `0x01744964` slot 24 = `0x00B44000`; `??_R2CGOGameBomber@@8` `0x017CB498` liệt kê cơ sở `CGOBomber→CGOBomberBase→CGOAvatar→CGameObject→CObject` |
+| R-135 | Đường **đã trace** đưa hướng vào bomber người chơi là input dispatch `CGameContext` `0x00E13D00`: lấy bomber theo slot rồi gọi `vf3(dir)` của controller là sub-object **nhúng tại byte +1412** (`bomber[353]`, vtable pointer nằm ngay tại đó, ctor `0x00B73410`/`0x00B79DC0` gán vtable cho offset này). Hàm đọc lại `dir` **và** tạo/giữ `len`/mover của bomber **chưa định vị** — nên chưa có cơ sở cho "bị nhốt đi được" hay cho `cấp tốc độ → px/bước` của bomber | — | `kr_static` / confirmed (dispatch); `unknown` (len/mover của bomber) | `0x00E13D00` (dispatch), controller nhúng tại `(byte*)bomber + 1412`; `vf[+8]` (byte +8 = slot 2 x86) trả `(dir,len)` là của controller `+0xE0` **của `CGOPet`** (getter `0x00B96310`→`0x00B971C0`, `return *(this)`), không dùng cho bomber; bước tiếp: đọc slot 24 `0x00B44000`/`0x00B77B10` tìm setter vị trí |
 
-Hệ quả bắt buộc cho các claim đang mở (không sửa được ở đây vì thuộc PR khác):
+Hệ quả cho các claim liên quan:
 
-- **R-125** (cấp tốc độ → px/bước) vẫn `unknown`, và đường `vf[+8]` của `bomber+0xE0` **không dùng được**
-  làm bằng chứng cho bomber: controller đó là của `CGOPet`.
-- **R-127** (bị nhốt đi được): phần "cổng" dựa trên `0x00B95970` là **CGOPet**; với bomber chỉ còn
-  R-123 (input vào controller). "Bị nhốt đi được" phải giữ `candidate`.
+- **R-125** (cấp tốc độ → px/bước) vẫn `unknown`. `vf[+8]` (byte +8 = slot 2 x86) của sub-object
+  `+0xE0` là của `CGOPet`, **không dùng được** làm bằng chứng cho bomber; controller bomber nhúng tại
+  byte `+1412` mới chỉ chứng minh nhận `dir`.
+- **R-127** (bị nhốt đi được): phần "cổng" dựa trên `0x00B95970` là của đường đã trace `CGOPet`; với
+  bomber chỉ còn R-123 (input vào controller). "Bị nhốt đi được" phải giữ `candidate`.
 - **R-119…R-122** (hộp 40×40, trợ góc): vẫn đúng cho `CMovable` nhưng consumer đã thấy là AI/pet;
-  chưa chứng minh cho bomber người chơi — cần nêu phạm vi khi review.
-- **PR #177** (`R-132` "quyền đi" confirmed, `R-133` design tốc độ): cần hạ `R-132` về `candidate` hoặc
-  ghi rõ phạm vi lớp, cho tới khi có consumer thuộc lớp bomber.
+  chưa chứng minh cho bomber người chơi.
+- **PR #177** đã đóng, không merge: R-132/R-133 không có trong nguồn chuẩn nên không còn việc hạ nhãn.
