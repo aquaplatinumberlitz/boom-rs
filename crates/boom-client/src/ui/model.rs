@@ -259,7 +259,7 @@ impl ActionId {
     /// Khóa chuỗi của nhãn nút.
     ///
     /// Mọi khóa đều có trong `data/l10n/vi-v1.toml`; khóa chưa có text thì UI hiện
-    /// placeholder `⟨khóa⟩` (UI_STRINGS_V1 §6.1).
+    /// placeholder `«khóa»` (UI_STRINGS_V1 §6.1).
     pub fn key(self) -> &'static str {
         match self {
             Self::LoginSubmit => "login.submit",

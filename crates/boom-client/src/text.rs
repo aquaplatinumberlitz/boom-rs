@@ -18,7 +18,7 @@
 //! - chuẩn hóa `\r\n` → `\n` trước khi đo;
 //! - giữ nguyên placeholder của catalog (`%s`, `{ComponentType|N}`, `<font …>`, `|`);
 //!   `{0}`, `{1}`… được thay bằng tham số khi có;
-//! - khóa chưa có text hiện `⟨khóa⟩` ([`boom_content::l10n::placeholder`]), không tự
+//! - khóa chưa có text hiện `«khóa»` ([`boom_content::l10n::placeholder`]), không tự
 //!   viết chữ thay khóa.
 
 // Module là API cho phần UI (#103); `main` chưa gọi tới nên bỏ cảnh báo dead code.
@@ -245,7 +245,7 @@ pub fn substitute(template: &str, args: &[&str]) -> String {
 /// Text hiển thị của một khóa l10n.
 ///
 /// Khóa chưa có text (chưa có locator catalog/ảnh) thì hiện placeholder rõ ràng
-/// `⟨khóa⟩`; client không tự viết chữ thay khóa (UI_STRINGS_V1 §2, §5.3).
+/// `«khóa»`; client không tự viết chữ thay khóa (UI_STRINGS_V1 §2, §5.3).
 pub fn l10n_text<'a>(l10n: &'a L10n, key: &str) -> Cow<'a, str> {
     match l10n.text(key) {
         L10nText::Some(text) => Cow::Borrowed(text),
@@ -255,7 +255,7 @@ pub fn l10n_text<'a>(l10n: &'a L10n, key: &str) -> Cow<'a, str> {
 
 /// Layout của một khóa l10n.
 ///
-/// Khóa chưa có text thì dùng placeholder `⟨khóa⟩` (xem [`l10n_text`]).
+/// Khóa chưa có text thì dùng placeholder `«khóa»` (xem [`l10n_text`]).
 pub fn layout_l10n(l10n: &L10n, key: &str, font: &TextFont, size: f32, max_width: f32) -> Layout {
     layout(&l10n_text(l10n, key), font, size, max_width)
 }
@@ -315,6 +315,72 @@ pub fn layout(text: &str, font: &TextFont, size: f32, max_width: f32) -> Layout 
         ascent,
         descent,
         size,
+    }
+}
+
+/// Cách cắt chữ khi phần hiển thị không vừa chiều cao hộp.
+///
+/// Hộp chữ là **giới hạn** của phần vẽ (UI_STRINGS_V1 §5.2.1): chữ vừa hộp thì
+/// giữ nguyên, chữ dài hơn thì cắt theo dòng — không vẽ ra ngoài hộp.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Clip {
+    /// Giữ phần **đầu**: dòng trên cùng còn lại, phần dưới bị cắt.
+    Head,
+    /// Giữ phần **cuối**: dòng dưới cùng còn lại, phần trên bị cắt.
+    ///
+    /// Dùng cho ô nhập: con trỏ nằm ở cuối nên người chơi phải thấy phần mình
+    /// vừa gõ, không phải đầu chuỗi.
+    Tail,
+}
+
+/// Số dòng chữ vừa trong chiều cao `max_height` (theo chiều cao dòng của font).
+///
+/// Dùng chung cho phần vẽ và test nên đo khớp vẽ (UI_STRINGS_V1 §5.2.1).
+pub fn visible_line_count(font: &TextFont, size: f32, max_height: f32) -> usize {
+    let line_height = font.line_height(size);
+    if line_height <= 0.0 || max_height <= 0.0 {
+        return 0;
+    }
+    let count = (max_height / line_height).floor();
+    if count <= 0.0 {
+        return 0;
+    }
+    count as usize
+}
+
+/// Layout chỉ giữ phần chữ **vừa hộp**: cắt theo chiều cao, không vẽ ra ngoài.
+///
+/// - Xuống dòng theo `max_width` như [`layout`].
+/// - Chỉ giữ số dòng vừa `max_height`; phần bị cắt theo `clip`.
+/// - Chiều cao kết quả **không vượt** `max_height`.
+pub fn layout_in_box(
+    text: &str,
+    font: &TextFont,
+    size: f32,
+    max_width: f32,
+    max_height: f32,
+    clip: Clip,
+) -> Layout {
+    let full = layout(text, font, size, max_width);
+    let keep = visible_line_count(font, size, max_height);
+    if full.lines.len() <= keep {
+        return full;
+    }
+    let start = match clip {
+        Clip::Head => 0,
+        Clip::Tail => full.lines.len() - keep,
+    };
+    let lines: Vec<Line> = full.lines[start..start + keep].to_vec();
+    let width = lines.iter().map(|line| line.width).fold(0.0f32, f32::max);
+    let height = lines.len() as f32 * full.line_height;
+    Layout {
+        lines,
+        width,
+        height,
+        line_height: full.line_height,
+        ascent: full.ascent,
+        descent: full.descent,
+        size: full.size,
     }
 }
 
@@ -811,16 +877,16 @@ mod tests {
         assert_eq!(substitute("{0", &["x"]), "{0");
     }
 
-    /// Khóa chưa có text hiện `⟨khóa⟩`; khóa có text hiện nguyên văn.
+    /// Khóa chưa có text hiện `«khóa»`; khóa có text hiện nguyên văn.
     #[test]
     fn missing_key_shows_explicit_placeholder() {
         let l10n = l10n();
         assert_eq!(l10n_text(&l10n, "app.loading"), "Đang tải...");
         // `app.quit_confirm` là khóa `unknown` (chưa có locator catalog/ảnh).
-        assert_eq!(l10n_text(&l10n, "app.quit_confirm"), "⟨app.quit_confirm⟩");
+        assert_eq!(l10n_text(&l10n, "app.quit_confirm"), "«app.quit_confirm»");
         assert_eq!(
             l10n_text(&l10n, "app.khong_co_trong_file"),
-            "⟨app.khong_co_trong_file⟩"
+            "«app.khong_co_trong_file»"
         );
     }
 
@@ -832,7 +898,7 @@ mod tests {
         let ready = layout_l10n(&l10n, "app.loading", &font, GOLDEN_SIZE, GOLDEN_WIDTH);
         assert_eq!(ready.lines()[0].text, "Đang tải...");
         let missing = layout_l10n(&l10n, "app.quit_confirm", &font, GOLDEN_SIZE, GOLDEN_WIDTH);
-        assert_eq!(missing.lines()[0].text, "⟨app.quit_confirm⟩");
+        assert_eq!(missing.lines()[0].text, "«app.quit_confirm»");
     }
 
     /// Golden layout: số dòng và độ rộng của chuỗi V1 ở 1× và 2×.
@@ -905,7 +971,7 @@ mod tests {
                 };
                 rows.push((key.to_owned(), layout(text, &font, size, width)));
             }
-            // Dòng placeholder của khóa chưa có text (hiện `⟨khóa⟩`).
+            // Dòng placeholder của khóa chưa có text (hiện `«khóa»`).
             rows.push((
                 "app.quit_confirm (khóa chưa có text)".to_owned(),
                 layout(&l10n_text(&l10n, "app.quit_confirm"), &font, size, width),

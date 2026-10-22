@@ -59,7 +59,7 @@ STATUS_UNKNOWN = "unknown"
 STATUSES = (STATUS_TEXT, STATUS_REUSED, STATUS_REVIEW, STATUS_IMAGE, STATUS_UNKNOWN)
 TEXT_STATUSES = (STATUS_TEXT, STATUS_REUSED)
 
-#: Mã lý do cho khóa chưa có text; client hiện placeholder `⟨khóa⟩` theo mã này.
+#: Mã lý do cho khóa chưa có text; client hiện placeholder `«khóa»` theo mã này.
 REASONS = {
     STATUS_REVIEW: "needs-review",
     STATUS_IMAGE: "image-pending-review",

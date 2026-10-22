@@ -1,6 +1,8 @@
 # Chuỗi và ảnh UI cho luồng V1 (Q-012)
 
-Cập nhật: 2026-10-20 (sửa docs stale: bundle **schema 4** ở §3; golden wrap đã có ở §6).
+Cập nhật: 2026-10-22 (V1-035 phần code, issue #179: placeholder `«khóa»` có glyph trong font đã
+bundle; §2.9 khóa theo ID phần tử UI của bundle; §5.2.1 quy tắc layout dùng chung cho vẽ và test).
+Trước đó: 2026-10-20 (sửa docs stale: bundle **schema 4** ở §3; golden wrap đã có ở §6).
 Trước đó: 2026-10-20 (V1-035 phần 2: chốt font Be Vietnam Pro 1.002 + bundle `assets/fonts/`;
 §5.1.1 nguồn/giấy phép/SHA-256, §5.2.1 quy tắc layout của `boom-client::text`).
 Trước đó: 2026-10-20 (V1-035 phần 1: xuất chuỗi V1 → `data/l10n/vi-v1.toml` bằng
@@ -61,8 +63,8 @@ Cột **Trạng thái nguồn**:
 | `image-pending` | Chữ nằm trong ảnh; ảnh đang `pending` trong `images_review.csv`, chưa được dùng làm bản dịch. |
 | `unknown` | Chưa có locator catalog/ảnh phù hợp; không render tới khi bổ sung key/asset và duyệt. |
 
-Tổng hợp 110 khóa: **44 dòng có locator catalog** (33 `catalog-translated` + 11 `catalog-reused`),
-**15 dòng `review`**, **9 dòng `image-pending`** và **42 dòng `unknown`**. Không có dòng nào tự soạn
+Tổng hợp 125 khóa: **44 dòng có locator catalog** (33 `catalog-translated` + 11 `catalog-reused`),
+**15 dòng `review`**, **9 dòng `image-pending`** và **57 dòng `unknown`**. Không có dòng nào tự soạn
 bản VI hay yêu cầu sửa bản dịch đã có. Mọi dòng `review`/`unknown` là **đầu việc của `boom-re-l10n`**:
 ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch.
 
@@ -223,6 +225,36 @@ shop/ví (`GoToShop`, `UserMarket`, `MyItem`, `Cash`, `Lucci`…), nhiệm vụ 
 (`LobbySquare_*`), auto-ready (`OptionDlgAutoReady`, `TurnOnAutoReady`, `TurnOffAutoReady`), premium/super
 host (`PremiumSlotRoomTicket`, `BannedBySuper`, `ChiefBanned`).
 
+### 2.9 Phần tử UI của bundle (khóa theo ID phần tử)
+
+Client vẽ nhãn của **phần tử UI trong bundle** (bảng `[[ui]]`, `data/assets/ui-v1.toml`) bằng
+chính **ID của phần tử** — nên mỗi ID phải là một khóa có trong file chuỗi. Mỗi phần tử
+đều có trạng thái dùng ở [§3](#3-ảnh-có-chữ-trong-luồng-v1) (`selected` / `needs_review_text` /
+`excluded`); phần tử `needs_review_text`/`excluded` được vẽ bằng **khung màu + text catalog**
+nên nhãn của nó là chữ cho người chơi.
+
+Phần tử **chưa có chữ catalog** (nền, nút chưa dùng, hộp thoại, HUD…) ghi `unknown`: client
+hiện placeholder `«khóa»` (xem [§5.2.1](#521-quy-tắc-layout-đã-hiện-thực-task-112)) chứ không
+tự soạn chữ. Cần key/asset thật thì sửa ở `boom-re-l10n` — repo này không tự viết bản dịch.
+
+| Khóa V1 | Phần tử / ngữ cảnh | Locator nguồn | Trạng thái nguồn | Yêu cầu hiển thị |
+|---|---|---|---|---|
+| `login.background` | Nền màn đăng nhập | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.background`; client hiện placeholder. |
+| `lobby.background` | Nền màn sảnh | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.background`; client hiện placeholder. |
+| `lobby.create_dialog` | Dialog tạo phòng (tiêu đề trong ảnh) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.create_dialog`; client hiện placeholder. |
+| `lobby.show_all` | Nút xem mọi phòng (V1 không dùng) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.show_all`; client hiện placeholder. |
+| `lobby.wait_room` | Nút xem phòng chờ (V1 không dùng) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.wait_room`; client hiện placeholder. |
+| `room.background` | Nền màn phòng chờ | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.background`; client hiện placeholder. |
+| `room.info_dialog` | Dialog thông tin phòng (tiêu đề trong ảnh) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.info_dialog`; client hiện placeholder. |
+| `room.info_label` | Nhãn thông tin phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.info_label`; client hiện placeholder. |
+| `room.ready_indicator` | Ô trạng thái đang sẵn sàng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.ready_indicator`; client hiện placeholder. |
+| `match.background` | Nền màn trận | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.background`; client hiện placeholder. |
+| `match.hud` | HUD trận (đồng hồ, trạng thái, tên item) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.hud`; client hiện placeholder. |
+| `match.navigation` | Nút điều hướng trong trận (V1 không có) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.navigation`; client hiện placeholder. |
+| `result.background` | Nền màn kết quả | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.background`; client hiện placeholder. |
+| `result.info_bar` | Thanh thông tin kết quả (V1 không dùng) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.info_bar`; client hiện placeholder. |
+| `result.info_good` | Icon bàn tay (ảnh đã duyệt, không có chữ) | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.info_good`; client hiện placeholder. |
+
 ## 3. Ảnh có chữ trong luồng V1
 
 Cột **Trạng thái dùng** là quyết định của dự án cho V1-032, lấy từ bảng asset UI của
@@ -353,9 +385,10 @@ gốc: <https://github.com/bettergui/BeVietnamPro>. Bảng đầy đủ ở
 
 Giới hạn đã biết của font đã bundle:
 
-- Font **không có** `U+27E8`/`U+27E9` (`⟨`/`⟩`) nên placeholder `⟨khóa⟩` của khóa chưa có
-  text hiện **hộp báo thiếu** ở hai dấu ngoặc (client không bỏ qua âm thầm). Muốn hiện
-  đúng ngoặc thì cần bundle thêm font fallback (xem §6).
+- Font **không có** `U+27E8`/`U+27E9` (`⟨`/`⟩`) nên placeholder dùng dấu ngoặc này sẽ hiện
+  **hộp báo thiếu** ở hai dấu ngoặc (client không bỏ qua âm thầm). Vì vậy placeholder của
+  client là `«khóa»` (`U+00AB`/`U+00BB`, **có** glyph trong font đã bundle) — chốt ở
+  task #179; không cần bundle font fallback chỉ để vẽ placeholder.
 - Font không có Hangul ⇒ tên riêng/credit giữ chữ Hàn cần font fallback.
 
 ### 5.2 Wrap, kích thước và placeholder
@@ -395,8 +428,38 @@ của file TTF nên test được không cần GPU). Quy tắc đã chốt:
   phóng) nên mép chữ có thể vượt khung dưới 0,5 px.
 - Placeholder `{0}`, `{1}`… được thay bằng tham số khi có; `{N}` không có tham số thì giữ
   nguyên văn. Placeholder khác (`%s`, `{ComponentType|N}`, `<font …>`, `|`) giữ nguyên.
-- Khóa chưa có text hiện `⟨khóa⟩` (`boom_content::l10n::placeholder`); client không tự viết chữ.
+- Khóa chưa có text hiện `«khóa»` (`boom_content::l10n::placeholder`); client không tự viết chữ.
+  Dấu ngoặc đã chọn theo **glyph có trong font đã bundle** (`«`/`»` có, `⟨`/`⟩` không — §5.1.1).
 - Ký tự không có glyph trong font được vẽ thành **hộp báo thiếu**, không bỏ qua âm thầm.
+
+Phần **vẽ** dùng đúng bộ đo trên: `ui::draw` vẽ bằng font đã bundle và `ui::layout` tính
+**hộp chữ** (`TextBox`) cho từng phần tử — cùng một hàm cho phần vẽ và test, nên test
+"chữ không tràn hộp" kiểm đúng thứ người chơi thấy (task #179).
+
+#### 5.2.2 Hộp chữ là giới hạn (chiều cao) — task #179
+
+Hộp chữ giới hạn chữ **cả hai chiều**: xuống dòng theo bề rộng hộp (§5.2.1) và **cắt
+theo chiều cao hộp**. Chữ vừa hộp thì giữ nguyên; chữ dài hơn thì chỉ giữ phần vừa
+hộp — **không** vẽ ra ngoài hộp, không rút/viết lại nội dung catalog. Quy tắc cắt
+(giữ đầu hay giữ cuối) theo vai trò:
+
+| Nội dung | Quy tắc |
+|---|---|
+| Chữ catalog trong ô cố định (tiêu đề, thông báo, nhãn nút) | giữ **đầu** (dòng trên cùng) |
+| Ô nhập | giữ **cuối**: con trỏ nằm ở cuối nên người chơi phải thấy phần vừa gõ |
+| Khung chat | mỗi tin cao theo **chiều cao thật** sau khi xuống dòng; tin mới nhất sát đáy khung, tin cũ hơn bị **cuộn** ra; tin cao hơn cả khung thì giữ phần **cuối** của tin |
+| Bảng | bề rộng cột giới hạn cho vừa khung; dòng cao theo nội dung thật nên tên dài **được xuống dòng** chứ không bị cắt; dòng không vừa khung thì không vẽ |
+
+Đây là quyết định **design** cho nội dung **động** (chat, ô nhập, tên phòng/tên người):
+mục "Chat" và "Tên người chơi" ở §5.2 yêu cầu không làm vỡ layout; giới hạn độ dài tên
+vẫn `unknown` nên client không cắt tên ở giữa — tên dài được xuống dòng trong ô
+cột, và nếu cả dòng không vừa khung thì dòng đó không vẽ (cuộn), không phải cắt tên.
+
+Chữ **cho người chơi** ở màn trận (đường chơi thật vẽ **scene**, không phải layout `ui`)
+lấy từ cùng nguồn: `ui::layout::match_status_texts` → khóa `room.map_name`,
+`room.loading`, `match.result_pending`, `app.loading`. HUD **chẩn đoán** (số đo tick/âm
+thanh/phím) là việc QA, không phải chữ cho người chơi: chỉ vẽ khi bật cờ `--debug-hud`
+(mặc định **tắt**), và vùng đó được đánh dấu bằng marker `l10n:allow-debug:` trong mã.
 
 Golden layout (số dòng + bề rộng của 44 chuỗi V1 có text ở 1× và 2×) nằm ở test
 `text::tests::golden_layout_matches`; ảnh layout local sinh bằng
@@ -416,6 +479,11 @@ Golden layout (số dòng + bề rộng của 44 chuỗi V1 có text ở 1× và
 5. Golden font/wrap: tối thiểu các cặp dấu `ắ ộ ữ ợ ỹ`, tên người chơi dài, chat 150 ký tự, tooltip 3 dòng,
    800×600 và 1920×1080; không clipping.
 6. `cargo xtask ci` xanh; `python3 tools/docs_check.py` xanh.
+7. **Phần code (issue #179)**: mọi chữ người chơi thấy ở màn V1 lấy từ file chuỗi (không có
+   câu chữ viết tay trong mã đường chạy); khóa chưa có text hiện placeholder `«khóa»` **có glyph**
+   trong font đã bundle; mọi chữ trong layout V1 **vừa hộp** của nó (wrap theo §5.2.1, không mất chữ).
+   Hộp chữ giới hạn **cả chiều cao** theo §5.2.2: chữ catalog của V1 đều vừa nên **không** bị cắt;
+   nội dung **động** (chat, ô nhập, tên phòng/tên người) được cuộn/cắt theo hộp chứ không tràn ra ngoài.
 
 ## 6. Còn thiếu và bước tiếp
 
@@ -424,12 +492,12 @@ Số đếm khóa thiếu text do tool sinh nằm ở [§6.1](#61-báo-cáo-khó
 
 | Thiếu | Ảnh hưởng | Bước tiếp |
 |---|---|---|
-| 42 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
+| 57 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn (client hiện placeholder `«khóa»`) | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
 | 15 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
 | 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 8 ảnh UI có chữ của V1-032 (§3) |
 | 8 ảnh UI có chữ ở trạng thái `needs_review_text` | Client phải vẽ text từ catalog thay cho ảnh | Duyệt ảnh (`translated`/`no_text`) rồi import CSV; đổi trạng thái trong bảng UI của closure |
 | Chưa có font/license trong repo | ~~V1-035 chưa bundle được font~~ | **Đã xong ở task #112**: Be Vietnam Pro 1.002 + `OFL.txt` trong `assets/fonts/`, nguồn/SHA-256 ở §5.1.1 |
-| Fallback chain chưa bundle (`Noto Sans`, `Noto Sans KR`) | Placeholder `⟨khóa⟩` hiện hộp báo thiếu ở `⟨`/`⟩`; tên riêng chữ Hàn chưa vẽ được | Bundle thêm font fallback (OFL) hoặc chốt hiển thị thay thế; chưa có task |
+| Fallback chain chưa bundle (`Noto Sans`, `Noto Sans KR`) | Tên riêng/credit giữ chữ Hàn chưa vẽ được | Bundle thêm font fallback (OFL); chưa có task. ~~Placeholder `⟨khóa⟩` hiện hộp báo thiếu~~ → **đã xong ở task #179**: placeholder là `«khóa»`, có glyph trong font đã bundle |
 | Chưa có golden ảnh theo khung 800×600/1920×1080 | Chưa chứng minh được UI scale ở các độ phân giải | Thuộc phần UI (#103): golden layout đã có ở `boom-client::text`, còn golden theo khung cần màn hình |
 | Chưa map C00/C01 → tên hiển thị | Slot phòng/character select không có nhãn đúng | RE/trace hoặc dữ liệu tên nhân vật; ghi claim/unknown trước khi hiển thị |
 | Nền login/lobby/prepare là JPEG 800×600 có chữ và nhãn ngoài scope | V1-032 không đưa nền vào atlas: bộ giải mã bundle chỉ đọc sprite I16, và ảnh có tab chế độ/auto-ready | V1 dựng nền bằng màu, chữ lấy từ catalog (đã ghi ở §3); muốn dùng ảnh nền thì cần bộ giải mã JPEG + bản ảnh đã che chữ (quyết định kiến trúc, thuộc integrator) |
@@ -456,8 +524,8 @@ python3 tools/l10n_export.py --check    # kiểm file đã xuất (không cần 
 | `catalog-reused` | 11 | có (`catalog.vi` nguyên văn) | — |
 | `review` | 15 | không | `needs-review` |
 | `image-pending` | 9 | không | `image-pending-review` |
-| `unknown` | 42 | không | `no-locator` |
-| **Tổng** | **110** | **44 có text / 66 chỉ có lý do** | — |
+| `unknown` | 57 | không | `no-locator` |
+| **Tổng** | **125** | **44 có text / 81 chỉ có lý do** | — |
 
 Quy tắc của file xuất (nguồn chuẩn vẫn là `catalog.csv`, không lưu bản VI riêng):
 
@@ -465,7 +533,7 @@ Quy tắc của file xuất (nguồn chuẩn vẫn là `catalog.csv`, không lư
   `<font …>`, CRLF và `|`.
 - Tool **không xuất** nếu placeholder của bản dịch lệch số lượng với bản Hàn `ko`, hoặc
   text chưa ở dạng NFC.
-- Khóa chưa có text **không có** trường `text`: client hiện placeholder rõ ràng `⟨khóa⟩`
+- Khóa chưa có text **không có** trường `text`: client hiện placeholder rõ ràng `«khóa»`
   (`boom_content::l10n::placeholder`), không tự viết chữ.
 - `catalog_sha256` trong file là SHA-256 của `catalog.csv` lúc xuất — dùng để biết file
   xuất từ catalog phiên bản nào (giá trị nằm trong file, không lặp ở tài liệu này).

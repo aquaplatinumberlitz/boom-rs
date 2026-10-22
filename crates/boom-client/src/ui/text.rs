@@ -3,7 +3,7 @@
 //! Nguồn chuẩn là `data/l10n/vi-v1.toml` (output của `tools/l10n_export.py`, xem
 //! [UI_STRINGS_V1 §6.1](../../../../docs/specification/localization/UI_STRINGS_V1.md)).
 //! Client **không tự soạn chữ**: khóa chưa có text hiển thị placeholder rõ ràng
-//! `⟨khóa⟩` (hàm [`boom_content::l10n::placeholder`]).
+//! `«khóa»` (hàm [`boom_content::l10n::placeholder`]).
 //!
 //! Module thuần — không đụng macroquad — nên test được không cần GPU.
 
@@ -42,13 +42,21 @@ impl Texts {
     /// Text hiển thị của một khóa.
     ///
     /// - Có text chốt → trả nguyên văn (đã chuẩn hóa `\r\n` thành `\n`).
-    /// - Khóa thiếu hoặc chưa có text → placeholder `⟨khóa⟩`; client **không** tự viết
+    /// - Khóa thiếu hoặc chưa có text → placeholder `«khóa»`; client **không** tự viết
     ///   chữ thay (UI_STRINGS_V1 §6.1).
     pub fn get(&self, key: &str) -> String {
         match self.l10n.text(key) {
             Text::Some(text) => normalize(text),
             Text::Missing(_) => boom_content::l10n::placeholder(key),
         }
+    }
+
+    /// Khóa có trong file chuỗi không.
+    ///
+    /// Khóa **không** có trong file là lỗi gõ sai ở client (khác với khóa có trong
+    /// file nhưng chưa có text — khóa đó chỉ chờ người duyệt bản dịch).
+    pub fn has_key(&self, key: &str) -> bool {
+        self.l10n.entry(key).is_some()
     }
 }
 
@@ -77,9 +85,12 @@ mod tests {
     fn missing_key_shows_placeholder_not_invented_text() {
         let texts = Texts::embedded();
         // `login.title` là `unknown` trong file chuỗi → placeholder.
-        assert_eq!(texts.get("login.title"), "⟨login.title⟩");
+        assert_eq!(texts.get("login.title"), "«login.title»");
         // Khóa không có trong file cũng ra placeholder, không phải chuỗi rỗng.
-        assert_eq!(texts.get("app.khong_ton_tai"), "⟨app.khong_ton_tai⟩");
+        assert_eq!(texts.get("app.khong_ton_tai"), "«app.khong_ton_tai»");
+        // Khóa có trong file nhưng chưa có text ≠ khóa không có trong file.
+        assert!(texts.has_key("login.title"));
+        assert!(!texts.has_key("app.khong_ton_tai"));
     }
 
     #[test]

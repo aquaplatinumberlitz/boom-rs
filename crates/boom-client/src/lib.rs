@@ -164,6 +164,7 @@ pub fn main() {
     if opts.ui_demo || opts.ui_shot.is_some() {
         let model = ui::UiModel::new(ui::DemoBackend::new(), ui::Texts::embedded());
         let conf = macroquad::miniquad::conf::Conf {
+            // l10n:allow-technical: tiêu đề cửa sổ, không phải chữ trong màn hình.
             window_title: "boom-rs client — UI demo".to_owned(),
             window_width: i32::try_from(ui::WIDTH).unwrap_or(800),
             window_height: i32::try_from(ui::HEIGHT).unwrap_or(600),
@@ -306,7 +307,10 @@ pub fn main() {
             sample_count: 1,
             ..Default::default()
         };
-        macroquad::Window::from_config(conf, run_network_ui(game, model, opts.scale));
+        macroquad::Window::from_config(
+            conf,
+            run_network_ui(game, model, opts.scale, opts.debug_hud),
+        );
         return;
     }
     // Chế độ mạng: nối server và dùng module `net`; không có `--connect` thì giữ offline.
@@ -468,6 +472,7 @@ fn bundle_error(dir: &Path, error: &dyn fmt::Display) -> ContentError {
     ))
 }
 
+// l10n:allow-technical: tiêu đề cửa sổ mang build id của server, không phải chữ trong màn hình.
 fn window_conf(game: &Game, opts: &Options) -> macroquad::miniquad::conf::Conf {
     // Chế độ mạng: tiêu đề cửa sổ mang build id của server (fingerprint ADR 0011 §8.3).
     let title = game
@@ -589,11 +594,13 @@ impl Game {
         profile: &RulesProfile,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let rules = Rules::from_profile(profile)?;
+        // l10n:allow-technical: thông báo lỗi kỹ thuật khi dựng client, không phải chữ trong màn hình.
         let mode = mode_by_id("battle_ffa").ok_or("mode battle_ffa chưa đăng ký")?;
         let tile_px = u32::try_from(rules.tile.0 / 1000)?;
         // Nhịp phát frame: thời lượng frame lấy từ profile (không hard-code trong code).
         let frame_clock = FrameClock {
             frame_ms: u32::try_from(profile.int_in(
+                // l10n:allow-technical: khóa của profile rules, không phải khóa l10n.
                 "presentation.frame_duration_ms",
                 "ms",
                 1,
@@ -1244,8 +1251,9 @@ async fn run_network_ui(
     mut game: Game,
     mut model: ui::UiModel<net::ui_backend::NetBackend<boom_net::TcpTransport>>,
     scale: u32,
+    debug_hud: bool,
 ) {
-    let font = ui::draw::load_font();
+    let mut font = ui::draw::bundled_font();
     let atlas = match (game.bundle_dir.as_deref(), game.scene.as_ref()) {
         (Some(dir), Some(scene)) => Some(Atlas::load(dir, &scene.pages).expect("atlas")),
         _ => None,
@@ -1299,7 +1307,21 @@ async fn run_network_ui(
             if let Some(audio) = &mut audio {
                 audio.apply(&game.take_audio_plan(), &game.options);
             }
-            draw_scene(&game, atlas.as_ref(), &target, &material, scale);
+            // Chữ cho người chơi ở màn trận: tên map + trạng thái lượt, lấy từ file
+            // chuỗi V1 (không viết tay trong mã — issue #179).
+            let (title, status) = ui::layout::match_status_texts(&model);
+            draw_scene(
+                &game,
+                atlas.as_ref(),
+                &target,
+                &material,
+                scale,
+                SceneHud {
+                    player: Some((title, status)),
+                    font: Some(&mut font),
+                    debug: debug_hud,
+                },
+            );
             if let Some(client) = game.net.take() {
                 model.backend_mut().put_client(client);
             }
@@ -1311,7 +1333,7 @@ async fn run_network_ui(
             let layout = ui::layout::layout(&model, game.bundle.as_ref(), game.scene.as_ref());
             ui::draw::draw(
                 &layout,
-                &font,
+                &mut font,
                 atlas.as_ref(),
                 game.bundle.as_ref(),
                 game.scene.as_ref(),
@@ -1463,7 +1485,19 @@ async fn run(mut game: Game, opts: Options) {
             let plan = game.take_audio_plan();
             audio.apply(&plan, &game.options);
         }
-        draw_scene(&game, atlas.as_ref(), &target, &copy_material, scale);
+        draw_scene(
+            &game,
+            atlas.as_ref(),
+            &target,
+            &copy_material,
+            scale,
+            SceneHud {
+                // Nhánh offline không có model UI nên không có chữ cho người chơi.
+                player: None,
+                font: None,
+                debug: opts.debug_hud,
+            },
+        );
         frame += 1;
 
         if let Some(path) = &opts.snapshot
@@ -1492,6 +1526,7 @@ fn draw_scene(
     target: &RenderTarget,
     copy_material: &Material,
     scale: u32,
+    mut hud: SceneHud<'_>,
 ) {
     let mut camera = Camera2D::from_display_rect(Rect::new(
         0.0,
@@ -1529,6 +1564,49 @@ fn draw_scene(
         HUD_HEIGHT,
         Color::new(0.03, 0.04, 0.06, 1.0),
     );
+    // Lớp chữ của màn trận: chữ **cho người chơi** (tên map, trạng thái lượt) lấy từ
+    // file chuỗi V1; HUD chẩn đoán (số đo tick/âm thanh/phím) chỉ vẽ khi bật cờ
+    // `--debug-hud` cho QA. Màn trận của người chơi là **scene** (bản đồ + nhân vật),
+    // không phải layout `ui` — nên chữ ở đây phải qua l10n (issue #179).
+    if let (Some((title, status)), Some(font)) = (hud.player.as_ref(), hud.font.as_deref_mut()) {
+        ui::draw::draw_match_overlay(title, status, font, game.logic_size[0], HUD_HEIGHT);
+    }
+    if hud.debug {
+        draw_debug_hud(game, scale);
+    }
+
+    set_default_camera();
+    clear_background(Color::new(0.01, 0.01, 0.02, 1.0));
+    gl_use_material(copy_material);
+    draw_texture_ex(
+        &target.texture,
+        0.0,
+        0.0,
+        WHITE,
+        DrawTextureParams {
+            dest_size: Some(vec2(
+                (game.logic_size[0] * scale) as f32,
+                (game.logic_size[1] * scale) as f32,
+            )),
+            flip_y: true,
+            ..Default::default()
+        },
+    );
+    gl_use_default_material();
+}
+
+/// Lớp chữ vẽ trên scene của màn trận.
+struct SceneHud<'a> {
+    /// Chữ cho người chơi: (tên map, trạng thái lượt) — lấy từ file chuỗi V1.
+    player: Option<(String, String)>,
+    /// Font đã bundle để vẽ chữ Việt (cần khi có chữ cho người chơi).
+    font: Option<&'a mut ui::draw::UiFont>,
+    /// Vẽ HUD chẩn đoán cho QA (số đo tick/âm thanh/phím) hay không.
+    debug: bool,
+}
+
+// l10n:allow-debug: HUD chẩn đoán cho QA (số đo tick/âm thanh/phím), không phải chữ cho người chơi.
+fn draw_debug_hud(game: &Game, scale: u32) {
     // Chế độ mạng: tick server đã xác nhận, tick client đang dự đoán, round và số event mới.
     let net_text = match game.net_status {
         Some(status) => format!(
@@ -1573,25 +1651,6 @@ fn draw_scene(
         16.0,
         Color::new(0.9, 0.95, 1.0, 1.0),
     );
-
-    set_default_camera();
-    clear_background(Color::new(0.01, 0.01, 0.02, 1.0));
-    gl_use_material(copy_material);
-    draw_texture_ex(
-        &target.texture,
-        0.0,
-        0.0,
-        WHITE,
-        DrawTextureParams {
-            dest_size: Some(vec2(
-                (game.logic_size[0] * scale) as f32,
-                (game.logic_size[1] * scale) as f32,
-            )),
-            flip_y: true,
-            ..Default::default()
-        },
-    );
-    gl_use_default_material();
 }
 
 /// Scene placeholder: địa hình vẽ theo `CellKind`, nhân vật là hình chữ nhật.
@@ -1749,6 +1808,11 @@ struct Options {
     ui_shot: Option<ShotScreen>,
     /// Chạy trọn luồng phòng tự động (vào phòng, ready, start, ack) cho test/QA.
     auto_ready: bool,
+    /// Vẽ HUD **chẩn đoán** trên màn trận (số đo tick/âm thanh/phím) cho QA.
+    ///
+    /// Mặc định **tắt**: đường chơi thật không có chữ viết tay, mọi chữ người
+    /// chơi thấy lấy từ file chuỗi V1 (issue #179).
+    debug_hud: bool,
     /// Số người tối thiểu trong phòng để host start khi `--auto-ready` (tham số kịch bản QA).
     auto_players: Option<usize>,
 }
@@ -1781,6 +1845,7 @@ impl Default for Options {
             ui_demo: false,
             ui_shot: None,
             auto_ready: false,
+            debug_hud: false,
             auto_players: None,
         }
     }
@@ -1788,8 +1853,17 @@ impl Default for Options {
 
 impl Options {
     fn parse() -> Result<Self, String> {
+        Self::parse_from(std::env::args().skip(1))
+    }
+
+    /// Đọc tùy chọn từ danh sách tham số cho sẵn.
+    ///
+    /// Tách khỏi [`Self::parse`] để **kiểm được** không cần chạy binary (cổng debug
+    /// của HUD chẩn đoán phải tắt mặc định).
+    // l10n:allow-technical: thông báo lỗi dòng lệnh, không phải chữ trong màn hình.
+    fn parse_from<I: Iterator<Item = String>>(args: I) -> Result<Self, String> {
         let mut opts = Self::default();
-        let mut args = std::env::args().skip(1);
+        let mut args = args;
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--scale" => {
@@ -1886,6 +1960,7 @@ impl Options {
                     opts.ui_shot = Some(parse_shot_screen(&screen)?);
                 }
                 "--auto-ready" => opts.auto_ready = true,
+                "--debug-hud" => opts.debug_hud = true,
                 "--auto-players" => {
                     opts.auto_players = Some(
                         args.next()
@@ -1900,7 +1975,7 @@ impl Options {
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
                          \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--demo-death] [--death-frame N] [--death-hold] [--ui-demo] [--ui-shot SCREEN]\n\
                          \t  [--connect ĐỊA_CHỈ_SERVER] [--user TÊN] [--password MẬT_KHẨU] [--register]\n\
-                         \t  [--auto-ready] [--auto-players N]\n\
+                         \t  [--auto-ready] [--auto-players N] [--debug-hud]\n\
                          \n\
                          \t  --bundle DIR   thư mục bundle content (dựng bằng `boom-assets bundle`)\n\
                          \t  --rules FILE   file rules profile TOML (mặc định: bản nhúng)\n\
@@ -1908,6 +1983,7 @@ impl Options {
                          \t  --demo-death   kịch bản offline chết (đặt bom rồi đứng yên) để chụp ảnh\n\
                          \t  --death-frame N  frame của chuỗi chết cần chụp (dùng cùng --demo-death)\n\
                          \t  --death-hold   chụp sau khi chuỗi chết hết (nhân vật giữ khung cuối có ảnh)\n\
+                         \t  --debug-hud    vẽ HUD chẩn đoán (số đo tick/âm thanh/phím) cho QA; mặc định tắt\n\
                          chế độ mạng cần tên/mật khẩu: --user/--password, hoặc biến môi trường BOOM_USER/BOOM_PASSWORD\n\
                          (nên đặt mật khẩu qua biến môi trường: cờ dòng lệnh lộ trong danh sách tiến trình).\n\
                          --auto-ready chạy trọn luồng phòng tự động (vào phòng, ready, start, ack) cho test/QA;\n\
@@ -1927,8 +2003,13 @@ impl Options {
 
 /// Mô tả ngắn trạng thái phòng cho HUD: sảnh / phòng chờ / trận / kết quả.
 ///
+/// Đây là **chuỗi chẩn đoán** (debug) của HUD QA, không phải chữ cho người chơi nên
+/// không đi qua l10n (issue #179 cho phép log/debug ngoài l10n). HUD chẩn đoán chỉ
+/// vẽ khi bật cờ `--debug-hud`.
+///
 /// Màn hình đầy đủ (đăng nhập/sảnh/phòng/kết quả) thuộc task UI (#103); ở đây chỉ hiện trạng
-/// thái để QA `--auto-ready` quan sát được luồng.
+/// thái để QA quan sát được luồng.
+// l10n:allow-debug: mô tả trạng thái phòng cho HUD chẩn đoán, không phải chữ cho người chơi.
 fn room_status(net: &net::NetClient<boom_net::TcpTransport>) -> String {
     let flow = net.room();
     let members = flow.room().map_or(0, |state| state.members.len());
@@ -1992,6 +2073,7 @@ fn local_content(game: &Game) -> Option<net::LocalContent> {
 ///
 /// `env_user`/`env_password` là giá trị biến môi trường do caller đọc và truyền vào để hàm này
 /// không phụ thuộc môi trường lúc test.
+// l10n:allow-technical: thông báo lỗi dòng lệnh, không phải chữ trong màn hình.
 fn net_credentials(
     opts: &Options,
     env_user: Option<String>,
@@ -2075,6 +2157,23 @@ mod tests {
     /// Rules profile nhúng trong binary (dùng cho test không cần file ngoài).
     fn embedded_profile() -> RulesProfile {
         RulesProfile::from_toml(include_str!("../../../data/rules/v1-dev.toml")).expect("rules")
+    }
+
+    #[test]
+    fn debug_hud_is_off_by_default_and_needs_the_explicit_flag() {
+        // Đường chơi thật (nhánh `Playing` của `run_network_ui`) chạy với người
+        // chơi: HUD **chẩn đoán** (số đo tick/âm thanh/phím, `dự đoán`, `chờ ack`,
+        // `kết quả`) phải tắt mặc định — chỉ QA bật bằng cờ rõ ràng.
+        assert!(
+            !Options::default().debug_hud,
+            "HUD chẩn đoán phải tắt mặc định"
+        );
+        let opts =
+            Options::parse_from(std::iter::empty()).expect("không có tham số thì dùng mặc định");
+        assert!(!opts.debug_hud, "không có cờ thì HUD chẩn đoán vẫn tắt");
+        let opts = Options::parse_from(["--debug-hud".to_owned()].into_iter())
+            .expect("cờ --debug-hud hợp lệ");
+        assert!(opts.debug_hud, "--debug-hud phải bật HUD chẩn đoán");
     }
 
     #[test]
