@@ -1060,7 +1060,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "net",
       "depends_on": [
         "V1-024"
@@ -1070,23 +1070,25 @@
       "open_questions": "Chiến lược reconcile/rollback quyết sau prototype.",
       "tracking": {
         "assignee": "opencode",
-        "reviewer": "",
+        "reviewer": "Claude",
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
-        "evidence": [],
+        "integration_commit": "eff7f94c258e154c60a7c36a60ceaefdf7f5deba",
+        "evidence": [
+          "git:eff7f94c258e154c60a7c36a60ceaefdf7f5deba"
+        ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh trên merge commit"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Claude APPROVE PR #170 (head 3b6c2be)"
         },
         "blocker": "",
-        "next_action": "Hội tụ/dedup NetClient đạt (#89/#136), nhưng binary `main.rs::Game::tick` lấy rồi bỏ `net.take_events()` và return trước absorb_events ⇒ chưa chứng minh effect/audio thực khi chơi mạng. Việc: issue #163 — một consumer duy nhất theo (round_id, EventId) cho offline + mạng, reset khi sang round; test Game mạng với fixture server thật."
+        "next_action": "Xong: một consumer event theo (round_id, EventId) cho offline + mạng, cue gộp theo tick, không phát trùng khi reconcile (PR #170, đóng #163)."
       }
     },
     {
@@ -1138,7 +1140,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "qa",
       "depends_on": [
         "V1-025",
@@ -1149,26 +1151,30 @@
       "open_questions": "Transport chưa chốt; loss/reorder có thể nằm lớp dưới nếu dùng TCP.",
       "tracking": {
         "assignee": "opencode-6",
-        "reviewer": "Claude/Codex",
+        "reviewer": "Claude",
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "42bf8be9e5ae4ffac05c010d72c47c727f8b35b0",
         "evidence": [
           "git:ea7c0070fbb06b4c7dc87ae5150d3195fd70851a",
-          "docs/specification/QA_NETWORK.md"
+          "docs/specification/QA_NETWORK.md",
+          "git:26435d0cbb232a2e2657dd9aa01346ed71570172",
+          "git:b9c94279db27e52fe7c211e6298688c8bbf73db0",
+          "git:42bf8be9e5ae4ffac05c010d72c47c727f8b35b0",
+          "git:e6a1b27ceff28afe58221d87417a5abae9ed44df"
         ],
         "verification": {
-          "status": "not_run",
-          "command": "",
-          "result": ""
+          "status": "passed",
+          "command": "cargo xtask ci + CI GitHub ba OS",
+          "result": "xanh trên merge commit"
         },
         "review": {
-          "status": "not_requested",
-          "result": ""
+          "status": "approved",
+          "result": "Claude APPROVE PR #172, #174, #182 (Codex tác giả #174/#182)"
         },
         "blocker": "",
-        "next_action": "Phần 1 harness boom-qa (#142). Thiếu: bot dùng predictor/API client chung, metric correction p50/p95, kịch bản disconnect/liveness/rejoin, 4 client drain rồi hội tụ hash; đường xin lại RoundResult khi mất frame (hiện `net/tests.rs::mat_round_result_chua_co_duong_xin_lai` xác nhận thiếu) phải có trước phát hành. Việc: issue #166 (sau #163)."
+        "next_action": "Xong: bot dùng predictor client chung, correction p50/p95, disconnect/liveness/rejoin, 4 client hội tụ hash (PR #172); recover RoundResult khi mất frame (PR #174, đóng #166); recovery test tất định (PR #182, đóng #178); boom-qa phụ thuộc lib client (PR #183)."
       }
     },
     {
@@ -1224,7 +1230,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "backend",
       "depends_on": [],
       "server_responsibility": "Config endpoint, health và log cấu trúc.",
@@ -1232,30 +1238,31 @@
       "open_questions": "V1 là bản chơi thử không thương mại; chưa liveops/economy.",
       "tracking": {
         "assignee": "dsh-a/opencode-1",
-        "reviewer": "Claude/Codex",
+        "reviewer": "Claude",
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "8759e037c64778b0a231f166b78acf0ead567dbe",
+        "integration_commit": "f9c482861e336cbd5e55af456a7f8ddc7fa697b0",
         "evidence": [
           "docs/decisions/0011-identity-persistence-log-v1.md",
           "git:06058297ddd97285354a428069ff539c24671301",
           "crates/boom-server/src/admin.rs",
           "crates/boom-server/src/observability.rs",
           "git:8ffc64ed242194989542e86a6605b099388c1f45",
-          "git:8759e037c64778b0a231f166b78acf0ead567dbe"
+          "git:8759e037c64778b0a231f166b78acf0ead567dbe",
+          "git:f9c482861e336cbd5e55af456a7f8ddc7fa697b0"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #79, #97 và trên main sau merge"
+          "result": "xanh trên merge commit"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #79, #97"
+          "result": "Claude APPROVE PR #169 (head c2c533d)"
         },
         "blocker": "",
-        "next_action": "Thiếu: `observability.rs:148` round_id=null, chưa emit vòng đời round có round_id; close_session/shutdown không log đủ nguyên nhân disconnect; `runtime.rs::start` gọi load_content trước tạo Logger nên lỗi load đi stderr. Việc: issue #165 — log JSON round lifecycle + lý do disconnect + logger trước load, có test."
+        "next_action": "Xong: log JSON vòng đời round có round_id, lý do disconnect, logger trước load_content (PR #169, đóng #165)."
       }
     },
     {
@@ -1313,7 +1320,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "client",
       "depends_on": [
         "V1-030"
@@ -1323,11 +1330,11 @@
       "open_questions": "BLOCKER: resolve mọi state/pivot/timing còn thiếu.",
       "tracking": {
         "assignee": "opencode-3/opencode-4",
-        "reviewer": "Claude/Codex",
+        "reviewer": "Claude",
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "eff7f94c258e154c60a7c36a60ceaefdf7f5deba",
         "evidence": [
           "crates/boom-assets/src/animation.rs",
           "git:389b6ce78fc1b00d6857a25f144981c73e559567",
@@ -1335,19 +1342,20 @@
           "git:5242e48f61272d2c6ce5c1b3386d123e5e6688f4",
           "git:40fb031334dd70caa7d13ee725f8c7890fd85505",
           "git:93288f1f300a249da7b723f91acfa4d8a1f1325b",
-          "git:f545f24d6570617814763609ce4cfc1c7ffecfc3"
+          "git:f545f24d6570617814763609ce4cfc1c7ffecfc3",
+          "git:eff7f94c258e154c60a7c36a60ceaefdf7f5deba"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #52, #82, #100, #105 và trên main sau merge"
+          "result": "xanh trên merge commit"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #52, #82, #100, #105, #122"
+          "result": "Claude APPROVE PR #170 (head 3b6c2be)"
         },
         "blocker": "",
-        "next_action": "Frame/pivot/offline theo R-085…R-089 có test (#100/#122), nhưng nhánh mạng `Game::tick` chỉ đếm rồi bỏ server events ⇒ journal không nhận trap/dead/explosion/start khi chơi mạng. Việc: issue #163 — nối event + round start vào journal, clock/reset khi sang round, test Game mạng."
+        "next_action": "Xong: event mạng (trap/dead/explosion/start) vào journal trình diễn, reset khi sang round (PR #170); frame/pivot theo R-085…R-089 (#100/#122)."
       }
     },
     {
@@ -1357,7 +1365,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "client",
       "depends_on": [
         "V1-022"
@@ -1367,27 +1375,28 @@
       "open_questions": "Không cần quảng trường đi bộ hoặc sao chép auth Nexon.",
       "tracking": {
         "assignee": "opencode-3",
-        "reviewer": "Claude/Codex",
+        "reviewer": "Claude",
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "395a7bcc14d6556fb9a95ef9994c38ce0a70a425",
         "evidence": [
           "crates/boom-assets/src/closure.rs",
           "git:4ec8acf9e133e45d351b589d2089bae446248e8f",
-          "git:c129a21815b860529b2cf614548daebc903ba261"
+          "git:c129a21815b860529b2cf614548daebc903ba261",
+          "git:395a7bcc14d6556fb9a95ef9994c38ce0a70a425"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #91 và trên main sau merge"
+          "result": "xanh trên merge commit"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #91"
+          "result": "Claude APPROVE PR #171 (head de9b5e3)"
         },
         "blocker": "",
-        "next_action": "Blocker thật: entry binary chưa gọi `UiModel<NetBackend>` (main() chỉ dựng DemoBackend ở --ui-demo; `ui/app.rs:70–75` run_ui chưa có caller mạng), chưa nối Playing → ResultsAck → Room → trận 2. Layout KR (#150) không tự chặn luồng V1. Việc: issue #164 (sau #163) — test tích hợp trọn hai trận qua UI model với fixture server thật."
+        "next_action": "Xong: --connect chạy UiModel<NetBackend>, Playing → ResultsAck → Room → trận 2, test tích hợp hai trận (PR #171, đóng #164). Layout KR (#150) là fidelity, không chặn luồng."
       }
     },
     {
@@ -1437,7 +1446,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "client",
       "depends_on": [
         "V1-025",
@@ -1448,28 +1457,29 @@
       "open_questions": "BLOCKER: event→SFX và chính sách chồng tiếng.",
       "tracking": {
         "assignee": "dsh-b/dsh-a",
-        "reviewer": "Claude/Codex",
+        "reviewer": "Claude",
         "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "aace7988256b384bf2f8d6a4d4454dcbe54401bf",
+        "integration_commit": "eff7f94c258e154c60a7c36a60ceaefdf7f5deba",
         "evidence": [
           "crates/boom-client/src/audio.rs",
           "docs/specification/assets/AUDIO_V1.md",
           "git:6dfdac10040cd124fc1558140ef6f3d591f0afb6",
-          "git:aace7988256b384bf2f8d6a4d4454dcbe54401bf"
+          "git:aace7988256b384bf2f8d6a4d4454dcbe54401bf",
+          "git:eff7f94c258e154c60a7c36a60ceaefdf7f5deba"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #67, #106 và trên main sau merge"
+          "result": "xanh trên merge commit"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #67, #106"
+          "result": "Claude APPROVE PR #170 (head 3b6c2be)"
         },
         "blocker": "",
-        "next_action": "Audio module/offline xanh (#106) nhưng nhánh net `Game::tick` return trước `AudioState::plan` ⇒ chưa có BGM/SFX từ event mạng. Việc: issue #163 — nối AudioState/MacroquadAudio + own slot/round + cue UI vào consumer mạng; test duplicate/reconcile chỉ phát một cue, mute/volume/BGM không restart."
+        "next_action": "Xong: AudioState/BGM/SFX nhận event mạng, own slot/round, không phát trùng khi duplicate/reconcile; mute/volume (PR #170, #106)."
       }
     },
     {
@@ -1490,14 +1500,15 @@
       "tracking": {
         "assignee": "opencode-3",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [
           "data/l10n/vi-v1.toml",
           "crates/boom-content/src/l10n.rs",
-          "git:71d36a66cd644832dc9ce014cfed21d3c4641e31"
+          "git:71d36a66cd644832dc9ce014cfed21d3c4641e31",
+          "git:82033ce560ab4649cdd57a3d228dd1a0669129a8"
         ],
         "verification": {
           "status": "passed",
@@ -1508,8 +1519,8 @@
           "status": "approved",
           "result": "Comment APPROVE trên PR #98"
         },
-        "blocker": "",
-        "next_action": "Font OFL đã có (#116). Thiếu: chuỗi unknown/review còn trong `data/l10n/vi-v1.toml` (fallback placeholder chưa phải bản dịch đã chốt) ⇒ chốt key/ngữ cảnh ở catalog boom-re-l10n rồi xuất lại; nối toàn bộ màn UI thật qua TextFont/l10n; test glyph/wrap/placeholder trên chuỗi đã duyệt. Cần người duyệt bản dịch."
+        "blocker": "Cần người duyệt bản dịch (chủ dự án).",
+        "next_action": "Phần code xong (PR #188, đóng #179): mọi chuỗi UI qua l10n, placeholder, glyph/wrap/clip có test. Còn: người duyệt bản dịch các khóa unknown/review trong boom-re-l10n rồi chạy lại tools/l10n_export.py."
       }
     },
     {
@@ -1548,7 +1559,7 @@
           "result": "Comment APPROVE trên PR "
         },
         "blocker": "",
-        "next_action": "Có gói phát hành 3 OS + LICENSES/font/check_package (#110/#128). Thiếu acceptance: smoke cài/chạy package trên Windows/Linux/macOS (client/server từ gói, thiếu pack/rules/content báo rõ, lưu log + version/fingerprint). Việc: issue #167. Còn dependency V1-027/V1-035."
+        "next_action": "Gói 3 OS + smoke (#110/#128/#168) đã có. V1-027 đã done (2026-10-22); còn chờ V1-035 (người duyệt bản dịch). Khi V1-035 done: chạy lại smoke gói 3 OS rồi nghiệm thu."
       }
     },
     {
@@ -1558,7 +1569,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "qa",
       "depends_on": [
         "V1-026",
@@ -1568,27 +1579,29 @@
       "acceptance": "Có fixture VN/original và golden V1 riêng; báo sai khác theo nguồn; không cam kết pixel100% KR chưa chạy.",
       "open_questions": "Báo cáo theo nhãn nguồn/trạng thái AGENTS §4 (confirmed/candidate/design); generic 99.5% pixel chưa đủ.",
       "tracking": {
-        "assignee": "dsh-a",
-        "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-20",
+        "assignee": "opencode-3",
+        "reviewer": "Codex",
+        "updated_at": "2026-10-22",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "b83a7cdcfcabd54455464675950a0ff95c0fc2d4",
         "evidence": [
           "docs/research/findings/VN_ENGINE_DIFF.md",
-          "git:440bc8fd5648bb8f748e9f54a057803a82de48b1"
+          "git:440bc8fd5648bb8f748e9f54a057803a82de48b1",
+          "git:b83a7cdcfcabd54455464675950a0ff95c0fc2d4",
+          "docs/research/ORACLE_REPORT.md"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #96 và trên main sau merge"
+          "result": "xanh trên merge commit"
         },
         "review": {
           "status": "approved",
-          "result": "Comment APPROVE trên PR #96"
+          "result": "Codex APPROVE PR #184 vòng 2 (head da6a1d5)"
         },
         "blocker": "",
-        "next_action": "Chưa có oracle original/VN tách khỏi golden V1: cần fixture/metadata provenance từ raw VN/original, input/expected/tolerance và báo diff với profile ADR 0013. Việc đo client gốc đang hoãn theo quyết định chủ dự án (Q-009: BnB CN/thông số công khai); RE KR #146–#150 cung cấp claim tĩnh."
+        "next_action": "Xong: oracle có provenance KR/VN tách golden, báo cáo sai khác tự sinh và kiểm trong cargo xtask ci (PR #184, đóng #180). Đo client gốc runtime vẫn hoãn (Q-009); claim RE mới (#146–#150) bổ sung oracle sau."
       }
     },
     {

@@ -2,7 +2,7 @@
 
 Kết quả đọc tĩnh client KR `00967` cho [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147) /
 Q-018 (mục 4 hàng đợi RE: timer nhốt → chết, chạm/chọc, biên chuyển life). Claim ở
-[RULES_V1 § (đánh số khi merge)](../../specification/gameplay/RULES_V1.md#-đánh-số-khi-merge--re-kr-00967--bộ-đếm-bomber--chết-r-200r-202)
+[RULES_V1 §19](../../specification/gameplay/RULES_V1.md#19-re-kr-00967--bộ-đếm-bomber--chết-r-200r-202)
 (R-200…R-202; phiên này dùng dải R-200…R-249). Định danh build, bảng VA/RVA và `evidence_id` ở
 [evidence KR trap timer](../../evidence/measurements/kr-static-trap-timer-2026-10-23/README.md).
 
