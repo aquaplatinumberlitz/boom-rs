@@ -23,6 +23,9 @@ nguyên văn trong repo.
 - Với bomber, phần **đã trace** chỉ là nhận hướng: `CGameContext 0xE13D00` → `vf3(dir)` của
   controller **nhúng tại byte +1412** (R-135). Hàm đọc lại dir và tạo/giữ `len`/mover của bomber
   **chưa định vị**.
+- Lượt nối tiếp **R-136**: `vf3` (`0xB32390`) ghi dir vào protected field `+0x1C` của sub-object
+  (`bomber+1440` = `0x5A0`); reader `0xB40D60` trả field này. **Chưa nối** từ reader/predicate tới
+  setter vị trí `0xB334C0`/`0xB43750` hay `CMovable::MoveSimple` — mover/`len` vẫn **unknown** (§7).
 - R-125 và R-127 **chưa đóng**; R-134 chỉ xác nhận **đường đã trace** thuộc `CGOPet`.
 
 ## 1. Vì sao trước đây tưởng là bomber
@@ -104,18 +107,19 @@ R-132.
 
 ## 5. Còn thiếu và bước tiếp (có căn cứ)
 
-1. **Tìm mover của bomber**: đọc hết `CGOBomber` slot 24 `0xB44000` (5.482 B) và `CGOGameBomber`
-   slot 24 `0xB77B10`; tìm nơi cập nhật vị trí (`sub_B335C0/B335E0` là getter x,y; setter ở vtable
-   `+116` của đối tượng vị trí như trong `MoveSimple`). Đây là đầu mối cần truy cho `len`/mover của
-   bomber; chưa chứng minh hai cập nhật trực tiếp tính `len` (có thể delegate/tiêu thụ trạng thái khác).
+1. **Tìm mover của bomber**: đã đọc `CGOBomber` slot 24 `0xB44000` và `CGOGameBomber` slot 24
+   `0xB77B10`; hai thân này **không** đọc field `+0x5A0`/`+1440`. `0xB44000` chỉ ghi đè vị trí tại
+   bốn điểm clamp (`0xB4498D`, `0xB449D9`, `0xB44A23`, `0xB44A6F`) từ `[this+0x930]`/`[this+0x934]`;
+   chưa thấy nơi tính vị trí mới từ dir. Bước tiếp: tìm caller của setter `0xB334C0`/`0xB43750` có
+   truyền giá trị suy ra từ input/field, hoặc chứng minh mover dùng input state trực tiếp.
 2. **Đối chiếu VN** (đòn bẩy): VN `CMovable::MoveSimple 0x95199B` — kiểm caller của nó trong VN;
    nếu VN cũng chỉ dùng cho AI/pet thì giả thuyết "bomber không dùng cùng chuỗi này" được củng cố ở cả hai
    build, nhưng vẫn **không** thay thế consumer KR. Hướng cần kiểm là tìm lớp `CGOBomber` bên VN
    (notebook `oc_e-game.md` §5a-3 nói input đi vào controller `bomber+1524`, tương ứng `+1412` của
    KR — cùng một sub-object).
-3. **Controller của bomber**: xác định vtable của sub-object nhúng tại `+1412` (ctor gán cùng một
-   symbol `CGOGameBomber::vftable` cho nhiều offset nên IDA không phân biệt); đọc `vf3` thật
-   (SetDirection) để biết nó lưu dir vào đâu, rồi tìm nơi đọc dir đó.
+3. **Controller của bomber**: đã xác định vtable/f3 (R-136 §7): `0xB32390` ghi dir vào protected
+   field `+0x1C` (= `bomber+1440`), reader `0xB40D60`. **Chưa** nối reader/predicate tới setter vị
+   trí; đây là chỗ cần trace tiếp, không suy ra mover/`len`.
 4. Nếu bước 1–3 rơi vào `.themida` thì dừng và ghi entry VM theo [DEVIRT_METHOD](DEVIRT_METHOD.md).
 
 ## 6. Provenance công cụ (ghi rõ)
@@ -136,3 +140,51 @@ R-132.
   trả `{"error": …}` (không có `success`/`session`) nên REA báo lỗi schema thay vì lỗi upstream.
   Sau khi làm mới pin của DB bản sao, chạy lại OK và có 2 `evidence_id` ở trên. Không ghi đường
   dẫn cấu hình/backup cá nhân vào repo.
+
+## 7. Lượt mover 2026-10-22 — dispatch dir vào sub-object `+1412` (R-136)
+
+### 7.1 Công cụ và phạm vi
+
+- **REA 6.7.0** (CLI, `provider_id: ida`, dùng `REA_IDA_MCP_CONFIG` hiện có): bind được bản sao
+  nhưng operation cấp target trả `execution_failure` —
+  `EROFS: read-only file system, mkdtemp '/home/admin/.cache/rea/seeded-workspaces/rea-ida-Wm52UW'`.
+  Không sửa config/pin; **fallback tuần tự** sang IDA MCP trực tiếp trên **bản sao riêng của bản
+  sao** (binary + DB copy trong workspace, SHA-256 binary khớp `cf72da11…e63b`). Không chạy hai
+  worker song song, không chạy client.
+- Một phiên idalib giữ DB copy; đọc các hàm dưới bằng decompile/get_bytes/disasm/xrefs. Không đưa
+  raw decompile vào repo.
+
+### 7.2 Các cạnh đã trace
+
+| Cạnh | VA (RVA) | Quan sát |
+|---|---|---|
+| Dispatch dir | `0x00E13D00` (`0xA13D00`), call `0x00E13DFD` (`0xA13DFD`) | `v19 = sub_E12FC0(a5)`; `v19[353]` là vtable pointer của sub-object `+1412`; gọi `[v19[353] + 12]` với `this = v19 + 353` và arg `dir` (`0..3`/`0x11..0x14` → `v17`). Cùng case còn ghi `v17` vào input state qua `sub_8444F0(a5)` |
+| Factory/ctor | `0xAECE00` (`0x6ECE00`), call `0xAECEB6`; `0xB79DC0` (`0x779DC0`) | `sub_E12A30` (MakeBombers) → `sub_AECE00` → `sub_B79DC0`; ctor gán `v33[353] = CGOGameBomber::vftable` `0x01745FE8` |
+| Ctor thay thế | `0xB73410` (`0x773410`) → `0xB3BE30` (`0x73BE30`) | `0xB73410` cũng gán `CGOGameBomber::vftable` cho `+0x584`, nhưng cuối thân gọi ctor `CGOBomber` `0xB3BE30`, thân này ghi đè `v19[353]` bằng `CGOBomber::vftable` `0x01744964`. Cả hai vtable có slot `+12` = `0xB32390`; đường factory đã trace dùng `0xB79DC0` |
+| `vf3` nhận dir | `0xB32390` (`0x732390`), vtable +12 | Disasm: lấy `arg_0` (dir), `sub_55FD30(this+0x1C, dir)`; sau đó ghi `0x80000000` vào `this+0x70` và `this+0x7C`. `sub_55FD30` là setter protected-field (xor/checksum), `sub_57A870` là reader tương ứng |
+| Field nhận dir | `bomber+1440` (`0x5A0`) = sub-object `+1412` + `0x1C` | Cùng địa chỉ vật lý; chưa có enum/label trong binary |
+| Reader | `0xB40D60` (`0x740D60`) | `return sub_57A870(this + 1440)`; trả lại giá trị field |
+| Predicate dùng reader | `0xB40030` (`0x740030`), `0xB40290` (`0x740290`), `0xB405E0` (`0x7405E0`), `0xB407E0` (`0x7407E0`), `0xB40A50` (`0x740A50`), `0xB422F0` (`0x7422F0`), `0xB42880` (`0x742880`), `0xB45570` (`0x745570`) | Mọi caller đã đọc dùng kết quả làm **điều kiện** (`== 0`/`!= 0`) cho valid/idle/state; không caller nào truyền giá trị đó vào setter vị trí |
+| Vị trí bomber | getter `0xB335C0` (`0x7335C0`, +`0x4C`), `0xB335E0` (`0x7335E0`, +`0x58`); setter `0xB334C0` (`0x7334C0`), `0xB33520` (`0x733520`), `0xB33540` (`0x733540`), virtual `0xB43750` (`0x743750`) | `0xB43750` gọi `0xB334C0(this,x,y)`; chưa thấy caller nào lấy `dir`/field `+1440` để tính x,y |
+| Update slot 24 | `0xB77B10` (`0x777B10`) → `0xB44000` (`0x744000`) | `0xB77B10` gọi base update `0xB44000`; `0xB44000` **không** đọc `+0x5A0`/`+1440`. Nó ghi đè vị trí tại `0xB4498D`/`0xB449D9`/`0xB44A23`/`0xB44A6F` từ `[this+0x930]`/`[this+0x934]` (clamp) |
+
+### 7.3 Kết luận và blocker
+
+- **Đã nối được**: dispatch dir → vf3 `0xB32390` → protected field `+0x1C` (`bomber+1440`) → reader
+  `0xB40D60`.
+- **Chưa nối được**: reader/predicate → setter vị trí `0xB334C0`/`0xB43750`; `0xB77B10`/`0xB44000`
+  không đọc field này và không gọi `CMovable::MoveSimple` (`0x1310200`). Vì vậy **đường cập nhật vị
+  trí/`len` của bomber vẫn chưa định vị**. Đây là phép tìm âm tính trong phạm vi hàm/xref đã đọc,
+  không loại trừ wrapper/đường gián tiếp/VM.
+- **Không** thấy công thức `len`/speed/trapped trên các cạnh này; không suy ra px/s, không suy ra
+  "bị nhốt đi được".
+- **Bước tiếp cụ thể**:
+  1. Tìm caller của `0xB43750`/`0xB334C0` có truyền giá trị suy ra từ `dir` hoặc từ input state
+     (`sub_8444F0(a5)`); kiểm `0xB422F0`/`0xB42880`/`0xB45570` và event path `0xB57340`/`0xB77EA0`.
+  2. Xem `[this+0x930]`/`[this+0x934]` (nguồn clamp ở `0xB44000`) là vị trí đích từ đâu; nếu là
+     server correction thì tách khỏi mover client.
+  3. Nếu một trong hai nhánh vào `.themida`, ghi entry VM và dừng theo [DEVIRT_METHOD](DEVIRT_METHOD.md).
+- **Giới hạn**: chỉ đọc tĩnh; không trace runtime. Các `evidence_id` của REA không có trong lượt này
+  vì REA fail trước khi cấp evidence; output IDA trực tiếp nằm trong bundle local
+  `.re-work/evidence-bomber-mover-146.json` (không commit) — sandbox chặn ghi ra ngoài workspace.
+  Không đưa DB/binary/decompile vào repo.
