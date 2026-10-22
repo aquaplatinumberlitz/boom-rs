@@ -687,8 +687,9 @@ trên kênh game **sau `AuthOk`** (Addendum A §A.1); trước đó server coi k
 | `0x0048` | `RoundStart` | S→C | Seed/rules/map/mode/roster bắt đầu round |
 | `0x0049` | `RoundResult` | S→C | Kết quả round (V1-022) |
 | `0x004A` | `RoomRejected` | S→C | Lý do lệnh phòng bị từ chối |
+| `0x004B` | `RoundResultRequest` | C→S | Xin lại kết quả đã commit (§B.7) |
 
-Không thêm kind nào ngoài dải `0x0040…0x004A`; `0x0050/0x0051` vẫn là health admin. Capability room
+Dải phòng mở rộng tới `0x004B` theo §B.7; `0x0050/0x0051` vẫn là health admin. Capability room
 được chọn trong handshake; V1 chưa có nhiều revision nên `wire_schema` giữ `1`.
 
 ### B.2 DTO và ánh xạ `boom-room`
@@ -836,3 +837,29 @@ Mọi thay đổi dưới đây là **additive**: `wire_schema` giữ `1` (Quy�
   layout payload ⇒ `wire_schema = 2` và server từ chối client cũ ở handshake.
 - Client build cũ + server build mới **đọc lệch** `RoomState` (postcard không self-describing):
   quy tắc vận hành — QA luôn build đôi client+server từ cùng commit, không trộn revision.
+
+
+### B.7 (2026-10-22) — recovery `RoundResult`
+
+Nguồn: [contract Claude chốt trên #166](https://github.com/aquaplatinumberlitz/boom-rs/issues/166#issuecomment-6325987828).
+Nguồn/trạng thái: `design`/`design`; đây là giao thức Rust mới, không phải luật server KR.
+
+- `RoundResultRequest { round_id u64 }`, kind `0x004B`, C→S, kênh game, chỉ sau `AuthOk`.
+  `wire_schema` giữ `1` theo điều kiện trước phát hành ở §B.6. Golden payload round 300:
+  `ac 02`; không có player hay room do client khai.
+- Server giữ đúng DTO `RoundResult` đã commit gần nhất của mỗi phòng, trước khi phát frame đầu.
+  Giữ qua `ResultAck`, timeout và trở về Waiting; xóa khi `RoundStart` kế tiếp được tạo hoặc
+  phòng bị hủy. Không tái tính bảng từ state mới, không ghi lại event/log kết quả hay phát effect.
+- Chỉ account trong roster đã chốt của round được xin lại; bind account từ phiên đã auth,
+  không từ connection ID. Account khớp sau đăng nhập/rejoin vẫn hợp lệ trong retention.
+  Round sai/cũ/hết retention/khác phòng hoặc account ngoài roster ⇒
+  `RoomRejected { request=round_id, reason=StaleRequest }`.
+- Client thấy snapshot Ended hoặc event `round_ended` mà thiếu bảng kết quả sẽ xin lại sau 4 nhịp pump giao thức;
+  backoff 8, 16, 32, tối đa 64 nhịp. Đây là cấu hình giao thức, không phải tick luật trận.
+  Không phụ thuộc auto-ready. Dừng khi nhận kết quả, StaleRequest hoặc sang lượt mới; chỉ nhận kết quả
+  khớp round hiện tại, dedup theo round_id trước ack và luồng UI.
+- Bot QA chỉ ack khi đã có cả bảng authority và hash state cuối; retry dùng đồng hồ ms
+  của harness với backoff từ `retry_ms`, trần 2000 ms. Không suy bảng PlayerResult từ snapshot.
+- Kiểm: golden/round-trip/kênh và auth gate; mất frame đầu ⇒ xin lại đúng bảng; request trùng
+  ⇒ cùng DTO; Waiting vẫn recover; round trước sau Start ⇒ StaleRequest; ngoài roster bị từ chối;
+  client bỏ kết quả trùng/cũ; bốn bot mất frame kết quả vẫn drain và hội tụ.

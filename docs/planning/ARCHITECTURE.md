@@ -51,6 +51,7 @@ boom-replay  → boom-core, boom-content, boom-scenario
 boom-proto   → boom-content (ID/schema identity)
 boom-net     → boom-proto
 boom-sync    → boom-core, boom-content, boom-proto
+boom-qa      → boom-client
 boom-room    → boom-content
 boom-client  → boom-core, boom-content, boom-proto, boom-net, boom-sync
 boom-server  → boom-core, boom-content, boom-proto, boom-net, boom-sync, boom-room, boom-scenario (định dạng replay + `apply_authority`, #87)

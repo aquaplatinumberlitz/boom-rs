@@ -10,6 +10,7 @@
 | `images/vn/` | Ảnh client VN được chuyển nguyên file từ docs root |
 | [measurements/vn-timing-2026-10-19/README.md](measurements/vn-timing-2026-10-19/README.md) | Hồ sơ đo tick/tốc độ/timer nhốt client VN; log trích + script phân tích, không có asset game |
 | [measurements/kr-static-trapped-2026-10-21/README.md](measurements/kr-static-trapped-2026-10-21/README.md) | Định danh build + bảng VA/RVA + evidence_id của phép đọc tĩnh trapped KR (R-126…R-131); metadata, không có binary hay decompile |
+| [measurements/kr-static-flame-2026-10-21/README.md](measurements/kr-static-flame-2026-10-21/README.md) | Điều tra nổ/lửa + thời lượng frame KR: mỏ neo, evidence_id, giới hạn công cụ; **chưa có claim**, dùng cho lượt sau |
 | [DOCS_MIGRATION.json](DOCS_MIGRATION.json) | Bản đồ đường dẫn cũ→mới, không phải bằng chứng luật chơi |
 
 Không commit client/pack/binary/database hoặc cache ảnh lớn vào repo chỉ để tạo evidence.

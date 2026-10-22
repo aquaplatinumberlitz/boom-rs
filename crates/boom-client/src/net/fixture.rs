@@ -492,8 +492,13 @@ impl Transport for ScheduledTransport {
             return Err(NetError::Closed);
         }
         let (faults, drop_results) = {
-            let inner = self.net.inner.lock().expect("khoá mạng ảo");
-            (inner.faults, inner.drop_results)
+            let mut inner = self.net.inner.lock().expect("khoá mạng ảo");
+            let drop_result = inner.drop_results
+                && read_envelope(frame).expect("envelope").0.kind == MessageKind::RoundResult;
+            if drop_result {
+                inner.drop_results = false;
+            }
+            (inner.faults, drop_result)
         };
         // Quyết định lỗi mạng trước khi khoá mạng (PRNG thuộc endpoint này); thứ tự gọi PRNG
         // cố định nên cùng seed cho cùng thứ tự gửi ⇒ cùng lỗi mạng trên mọi OS.
@@ -1382,7 +1387,7 @@ impl RoomClient {
         self.in_net.stats()
     }
 
-    /// Fault xác định cho regression: làm mất mọi RoundResult của client này.
+    /// Fault xác định cho regression: làm mất RoundResult kế tiếp của client này.
     pub fn drop_round_results(&self) {
         self.in_net.inner.lock().expect("khoá mạng ảo").drop_results = true;
     }

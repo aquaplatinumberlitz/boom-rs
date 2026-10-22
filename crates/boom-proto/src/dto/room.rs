@@ -170,6 +170,18 @@ pub struct ResultAck {
     pub round_id: u64,
 }
 
+/// Xin lại kết quả đã commit; server bind account từ phiên (§B.7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoundResultRequest {
+    pub round_id: u64,
+}
+
+impl RoundResultRequest {
+    pub fn check(&self, _limits: &ProtocolLimits) -> Result<(), ProtoError> {
+        Ok(())
+    }
+}
+
 /// `RoundStart` (S→C, kind `0x0048`): thông báo bắt đầu round, đủ seed/rules/map/roster.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoundStart {
@@ -509,6 +521,7 @@ impl_message!(RoomChat, MessageKind::RoomChat);
 impl_message!(RoomChatMessage, MessageKind::RoomChatMessage);
 impl_message!(LoadingAck, MessageKind::LoadingAck);
 impl_message!(ResultAck, MessageKind::ResultAck);
+impl_message!(RoundResultRequest, MessageKind::RoundResultRequest);
 impl_message!(RoundStart, MessageKind::RoundStart);
 impl_message!(RoundResult, MessageKind::RoundResult);
 impl_message!(RoomRejected, MessageKind::RoomRejected);
@@ -605,6 +618,11 @@ mod tests {
         });
         round_trip(&LoadingAck { round_id: 1 });
         round_trip(&ResultAck { round_id: 1 });
+        round_trip(&RoundResultRequest { round_id: 300 });
+        assert_eq!(
+            encode_payload(&RoundResultRequest { round_id: 300 }).unwrap(),
+            vec![0xac, 0x02]
+        );
         round_trip(&RoundStart {
             round_id: 1,
             seed: 2,
