@@ -106,3 +106,32 @@ không đổi** — giữ `characters.*` cấp/level (R-117), không đổi sang
 | `ev_f8628d13735542ad5390e5587da2fb9032d33849175ed875ad4a5851aa5f5504` | `batch_decompile` `0xE14360` | nhánh item |
 | `ev_f8c6effc1e1b414d322e7a193d7ee3f7467efca4b6dd6ac0254bd11846fcacb8` | `procedure_pseudo_code` `0xE9E660` | **đọc hết** 207 dòng/0x644 B; không `cur+1`/`min`/setter stat |
 | `ev_61f31d6d657f4f1237d38bf40978dfb09b0a542391817ad8a3ba1da3b478e05b` | `batch_decompile` `0xE9E660` | bản batch cũ |
+
+## Bổ sung 2026-10-23 — R-153 ItemAttr reader và bảng trọng số
+
+REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63b`; bundle
+`.re-work/evidence-r153-itemattr-149.json` (18 record, không commit). Không lặp R-150.
+
+| Kiểm | VA | Kết quả |
+|---|---|---|
+| Loader `CItemResourceMan` | `0x01196A70` (RVA `0x00D96A70`, `.priv`) | native 197 dòng; caller `0x123292B` |
+| Item table | `+244048` (`0x3B950`) | stride `0xC0`=192, count `+244036`; row `+8`, tên `+20`, **id `+84`**, 8 dword `+96..+180` |
+| Lookup item | `0x01197900` | tìm row theo `+84`; 7 caller model/UI/character |
+| Group table | `+28` (`0x1C`) | stride `0xF4`=244, count `+16`; `+148`=số slot |
+| Bảng 0x8000 | `+436048` (`0x6A750`) | fill `0xFF`; ghi group index theo `[offset,offset+count)`, cap `0x7FFF`, **không chia tổng** |
+| Native reader bảng 0x8000 | — | **không có**: toàn disassembly chỉ 2 ref, cả hai trong loader (write) |
+| Item model | `B479E0`→`B978B0` | gắn item model vào bomber `+513` từ id; không phải map drop |
+| Character/user path | `E84CD0` | đọc byte user-info/character, tạo model; không phải drop/brick |
+
+**Kết luận:** `kr_static` confirmed loader/table/id/lookup và việc bảng 0x8000 **không có native
+reader**; `candidate` vai trò group; `unknown` client drop vs server placement, nghĩa 8 dword, cap,
+35%. `weight ≠ %`; `placement ≠ xác suất gạch`; không suy từ R-051 hay 35% server.
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_fbc144c7328649f1257d84f59211000a8f77c9e09d3ef83c6addfbfcb375e827` | `procedure_pseudo_code` `1196A70` | loader |
+| `ev_180b89234db3ee43884ec244ad85aa9149fa01e8a592de2ccf70a45181a063b5` | `procedure_assembly` `1196A70` | field/stride |
+| `ev_180777980cc9e987726f3bde0ac105722f37b04e90af024cd3fccefe00bbf096` | `batch_decompile` `1194A00`/`1196830` | ctor/container |
+| `ev_584dffb25e7eb71990bb6f3e50663c6c29ee83765161796cb8523af156559181` | `batch_decompile` `1196960`/`11970E0`/`1197900` | lookup `+84` |
+| `ev_04618990e2e75ab6277b4cf65fa2d0d01c245685b1374e711c332e9f4707ec95` | `batch_decompile` `E84CD0`/`B978B0`/`B98250`/`6B3FA0` | model/UI |
+| `ev_563814aa2dd0ce9050c19671db0233f91fd6decff136c9c1c7b504a9c82e08f0` | `batch_decompile` `B479E0`/`B4C9D0` | item model bomber |
