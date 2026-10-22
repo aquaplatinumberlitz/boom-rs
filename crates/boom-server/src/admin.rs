@@ -8,7 +8,7 @@ use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -301,7 +301,11 @@ impl Drop for Heartbeat {
     }
 }
 
-/// Admin listener đã bind loopback; `local_addr` là địa chỉ thật (có thể cổng trống khi bận).
+/// Admin listener đã bind loopback và vòng accept đã chạy; `local_addr` là địa chỉ thật
+/// (có thể cổng trống khi bận).
+///
+/// [`AdminServer::start`] chỉ trả về khi vòng accept đã vào việc, nên caller không phải
+/// chờ bằng đồng hồ tường trước khi kết nối (issue #197).
 pub struct AdminServer {
     local_addr: SocketAddr,
     stop: Arc<AtomicBool>,
@@ -309,8 +313,12 @@ pub struct AdminServer {
     logger: Arc<Logger>,
 }
 
+/// Hạn chờ vòng accept vào việc sau khi bind. Quá hạn là lỗi khởi động, không treo caller.
+const ADMIN_ACCEPT_READY_TIMEOUT: Duration = Duration::from_secs(5);
+
 impl AdminServer {
-    /// Bind admin listener. Chỉ loopback; nếu cổng bận thì dùng cổng trống cùng IP.
+    /// Bind admin listener rồi chờ sự kiện vòng accept chạy xong bước đầu. Chỉ loopback;
+    /// nếu cổng bận thì dùng cổng trống cùng IP.
     pub fn start(
         config: &OperationalConfig,
         state: Arc<HealthState>,
@@ -353,7 +361,11 @@ impl AdminServer {
         let stop = Arc::new(AtomicBool::new(false));
         let thread_stop = stop.clone();
         let thread_logger = logger.clone();
+        let (ready_tx, ready_rx) = mpsc::channel::<()>();
         let handle = thread::spawn(move || {
+            // Sự kiện "vòng accept đã chạy": `start` chờ đúng tín hiệu này thay vì ngủ
+            // một khoảng cố định rồi hy vọng luồng đã được lập lịch (issue #197).
+            let _ = ready_tx.send(());
             while !thread_stop.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((stream, peer)) => {
@@ -372,6 +384,15 @@ impl AdminServer {
                 }
             }
         });
+        if ready_rx.recv_timeout(ADMIN_ACCEPT_READY_TIMEOUT).is_err() {
+            // Không join: luồng chưa được lập lịch thì join cũng treo. Cờ dừng đã bật nên
+            // vòng accept thoát ngay khi chạy tới.
+            stop.store(true, Ordering::Relaxed);
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "vòng accept admin không khởi động",
+            ));
+        }
         Ok(Self {
             local_addr,
             stop,
@@ -876,6 +897,35 @@ mod tests {
         .unwrap()
     }
 
+    /// Chờ một điều kiện do luồng nền tạo ra, có hạn. Thay cho `sleep` cố định: điều kiện
+    /// đúng thì trả ngay, máy chậm chỉ tốn thêm thời gian chờ chứ không làm test sai.
+    fn wait_until(mut done: impl FnMut() -> bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !done() {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        true
+    }
+
+    /// CLI health ngay sau khi server vừa bind, thử lại có hạn.
+    ///
+    /// Mã 2 (`unreachable`/`timeout`) lúc này chỉ có nghĩa "vòng accept chưa nhận kết nối",
+    /// không phải kết luận về runtime; mọi mã khác trả ngay để assertion của từng test giữ
+    /// nguyên giá trị. Không `sleep` cố định: mỗi lần thử là một lượt CLI thật.
+    fn run_health_cli_until_serving(config: &OperationalConfig) -> HealthCliOutcome {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let outcome = run_health_cli(config, false);
+            if outcome.code != 2 || Instant::now() >= deadline {
+                return outcome;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
     #[test]
     fn health_state_is_healthy_then_unhealthy_with_db_problem() {
         let config = config("state");
@@ -922,10 +972,9 @@ mod tests {
         ));
         let (logger, _) = logger(&config);
         let server = AdminServer::start(&config, state, logger).unwrap();
-        std::thread::sleep(Duration::from_millis(20));
         let mut live = config.clone();
         live.admin_addr = server.local_addr();
-        let outcome = run_health_cli(&live, false);
+        let outcome = run_health_cli_until_serving(&live);
         assert_eq!(outcome.code, 1);
         assert_eq!(outcome.body["status"], "unhealthy");
         assert_eq!(outcome.body["listen_addrs"], json!([]));
@@ -941,7 +990,6 @@ mod tests {
         mark_ready(&state, &config);
         let (logger, logs) = logger(&config);
         let server = AdminServer::start(&config, state, logger).unwrap();
-        std::thread::sleep(Duration::from_millis(20));
 
         let mut client = TcpStream::connect(server.local_addr()).unwrap();
         let _ = client.set_read_timeout(Some(Duration::from_millis(500)));
@@ -968,14 +1016,15 @@ mod tests {
         let frame = encode_frame(&hello, &ProtocolLimits::v1()).unwrap();
         write_frame(&mut bad, &frame, FrameLimits::V1).unwrap();
         assert!(read_frame(&mut bad, FrameLimits::V1).unwrap().is_none());
-        std::thread::sleep(Duration::from_millis(30));
-        let lines = logs.lines();
+        assert!(wait_until(|| logs
+            .lines()
+            .iter()
+            .any(|line| line["event"] == "server.health_rejected")));
         assert!(
-            lines
+            logs.lines()
                 .iter()
-                .any(|line| line["event"] == "server.health_rejected")
+                .any(|line| line["event"] == "server.health")
         );
-        assert!(lines.iter().any(|line| line["event"] == "server.health"));
     }
 
     #[test]
@@ -994,13 +1043,11 @@ mod tests {
         let mut bytes = [0u8; 1];
         let read = client.read(&mut bytes).unwrap_or(0);
         assert_eq!(read, 0);
-        std::thread::sleep(Duration::from_millis(20));
-        assert!(
-            logs.lines()
-                .iter()
-                .any(|line| line["event"] == "server.health_rejected"
-                    && line["reason"] == "non_loopback")
-        );
+        assert!(wait_until(|| logs
+            .lines()
+            .iter()
+            .any(|line| line["event"] == "server.health_rejected"
+                && line["reason"] == "non_loopback")));
     }
 
     #[test]
@@ -1014,13 +1061,24 @@ mod tests {
         mark_ready(&state, &config);
         let (logger, _) = logger(&config);
         let heartbeat = Heartbeat::start(state.clone(), logger, 20).unwrap();
-        std::thread::sleep(Duration::from_millis(80));
         let path = health_artifact_path(&config.data_dir);
-        let value: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_eq!(value["instance_id"], "boot-heartbeat");
-        assert_eq!(value["status"], "healthy");
-        assert!(value["admin_addr"].is_string());
-        assert!(value["pid"].is_u64());
+        let read_artifact = |path: &Path| -> Option<Value> {
+            serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+        };
+        // `Heartbeat::start` ghi artifact ngay và đồng bộ; bản ghi định kỳ kế tiếp mới là
+        // sự kiện phải chờ, nên không ngủ một khoảng cố định (issue #197).
+        let first = read_artifact(&path).expect("heartbeat ghi artifact ngay khi start");
+        assert_eq!(first["instance_id"], "boot-heartbeat");
+        assert_eq!(first["status"], "healthy");
+        assert!(first["admin_addr"].is_string());
+        assert!(first["pid"].is_u64());
+        let first_updated = first["updated_at_ms"].as_u64().unwrap();
+        assert!(
+            wait_until(|| read_artifact(&path)
+                .and_then(|value| value["updated_at_ms"].as_u64())
+                .is_some_and(|updated| updated > first_updated)),
+            "heartbeat không ghi lại artifact theo chu kỳ"
+        );
         drop(heartbeat);
         let _ = std::fs::remove_dir_all(&config.data_dir);
     }
@@ -1121,16 +1179,37 @@ mod tests {
         mark_ready(&state, &config);
         let (logger, _) = logger(&config);
         let server = AdminServer::start(&config, state, logger).unwrap();
-        std::thread::sleep(Duration::from_millis(20));
         let mut live = config.clone();
         live.admin_addr = server.local_addr();
-        let outcome = run_health_cli(&live, false);
+        let outcome = run_health_cli_until_serving(&live);
         assert_eq!(outcome.code, 1);
         assert_eq!(outcome.body["status"], "unhealthy");
         assert!(!outcome.body["problems"].as_array().unwrap().is_empty());
         assert!(outcome.body["uptime_ms"].as_u64().unwrap() > 0);
         assert_eq!(outcome.body["server_version"], "test-build");
         assert_eq!(outcome.body["wire_schema"], 1);
+    }
+
+    /// Hồi quy #197: `AdminServer::start` chỉ trả khi vòng accept đã chạy ⇒ CLI health gọi
+    /// ngay sau đó (không sleep) phải nhận phản hồi, không rơi vào `unreachable`/`timeout`.
+    #[test]
+    fn cli_health_serves_immediately_after_start() {
+        let config = config("cli-start-ready");
+        let state = Arc::new(HealthState::new(
+            config.clone(),
+            "boot-ready".into(),
+            now_ms(),
+        ));
+        mark_ready(&state, &config);
+        let (logger, _) = logger(&config);
+        let server = AdminServer::start(&config, state, logger).unwrap();
+        let mut live = config.clone();
+        live.admin_addr = server.local_addr();
+        let outcome = run_health_cli(&live, false);
+        assert_eq!(outcome.code, 0, "{:?}", outcome.body);
+        assert_eq!(outcome.body["status"], "healthy");
+        assert_eq!(outcome.body["scope"], "runtime");
+        let _ = std::fs::remove_dir_all(&config.data_dir);
     }
 
     #[test]
@@ -1146,12 +1225,11 @@ mod tests {
         let (logger, _) = logger(&config);
         let server = AdminServer::start(&config, state.clone(), logger.clone()).unwrap();
         let heartbeat = Heartbeat::start(state, logger, 10).unwrap();
-        std::thread::sleep(Duration::from_millis(30));
         let mut live = config.clone();
         live.admin_addr = server.local_addr();
         // CLI cố tình mang fingerprint khác: runtime phải lấy fingerprint từ server/artifact.
         live.server_version = "cli-wrong".to_owned();
-        let healthy = run_health_cli(&live, false);
+        let healthy = run_health_cli_until_serving(&live);
         assert_eq!(healthy.code, 0);
         assert_eq!(healthy.body["status"], "healthy");
         assert_eq!(healthy.body["scope"], "runtime");
