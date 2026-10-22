@@ -26,11 +26,13 @@ nguyên văn trong repo.
 - Lượt nối tiếp **R-136**: `vf3` (`0xB32390`) ghi dir vào protected field `+0x1C` của sub-object
   (`bomber+1440` = `0x5A0`); reader `0xB40D60` trả field này. **Chưa nối** từ reader/predicate tới
   setter vị trí `0xB334C0`/`0xB43750` hay `CMovable::MoveSimple` — mover/`len` vẫn **unknown** (§7).
-- Lượt **R-137** truy ngược setter: caller **trực tiếp** là **NPC/AI** (`0xB479E0` từ `0xF087E0` của
-  `CGOHedgehogBomber`, cùng các wrapper NPC captain/square); `B479E0` ghi `[+0x930]/[+0x934]` từ x,y
-  của caller, không phải từ dispatch dir. Re-check 2026-10-22 thấy thêm call **gián tiếp** slot
-  `+116` trong update bomber (`0xB77B10`/`0xB44000`) với toạ độ tính/clamp, nguồn chưa truy. Input
-  dir→position của player vẫn **unknown** (§8).
+- Lượt **R-137** đọc setter: các cạnh `0xB479E0`→`0xB43750`→`0xB334C0` ghi `+0x4C`/`+0x58`,
+  `0xB479E0` ghi `[+0x930]/[+0x934]`; wrapper NPC captain/square gọi trực tiếp `0xB43750`. **Lớp sử
+  dụng của `0xB479E0` = `unknown`** (là slot 95 của `CGOGameBomber`, chưa có caller ảo); không gán
+  NPC/AI cho `B479E0`. Quét 5 site `call [vtable+0x17C]` không site nào trỏ `B479E0`; gói S→C vị trí
+  tuyệt đối VN 176 / KR 183 dùng slot `+116` (= `0xB43750`), không qua slot 95. Giả thuyết
+  **candidate**: position sync từ server cho người chơi; input dir→position của player vẫn
+  **unknown** (§8).
 - R-125 và R-127 **chưa đóng**; R-134 chỉ xác nhận **đường đã trace** thuộc `CGOPet`.
 
 ## 1. Vì sao trước đây tưởng là bomber
@@ -209,72 +211,97 @@ DB gốc, không sửa config. Bundle: `.re-work/evidence-r136-r137-146.json` (1
 | `ev_3067b6d912e48695f8d34a2e2ed2e49254a38d19bbf8642a6cd0754feec26185` | `batch_decompile` | `0xB44000` | clamp `+0x930`/`+0x934`; call site setter `0xB44942` |
 | `ev_fca1d17acccfa1c7e41e4656c54ada1ad7038b593afdbaf30a00a1212defae38` | `xrefs` | `0xB7D460` | 5 code ref, không data ref (không phải virtual) |
 
-## 8. Lượt setter 2026-10-22 — caller native và nguồn clamp (R-137)
+## 8. Lượt setter 2026-10-22 — cạnh đã đọc, lớp sử dụng `B479E0`, packet vị trí (R-137)
 
 ### 8.1 Công cụ / phạm vi
 
-- Lượt đầu dùng IDA MCP trực tiếp vì REA CLI fail `EROFS` (§7.1); re-check 2026-10-22 chạy lại bằng
-  **REA MCP** (`provider_id: ida`, target `kr-full.exe`, SHA-256 `cf72da11…e63b`), không sửa
-  config/pin, không chạy client. Evidence và phạm vi ở §8.4.
-- Truy ngược từ setter `0xB43750`/`0xB334C0`, writer `[+0x930]/[+0x934]`, và đọc thêm thân slot 24
-  `0xB77B10`/`0xB44000` để kiểm phép tìm âm tính; có đọc lại dispatch/reader R-136 để xác nhận.
-- Bundle hợp nhất `.re-work/evidence-r136-r137-146.json` (12 record, không commit).
+- **REA MCP** (`provider_id: ida`) trên bản sao `kr-full.exe`, SHA-256 `cf72da11…e63b`; không mở DB
+  gốc, không sửa config/pin. Bundle `.re-work/evidence-r137-slot95-146.json` (23 record, không commit).
+- Quét lời gọi gián tiếp slot `+0x17C` bằng disassembly toàn bộ section code của bản sao (objdump
+  Intel, đối chiếu raw byte `FF 90..97 7C 01 00 00`), rồi xác nhận từng hàm bằng REA
+  `resolve_containing_procedure`/`batch_decompile`; đọc bảng jump của `sub_E5D3A0` trực tiếp từ byte.
+- VN: docs `boom-re/docs/oc_e-game.md`, server giả lập `boom-re/server`, IDB bản sao
+  `.re-work/vn/unpacked_ca.exe.i64` (không mở gốc) cho `sub_706C42`/`sub_5B4AE9`.
 
-### 8.2 Cạnh caller → setter
+### 8.2 Các cạnh đã đọc (confirmed)
 
-| Cạnh | VA (RVA) | Quan sát |
+| Cạnh | VA / offset | Quan sát |
 |---|---|---|
-| Setter | `0xB43750` (`0x743750`) → `0xB334C0` (`0x7334C0`) | `0xB43750` là vtable slot **+116**; gọi `sub_B334C0(a2,a3)` tại `0xB43764`; `0xB334C0` ghi protected x/y tại `+0x4C`/`+0x58` qua `0x55FD30` |
-| Caller chính | `0xB479E0` (`0x7479E0`) | Vtable slot **95** (byte `+0x17C`) của `CGOGameBomber::vftable` `0x1745FE8` (ptr tại `0x1746164`); gọi `0xB43750(this, a3, a4)` tại `0xB47A7B`; sau đó ghi `[this+0x930]=a3`/`[this+0x934]=a4` tại `0xB47AD8`/`0xB47AE4` |
-| Caller của `B479E0` | `0xF087E0` (`0xB087E0`), call `0xF087FD` (`0xB087FD`) | Direct caller **duy nhất** trong xref trực tiếp. `0xF087E0` là vtable slot 95 của `CGOHedgehogBomber::vftable` `0x176E2C8` (ptr tại `0x176E444`), gọi `sub_B479E0(a2,a3,a4)` — `a2` là đối tượng bomber, `a3/a4` là x,y |
-| Wrapper setter | `0x69BD60` (`0x29BD60`), `0x69FE80` (`0x29FE80`), `0xF06770` (`0xB06770`), `0x11260C0` (`0xD260C0`) | Gọi `0xB43750(this,a2,a3)` rồi cập nhật sub-object `+3254`/`+3253`/`+3202`; các pointer này nằm trong vtable `CGONpcCaptain2Bomber`/`CGONpcCaptainBomber`/`CGOCaptainBomber`/`CGOLobbySquareBomber`/`CGOSquareBomber`/`CGOSquareNPCGuideBomber` (slot 29, byte +0x74) — đều là lớp NPC/AI, không phải `CGOGameBomber` |
-| Nguồn clamp / gọi lại setter | `0xB44000` (`0x744000`), call `0xB44942` (`0x744942`); clamp `0xB44975`/`0xB44A08` | **Đọc** `[this+0x930]`/`[+0x934]`, rồi gọi **gián tiếp** virtual slot `+116` (= `0xB43750`) với chính hai field này tại `0xB44942`, sau đó clamp tại `0xB44975`/`0xB44A08`. Không gọi trực tiếp `B479E0`/`B43750`/`B334C0` |
-| Setter từ update slot 24 | `0xB77B10` (`0x777B10`), call `0xB77C98` (`0x777C98`) | Slot 24 vtable `0x1745FE8` (data ref `0x1746048`). Gọi **gián tiếp** `*this+116` (= `0xB43750`) với `(v10[0]-20, v10[1]+15)`; `v10` lấy từ `0xB7D460(this+3230)` (không phải virtual, 5 code ref) |
-| Event path | `0xB57340` (`0x757340`), `0xB77EA0` (`0x777EA0`) | Không thấy call trực tiếp hay qua slot `+116` tới setter; không nối được input dir |
+| Setter | `0xB43750` (`0x743750`) → `0xB334C0` (`0x7334C0`) | `0xB43750` là vtable slot **+116**; gọi `B334C0(a2,a3)` tại `0xB43764`; `B334C0` ghi protected x/y tại `+0x4C`/`+0x58` |
+| `B479E0` | `0xB479E0` (`0x7479E0`) | Slot **95** (`+0x17C`) của `CGOGameBomber::vftable` `0x1745FE8` (cùng slot `CGOBomber` `0x1744964`); gọi `B43750(this,a3,a4)` tại `0xB47A7B`; ghi `[this+0x930]=a3`/`[+0x934]=a4` tại `0xB47AD8`/`0xB47AE4` |
+| Direct caller | `0xF087E0` (`0xB087E0`), call `0xF087FD` | **Direct caller duy nhất** của `B479E0`; là slot 95 của `CGOHedgehogBomber::vftable` `0x176E2C8`, truyền `(a2,a3,a4)`. Đây **không** chứng minh lớp sử dụng của `B479E0` |
+| Wrapper setter | `0x69BD60`/`0x69FE80`/`0xF06770`/`0x11260C0` | Gọi trực tiếp `B43750(this,a2,a3)`; vtable thuộc `CGONpcCaptain2Bomber`/`CGONpcCaptainBomber`/`CGOCaptainBomber`/`CGOLobbySquareBomber`/`CGOSquareBomber`/`CGOSquareNPCGuideBomber` (slot 29) — **chỉ các wrapper này là NPC/AI** |
+| Clamp / gọi lại setter | `0xB44000` (`0x744000`), call `0xB44942`, clamp `0xB44975`/`0xB44A08` | Đọc `[+0x930]/[+0x934]`, gọi **gián tiếp** slot `+116` (= `0xB43750`) với chúng, rồi clamp |
+| Update slot 24 | `0xB77B10` (`0x777B10`), call `0xB77C98` | Slot 24 vtable `0x1745FE8`; gọi gián tiếp slot `+116` với `(v10[0]-20, v10[1]+15)` từ `0xB7D460(this+3230)` |
 
-### 8.3 Kết luận / blocker
+**Lớp sử dụng của `B479E0` = `unknown`.** Nó là virtual của `CGOGameBomber` nhưng chưa truy được
+caller ảo nào; direct caller `F087E0` thuộc `CGOHedgehogBomber` không đủ để gán lớp. **Giả thuyết
+candidate** (không phải claim): `B479E0(a2,x,y)` đặt vị trí rồi lưu `[+0x930]/[+0x934]` để `B44000`
+clamp — khớp mẫu **position sync từ server cho người chơi**; engine V1 là server-authoritative nên
+đáng truy.
 
-- **Đã chứng minh**: caller native của setter trong phạm vi xref trực tiếp là **NPC/AI** — `B479E0`
-  (một virtual của base bomber) được gọi từ `F087E0` của `CGOHedgehogBomber`, và các wrapper NPC
-  captain/square gọi trực tiếp `B43750`. `B479E0` nhận x,y từ caller (`a3/a4`), gọi setter, rồi ghi
-  chính x,y đó vào `[+0x930]/[+0x934]`. Đây là **correction/position sync của NPC/AI**, không phải
-  input dir của `CGOGameBomber` người chơi.
-- **Đính chính phạm vi âm tính (re-check 2026-10-22)**: câu "`0xB44000`/`0xB77B10` không gọi setter"
-  ở bản trước chỉ đúng với **call trực tiếp**; thực tế hai hàm này gọi **gián tiếp** qua virtual slot
-  `+116` (= `0xB43750`) tại `0xB44942`/`0xB77C98`. `0xB44000` gọi lại bằng `[+0x930]/[+0x934]` rồi
-  clamp; `0xB77B10` (slot 24 `CGOGameBomber`) gọi bằng toạ độ `(v10[0]-20, v10[1]+15)` từ
-  `0xB7D460(this+3230)`. Vì vậy "caller chỉ thuộc NPC/AI" chỉ đúng cho **direct xref**; setter còn
-  được chính lớp bomber gọi trong update/correction. Nguồn toạ độ `0xB7D460` chưa truy; không có
-  cạnh từ field `+0x5A0`/reader `0xB40D60` tới hai call site này, nên input dir→position của player
-  vẫn **unknown**.
-- **Chưa chứng minh**: nguồn toạ độ của hai call site gián tiếp trong lớp player (`0xB77C98` từ
-  `0xB7D460`, `0xB44942` từ `[+0x930]/[+0x934]`) và việc `CGOGameBomber` có gọi `B479E0`/`B43750`
-  qua đường khác hay không. Vtable player có slot 95 = `B479E0` nhưng **không có caller native trực
-  tiếp** thuộc player được thấy; nguồn `a3/a4` của `F087E0` cũng chưa truy được vì call site là
-  indirect vtable slot. Vì vậy input dir → position của player vẫn **unknown**; không thay
-  R-125/R-127.
-- Không thấy công thức `len`/speed/trapped; không suy px/s/nhịp server.
-- **Bước tiếp**: tìm producer `a3/a4` của `F087E0` (bảng dispatch/network/AI) để biết correction hay
-  AI target; nếu thấy entry VM thì dừng. Nếu vẫn không nối được, **dừng mover** và chuyển mục 3
-  BomberAttr/item theo chỉ đạo review #189 — không lặp lại cùng mỏ neo.
+### 8.3 Quét lời gọi gián tiếp slot 95 (`call [vtable+0x17C]`)
 
-### 8.4 Re-check bằng REA MCP — `evidence_id` và phạm vi truy vấn
+Phạm vi: toàn bộ code có trong bản sao (section `0x401000–0xB65C00` và `.priv` `0xB66000–0x1A98000`);
+5 site tĩnh duy nhất (không có `call DWORD PTR [reg+0x17C]` raw; 5 site là `mov reg,[vtable+0x17C];
+call reg`):
 
-Cùng target/bundle như §7.4. Các truy vấn R-137:
-
-| `evidence_id` | Operation | Phạm vi truy vấn | Kết quả |
+| Site | Hàm chứa | Vtable/đối tượng | Slot 95 thực tế |
 |---|---|---|---|
-| `ev_ea00a69a6347a948e0f5d779fe57ea2c482daecf62ff3c3d349e6b66b94244c2` | `batch_decompile` | `0xB43750`, `0xB334C0`, `0xB479E0`, `0xF087E0` | setter gọi `B334C0`; `B479E0` gọi `B43750(this,a3,a4)`; `F087E0` gọi `B479E0` |
-| `ev_977db7f09462abc2d9652652d449c722b33ddfb3b478a2724bb8620e1e2ff8ca` | `xrefs` | `0xB43750` | 36 ref: 4 code (`0x69BD74`, `0x69FE94`, `0xF06784`, `0x11260D4`); data gồm `0x174605C` = slot `+116` vtable `0x1745FE8` |
-| `ev_dd433bf57dc9d4cb8d8cd63f2a26551ebd33c9eed246af79b05c294fbac41892` | `xrefs` | `0xB479E0` | 37 ref: 1 code (`0xF087F8`); data gồm `0x1746164` = slot 95 vtable `0x1745FE8`, `0x1744AE0` = slot 95 vtable `0x1744964` |
-| `ev_21be21c334ef3589abc9f9aa41528eff54195c06a441bfc8b924b5eb50a93af7` | `procedure_assembly` | `0xB334C0` | `add ecx,4Ch` và `add ecx,58h`; `retn 8` (thiscall + 2 arg) |
-| `ev_dd7c5854a9323890c9a0400d0b436df5d8f81733d55ba20fdba8f5249dc9a806` | `batch_decompile` | `0xB57340`, `0xB77EA0` | không thấy call trực tiếp hay slot `+116` tới setter |
-| `ev_d43835b3517b3f1a1aeb7ed125ee2b121c2e10588281814466a64b137ce792d7` | `batch_decompile` | `0xB77B10` | gọi `0xB44000` tại `0xB77E27`; call slot `+116` tại `0xB77C98` với toạ độ từ `0xB7D460(this+3230)` |
-| `ev_8550bffa595b6511d0ad39c5836fb481be138397c891cdad103d45f11beb973b` | `xrefs` | `0xB77B10` | 26 ref: 22 code; data `0x1746048` = slot 24 vtable `0x1745FE8` (xác nhận lớp `CGOGameBomber`) |
-| `ev_3067b6d912e48695f8d34a2e2ed2e49254a38d19bbf8642a6cd0754feec26185` | `batch_decompile` | `0xB44000` | call slot `+116` tại `0xB44942` bằng `[+0x930]/[+0x934]`; clamp `0xB44975`/`0xB44A08` |
-| `ev_fca1d17acccfa1c7e41e4656c54ada1ad7038b593afdbaf30a00a1212defae38` | `xrefs` | `0xB7D460` | 5 code ref (`0xB74767`, `0xB77C3D`, `0xB77CA5`, `0xB78FC7`, `0xB7B4C2`), 0 data ref |
+| `0xF2BDC5` | `sub_F2B760` (slot 10 của `CGONpcBasicMon`) | object chính tại `this-0xB8`, vtable `0x17712D4` | `0xF2D7C0` — **không** `B479E0` |
+| `0xF34EB7` | `sub_F34DF0` | vtable `0x17719E4` | `0xF34ED0` — **không** |
+| `0xF3EAD1` | `sub_F3E5D0` | vtable `0x177346C` | `0xF3E3C0` — **không** |
+| `0x12C2596` | `sub_12C2020` (UI/quest dialog) | object từ `sub_125E150`, không có x/y bomber | chưa xác định — không phải đường vị trí |
+| `0x12C2B5C` | `sub_12C2620` (UI/quest dialog) | object từ `sub_125E150`, không có x/y bomber | chưa xác định — không phải đường vị trí |
 
-Phạm vi âm tính đã chạy: xref trực tiếp tới `0xB43750`/`0xB479E0`, decompile toàn thân
-`0xB57340`/`0xB77EA0`/`0xB44000`/`0xB77B10`, và kiểm call site virtual slot `+116`. Kết quả **không**
-loại trừ đường gián tiếp khác/VM; chỉ xác nhận hai call site gián tiếp nêu trên và việc không có cạnh
-từ field `+0x5A0`/reader `0xB40D60` tới chúng.
+Kết luận: **3 site bomber-family có slot 95 xác định ≠ `B479E0`**; 2 site UI không có x/y, không phải
+đường vị trí bomber. Không thấy site nào gọi `B479E0`; nó chỉ có một direct caller `0xF087E0`.
+Không loại trừ call qua thanh ghi tính toán/VM (chưa chạy runtime).
+
+### 8.4 Packet vị trí S→C: VN opcode 176 ↔ KR opcode 183
+
+- **VN** `CGameStage__OnPacket` case 176 → `sub_706C42` (0x706C42): `u8 id`, `u8 flags`
+  (`flags & 0x7F` = slot; bit 7 = absolute); nếu absolute đọc thêm `u8 y`, `u8 x` rồi gọi
+  `sub_5B4AE9(id, slot, 40*x, 40*y+39)`; `sub_5B4AE9` đặt vị trí qua `(*this+104)` (slot 26).
+  Không có nhánh nào gọi slot 95. Layout/units đọc từ decompile; **chưa kiểm runtime**.
+- **KR** `sub_E5D3A0` (dispatch kiểu `CGameStage__OnPacket`, case = opcode−20, bảng byte
+  `0xE5DE9C` + jump `0xE5DDC4`): opcode **183** → `0xE5D65B` → `sub_E65350` (0xE65350). Handler đọc
+  đúng layout trên; nhánh absolute gọi `0xE654C2`: `sub_B88800(ghost, id, slot, 40*x, 40*y+39)`.
+  `sub_B88800` gọi virtual slot `+116` (= `0xB43750` ở họ vtable bomber) tại `0xB8898A`, **không**
+  gọi slot 95/`B479E0`.
+- Hệ quả: có **packet → setter vị trí** cho ghost/bomber (đơn vị 40 px; `y = 40*row+39`), nhưng
+  **không có** cạnh packet → slot 95 → `B479E0`. Vì vậy giả thuyết "position sync cho người chơi"
+  chỉ đúng ở mức packet→setter; vai trò của `B479E0` vẫn **unknown**.
+- Ghi chú lệch build: cùng layout nhưng VN dùng slot 26 (`+104`), KR dùng slot 29 (`+116`); số
+  opcode cũng lệch (VN 176, KR 183). Không suy slot/thứ tự opcode giữa hai build.
+
+### 8.5 Kết luận / blocker
+
+- **Confirmed**: các cạnh setter/writer ở §8.2; wrapper NPC captain/square; layout packet tuyệt đối
+  VN 176/KR 183 và việc handler dùng slot `+116` (không slot 95), đơn vị 40 px.
+- **Unknown**: lớp sử dụng của `B479E0` (chỉ có direct caller `F087E0`); input dir→position của
+  player; chưa kiểm runtime packet.
+- **Candidate** (không claim): `B479E0` là position sync từ server cho người chơi.
+- **Blocker có phạm vi**: đã quét toàn bộ 5 site `call [vtable+0x17C]`, decompile toàn thân
+  `0xB57340`/`0xB77EA0`/`0xB44000`/`0xB77B10`, xref trực tiếp `0xB43750`/`0xB479E0`, và map packet
+  VN→KR. Chỗ đứt: không có caller ảo của slot 95 trỏ `B479E0`; packet dùng setter khác. Không thấy
+  entry `.themida` trong các hàm đã đọc. Không suy px/s/nhịp server/trapped.
+
+### 8.6 Evidence
+
+Bundle `.re-work/evidence-r137-slot95-146.json`. Các `evidence_id` chính:
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_ea00a69a6347a948e0f5d779fe57ea2c482daecf62ff3c3d349e6b66b94244c2` | `batch_decompile` `0xB43750`/`0xB334C0`/`0xB479E0`/`0xF087E0` | cạnh setter/caller |
+| `ev_977db7f09462abc2d9652652d449c722b33ddfb3b478a2724bb8620e1e2ff8ca` | `xrefs` `0xB43750` | wrapper trực tiếp + data slot `+116` |
+| `ev_dd433bf57dc9d4cb8d8cd63f2a26551ebd33c9eed246af79b05c294fbac41892` | `xrefs` `0xB479E0` | 1 direct caller `0xF087E0` |
+| `ev_21be21c334ef3589abc9f9aa41528eff54195c06a441bfc8b924b5eb50a93af7` | `procedure_assembly` `0xB334C0` | `+0x4C`/`+0x58` |
+| `ev_ef51aa30c4dc2e156cbe3c0820767769f88599ccaf494a86987587881e7fd219` | `batch_decompile` 5 hàm chứa site slot 95 | phân lớp 5 site |
+| `ev_13f01a9c3d8f9725fa195d4c8ef3dede8d1bb3b2b9f13be06ff15bcb9dda0a80` | `xrefs` `0xF3D830` | slot 79 + vtable `0x177346C`; slot 95 = `0xF3E3C0` |
+| `ev_fdf896d5fe568c326f1a48ad5cd2abf3cd11eba021492dfc8f175336b7c39901` | `xrefs` vtable `0x1771494` | `CGONpcBasicMon` ctor; primary vtable `0x17712D4` |
+| `ev_b68075d5be124cdfc26fa26b48a9c19e43d80ba6b5958919eef03e38b356e48d` | `batch_decompile` `0xB88800`/`0xBA3100` | ghost reset; slot `+116` |
+| `ev_d94e551ba16506fe15a1436713bef02613e14435bd4b4a064cb29b74b6b8063e` | `batch_decompile` `0xE65350`/`0xE84F00` | handler opcode 183 |
+| `ev_f91194098e3c6b1557cfb770a8aea4a26cf5f190e1769492ae4dc7c8e5a57eae` | `xrefs` `0xE65350` | caller `0xE5D662` |
+
+VN dùng IDB bản sao, không phải REA; địa chỉ VN ghi theo IDB `unpacked_ca.exe.i64`.
