@@ -337,6 +337,9 @@ pub struct DirectDtoBot {
     ping_nonce: u64,
     /// Lượt nào bot đang giữ `ResultAck`, chờ state cuối lượt.
     pending_result_ack: Option<u64>,
+    received_results: BTreeSet<u64>,
+    result_request_at_ms: u64,
+    result_retry_ms: u64,
     /// Các lượt đã biết kết thúc (chống đếm hai lần khi frame trùng/đảo thứ tự).
     finished_rounds: BTreeSet<u64>,
     /// Các lượt đã gửi `ResultAck`.
@@ -399,6 +402,9 @@ impl DirectDtoBot {
             pending_pings: BTreeMap::new(),
             ping_nonce: 0,
             pending_result_ack: None,
+            received_results: BTreeSet::new(),
+            result_request_at_ms: 0,
+            result_retry_ms: 0,
             finished_rounds: BTreeSet::new(),
             acked_rounds: BTreeSet::new(),
             round_end_at_ms: 0,
@@ -419,7 +425,7 @@ impl DirectDtoBot {
         self.flow = RoomFlow::new();
         self.predicted_positions.clear();
         self.phase = BotPhase::Handshake;
-        self.request_seq = 0;
+        // Request ID thuộc account: lobby giữ mốc dedup cả sau disconnect.
         self.room_id = None;
         self.join_requested = None;
         self.join_requested_at_ms = 0;
@@ -445,7 +451,11 @@ impl DirectDtoBot {
         self.lobby_requested_at_ms = 0;
         self.next_auth_at_ms = 0;
         self.auth_sent_at_ms = 0;
-        self.auth_op = AuthOp::Register;
+        self.auth_op = if self.stats.account_id.is_some() {
+            AuthOp::Login
+        } else {
+            AuthOp::Register
+        };
         self.auth_sent = false;
         self.auth_retry_allowed = false;
         self.pending_pings.clear();
@@ -508,9 +518,13 @@ impl DirectDtoBot {
     }
 
     fn on_welcome(&mut self, now_ms: u64) -> Result<Vec<Vec<u8>>, BotError> {
-        // `Welcome` lần đầu mới chọn `Register`; `Welcome` trùng thì giữ nguyên op đã dùng.
+        // Tài khoản đã nhận AuthOk dùng Login khi mở phiên mới. Welcome trùng giữ op.
         if !self.auth_sent {
-            self.auth_op = AuthOp::Register;
+            self.auth_op = if self.stats.account_id.is_some() {
+                AuthOp::Login
+            } else {
+                AuthOp::Register
+            };
         }
         self.maybe_send_auth(now_ms)
     }
@@ -750,6 +764,8 @@ impl DirectDtoBot {
         self.last_snapshot = None;
         self.last_snapshot_seq = 0;
         self.pending_result_ack = None;
+        self.result_request_at_ms = 0;
+        self.result_retry_ms = 0;
         self.start_sent = false;
         true
     }
@@ -839,7 +855,9 @@ impl DirectDtoBot {
 
     /// Bot đã có state cuối lượt thì được ack kết quả.
     fn ack_if_have_state(&mut self, round_id: u64) -> Result<Vec<Vec<u8>>, BotError> {
-        if !self.stats.round_hashes.contains_key(&round_id) {
+        if !self.received_results.contains(&round_id)
+            || !self.stats.round_hashes.contains_key(&round_id)
+        {
             return Ok(Vec::new());
         }
         self.release_result_ack(round_id)
@@ -950,6 +968,7 @@ impl DirectDtoBot {
             // Kết quả của lượt cũ đến trễ: bỏ qua.
             return Ok(Vec::new());
         }
+        self.received_results.insert(round_id);
         self.round_end_at_ms = now_ms;
         self.note_round_finished(round_id);
         self.phase = BotPhase::Results;
@@ -1351,6 +1370,16 @@ impl BotClient for DirectDtoBot {
                 }
             }
         }
+        if let Some(round_id) = self.round_id
+            && self.finished_rounds.contains(&round_id)
+            && !self.received_results.contains(&round_id)
+            && now_ms.saturating_sub(self.result_request_at_ms)
+                >= self.result_retry_ms.max(self.config.retry_ms)
+        {
+            out.push(self.encode(&boom_proto::RoundResultRequest { round_id })?);
+            self.result_request_at_ms = now_ms;
+            self.result_retry_ms = (self.result_retry_ms.max(self.config.retry_ms) * 2).min(2000);
+        }
         if self.handshaken()
             && now_ms.saturating_sub(self.last_ping_at_ms) >= self.config.ping_interval_ms
         {
@@ -1695,6 +1724,23 @@ mod tests {
         // `Pong` A tới muộn: mẫu riêng của A, không đụng mẫu của B.
         bot.on_frame(2_100, &pong_frame(nonce_a)).unwrap();
         assert_eq!(bot.stats().rtt.values(), [40u64, 1_100].as_slice());
+    }
+
+    #[test]
+    fn reconnect_uses_login_for_an_authenticated_account() {
+        let mut bot = test_bot();
+        bot.stats.account_id = Some(42);
+        let previous = bot.next_request();
+        bot.reset(1);
+        assert!(
+            bot.next_request() > previous,
+            "request ID không được lùi khi reconnect"
+        );
+        let frames = bot.on_welcome(1).unwrap();
+        let auth: Auth =
+            boom_proto::decode_frame(&frames[0], &boom_proto::ProtocolLimits::v1()).unwrap();
+        assert_eq!(auth.op, AuthOp::Login);
+        assert_eq!(bot.stats.auth_failed, 0);
     }
 
     /// `Pong` của lần chạy trước (nonce không dùng lại) không được khớp nhầm ping mới.

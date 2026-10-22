@@ -215,6 +215,7 @@ enum Inbound {
 
 enum Outbound {
     Frame(Vec<u8>),
+    Barrier(Sender<()>),
 }
 
 /// Hàng đợi ghi có giới hạn theo kết nối; client không đọc thì bị ngắt thay vì chặn tick.
@@ -291,6 +292,8 @@ pub struct Server {
     /// `shutdown_sessions` được gọi cả lúc dừng sạch lẫn trong `Drop` ⇒ cờ này giúp log
     /// `player.disconnect` chỉ xuất hiện **một lần** cho mỗi phiên.
     shutdown_logged: bool,
+    /// Kết quả public bất biến, gắn với phòng (ADR 0009 §B.7).
+    committed_result: Option<(u64, RoundResult)>,
 }
 
 impl Server {
@@ -313,6 +316,7 @@ impl Server {
             liveness_timeout_ms: 30_000,
             auth_deadline_ms: 10_000,
             shutdown_logged: false,
+            committed_result: None,
         }
     }
 
@@ -473,6 +477,26 @@ impl Server {
         self.sessions.len()
     }
 
+    /// Chờ writer gửi hết các frame đã xếp, phục vụ điều phối IO/fixture.
+    /// Không poll, không tiến đồng hồ authority; `timeout` chỉ là trần an toàn.
+    pub fn flush_outbound(&self, timeout: Duration) -> Result<(), String> {
+        let mut barriers = Vec::new();
+        for session in self.sessions.values() {
+            let (tx, rx) = mpsc::channel();
+            session
+                .out_tx
+                .try_send(Outbound::Barrier(tx))
+                .map_err(|err| err.to_string())?;
+            barriers.push(rx);
+        }
+        for barrier in barriers {
+            barrier
+                .recv_timeout(timeout)
+                .map_err(|err| err.to_string())?;
+        }
+        Ok(())
+    }
+
     /// Nhận một nửa đọc và một nửa ghi của kết nối; spawn đúng một luồng đọc chặn.
     ///
     /// `connection_id` là **định danh kết nối** (đưa vào `Welcome.player_id`), không phải
@@ -539,6 +563,9 @@ impl Server {
             let mut writer = writer;
             while let Ok(out) = out_rx.recv() {
                 match out {
+                    Outbound::Barrier(done) => {
+                        let _ = done.send(());
+                    }
                     Outbound::Frame(frame) => {
                         if writer.send_frame(&frame).is_err() {
                             let _ = outbound_tx.send(Inbound::WriteFailed { player });
@@ -835,6 +862,32 @@ impl Server {
                     }
                 }
             }
+            boom_proto::MessageKind::RoundResultRequest => {
+                let request: boom_proto::RoundResultRequest = decode_frame(frame, &limits)?;
+                let result = self
+                    .committed_result
+                    .as_ref()
+                    .filter(|(room, result)| {
+                        self.authority
+                            .room_view()
+                            .is_some_and(|view| view.id.0 == *room)
+                            && result.round_id == request.round_id
+                            && result
+                                .results
+                                .iter()
+                                .any(|entry| entry.player == room_player.0)
+                    })
+                    .map(|(_, result)| result.clone());
+                if let Some(result) = result {
+                    self.send(player, &result)?;
+                } else {
+                    self.send_room_rejected(
+                        player,
+                        request.round_id,
+                        boom_proto::RoomRejectReason::StaleRequest,
+                    )?;
+                }
+            }
             boom_proto::MessageKind::ResultAck => {
                 let ack: ResultAck = decode_frame(frame, &limits)?;
                 if !self.ack_round_matches(ack.round_id) {
@@ -1035,7 +1088,11 @@ impl Server {
                 self.log_kicked(*player, *by, context);
             }
         }
+        if self.authority.room_view().is_none() {
+            self.committed_result = None;
+        }
         if let Some(round) = update.round {
+            self.committed_result = None;
             // Round mới: ghi vòng đời round trước khi gửi `RoundStart` cho roster.
             self.log_round_start(round);
             self.send_round_start(round)?;
@@ -1259,6 +1316,7 @@ impl Server {
             outcome,
             results,
         };
+        self.committed_result = Some((view.id.0, message.clone()));
         let members: Vec<PlayerId> = view.members.iter().map(|m| m.player).collect();
         for account in members {
             let Some(connection) = self.connection_of(account) else {
@@ -1790,6 +1848,9 @@ impl Server {
         }
         if let Some(view) = self.authority.room_view() {
             let _ = self.send_room_state(&view);
+        }
+        if self.authority.room_view().is_none() {
+            self.committed_result = None;
         }
         let _ = self.broadcast_lobby_list();
     }

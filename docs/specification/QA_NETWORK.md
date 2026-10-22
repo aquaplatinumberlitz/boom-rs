@@ -225,18 +225,51 @@ phòng và dựng lại được hash của lượt.
 
 - Harness đo **bản Rust hiện tại**, không kết luận gì về độ trùng khớp với client/server gốc
   (SCOPE_V1 §7.8).
-- Chưa có đường xin lại bảng `RoundResult` khi mất frame. Snapshot Ended chỉ chứng minh state/hash,
-  không chứng minh đã nhận bảng kết quả/rank. Phần đổi contract dừng chờ Claude theo
-  [đề xuất #166](https://github.com/aquaplatinumberlitz/boom-rs/issues/166#issuecomment-6325761895).
+- Snapshot Ended chỉ chứng minh state/hash, không thay bảng kết quả/rank. Bot thiếu bảng sẽ
+  gửi `RoundResultRequest` theo [ADR 0009 §B.7](../decisions/0009-wire-protocol-input-snapshot-codec.md#b7-2026-10-22--recovery-roundresult),
+  chỉ ack khi đã nhận bảng authority và hash cuối. Server giữ đúng bảng commit tới Start kế tiếp.
 - Bản đồ và profile rules của harness là **fixture kiểm thử**, không phải map `FxMap/Map/Village00`
   của V1 (SCOPE_V1 §1) và không phải profile phát hành.
 - Recovery test không yêu cầu client đã rời có hash của lượt bị ngắt; cần đủ bốn hash ở lượt sau.
 
 ## Nghiệm thu phần 2 (#166)
 
-CI chạy ba test trong `boom-qa/src/harness.rs::recovery_tests`: bốn predictor drain/hội tụ,
-disconnect giữa trận rồi auth/rejoin, và mất Pong tới hết liveness rồi auth/rejoin.
+CI chạy bốn test trong `boom-qa/src/harness.rs::recovery_tests`: bốn predictor drain/hội tụ,
+disconnect giữa trận rồi auth/rejoin, mất Pong tới hết liveness rồi auth/rejoin, và mất frame
+RoundResult đầu của cả bốn bot rồi xin lại kết quả/drain/hội tụ.
 Timer test là design vận hành: Ping 50 ms, timeout 500 ms; không đổi timer mặc định profile.
+
+Sửa tính tất định #178 (baseline `26435d0`, đối chiếu kỹ thuật #158): ba recovery test
+chọn `TimingMode::Virtual`, tiến `step_ms` cố định sau rào IO. Reader server xác nhận đã enqueue
+frame qua bộ đếm tại lần `recv_frame` kế tiếp; harness chờ từng lần gửi để thứ tự giữa bot
+không phụ thuộc scheduler. `Server::flush_outbound` đặt marker nội bộ sau queue writer;
+marker không đi trên wire và không tiêu thụ PRNG lỗi mạng. Bot đọc tuần tự sau marker để
+reader không tiến đồng hồ MemoryTransport giữa lúc writer còn gửi cùng batch. Reconnect
+chờ EOF đã enqueue và writer cũ đóng trước khi tái dùng ID kết nối. Trần chờ rào 10 giây
+chỉ phát hiện thread kẹt; không quyết định tick, retry hay liveness.
+
+Nguyên nhân CI đỏ: thời gian thật tiếp tục chạy trong khi reader/writer chưa xử lý xong,
+đặc biệt khoảng drain reconnect 100 ms có thể làm các bot khác lỡ Pong dưới timer 500 ms.
+Thứ tự frame/retry thay đổi kéo theo dòng PRNG và thời điểm hoàn tất lượt;
+ngân sách 20 giây thật không bảo đảm hoàn tất dù hash lượt sau đã hội tụ. `auth_failed`
+không tự chứng minh account còn phiên cũ: bot reset về Register nên đăng ký lại tài khoản
+đã có sẽ nhận UsernameUnavailable. Bot đã nhận AuthOk nay dùng Login khi mở lại phiên;
+ca recovery kiểm không có auth failure, chỉ bot bị tiêm lỗi reconnect đúng một lần.
+Trace chế độ ảo còn xác định `RoomRejected::StaleRequest`: reset request ID về 0 trong khi
+lobby giữ mốc dedup theo account qua disconnect. Bot nay giữ request ID tăng liên tục
+qua reconnect; regression kiểm đồng thời Login và request ID không lùi.
+
+Assertion hội tụ giữ nguyên và bổ sung so sánh **toàn bộ RunReport** của hai lần cùng seed
+cho mỗi scenario. Budget 20.000 ms nay là thời gian fixture. MemoryTransport Virtual
+vẫn giữ loss/trùng/đảo thứ tự theo seed, nhưng giao ngay khi reader hỏi; các số đo ảo không
+là benchmark RTT thật hoặc bằng chứng delay theo tick authority. Profile đo thủ công vẫn
+chạy Real như trước; phần drain 100 ms của chế độ đó chưa được thay bằng rào.
+
+Kiểm chứng local bản sửa #178: `CARGO_TARGET_DIR=$PWD/target cargo xtask ci` exit 0;
+lặp 30 lần `taskset -c 0 cargo test -p boom-qa --lib recovery_tests` đạt 30/30
+(3 test/lượt, mỗi scenario so sánh hai báo cáo); `git diff --check` sạch.
+CI ba OS và review độc lập được theo dõi trên PR, chưa coi local pass là nghiệm thu V1.
+
 Auth vẫn qua SQLite + AuthService/Argon2id thật, nhưng tham số hash fixture là 64 KiB/1 vòng/1 luồng
 để auth không chặn poll lâu hơn timer liveness thử nghiệm. Không đổi cấu hình server production;
 không dùng báo cáo này để benchmark auth hoặc đánh giá độ bền mật khẩu.
@@ -249,7 +282,7 @@ cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario disc
 cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario liveness --server-ping-ms 100 --liveness-ms 2000 --json-out qa-liveness.json
 ```
 
-Chưa đóng V1-027 chỉ từ test nhanh; còn bộ đo dài nhiều seed và quyết định recovery RoundResult.
+Chưa đóng V1-027 chỉ từ test nhanh; bộ đo dài nhiều seed vẫn là điều kiện nghiệm thu release.
 
 ### Kết quả đo thủ công 2026-10-22 (Codex)
 
@@ -267,4 +300,41 @@ Lượt 1 của recovery thiếu hash bot3 theo chủ đích; lượt 2/3 có đ
 `converged=false` cho toàn lần recovery giữ nguyên sự thiếu đó; `recovered=true`, `drained=true`,
 `timed_out=false`. Steady có cả hai lượt hội tụ. Correction là phép đo sai số lịch sử đã nêu,
 không là bằng chứng cảm giác điều khiển hoặc fidelity KR. Chưa chạy đủ ma trận 2/4 bot × 3 seed;
-chưa nghiệm thu đường xin lại bảng RoundResult.
+đường xin lại bảng RoundResult được kiểm riêng bởi test recovery §B.7, không thuộc phép đo cũ này.
+
+
+Chạy fault mất bảng kết quả (cùng profile/seed có lỗi mạng):
+
+```sh
+cargo run -p boom-qa -- --profile fast --clients 4 --seed 7 --scenario round-result-loss
+```
+
+Scenario bỏ đúng frame `RoundResult` đầu ở mỗi bot; các phản hồi xin lại đi qua mạng bình thường.
+Bot không được ack chỉ từ snapshot Ended. Test `mat_round_result_bon_bot_xin_lai_va_hoi_tu`
+kiểm đủ bốn hash, ack kết quả và drain, không thay đổi cách tính % feature.
+
+
+### Kiểm recovery RoundResult 2026-10-22 (Codex)
+
+Baseline `26435d0cbb232a2e2657dd9aa01346ed71570172` + thay đổi recovery #166, Linux.
+Lệnh đo: `cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 42 --scenario round-result-loss`.
+Exit 0, 47.305 ms: RTT 100 ms, jitter 0–30 ms, loss/trùng/đảo thứ tự mỗi loại 1%.
+Cả bốn bot đã nhận bảng và ack 2 lượt; mỗi lượt có đủ 4/4 hash khớp server;
+`recovered=true`, `drained=true`, `converged=true`, `timed_out=false`, `snapshot_missed=0`.
+Correction có 6.115 mẫu (gồm 0), p50/p95 = 4.000/6.000 mpx; đây là regression của bản Rust,
+không phải nghiệm thu fidelity hay ngân sách latency. Bộ đo dài này là một seed/bốn bot,
+không thay ma trận release 2/4 bot × 3 seed.
+
+
+Kiểm lặp cùng thay đổi recovery: **20/20 vòng PASS**, mỗi vòng chạy:
+
+```sh
+cargo test -p boom-client net::tests
+cargo test -p boom-server recovery_round_result
+cargo test -p boom-qa recovery_tests
+```
+
+Mỗi vòng gồm 29 test client mạng, 2 test server retention/quyền và 4 test QA recovery.
+Có test mất frame đầu và nhận lại đúng bảng, duplicate, backoff/dừng retry, kết quả cũ,
+Waiting, hết retention sau Start, hủy phòng/khác phòng, account ngoài roster và rejoin
+bằng connection khác. Đây là regression của implementation theo contract Claude chốt.

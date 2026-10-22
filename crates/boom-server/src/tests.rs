@@ -4268,3 +4268,169 @@ fn log_disconnect_eof_chua_auth_khong_gan_tran_nguoi_khac() {
     assert!(line["room_id"].is_null());
     assert!(line["round_id"].is_null());
 }
+
+/// Bảng đã commit không đổi khi xin lại; quyền bind account, retention tới Start kế tiếp.
+#[test]
+fn recovery_round_result_retention_roster_duplicate() {
+    let players = [PlayerId(1), PlayerId(2), PlayerId(3)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+    let round = start_wire_round(&mut server, &mut clients, &players[..2]);
+    server.poll(200_000, Duration::ZERO).unwrap();
+    let committed: RoundResult = recv_of(&mut clients[0], MessageKind::RoundResult);
+    let peer: RoundResult = recv_of(&mut clients[1], MessageKind::RoundResult);
+    assert_eq!(committed, peer);
+    let request = boom_proto::RoundResultRequest { round_id: round };
+    for _ in 0..2 {
+        let mut budget = WAIT_ROUNDS;
+        let recovered: RoundResult = ask_where(
+            &mut server,
+            &mut clients[0],
+            200_000,
+            &mut budget,
+            &request,
+            MessageKind::RoundResult,
+            |_| true,
+        )
+        .unwrap();
+        assert_eq!(recovered, committed);
+    }
+    let mut budget = WAIT_ROUNDS;
+    let denied: RoomRejected = ask_where(
+        &mut server,
+        &mut clients[2],
+        200_000,
+        &mut budget,
+        &request,
+        MessageKind::RoomRejected,
+        |_| true,
+    )
+    .unwrap();
+    assert_eq!(
+        denied,
+        RoomRejected {
+            request: round,
+            reason: RoomRejectReason::StaleRequest
+        }
+    );
+    // Hết timeout result: vẫn giữ đúng bảng dù authority đã quay lại Waiting.
+    server.poll(210_000, Duration::ZERO).unwrap();
+    let mut budget = WAIT_ROUNDS;
+    let recovered: RoundResult = ask_where(
+        &mut server,
+        &mut clients[0],
+        210_000,
+        &mut budget,
+        &request,
+        MessageKind::RoundResult,
+        |_| true,
+    )
+    .unwrap();
+    assert_eq!(recovered, committed);
+    // Rejoin bằng connection mới: quyền dựa account roster, không dựa connection ID.
+    let room = server.room_view().unwrap().id.0;
+    send(&mut clients[1], &Logout {});
+    server.poll(210_000, Duration::from_millis(200)).unwrap();
+    let mut rejoined = wire_client(&mut server, PlayerId(99), 1);
+    wire_handshake_at(&mut server, std::slice::from_mut(&mut rejoined), 210_000);
+    let (username, password) = test_credentials(PlayerId(2));
+    let account = auth_attempt(
+        &mut server,
+        &mut rejoined,
+        AuthOp::Login,
+        &username,
+        &password,
+    )
+    .unwrap();
+    assert_eq!(account.account_id, 2);
+    send_room(
+        &mut rejoined,
+        10,
+        RoomActionDto::Join {
+            room,
+            character: RoomCharacter::C01,
+        },
+    );
+    server.poll(210_000, Duration::from_millis(200)).unwrap();
+    let _ = recv_room_state(&mut rejoined);
+    let mut budget = WAIT_ROUNDS;
+    let recovered: RoundResult = ask_where(
+        &mut server,
+        &mut rejoined,
+        210_000,
+        &mut budget,
+        &request,
+        MessageKind::RoundResult,
+        |_| true,
+    )
+    .unwrap();
+    assert_eq!(recovered, committed);
+    clients[1] = rejoined;
+    for (index, client) in clients.iter_mut().take(2).enumerate() {
+        send_room(
+            client,
+            20 + index as u64,
+            RoomActionDto::SetReady { ready: true },
+        );
+        server.poll(210_000, Duration::from_millis(200)).unwrap();
+        let _ = recv_room_state(client);
+    }
+    send_room(&mut clients[0], 30, RoomActionDto::Start);
+    server.poll(210_000, Duration::from_millis(200)).unwrap();
+    let next: RoundStart = recv_of(&mut clients[0], MessageKind::RoundStart);
+    assert_ne!(next.round_id, round);
+    let mut budget = WAIT_ROUNDS;
+    let stale: RoomRejected = ask_where(
+        &mut server,
+        &mut clients[0],
+        210_000,
+        &mut budget,
+        &request,
+        MessageKind::RoomRejected,
+        |_| true,
+    )
+    .unwrap();
+    assert_eq!(stale.reason, RoomRejectReason::StaleRequest);
+    assert_eq!(stale.request, round);
+}
+
+#[test]
+fn recovery_round_result_huy_phong_khong_ro_sang_phong_moi() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    let round = drive_wire_round_to_result(&mut server, &mut clients);
+    server.poll(210_000, Duration::ZERO).unwrap();
+    for client in &mut clients {
+        send_room(client, 40, RoomActionDto::Leave);
+        server.poll(210_000, Duration::from_millis(200)).unwrap();
+    }
+    assert!(server.room_view().is_none());
+    send_room(
+        &mut clients[0],
+        41,
+        RoomActionDto::Create {
+            character: RoomCharacter::C00,
+        },
+    );
+    server.poll(210_000, Duration::from_millis(200)).unwrap();
+    assert!(server.room_view().is_some());
+    let mut budget = WAIT_ROUNDS;
+    let rejected: RoomRejected = ask_where(
+        &mut server,
+        &mut clients[0],
+        210_000,
+        &mut budget,
+        &boom_proto::RoundResultRequest { round_id: round },
+        MessageKind::RoomRejected,
+        |_| true,
+    )
+    .unwrap();
+    assert_eq!(
+        rejected,
+        RoomRejected {
+            request: round,
+            reason: RoomRejectReason::StaleRequest
+        }
+    );
+}

@@ -91,6 +91,8 @@ pub enum MessageKind {
     RoundResult = 0x0049,
     /// S→C: lệnh phòng bị từ chối (ADR 0009 Addendum B).
     RoomRejected = 0x004A,
+    /// C→S: xin lại kết quả đã commit (Addendum B §B.7).
+    RoundResultRequest = 0x004B,
     /// C→S: cây hỏi sức khoẻ runtime qua admin listener loopback (ADR 0011 §8.2.1).
     HealthRequest = 0x0050,
     /// S→C: trả lời sức khoẻ runtime qua admin listener loopback (ADR 0011 §8.2.1).
@@ -126,6 +128,7 @@ impl MessageKind {
             0x0048 => Self::RoundStart,
             0x0049 => Self::RoundResult,
             0x004A => Self::RoomRejected,
+            0x004B => Self::RoundResultRequest,
             0x0050 => Self::HealthRequest,
             0x0051 => Self::HealthResponse,
             _ => return None,
@@ -155,6 +158,7 @@ impl MessageKind {
                 | Self::RoomChat
                 | Self::RoomChatMessage
                 | Self::LoadingAck
+                | Self::RoundResultRequest
                 | Self::ResultAck
                 | Self::RoundStart
                 | Self::RoundResult
@@ -184,6 +188,7 @@ impl MessageKind {
             | Self::LobbyListRequest
             | Self::RoomChat
             | Self::LoadingAck
+            | Self::RoundResultRequest
             | Self::ResultAck
             | Self::HealthRequest => Direction::ClientToServer,
             Self::Welcome
@@ -259,6 +264,7 @@ mod tests {
             MessageKind::RoomChat,
             MessageKind::RoomChatMessage,
             MessageKind::LoadingAck,
+            MessageKind::RoundResultRequest,
             MessageKind::ResultAck,
             MessageKind::RoundStart,
             MessageKind::RoundResult,
@@ -282,6 +288,16 @@ mod tests {
     }
 
     #[test]
+    fn recovery_kind_channel_direction() {
+        let kind = MessageKind::RoundResultRequest;
+        assert_eq!(kind.code(), 0x004B);
+        assert!(kind.is_room());
+        assert!(kind.is_receivable_on(Channel::Game, Role::Server));
+        assert!(!kind.is_receivable_on(Channel::Game, Role::Client));
+        assert!(!kind.is_valid_on(Channel::Admin));
+    }
+
+    #[test]
     fn unknown_code_is_rejected() {
         assert_eq!(MessageKind::from_u16(0x0000), None);
         assert_eq!(MessageKind::from_u16(0x00FF), None);
@@ -298,6 +314,7 @@ mod tests {
             MessageKind::RoomChat,
             MessageKind::RoomChatMessage,
             MessageKind::LoadingAck,
+            MessageKind::RoundResultRequest,
             MessageKind::ResultAck,
             MessageKind::RoundStart,
             MessageKind::RoundResult,
