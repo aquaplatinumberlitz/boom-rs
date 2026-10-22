@@ -22,6 +22,7 @@
 
 pub mod bot;
 pub mod harness;
+mod harness_io;
 pub mod metrics;
 pub mod profile;
 pub mod report;

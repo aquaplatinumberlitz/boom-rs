@@ -215,6 +215,7 @@ enum Inbound {
 
 enum Outbound {
     Frame(Vec<u8>),
+    Barrier(Sender<()>),
 }
 
 /// Hàng đợi ghi có giới hạn theo kết nối; client không đọc thì bị ngắt thay vì chặn tick.
@@ -473,6 +474,26 @@ impl Server {
         self.sessions.len()
     }
 
+    /// Chờ writer gửi hết các frame đã xếp, phục vụ điều phối IO/fixture.
+    /// Không poll, không tiến đồng hồ authority; `timeout` chỉ là trần an toàn.
+    pub fn flush_outbound(&self, timeout: Duration) -> Result<(), String> {
+        let mut barriers = Vec::new();
+        for session in self.sessions.values() {
+            let (tx, rx) = mpsc::channel();
+            session
+                .out_tx
+                .try_send(Outbound::Barrier(tx))
+                .map_err(|err| err.to_string())?;
+            barriers.push(rx);
+        }
+        for barrier in barriers {
+            barrier
+                .recv_timeout(timeout)
+                .map_err(|err| err.to_string())?;
+        }
+        Ok(())
+    }
+
     /// Nhận một nửa đọc và một nửa ghi của kết nối; spawn đúng một luồng đọc chặn.
     ///
     /// `connection_id` là **định danh kết nối** (đưa vào `Welcome.player_id`), không phải
@@ -539,6 +560,9 @@ impl Server {
             let mut writer = writer;
             while let Ok(out) = out_rx.recv() {
                 match out {
+                    Outbound::Barrier(done) => {
+                        let _ = done.send(());
+                    }
                     Outbound::Frame(frame) => {
                         if writer.send_frame(&frame).is_err() {
                             let _ = outbound_tx.send(Inbound::WriteFailed { player });
