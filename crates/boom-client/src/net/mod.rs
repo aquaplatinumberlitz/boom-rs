@@ -187,7 +187,14 @@ pub struct NetClient<W: Transport> {
     /// Khoảng này dùng cho **cả hai** nhịp gửi lại (lệnh phòng và ack phòng); mỗi nhịp có
     /// đồng hồ riêng nên chúng không chen nhau.
     room_retry_interval: Duration,
+    /// Nhịp pump giao thức chờ kết quả; backoff 4, 8, … tối đa 64 nhịp.
+    result_retry: Option<(u64, u32, u32)>,
+    result_unavailable: Option<u64>,
 }
+
+/// Cấu hình recovery theo nhịp pump giao thức (design, ADR 0009 §B.7).
+const RESULT_RETRY_INITIAL_PUMPS: u32 = 4;
+const RESULT_RETRY_MAX_PUMPS: u32 = 64;
 
 impl<W: Transport> NetClient<W> {
     /// Dựng client mạng trên một transport hai chiều.
@@ -229,6 +236,8 @@ impl<W: Transport> NetClient<W> {
             last_auto_send: Instant::now(),
             last_ack_send: Instant::now(),
             room_retry_interval: interval,
+            result_retry: None,
+            result_unavailable: None,
         }
     }
 
@@ -311,6 +320,7 @@ impl<W: Transport> NetClient<W> {
         self.auto_retry()?;
         // Ack phòng chưa có bằng chứng server đã nhận thì gửi lại (idempotent).
         self.ack_retry()?;
+        self.result_retry()?;
         Ok(())
     }
 
@@ -560,6 +570,18 @@ impl<W: Transport> NetClient<W> {
                     .is_none_or(|round| events.round_id >= round)
                 {
                     let fresh = self.session.accept_events(events);
+                    if self
+                        .room
+                        .round()
+                        .is_some_and(|round| round.round_id == u64::from(round_id))
+                        && fresh.iter().any(|event| event.name == "round_ended")
+                    {
+                        self.result_retry.get_or_insert((
+                            u64::from(round_id),
+                            0,
+                            RESULT_RETRY_INITIAL_PUMPS,
+                        ));
+                    }
                     self.events
                         .extend(fresh.into_iter().map(|event| (round_id, event)));
                 }
@@ -615,11 +637,22 @@ impl<W: Transport> NetClient<W> {
             ClientMessage::RoundResult(result) => {
                 // Kết quả do server quyết (ADR 0005): client giữ lại rồi ack để về phòng.
                 let round_id = result.round_id;
-                self.room.on_round_result(result);
-                self.send_result_ack(round_id)?;
-                self.drive_auto(RoomEvent::RoundResult)?;
+                if self.room.on_round_result(result) {
+                    self.result_retry = None;
+                    self.send_result_ack(round_id)?;
+                    self.drive_auto(RoomEvent::RoundResult)?;
+                }
             }
             ClientMessage::RoomRejected(rejected) => {
+                if rejected.reason == boom_proto::RoomRejectReason::StaleRequest
+                    && self
+                        .result_retry
+                        .is_some_and(|retry| retry.0 == rejected.request)
+                {
+                    self.result_unavailable = Some(rejected.request);
+                    self.result_retry = None;
+                    return Ok(());
+                }
                 self.room.on_rejected(rejected);
                 self.drive_auto(RoomEvent::Rejected)?;
             }
@@ -661,6 +694,8 @@ impl<W: Transport> NetClient<W> {
             // `RoundStart` cũ/trùng: bỏ trước mọi side effect.
             return Ok(());
         };
+        self.result_retry = None;
+        self.result_unavailable = None;
         // Slot trận của client: mục roster có `player == account_id` (không phải
         // `Welcome.player_id` — đó là định danh kết nối).
         self.player_slot = self.room.my_slot();
@@ -758,6 +793,41 @@ impl<W: Transport> NetClient<W> {
         };
         self.resend_room_command(request, room_action)?;
         self.last_auto_send = Instant::now();
+        Ok(())
+    }
+
+    /// Xin bảng authority sau Ended; không dùng snapshot để tự tạo rank/kết quả.
+    fn result_retry(&mut self) -> Result<(), NetError> {
+        let Some(round_id) = self.room.round().map(|round| round.round_id) else {
+            self.result_retry = None;
+            return Ok(());
+        };
+        let ended = self.current_round().map(u64::from) == Some(round_id)
+            && matches!(self.phase(), Some(Phase::Ended { .. }));
+        if !ended && self.result_retry.is_none() {
+            return Ok(());
+        }
+        if self.result_unavailable == Some(round_id)
+            || self
+                .room
+                .result()
+                .is_some_and(|result| result.round_id == round_id)
+        {
+            self.result_retry = None;
+            return Ok(());
+        }
+        let retry = self
+            .result_retry
+            .get_or_insert((round_id, 0, RESULT_RETRY_INITIAL_PUMPS));
+        if retry.0 != round_id {
+            *retry = (round_id, 0, RESULT_RETRY_INITIAL_PUMPS);
+        }
+        retry.1 += 1;
+        if retry.1 >= retry.2 {
+            self.session.request_round_result(round_id)?;
+            retry.1 = 0;
+            retry.2 = (retry.2 * 2).min(RESULT_RETRY_MAX_PUMPS);
+        }
         Ok(())
     }
 

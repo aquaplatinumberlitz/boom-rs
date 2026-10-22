@@ -532,7 +532,9 @@ mod tests {
         let mut gate = RoomGate::new();
         assert!(gate.classify(MessageKind::RoomCommand).is_err());
         assert!(gate.classify(MessageKind::RoomState).is_err());
+        assert!(gate.classify(MessageKind::RoundResultRequest).is_err());
         gate.on_auth_ok();
+        assert!(gate.classify(MessageKind::RoundResultRequest).is_ok());
         assert!(gate.classify(MessageKind::RoomCommand).is_ok());
         assert!(gate.classify(MessageKind::RoomState).is_ok());
     }

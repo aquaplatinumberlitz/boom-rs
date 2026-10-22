@@ -182,6 +182,7 @@ dependencies = [
 name = "boom-qa"
 version = "0.0.0"
 dependencies = [
+ "boom-client",
  "boom-content",
  "boom-core",
  "boom-net",

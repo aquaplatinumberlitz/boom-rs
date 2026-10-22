@@ -10,6 +10,8 @@
 | `images/vn/` | Ảnh client VN được chuyển nguyên file từ docs root |
 | [measurements/vn-timing-2026-10-19/README.md](measurements/vn-timing-2026-10-19/README.md) | Hồ sơ đo tick/tốc độ/timer nhốt client VN; log trích + script phân tích, không có asset game |
 | [measurements/kr-static-flame-2026-10-21/README.md](measurements/kr-static-flame-2026-10-21/README.md) | Điều tra nổ/lửa + thời lượng frame KR: mỏ neo, evidence_id, giới hạn công cụ; **chưa có claim**, dùng cho lượt sau |
+| [measurements/kr-static-2026-10-21/README.md](measurements/kr-static-2026-10-21/README.md) | Định danh build KR/VN và bảng VA/RVA của phép đọc tĩnh movement/va chạm (R-119…R-125); metadata, không có binary hay decompile. Phạm vi lớp: consumer đã trace là `CGOPet`/AI (R-134/R-135, PR #185 đang mở); R-119…R-122 `confirmed` chỉ cho `CMovable`, bomber là `candidate`/chưa chứng minh |
+| [measurements/kr-static-item-2026-10-21/README.md](measurements/kr-static-item-2026-10-21/README.md) | Điều tra item/cap KR: bộ nạp `ItemAttr` + cấu trúc bảng, provenance IDA trực tiếp; **chưa có claim** |
 | [DOCS_MIGRATION.json](DOCS_MIGRATION.json) | Bản đồ đường dẫn cũ→mới, không phải bằng chứng luật chơi |
 
 Không commit client/pack/binary/database hoặc cache ảnh lớn vào repo chỉ để tạo evidence.
