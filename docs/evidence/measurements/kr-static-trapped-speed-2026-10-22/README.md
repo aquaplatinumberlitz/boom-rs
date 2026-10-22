@@ -161,6 +161,41 @@ Target `kr-full.exe`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073b
 | `ev_d94e551ba16506fe15a1436713bef02613e14435bd4b4a064cb29b74b6b8063e` | `batch_decompile` `0xE65350`/`0xE84F00` | handler opcode 183 |
 | `ev_f91194098e3c6b1557cfb770a8aea4a26cf5f190e1769492ae4dc7c8e5a57eae` | `xrefs` `0xE65350` | caller `0xE5D662` |
 
+## Bổ sung 2026-10-23 — packet vị trí S→C opcode 183 (R-138)
+
+REA MCP, bản sao `kr-full.exe` SHA-256 `cf72da11…e63b`; VN dùng IDB bản sao. Bundle
+`.re-work/evidence-r138-pos-packet-146.json` (16 record, không commit). Không mở DB gốc.
+
+| Kiểm | VA / offset | Kết quả |
+|---|---|---|
+| Dispatch | `sub_E5D3A0`, bảng `0xE5DE9C`/`0xE5DDC4` | `case = opcode−20`; opcode **183** → `0xE5D65B` → `sub_E65350` (call `0xE5D662`) |
+| Layout | `sub_E65350` | `u8 id` (0..15), `u8 flags` (bit7=absolute, low7=slot); absolute thêm `u8 y`, `u8 x`; `x=40*x`, `y=40*y+39` |
+| `id`→record | `sub_E15D60` (`0xE15D60`) | `stage + 0x20 + 122628*id` (`id<0x10`); ctor `0xB886B0` gán `CGOGhost::vftable` `0x174698C`; mảng 16 record `_Construct_n` `0xE0E52C` |
+| `slot` | `0xE65416` | so với getter `[bomber+1412]+40`; lưu `CGOGhost+0x9C` (absolute: `sub_B88800`; bit7=0: `sub_E92110`) |
+| Setter | `sub_B88800` `0xB8898A` | virtual `+116`; `CGOGhost` slot 29 (`0x1746A00`) = `0xB334C0`; ghi `+0x4C`/`+0x58`; **không** `B43750`/`B479E0` |
+| Nhánh bit7=0 | `sub_E92110` `0xE9211E` | `add ecx,9Ch`; chỉ ghi slot, không x/y |
+| C→S 149 | `sub_F158C0` | `u16`, `u32 x` (`B335C0`), `u32 y` (`B335E0`), `u8`, `u8`; vtable `0x17703E0` slot 37 |
+| C→S 148 | `sub_E733D0` | `u32, u8 n, u16, u16, u8, u32, u16, n×(u8,u8)`; caller `sub_F16030`/`sub_F47540` |
+
+**VN:** opcode 176 → `sub_706C42` cùng layout; `id` tra `stage+122624*id+48` (`CGOGhost`, VN vtable
+`0xC35EC4`); `sub_5B4AE9` đặt vị trí qua slot **26** (`+104`). Server giả lập không gửi 176; docs
+ghi không có handler S→C 141/142, di chuyển qua UDP P2P — `vn_static`, không phải `vn_runtime`.
+
+**Trạng thái:** `kr_static` confirmed cho layout + cạnh packet→`0xB334C0` + hai nhánh; `candidate`
+cho ngữ nghĩa sync và cặp C→S 148/149; `unknown` runtime cadence/authority và quan hệ input.
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_ce680d77cde9edffa9533ea7854b9be6bff82a3eb24bc4ac471bd5de55fbb8dd` | `batch_decompile` `0xE15D60`/`0xE92110`/`0xB88800`/`0xE65350` | handler, record, hai nhánh |
+| `ev_100485a49db7b0523cc5f5f99bff8d0f8658fd7953694630d37c706e9cdb5afa` | `procedure_assembly` `0xE92110` | `+0x9C` |
+| `ev_aae0afb2961ed6f7518eb51abd2131cc947c88aca11b3212f9f684e98d7e4f1a` | `batch_decompile` `0xB886B0`/`0xB8B260`/`0xB335C0`/`0xB335E0` | ctor `CGOGhost`, getter |
+| `ev_ddda435f5a8b28265b2c1d5f29e3cfb80b99236978a4482aff6aa267a96ab337` | `xrefs` `0xB334C0` | `0x1746A00` = slot 29 |
+| `ev_717fd8e4b355c2b60f9fdd73548813b04ecefe98d8e5b1640fad766a89182181` | `procedure_assembly` `0xB334C0` | `+0x4C`/`+0x58` |
+| `ev_f07c38842946db9da22c596620085166ea2d295b091080bf38cdaefa91660b9a` | `xrefs` `0xE65350` | caller `0xE5D662` |
+| `ev_13e4cf275803303e05d8a75815cb828c223175c3e83b8da2ed1f4e1c9b309910` | `batch_decompile` `0xE72720`/`0xF158C0` | C→S 142/149 |
+| `ev_7346d16f53684c466d223f26881050b0c9b28e9742882cc17af020ef4c03cc35` | `batch_decompile` `0xE733D0` | C→S 148 |
+| `ev_3106ce9e5af0204e09583406fde30b7194fe8c7c6e9303f48325af29a6f3d580` | `xrefs` `0xF158C0` | vtable `0x1770474`, slot 37 |
+
 ## Giới hạn
 
 - Không có công thức `(dir,len)` cho bomber: `vf[+8]` (byte +8 = slot 2 x86) là của controller `+0xE0`
@@ -177,3 +212,5 @@ Target `kr-full.exe`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073b
   `0xFC6160`, một caller `0xFA…` thiếu VA); không loại trừ đường gián tiếp/wrapper/VM từ bomber.
 - Đã đối chiếu VN packet vị trí 176; chưa kiểm runtime và chưa thấy consumer `CMovable::MoveSimple`
   cho bomber.
+- R-138 mới là `kr_static` cho packet S→C 183 → `CGOGhost` → `0xB334C0`; chưa kiểm runtime,
+  chưa chứng minh cặp C→S 148/149 hay consumer gameplay của vị trí synced.

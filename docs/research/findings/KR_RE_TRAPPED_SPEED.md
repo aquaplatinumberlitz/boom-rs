@@ -33,6 +33,9 @@ nguyên văn trong repo.
   tuyệt đối VN 176 / KR 183 dùng slot `+116` (= `0xB43750`), không qua slot 95. Giả thuyết
   **candidate**: position sync từ server cho người chơi; input dir→position của player vẫn
   **unknown** (§8).
+- Lượt **R-138**: S→C opcode 183 → `CGOGhost` (16 record) → setter `0xB334C0`; đơn vị 40 px
+  (`x=40*byte`, `y=40*byte+39`); bit7=0 chỉ ghi `slot` vào `CGOGhost+0x9C`, không đổi vị trí. Không
+  nối field `+1440`/input dir. C→S 148/149 là **candidate**, chưa ghép cặp với 183 (§9).
 - R-125 và R-127 **chưa đóng**; R-134 chỉ xác nhận **đường đã trace** thuộc `CGOPet`.
 
 ## 1. Vì sao trước đây tưởng là bomber
@@ -305,3 +308,89 @@ Bundle `.re-work/evidence-r137-slot95-146.json`. Các `evidence_id` chính:
 | `ev_f91194098e3c6b1557cfb770a8aea4a26cf5f190e1769492ae4dc7c8e5a57eae` | `xrefs` `0xE65350` | caller `0xE5D662` |
 
 VN dùng IDB bản sao, không phải REA; địa chỉ VN ghi theo IDB `unpacked_ca.exe.i64`.
+
+
+## 9. Lượt packet vị trí 2026-10-23 — opcode 183 → `CGOGhost` → setter (R-138)
+
+### 9.1 Công cụ / phạm vi
+
+- **REA MCP** (`provider_id: ida`) trên bản sao `kr-full.exe`, SHA-256 `cf72da11…e63b`; bundle
+  `.re-work/evidence-r138-pos-packet-146.json` (16 record, không commit). Không mở DB gốc.
+- Đọc bảng dispatch `sub_E5D3A0` trực tiếp từ byte (`0xE5DE9C` byte table, `0xE5DDC4` jump table),
+  decompile handler/ctor/setter, xrefs và assembly. Không chạy client/server.
+- VN: `boom-re/docs/oc_e-game.md`, `boom-re/server`, và IDB bản sao
+  `.re-work/vn/unpacked_ca.exe.i64` (không mở gốc) cho `sub_706C42`, `sub_5B4AE9`, `sub_71B275`.
+
+### 9.2 Handler và layout
+
+`sub_E5D3A0` là dispatch kiểu `CGameStage__OnPacket`: `case = opcode − 20`, bảng byte `0xE5DE9C` +
+jump `0xE5DDC4`. Opcode **183** → `0xE5D65B` → `sub_E65350` (call `0xE5D662`).
+
+| Byte | Ý nghĩa | Ghi chú |
+|---|---|---|
+| `u8 id` | chỉ số record 0..15 | `sub_E15D60(stage,id)` = `stage + 0x20 + 122628*id` (`id < 0x10`) |
+| `u8 flags` | bit7 = absolute; low7 = `slot` | `slot` được lưu vào `CGOGhost+0x9C`; dùng khớp controller slot |
+| `u8 y` (nếu absolute) | hàng | toạ độ `y = 40*y + 39` |
+| `u8 x` (nếu absolute) | cột | toạ độ `x = 40*x` |
+
+`id` tra record `CGOGhost`: ctor `sub_B886B0` gán `CGOGhost::vftable` `0x174698C` (và `+8` =
+`0x1746A20`), record nằm trong mảng 16 phần tử `stage+0x20`, stride `0x1DF04` (`_Construct_n` tại
+`0xE0E52C`). `slot` được so với getter `(*(bomber+1412)+40)` trong danh sách bomber; không đọc
+field `+1440`/reader `0xB40D60`/`0xB32390`.
+
+### 9.3 Hai nhánh
+
+- **bit7 = 0**: `sub_E92110(slot)` → ghi `CGOGhost+0x9C = slot` qua `0x55FD30` (`add ecx,9Ch`).
+  Không có x/y, không đổi vị trí, không gọi setter.
+- **bit7 = 1**: `sub_B88800(ghost, id, slot, x=40*byte, y=40*byte+39)` tại `0xE654C2`; hàm này ghi
+  `ghost+0x90=id`, `ghost+0x9C=slot`, lưu vị trí cũ vào `+0xBC/+0xC0`, rồi gọi virtual `+116`
+  (`0xB8898A`) với `(x,y)`. Với `CGOGhost`, slot 29 của vtable `0x174698C` là `0x1746A00` →
+  **`0xB334C0`**, ghi protected `+0x4C`/`+0x58`; **không** gọi `0xB43750`/`0xB479E0`.
+- Kết luận: packet đặt vị trí tuyệt đối cho **CGOGhost** qua `0xB334C0`; đây là **packet→setter**,
+  không phải packet→input dir. `+1412` chỉ được dùng để lấy slot, không đọc dir/len.
+
+### 9.4 Đối chiếu VN
+
+- VN opcode **176** → `sub_706C42` (0x706C42): cùng layout `u8 id, u8 flags`; absolute đọc thêm
+  `u8 y, u8 x`; gọi `sub_5B4AE9(id,slot,40*x,40*y+39)`. VN `sub_5B4AE9` đặt vị trí qua slot **26**
+  (`+104`), không phải slot 29 như KR. `id` tra `stage + 122624*id + 48`; lớp là `CGOGhost` (VN
+  vtable `0xC35EC4`, RTTI base `CGameObject→CObject`).
+- VN RTTI xác nhận `CGOGhost` **không phải** `CGOGameBomber`; KR ctor `sub_B886B0` cũng gán
+  `CGOGhost::vftable`. Vì vậy packet này là vị trí **ghost/đại diện người chơi**, không phải
+  `CGOGameBomber`/controller `+1412`.
+- Server giả lập VN: không thấy gửi **176** trong `server/src`; docs ghi không có handler S→C
+  141/142, di chuyển đồng bộ qua **UDP P2P**. Đây là `vn_static` (đọc source/docs), **không** phải
+  `vn_runtime`; chưa kiểm runtime KR.
+
+### 9.5 C→S ứng viên
+
+- **KR 149** (`sub_F158C0`, vtable `0x17703E0` slot 37): gửi `u16` (`sub_F15D50`), `u32 x`
+  (`B335C0`), `u32 y` (`B335E0`), `u8`, `u8` (entry queue 0). Trigger khi queue có đúng 1 bước.
+- **KR 148** (`sub_E733D0`): gửi `u32`, `u8 n`, `u16`, `u16`, `u8`, `u32`, `u16`,
+  `n × (u8,u8)`; gọi từ `sub_F16030`/`sub_F47540`.
+- VN 141/142 (docs + decompile) có layout khác (141: `u2 uid,u2 map,u8 n,n×2B`; 142: tối đa 10
+  block, mỗi block `u8 n + n×2B`). Không suy trực tiếp opcode/slot giữa hai build; cặp
+  `183 ↔ 148/149` mới là **candidate**, chưa kiểm runtime.
+
+### 9.6 Evidence
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_ce680d77cde9edffa9533ea7854b9be6bff82a3eb24bc4ac471bd5de55fbb8dd` | `batch_decompile` `0xE15D60`/`0xE92110`/`0xB88800`/`0xE65350` | handler, id→record, hai nhánh |
+| `ev_100485a49db7b0523cc5f5f99bff8d0f8658fd7953694630d37c706e9cdb5afa` | `procedure_assembly` `0xE92110` | `add ecx,9Ch`; ghi slot |
+| `ev_aae0afb2961ed6f7518eb51abd2131cc947c88aca11b3212f9f684e98d7e4f1a` | `batch_decompile` `0xB886B0`/`0xB8B260`/`0xB335C0`/`0xB335E0` | ctor `CGOGhost`, getter vị trí |
+| `ev_ddda435f5a8b28265b2c1d5f29e3cfb80b99236978a4482aff6aa267a96ab337` | `xrefs` `0xB334C0` | data ref `0x1746A00` = slot 29 vtable `0x174698C` |
+| `ev_717fd8e4b355c2b60f9fdd73548813b04ecefe98d8e5b1640fad766a89182181` | `procedure_assembly` `0xB334C0` | `+0x4C`/`+0x58` |
+| `ev_f07c38842946db9da22c596620085166ea2d295b091080bf38cdaefa91660b9a` | `xrefs` `0xE65350` | caller `0xE5D662` |
+| `ev_13e4cf275803303e05d8a75815cb828c223175c3e83b8da2ed1f4e1c9b309910` | `batch_decompile` `0xE72720`/`0xF158C0` | C→S 142/149 layout |
+| `ev_7346d16f53684c466d223f26881050b0c9b28e9742882cc17af020ef4c03cc35` | `batch_decompile` `0xE733D0` | C→S 148 layout |
+| `ev_3106ce9e5af0204e09583406fde30b7194fe8c7c6e9303f48325af29a6f3d580` | `xrefs` `0xF158C0` | vtable ptr `0x1770474`; slot 37 |
+
+### 9.7 Kết luận / blocker
+
+- **Confirmed (`kr_static`)**: layout opcode 183, `id`→`CGOGhost` (16 record), `slot`, nhánh
+  absolute→`0xB334C0` ghi `+0x4C`/`+0x58`, đơn vị 40 px; nhánh bit7=0 chỉ ghi `+0x9C`.
+- **Candidate**: ngữ nghĩa "server position sync/teleport cho ghost người chơi"; cặp C→S 183↔148/149.
+- **Unknown**: runtime cadence/authority, việc server KR có gửi 183, quan hệ với input/di chuyển;
+  chưa có consumer chứng minh synced position được dùng cho gameplay.
+- **Không nối**: packet → `+1440`/`B40D60`/`B32390`/input dir; R-136/R-137 giữ nguyên.
