@@ -184,6 +184,11 @@ Vì vậy:
 - bước tiếp theo: tìm bộ thực thi defer (switch theo id) rồi lấy case của `DeferBomberReleaseOrDie`;
   nếu thân hàm nằm trong `.themida` thì dừng và ghi entry VM theo [DEVIRT_METHOD](DEVIRT_METHOD.md).
 
+**Cập nhật 2026-10-23 (#147, phiên dsh 2):** cạnh native tìm được của một bộ đếm bomber
+(`+0x2748`, giảm 1/update, `≤0` → slot 202 `0xB7A760` gửi C→S packet 167; status packet 184 mang
+byte timer) ở [KR_RE_TRAP_TIMER](KR_RE_TRAP_TIMER.md) / R-200…R-202; **seed/entry + nhãn "timer nhốt"
+vẫn `unknown`** (thunk VM `0x00B534D0 → 0x02012376`). Mục §5 này giữ nguyên hiệu lực cho phần defer/tên.
+
 ## 6. Kim/thoát nhốt: chỉ có chuỗi, chưa có consumer
 
 Chuỗi tồn tại trong binary: `Niddle`/`Needle` (`0x16EE8C8`/`0x16EE8D0`),

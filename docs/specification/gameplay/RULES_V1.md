@@ -623,3 +623,33 @@ Phạm vi blocker:
   [DEVIRT_METHOD](../../research/findings/DEVIRT_METHOD.md).
 - Đề xuất profile: **không đổi** `characters.*`/`R-117`; giữ cấp (level), không đổi sang px. Nếu
   sau này có consumer base/max thì PR profile riêng theo ADR 0013.
+
+## 19. RE KR 00967 — bộ đếm bomber → chết (R-200…R-202)
+
+Đọc tĩnh client KR `00967` cho [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147) / Q-018
+(mục 4 hàng đợi RE). Số mục để trống theo yêu cầu của phiên (phiên 1 dùng dải R-150…R-199; phiên này
+dùng **R-200…R-249**) — integrator đánh số §19 khi merge (#195). Định danh build (SHA-256 `cf72da11…e63b`,
+imagebase `0x400000`, `RVA = VA − 0x400000`), bảng VA/RVA và `evidence_id` ở
+[evidence KR trap timer](../../evidence/measurements/kr-static-trap-timer-2026-10-23/README.md); suy
+luận, giới hạn và bước tiếp ở [KR_RE_TRAP_TIMER](../../research/findings/KR_RE_TRAP_TIMER.md).
+Đây là lượt nối tiếp R-131 (§14): R-131 vẫn đúng — tên defer `kCGameStage_DeferBomberLockedIn` /
+`kCGameStage_DeferBomberReleaseOrDie` chỉ là nhãn đăng ký, không trỏ hàm. Lượt này tìm được **cạnh
+native** của một bộ đếm trên bomber, nhưng **chưa** chứng minh đó là timer nhốt.
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-200 | **Bộ đếm native trên bomber: `+0x2748`, giảm 1 mỗi update, `≤ 0` → gửi packet 167 (nghĩa *candidate*: báo chết).** Trường dword tại byte `+0x2748` (dword index `2514`) của object bomber; vị từ `0x006833D0` = `*(this+2514) > 0`. Trong `CGOBomber::Update` (slot 24 `0x00B44000`, vtable `0x01744964`; được `CGOGameBomber::Update` slot 24 `0x00B77B10` gọi ở `0x00B77E22`): nếu `vị từ \|\| sub_B534D0(this)` thì `sub_621A20(this+0x272C)`, `--*(this+2514)`, gọi `*(this+0x0D74)+0x60` (với `this+0x0D74`), rồi nếu `<= 0` gọi virtual `[vtable+0x328]` (slot 202). `CGOGameBomber` slot 202 = `0x00B7A760`: đặt trường `= 0`, và nếu object con `+356` qua `vf+56` thì mở `CSendPacket` type **167** (`0x01164C10(167)`), ghi 2 giá trị (`sub_14EBCF0`: `vf+40` của object con `+353`, và hằng `6`), gửi (`0x01164D50`/`0x01164C80`); `CGOBomber` slot 202 = `0x00B5D630` (rỗng). Consumer thứ hai: `0x00E84460` serialize từng bomber (byte `predicate(bomber)` = timer đang chạy) cùng `+0x5E8`/`+0x24DC`/…, `0x00E67E70` đóng gói `CSendPacket` type **184** (`push 0B8h` tại `0x00E68201`) | **1 đơn vị / 1 lần update bomber**; chết khi trường `≤ 0`; quy đổi ms cần nhịp update KR (30 ms của R-013 là đo trên VN) | `kr_static` / confirmed (cơ chế đếm–ngưỡng–packet); nhãn **"timer nhốt"**: `candidate` (xem R-201) | `0x006833D0` (predicate), `0x00B44000` (update, call site `0x00B4409A`–`0x00B440DE`), `0x00B7A760` (slot 202), `0x01164C10` (`CSendPacket`), `0x00E84460`→`0x00E67E70` (status 184); zero-init: `0x00B3DCB0`, `0x00B3D1D0`, `0x00B58B60`, `0x00B7A760`, `0x01036700`; evidence `ev_6035bfe5…`, `ev_fb801a51…`, `ev_3420dbcb…`, `ev_c8ea4fa9…` |
+| R-201 | **Setter/seed của bộ đếm không nằm trong code native; biên VM (blocker có phạm vi).** Quét toàn image mọi encoding của displacement `0x2748` (`[reg+2748h]`, `lea`, `add`): **10 site** — đọc trong `0x006833D0`, RMW giảm trong `0x00B44000`, zero-init trong `0x00B3DCB0`/`0x00B3D1D0`/`0x00B58B60`/`0x00B7A760`/`0x01036700`, và 1 dword trong bảng `0x017A60CC` (không phải code). **Không** có store giá trị dương, **không** có `lea`/`add` tạo địa chỉ ⇒ seed không được ghi bởi code native đã thấy. Vị từ thứ hai của update `sub_B534D0` `0x00B534D0` là thunk Themida: prologue native rồi `jmp near ptr 0x02012376` (segment `________`, `0x01D7B000–0x02076000`; byte đích `0xFF`) — cùng thunk được gọi từ `0x00B53330`, `0x00B46760`, `0x00B46830`, `0x00B46940`, `0x00B78780`, `0x00682790`. **Điểm vào nhốt + seed + state 3** chưa định vị | — (không mang giá trị) | `kr_static` / **unknown** (blocker có phạm vi; entry VM `0x00B534D0 → 0x02012376`) | `sub_B534D0` `0x00B534D0`; danh sách 10 site ghi ở [evidence](../../evidence/measurements/kr-static-trap-timer-2026-10-23/README.md#quét-displacement-0x2748); `kCGameStage_DeferBomberLockedIn` `0x017953C8` / `DeferBomberReleaseOrDie` `0x01795074` chỉ là nhãn đăng ký (R-131) |
+| R-202 | **Chạm/chọc và thứ tự trong một bước: chưa định lượng cho KR.** R-028 (`vn_runtime`/confirmed) "chạm địch → chết" giữ nguyên cho VN; KR **chưa** đọc được khoảng cách/hộp/ngưỡng chạm, cũng chưa nối nhánh chạm vào `0x00B7A760`. Thứ tự **hết hạn đếm vs chạm vs lửa trong cùng một bước** chưa chứng minh: đếm nằm trong `CGOBomber::Update` (`0x00B44000`, được gọi ở **cuối** `CGOGameBomber::Update` `0x00B77B10`), còn áp vụ nổ/lửa nằm ở đường map (`0x00E9E660` → `0x00E9EEE0`, xem R-139…R-141) — thứ tự giữa hai đường phụ thuộc vòng tick của stage, **chưa trace** | — | `kr_static` / **unknown**; `vn_runtime` (R-028) chỉ là tham chiếu | `0x00B44000`/`0x00B77B10`; R-139/R-141; [KR_RE_TRAPPED §5](../../research/findings/KR_RE_TRAPPED.md#5-timer-nhốt--chết-chưa-định-vị-r-131) |
+
+Hệ quả:
+
+- **Không đổi `data/rules`.** `player.trap_to_death_ms = 4000` (R-115) giữ `design`; KR chỉ cho **đơn vị
+  update** và ngưỡng, **chưa có** seed/nhịp KR nên không suy ra ms. Không lấy 6300/6359 ms (R-026,
+  khoảng packet) hay 2,5 s emulator làm timer.
+- Nhãn "timer nhốt" cho trường `+0x2748` là **candidate**: trường này chưa có consumer nào nối tới
+  state bị nhốt; nó có thể là bộ đếm trạng thái khác. Chỉ cạnh **đếm → gửi packet 167** là chắc.
+- Packet **167** (báo chết) và **184** (status bomber có byte timer) là phát hiện mới ở phía client;
+  chưa đối chiếu server, không dùng để đổi contract V1 ở PR này.
+- Nếu cần đóng Q-018: bước tiếp là devirt/đọc VM tại `0x00B534D0 → 0x02012376`, hoặc đo runtime
+  (entry/seed, state 3, thời điểm packet 167) theo Q-009 — không suy từ VN.
