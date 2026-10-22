@@ -14,6 +14,7 @@
 | [measurements/kr-static-2026-10-21/README.md](measurements/kr-static-2026-10-21/README.md) | Định danh build KR/VN và bảng VA/RVA của phép đọc tĩnh movement/va chạm (R-119…R-125); metadata, không có binary hay decompile. Phạm vi lớp: consumer đã trace là `CGOPet`/AI (R-134/R-135); R-119…R-122 `confirmed` chỉ cho `CMovable`, bomber là `candidate`/chưa chứng minh |
 | [measurements/kr-static-item-2026-10-21/README.md](measurements/kr-static-item-2026-10-21/README.md) | Điều tra item/cap KR: bộ nạp `ItemAttr` + cấu trúc bảng, provenance IDA trực tiếp; **chưa có claim** |
 | [measurements/kr-static-trapped-speed-2026-10-22/README.md](measurements/kr-static-trapped-speed-2026-10-22/README.md) | Truy vết `(dir,len)` khi bị nhốt: `CGOPet`; R-136 dispatch dir→sub-object `+1412`→reader; R-137 direct caller setter là wrapper NPC; `B479E0` lớp sử dụng `unknown`; quét 5 site slot 95 + packet VN 176/KR 183 dùng slot `+116`, input dir→position player `unknown`; bảng kiểm, `evidence_id`, giới hạn quét cục bộ |
+| [measurements/kr-static-trap-timer-2026-10-23/README.md](measurements/kr-static-trap-timer-2026-10-23/README.md) | Bộ đếm bomber `+0x2748` (predicate `0x006833D0`, update `0x00B44000`, slot 202 `0x00B7A760` → packet 167, status 184); quét 10 site displacement, thunk VM `0x00B534D0 → 0x02012376`; claim R-200…R-202; bảng VA/RVA, `evidence_id`, giới hạn |
 | [DOCS_MIGRATION.json](DOCS_MIGRATION.json) | Bản đồ đường dẫn cũ→mới, không phải bằng chứng luật chơi |
 
 Không commit client/pack/binary/database hoặc cache ảnh lớn vào repo chỉ để tạo evidence.

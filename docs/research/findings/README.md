@@ -28,3 +28,4 @@ Manifest/probe trong [evidence](../../evidence/README.md) là dữ liệu đã q
 Kết quả mới gắn với ID trong [QUESTIONS](../QUESTIONS.md), có nguồn, kết luận và giới hạn.
 Chỉ thêm một file khi chủ đề độc lập; không sinh file tổng kết theo agent/phiên.
 | [KR_RE_TRAPPED_SPEED](KR_RE_TRAPPED_SPEED.md) | Truy vết `(dir,len)` khi bị nhốt: đường đã trace thuộc `CGOPet`/AI; R-136 nối dispatch dir→field `+1440`→reader `0xB40D60`; R-137 caller setter là NPC/AI (`B479E0`/`F087E0`), input dir→position player `unknown` (R-134…R-137) |
+| [KR_RE_TRAP_TIMER](KR_RE_TRAP_TIMER.md) | RE tĩnh KR 00967: bộ đếm bomber `+0x2748` giảm 1/update, `≤0` → slot 202 `0xB7A760` gửi C→S packet 167; status packet 184 mang byte timer; seed/entry nằm ngoài code native (thunk VM `0xB534D0 → 0x02012376`); R-200…R-202 |
