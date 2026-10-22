@@ -19,17 +19,18 @@ Không mở DB gốc, không chạy client.
 
 | Vai trò | VA | RVA |
 |---|---|---|
-| State machine bomber mỗi bước cập nhật (set state 3, 13→14→2) | `0x00B952E0` | `0x007952E0` |
+| State machine trong cụm `0xB95xxx` (set state 3, 13→14→2); consumer đã trace: `CGOPet` | `0x00B952E0` | `0x007952E0` |
 | Cổng "được di chuyển" (loại `{0,1,4,13,14}`) | `0x00B95970` | `0x00795970` |
 | Chọn họ state đi `dir+9` / `dir+19` | `0x00B95840` | `0x00795840` |
 | Đổi nhóm khoá + đặt bộ đếm giữ `20` | `0x00B95BD0` | `0x00795BD0` |
 | Đọc bộ đếm giữ (`this[235]`, `this[236]`) | `0x00B95DA0` / `0x00B95DD0` | `0x00795DA0` / `0x00795DD0` |
 | Nhận diện nhóm state `15..18` / `19..22` | `0x00B95E00` | `0x00795E00` |
-| Cập nhật điều khiển bomber (bỏ qua state `13`,`14`,`1`) | `0x00B95180` | `0x00795180` |
-| Cổng vào di chuyển | `0x00B93830` | `0x00793830` |
-| Vòng lặp di chuyển | `0x00B93890` | `0x00793890` |
+| Cập nhật điều khiển gọi từ `CGOPet` slot 24 (bỏ qua state `13`,`14`,`1`) | `0x00B95180` | `0x00795180` |
+| Cổng vào di chuyển (gọi `0xB95970` rồi `0xB93890`) | `0x00B93830` | `0x00793830` |
+| Mover gọi `CMovable::MoveSimple` (đường `CGOPet`) | `0x00B93890` | `0x00793890` |
 | Trạng thái di chuyển theo dir (kiểm `state-9`/`state-19`) | `0x00B956C0` | `0x007956C0` |
 | Cờ "còn sống" (từ controller) | `0x00B95AC0` / `0x00B95AE0` | `0x00795AC0` / `0x00795AE0` |
+| Ctor `CGOGameBomber` — gán vtable cho sub-object **nhúng** tại byte `+1412`, không gán `+0xE0`/`+0xD4` | `0x00B73410` / `0x00B79DC0` | `0x00773410` / `0x00779DC0` |
 
 ## Tên đăng ký (chỉ là bảng tên, không trỏ hàm)
 
@@ -58,16 +59,38 @@ Không mở DB gốc, không chạy client.
 
 ## Giới hạn
 
-- Adapter IDA của REA từ chối `read_bytes`/`search_bytes` (`capability_unavailable`), nên **không** đọc
-  trực tiếp vtable/byte trong phiên này; kết luận chỉ từ decompile + xrefs.
+- Adapter IDA của REA từ chối `read_bytes`/`search_bytes` (`capability_unavailable`), nên phiên #157
+  **không** đọc trực tiếp vtable/byte; kết luận chỉ từ decompile + xrefs (lượt #185 dùng fallback IDA
+  trực tiếp trên **DB bản sao**, tuần tự sau khi đóng REA).
+- Chưa định vị thân virtual call tại **byte +8** (slot 2 x86) của controller pet ⇒ không suy ra
+  `len > 0`; chưa xác định mover/`len` của bomber.
 - Chưa có trace runtime; "20 bước ≈ 600 ms" là quy đổi theo R-013 (30 ms/bước, đo trên VN), chưa đo KR.
 - Số state `3` = bị nhốt ghép từ code KR + tài liệu packet VN, không phải nhãn có sẵn trong binary.
 
-## Bổ sung 2026-10-22 — đường `len`
+## Bổ sung 2026-10-22 — đường `(dir,len)` và phạm vi lớp
 
-- `sub_B95180` là **caller duy nhất** của `CGOBomber::MoveGate` `0xB93830`; `len` chỉ đến từ `vf8`
-  (slot `+0x20`) của object `*(bomber + 0xE0)` (getter `0x00B96310` → `0x00B971C0` = `return *(this)`).
-- Thân `vf8` **chưa định vị**: ctor `CGOGameBomber` `0xB79DC0` không gán `+0xE0`/`+0xD4`.
-- Fallback IDA trực tiếp (REA thiếu `search_bytes`): quét `mov [reg+0xE0], …` và `mov [reg+0xD4], …`
-  → 81 điểm, 21 trong dải `0xB3xxxx–0xB9xxxx`; điểm ghi cả hai là `0xB6B3F0` nhưng thuộc
-  `CGOChatBalloon`. Không tìm được setter của bomber trong lượt này.
+- Chuỗi đúng: `sub_B95180` `0x00B95180` → `0xB93830` `0x00B93830`; `0xB93830` gọi cổng `sub_B95970`
+  `0x00B95970` **trước** rồi mover `0xB93890` (không phải `0xB95180 → 0xB95970 → 0xB93830`).
+- `(dir,len)` là out-param của virtual call tại **byte +8** (slot 2 trên x86), **không** phải `vf8`/`+0x20`.
+  Nó là controller của **`CGOPet`** tại `*(pet + 0xE0)` (getter `0x00B96310` → `0x00B971C0` =
+  `return *(this)`); thân hàm tại byte +8 **chưa định vị**.
+- **Không** gán `+0xE0`/`+0xD4` cho bomber: ctor `CGOGameBomber` `0x00B73410`/`0x00B79DC0` chỉ gán vtable
+  cho sub-object **nhúng** tại byte `+1412` (`bomber[353]` nếu là `_DWORD*`; vtable pointer nằm ngay
+  tại byte đó). Input dispatch bomber dùng sub-object nhúng này — **không** phải dereference
+  `bomber[353]` thành pointer.
+- Fallback IDA trực tiếp trên DB **bản sao** (REA thiếu `read_bytes`/`search_bytes`): quét store
+  `+0xE0`/`+0xD4` → 66/62 điểm; trong dải `0xB3xxxx–0xB9xxxx` chỉ thấy `0xB8C3F0` (máy trạng thái hiệu
+  ứng), `0xB9D540`/`0xB9D750` (`CGOTileGround` ctor), `0xB6B3F0` (`CGOChatBalloon` ctor) — không có
+  bomber. Vì vậy lớp controller và mover/`len` của bomber vẫn **unknown**.
+
+## Phạm vi lớp — tham chiếu pending PR #185
+
+Bằng chứng lớp dùng ở trên lấy từ PR #185 (`re-kr-trapped-speed`, head `254d447` tại lúc đọc):
+`ev_e4565b5af7657ad73d2cf0806e5d76f36974c8c15bde173738d71c6ef036d80d` (`xrefs 0xB93A60` → 1 data ref
+`0x1746EA0` = slot 24 `CGOPet`) và
+`ev_9e2c7e089309a3142baa4668a7ea2a22eb0b5d0791fb70cf0ade95a51a5b4b82` (`batch_decompile 0xB93A60`,
+`0xB95180`). Hai `evidence_id` này thuộc bundle `evidence-trapped-speed-147.json` (ngoài repo), **chưa
+merge vào `main`**: PR #157 chỉ tham chiếu pending, không coi là claim đã có trên main.
+
+- Kết luận chỉ là: đường **đã trace** đi từ `CGOPet`; **không** loại trừ đường gián tiếp/wrapper/VM từ
+  bomber. R-127 với bomber người chơi giữ `candidate` (không còn `confirmed` phần cổng).
