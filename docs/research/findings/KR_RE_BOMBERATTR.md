@@ -100,7 +100,7 @@ Bundle `.re-work/evidence-r150-bomberattr-149.json` (20 record, không commit).
 ## 10.7 Kết luận / bước tiếp
 
 - `kr_static` **confirmed**: loader thứ tự row và kẹp f5 ≤ 10.
-- **Không tạo R-151**: `E9E660` đã đọc hết nhưng không có consumer/`cur+1`/`min`.
+- **Không tạo claim riêng cho `E9E660`**: đã đọc hết nhưng không có consumer/`cur+1`/`min`; R-150 giữ blocker.
 - **Blocker**: không có consumer f2–f7; không có đường +bomb/+range/+speed, kẹp runtime, nhặt khi
   trần, Roller/Shoe, hay speed→px/bước trong phạm vi đã đọc. `E9E660` đã đọc hết và không có phép
   cộng; các callee effect chưa mở hết.

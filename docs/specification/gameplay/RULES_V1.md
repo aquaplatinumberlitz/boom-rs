@@ -618,7 +618,7 @@ Phạm vi blocker:
 - **Đã đọc hết** thân `sub_E9E660` (207 dòng, 0x644 B): không có phép `cur+1`/`min(cur+1,max)`/
   setter stat; chỉ ghi `+176`, effect/vị trí, virtual `+104`/`+80`. Các **callee effect** (`EB8000`,
   `EB7A60`, virtual `+104`) chưa mở hết; chưa có runtime.
-- **Không tạo R-151**: đã đọc hết `E9E660` nhưng không thấy consumer/`cur+1`/`min`.
+- **Không tạo claim riêng cho `E9E660`**: đã đọc hết nhưng không thấy consumer/`cur+1`/`min`; R-150 giữ blocker.
 - Chưa thấy `.themida` trong các đường này; nếu mở rộng sang hàm VM thì ghi entry theo
   [DEVIRT_METHOD](../../research/findings/DEVIRT_METHOD.md).
 - Đề xuất profile: **không đổi** `characters.*`/`R-117`; giữ cấp (level), không đổi sang px. Nếu
@@ -653,6 +653,28 @@ Hệ quả:
   chưa đối chiếu server, không dùng để đổi contract V1 ở PR này.
 - Nếu cần đóng Q-018: bước tiếp là devirt/đọc VM tại `0x00B534D0 → 0x02012376`, hoặc đo runtime
   (entry/seed, state 3, thời điểm packet 167) theo Q-009 — không suy từ VN.
+
+## § (đánh số khi merge) — RE KR 00967 — state→animation, duration ODT và nhịp update (R-151, blocker)
+
+Tiếp nối mục 6 hàng đợi RE; Refs #148/V1-031. Build KR `00967`; REA MCP bản sao
+`kr-full.exe`, không mở DB gốc. Chi tiết/phạm vi ở
+[KR_RE_ANIM_STATE](../../research/findings/KR_RE_ANIM_STATE.md) và
+[evidence flame](../../evidence/measurements/kr-static-flame-2026-10-21/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-151 | **Consumer `BA3530` đã thấy nhánh; blocker phần đơn vị/cadence/getter**: với `record = BADF80(animIdx)`, `BA3530` so `B33170()` với `[record+4]`: `[record+4] == -1` → gọi `B33170()`, return 1; `B33170() < [record+4]` → return 5 (giữ frame); đủ ngưỡng → `B33190(0)` reset, `B331E0()` lấy giá trị; `B331E0() < GetAnimCount` → return 4 (nhánh tiến/không giữ); cuối dãy + `B33F40()!=0` → `B33200(count-1)`, return 3 (giữ cuối); ngược lại `B33200(0)`, return 2 (quay đầu). Đây là **consumer so bộ đếm/chuyển/giữ cuối/quay đầu** đã thấy; **chưa chứng minh** đơn vị/cadence của `B33170`, tên/nghĩa getter, và runtime state. `BA40F0`/`BA4160` vẫn đọc field per-anim; `B33B30` dùng `sub_15625C2` = **RNG**. R-141 giữ confirmed lửa frame (`B711C0`/GetAnimCount); `B44000` mã `24`/`27–30`/`39–42` chưa nối nhãn; hướng/tâm/thân/đuôi lửa chưa có consumer; `B711C0` xref duy nhất vtable. | — | `kr_static` / **confirmed** (nhánh `BA3530`, mã trả 1/2/3/4/5); **unknown/blocker** (đơn vị/cadence/getter semantics, state runtime, fire layer); R-141 giữ confirmed frame | `BA3530`; `B33170`/`B33190`/`B331E0`/`B33200`/`B33230`; `B33F40`; `BA40F0`/`BA4160`; `B338F0`; `B9CEC0`/`B9FDD0`; `B33B30`; `B44000`; evidence §11.6 |
+
+Hệ quả:
+
+- **R-141 (đã có)**: hiển thị lửa tính bằng **frame**, không phải ms; `B711C0` chỉ `++`, không nhận `dt`.
+  Không đổi `bomb.flame_ms=500` hoặc bất kỳ giá trị profile nào khi chưa có nhịp update.
+- **ODT duration**: `BA40F0`/`BA4160` là consumer của field per-anim, nhưng chưa chứng minh field là
+  duration/ms; `B33B30` dùng RNG nên không phải elapsed. Không suy “duration ODT = ms”.
+- **State**: nhãn idle/walk/trapped/dead vẫn theo ODT (R-095 candidate); chưa có trace nối state core
+  với nhãn, và chưa thấy consumer chọn tâm/thân/đuôi/hướng lửa.
+- **Nhịp update**: chưa định vị call site/loop gọi vf24; do đó `frame → ms` vẫn `unknown`.
+- Đề xuất presentation: giữ frame-based, không đặt ms; nếu cần ms phải có PR riêng sau khi đo nhịp.
 
 ## § (đánh số khi merge) — RE KR 00967 — UI V1: rect/hitbox và layout phòng (R-152)
 
