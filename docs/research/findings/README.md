@@ -28,3 +28,4 @@ Manifest/probe trong [evidence](../../evidence/README.md) là dữ liệu đã q
 Kết quả mới gắn với ID trong [QUESTIONS](../QUESTIONS.md), có nguồn, kết luận và giới hạn.
 Chỉ thêm một file khi chủ đề độc lập; không sinh file tổng kết theo agent/phiên.
 | [KR_RE_TRAPPED_SPEED](KR_RE_TRAPPED_SPEED.md) | Truy vết `(dir,len)` khi bị nhốt: đường đã trace thuộc `CGOPet`/AI; R-136 nối dispatch dir→field `+1440`→reader `0xB40D60`; R-137 direct caller setter là wrapper NPC, `B479E0` lớp sử dụng `unknown`; R-138 opcode 183→`CGOGhost`→setter `0xB334C0` (packet→setter), input dir→position player `unknown` (R-134…R-138) |
+| [KR_RE_FLAME_CHAIN](KR_RE_FLAME_CHAIN.md) | RE tĩnh KR 00967: client tự tính vùng nổ (`0x00E9C520`, ô chặn thuộc vùng và tia không xuyên), dây chuyền (`0x00E9CDC0`), ô nổ là message id 27, thời gian lửa = số frame animation (`GetAnimCount`), không có damage timer ms; R-139…R-141, §17 |
