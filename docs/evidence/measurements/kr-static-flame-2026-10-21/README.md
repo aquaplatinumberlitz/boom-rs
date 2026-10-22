@@ -76,13 +76,15 @@ giữ `unknown`.
 | `CGOFlame` update | `0xB711C0` (vtable `0x1745EF0`, slot 24 `0x1745F50`) | `++flame[i+51]` mỗi lần update; xoá khi `>= GetAnimCount(flame[i+36])`; **không** đọc `dt`/elapsed/duration ODT |
 | GetAnimCount | `B333D0` → `BA3FF0` → `B8E5A0(template+4)` | số animation/frame của template |
 | Per-anim field | `BA40F0` (`[anim+4]`), `BA41D0` (`[anim]`), stride 8 | field thứ hai; chưa chứng minh là duration/ms |
+| Consumer nhánh | `BA3530` | so `B33170()` với `[record+4]`; `1` = `[+4]==-1`, `5` = dưới ngưỡng, `4` = reset `B33190(0)` + frame `B331E0`, `3` = `B33200(count-1)` giữ cuối, `2` = `B33200(0)` quay đầu; đơn vị/getter chưa rõ |
 | Tổng field | `BA4160` cộng `BA40F0` | caller `B338F0`/`B9CEC0`/`B9FDD0`; `B33B30` dùng `sub_15625C2` = **RNG**, không elapsed |
 | State code | `B44000` | kiểm mã `24`/`27–30`/`39–42` + `B33230`; chưa nối nhãn ODT idle/walk/trapped/dead |
 | Nhịp update | `0xB711C0` xref | chỉ data `0x1745F50`; không thấy call site trực tiếp ⇒ chưa quy đổi frame→ms |
 
-**Kết luận:** R-141 confirmed lửa/segment đếm **frame** (không lặp claim); **R-151 là blocker** cho
-ms/nhịp update, đơn vị field ODT, state→nhãn và consumer tâm/thân/đuôi/hướng lửa. **Đề xuất
-presentation: giữ frame-based, không đặt ms; không đổi `bomb.flame_ms` hay profile.**
+**Kết luận:** R-141 confirmed lửa/segment đếm **frame** (không lặp claim). **R-151**: `BA3530` đã
+thấy nhánh consumer `[record+4]` (so/reset/tiến/giữ-cuối/quay-đầu, mã `1/2/3/4/5`); **blocker** chỉ
+còn đơn vị/cadence/getter, state→nhãn và consumer tâm/thân/đuôi/hướng lửa. **Đề xuất presentation:
+giữ frame-based, không đặt ms; không đổi `bomb.flame_ms` hay profile.**
 
 | `evidence_id` | Operation | Dùng cho |
 |---|---|---|

@@ -654,7 +654,7 @@ Hệ quả:
 - Nếu cần đóng Q-018: bước tiếp là devirt/đọc VM tại `0x00B534D0 → 0x02012376`, hoặc đo runtime
   (entry/seed, state 3, thời điểm packet 167) theo Q-009 — không suy từ VN.
 
-## 20. RE KR 00967 — state→animation, duration ODT và nhịp update (R-151, blocker)
+## § (đánh số khi merge) — RE KR 00967 — state→animation, duration ODT và nhịp update (R-151, blocker)
 
 Tiếp nối mục 6 hàng đợi RE; Refs #148/V1-031. Build KR `00967`; REA MCP bản sao
 `kr-full.exe`, không mở DB gốc. Chi tiết/phạm vi ở
@@ -663,7 +663,7 @@ Tiếp nối mục 6 hàng đợi RE; Refs #148/V1-031. Build KR `00967`; REA MC
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
-| R-151 | **Blocker state→animation/duration ODT + nhịp update** (R-141 đã confirmed lửa đếm frame; không lặp claim): `CGOFlame` update `0xB711C0` (vtable `0x1745EF0`, slot 24 = `0x1745F50`) tăng `flame[i+51]` mỗi lần update; xoá segment khi `>= sub_B333D0(animId)` = `CGameObjectTemplate::GetAnimCount` `0xBA3FF0` (`B333D0` → `BA3FF0` → `B8E5A0(template+4)`). Không đọc elapsed/delta, không đọc duration ODT ⇒ đơn vị **frame** (1 update = 1 frame), **không có cơ sở quy đổi ms**. Consumer ODT khác: `BA40F0` đọc field per-anim (`[anim+4]`), `BA4160` cộng; `B338F0`/`B9CEC0`/`B9FDD0` dùng tổng; `B33B30` dùng `sub_15625C2` = **RNG** để chọn pha, không elapsed. State R-095 vẫn candidate: code `B44000` kiểm anim index `24`/`27–30`/`39–42`, chưa nối nhãn ODT; consumer chọn tâm/thân/đuôi/hướng lửa chưa định vị; nhịp gọi `B711C0` chưa xác định (xref duy nhất là vtable) | — | `kr_static` / **unknown (blocker)** cho state/duration ODT/cadence/fire layer; R-141 giữ **confirmed** frame counter | `B711C0` `+51`, `+141`, `+36`; `B333D0` → `BA3FF0` → `B8E5A0`; vtable `0x1745EF0` slot `0x1745F50`; `BA40F0`/`BA4160`; `B338F0`; `B9CEC0`/`B9FDD0`; `B33B30`; `B44000`; evidence §11.6 |
+| R-151 | **Consumer `BA3530` đã thấy nhánh; blocker phần đơn vị/cadence/getter**: với `record = BADF80(animIdx)`, `BA3530` so `B33170()` với `[record+4]`: `[record+4] == -1` → gọi `B33170()`, return 1; `B33170() < [record+4]` → return 5 (giữ frame); đủ ngưỡng → `B33190(0)` reset, `B331E0()` lấy giá trị; `B331E0() < GetAnimCount` → return 4 (nhánh tiến/không giữ); cuối dãy + `B33F40()!=0` → `B33200(count-1)`, return 3 (giữ cuối); ngược lại `B33200(0)`, return 2 (quay đầu). Đây là **consumer so bộ đếm/chuyển/giữ cuối/quay đầu** đã thấy; **chưa chứng minh** đơn vị/cadence của `B33170`, tên/nghĩa getter, và runtime state. `BA40F0`/`BA4160` vẫn đọc field per-anim; `B33B30` dùng `sub_15625C2` = **RNG**. R-141 giữ confirmed lửa frame (`B711C0`/GetAnimCount); `B44000` mã `24`/`27–30`/`39–42` chưa nối nhãn; hướng/tâm/thân/đuôi lửa chưa có consumer; `B711C0` xref duy nhất vtable. | — | `kr_static` / **confirmed** (nhánh `BA3530`, mã trả 1/2/3/4/5); **unknown/blocker** (đơn vị/cadence/getter semantics, state runtime, fire layer); R-141 giữ confirmed frame | `BA3530`; `B33170`/`B33190`/`B331E0`/`B33200`/`B33230`; `B33F40`; `BA40F0`/`BA4160`; `B338F0`; `B9CEC0`/`B9FDD0`; `B33B30`; `B44000`; evidence §11.6 |
 
 Hệ quả:
 

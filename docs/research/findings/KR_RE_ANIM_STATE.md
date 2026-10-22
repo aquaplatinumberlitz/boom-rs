@@ -31,18 +31,35 @@ for i in 0..flame.count-1:
 - Xref của `B711C0` chỉ là data `0x1745F50` (vtable); không có call site trực tiếp trong scan
   `call [reg+0x60]` (xem §11.5).
 
-## 11.3 Consumer duration ODT: `BA40F0` / `BA4160`
+## 11.3 Consumer duration ODT: `BA40F0`/`BA4160` và nhánh `BA3530`
 
 - `BA40F0(objNo, animIdx)` trả `*(animEntry+4)` với `animEntry = BADF80(animIdx)`; `BA41D0` trả
   `*(animEntry)`; `animEntry` stride 8, template record stride 20 (`BADFA0`).
 - `BA4160(objNo)` cộng `BA40F0` cho `0..GetAnimCount-1` — tổng các field per-anim.
 - Caller: `B338F0` (trả tổng), `B9CEC0`/`B9FDD0` (effect nổ) truyền tổng vào `B8B5B0` như một tham
   số effect; `B33980` trả field của một anim; `B33B30` dùng tổng để chọn pha.
-- **Chưa chứng minh** field `[anim+4]` là duration theo ms (hay frame count/ID). `B33B30` dùng
-  `sub_15625C2()` — hàm **RNG** (`214013*state+2531011`, `HIWORD & 0x7FFF`), không phải elapsed —
-  nên không được suy “duration ODT = ms” từ caller này.
-- Vì vậy consumer `(frame,duration)` có tồn tại ở mức đọc field/tổng, nhưng **đơn vị và nghĩa
-  loop/hold/end chưa xác định**.
+
+### 11.3b `BA3530` — consumer trực tiếp của `[record+4]`
+
+`BA3530` đã có trong chính `ev_7ff15ec…`; đây là nhánh **so bộ đếm/chuyển/giữ cuối/quay đầu**
+(nhưng chưa đủ để gọi tên/đơn vị getter):
+
+| Mã trả | Điều kiện / hành động đã thấy |
+|---|---|
+| `1` | `[record+4] == -1` → gọi `B33170()`, return `1` |
+| `5` | `B33170() < [record+4]` → return `5` (giữ frame; không reset/không tiến) |
+| `4` | đủ ngưỡng → `B33190(0)` (reset), `B331E0()` lấy giá trị; `B331E0() < GetAnimCount` → return `4` (nhánh tiến/không giữ) |
+| `3` | ở frame cuối + `B33F40() != 0` → `B33200(count-1)`, return `3` (giữ cuối) |
+| `2` | ngược lại → `B33200(0)`, return `2` (quay đầu) |
+
+- `record = BADF80(animIdx)`; `[record+4]` là ngưỡng được so; `B33170()` là giá trị so (counter
+  candidate); `B33190(0)` là setter được gọi khi đủ ngưỡng; `B331E0()` là frame-index candidate;
+  `B33200(v)` là setter frame candidate; `B33F40()` là cờ giữ-cuối candidate.
+- **Chưa chứng minh**: đơn vị/cadence của `B33170` (không gán ms), tên/nghĩa chính xác của các getter
+  trên, và runtime state mapping. `B33B30` dùng `sub_15625C2()` — **RNG**, không elapsed — nên không
+  được suy “duration ODT = ms” từ caller này.
+- Vì vậy **nhánh loop/hold/end đã thấy** ở mức code; phần **đơn vị/cadence/getter/runtime** vẫn là
+  blocker có phạm vi.
 
 ## 11.4 State → animation (idle/walk/trapped/dead)
 
@@ -85,9 +102,10 @@ Bundle `.re-work/evidence-r151-anim-148.json` (20 record, không commit).
 
 - **R-141 (đã có, không lặp)**: `kr_static` confirmed lửa/segment đếm bằng **frame update**; xoá khi
   `frame >= GetAnimCount`; không có elapsed/duration ODT trong đường này.
-- **R-151 là blocker có phạm vi**: chưa xác định nhịp update → chưa quy đổi frame→ms; consumer
-  duration ODT (`BA40F0`/`BA4160`) chưa chứng minh đơn vị/loop/hold; state→nhãn ODT và chọn
-  tâm/thân/đuôi/hướng lửa chưa có consumer runtime.
+- **R-151**: `kr_static` confirmed nhánh **`BA3530`** — `[record+4]` so với `B33170()`, reset
+  `B33190(0)`, frame `B331E0`, setter `B33200`, các mã `1/2/3/4/5` cho giữ/tiến/giữ-cuối/quay-đầu.
+  **Blocker có phạm vi** chỉ còn: đơn vị/cadence của `B33170` (chưa quy đổi ms), tên/nghĩa getter,
+  state→nhãn ODT và consumer tâm/thân/đuôi/hướng lửa.
 - **Đề xuất presentation**: giữ frame-based, không đặt ms; không đổi `bomb.flame_ms`, R-079 vẫn
   `unknown`. Nếu cần ms, phải đo nhịp update trên client gốc hoặc tìm call site vf24 rồi mở PR
   profile/presentation riêng.
