@@ -1,4 +1,4 @@
-# KR 00967 — state → animation, frame duration, nhịp update (R-151)
+# KR 00967 — state → animation, duration ODT, nhịp update (R-151, blocker)
 
 Lượt RE mục 6 hàng đợi REWRITE_PLAN, [#148](https://github.com/aquaplatinumberlitz/boom-rs/issues/148)
 (phần frame) / V1-031. Mục tiêu: consumer `(frame, duration)`/elapsed, đơn vị, loop/hold/end, state
@@ -83,11 +83,11 @@ Bundle `.re-work/evidence-r151-anim-148.json` (20 record, không commit).
 
 ## 11.7 Kết luận / đề xuất
 
-- `kr_static` **confirmed**: lửa/segment đếm bằng **frame update**; xoá khi
+- **R-141 (đã có, không lặp)**: `kr_static` confirmed lửa/segment đếm bằng **frame update**; xoá khi
   `frame >= GetAnimCount`; không có elapsed/duration ODT trong đường này.
-- **Blocker có phạm vi**: chưa xác định nhịp update → chưa quy đổi frame→ms; consumer duration ODT
-  (`BA40F0`/`BA4160`) chưa chứng minh đơn vị/loop/hold; state→nhãn ODT và chọn tâm/thân/đuôi/hướng
-  lửa chưa có consumer runtime.
+- **R-151 là blocker có phạm vi**: chưa xác định nhịp update → chưa quy đổi frame→ms; consumer
+  duration ODT (`BA40F0`/`BA4160`) chưa chứng minh đơn vị/loop/hold; state→nhãn ODT và chọn
+  tâm/thân/đuôi/hướng lửa chưa có consumer runtime.
 - **Đề xuất presentation**: giữ frame-based, không đặt ms; không đổi `bomb.flame_ms`, R-079 vẫn
   `unknown`. Nếu cần ms, phải đo nhịp update trên client gốc hoặc tìm call site vf24 rồi mở PR
   profile/presentation riêng.

@@ -65,7 +65,7 @@ engine seed database đã phân tích. Không mở DB gốc, không chạy clien
 4. Nếu cả hai đường đều vào `.themida` thì dừng và ghi entry VM theo
    [DEVIRT_METHOD](../../../research/findings/DEVIRT_METHOD.md).
 
-## Bổ sung 2026-10-23 — R-151: frame counter, duration/ODT, nhịp update
+## Bổ sung 2026-10-23 — R-151 blocker: duration ODT/nhịp update (R-141 frame)
 
 REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63b`; bundle
 `.re-work/evidence-r151-anim-148.json` (20 record, không commit). Không đọc lại blob 48 byte; R-079
@@ -80,9 +80,9 @@ giữ `unknown`.
 | State code | `B44000` | kiểm mã `24`/`27–30`/`39–42` + `B33230`; chưa nối nhãn ODT idle/walk/trapped/dead |
 | Nhịp update | `0xB711C0` xref | chỉ data `0x1745F50`; không thấy call site trực tiếp ⇒ chưa quy đổi frame→ms |
 
-**Kết luận:** `kr_static` confirmed lửa/segment đếm **frame**; **blocker** phần ms/nhịp update, đơn vị
-field ODT, state→nhãn và consumer tâm/thân/đuôi/hướng lửa. **Đề xuất presentation: giữ frame-based,
-không đặt ms; không đổi `bomb.flame_ms` hay profile.**
+**Kết luận:** R-141 confirmed lửa/segment đếm **frame** (không lặp claim); **R-151 là blocker** cho
+ms/nhịp update, đơn vị field ODT, state→nhãn và consumer tâm/thân/đuôi/hướng lửa. **Đề xuất
+presentation: giữ frame-based, không đặt ms; không đổi `bomb.flame_ms` hay profile.**
 
 | `evidence_id` | Operation | Dùng cho |
 |---|---|---|
