@@ -1,0 +1,29 @@
+# Oracle: thời gian nhốt → chết theo khoảng packet đo được ở VN.
+# Nguồn: VN VBNB_116 runtime (`confirmed`) — R-026 (khoảng packet 120/11 → 120/13 = 6,359 s;
+# ba lần 6,355/6,364/6,358, biên độ 9 ms). Đây là khoảng packet có xử lý/gửi, **không** phải
+# timer nội bộ; V1 dùng timer BnB 4 000 ms theo R-115 (thiết kế), còn profile test dùng 6 300 ms.
+# Kỳ vọng 6359 ms ± 5 ms (biên độ); kịch bản `vn_engine_diff/trap_death_6359ms.toml` (status
+# pending) đo được 6300 ms với profile test → sai khác đã ghi ở G-05.
+[oracle]
+id = "O-013"
+name = "Thời gian nhốt → chết theo khoảng packet VN"
+feature = "V1-037"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-026", "R-115"]
+evidence = [
+    "docs/specification/gameplay/RULES_V1.md",
+    "docs/evidence/measurements/vn-timing-2026-10-19/trap-packets.csv",
+]
+quantity = "trap_to_death"
+unit = "ms"
+expected = 6359
+tolerance = 5
+diff = "G-05"
+note = "R-026 đo khoảng packet, không phải timer nội bộ; V1 chọn timer 4 000 ms theo BnB (R-115), profile test dùng 6 300 ms. Chênh lệch nằm ở G-05."
+
+[oracle.check]
+kind = "scenario"
+scenario = "fixtures/scenarios/vn_engine_diff/trap_death_6359ms.toml"
+measure = "trap_to_death"
+player = 0

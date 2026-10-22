@@ -190,7 +190,7 @@ fn default_map_build() -> String {
 }
 
 /// Phần dựng trận chung của file replay/scenario.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct Setup {
     pub rules: Option<PathBuf>,
     #[serde(default)]

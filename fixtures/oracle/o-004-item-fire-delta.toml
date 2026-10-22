@@ -1,0 +1,20 @@
+# Oracle: ItemFire +1 tầm nổ.
+# Nguồn: VN VBNB_116 runtime (`confirmed`) — R-025 (oc_e §5a-5d, hiệu ứng bị động) và R-111
+# (lựa chọn hiện hành theo ADR 0013). Engine đọc cùng đại lượng ở `item.fire_range_delta`.
+[oracle]
+id = "O-004"
+name = "ItemFire +1 tầm"
+feature = "V1-037"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-025", "R-111"]
+evidence = ["docs/specification/gameplay/RULES_V1.md"]
+quantity = "item_fire_range_delta"
+unit = "cell"
+expected = 1
+tolerance = 0
+profile = "data/rules/v1-dev.toml"
+
+[oracle.check]
+kind = "rule"
+rule = "item.fire_range_delta"
