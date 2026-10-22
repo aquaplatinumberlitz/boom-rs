@@ -1,7 +1,7 @@
 # Đo tĩnh KR 00967 — bị nhốt (trapped), 2026-10-21
 
 Metadata cho claim `kr_static` R-126…R-131
-([RULES_V1 §13](../../../specification/gameplay/RULES_V1.md#13-re-kr-00967--bị-nhốt-r-126r-131)).
+([RULES_V1 §14](../../../specification/gameplay/RULES_V1.md#14-re-kr-00967--bị-nhốt-r-126r-131)).
 Suy luận và giới hạn ở [KR_RE_TRAPPED](../../../research/findings/KR_RE_TRAPPED.md). Không có binary,
 pack, DB hay decompile nguyên văn.
 
@@ -29,7 +29,7 @@ Không mở DB gốc, không chạy client.
 | Cổng vào di chuyển (gọi `0xB95970` rồi `0xB93890`) | `0x00B93830` | `0x00793830` |
 | Mover gọi `CMovable::MoveSimple` (đường `CGOPet`) | `0x00B93890` | `0x00793890` |
 | Trạng thái di chuyển theo dir (kiểm `state-9`/`state-19`) | `0x00B956C0` | `0x007956C0` |
-| Cờ "còn sống" (từ controller) | `0x00B95AC0` / `0x00B95AE0` | `0x00795AC0` / `0x00795AE0` |
+| Hàm `sub_B95AC0` / setter `sub_B95AE0` (nhãn "còn sống" chỉ là suy luận, chưa có consumer định nghĩa) | `0x00B95AC0` / `0x00B95AE0` | `0x00795AC0` / `0x00795AE0` |
 | Ctor `CGOGameBomber` — gán vtable cho sub-object **nhúng** tại byte `+1412`, không gán `+0xE0`/`+0xD4` | `0x00B73410` / `0x00B79DC0` | `0x00773410` / `0x00779DC0` |
 
 ## Tên đăng ký (chỉ là bảng tên, không trỏ hàm)
@@ -65,7 +65,10 @@ Không mở DB gốc, không chạy client.
 - Chưa định vị thân virtual call tại **byte +8** (slot 2 x86) của controller pet ⇒ không suy ra
   `len > 0`; chưa xác định mover/`len` của bomber.
 - Chưa có trace runtime; "20 bước ≈ 600 ms" là quy đổi theo R-013 (30 ms/bước, đo trên VN), chưa đo KR.
-- Số state `3` = bị nhốt ghép từ code KR + tài liệu packet VN, không phải nhãn có sẵn trong binary.
+- Số state, điều kiện và chuyển state trong `sub_B952E0` là `kr_static`/confirmed **trong cụm `CGOPet`**.
+  Nhãn "`3` = bị nhốt" cho cụm pet là **candidate**: không có enum/consumer chung định nghĩa
+  `sub_B95AC0`/`sub_B956C0`/virtual `+56`/`+60`. Packet VN 120/11 state 3 là claim riêng
+  `vn_runtime`/confirmed của bomber (R-026), **không** ghép sang pet.
 
 ## Bổ sung 2026-10-22 — đường `(dir,len)` và phạm vi lớp
 

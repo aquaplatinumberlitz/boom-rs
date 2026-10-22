@@ -1,7 +1,7 @@
 # KR 00967 — bị nhốt (trapped): state, di chuyển, khoá và chết
 
 Kết quả đọc tĩnh cho [#147](https://github.com/aquaplatinumberlitz/boom-rs/issues/147) / Q-018,
-nguồn `kr_static`. Claim ở [RULES_V1 §13](../../specification/gameplay/RULES_V1.md#13-re-kr-00967--bị-nhốt-r-126r-131);
+nguồn `kr_static`. Claim ở [RULES_V1 §14](../../specification/gameplay/RULES_V1.md#14-re-kr-00967--bị-nhốt-r-126r-131);
 định danh build và bảng VA/RVA ở
 [evidence](../../evidence/measurements/kr-static-trapped-2026-10-21/README.md).
 Không có binary, pack, IDA DB hay decompile nguyên văn trong repo.
@@ -11,6 +11,11 @@ Không có binary, pack, IDA DB hay decompile nguyên văn trong repo.
 cập nhật **`CGOPet`** — theo R-134/R-135 ở PR #185 (chưa merge, tham chiếu pending). Với bomber người
 chơi, "bị nhốt đi được" vẫn là `candidate`/chưa chứng minh; khác R-036/R-108 (BnB design `trapped`
 đứng yên) **không** phải cơ sở để đổi luật người chơi.
+
+**Nhãn state (sau review vòng 3):** KR chỉ cho **số** state và các điều kiện/chuyển state đã đọc trong
+cụm `CGOPet` (confirmed trong phạm vi pet). Nhãn "`3` = bị nhốt" cho cụm pet là **candidate** — không có
+enum/consumer chung định nghĩa `sub_B95AC0`/`sub_B956C0`/virtual `+56`/`+60`. Packet VN 120 subtype 11
+= state 3 là claim **riêng** `vn_runtime`/confirmed của bomber người chơi (R-026), **không** ghép sang pet.
 
 ## 0. Phạm vi và cách đọc
 
@@ -29,37 +34,59 @@ chạy thật.
 
 Đối tượng có getter/setter state là virtual `+100`/`+104`. Các giá trị đọc được và bằng chứng:
 
-| State | Nghĩa | Bằng chứng |
+| State | Nhãn (mức) | Bằng chứng |
 |---|---|---|
-| `0`, `1`, `4` | trạng thái nền (không di chuyển) | `sub_B95970` loại `{0,1,4,13,14}` khỏi "được đi" |
-| `2` | đứng/stop | `sub_B952E0` set `2` khi cờ sống tắt; `sub_B95840` không dùng |
-| `3` | **bị nhốt** | `sub_B952E0` set `3` ở nhánh "còn sống"; VN: packet C→S 120 subtype 11 = trạng thái 3 (bị nhốt) — `oc_e-game.md` §5b |
-| `8` | stop sau khi rời nhóm khoá | `sub_B95BD0(this, 0)` → `SetState(8)` |
-| `9..12` | đi theo 4 hướng (nhóm thường) | `sub_B95840`: `SetState(dir + 9)` |
-| `13` | đang chết | `sub_B952E0` case 13 → `SetState(14)`; input dispatch `sub_B95180` bỏ qua state 13 |
-| `14` | chết | `sub_B952E0` case 14 → `SetState(2)`; `sub_B95180` bỏ qua state 14 |
-| `15..18` | nhóm "đã khoá" (kèm `19..22`) | `sub_B95E00` trả true cho `15..18` **hoặc** `19..22` |
-| `19..22` | đi theo 4 hướng (nhóm khoá) | `sub_B95840`: `SetState(dir + 19)` khi đang ở nhóm khoá |
+| `0`, `1`, `4` | không thuộc nhóm được đi (suy luận từ cổng) | `sub_B95970` loại `{0,1,4,13,14}` khỏi "được đi" |
+| `2` | stop (suy luận) | `sub_B952E0` đặt `2` khi `sub_B95AC0(this) == 0` và state đang `3`; `sub_B95840` không dùng |
+| `3` | **chưa xác định**; giả thuyết "bị nhốt" = **candidate** | `sub_B952E0` đặt `3` khi `sub_B95AC0(this) != 0`, `state != 3`, `sub_B956C0(this,-1) == 0`, state không thuộc `{13,14,15..18,19..22}`; không có enum/consumer định nghĩa `sub_B95AC0`/`sub_B956C0`. Packet VN 120/11 state 3 là claim riêng của bomber (`vn_runtime`/confirmed, R-026), không ghép sang pet |
+| `8` | stop sau khi rời nhóm khoá (suy luận) | `sub_B95BD0(this, 0)` → `SetState(8)` |
+| `9..12` | đi theo 4 hướng, nhóm thường (suy luận) | `sub_B95840`: `SetState(dir + 9)` |
+| `13` | đang chết (suy luận) | `sub_B952E0` case 13 → `SetState(14)`; input dispatch `sub_B95180` bỏ qua state 13 |
+| `14` | chết (suy luận) | `sub_B952E0` case 14 → `SetState(2)`; `sub_B95180` bỏ qua state 14 |
+| `15..18` | nhóm "đã khoá" (suy luận, kèm `19..22`) | `sub_B95E00` trả true cho `15..18` **hoặc** `19..22` |
+| `19..22` | đi theo 4 hướng, nhóm khoá (suy luận) | `sub_B95840`: `SetState(dir + 19)` khi đang ở nhóm khoá |
+
+Chỉ **số** state, điều kiện và chuyển state trong bảng là `kr_static`/confirmed trong phạm vi `CGOPet`.
+Cột "Nhãn" là suy luận từ số/offset, chưa có consumer định nghĩa ngữ nghĩa. Đặc biệt `3` = "bị nhốt"
+là **candidate**, không phải sự thật đã đọc; packet VN 120/11 của bomber là claim riêng R-026
+(`vn_runtime`/confirmed), không phải bằng chứng cho nhãn của pet.
 
 **Phạm vi lớp của mục 1–4 (bổ sung sau review #157):** các hàm `sub_B952E0`, `sub_B95840`, `sub_B95BD0`,
 `sub_B95E00`, `sub_B95970` nằm trong cùng cụm `0xB95xxx`. Consumer đã trace của `sub_B952E0` là
 `sub_B93A60` `0xB93A60` (= slot 24 `??_7CGOPet@@6B@`), và `0xB93A60` gọi `sub_B95180(this)` rồi
 `sub_B952E0(v2)` — tức đường cập nhật **`CGOPet`/AI**. Chưa có consumer nào thuộc lớp bomber người chơi
 cho các hàm này; phát biểu này **không** loại trừ đường gián tiếp/wrapper/VM từ bomber, chỉ giới hạn
-phạm vi bằng chứng. Vì vậy bảng state + tóm tắt dưới đây là mô tả cơ chế trong cụm đã đọc; khi áp lên
-người chơi (kể cả nhãn "3 = bị nhốt") phải coi là `candidate` cho tới khi xác định state machine của
-bomber.
+phạm vi bằng chứng. Vì vậy bảng state + tóm tắt dưới đây là mô tả cơ chế trong cụm đã đọc; nhãn
+"3 = bị nhốt" đã là **candidate** ngay trong phạm vi pet, và càng không đủ cho bomber cho tới khi xác
+định state machine của bomber.
 
 Tóm tắt tự viết của `sub_B952E0` (state machine mỗi bước cập nhật, không phải nguyên văn):
 
 ```
-giảm bộ đếm giữ this[235] hoặc this[236] nếu > 0
-nếu controller báo "đang đi" != (đang ở nhóm khoá): sub_B95BD0(1 hoặc 0)   // đổi nhóm + đặt 20
-nếu cờ sống (controller vf60):
-    nếu state != 3 và state không thuộc {di, nhốt-khoá, chết}: SetState(3)
-ngược lại nếu state == 3: SetState(2)
-switch (state): case 13 -> (khi a2==2) SetState(14); case 14 -> (khi a2==2) SetState(2)
+nếu sub_B96D80(this+53) != 0:
+    nếu sub_B95DA0(this): --this[235]
+    ngược lại nếu sub_B95DD0(this): --this[236]
+    nếu !sub_B95DA0(this) || !sub_B95DD0(this):
+        nếu sub_B95E00(this):
+            nếu controller->vf56 == 0:  sub_B95BD0(this, 0)
+        ngược lại:
+            nếu controller->vf56 != 0: sub_B95BD0(this, 1)
+    nếu controller->vf60 != 0:
+        nếu sub_B95AC0(this) == 0: sub_B95AE0(1)
+    ngược lại:
+        nếu sub_B95AC0(this) != 0: sub_B95AE0(0)
+    v10 = state
+    nếu sub_B95AC0(this) != 0:
+        nếu v10 != 3 và sub_B956C0(this, -1) == 0
+           và v10 not in {13,14,15..18,19..22}:
+            nếu sub_B95E00(this): sub_B95BD0(this, 0)
+            SetState(3)
+    ngược lại nếu v10 == 3: SetState(2)
+    case 13 -> (khi a2 == 2) SetState(14); case 14 -> (khi a2 == 2) SetState(2)
 ```
+
+`vf56`/`vf60` chỉ là **byte offset** của virtual call; `sub_B95AC0`/`sub_B956C0` chỉ là các hàm chưa
+rõ nghĩa. Tên "cờ sống"/"đang đi" **không** được dùng như sự thật: chưa có consumer định nghĩa chúng.
 
 ## 2. Cổng di chuyển của state `3` — chuỗi đã trace thuộc `CGOPet` (R-127)
 
@@ -125,8 +152,10 @@ mode == 0: this[236] = 20; SetState(8);  ...
 this[234] = mode
 ```
 
-`sub_B952E0` giảm `this[235]`/`this[236]` mỗi bước cập nhật và chỉ gọi `sub_B95BD0` khi "đang đi" đổi
-pha. Trong lúc bộ đếm `> 0`, `sub_B95970` trả `false` ⇒ **cổng di chuyển đóng 20 bước cập nhật**.
+`sub_B952E0` giảm `this[235]`/`this[236]` mỗi bước cập nhật và gọi `sub_B95BD0(0)` khi state thuộc nhóm
+`15..18`/`19..22` và `controller->vf56 == 0`, gọi `sub_B95BD0(1)` khi ngoài nhóm và `vf56 != 0`; nhãn
+"đang đi" cho `vf56` là suy luận, chưa có consumer định nghĩa. Trong lúc bộ đếm `> 0`, `sub_B95970` trả
+`false` ⇒ **cổng di chuyển đóng 20 bước cập nhật**.
 Ở 30 ms/bước (R-013, đo trên VN) thì ≈ **600 ms**; đây là **quy đổi**, chưa đo trên KR, và không phải
 thời gian bị nhốt.
 
@@ -177,8 +206,9 @@ cơ chế tự thoát — theo AGENTS §4 "asset tồn tại ≠ tính năng ch�
 - Phạm vi lớp: chuỗi `0xB95180 → 0xB93830 → (0xB95970, 0xB93890)` và state machine `0xB95xxx` có
   consumer đã trace là `CGOPet`; **không** chứng minh cho bomber người chơi, cũng **không** loại trừ
   đường gián tiếp/wrapper/VM từ bomber.
-- Nhãn "bị nhốt" cho số `3` ghép từ code KR (state machine) + tài liệu packet VN; bản thân KR không có
-  chuỗi đặt tên cho state.
+- Nhãn "3 = bị nhốt" cho cụm pet là **candidate**: KR chỉ có số/điều kiện/chuyển state, không có
+  enum/consumer chung. Packet VN 120/11 state 3 là claim riêng `vn_runtime`/confirmed của bomber
+  (R-026), **không** ghép sang pet.
 - `15..18` chưa gán được nhãn ODT ("Locked In"/"Locked In Stop"); chỉ biết chúng nằm cùng nhóm khoá.
 - Chưa định vị thân virtual call tại **byte +8** (slot 2 x86) của controller pet, nên không suy ra
   `len > 0`; cũng chưa đọc được vtable/byte trực tiếp (REA thiếu `read_bytes`).
