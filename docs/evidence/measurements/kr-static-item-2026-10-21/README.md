@@ -2,7 +2,7 @@
 
 Metadata cho lượt điều tra [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149) / Q-020.
 **Chưa tạo claim `kr_static` mới**: chưa định vị consumer của hiệu ứng Bomb/Fire/Roller, trần chỉ số
-(cap), hay vai trò bảng trọng số `ItemAttr` (R-051/R-052). Ghi lại mỏ neo + giới hạn + bước tiếp.
+(cap), hay vai trò bảng `ItemAttr` (R-051/R-052). Ghi lại mỏ neo + giới hạn + bước tiếp.
 
 ## Định danh build
 
@@ -30,8 +30,12 @@ mỗi item: i32 id ; tên ≤ 63 ký tự (copy vào +20, NUL-terminated) ; i32 
 sau đó:  bảng thứ hai, stride 244 B, nằm ở +28
 ```
 
-Hệ quả có thể dùng ngay: `ItemAttr` là **bảng theo từng item** (id + tên + 8 dword), không phải bảng
-trọng số theo nhóm; bảng thứ hai (stride 244) mới là ứng viên cho phần "vai trò bảng" của R-051/R-052.
+Cấu trúc trên chỉ cho biết bộ nạp đọc bảng thứ nhất (id + tên + 8 dword, stride 192) rồi một bảng
+thứ hai stride 244. **Vai trò của cả hai bảng đều `unknown`**: layout `id + tên + 8 dword` **không** loại
+trừ việc bảng thứ nhất chứa trường trọng số hoặc quan hệ nhóm, và chưa có consumer đọc các trường này.
+Nếu giữ giả thuyết bảng thứ hai liên quan "vai trò bảng" của R-051/R-052 thì đó chỉ là **`kr_static` /
+`candidate`** — lý do: loader đọc một bảng riêng stride 244 B ngay sau bảng item, nhưng chưa có consumer
+chứng minh vai trò; giả thuyết này **không** dùng để loại trừ vai trò bảng thứ nhất.
 Chưa đọc được ngữ nghĩa 8 dword và bảng thứ hai ⇒ **không** claim.
 
 ## Lượt thử này không đóng được
@@ -41,7 +45,7 @@ Chưa đọc được ngữ nghĩa 8 dword và bảng thứ hai ⇒ **không** c
 | Consumer hiệu ứng Bomb/Fire/Roller (tăng số bom / tầm / tốc) | **chưa định vị** |
 | Trần chỉ số (base/cap, nhặt tại cap) | **chưa định vị** |
 | Nghĩa f2–f7 của `BomberAttr` cho C00/C01 (R-042) | **chưa có consumer**; vẫn là ánh xạ theo web (`web`/candidate) |
-| Vai trò bảng `ItemAttr` (R-051/R-052) | mới có **cấu trúc bảng**, chưa có consumer ⇒ `unknown` |
+| Vai trò **cả hai bảng** `ItemAttr` (R-051/R-052) | mới có **cấu trúc loader**, chưa có consumer ⇒ `unknown` |
 
 ## Provenance công cụ (ghi rõ)
 
