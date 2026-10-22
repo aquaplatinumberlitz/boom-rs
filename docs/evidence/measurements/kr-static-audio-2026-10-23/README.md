@@ -27,7 +27,7 @@ Không commit binary/DB/âm thanh. Bản sao ngoài repo trong `.re-tmp/` (đã 
 
 | `evidence_id` | operation | Đối tượng | Dùng cho |
 |---|---|---|---|
-| `ev_794131143dc920b7c1363d664cf204769039c306ccee15ee8c23cc9c64f6b2d6` | `procedure_pseudo_code` | `0xD1CD10` | R-203/R-205 (dispatcher, random variant, dedup 90/200 ms, 7↔8) |
+| `ev_794131143dc920b7c1363d664cf204769039c306ccee15ee8c23cc9c64f6b2d6` | `procedure_pseudo_code` | `0xD1CD10` | R-203/R-205 (dispatcher, remap có guard, dedup 90/200 ms, 7↔8) |
 | `ev_003bb7d0c32710a4ad1a34941670471050fd4d2288da48f8b1e3e4a4b3a03fa9` | `procedure_pseudo_code` | `0x14BF4D0` | R-207 (pool voice, dedup theo id, bỏ khi hết) |
 | `ev_6ac4a4d1ed4b0d5302a30c6a79e93cb7a7e92dcbe6e710a0f4d576cbfaa4a443` | `procedure_pseudo_code` | `0xEB3720` | R-204 (nổ: 7 / 343 tuyết) |
 | `ev_8cb8b610131ce11c72b663eac6b01223d924d36185e7548015d1256e0b9e0fa7` | `procedure_pseudo_code` | `0xB53C80` | R-204 (chết: 42) |
@@ -39,7 +39,7 @@ Bundle: `.re-tmp/evidence-audio-196.json` (5 record, không commit).
 
 | Vai trò | VA | RVA |
 |---|---|---|
-| Bảng SFX 649 entry (0x20 B) | `0x19E40D8` | `0x15A40D8` |
+| Bảng SFX 649 entry (0x20 B) | `0x19E40D8` | `0x15E40D8` |
 | Khởi tạo bảng SFX | `0x41C980` | `0x1C980` |
 | Manager singleton `CSoundManRenew` | `0x19D8A88` / getter `0x54EAF0` | `0x15D8A88` / `0x14EAF0` |
 | Dispatcher phát SFX | `0xD1CD10` | `0x91CD10` |
@@ -53,7 +53,7 @@ Bundle: `.re-tmp/evidence-audio-196.json` (5 record, không commit).
 | Nhốt: 444/37/77 | `0xB42D60` | `0x742D60` |
 | Chết 42 | `0xB53C80` | `0x753C80` |
 | Item ăn 68 / lộ 69 / trap 174 | `0xB4B410` / `0xB8B680` / `0xB9DEF0` | `0x74B410` / `0x78B680` / `0x79DEF0` |
-| Bảng BGM 117 entry | `0x19E9258` | `0x15A9258` |
+| Bảng BGM 117 entry | `0x19E9258` | `0x15E9258` |
 | `Mp3/Village` (id 48) | chuỗi `0x1761FE8`; entry `0x19E9858` | `0x1361FE8` |
 | Phát BGM | `0xE71D70` → `0xD1D710` | `0xA71D70` → `0x91D710` |
 | Tra record map / tên BGM | `0xE04F00` / `0xE02110` | `0xA04F00` / `0xA02110` |
@@ -73,10 +73,9 @@ Bundle: `.re-tmp/evidence-audio-196.json` (5 record, không commit).
 | 444 | `Wave/Ntc_Help2` | 344 | `Wave/Cha_BombIgnite_SnowBall` |
 | 471 | `Wave/BombExplosion001` | 428..457 | `Ntc_Draw1..2`, `GameEnd1..6`, `GameReady1..4`, `GameStart1..4`, `HurryUp1..2`, `Lose1..6`, `Win1..5` |
 
-## Biến thể random trong `0xD1CD10`
+## Remap biến thể trong `0xD1CD10`
 
-`v20 = rand()` (`0x15625C2`: `state = 214013*state + 2531011`, trả `(state>>16)&0x7FFF`), rồi
-`id = v20 % N + base`:
+Chỉ khi guard `sub_76FBF0(&v24) != 0` mới lấy `v20 = rand()` (`0x15625C2`: `state = 214013*state + 2531011`, trả `(state>>16)&0x7FFF`) và remap `id = v20 % N + base`; guard false thì giữ id gốc. Công thức modulo, **không** claim phân bố đều: `rand()` 15-bit nên `%5`/`%6` có modulo bias.
 
 | Id gốc | N | base | Dải |
 |---:|---:|---:|---|
@@ -101,6 +100,7 @@ Số voice của pool (hằng khởi tạo) chưa định vị — không claim 
 - Chỉ tĩnh; không chạy client/không nghe, không có packet capture.
 - Bảng id→entry parse từ bản dump đã init; 649 entry, id 0..651; có id trống.
 - Chưa đọc record map trong pack để chốt map Village → tên BGM (R-081 phủ entry/hash).
-- "Không có consumer" cho 471 và gạch vỡ là bounded negative trong 649 entry + 597 site `0xD1CD10`;
-  đường script `PlayWaveEffect` theo tên chưa bị loại trừ.
+- "Không thấy consumer" cho 471/brick-break là bounded negative **chỉ** cho direct call + literal
+  push trong 649 entry + 597 site `0xD1CD10`; virtual `vf+148` (trong `0xEB9840`), id động, wrapper và
+  script `PlayWaveEffect` theo tên chưa bị loại trừ.
 - Không sửa `data/assets/audio-v1.toml` hay bảng AUDIO_V1; đề xuất ở findings §7.

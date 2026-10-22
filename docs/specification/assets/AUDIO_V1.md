@@ -22,8 +22,9 @@ cách đóng gói payload thô vào bundle schema 4 và cách client áp volume/
   quyết định phát SFX (server chỉ gửi event gameplay). Vì vậy **R-081 chỉ confirmed entry/mapping BGM**; loop/một voice và mapping
   event→entry, policy chồng tiếng là **design** (R-083/R-082), không nhận `confirmed` KR/VN.
 - **Cập nhật 2026-10-23 (#196)**: đã trace consumer SFX phía client KR (bảng id tĩnh + dispatcher
-  `0xD1CD10`): nổ **7/8/343**, nhốt **77/37**, chết **42**, item **68/69**, trap **174**; biến thể
-  round-end/start random `rand()%N+base`; BGM lấy tên từ record map. Bảng §3 **giữ nguyên** trong
+  `0xD1CD10`): nổ **7/8/343**, nhốt **77/37**, chết **42**, item **68/69**, trap **174**; round-end/start
+  remap `rand()%N+base` **chỉ khi guard `sub_76FBF0` bật** (guard tắt giữ id; modulo bias); BGM lấy tên
+  từ record map. Bảng §3 **giữ nguyên** trong
   PR RE này (design); bằng chứng và đề xuất đổi mapping ở
   [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md).
 

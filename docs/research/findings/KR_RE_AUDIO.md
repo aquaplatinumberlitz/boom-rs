@@ -10,9 +10,10 @@ Q-015, V1-034 (mục 8 hàng đợi RE). Claim ở
 `CSoundManRenew`), tra trong **bảng tĩnh 649 entry** tại `0x19E40D8` (id→`Wave/<tên>`). Đã trace được
 consumer cho nổ bom (7/8, tuyết 343), đặt bom (9/344, domino 10), bị nhốt (77 solo / 37 couple, thêm
 444 help), chết (42), nhặt/ăn item (68), item lộ (69), dùng trap (174), và BGM (record map → `Mp3/<tên>`,
-Village id 48). **Biến thể** round-end/start chọn **random đều** bằng `rand()%N + base`; nổ không random
-mà chuyển 7↔8 theo cửa sổ 200 ms. Gạch vỡ **không** có entry riêng; `BombExplosion001` (471) **không**
-có consumer native.
+Village id 48). **Biến thể** round-end/start được **remap** bằng `rand()%N + base` **chỉ khi guard
+`sub_76FBF0` bật**; guard tắt thì giữ id gốc (và `rand()` 15-bit nên `%5`/`%6` có modulo bias — không claim
+phân bố đều). Nổ không remap mà chuyển 7↔8 theo cửa sổ 200 ms. Không thấy **direct call/literal** cho
+brick-break hoặc `BombExplosion001` (471) trong phạm vi quét — **không** kết luận gạch vỡ không có tiếng.
 
 ## 0. Phạm vi và phương pháp
 
@@ -70,7 +71,8 @@ Id liên quan V1 (từ bảng):
 
 ## 2. Chọn biến thể (R-205)
 
-`0xD1CD10` lấy `v20 = sub_15625C2()`; hàm này là **LCG rand kiểu MSVC**:
+`0xD1CD10` **chỉ khi** `sub_76FBF0(&v24) != 0` mới lấy `v20 = sub_15625C2()`; nếu guard trả false thì
+`a2` **giữ nguyên** (không remap). Hàm rand là **LCG kiểu MSVC**:
 
 ```
 v0 = sub_1579D1A();                       // state
@@ -78,7 +80,8 @@ v1 = 214013 * state + 2531011; state = v1;
 return (v1 >> 16) & 0x7FFF;
 ```
 
-Bảng biến thể (chỉ khi hook `0x76FBF0` trả true):
+Bảng remap (chỉ khi guard `0x76FBF0` trả true; công thức modulo, **không** claim phân bố đều vì
+`rand()` 15-bit % 5/% 6 có bias):
 
 | Id gốc | Công thức | Entry đích |
 |---:|---|---|
@@ -99,7 +102,7 @@ Nổ bom **không** random: id `7` xử lý riêng — nếu `7` đang phát (<2
 
 | Event V1 | Hàm phát | Id | Điều kiện / ghi chú |
 |---|---|---|---|
-| nổ bom | `0xEB3720` | 7 (hoặc 343) | `sub_B38390(bomber)==9` → 343; `7` với `a3=1` |
+| nổ bom | `0xEB3720` | 7 (hoặc 343) | `sub_B38390(bomber)==9` → 343; `a3=1` = dedup theo id (R-207), **không** phải cờ loop |
 | nổ (object type 31) | `0xEB9C30` | 7 | nhánh `kItemOperCAPassItemHasHP.` |
 | (âm thanh nổ chỉ khi trong khung nhìn) | `0x114A1B0` | — | gọi `0xEB3720` nếu toạ độ bom trong 2 rect `this+7712/+7720` |
 | đặt bom | `0x71F490`, `0xAF1140` | 9/344 | `0xAF1140`: type 9 → 344, type 16 → 9 |
@@ -146,26 +149,28 @@ Hệ quả: **pool cố định** (mảng `manager+16`, count `manager+12`), **d
 nhóm id `337..342`. Số voice của pool (hằng khởi tạo) **chưa định vị** — không claim "8 voice" của V1
 là của KR.
 
-## 6. Gạch vỡ và `BombExplosion001` (R-208)
+## 6. Bounded negative cho brick-break và `BombExplosion001` (R-208)
 
-- Bảng 649 entry không có entry "brick"/"break" (chỉ `Npc_Pen_NpcEggBreak`, `Ui_BasketEggBreaking`,
-  `Item_MarbleEggBreaking`…). `CPlayMap::ExplodeObjectByFlame` `0xEB9840` phá tile qua vtable (`vf+148`)
-  và **không** gọi `0xD1CD10`; tiếng nổ là của quả bom (7/8/343), không phải từng viên gạch.
-- `Wave/BombExplosion001` (id 471) **không** có site `push 471` trong 597 site gọi `0xD1CD10`.
-  Tuy nhiên client có đường script `PlayWaveEffect` (`0xD16410` → `0xD1CD10`) phát **theo tên**, nên
-  không loại trừ script/pack phát 471; chỉ kết luận "không có consumer native trong phạm vi đã quét".
+- Bảng 649 entry **không có tên** "brick"/"break" (chỉ `Npc_Pen_NpcEggBreak`, `Ui_BasketEggBreaking`,
+  `Item_MarbleEggBreaking`…): đây là negative theo **tên entry**, không chứng minh gạch vỡ không có tiếng.
+- `CPlayMap::ExplodeObjectByFlame` `0xEB9840` **không gọi trực tiếp** `0xD1CD10`, nhưng phá tile qua
+  **virtual `vf+148`** (thân chưa đọc) — cạnh này **chưa nối/loại trừ**. Vì vậy không kết luận "tiếng nổ chỉ
+  gắn với bom" hay "không có tiếng theo từng viên gạch".
+- `Wave/BombExplosion001` (id 471) **không** có site `push 471` trong 597 site gọi trực tiếp `0xD1CD10`.
+  Id động (tính từ biến), wrapper và đường script `PlayWaveEffect` (`0xD16410` → `0xD1CD10`, phát theo tên)
+  **chưa bị loại trừ**, nên chỉ kết luận: **không thấy consumer native trực tiếp** trong phạm vi đã quét.
 
 ## 7. Đề xuất cho AUDIO_V1 (không tự đổi trong PR này)
 
 | Event V1 | V1 hiện tại | Client KR | Đề xuất |
 |---|---|---|---|
-| `bomb_exploded` | `Wave/BombExplosion001` (471) | 7/8 (+343 tuyết), 7↔8 theo 200 ms | đổi sang **7/8**, thêm 343; 471 không có consumer native |
+| `bomb_exploded` | `Wave/BombExplosion001` (471) | 7/8 (+343 tuyết), 7↔8 theo 200 ms | đổi sang **7/8**, thêm 343; 471 **không thấy consumer native trực tiếp** (chưa loại trừ id động/wrapper/script) |
 | `bomb_placed` | `Wave/Cha_BombIgnite` (9) | 9 / 344 tuyết | giữ 9, thêm 344 nếu có bom tuyết |
 | `player_trapped` | `Wave/Itm_UseTrap` (174) | 77 solo / 37 couple (+444 help) | **đổi** sang 77/37; 174 là tiếng dùng item trap |
 | `player_died` | `Wave/Cha_Die` (42) | 42 | khớp |
 | `item_revealed` | `Wave/Itm_ItemPop` (69) | 69 | khớp |
 | `item_picked` | `Wave/Itm_ItemEaten` (68) | 68 | khớp |
-| round end/start | `Ntc_Win/Lose/Draw` | id 175/78/43 → **random** Win1..5/Lose1..6/Draw1..2 | giữ entry gốc, ghi nhận biến thể random |
+| round end/start | `Ntc_Win/Lose/Draw` | id 175/78/43 → remap Win1..5/Lose1..6/Draw1..2 **khi guard `sub_76FBF0` bật** (guard tắt giữ id; modulo bias) | giữ entry gốc, ghi nhận remap có điều kiện |
 | `bgm_loop` | `MP3/Village` | id 48, tên từ record map | giữ; R-081 |
 
 Policy V1 (8 voice + ưu tiên + bỏ mức thấp nhất) **khác** client (pool cố định, bỏ khi hết, dedup
@@ -178,8 +183,8 @@ theo id) — đề xuất giữ design V1 nhưng ghi khác biệt ở R-207/§5.
 - Chưa đọc record map trong data pack để chứng minh map Village trỏ tới tên `Village` (R-081 phủ phần
   entry/hash).
 - Số voice của pool và hằng volume chưa định vị; chưa thấy loop flag của BGM.
-- "Không có consumer" cho 471/gạch vỡ là **bounded negative** trong phạm vi 649 entry + 597 site
-  `0xD1CD10`; đường script theo tên chưa bị loại trừ.
+- "Không thấy consumer" cho 471/brick-break là **bounded negative** chỉ cho direct call + literal push
+  trong 649 entry + 597 site `0xD1CD10`; virtual `vf+148`, id động, wrapper và script theo tên chưa bị loại trừ.
 
 ## 9. Bước tiếp
 
