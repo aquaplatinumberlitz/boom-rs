@@ -191,7 +191,7 @@ impl UiBackend for DemoBackend {
             return Err(UiError::MissingField);
         }
         // Tài khoản đã đăng ký thì mật khẩu phải đúng — để bản demo có đường lỗi
-        // đăng nhập (client hiện `⟨login.failed⟩`).
+        // đăng nhập (client hiện `«login.failed»`).
         if let Some((_, stored)) = self.registered.iter().find(|(name, _)| name == account)
             && stored != password
         {

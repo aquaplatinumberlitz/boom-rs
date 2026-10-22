@@ -73,9 +73,10 @@ pub async fn run_demo(mut model: UiModel<DemoBackend>, opts: UiOptions) {
 /// luồng `--connect` thì bỏ allow này.
 #[allow(dead_code)]
 pub async fn run_ui<B: UiBackend>(mut model: UiModel<B>, opts: UiOptions) {
-    let font = draw::load_font();
+    let mut font = draw::bundled_font();
     // Atlas cần GL context nên phải nạp sau khi cửa sổ đã mở.
     let content = load_content(opts.bundle.as_deref());
+    warn_missing_ui_keys(&model, content.bundle.as_ref());
     let mut frame = 0u32;
     loop {
         if handle_input(&mut model) {
@@ -85,7 +86,7 @@ pub async fn run_ui<B: UiBackend>(mut model: UiModel<B>, opts: UiOptions) {
         let layout = layout::layout(&model, content.bundle.as_ref(), content.scene.as_ref());
         draw::draw(
             &layout,
-            &font,
+            &mut font,
             content.atlas.as_ref(),
             content.bundle.as_ref(),
             content.scene.as_ref(),
@@ -102,6 +103,27 @@ pub async fn run_ui<B: UiBackend>(mut model: UiModel<B>, opts: UiOptions) {
             return;
         }
         next_frame().await;
+    }
+}
+
+/// Cảnh báo phần tử UI của bundle chưa có khóa trong file chuỗi.
+///
+/// Client **không tự soạn chữ** (UI_STRINGS_V1 §6.1): phần tử chưa có khóa thì hiện
+/// placeholder, nên cảnh báo một lần lúc chạy để người đọc log biết cần thêm khóa
+/// vào file chuỗi.
+fn warn_missing_ui_keys<B: UiBackend>(model: &UiModel<B>, bundle: Option<&Bundle>) {
+    let Some(bundle) = bundle else {
+        return;
+    };
+    for element in &bundle.ui {
+        if !model.texts().has_key(&element.id) {
+            eprintln!(
+                "UI: phần tử `{}` chưa có khóa trong file chuỗi — thêm khóa vào \
+                 docs/specification/localization/UI_STRINGS_V1.md rồi xuất lại \
+                 data/l10n/vi-v1.toml",
+                element.id
+            );
+        }
     }
 }
 

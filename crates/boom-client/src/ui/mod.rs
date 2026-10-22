@@ -32,6 +32,8 @@ pub mod model;
 pub mod text;
 
 #[cfg(test)]
+mod l10n_tests;
+#[cfg(test)]
 mod tests;
 
 pub use app::{UiOptions, run_demo};

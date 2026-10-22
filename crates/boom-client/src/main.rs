@@ -1242,7 +1242,7 @@ async fn run_network_ui(
     mut model: ui::UiModel<net::ui_backend::NetBackend<boom_net::TcpTransport>>,
     scale: u32,
 ) {
-    let font = ui::draw::load_font();
+    let mut font = ui::draw::bundled_font();
     let atlas = match (game.bundle_dir.as_deref(), game.scene.as_ref()) {
         (Some(dir), Some(scene)) => Some(Atlas::load(dir, &scene.pages).expect("atlas")),
         _ => None,
@@ -1308,7 +1308,7 @@ async fn run_network_ui(
             let layout = ui::layout::layout(&model, game.bundle.as_ref(), game.scene.as_ref());
             ui::draw::draw(
                 &layout,
-                &font,
+                &mut font,
                 atlas.as_ref(),
                 game.bundle.as_ref(),
                 game.scene.as_ref(),
@@ -1526,6 +1526,10 @@ fn draw_scene(
         HUD_HEIGHT,
         Color::new(0.03, 0.04, 0.06, 1.0),
     );
+    // HUD chẩn đoán (debug): số đo tick/âm thanh/phím cho QA `--auto-ready` — **không phải
+    // chữ cho người chơi**, nên không đi qua l10n (issue #179 cho phép log/debug ngoài
+    // l10n). Màn trận của người chơi nằm ở module `ui` (`ui::layout`), mọi chữ ở đó lấy
+    // từ file chuỗi V1.
     // Chế độ mạng: tick server đã xác nhận, tick client đang dự đoán, round và số event mới.
     let net_text = match game.net_status {
         Some(status) => format!(
@@ -1923,6 +1927,9 @@ impl Options {
 }
 
 /// Mô tả ngắn trạng thái phòng cho HUD: sảnh / phòng chờ / trận / kết quả.
+///
+/// Đây là **chuỗi chẩn đoán** (debug) của HUD QA, không phải chữ cho người chơi nên
+/// không đi qua l10n (issue #179 cho phép log/debug ngoài l10n).
 ///
 /// Màn hình đầy đủ (đăng nhập/sảnh/phòng/kết quả) thuộc task UI (#103); ở đây chỉ hiện trạng
 /// thái để QA `--auto-ready` quan sát được luồng.

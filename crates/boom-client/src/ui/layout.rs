@@ -7,15 +7,18 @@
 //! ## Quy ước
 //!
 //! - Màn có kích thước logic **800×600** như gốc asset (UI_STRINGS_V1 §5.2).
-//! - Chữ lấy từ file chuỗi V1; khóa chưa có text hiện placeholder `⟨khóa⟩`.
+//! - Chữ lấy từ file chuỗi V1; khóa chưa có text hiện placeholder `«khóa»`.
 //! - Ảnh UI chỉ hiện khi phần tử ở trạng thái `selected` (đã duyệt, không có chữ
 //!   cần duyệt). Phần tử `needs_review_text`/`excluded` được thay bằng **khung màu +
 //!   text catalog** (UI_STRINGS_V1 §3) — không hiện ảnh chưa duyệt.
+//! - Mỗi đoạn chữ có **một hộp** ([`TextBox`]): phần vẽ và test tràn hộp dùng chung
+//!   hàm [`Widget::text_boxes`] nên đo khớp vẽ (UI_STRINGS_V1 §5.2.1).
 
 use boom_content::bundle::{Bundle, UiScreen, UiState};
 
 use crate::anim::Character;
 use crate::scene::Scene;
+use crate::text::TextFont;
 use crate::ui::model::{
     ActionId, FieldId, Focus, MatchProgress, MatchResult, RoomPhase, UiBackend, UiModel,
 };
@@ -35,26 +38,26 @@ const TITLE_RECT: Rect = Rect {
     width: 752,
     height: 36,
 };
-/// Vùng dòng thông báo (lỗi hoặc trạng thái).
+/// Vùng dòng thông báo (lỗi hoặc trạng thái) — cao đủ hai dòng chữ 16 px.
 const NOTICE_RECT: Rect = Rect {
     x: MARGIN,
     y: 52,
     width: 752,
-    height: 26,
+    height: 48,
 };
 /// Vùng nội dung chính (bảng, chat).
 const CONTENT_RECT: Rect = Rect {
     x: MARGIN,
-    y: 88,
+    y: 104,
     width: 580,
-    height: 340,
+    height: 324,
 };
 /// Vùng cột phải: ảnh UI đã duyệt và khung thay ảnh chưa duyệt.
 const SIDE_RECT: Rect = Rect {
     x: 636,
-    y: 88,
+    y: 104,
     width: 156,
-    height: 392,
+    height: 376,
 };
 /// Cao một ô thay ảnh (khung màu + text catalog) — tối đa.
 const FRAME_HEIGHT: u32 = 64;
@@ -83,6 +86,46 @@ const BUTTON_HEIGHT: u32 = 40;
 const BUTTON_WIDTH: u32 = 140;
 /// Khoảng cách giữa hai nút.
 const BUTTON_GAP: i32 = 8;
+
+/// Cỡ chữ theo vai trò hiển thị (px).
+///
+/// Nguồn **chung** cho phần vẽ ([`crate::ui::draw`]) và test tràn hộp: đo và vẽ phải
+/// dùng cùng cỡ chữ, không thì test không kiểm được điều người chơi thấy.
+pub mod text_size {
+    /// Tiêu đề màn.
+    pub const TITLE: f32 = 24.0;
+    /// Dòng thông báo.
+    pub const NOTICE: f32 = 16.0;
+    /// Nhãn ô nhập.
+    pub const LABEL: f32 = 14.0;
+    /// Giá trị trong ô nhập.
+    pub const VALUE: f32 = 18.0;
+    /// Đầu bảng.
+    pub const HEADER: f32 = 13.0;
+    /// Dòng bảng.
+    pub const ROW: f32 = 14.0;
+    /// Nhãn nút.
+    pub const BUTTON: f32 = 16.0;
+    /// Chữ nhỏ (khung thay ảnh, chat).
+    pub const SMALL: f32 = 13.0;
+}
+
+/// Lề trong của khung thay ảnh (px) — nhãn nằm trong khung.
+pub const FRAME_INSET: f32 = 4.0;
+/// Lề trong của ô nhập (px) — giá trị nằm trong khung.
+pub const FIELD_INSET: f32 = 8.0;
+/// Khoảng cách giữa mép trên khung ô nhập và nhãn của ô (px).
+pub const FIELD_LABEL_GAP: f32 = 22.0;
+/// Lề dưới của ô nhập (px) — chừa chỗ cho đường viền.
+pub const FIELD_BOTTOM_GAP: f32 = 10.0;
+/// Chiều cao vùng đầu bảng (px) — dòng đầu nằm dưới vùng này.
+pub const TABLE_HEADER_HEIGHT: f32 = 22.0;
+/// Chiều cao một dòng bảng (px).
+pub const TABLE_ROW_HEIGHT: f32 = 26.0;
+/// Khoảng cách giữa hai cột của bảng (px).
+pub const TABLE_COLUMN_GAP: f32 = 18.0;
+/// Chiều cao một dòng chat (px).
+pub const CHAT_LINE_HEIGHT: f32 = 20.0;
 
 /// Hình chữ nhật trong không gian logic của UI.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -220,6 +263,291 @@ pub enum Widget {
     },
 }
 
+/// Vai trò hiển thị của một đoạn chữ (quyết định màu vẽ).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextRole {
+    /// Tiêu đề màn.
+    Title,
+    /// Thông báo thường.
+    Notice,
+    /// Thông báo lỗi.
+    Error,
+    /// Nhãn ô nhập.
+    Label,
+    /// Giá trị trong ô nhập.
+    Value,
+    /// Đầu bảng.
+    Header,
+    /// Dòng bảng.
+    Row,
+    /// Nhãn nút.
+    Button,
+    /// Nhãn nút không dùng được.
+    ButtonDisabled,
+    /// Chữ nhỏ (khung thay ảnh, chat).
+    Small,
+}
+
+/// Căn ngang của đoạn chữ trong hộp.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Align {
+    /// Căn trái.
+    Left,
+    /// Căn giữa.
+    Center,
+}
+
+/// Một hộp chữ: nội dung, cỡ chữ và vùng được vẽ.
+///
+/// Chữ **xuống dòng theo bề rộng hộp** (UI_STRINGS_V1 §5.2.1): hộp là giới hạn mà
+/// phần vẽ và test tràn hộp cùng dùng, nên test kiểm được đúng thứ người chơi thấy.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextBox {
+    /// Nội dung chữ (ô mật khẩu đã thay bằng ký tự che).
+    pub text: String,
+    /// Cỡ chữ (px).
+    pub size: f32,
+    /// Vai trò hiển thị → màu vẽ.
+    pub role: TextRole,
+    /// Góc trên-trái của hộp (px, không gian logic UI).
+    pub x: f32,
+    /// Góc trên-trái của hộp (px, không gian logic UI).
+    pub y: f32,
+    /// Bề rộng khung chữ (px).
+    pub width: f32,
+    /// Bề cao khung chữ (px).
+    pub height: f32,
+    /// Căn ngang trong hộp.
+    pub align: Align,
+}
+
+impl Widget {
+    /// Các hộp chữ của phần tử: nội dung, cỡ chữ và vùng vẽ.
+    ///
+    /// Phần vẽ ([`crate::ui::draw`]) và test tràn hộp dùng **cùng** hàm này nên đo
+    /// khớp vẽ; `font` cần cho bảng vì bề rộng cột là ô rộng nhất của cột.
+    pub fn text_boxes(&self, font: &TextFont) -> Vec<TextBox> {
+        match self {
+            Self::Title { rect, text } => vec![TextBox {
+                text: text.clone(),
+                size: text_size::TITLE,
+                role: TextRole::Title,
+                x: rect.x as f32,
+                y: rect.y as f32,
+                width: rect.width as f32,
+                height: rect.height as f32,
+                align: Align::Left,
+            }],
+            Self::Notice { rect, text, error } => vec![TextBox {
+                text: text.clone(),
+                size: text_size::NOTICE,
+                role: if *error {
+                    TextRole::Error
+                } else {
+                    TextRole::Notice
+                },
+                x: rect.x as f32,
+                y: rect.y as f32,
+                width: rect.width as f32,
+                height: rect.height as f32,
+                align: Align::Left,
+            }],
+            Self::Field {
+                rect,
+                label,
+                value,
+                masked,
+                ..
+            } => {
+                let shown = if *masked {
+                    MASK_CHAR.to_string().repeat(value.chars().count())
+                } else {
+                    value.clone()
+                };
+                vec![
+                    TextBox {
+                        text: label.clone(),
+                        size: text_size::LABEL,
+                        role: TextRole::Label,
+                        x: rect.x as f32,
+                        y: rect.y as f32 - FIELD_LABEL_GAP,
+                        width: rect.width as f32,
+                        height: FIELD_LABEL_GAP,
+                        align: Align::Left,
+                    },
+                    TextBox {
+                        text: shown,
+                        size: text_size::VALUE,
+                        role: TextRole::Value,
+                        x: rect.x as f32 + FIELD_INSET,
+                        y: rect.y as f32 + FIELD_BOTTOM_GAP,
+                        width: rect.width as f32 - 2.0 * FIELD_INSET,
+                        height: rect.height as f32 - FIELD_BOTTOM_GAP,
+                        align: Align::Left,
+                    },
+                ]
+            }
+            Self::Table {
+                rect,
+                columns,
+                rows,
+            } => {
+                let widths = table_column_widths(columns, rows, font);
+                let mut boxes = Vec::with_capacity(columns.len() + rows.len() * columns.len());
+                let mut x = rect.x as f32;
+                for (index, column) in columns.iter().enumerate() {
+                    let width = widths.get(index).copied().unwrap_or(0.0);
+                    boxes.push(TextBox {
+                        text: column.clone(),
+                        size: text_size::HEADER,
+                        role: TextRole::Header,
+                        x,
+                        y: rect.y as f32,
+                        width,
+                        height: TABLE_HEADER_HEIGHT,
+                        align: Align::Left,
+                    });
+                    x += width + TABLE_COLUMN_GAP;
+                }
+                for (row_index, row) in rows.iter().enumerate() {
+                    let y =
+                        rect.y as f32 + TABLE_HEADER_HEIGHT + row_index as f32 * TABLE_ROW_HEIGHT;
+                    // Dòng vượt khung không được vẽ (tràn xuống dưới).
+                    if y + TABLE_ROW_HEIGHT > rect.bottom() as f32 {
+                        break;
+                    }
+                    for (index, cell) in row.cells.iter().enumerate() {
+                        let width = widths.get(index).copied().unwrap_or(0.0);
+                        boxes.push(TextBox {
+                            text: cell.clone(),
+                            size: text_size::ROW,
+                            role: TextRole::Row,
+                            x: x_of_column(&widths, rect.x as f32, index),
+                            y,
+                            width,
+                            height: TABLE_ROW_HEIGHT,
+                            align: Align::Left,
+                        });
+                    }
+                }
+                boxes
+            }
+            Self::Chat { rect, lines } => {
+                // Chỉ những dòng **vừa** khung mới được vẽ (dòng mới nhất ở dưới).
+                let visible = (rect.height as f32 / CHAT_LINE_HEIGHT).floor() as usize;
+                let start = lines.len().saturating_sub(visible);
+                lines
+                    .iter()
+                    .enumerate()
+                    .skip(start)
+                    .map(|(index, line)| TextBox {
+                        text: line.clone(),
+                        size: text_size::SMALL,
+                        role: TextRole::Small,
+                        x: rect.x as f32,
+                        y: rect.y as f32 + (index - start) as f32 * CHAT_LINE_HEIGHT,
+                        width: rect.width as f32,
+                        height: CHAT_LINE_HEIGHT,
+                        align: Align::Left,
+                    })
+                    .collect()
+            }
+            Self::Button {
+                rect,
+                label,
+                enabled,
+                ..
+            } => vec![TextBox {
+                text: label.clone(),
+                size: text_size::BUTTON,
+                role: if *enabled {
+                    TextRole::Button
+                } else {
+                    TextRole::ButtonDisabled
+                },
+                x: rect.x as f32,
+                y: rect.y as f32,
+                width: rect.width as f32,
+                height: rect.height as f32,
+                align: Align::Center,
+            }],
+            Self::Frame { rect, label, .. } => {
+                if label.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![TextBox {
+                        text: label.clone(),
+                        size: text_size::SMALL,
+                        role: TextRole::Small,
+                        x: rect.x as f32 + FRAME_INSET,
+                        y: rect.y as f32 + FRAME_INSET,
+                        width: rect.width as f32 - 2.0 * FRAME_INSET,
+                        height: rect.height as f32 - 2.0 * FRAME_INSET,
+                        align: Align::Left,
+                    }]
+                }
+            }
+            Self::Art { rect, label, .. } => {
+                if label.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![TextBox {
+                        text: label.clone(),
+                        size: text_size::SMALL,
+                        role: TextRole::Small,
+                        x: rect.x as f32 + FRAME_INSET,
+                        y: rect.bottom() as f32 - CHAT_LINE_HEIGHT,
+                        width: rect.width as f32 - 2.0 * FRAME_INSET,
+                        height: CHAT_LINE_HEIGHT,
+                        align: Align::Left,
+                    }]
+                }
+            }
+            Self::MapArea { .. } => Vec::new(),
+        }
+    }
+}
+
+/// Ký tự che giá trị ô mật khẩu.
+const MASK_CHAR: &str = "•";
+
+/// Bề rộng từng cột của bảng: cột rộng bằng ô rộng nhất (đầu bảng hoặc dòng).
+///
+/// Dùng chung cho phần vẽ và test nên bảng không tràn khung. Cột rộng thêm 1 px
+/// để chữ vừa đúng bề rộng đo được không bị xuống dòng do làm tròn.
+pub fn table_column_widths(columns: &[String], rows: &[TableRow], font: &TextFont) -> Vec<f32> {
+    let mut widths: Vec<f32> = columns
+        .iter()
+        .map(|column| measure_width(column, font, text_size::HEADER))
+        .collect();
+    for row in rows {
+        for (index, cell) in row.cells.iter().enumerate() {
+            let width = measure_width(cell, font, text_size::ROW);
+            if let Some(slot) = widths.get_mut(index) {
+                *slot = slot.max(width);
+            }
+        }
+    }
+    for width in &mut widths {
+        *width += 1.0;
+    }
+    widths
+}
+
+/// Bề rộng một chuỗi (px) theo metric của font, không xuống dòng.
+fn measure_width(text: &str, font: &TextFont, size: f32) -> f32 {
+    crate::text::layout(text, font, size, f32::MAX).width()
+}
+
+/// Toạ độ X của cột thứ `index` trong bảng.
+fn x_of_column(widths: &[f32], start: f32, index: usize) -> f32 {
+    let mut x = start;
+    for width in widths.iter().take(index) {
+        x += width + TABLE_COLUMN_GAP;
+    }
+    x
+}
+
 /// Layout của một màn: danh sách phần tử đã định vị.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Layout {
@@ -270,14 +598,14 @@ fn login_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
     title(texts, "login.title", widgets);
     notice(model, widgets);
     widgets.push(Widget::Field {
-        rect: Rect::new(MARGIN, 120, 400, 44),
+        rect: Rect::new(MARGIN, 130, 400, 44),
         label: texts.get("login.account"),
         value: model.field_value(FieldId::LoginAccount).to_owned(),
         focused: model.focus() == Focus::Field(FieldId::LoginAccount),
         masked: false,
     });
     widgets.push(Widget::Field {
-        rect: Rect::new(MARGIN, 196, 400, 44),
+        rect: Rect::new(MARGIN, 206, 400, 44),
         label: texts.get("login.password"),
         value: model.field_value(FieldId::LoginPassword).to_owned(),
         focused: model.focus() == Focus::Field(FieldId::LoginPassword),
@@ -370,7 +698,7 @@ fn room_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
             })
             .collect();
         widgets.push(Widget::Table {
-            rect: Rect::new(MARGIN, 88, 600, 200),
+            rect: Rect::new(MARGIN, 104, 600, 190),
             columns,
             rows,
         });
@@ -380,7 +708,7 @@ fn room_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
             .map(|line| format!("{}: {}", line.author, line.text))
             .collect();
         widgets.push(Widget::Chat {
-            rect: Rect::new(MARGIN, 300, 580, 130),
+            rect: Rect::new(MARGIN, 300, 580, 128),
             lines,
         });
     }
@@ -402,7 +730,7 @@ fn match_layout<B: UiBackend>(
 ) {
     let texts = model.texts();
     widgets.push(Widget::Title {
-        rect: Rect::new(MARGIN, 4, 400, 26),
+        rect: Rect::new(MARGIN, 4, 400, 34),
         text: texts.get("room.map_name"),
     });
     let status = match model.match_progress() {
@@ -415,7 +743,7 @@ fn match_layout<B: UiBackend>(
         None => texts.get("app.loading"),
     };
     widgets.push(Widget::Notice {
-        rect: Rect::new(440, 4, 180, 26),
+        rect: Rect::new(440, 4, 336, 24),
         text: status,
         error: false,
     });
