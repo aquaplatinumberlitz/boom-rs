@@ -1,6 +1,7 @@
-# KR 00967 — BomberAttr → Bomb/Fire/Roller/speed (R-140, blocker)
+# KR 00967 — BomberAttr → Bomb/Fire/Roller/speed (R-150, blocker)
 
-Lượt RE [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149) / Q-020, tiếp sau
+Lượt RE [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149) / Q-020. Claim **R-150** (dải phiên 1
+R-150…R-199), tiếp sau
 [evidence item](../../evidence/measurements/kr-static-item-2026-10-21/README.md).
 Mục tiêu: ánh xạ f2–f7 của `BomberAttr` vào base/max có **consumer**, đường nhặt Bomb/Fire/Roller
 (tăng, kẹp trần, nhặt khi đã trần), và consumer tốc độ (mở R-125). Không đánh đồng Roller với Shoe.
@@ -58,8 +59,11 @@ nhặt item. f8–f10 được đọc tiếp (f8 = 10, f9 = 100, f10 thay đổi
 - `sub_E14360`: resolve object theo `u16`; nhánh `a3==1` đặt vị trí `(40*x, 40*y+39)` qua slot
   `+116`; nhánh `a3==0` gọi `sub_E9E660(v28, a4)`. Không thấy phép `cur+1`/`min(cur+1,max)` cho
   bomb/range/speed trong thân đã đọc.
-- `sub_E9E660` là hàm effect/item rất lớn; **chưa đọc hết**. Không kết luận toàn hàm không cộng;
-  chỉ kết luận các đoạn đã đọc không nối tới f2–f7/`CBomberAttr`.
+- `sub_E9E660` đã đọc **hết** (0x644 B, 207 dòng; `ev_f8c6effc…`): ghi
+  `*(this+176)=sub_B37E50(a2)`, tính thời lượng/effect, loop tile (`sub_E9F9B0`, `B323D0`,
+  `B72400`, `FF6930`), rồi `EB8000`/`EB7A60`/`EB9840` và virtual `+104`/`+80`. **Không có**
+  `cur+1`, `min(cur+1,max)`, `sub_55FD30` setter stat hay đọc f2–f7. Các callee effect chưa mở
+  hết, nên đây vẫn là blocker có phạm vi, không phải “toàn bộ đường item không cộng”.
 - VN 158 `CGameStage__On_158` gọi `sub_706E0A(slot,kind)`; `sub_706E0A` chỉ lấy row ItemAttr
   (`244*kind + base + 28`), kiểm `rec+16==1`/`row+160>0` rồi **clear pending** — không cộng stat.
   Đây là `vn_static`, không phải `vn_runtime`; chưa dùng làm consumer KR.
@@ -74,7 +78,7 @@ nhặt item. f8–f10 được đọc tiếp (f8 = 10, f9 = 100, f10 thay đổi
 
 ## 10.6 Evidence
 
-Bundle `.re-work/evidence-r140-bomberattr-149.json` (19 record, không commit).
+Bundle `.re-work/evidence-r150-bomberattr-149.json` (20 record, không commit).
 
 | `evidence_id` | Operation | Dùng cho |
 |---|---|---|
@@ -88,17 +92,20 @@ Bundle `.re-work/evidence-r140-bomberattr-149.json` (19 record, không commit).
 | `ev_3f642ac880d4479466459a8a32b8a287d8475561b29f48982657acd896a1c52c` | `batch_decompile` `0xB349A0`/`0x6E27B0` | dùng `row+408` như availability |
 | `ev_0a1951685f0a6bb893535ee7c8077ffbb533ab557fa9816291abcf8766479a30` | `batch_decompile` `0xE5F450` | KR 158 handler |
 | `ev_f8628d13735542ad5390e5587da2fb9032d33849175ed875ad4a5851aa5f5504` | `batch_decompile` `0xE14360` | nhánh vị trí/effect |
-| `ev_61f31d6d657f4f1237d38bf40978dfb09b0a542391817ad8a3ba1da3b478e05b` | `batch_decompile` `0xE9E660` | effect lớn, chưa đọc hết |
+| `ev_f8c6effc1e1b414d322e7a193d7ee3f7467efca4b6dd6ac0254bd11846fcacb8` | `procedure_pseudo_code` `0xE9E660` | **đọc hết** 207 dòng/0x644 B; không `cur+1`/`min`/setter stat |
+| `ev_61f31d6d657f4f1237d38bf40978dfb09b0a542391817ad8a3ba1da3b478e05b` | `batch_decompile` `0xE9E660` | bản batch cũ (đối chiếu) |
 | `ev_debd4e7bb5e3432e67388c9c25cf84f8ed108f81b6d8042cf6ea333e91cdb801` | `batch_decompile` `0xE5F2C0` | opcode 164 (đối chứng, không phải pickup) |
 | `ev_54c04bf2107fea29663d77c9dbce0b53d65b03126231404ad481c544651ce806` | `batch_decompile` `0xB79DC0`/`0xB73410` | bomber ctor, không đọc f2–f7 |
 
 ## 10.7 Kết luận / bước tiếp
 
 - `kr_static` **confirmed**: loader thứ tự row và kẹp f5 ≤ 10.
+- **Không tạo R-151**: `E9E660` đã đọc hết nhưng không có consumer/`cur+1`/`min`.
 - **Blocker**: không có consumer f2–f7; không có đường +bomb/+range/+speed, kẹp runtime, nhặt khi
-  trần, Roller/Shoe, hay speed→px/bước trong phạm vi đã đọc.
-- Bước tiếp: (1) đọc hết `sub_E9E660` và các virtual effect của ItemAttr (`row+160/184`) để tìm
-  phép cộng; (2) tìm hàm set stat của `CGOBomber` (không chỉ ctor) và so `cur/max`; (3) nếu gặp
-  `.themida`, dừng + ghi entry VM; (4) cần runtime/`read_bytes` để kiểm nhặt tại trần.
+  trần, Roller/Shoe, hay speed→px/bước trong phạm vi đã đọc. `E9E660` đã đọc hết và không có phép
+  cộng; các callee effect chưa mở hết.
+- Bước tiếp: (1) mở các callee effect (`EB8000`, `EB7A60`, virtual `+104`) và ItemAttr
+  (`row+160/184`); (2) tìm hàm set stat của `CGOBomber` (không chỉ ctor) và so `cur/max`; (3) nếu
+  gặp `.themida`, dừng + ghi entry VM; (4) cần runtime/`read_bytes` để kiểm nhặt tại trần.
 - **Đề xuất profile: không đổi.** `characters.*` giữ cấp/level (R-117); nếu tìm được consumer
   base/max mới mở PR profile riêng theo ADR 0013.
