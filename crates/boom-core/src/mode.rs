@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::num::Tick;
 use crate::sim::World;
 use crate::state::SimulationState;
 use crate::system::System;
@@ -60,10 +61,17 @@ impl Mode for FfaBattle {
             // Luật "người cuối cùng" chỉ áp dụng khi lượt bắt đầu với từ hai người.
             (Some(p), false) if state.players.len() >= 2 => Some(Outcome::Winner(p.id)),
             (None, _) => Some(Outcome::Draw),
-            _ if state.tick >= world.rules().round_ticks => Some(Outcome::Draw),
+            // Hết giờ: đồng hồ lượt chạy **sau** warmup, nên warmup không tính vào thời hạn
+            // (R-100, BnB `server/game.js:641–645`). Kết quả gameplay được xét trước timeout.
+            _ if round_tick(world, state) >= world.rules().round_ticks => Some(Outcome::Draw),
             _ => None,
         }
     }
+}
+
+/// Đồng hồ lượt: số tick đã chạy kể từ khi hết warmup (R-100).
+fn round_tick(world: &World, state: &SimulationState) -> Tick {
+    state.tick.saturating_sub(world.rules().warmup_ticks)
 }
 
 static MODES: [&dyn Mode; 1] = [&FfaBattle];

@@ -147,6 +147,7 @@ mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới 
 | `PlayerInput { dir, place_bomb }` | `sim.rs` | Input **đã được authority chấp nhận** cho một tick; `place_bomb` là cạnh nhấn, không phải giữ |
 | `PlayerSetup { id, stats: CharacterStats }` | `sim.rs`, `state/player.rs` | `Stat { value, max }` cho speed/bombs/range, lấy từ BomberAttr qua content |
 | `SimulationState` | `state/mod.rs` | `tick, phase, rng, ids, players, field, bombs, flames, items`; mỗi phần tự hash trong file của nó |
+| `TickScratch` | `scratch.rs` | Dữ liệu **của một tick**, truyền giữa các system (kênh blast: ô vừa bị vụ nổ phủ). **Không thuộc state**: không hash, không snapshot, không có trong DTO. Ở đường gameplay `SimulationState::step` tự tạo scratch rỗng mỗi tick, nên kết quả tick luôn suy ra từ state + input |
 | `EntityId`, `IdAllocator` | `state/mod.rs` | ID bom/item cấp tăng dần từ 1 trong lượt; chỉ cấp qua `ids.next_id()` |
 | `Player`, `Life`, `Stat` | `state/player.rs` | `Life::Trapped { since }` vẫn tính là chưa chết |
 | `Field` | `state/field.rs` | Loại ô đổi được trong lượt + item giấu trong khối mềm |
@@ -155,13 +156,16 @@ mục này giữ quy tắc. Review đổi gì thì integrator ra revision mới 
 | `FloorItem`, `ItemKind` | `state/item.rs` | `ItemKind(i)` = chỉ số trong `Rules::items` (V1: Bomb, Fire, Roller) |
 | `Rules` | `rules.rs` | Mọi giá trị luật V1, đổi từ profile; thêm rule mới qua integrator |
 | `EventKind` (10 loại V1) | `event.rs` | `name()` + `fields()` là encoding chung cho digest, scenario, log |
-| `Mode`, `System` | `mode.rs`, `system.rs` | `System::on_round_start` cho việc đầu lượt (giấu item) |
+| `Mode`, `System` | `mode.rs`, `system.rs` | `System::on_round_start` cho việc đầu lượt (giấu item); `System::run` nhận thêm `&mut TickScratch` cho dữ liệu trong tick |
 
 `SimulationState::check_invariants(&World)` (`state/invariants.rs`) kiểm: danh sách sắp đúng; một bom/item/
 flame mỗi ô; ID entity duy nhất trên mọi loại và do allocator cấp; bom/item trên ô nền, lửa trên nền hoặc
 khối mềm; số ô dữ liệu khớp kích thước lưới (kiểm trước mọi truy cập ô); owner/grace là người chơi có thật; `ItemKind` có trong `Rules::items`; người chơi trong lưới;
 chỉ số không vượt trần; item giấu chỉ trong khối mềm. Hàm không panic với state sai. `new_round` gọi nó
 trước khi trả state; harness scenario và replay gọi sau mỗi tick, nên system vi phạm bị bắt ở tick gây lỗi.
+
+Kênh blast **không nằm trong state** nên không có ở `check_invariants`: nó được kiểm riêng bằng
+`TickScratch::check(&World)` (`scratch.rs`), và hàm này là nơi kiểm duy nhất cho kênh đó.
 
 ### 5.2 Thứ tự trong một tick (pipeline FFA)
 
@@ -170,16 +174,25 @@ trước khi trả state; harness scenario và replay gọi sau mỗi tick, nên
 RNG được dùng đúng theo thứ tự này. Đổi thứ tự là đổi luật: chỉ integrator, kèm scenario và bless golden.
 
 Hệ quả đã chốt: bom đặt trong step N nằm ở ô người chơi **sau khi** di chuyển của step N; bom có
-`explodes_at = N` nổ trong step N; lửa sinh trong step N phá khối, nhốt người ngay trong step N;
-kết quả lượt xét sau khi mọi system đã chạy. Còn mở (quyết trong task tương ứng, ghi vào RULES_V1):
-lửa có phá item đang nằm trên nền không; nhặt item khi đã chạm trần thì item mất hay ở lại.
+`explodes_at = N` nổ trong step N; vụ nổ ở step N phá khối (kênh blast của tick, `TickScratch`),
+lửa sinh ở step N nhốt người ngay trong step N; kết quả lượt xét sau khi mọi system đã chạy. Còn mở (quyết
+trong task tương ứng, ghi vào RULES_V1): lửa có phá item đang nằm trên nền không; nhặt item khi đã
+chạm trần thì item mất hay ở lại.
+
+Kênh blast sống trong `TickScratch` của tick đó: `explosion` ghi, `blocks` đọc rồi xóa. Vì nó nằm ngoài
+state nên **state là nguồn duy nhất của tick** — cùng state + cùng input luôn cho cùng kết quả tick,
+và state khôi phục từ snapshot không thể lệch với state gốc ở tick kế tiếp. Đường fixture
+`SimulationState::step_with_scratch` cho phép dựng sẵn kênh blast để test riêng system `blocks`;
+ở đường đó scratch là **input thêm** của tick và được kiểm bằng `TickScratch::check`.
 
 ### 5.3 Ma trận quyền ghi
 
 Bảng chi tiết ở đầu `crates/boom-core/src/systems/mod.rs`. Tóm tắt: mỗi field công khai chỉ có một
-system được ghi (movement → vị trí/hướng và xóa `grace`; bomb_place → thêm bom; explosion → xóa bom, lửa;
-blocks → lưới, item lộ/bị phá; pickup → xóa item, chỉ số; life → `Player.life`). Đọc thì tự do.
-Cần ghi field của system khác → mở issue cho integrator, không sửa thẳng.
+system được ghi (movement → vị trí/hướng và xóa `grace`; bomb_place → thêm bom; explosion → xóa bom, lửa,
+ghi kênh blast của tick; blocks → lưới, item lộ/bị phá, đọc rồi xóa kênh blast của tick; pickup → xóa item, chỉ số;
+life → `Player.life`). Đọc thì tự do. Cần ghi field của system khác → mở issue cho integrator, không sửa thẳng.
+Kênh blast của tick không phải field công khai của state: nó là dữ liệu tạm trong tick, truyền qua
+`TickScratch` (`scratch.rs`).
 
 ### 5.4 Contract mạng và replay (chưa có code)
 
@@ -254,6 +267,10 @@ Kịch bản nghiệm thu ở `fixtures/scenarios/<system>/*.toml`, chạy bằn
 cho feature chưa làm. Scenario dựng sẵn được bom/item/lửa/item giấu, nên mỗi system test độc lập với
 system khác. Worker nhận feature chuyển scenario của mình sang `active`, thêm ca biên, và reviewer
 kiểm scenario đối chiếu RULES_V1 chứ không chỉ đối chiếu code.
+
+Kênh blast là dữ liệu **của tick** nên không nằm trong state: scenario dựng sẵn nó bằng khóa
+`[[blast]]`, và harness chạy tick qua `SimulationState::step_with_scratch` (đường gameplay
+`SimulationState::step` dùng scratch rỗng). Fixture này chỉ dùng để test riêng system `blocks`.
 
 ## 6. Authority, prediction và side effect
 

@@ -25,6 +25,14 @@ mod fixture;
 #[cfg(test)]
 mod tests;
 
+/// Backend UI nối server thật (ADR 0009 Addendum B §B.6).
+///
+/// **Chưa có caller trong binary**: luồng `--connect` hiện vẫn lấy thông tin đăng nhập từ
+/// cờ `--user`/`--password` (xem `main.rs`), nên module này chưa được nối vào CLI. Vì vậy
+/// `dead_code` tắt cho tới khi màn login UI được nối vào luồng `--connect`.
+#[allow(dead_code)]
+pub mod ui_backend;
+
 pub use prediction::{
     ALPHA_ONE, BombShadow, PredictError, Predictor, SnapshotOutcome, world_from_snapshot,
 };
@@ -38,12 +46,15 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 use boom_content::rules::RulesProfile;
-use boom_core::{Mode, Phase, PlayerInput, Rules, SimulationState, World, mode_by_id};
+use boom_core::{
+    Cell, EntityId, EventId as CoreEventId, EventKind, ItemKind, Mode, Outcome, Phase, PlayerInput,
+    Rules, SimulationEvent, SimulationState, World, mode_by_id,
+};
 use boom_net::{TcpTransport, Transport};
 use boom_proto::dto::auth::{Auth, AuthOk, AuthOp};
 use boom_proto::{
-    Hello, InputBatch, LoadingAck, ResultAck, RoomAction, RoomCharacter, RoundEvent, RoundStart,
-    Welcome,
+    Hello, InputBatch, LoadingAck, ProtocolLimits, ResultAck, RoomAction, RoomCharacter,
+    RoundEvent, RoundStart, Welcome,
 };
 
 /// Thông tin đăng nhập client dùng **sau** `Welcome` (ADR 0009 Addendum A §A.1).
@@ -135,8 +146,12 @@ pub struct NetClient<W: Transport> {
     /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`; presentation dùng để tính
     /// alpha nội suy.
     snapshot_interval_ms: u64,
-    /// Event mới (đã dedup), chờ presentation journal lấy.
-    events: Vec<RoundEvent>,
+    /// Event mới (đã dedup), chờ presentation lấy: `(round, event)`.
+    ///
+    /// **Round** đi kèm event vì khoá dedup của consumer là `(round_id, EventId)`
+    /// (ADR 0005, R-089): event của lượt cũ tới trễ phải giữ được lượt của nó, không được
+    /// ghi nhầm vào lượt mới.
+    events: Vec<(u32, RoundEvent)>,
     /// Trạng thái luồng phòng: sảnh/phòng/chat/loading/result (ADR 0009 Addendum B).
     room: RoomFlow,
     /// Nội dung cục bộ (map + địa hình) để dựng `World` cho round.
@@ -255,6 +270,14 @@ impl<W: Transport> NetClient<W> {
         self.account.as_ref()
     }
 
+    /// Miền giới hạn giao thức của phiên hiện tại.
+    ///
+    /// Client dùng để hiển thị giới hạn của phiên (vd. số người tối đa trong sảnh) thay vì
+    /// hard-code — giá trị nằm trong `ProtocolLimits` có revision (ADR 0009 §3.5).
+    pub fn limits(&self) -> &ProtocolLimits {
+        self.session.limits()
+    }
+
     /// Build id của server (fingerprint ADR 0011 §8.3), lấy từ `Welcome`.
     pub fn server_version(&self) -> Option<&str> {
         self.welcome
@@ -360,9 +383,28 @@ impl<W: Transport> NetClient<W> {
             .map_or(0, |predictor| predictor.pending().len())
     }
 
-    /// Lấy event mới (đã dedup theo `(round_id, EventId)`).
+    /// Lấy event mới (đã dedup theo `(round_id, EventId)`) — dạng **thô** trên dây.
+    ///
+    /// Hàm này và [`NetClient::take_core_events`] rút cùng một hàng đợi: gọi một trong hai
+    /// là hàng đợi rỗng. Đường trình diễn dùng [`NetClient::take_core_events`]; hàm này
+    /// để test đọc event thô.
+    #[allow(dead_code)] // đường trình diễn dùng `take_core_events`; hàm này cho test đọc event thô.
     pub fn take_events(&mut self) -> Vec<RoundEvent> {
-        std::mem::take(&mut self.events)
+        self.events.drain(..).map(|(_, event)| event).collect()
+    }
+
+    /// Lấy event mới (đã dedup theo `(round_id, EventId)`) đã **dịch** về event core.
+    ///
+    /// Kèm **round của event**: consumer trình diễn dùng round đó làm khoá dedup
+    /// `(round_id, EventId)` nên event của lượt cũ tới trễ không tạo mục ở lượt mới.
+    ///
+    /// Event không dịch được (tên loại lạ, thiếu trường) thì **bỏ**: consumer không đoán
+    /// giá trị của event lạ (ADR 0009 §2).
+    pub fn take_core_events(&mut self) -> Vec<(u32, SimulationEvent)> {
+        self.events
+            .drain(..)
+            .filter_map(|(round, event)| decode_event(&event).map(|event| (round, event)))
+            .collect()
     }
 
     /// Trạng thái luồng phòng (sảnh/phòng/chat/loading/result).
@@ -512,12 +554,14 @@ impl<W: Transport> NetClient<W> {
             ClientMessage::RoundEvents(events) => {
                 // Event của round cũ tới trễ sau khi đã sang round mới thì bỏ: presentation
                 // chỉ nhận event của round đang chơi (dedup theo `(round_id, EventId)`).
+                let round_id = events.round_id;
                 if self
                     .current_round()
                     .is_none_or(|round| events.round_id >= round)
                 {
                     let fresh = self.session.accept_events(events);
-                    self.events.extend(fresh);
+                    self.events
+                        .extend(fresh.into_iter().map(|event| (round_id, event)));
                 }
             }
             ClientMessage::InputRejected(rejected) => {
@@ -830,6 +874,99 @@ impl<W: Transport> NetClient<W> {
         };
         self.session.send_input_batch(&batch)
     }
+}
+
+/// Dịch event trên dây (`RoundEvent`) về event của core (`SimulationEvent`).
+///
+/// Tên loại và tên trường lấy từ `EventKind::name()` / `EventKind::fields()` của core — cùng
+/// bảng mà `boom_sync::to_round_events` dùng để **đóng gói** event lên dây, nên hai bên
+/// dùng chung một tên chứ không phải đoán.
+///
+/// `None` khi tên loại lạ hoặc thiếu trường: consumer bỏ qua event không hiểu
+/// (`EventKind` là `non_exhaustive`) thay vì đoán giá trị (ADR 0009 §2).
+#[must_use]
+pub fn decode_event(event: &RoundEvent) -> Option<SimulationEvent> {
+    let field = |name: &str| -> Option<i64> {
+        event
+            .fields
+            .iter()
+            .find(|field| field.name == name)
+            .map(|field| field.value)
+    };
+    let u8_field = |name: &str| -> Option<u8> { u8::try_from(field(name)?).ok() };
+    let i32_field = |name: &str| -> Option<i32> { i32::try_from(field(name)?).ok() };
+    let u32_field = |name: &str| -> Option<u32> { u32::try_from(field(name)?).ok() };
+    let cell = || -> Option<Cell> {
+        Some(Cell {
+            x: i32_field("x")?,
+            y: i32_field("y")?,
+        })
+    };
+    let kind = match event.name.as_str() {
+        "player_turned" => EventKind::PlayerTurned {
+            player: u8_field("player")?,
+        },
+        "bomb_placed" => EventKind::BombPlaced {
+            bomb: EntityId(u32_field("bomb")?),
+            player: u8_field("player")?,
+            cell: cell()?,
+            range: u8_field("range")?,
+        },
+        "bomb_exploded" => EventKind::BombExploded {
+            bomb: EntityId(u32_field("bomb")?),
+            owner: u8_field("owner")?,
+            cell: cell()?,
+            chained: field("chained")? != 0,
+        },
+        "block_destroyed" => EventKind::BlockDestroyed { cell: cell()? },
+        "item_revealed" => EventKind::ItemRevealed {
+            item: EntityId(u32_field("item")?),
+            kind: ItemKind(u16::try_from(field("kind")?).ok()?),
+            cell: cell()?,
+        },
+        "item_destroyed" => EventKind::ItemDestroyed {
+            item: EntityId(u32_field("item")?),
+            cell: cell()?,
+        },
+        "item_picked" => EventKind::ItemPicked {
+            item: EntityId(u32_field("item")?),
+            kind: ItemKind(u16::try_from(field("kind")?).ok()?),
+            player: u8_field("player")?,
+        },
+        "player_trapped" => EventKind::PlayerTrapped {
+            player: u8_field("player")?,
+            by: u8_field("by")?,
+        },
+        "player_died" => {
+            let by = field("by")?;
+            EventKind::PlayerDied {
+                player: u8_field("player")?,
+                by: if by < 0 {
+                    None
+                } else {
+                    Some(u8::try_from(by).ok()?)
+                },
+            }
+        }
+        "round_ended" => {
+            let winner = field("winner")?;
+            EventKind::RoundEnded {
+                outcome: if winner < 0 {
+                    Outcome::Draw
+                } else {
+                    Outcome::Winner(u8::try_from(winner).ok()?)
+                },
+            }
+        }
+        _ => return None,
+    };
+    Some(SimulationEvent {
+        id: CoreEventId {
+            tick: event.id.tick,
+            seq: event.id.seq,
+        },
+        kind,
+    })
 }
 
 /// Dựng `Hello` cho handshake từ profile rules của client.

@@ -133,12 +133,71 @@ struct Shared {
     packets: Vec<Packet>,
     /// Endpoint nào đã đóng.
     closed: [bool; 2],
+    /// Số frame đã gửi đi nhưng bị mạng nuốt, tính theo endpoint **gửi** (index = endpoint gửi).
+    dropped: [u64; 2],
+    /// Số frame đã **đưa lên đường** (kể cả bản trùng lặp), tính theo endpoint **gửi**.
+    ///
+    /// Frame bị mạng nuốt thì **không** tính: nó không bao giờ tới nơi.
+    sent: [u64; 2],
+    /// Số frame đã **giao cho ứng dụng nhận** (đã lấy khỏi hàng đợi), tính theo endpoint **nhận**.
+    delivered: [u64; 2],
 }
 
 /// Mạng ảo dùng chung cho hai endpoint.
 struct Network {
     inner: Mutex<Shared>,
     signal: Condvar,
+}
+
+/// Handle theo dõi bộ đếm của mạng ảo — **không** giữ hàng đợi nhận.
+///
+/// Cho phép test quan sát số frame đã đưa lên đường / đã tới nơi **từ nơi khác**: ví dụ
+/// test nắm transport phía client nhưng cần biết luồng đọc của server đã lấy frame client
+/// gửi chưa. Handle chỉ đọc bộ đếm dùng chung nên nhân bản được và dùng ở nhiều luồng.
+#[derive(Clone)]
+pub struct MemoryCounters {
+    network: Arc<Network>,
+    endpoint: Endpoint,
+}
+
+impl MemoryCounters {
+    /// Số frame endpoint này đã **đưa lên đường** — không bị mạng nuốt, kể cả bản trùng lặp.
+    ///
+    /// Mỗi frame đưa lên đường sẽ được đối phương lấy **đúng một lần**, nên đối chiếu với
+    /// [`Self::peer_delivered_frames`] cho biết chính xác còn frame nào đang trên đường.
+    pub fn sent_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").sent[self.endpoint.index()]
+    }
+
+    /// Số frame **đối phương** đã đưa lên đường (chiều ngược lại).
+    pub fn peer_sent_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").sent[self.endpoint.peer().index()]
+    }
+
+    /// Số frame endpoint này đã **nhận** (đã lấy khỏi hàng đợi và trả cho ứng dụng).
+    ///
+    /// Khác [`Self::dropped_frames`]: đây là frame *tới nơi*, không phải frame bị nuốt.
+    pub fn delivered_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").delivered[self.endpoint.index()]
+    }
+
+    /// Số frame **đối phương đã nhận** — tức frame endpoint này gửi đi đã tới nơi.
+    ///
+    /// Dùng để biết chắc đối phương (ví dụ luồng đọc của server) đã lấy frame khỏi mạng ảo.
+    /// Không phụ thuộc đồng hồ thật nên test không đua với lịch chạy thread.
+    pub fn peer_delivered_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").delivered[self.endpoint.peer().index()]
+    }
+
+    /// Số frame endpoint này gửi đi đã bị mạng nuốt (mất).
+    pub fn dropped_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").dropped[self.endpoint.index()]
+    }
+
+    /// Số frame **đối phương** gửi đi đã bị mạng nuốt (mất) — chiều ngược lại.
+    pub fn peer_dropped_frames(&self) -> u64 {
+        self.network.inner.lock().expect("khoá mạng ảo").dropped[self.endpoint.peer().index()]
+    }
 }
 
 /// Một đầu của transport trong bộ nhớ.
@@ -203,6 +262,62 @@ impl MemoryTransport {
         self.network.inner.lock().expect("khoá mạng ảo").clock_ms
     }
 
+    /// Số frame **endpoint này gửi đi** đã bị mạng nuốt (mất).
+    ///
+    /// Quyết định mất lấy từ PRNG theo seed nên **tức thì** và giống nhau trên mọi OS:
+    /// test biết chính xác frame vừa gửi có tới nơi không, thay vì đoán theo hạn thời gian
+    /// thật (hạn thời gian phụ thuộc tốc độ máy và độ phân giải timer của hệ điều hành).
+    pub fn dropped_frames(&self) -> u64 {
+        self.counters().dropped_frames()
+    }
+
+    /// Số frame **đối phương gửi đi** đã bị mạng nuốt (mất) — chiều ngược lại.
+    ///
+    /// Dùng để biết câu trả lời từ server có bị mất không (khác với [`Self::dropped_frames`]
+    /// là câu hỏi của chiều gửi đi).
+    pub fn peer_dropped_frames(&self) -> u64 {
+        self.counters().peer_dropped_frames()
+    }
+
+    /// Số frame endpoint này đã **đưa lên đường** — không bị mạng nuốt, kể cả bản trùng lặp.
+    ///
+    /// Mỗi frame đưa lên đường sẽ được đối phương lấy **đúng một lần**, nên đối chiếu với
+    /// [`Self::peer_delivered_frames`] cho biết chính xác còn frame nào đang trên đường.
+    pub fn sent_frames(&self) -> u64 {
+        self.counters().sent_frames()
+    }
+
+    /// Số frame **đối phương** đã đưa lên đường (chiều ngược lại).
+    pub fn peer_sent_frames(&self) -> u64 {
+        self.counters().peer_sent_frames()
+    }
+
+    /// Số frame endpoint này đã **nhận** (đã lấy khỏi hàng đợi và trả cho ứng dụng).
+    ///
+    /// Khác [`Self::dropped_frames`]: đây là frame *tới nơi*, không phải frame bị nuốt.
+    pub fn delivered_frames(&self) -> u64 {
+        self.counters().delivered_frames()
+    }
+
+    /// Số frame **đối phương đã nhận** — tức frame endpoint này gửi đi đã tới nơi.
+    ///
+    /// Dùng để biết chắc đối phương (ví dụ luồng đọc của server) đã lấy frame khỏi mạng ảo:
+    /// đếm theo số frame đã đưa lên đường mà **không** bị nuốt. Không phụ thuộc đồng hồ thật.
+    pub fn peer_delivered_frames(&self) -> u64 {
+        self.counters().peer_delivered_frames()
+    }
+
+    /// Handle bộ đếm của mạng ảo — **không** giữ hàng đợi nhận.
+    ///
+    /// Cho phép test quan sát số frame đã đưa lên đường / đã tới nơi **từ nơi khác** (ví dụ:
+    /// test nắm transport phía client nhưng cần biết luồng đọc của server đã lấy frame chưa).
+    pub fn counters(&self) -> MemoryCounters {
+        MemoryCounters {
+            network: Arc::clone(&self.network),
+            endpoint: self.endpoint,
+        }
+    }
+
     /// Đã thấy EOF từ đối phương chưa (đối phương đóng và đã giao hết frame).
     pub fn is_eof(&self) -> bool {
         self.eof
@@ -237,6 +352,8 @@ impl MemoryTransport {
         let mut net = self.network.inner.lock().expect("khoá mạng ảo");
         loop {
             if let Some(frame) = self.incoming.pop_front() {
+                // Frame đã tới nơi: đếm để ứng dụng biết chắc peer đã lấy frame này.
+                net.delivered[self.endpoint.index()] += 1;
                 return Ok(Some(frame));
             }
             // Mốc giao sớm nhất của các frame đang bay tới endpoint này.
@@ -315,6 +432,8 @@ impl Transport for MemoryTransport {
         let delay = u64::from(self.faults.delay_ms) + jitter + reorder_extra;
         if lost {
             // Mạng nuốt frame: ứng dụng gửi vẫn thành công, giống mạng thật.
+            let mut net = self.network.inner.lock().expect("khoá mạng ảo");
+            net.dropped[self.endpoint.index()] += 1;
             return Ok(());
         }
         {
@@ -328,6 +447,8 @@ impl Transport for MemoryTransport {
                 deliver_at: now + delay,
                 payload: frame.to_vec(),
             });
+            // Frame đưa lên đường: đối phương sẽ lấy đúng một lần (kể cả bản trùng lặp).
+            net.sent[self.endpoint.index()] += 1;
             if duplicate {
                 let dup_seq = net.next_seq;
                 net.next_seq += 1;
@@ -337,6 +458,7 @@ impl Transport for MemoryTransport {
                     deliver_at: now + delay + 1,
                     payload: frame.to_vec(),
                 });
+                net.sent[self.endpoint.index()] += 1;
             }
         }
         self.network.signal.notify_all();

@@ -31,6 +31,6 @@ pub use error::NetError;
 pub use frame::{
     DEFAULT_MAX_FRAME_BYTES, FrameLimits, LENGTH_PREFIX_BYTES, read_frame, write_frame,
 };
-pub use memory::{MemoryConfig, MemoryFaults, MemoryTransport, Timing};
+pub use memory::{MemoryConfig, MemoryCounters, MemoryFaults, MemoryTransport, Timing};
 pub use tcp::TcpTransport;
 pub use transport::Transport;

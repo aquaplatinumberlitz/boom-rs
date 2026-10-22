@@ -20,6 +20,7 @@ mod mode;
 mod num;
 mod rng;
 mod rules;
+mod scratch;
 mod sim;
 mod state;
 mod system;
@@ -30,6 +31,7 @@ pub use mode::{FfaBattle, Mode, Outcome, mode_by_id, modes};
 pub use num::{Cell, Mpx, Tick, ms_to_ticks};
 pub use rng::Rng;
 pub use rules::{CharacterStatsTable, ItemDef, ItemEffect, Rules};
+pub use scratch::TickScratch;
 pub use sim::{CoreError, Dir, PlayerInput, PlayerSetup, World};
 pub use state::{
     Bomb, CharacterStats, EntityId, Field, Flame, FloorItem, IdAllocator, ItemKind, Life, Phase,

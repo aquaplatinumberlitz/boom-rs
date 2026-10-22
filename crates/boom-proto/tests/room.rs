@@ -28,6 +28,7 @@ fn state() -> RoomState {
             slot: 0,
             character: RoomCharacter::C00,
             ready: true,
+            name: "a".into(),
         }],
         round: Some(RoundInfo {
             id: 3,
@@ -35,6 +36,7 @@ fn state() -> RoomState {
                 player: 7,
                 slot: 0,
                 character: RoomCharacter::C00,
+                name: "a".into(),
             }],
         }),
     }
@@ -97,6 +99,7 @@ fn every_room_frame_round_trips() {
                 player: 7,
                 slot: 0,
                 character: RoomCharacter::C00,
+                name: "a".into(),
             }],
             start_tick: 4,
         },

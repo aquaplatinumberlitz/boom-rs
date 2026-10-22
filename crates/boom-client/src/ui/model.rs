@@ -8,8 +8,8 @@
 //!
 //! [`UiModel`] không tự biết phòng nào đang mở, ai đã sẵn sàng hay kết quả lượt ra
 //! sao: nó hỏi [`UiBackend`]. Bản offline giả lập là
-//! [`crate::ui::demo::DemoBackend`] (chế độ `--ui-demo`); bản mạng nối vào sau khi
-//! #89/#99 merge (task riêng) — model không đổi.
+//! [`crate::ui::demo::DemoBackend`] (chế độ `--ui-demo`); bản mạng là
+//! [`crate::net::ui_backend::NetBackend`] (server thật) — model và layout không đổi.
 //!
 //! ## Không có dead end
 //!
@@ -179,8 +179,9 @@ pub enum MatchProgress {
 
 /// Nguồn dữ liệu cho UI.
 ///
-/// Bản offline giả lập: [`crate::ui::demo::DemoBackend`]. Bản mạng nối vào sau khi
-/// #89/#99 merge (task riêng) — hợp đồng của model không đổi.
+/// Bản offline giả lập: [`crate::ui::demo::DemoBackend`]. Bản mạng:
+/// [`crate::net::ui_backend::NetBackend`] (đăng nhập → sảnh → phòng → trận → kết quả với
+/// server thật). Hợp đồng của model không đổi.
 pub trait UiBackend {
     /// Đăng nhập bằng tài khoản/mật khẩu đã có.
     fn login(&mut self, account: &str, password: &str) -> Result<(), UiError>;
@@ -210,6 +211,19 @@ pub trait UiBackend {
     fn room(&self) -> Option<RoomView>;
     /// Tiến trình lượt đang chạy; `None` = chưa có lượt.
     fn match_progress(&mut self) -> Option<MatchProgress>;
+
+    /// Bơm nguồn dữ liệu để trạng thái mới tới UI.
+    ///
+    /// Mặc định **không làm gì**: bản offline ([`crate::ui::demo::DemoBackend`]) không có nguồn
+    /// ngoài. Bản mạng ([`crate::net::ui_backend::NetBackend`]) đọc message từ server ở đây —
+    /// [`UiModel::tick`] gọi hàm này mỗi vòng, nên UI trong phòng chờ thấy được thay đổi của
+    /// người khác mà không cần bấm làm mới.
+    fn pump(&mut self) {}
+
+    /// Server đã phát lượt mới cho thành viên phòng.
+    fn active_match(&self) -> bool {
+        false
+    }
 }
 
 /// Hành động của UI (mỗi hành động gắn một khóa chuỗi đã có trong file chuỗi V1).
@@ -366,6 +380,11 @@ impl<B: UiBackend> UiModel<B> {
     /// Bộ chuỗi hiển thị.
     pub fn texts(&self) -> &Texts {
         &self.texts
+    }
+
+    /// Backend dùng chung cho UI và vòng gameplay.
+    pub fn backend_mut(&mut self) -> &mut B {
+        &mut self.backend
     }
 
     /// Danh sách phòng ở sảnh.
@@ -700,8 +719,16 @@ impl<B: UiBackend> UiModel<B> {
     }
 
     /// Tiến trình client: hỏi backend về lượt và chuyển sang màn kết quả khi xong.
+    ///
+    /// Mỗi vòng gọi [`UiBackend::pump`] trước để nguồn dữ liệu (bản mạng) có trạng thái mới
+    /// nhất; bản offline không làm gì.
     pub fn tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
+        self.backend.pump();
+        if self.screen == UiScreen::Room && self.backend.active_match() {
+            self.screen = UiScreen::Match;
+            self.focus = Focus::Action(ActionId::Quit);
+        }
         if self.screen != UiScreen::Match {
             return;
         }

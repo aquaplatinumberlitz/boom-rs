@@ -1,0 +1,62 @@
+# R-108 (BnB `server/game.js:546–567`): **hết thời gian nhốt trước chạm**. Vòng giảm timer
+# chạy trước vòng chạm, nên tick hết hạn thì người bị nhốt chết vì hết giờ (`by = None`) dù
+# đã có người chạm trong tầm. Luật cũ "chạm được ưu tiên hơn hết hạn" (R-035) đã bị R-108
+# supersede.
+#
+# Người 1 bị nhốt từ tick 0 ⇒ hết hạn ở tick 377 (378 tick nhốt tính cả tick bị nhốt). Người 0
+# đi sang phải 2 px mỗi tick, bắt đầu ở tick 371: tick 376 lệch đúng 28 px (ngưỡng strict ⇒
+# chưa chạm), tick 377 lệch 26 px (đã trong tầm chạm) nhưng hết hạn đến trước.
+name = "Hết thời gian nhốt được xét trước chạm trong cùng tick"
+features = ["V1-020", "V1-021"]
+claims = ["R-028", "R-108"]
+status = "active"
+ticks = 380
+map = [
+    "######",
+    "#0...#",
+    "######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+life = "trapped"
+
+[[input]]
+tick = 371
+player = 0
+dir = "right"
+
+[[expect]]
+tick = 377
+event = "player_died"
+count = 0
+
+[[expect]]
+tick = 377
+player = 1
+life = "trapped"
+
+[[expect]]
+tick = 378
+event = "player_died"
+where = { player = 1, by = -1 }
+count = 1
+
+[[expect]]
+tick = 378
+player = 1
+life = "dead"
+
+[end]
+outcome = "winner:0"

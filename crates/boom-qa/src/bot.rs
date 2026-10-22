@@ -2,10 +2,9 @@
 //!
 //! # Vì sao có trait
 //!
-//! [`BotClient`] là điểm thay thế: khi module net của `boom-client` (PR #89) sẵn sàng, một
-//! implementation mới dùng module đó có thể thay cho [`DirectDtoBot`] mà harness không phải
-//! đổi. Giai đoạn 1 bot nói **DTO trực tiếp** (`boom-proto`), không dự đoán state: mọi thứ bot
-//! biết về trận đến từ `Snapshot` của server.
+//! [`BotClient`] là điểm thay thế. Bot mặc định giữ tên API [`DirectDtoBot`] để tương thích,
+//! nhưng input dùng chính Predictor của client; fingerprint/roster dùng RoomFlow chung.
+//! Auth và room command của harness vẫn dùng DTO.
 //!
 //! Harness **không** tự dựng bot: nó gọi [`BotFactory`] cho từng bot của lần chạy. Xem
 //! [`crate::harness::run_with`] — đó là entry point nhận factory bên ngoài.
@@ -47,13 +46,14 @@ use std::fmt;
 use boom_core::{Rng, World};
 use boom_proto::dto::auth::{Auth, AuthFail, AuthFailReason, AuthOk, AuthOp};
 use boom_proto::{
-    Hello, InputBatch, InputBits, InputCommand, InputRejected, LoadingAck, LobbyList,
-    LobbyListRequest, Message, MessageKind, Ping, Pong, Reject, ResultAck, RoomAction,
-    RoomCharacter, RoomCommand, RoomRejected, RoomState, RoundResult, RoundStart, Snapshot,
-    encode_frame, read_envelope,
+    Hello, InputBatch, InputRejected, LoadingAck, LobbyList, LobbyListRequest, Message,
+    MessageKind, Ping, Pong, Reject, ResultAck, RoomAction, RoomCharacter, RoomCommand,
+    RoomRejected, RoomState, RoundResult, RoundStart, Snapshot, encode_frame, read_envelope,
 };
 
 use crate::metrics::Samples;
+use crate::prediction::{Predictor, SnapshotOutcome};
+use crate::room::{RoomFlow, RoundExpectation, RoundStartOutcome};
 
 /// Số chu kỳ `Ping` mà một ping được giữ trong bảng pending chờ `Pong`.
 ///
@@ -121,10 +121,12 @@ pub struct BotStats {
     pub room_rejected: u32,
     /// Số snapshot đã nhận.
     pub snapshots: u32,
-    /// Số lần phải sửa lại state sau khi dự đoán (0 ở giai đoạn 1: bot không dự đoán).
+    /// Số mẫu sai số vị trí cùng tick khác 0.
     pub corrections: u32,
-    /// Biên độ sửa lớn nhất (mpx) — 0 ở giai đoạn 1.
+    /// Sai số Manhattan lớn nhất (mpx).
     pub max_correction_mpx: i32,
+    /// Sai số vị trí tại cùng tick (Manhattan, mpx), gồm mẫu 0.
+    pub correction_mpx: Samples,
     /// Số lượt bot đã chơi xong (đã biết lượt kết thúc).
     pub rounds_completed: u32,
     /// Số lượt bot đã ack kết quả (đã gửi `ResultAck`).
@@ -168,7 +170,7 @@ pub struct BotConfig {
     pub content_sha256: [u8; 32],
     /// Chu kỳ gửi input (ms).
     pub input_interval_ms: u64,
-    /// Số tick bot nhắm trước tick server ước lượng ở thời điểm gửi.
+    /// Giữ tương thích cấu hình cũ; Predictor chung tự quyết target_tick, không dùng lead này.
     pub input_lead_ticks: u32,
     /// Chu kỳ gửi Ping để đo RTT (ms).
     pub ping_interval_ms: u64,
@@ -222,7 +224,7 @@ pub trait BotFactory {
     fn create(&self, config: &BotConfig) -> Box<dyn BotClient>;
 }
 
-/// Factory mặc định: bot nói DTO trực tiếp (giai đoạn 1, không dự đoán state).
+/// Factory mặc định: predictor/API phòng client chung, lifecycle qua DTO.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DirectDtoBotFactory;
 
@@ -253,9 +255,15 @@ pub enum BotPhase {
     Results,
 }
 
-/// Bot nói DTO trực tiếp qua `boom-proto` (giai đoạn 1, không dự đoán state).
+/// Bot dự đoán bằng API client chung; auth/phòng qua DTO `boom-proto`.
 pub struct DirectDtoBot {
     config: BotConfig,
+    predictor: Option<Predictor>,
+    flow: RoomFlow,
+    /// Lượt đã rời: phiên mới chỉ tham gia từ lượt sau (SCOPE_V1).
+    abandoned_round: Option<u64>,
+    /// Vị trí dự đoán theo tick để so với authority tại chính tick đó.
+    predicted_positions: BTreeMap<u32, (i32, i32)>,
     phase: BotPhase,
     limits: boom_proto::ProtocolLimits,
     rng: Rng,
@@ -349,6 +357,10 @@ impl DirectDtoBot {
         let _ = rng.next_u64();
         Self {
             config,
+            predictor: None,
+            flow: RoomFlow::new(),
+            abandoned_round: None,
+            predicted_positions: BTreeMap::new(),
             phase: BotPhase::Handshake,
             limits: boom_proto::ProtocolLimits::v1(),
             rng,
@@ -402,6 +414,10 @@ impl DirectDtoBot {
     /// cũng giữ nguyên: mở lại phiên vẫn là **cùng một tài khoản** (`AuthOk` mới sẽ xác nhận
     /// lại), còn `slot` thì phải học lại từ roster của lượt mới.
     fn reset_state(&mut self) {
+        self.abandoned_round = self.round_id.or(self.abandoned_round);
+        self.predictor = None;
+        self.flow = RoomFlow::new();
+        self.predicted_positions.clear();
         self.phase = BotPhase::Handshake;
         self.request_seq = 0;
         self.room_id = None;
@@ -464,24 +480,6 @@ impl DirectDtoBot {
         let request = self.next_request();
         self.trace(&format!("-> RoomCommand req={request} {action:?}"));
         self.encode(&RoomCommand { request, action })
-    }
-
-    /// Tick server mà bot ước lượng ở thời điểm `now_ms`.
-    ///
-    /// Bot không dự đoán state nhưng **phải** ước lượng tick hiện tại để chọn `target_tick`
-    /// (ADR 0009 §3.1 bắt buộc có `target_tick`). Ước lượng lấy từ snapshot cuối cùng nhận
-    /// được, cộng thời gian đã trôi **và** trễ một chiều của hồ sơ: tick trong snapshot đã cũ
-    /// hơn lúc server tạo nó.
-    fn estimated_tick(&self, now_ms: u64) -> Option<u32> {
-        let (tick, at_ms) = self.last_snapshot?;
-        let hz = u64::from(self.config.world.rules().ticks_per_second.max(1));
-        let elapsed = now_ms.saturating_sub(at_ms);
-        let delay = elapsed.saturating_add(self.config.one_way_delay_ms);
-        let advanced = u32::try_from(delay.saturating_mul(hz) / 1_000).unwrap_or(u32::MAX);
-        Some(
-            tick.saturating_add(advanced)
-                .saturating_add(self.config.input_lead_ticks),
-        )
     }
 
     /// Gửi `Auth` nếu chưa gửi lần nào trong phiên này, hoặc server vừa trả `AuthFail`.
@@ -584,7 +582,11 @@ impl DirectDtoBot {
             // mình ở phòng nào (hạn chờ xử lý ở `on_tick`).
             return Ok(Vec::new());
         }
-        if let Some(room) = list.rooms.first() {
+        if let Some(room) = list
+            .rooms
+            .iter()
+            .find(|room| room.phase == boom_proto::RoomPhase::Waiting)
+        {
             let retry_due = self.join_requested != Some(room.room_id)
                 || now_ms.saturating_sub(self.join_requested_at_ms) >= self.config.retry_ms;
             if !retry_due {
@@ -601,7 +603,7 @@ impl DirectDtoBot {
         // Chưa có phòng nào: bot được giao vai trò tạo phòng.
         let retry_due = !self.create_requested
             || now_ms.saturating_sub(self.create_requested_at_ms) >= self.config.retry_ms;
-        if self.config.is_host && retry_due {
+        if self.config.is_host && list.rooms.is_empty() && retry_due {
             self.create_requested = true;
             self.create_requested_at_ms = now_ms;
             let frame = self.room_command(RoomAction::Create {
@@ -626,6 +628,13 @@ impl DirectDtoBot {
     }
 
     fn on_room_state(&mut self, state: &RoomState, now_ms: u64) -> Result<Vec<Vec<u8>>, BotError> {
+        if state
+            .round
+            .as_ref()
+            .is_some_and(|round| self.abandoned_round.is_some_and(|old| round.id <= old))
+        {
+            return Ok(Vec::new());
+        }
         self.room_id = Some(state.room_id);
         // Bot đã biết mình ở phòng nào: bỏ cờ "server đã xác nhận nhưng chưa biết phòng".
         self.join_confirmed = false;
@@ -731,6 +740,8 @@ impl DirectDtoBot {
             return false;
         }
         self.round_id = Some(round_id);
+        self.predictor = None;
+        self.predicted_positions.clear();
         self.stats.round_id = round_id;
         // Sequence input đánh số lại theo từng lượt (ADR 0009 §3.1).
         self.seq = 0;
@@ -748,6 +759,32 @@ impl DirectDtoBot {
         start: &RoundStart,
         now_ms: u64,
     ) -> Result<Vec<Vec<u8>>, BotError> {
+        if self
+            .abandoned_round
+            .is_some_and(|old| start.round_id <= old)
+        {
+            return Ok(Vec::new());
+        }
+        self.flow.set_my_player(
+            self.account_id
+                .ok_or_else(|| BotError::Unexpected("RoundStart trước AuthOk".to_owned()))?,
+        );
+        let expected = RoundExpectation {
+            profile_id: self.config.rules_profile_id.clone(),
+            rules_hash: self.config.rules_hash,
+            content_sha256: self.config.content_sha256,
+            mode: self.config.world.mode().id().to_owned(),
+        };
+        let outcome = self
+            .flow
+            .on_round_start(start.clone(), &expected)
+            .map_err(|err| BotError::Sync(err.to_string()))?;
+        if matches!(
+            outcome,
+            RoundStartOutcome::Stale | RoundStartOutcome::Duplicate
+        ) {
+            return Ok(Vec::new());
+        }
         let round_id = start.round_id;
         self.trace(&format!(
             "RoundStart round={round_id} roster={}",
@@ -758,11 +795,11 @@ impl DirectDtoBot {
             .iter()
             .map(|member| (member.player, member.slot))
             .collect();
-        self.learn_slot(&roster);
         if self.is_stale_round(round_id) {
             // Lượt cũ đến trễ: bỏ qua, không đụng trạng thái lượt hiện tại.
             return Ok(Vec::new());
         }
+        self.learn_slot(&roster);
         if self.begin_round(round_id) {
             self.phase = BotPhase::Loading;
         } else if !matches!(self.phase, BotPhase::Loading | BotPhase::Playing) {
@@ -811,6 +848,9 @@ impl DirectDtoBot {
     fn on_snapshot(&mut self, snapshot: &Snapshot, now_ms: u64) -> Result<Vec<Vec<u8>>, BotError> {
         self.stats.snapshots += 1;
         let round_id = u64::from(snapshot.round_id);
+        if self.abandoned_round.is_some_and(|old| round_id <= old) {
+            return Ok(Vec::new());
+        }
         if self.is_stale_round(round_id) {
             // Snapshot của lượt cũ (đến trễ): bỏ qua, không đụng state hiện tại.
             return Ok(Vec::new());
@@ -818,6 +858,37 @@ impl DirectDtoBot {
         if self.begin_round(round_id) {
             // Snapshot tới trước `RoomState`/`RoundStart`: bot vẫn biết lượt từ snapshot.
             self.phase = BotPhase::Loading;
+        }
+        if let Some(slot) = self.slot {
+            if self.predictor.is_none() {
+                self.predictor = Some(
+                    Predictor::new(self.config.world.clone(), slot)
+                        .map_err(|err| BotError::Sync(err.to_string()))?,
+                );
+            }
+            let predictor = self.predictor.as_mut().expect("predictor");
+            let outcome = predictor
+                .apply_snapshot(snapshot)
+                .map_err(|err| BotError::Sync(err.to_string()))?;
+            if !matches!(outcome, SnapshotOutcome::Applied { .. }) {
+                return Ok(Vec::new());
+            }
+            if let Some((x, y)) = self.predicted_positions.remove(&snapshot.tick)
+                && let Some(player) = snapshot.players.iter().find(|p| p.id == slot)
+            {
+                let amplitude = i64::from(x).abs_diff(i64::from(player.x))
+                    + i64::from(y).abs_diff(i64::from(player.y));
+                self.stats.correction_mpx.push(amplitude);
+                if amplitude > 0 {
+                    self.stats.corrections += 1;
+                }
+                self.stats.max_correction_mpx = self
+                    .stats
+                    .max_correction_mpx
+                    .max(i32::try_from(amplitude).unwrap_or(i32::MAX));
+            }
+            self.predicted_positions
+                .retain(|tick, _| *tick > snapshot.tick);
         }
         self.round_id = Some(round_id);
         self.last_snapshot = Some((snapshot.tick, now_ms));
@@ -872,6 +943,9 @@ impl DirectDtoBot {
         now_ms: u64,
     ) -> Result<Vec<Vec<u8>>, BotError> {
         let round_id = result.round_id;
+        if self.abandoned_round.is_some_and(|old| round_id <= old) {
+            return Ok(Vec::new());
+        }
         if self.is_stale_round(round_id) {
             // Kết quả của lượt cũ đến trễ: bỏ qua.
             return Ok(Vec::new());
@@ -899,6 +973,11 @@ impl DirectDtoBot {
 
     fn on_input_rejected(&mut self, rejected: &InputRejected) {
         self.stats.input_rejected += 1;
+        if self.round_id == Some(u64::from(rejected.round_id))
+            && let Some(predictor) = self.predictor.as_mut()
+        {
+            predictor.acknowledge(rejected.applied_seq);
+        }
         // Server cho biết seq cuối nó đã giải quyết: đồng bộ để không vượt `MAX_INPUT_GAP`.
         self.seq = self.seq.max(rejected.applied_seq);
         self.trace(&format!(
@@ -1010,27 +1089,45 @@ impl DirectDtoBot {
             // Chưa biết slot trong phòng: server sẽ từ chối batch, chờ `RoomState`/roster.
             return Ok(None);
         };
-        let Some(target_tick) = self.estimated_tick(now_ms) else {
-            // Chưa có snapshot: chưa biết tick server nên chưa gửi input.
-            return Ok(None);
-        };
-        self.seq = self.seq.saturating_add(1);
         let direction = u8::try_from(self.rng.below(4) + 1).unwrap_or(1);
         let place_bomb = self.rng.below(8) == 0;
-        let bits = InputBits::new(direction, place_bomb)
-            .ok_or_else(|| BotError::Unexpected(format!("mã hướng không hợp lệ: {direction}")))?;
+        let dir = match direction {
+            1 => boom_core::Dir::Up,
+            2 => boom_core::Dir::Down,
+            3 => boom_core::Dir::Left,
+            _ => boom_core::Dir::Right,
+        };
+        let Some(predictor) = self.predictor.as_mut() else {
+            return Ok(None);
+        };
+        let seq = predictor
+            .predict(boom_core::PlayerInput { dir, place_bomb })
+            .map_err(|err| BotError::Sync(err.to_string()))?;
+        let Some(seq) = seq else {
+            return Ok(None);
+        };
+        if let Some(state) = predictor.predicted_state()
+            && let Some(player) = state.players.iter().find(|p| p.id == slot)
+        {
+            self.predicted_positions
+                .insert(state.tick, (player.x.0, player.y.0));
+        }
+        let commands = predictor.window(self.limits.max_commands);
+        let target_tick = predictor
+            .pending()
+            .iter()
+            .find(|p| p.seq == seq)
+            .expect("lệnh mới")
+            .target_tick;
+        self.seq = seq;
         let batch = InputBatch {
             round_id: u32::try_from(round_id).unwrap_or(u32::MAX),
             player: slot,
             ack_snapshot: self.last_snapshot_seq,
-            commands: vec![InputCommand {
-                seq: self.seq,
-                target_tick,
-                bits,
-            }],
+            commands,
         };
         self.stats.sent.insert(
-            (round_id, self.seq),
+            (round_id, seq),
             SentCommand {
                 sent_at_ms: now_ms,
                 target_tick,
@@ -1287,6 +1384,7 @@ mod tests {
     use boom_content::map::Terrain;
     use boom_content::rules::RulesProfile;
     use boom_core::mode_by_id;
+    use boom_proto::InputBits;
     use boom_proto::LobbyRoom;
     use boom_proto::dto::room::RoomMember;
 
@@ -1326,6 +1424,73 @@ mod tests {
             snapshot_deadline_ms: 2_000,
             room_state_deadline_ms: 3_000,
         })
+    }
+
+    #[test]
+    fn correction_cung_tick_khong_dem_snapshot_trung_va_round_cu() {
+        use boom_core::{CharacterStats, PlayerSetup, SimulationState, Stat};
+        let mut bot = test_bot();
+        bot.slot = Some(0);
+        let stats = CharacterStats {
+            speed: Stat::new(1, 1),
+            bombs: Stat::new(1, 1),
+            range: Stat::new(1, 1),
+        };
+        let state = SimulationState::new_round(
+            &bot.config.world,
+            &[PlayerSetup { id: 0, stats }, PlayerSetup { id: 1, stats }],
+            7,
+        )
+        .unwrap();
+        let ctx = boom_sync::SnapshotContext {
+            snapshot_seq: 1,
+            round_id: 1,
+            state_schema: 1,
+            rules_hash: bot.config.world.rules().profile_hash,
+            content_epoch: 1,
+            acks: vec![],
+        };
+        let first = boom_sync::to_snapshot(&state, &ctx).unwrap();
+        bot.on_snapshot(&first, 0).unwrap();
+        // Resend dùng cùng payload cho seq đã gửi, kể cả có input mới.
+        let one = bot.send_input(20).unwrap().unwrap();
+        let two = bot.send_input(40).unwrap().unwrap();
+        let decode = |bytes: &[u8]| -> InputBatch {
+            boom_proto::decode_payload(read_envelope(bytes).unwrap().1).unwrap()
+        };
+        assert_eq!(decode(&one).commands[0], decode(&two).commands[0]);
+        assert_eq!(decode(&two).commands.len(), 2);
+        // Fault fixture: dự đoán lệch +300/+400 mpx tại tick authority kế tiếp.
+        let mut next_state = state.clone();
+        next_state
+            .step(
+                &bot.config.world,
+                &[boom_core::PlayerInput::default(); 2],
+                &mut vec![],
+            )
+            .unwrap();
+        let player = next_state.players.iter().find(|p| p.id == 0).unwrap();
+        bot.predicted_positions
+            .insert(next_state.tick, (player.x.0 + 300, player.y.0 + 400));
+        let next = boom_sync::to_snapshot(
+            &next_state,
+            &boom_sync::SnapshotContext {
+                snapshot_seq: 2,
+                ..ctx
+            },
+        )
+        .unwrap();
+        bot.on_snapshot(&next, 20).unwrap();
+        assert_eq!(bot.stats.correction_mpx.percentile(50), Some(700));
+        assert_eq!(bot.stats.correction_mpx.percentile(95), Some(700));
+        assert_eq!(bot.stats.corrections, 1);
+        bot.on_snapshot(&next, 30).unwrap();
+        bot.on_snapshot(&first, 40).unwrap();
+        assert_eq!(bot.stats.correction_mpx.count(), 1);
+        assert_eq!(bot.last_snapshot_seq, 2);
+        bot.begin_round(2);
+        bot.on_snapshot(&next, 50).unwrap();
+        assert_eq!(bot.stats.correction_mpx.count(), 1);
     }
 
     /// Danh sách sảnh có một phòng đang chờ.
@@ -1585,12 +1750,14 @@ mod tests {
                     slot: 0,
                     character: RoomCharacter::C00,
                     ready: true,
+                    name: "a".into(),
                 },
                 RoomMember {
                     player: 42,
                     slot: 1,
                     character: RoomCharacter::C01,
                     ready: true,
+                    name: "a".into(),
                 },
             ],
             round: None,
@@ -1634,12 +1801,14 @@ mod tests {
                     slot: 0,
                     character: RoomCharacter::C00,
                     ready: true,
+                    name: "a".into(),
                 },
                 RoomMember {
                     player: 7,
                     slot: 1,
                     character: RoomCharacter::C01,
                     ready: true,
+                    name: "a".into(),
                 },
             ],
             round: None,

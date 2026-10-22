@@ -1,0 +1,40 @@
+# Vụ nổ phủ ô đang có item trên nền: item **bị lửa đốt** (R-109; BnB `game.js:415–417`).
+# Trước ADR 0012 V1 giữ item trên nền (R-068, đã superseded); nay theo BnB.
+name = "Lửa đi qua ô có item trên nền thì item bị đốt"
+features = ["V1-016"]
+claims = ["R-109"]
+status = "active"
+ticks = 4
+map = [
+    "#####",
+    "#0..#",
+    "#####",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+
+[[item]]
+cell = [2, 1]
+kind = "Fire"
+
+[[blast]]
+cell = [2, 1]
+
+[[expect]]
+tick = 1
+event = "item_destroyed"
+where = { x = 2, y = 1 }
+count = 1
+
+[[expect]]
+tick = 1
+at = [2, 1]
+item = "none"
+
+[[expect]]
+tick = 1
+item_count = 0

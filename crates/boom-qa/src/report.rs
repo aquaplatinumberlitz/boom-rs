@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::metrics::Samples;
 
 /// Schema của báo cáo.
-pub const REPORT_SCHEMA: u32 = 1;
+pub const REPORT_SCHEMA: u32 = 2;
 
 /// Thông số mạng đã dùng.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -82,7 +82,9 @@ pub struct CorrectionReport {
     pub count: u32,
     /// Biên độ sửa lớn nhất (mpx).
     pub max_amplitude_mpx: i32,
-    /// Ghi chú: giai đoạn 1 bot không dự đoán nên không có correction.
+    /// Phân vị sai số cùng tick, mpx (gồm mẫu 0).
+    pub amplitude_mpx: LatencyReport,
+    /// Ghi chú định nghĩa phép đo và đơn vị.
     pub note: String,
 }
 
@@ -129,6 +131,22 @@ pub struct BotStatus {
 /// Báo cáo đầy đủ của một lần chạy.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct RunReport {
+    /// Timer server thực tế sau override CLI (ms).
+    pub server_ping_interval_ms: u64,
+    /// Hạn liveness thực tế (ms).
+    pub server_liveness_timeout_ms: u64,
+    /// Khoảng drain tối thiểu (ms).
+    pub drain_ms: u64,
+    /// Kịch bản tiêm lỗi.
+    pub scenario: String,
+    /// Lượt bị ngắt có chủ đích (không bắt buộc hash của client đã rời).
+    pub fault_round: Option<u64>,
+    /// Server/transport đã kết thúc phiên bị tiêm lỗi.
+    pub fault_disconnected: bool,
+    /// Đã bơm hết khoảng drain và server về Waiting.
+    pub drained: bool,
+    /// Sau lỗi, lượt sau có đủ client hội tụ và drain thành công.
+    pub recovered: bool,
     /// Schema báo cáo.
     pub schema: u32,
     /// Tên hồ sơ mạng.
@@ -231,6 +249,14 @@ impl RunReport {
         out.push_str(&format!(
             "| Correction | {} (biên độ max {} mpx) — {} |\n",
             self.corrections.count, self.corrections.max_amplitude_mpx, self.corrections.note
+        ));
+        out.push_str(&format!(
+            "| Correction p50 / p95 (mpx) | {:?} / {:?} |\n",
+            self.corrections.amplitude_mpx.p50, self.corrections.amplitude_mpx.p95
+        ));
+        out.push_str(&format!(
+            "| Scenario / drain / recovered | {} / {} / {} |\n",
+            self.scenario, self.drained, self.recovered
         ));
         out.push_str("\n## Hội tụ state hash\n\n");
         out.push_str("| Trận | Tick cuối | Hash server | Hash bot | Hội tụ |\n");

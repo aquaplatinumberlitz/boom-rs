@@ -1,0 +1,70 @@
+# Biên TTL một tick: vụ nổ ở tick 0 **không để lại lửa nào** — BnB sinh vụ nổ với ttl = 1 rồi
+# giảm TTL ngay trong tick nổ (`server/game.js:448–451`) nên ttl 1 → 0: vụ nổ bị xóa trước khi
+# áp sát thương. V1 vì vậy không tạo ô lửa: không ai bị nhốt, không có hình lửa.
+# Blast vẫn phá gạch: BnB phá gạch **lúc nổ** (`server/game.js:401–431`), tức trước bước giảm TTL.
+name = "flame_ticks = 1: vụ nổ ở tick 0 không có lửa, không gây sát thương"
+features = ["V1-014", "V1-015", "V1-020"]
+claims = ["R-023", "R-030", "R-033", "R-109"]
+status = "active"
+ticks = 4
+overlays = ["../../rules/flame-ttl-one.toml"]
+map = [
+    "#######",
+    "#0..+.#",
+    "#######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[bomb]]
+cell = [2, 1]
+owner = 0
+range = 1
+fuse = 0
+
+[[expect]]
+tick = 1
+event = "bomb_exploded"
+where = { x = 2, y = 1, chained = 0 }
+count = 1
+
+[[expect]]
+tick = 1
+event = "player_trapped"
+count = 0
+
+[[expect]]
+tick = 1
+at = [1, 1]
+flame = false
+
+[[expect]]
+tick = 1
+at = [2, 1]
+flame = false
+
+[[expect]]
+tick = 1
+at = [3, 1]
+flame = false
+kind = "floor"
+
+[[expect]]
+tick = 1
+player = 0
+life = "alive"
+
+[[expect]]
+tick = 2
+at = [1, 1]
+flame = false
+
+[[expect]]
+tick = 2
+event = "player_trapped"
+count = 0

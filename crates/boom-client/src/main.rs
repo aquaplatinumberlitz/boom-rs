@@ -250,6 +250,62 @@ fn main() {
             std::process::exit(2);
         }
     };
+    // Luồng tương tác mạng bắt đầu ở login; auto-ready giữ entry headless/QA.
+    if let Some(addr) = opts.connect.clone()
+        && !opts.auto_ready
+    {
+        for &(action, key) in &opts.rebinds {
+            game.input.rebind(action, key);
+        }
+        let content = local_content(&game);
+        let rules = game.world.rules().clone();
+        let profile_for_login = profile.clone();
+        let backend = net::ui_backend::NetBackend::lazy(move |credentials| {
+            let hello = net::hello_for_profile(
+                &profile_for_login,
+                &rules,
+                net::content_sha256_from_env(),
+                "boom-client",
+            );
+            let mut client = net::connect_tcp(
+                &addr,
+                rules.clone(),
+                mode_by_id("battle_ffa").expect("mode"),
+            )?;
+            client.handshake(&hello)?;
+            client.authenticate(&credentials)?;
+            if let Some(content) = content.clone() {
+                client.set_local_content(content);
+            }
+            Ok(client)
+        });
+        let mut model = ui::UiModel::new(backend, ui::Texts::from_l10n(l10n));
+        if let Some(user) = opts
+            .user
+            .clone()
+            .or_else(|| std::env::var("BOOM_USER").ok())
+        {
+            model.set_field_text(ui::model::FieldId::LoginAccount, &user);
+        }
+        if let Some(password) = opts
+            .password
+            .clone()
+            .or_else(|| std::env::var("BOOM_PASSWORD").ok())
+        {
+            model.set_field_text(ui::model::FieldId::LoginPassword, &password);
+        }
+        let conf = macroquad::miniquad::conf::Conf {
+            window_title: "boom-rs".to_owned(),
+            window_width: ui::WIDTH as i32,
+            window_height: ui::HEIGHT as i32,
+            window_resizable: false,
+            high_dpi: false,
+            sample_count: 1,
+            ..Default::default()
+        };
+        macroquad::Window::from_config(conf, run_network_ui(game, model, opts.scale));
+        return;
+    }
     // Chế độ mạng: nối server và dùng module `net`; không có `--connect` thì giữ offline.
     if let Some(addr) = opts.connect.clone() {
         let credentials = match net_credentials(
@@ -476,9 +532,10 @@ struct Game {
     clock: anim::PresentationClock,
     /// Sổ trình diễn: hiệu ứng nổ, chết, nhốt và mở đầu lượt, gắn với event server
     /// đã xác nhận (R-089).
+    ///
+    /// Lượt của sổ là **nguồn chuẩn** của lượt trình diễn (xem
+    /// [`anim::PresentationJournal::round_id`]).
     journal: anim::PresentationJournal,
-    /// ID lượt hiện tại của client; tăng khi lượt mới bắt đầu.
-    round_id: u32,
     /// Tick của lượt trước — phát hiện lượt mới (state được dựng lại, tick về 0).
     last_tick: u32,
     /// Vị trí nhân vật ở tick trước (để biết nhân vật đang đi hay đứng yên).
@@ -499,6 +556,11 @@ struct Game {
     net_snapshot_at: f64,
     /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`.
     net_snapshot_interval_ms: u64,
+    /// Đồng hồ **render** (giây): gốc của alpha nội suy giữa hai snapshot.
+    ///
+    /// Vòng render cập nhật giá trị này mỗi frame; nhánh mạng đọc nó thay vì gọi
+    /// `get_time()` trực tiếp ⇒ luồng mạng chạy được trong test headless (không cửa sổ).
+    now: f64,
 }
 
 /// Thông tin chế độ mạng hiển thị trên HUD: server xác nhận tới tick nào, client đang dự đoán
@@ -596,7 +658,8 @@ impl Game {
         // Sổ trình diễn của lượt: hiệu ứng mở đầu lượt là **client tự sinh** (core V1
         // chưa có event mở đầu lượt), còn nổ/chết/nhốt gắn với event server (R-089).
         let mut journal = anim::PresentationJournal::new(ROUND_ID);
-        record_round_start(&mut journal, &state);
+        let slots: Vec<u8> = state.players.iter().map(|player| player.id).collect();
+        journal.record_start(&slots, state.tick);
         // Kích thước logic: bản đồ theo bundle (hoặc theo địa hình placeholder) + HUD.
         let map_size = scene.as_ref().map_or_else(
             || {
@@ -625,17 +688,17 @@ impl Game {
             bundle,
             clock,
             journal,
-            round_id: ROUND_ID,
             last_tick: 0,
             previous_positions,
             demo: None,
-            audio_state: audio::AudioState::new(0),
+            audio_state: audio::AudioState::new(Some(0)),
             audio_plan: audio::AudioPlan::default(),
             net: None,
             net_status: None,
             net_room: String::new(),
             net_snapshot_at: 0.0,
             net_snapshot_interval_ms: 1,
+            now: 0.0,
         })
     }
 
@@ -694,7 +757,7 @@ impl Game {
             let confirmed_tick = net.confirmed_state().map_or(0, |state| state.tick);
             if confirmed_tick != status.confirmed_tick {
                 // Snapshot mới: đặt lại gốc thời gian của alpha nội suy.
-                self.net_snapshot_at = get_time();
+                self.net_snapshot_at = self.now;
             }
             if let Some(state) = net.state() {
                 // Vị trí ở tick trước để animation biết nhân vật đang đi hay đứng yên.
@@ -715,7 +778,11 @@ impl Game {
             // từ snapshot cũ tới snapshot mới theo thời gian đã trôi, clamp ở snapshot cuối
             // (không ngoại suy). Chính mình thì dùng state dự đoán (movement-only).
             let own_slot = net.player_slot();
-            let alpha = net_alpha(self.net_snapshot_at, self.net_snapshot_interval_ms);
+            let alpha = net_alpha(
+                self.now,
+                self.net_snapshot_at,
+                self.net_snapshot_interval_ms,
+            );
             for player in &mut self.state.players {
                 if Some(player.id) == own_slot {
                     continue;
@@ -730,13 +797,34 @@ impl Game {
             status.slot = net.player_slot().unwrap_or(0);
             status.ended = matches!(net.phase(), Some(Phase::Ended(_)));
             status.pending = u32::try_from(net.pending_len()).unwrap_or(u32::MAX);
-            // Event server mới (đã dedup theo `(round_id, EventId)`): presentation journal sẽ
-            // dùng, chưa gắn âm thanh/hiệu ứng ở task này.
-            status.events += net.take_events().len();
+            // Lượt hiện tại theo `RoundStart`: **server chốt** lượt, client không tự sinh
+            // (ADR 0005). Roster mang slot trận của từng người (ADR 0009 Addendum B §B.2).
+            let round = net.round_plan().and_then(|plan| {
+                let id = u32::try_from(plan.round_id).ok()?;
+                let slots: Vec<u8> = plan.roster.iter().map(|member| member.slot).collect();
+                Some((id, slots))
+            });
+            // Event server mới (đã dedup theo `(round_id, EventId)`), kèm round của event.
+            let events = net.take_core_events();
+            status.events += events.len();
             self.net_status = Some(status);
             self.net_snapshot_interval_ms = net.snapshot_interval_ms().max(1);
             // Trạng thái phòng (sảnh/phòng/trận/kết quả) để hiện trên HUD.
             self.net_room = room_status(net);
+            // Sang lượt mới: sổ trình diễn, đồng hồ và audio đều về lượt mới. Chỉ event
+            // của **lượt đang chơi** mới vào sổ trình diễn và âm thanh: event lượt cũ tới
+            // trễ không được ghi nhầm vào lượt mới. Chưa có `RoundStart` thì chưa biết
+            // lượt nào ⇒ event chưa gắn được lượt nên **bỏ** (server luôn gửi `RoundStart`
+            // trước event của lượt, ADR 0009 Addendum B).
+            if let Some((round_id, slots)) = round {
+                self.sync_round(round_id, own_slot, &slots);
+                let current: Vec<SimulationEvent> = events
+                    .into_iter()
+                    .filter(|(round, _)| *round == round_id)
+                    .map(|(_, event)| event)
+                    .collect();
+                self.consume_events(round_id, &current);
+            }
             // Dọn hiệu ứng đã hết khoảng clip theo đồng hồ trình diễn.
             self.prune_presentation();
             return Ok(());
@@ -753,9 +841,13 @@ impl Game {
         // mục cũ và quên event của lượt trước: khoá event là `(round_id, EventId)`
         // nên event lượt cũ không lặp lại được ở lượt mới (R-089).
         if self.state.tick < self.last_tick {
-            self.round_id += 1;
-            self.journal.set_round(self.round_id);
-            record_round_start(&mut self.journal, &self.state);
+            let round_id = self.journal.round_id().saturating_add(1);
+            self.journal.set_round(round_id);
+            self.clock.tick = 0;
+            // Slot của người chơi local trong lượt offline là id người chơi đầu.
+            self.audio_state.set_round(Some(0));
+            let slots: Vec<u8> = self.state.players.iter().map(|player| player.id).collect();
+            self.journal.record_start(&slots, self.state.tick);
         }
         // Lưu vị trí trước bước: state core không có cờ "đang đi" nên client tự so
         // vị trí giữa hai tick (module `anim`).
@@ -780,20 +872,21 @@ impl Game {
                 PlayerInput::default(),
             ],
         };
-        self.state.step(&self.world, &input, &mut self.events)?;
-        if let Some(bundle) = &self.bundle {
-            let plan = self.audio_state.plan(bundle, 0, &self.events);
-            self.audio_plan.cues.extend(plan.cues);
-            self.audio_plan.start_bgm |= plan.start_bgm;
-        }
-        // Presentation: đọc event để phát hiệu ứng nổ/chết/nhốt (R-088, R-089).
-        self.absorb_events();
+        // Buffer event tạm: `consume_events` cần `&mut self` (sổ trình diễn + audio) nên
+        // event phải nằm ở biến riêng, không phải trường của `self`.
+        let mut events = std::mem::take(&mut self.events);
+        self.state.step(&self.world, &input, &mut events)?;
+        // Consumer trình diễn **duy nhất**: sổ trình diễn + âm thanh (V1-025/031/034).
+        let round_id = self.journal.round_id();
+        self.consume_events(round_id, &events);
         // Đồng hồ trình diễn bám `state.tick` khi mô phỏng còn chạy.
         self.clock.tick = self.state.tick;
         // Bỏ hiệu ứng đã hết khoảng clip.
         self.prune_presentation();
-        // Event đã đọc xong: xóa để không phình bộ nhớ trong chế độ offline.
-        self.events.clear();
+        // Event đã đọc xong: xóa và trả buffer về `self` để tick sau không phải cấp phát
+        // lại (chế độ offline không có consumer nào khác lấy event).
+        events.clear();
+        self.events = events;
         self.last_tick = self.state.tick;
         Ok(())
     }
@@ -818,10 +911,64 @@ impl Game {
     ///
     /// Sổ trình diễn tự loại event **lặp** (cùng `(round_id, EventId)`) nên reconcile
     /// không phát lại hiệu ứng (ADR 0005, R-089).
-    fn absorb_events(&mut self) {
-        for event in &self.events {
+    fn absorb_events(&mut self, events: &[SimulationEvent]) {
+        for event in events {
             self.journal.record_event(event);
         }
+    }
+
+    /// Consumer trình diễn **duy nhất** cho cả offline và mạng (V1-025/031/034).
+    ///
+    /// Mọi event của lượt hiện tại đi qua **một** chỗ:
+    ///
+    /// - sổ trình diễn ghi mục đã xác nhận, gắn khoá `(round_id, EventId)` ⇒ event lặp
+    ///   (reconcile, snapshot gửi lại event cũ) **không** tạo mục mới (ADR 0005, R-089);
+    /// - audio lên kế hoạch cue theo bảng `AUDIO_V1`, dedup **cùng khoá** ⇒ cue phát
+    ///   đúng một lần; BGM không restart (AUDIO_V1 §4).
+    ///
+    /// `round_id` là lượt **của event** (không phải lượt hiện tại của client): event lượt
+    /// cũ tới trễ phải giữ khoá của lượt nó, nên caller chỉ đưa event của lượt đang
+    /// chơi vào đây.
+    fn consume_events(&mut self, round_id: u32, events: &[SimulationEvent]) {
+        // Sổ trình diễn: nổ → hiệu ứng nổ, chết/nhốt → chuỗi chết/nhốt (R-088, R-089).
+        self.absorb_events(events);
+        // Âm thanh: cue theo event, gộp cùng entry trong tick, tối đa 8 voice.
+        if let Some(bundle) = &self.bundle {
+            // Pump mạng có thể dồn nhiều tick vào một batch. Planner gộp cue theo
+            // tick (AUDIO_V1 §4), nên nhóm cả event không liền nhau của cùng tick.
+            let mut ordered = events.to_vec();
+            ordered.sort_by_key(|event| event.id);
+            // Kế hoạch rỗng vẫn khởi động BGM khi lượt chưa có event nào.
+            let mut plan = self.audio_state.plan(bundle, round_id, &[]);
+            for tick_events in ordered.chunk_by(|a, b| a.id.tick == b.id.tick) {
+                let tick_plan = self.audio_state.plan(bundle, round_id, tick_events);
+                plan.cues.extend(tick_plan.cues);
+            }
+            self.audio_plan.cues.extend(plan.cues);
+            self.audio_plan.start_bgm |= plan.start_bgm;
+        }
+    }
+
+    /// Đồng bộ lượt trình diễn với lượt server (`RoundStart`).
+    ///
+    /// Sang lượt mới thì (R-089, AUDIO_V1 §4):
+    ///
+    /// - sổ trình diễn dọn mục cũ và quên event của lượt trước (khoá event là
+    ///   `(round_id, EventId)` nên event lượt cũ không lặp lại được ở lượt mới);
+    /// - đồng hồ trình diễn về đầu lượt (tick của lượt mới bắt đầu từ 0);
+    /// - audio quên cue của lượt cũ và nhận **slot** của client từ `RoundStart`
+    ///   (server bind slot theo `account_id`, ADR 0009 Addendum B §B.2).
+    ///
+    /// Mở đầu lượt được ghi **một lần** cho mỗi người chơi trong roster: nếu ghi lại ở
+    /// mỗi tick thì clip mở đầu lượt bị phát lại liên tục.
+    fn sync_round(&mut self, round_id: u32, own_slot: Option<u8>, slots: &[u8]) {
+        if round_id == self.journal.round_id() {
+            return;
+        }
+        self.journal.set_round(round_id);
+        self.clock.tick = 0;
+        self.audio_state.set_round(own_slot);
+        self.journal.record_start(slots, 0);
     }
 
     /// Số frame của mỗi clip trong bundle (bảng tra của sổ trình diễn).
@@ -854,7 +1001,11 @@ impl Game {
         if Some(player.id) == own_slot {
             return (player.x.0 as f32 / 1000.0, player.y.0 as f32 / 1000.0);
         }
-        let alpha = net_alpha(self.net_snapshot_at, self.net_snapshot_interval_ms);
+        let alpha = net_alpha(
+            self.now,
+            self.net_snapshot_at,
+            self.net_snapshot_interval_ms,
+        );
         match self
             .net
             .as_ref()
@@ -870,9 +1021,9 @@ impl Game {
 ///
 /// Thời gian đã trôi kể từ snapshot mới nhất (`snapshot_at`, đồng hồ render) chia cho chu kỳ
 /// snapshot do server khai (`interval_ms`); kết quả clamp ở `ALPHA_ONE` để **không ngoại suy**
-/// (ADR 0005).
-fn net_alpha(snapshot_at: f64, interval_ms: u64) -> u32 {
-    let elapsed_ms = ((get_time() - snapshot_at) * 1000.0).max(0.0) as u64;
+/// (ADR 0005). `now` là đồng hồ render hiện tại (xem [`Game::now`]).
+fn net_alpha(now: f64, snapshot_at: f64, interval_ms: u64) -> u32 {
+    let elapsed_ms = ((now - snapshot_at) * 1000.0).max(0.0) as u64;
     let interval = interval_ms.max(1);
     let scaled = elapsed_ms.saturating_mul(u64::from(net::ALPHA_ONE)) / interval;
     u32::try_from(scaled)
@@ -930,21 +1081,6 @@ impl From<boom_core::CoreError> for TickError {
 impl From<net::NetError> for TickError {
     fn from(value: net::NetError) -> Self {
         Self::Net(value)
-    }
-}
-
-/// Ghi hiệu ứng **mở đầu lượt** cho từng nhân vật vào sổ trình diễn.
-///
-/// Mở đầu lượt là **client tự sinh**: core V1 chưa có event mở đầu lượt, nên mục này
-/// **không** có khoá event (ADR 0005, R-089). Khi event server xác nhận cùng đối
-/// tượng tới thì mục dự đoán bị thay.
-fn record_round_start(journal: &mut anim::PresentationJournal, state: &SimulationState) {
-    for player in &state.players {
-        journal.record_local(
-            anim::PresentationKind::Start,
-            anim::Subject::Player(player.id),
-            state.tick,
-        );
     }
 }
 
@@ -1028,6 +1164,11 @@ impl Demo {
         let Some(player) = state.player(id) else {
             return PlayerInput::default();
         };
+        // Warmup (R-100): lượt đang đóng băng thì core bỏ qua input, nên demo chờ hết
+        // warmup mới đặt bom/đi (nếu không thì bom đặt trong warmup bị mất).
+        if state.tick < world.rules().warmup_ticks {
+            return PlayerInput::default();
+        }
         let cell = world.cell_at(player.x, player.y);
         if self.death {
             let place_bomb = self.victim == Some(id) && !self.bomb_cells.contains_key(&id);
@@ -1095,6 +1236,89 @@ fn demo_cell_free(world: &World, cell: Cell, dir: Dir, step: i32) -> bool {
     world.terrain().kind(target.x, target.y) == Some(CellKind::Floor)
 }
 
+/// UI và gameplay cùng sở hữu một phiên mạng, không mở kết nối thứ hai.
+async fn run_network_ui(
+    mut game: Game,
+    mut model: ui::UiModel<net::ui_backend::NetBackend<boom_net::TcpTransport>>,
+    scale: u32,
+) {
+    let font = ui::draw::load_font();
+    let atlas = match (game.bundle_dir.as_deref(), game.scene.as_ref()) {
+        (Some(dir), Some(scene)) => Some(Atlas::load(dir, &scene.pages).expect("atlas")),
+        _ => None,
+    };
+    let mut audio = match (game.bundle_dir.as_deref(), game.bundle.as_ref()) {
+        (Some(dir), Some(bundle)) if !bundle.audio.is_empty() => {
+            Some(audio::MacroquadAudio::load(dir, bundle).await)
+        }
+        _ => None,
+    };
+    let target = render_target(game.logic_size[0], game.logic_size[1]);
+    target.texture.set_filter(FilterMode::Nearest);
+    let material = load_copy_material();
+    let mut adapter = InputAdapter::default();
+    let subscriber = macroquad::input::utils::register_input_subscriber();
+    let step = 1.0 / f64::from(game.world.rules().ticks_per_second);
+    let mut last = get_time();
+    let mut accumulator = 0.0;
+    let mut was_match = false;
+    loop {
+        model.tick();
+        let playing = model.screen() == boom_content::bundle::UiScreen::Match;
+        if playing != was_match {
+            game.input.apply(InputEvent::FocusLost);
+            accumulator = 0.0;
+            let size = if playing {
+                [game.logic_size[0] * scale, game.logic_size[1] * scale]
+            } else {
+                [ui::WIDTH, ui::HEIGHT]
+            };
+            macroquad::miniquad::window::set_window_size(size[0], size[1]);
+            was_match = playing;
+        }
+        macroquad::input::utils::repeat_all_miniquad_input(&mut adapter, subscriber);
+        adapter.drain_into(&mut game.input);
+        let now = get_time();
+        if playing {
+            if is_key_pressed(KeyCode::Escape) {
+                return;
+            }
+            game.now = now;
+            accumulator += (now - last).min(0.25);
+            game.net = model.backend_mut().take_client();
+            while accumulator >= step {
+                if let Err(error) = game.tick() {
+                    eprintln!("mạng: {error}");
+                    return;
+                }
+                accumulator -= step;
+            }
+            if let Some(audio) = &mut audio {
+                audio.apply(&game.take_audio_plan(), &game.options);
+            }
+            draw_scene(&game, atlas.as_ref(), &target, &material, scale);
+            if let Some(client) = game.net.take() {
+                model.backend_mut().put_client(client);
+            }
+        } else {
+            game.input.apply(InputEvent::FocusLost);
+            if ui::app::handle_input(&mut model) {
+                return;
+            }
+            let layout = ui::layout::layout(&model, game.bundle.as_ref(), game.scene.as_ref());
+            ui::draw::draw(
+                &layout,
+                &font,
+                atlas.as_ref(),
+                game.bundle.as_ref(),
+                game.scene.as_ref(),
+            );
+        }
+        last = now;
+        next_frame().await;
+    }
+}
+
 async fn run(mut game: Game, opts: Options) {
     let target = render_target(game.logic_size[0], game.logic_size[1]);
     target.texture.set_filter(FilterMode::Nearest);
@@ -1121,6 +1345,9 @@ async fn run(mut game: Game, opts: Options) {
     };
 
     if let Some(path) = &opts.snapshot {
+        // Chế độ chụp ảnh: có cửa sổ nên đồng hồ render lấy thật (alpha nội suy của
+        // nhánh mạng cần đồng hồ này).
+        game.now = get_time();
         if opts.demo_death {
             // Chế độ demo chết: chạy tới khi chuỗi chết đang phát ở frame cần chụp
             // (hoặc đã hết, nếu `--death-hold`), hoặc hết lượt.
@@ -1128,7 +1355,8 @@ async fn run(mut game: Game, opts: Options) {
             // Vòng lặp chạy theo **đồng hồ trình diễn**: lượt hai người **kết thúc** ngay
             // lúc chết nên mô phỏng dừng, nhưng đồng hồ trình diễn vẫn tiến để chuỗi
             // chết phát trọn clip (R-089).
-            let limit = game.world.rules().round_ticks;
+            // Warmup đóng băng đầu lượt nên hạn lượt tính từ tick cuối warmup.
+            let limit = game.world.rules().warmup_ticks + game.world.rules().round_ticks;
             while !(if opts.death_hold {
                 game.death_hold_ready()
             } else {
@@ -1153,7 +1381,8 @@ async fn run(mut game: Game, opts: Options) {
             }
         } else if opts.demo {
             // Chế độ demo: chạy tới khi scene đủ nhân vật + bom + lửa (hoặc hết lượt).
-            let limit = game.world.rules().round_ticks;
+            // Warmup đóng băng đầu lượt nên hạn lượt tính từ tick cuối warmup.
+            let limit = game.world.rules().warmup_ticks + game.world.rules().round_ticks;
             while !game.demo_ready()
                 && game.state.tick < limit
                 && game.state.phase == Phase::Playing
@@ -1189,6 +1418,9 @@ async fn run(mut game: Game, opts: Options) {
         macroquad::input::utils::repeat_all_miniquad_input(&mut input_adapter, input_subscriber);
         input_adapter.drain_into(&mut game.input);
         let now = get_time();
+        // Đồng hồ render dùng cho alpha nội suy của nhánh mạng: client đặt tay được
+        // nên luồng mạng chạy được trong test headless (không cửa sổ).
+        game.now = now;
         let delta = if opts.snapshot.is_some() {
             0.0
         } else {
@@ -1830,9 +2062,12 @@ fn parse_volume(value: &str) -> Result<u8, String> {
 mod tests {
     use super::*;
     use boom_content::animation::{FrameTiming, PresentationState};
-    use boom_content::bundle::{Clip, EvidenceStatus, Frame, Sprite, SpriteImage};
+    use boom_content::bundle::{AudioAsset, Clip, EvidenceStatus, Frame, Sprite, SpriteImage};
     use boom_content::rules::Source;
-    use boom_core::{Dir, EventKind, SimulationEvent};
+    use boom_core::{CharacterStatsTable, Dir, EventKind, SimulationEvent};
+    use std::net::TcpListener;
+    use std::thread;
+    use std::time::Instant;
 
     /// Rules profile nhúng trong binary (dùng cho test không cần file ngoài).
     fn embedded_profile() -> RulesProfile {
@@ -1992,8 +2227,7 @@ mod tests {
             "bom đến hạn thì không dây chuyền"
         );
         // Client đọc event của tick vừa chạy ⇒ vụ nổ vào sổ trình diễn.
-        game.events = events;
-        game.absorb_events();
+        game.absorb_events(&events);
         // Sổ trình diễn không biết bundle: caller đưa vào bảng số frame theo clip ID.
         let mut frames = anim::FrameCounts::default();
         frames.set(anim::EXPLOSION_CLIP, 10);
@@ -2039,8 +2273,7 @@ mod tests {
         }
         let died = died.expect("nhân vật phải chết trong lượt");
         let tick = died.id.tick;
-        game.events = events;
-        game.absorb_events();
+        game.absorb_events(&events);
         // Clip chết của pack có 14 frame.
         let mut frames = anim::FrameCounts::default();
         frames.set("c00.dead.static", 14);
@@ -2451,5 +2684,665 @@ mod tests {
         assert!(opts.bundle.is_none());
         assert!(opts.rules.is_none());
         assert!(opts.l10n.is_none());
+    }
+
+    // --- V1-025/031/034: event server vào sổ trình diễn và âm thanh của client mạng ---
+
+    /// Bundle trình diễn cho test: clip nổ/chết/nhốt/mở đầu lượt của hai nhân vật và
+    /// entry âm thanh V1 (AUDIO_V1 §3).
+    ///
+    /// Bundle thật có ảnh; test chỉ cần **số frame** (để sổ trình diễn giữ mục theo
+    /// khoảng clip) và **entry âm thanh** (để cue được phát).
+    fn presentation_bundle() -> Bundle {
+        let frame = || Frame {
+            image: 0,
+            offset_x: 0,
+            offset_y: 39,
+            flag: -1,
+            x0: 0,
+            y0: 0,
+            x1: 40,
+            y1: 40,
+            canvas_width: 40,
+            canvas_height: 40,
+            pivot_x: 0,
+            pivot_y: 39,
+        };
+        let clip = |id: &str, state: PresentationState, frames: usize| Clip {
+            id: id.to_owned(),
+            state,
+            pack: "FxCharacter".to_owned(),
+            entry: format!("Character/{id}"),
+            layer: None,
+            sprite_unk: 0,
+            sprite: "c00".to_owned(),
+            source: Source::KrStatic,
+            status: EvidenceStatus::Design,
+            claims: vec!["R-089".to_owned()],
+            note: None,
+            timing: FrameTiming::Unknown {
+                reason: "bundle test".to_owned(),
+            },
+            frames: (0..frames).map(|_| frame()).collect(),
+        };
+        let mut clips = vec![clip("explosion.main", PresentationState::Explosion, 10)];
+        for (suffix, state) in [
+            ("dead", PresentationState::Dead),
+            ("trapped", PresentationState::Trapped),
+            ("start", PresentationState::Start),
+        ] {
+            for character in ["c00", "c01"] {
+                clips.push(clip(&format!("{character}.{suffix}.static"), state, 10));
+            }
+        }
+        let mut audio = Vec::new();
+        for (id, kind) in [
+            ("bgm_loop", "bgm"),
+            ("bomb_placed", "sfx"),
+            ("bomb_exploded", "sfx"),
+            ("player_trapped", "sfx"),
+            ("player_died", "sfx"),
+        ] {
+            audio.push(AudioAsset {
+                id: id.to_owned(),
+                entry: format!("Wave/{id}"),
+                kind: kind.to_owned(),
+                format: "ogg".to_owned(),
+                file: format!("audio/{id}.ogg"),
+                bytes: 1,
+                sha256: "a".repeat(64),
+                status: EvidenceStatus::Design,
+            });
+        }
+        Bundle {
+            schema: boom_content::bundle::SCHEMA,
+            build: "kr".to_owned(),
+            map: "Village00".to_owned(),
+            tileset: "Tile00".to_owned(),
+            width: 0,
+            height: 0,
+            spawns: Vec::new(),
+            content_hash: String::new(),
+            atlas: Vec::new(),
+            sprites: Vec::new(),
+            assets: Vec::new(),
+            cells: Vec::new(),
+            unknown: Vec::new(),
+            clips,
+            ui: Vec::new(),
+            audio,
+        }
+    }
+
+    /// Consumer trình diễn **duy nhất**: event lặp (reconcile gửi lại event cũ) không tạo
+    /// mục trình diễn mới, không phát lại cue và không restart BGM (V1-025/031/034).
+    #[test]
+    fn consumer_chi_ghi_event_mot_lan_khi_reconcile_gui_lai() {
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        game.bundle = Some(presentation_bundle());
+        let events = vec![SimulationEvent {
+            id: boom_core::EventId { tick: 5, seq: 0 },
+            kind: EventKind::PlayerDied {
+                player: 1,
+                by: None,
+            },
+        }];
+        // Lần đầu: event vào sổ trình diễn và lên kế hoạch cue.
+        game.consume_events(0, &events);
+        let item = game
+            .journal
+            .item_for(anim::Subject::Player(1))
+            .expect("mục chết phải có trong sổ");
+        assert_eq!(item.kind, anim::PresentationKind::Death);
+        let plan = game.take_audio_plan();
+        assert_eq!(plan.cues, vec!["player_died".to_owned()]);
+        assert!(plan.start_bgm, "BGM bắt đầu một lần");
+
+        // Reconcile gửi lại event cũ: không mục mới, không cue mới, BGM không restart.
+        game.consume_events(0, &events);
+        let plan = game.take_audio_plan();
+        assert!(
+            plan.cues.is_empty(),
+            "event lặp không được phát lại: {:?}",
+            plan.cues
+        );
+        assert!(!plan.start_bgm, "BGM không được restart khi reconcile");
+        let item = game
+            .journal
+            .item_for(anim::Subject::Player(1))
+            .expect("mục chết vẫn còn trong sổ");
+        assert_eq!(item.kind, anim::PresentationKind::Death);
+    }
+
+    /// Một lần drain mạng có thể chứa nhiều tick, thậm chí không theo thứ tự tick.
+    /// Cùng cue ở tick khác phải phát lại; cùng tick gộp một lần và reconcile bỏ qua.
+    #[test]
+    fn consumer_batch_mang_giu_ranh_gioi_tick_am_thanh() {
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        game.bundle = Some(presentation_bundle());
+        let explosion = |tick, seq| SimulationEvent {
+            id: boom_core::EventId { tick, seq },
+            kind: EventKind::BombExploded {
+                bomb: boom_core::EntityId(u32::from(seq) + tick),
+                owner: 0,
+                cell: Cell { x: 1, y: 1 },
+                chained: false,
+            },
+        };
+        // Hai event tick 10 bị tách bởi tick 11 trong batch: vẫn chỉ một cue cho tick 10.
+        let events = vec![explosion(10, 0), explosion(11, 0), explosion(10, 1)];
+        game.consume_events(0, &events);
+        let plan = game.take_audio_plan();
+        assert_eq!(plan.cues, vec!["bomb_exploded", "bomb_exploded"]);
+        assert!(plan.start_bgm);
+
+        game.consume_events(0, &events);
+        let plan = game.take_audio_plan();
+        assert!(plan.cues.is_empty(), "gửi lại batch không phát cue mới");
+        assert!(!plan.start_bgm, "BGM không restart");
+
+        // Event mới cùng cue ở cùng một tick vẫn chỉ phát một cue.
+        game.consume_events(0, &[explosion(12, 0), explosion(12, 1)]);
+        let plan = game.take_audio_plan();
+        assert_eq!(plan.cues, vec!["bomb_exploded"]);
+        assert!(!plan.start_bgm);
+    }
+
+    /// Profile rules cho test mạng: **fuse và thời gian nhốt ngắn** để lượt sinh event
+    /// (nổ → nhốt → chết) trong thời gian thật ngắn; còn lại giống profile dev.
+    ///
+    /// Mọi rule ghi `design` cho test: đây là **tham số kịch bản**, không phải giá trị luật
+    /// của bản phát hành (SCOPE_V1 §3).
+    const NET_TEST_RULES: &str = r#"
+schema = 1
+profile_id = "net-game-test"
+release = false
+
+[sim.ticks_per_second]
+value = 60
+unit = "Hz"
+source = "design"
+status = "design"
+
+[grid.tile_px]
+value = 40
+unit = "px"
+source = "design"
+status = "design"
+
+[round.duration_ms]
+value = 20000
+unit = "ms"
+source = "design"
+status = "design"
+
+[round.warmup_ms]
+value = 0
+unit = "ms"
+source = "design"
+status = "design"
+
+[player.speed_px_per_s_per_level]
+value = 24
+unit = "px/s"
+source = "design"
+status = "design"
+
+[player.collision_half_px]
+value = 13
+unit = "px"
+source = "design"
+status = "design"
+
+[player.corner_assist_px]
+value = 12
+unit = "px"
+source = "design"
+status = "design"
+
+[player.trap_to_death_ms]
+value = 400
+unit = "ms"
+source = "design"
+status = "design"
+
+[player.trap_touch_distance_px]
+value = 28
+unit = "px"
+source = "design"
+status = "design"
+
+[bomb.fuse_ms]
+value = 200
+unit = "ms"
+source = "design"
+status = "design"
+
+[bomb.flame_ms]
+value = 500
+unit = "ms"
+source = "design"
+status = "design"
+
+[item.bomb_capacity_delta]
+value = 1
+unit = "bomb"
+source = "design"
+status = "design"
+
+[item.fire_range_delta]
+value = 1
+unit = "cell"
+source = "design"
+status = "design"
+
+[item.roller_speed_delta]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[drop.brick_item_chance]
+value = 350
+unit = "permille"
+source = "design"
+status = "design"
+
+[drop.weight_bomb]
+value = 3650
+unit = "weight"
+source = "design"
+status = "design"
+
+[drop.weight_fire]
+value = 2800
+unit = "weight"
+source = "design"
+status = "design"
+
+[drop.weight_roller]
+value = 2000
+unit = "weight"
+source = "design"
+status = "design"
+
+[characters.c00_speed]
+value = 5
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_speed_max]
+value = 7
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_bombs_max]
+value = 10
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c00_range_max]
+value = 7
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed]
+value = 4
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_speed_max]
+value = 8
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs]
+value = 2
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_bombs_max]
+value = 7
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range]
+value = 1
+unit = "level"
+source = "design"
+status = "design"
+
+[characters.c01_range_max]
+value = 9
+unit = "level"
+source = "design"
+status = "design"
+
+[presentation.frame_duration_ms]
+value = 100
+unit = "ms"
+source = "design"
+status = "design"
+"#;
+
+    /// Địa hình mở cho test mạng: mọi spawn đều có chỗ đi, không có gạch.
+    fn net_test_terrain() -> Terrain {
+        let rows = [
+            "############",
+            "#0.1..2....#",
+            "#..........#",
+            "#..3.......#",
+            "#..........#",
+            "############",
+        ];
+        Terrain::from_ascii(&rows).expect("địa hình")
+    }
+
+    /// Chỉ số nhân vật cho test mạng (cùng bộ khoá với profile dev).
+    fn net_test_stats() -> CharacterStats {
+        CharacterStats {
+            speed: Stat::new(1, 5),
+            bombs: Stat::new(1, 5),
+            range: Stat::new(1, 5),
+        }
+    }
+
+    /// V1-025/031/034: event **server** phải vào sổ trình diễn và âm thanh của client đang
+    /// chơi mạng, đúng **một lần** mỗi event.
+    ///
+    /// Kịch bản: server thật (`boom-server`) trên TCP loopback với hai client — một nằm
+    /// trong `Game`, một "bot" đứng yên. Bot đặt bom rồi đứng yên nên bị lửa bắt và chết:
+    /// server phát `bomb_placed` → `bomb_exploded` → `player_trapped` → `player_died`.
+    /// Client trong `Game` phải nhận đúng các event đó: sổ trình diễn có mục nổ và mục
+    /// chết, cue âm thanh phát **một lần**, BGM **không** restart.
+    #[test]
+    fn game_mang_no_event_server_vao_bao_trinh_dien_va_am_thanh() {
+        use boom_server::auth::{AuthConfig, AuthService};
+        use boom_server::identity::{OsRandomSource, SqliteAccountStore, SqliteOptions};
+        use boom_server::{Authority, HandshakeConfig, MatchSetup, Server, ServerConfig};
+
+        let profile = RulesProfile::from_toml(NET_TEST_RULES).expect("profile test");
+        let rules = Rules::from_profile(&profile).expect("rules");
+        let mode = mode_by_id("battle_ffa").expect("mode");
+        let world = World::new(net_test_terrain(), rules.clone(), mode).expect("world");
+
+        // Server thật: authority + auth thật (SQLite tempfile) + listener TCP loopback.
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
+        let addr = listener.local_addr().expect("địa chỉ listener");
+        let authority = Authority::new(
+            ServerConfig::v1(),
+            MatchSetup {
+                world,
+                stats: CharacterStatsTable {
+                    c00: net_test_stats(),
+                    c01: net_test_stats(),
+                },
+                map: "net-game-test".to_owned(),
+                replay: None,
+            },
+        );
+        let handshake = HandshakeConfig {
+            rules_profile_id: profile.profile_id.clone(),
+            rules_hash: rules.profile_hash,
+            content_sha256: [0; 32],
+            content_epoch: 1,
+            snapshot_interval_ms: 50,
+        };
+        let db_dir = tempfile::tempdir().expect("tempdir");
+        let store = SqliteAccountStore::open(
+            &db_dir.path().join("auth.sqlite3"),
+            SqliteOptions::default(),
+        )
+        .expect("mở store");
+        let auth = AuthService::new(
+            AuthConfig::default(),
+            "net-game-test-instance",
+            Box::new(OsRandomSource),
+        )
+        .expect("dịch vụ auth");
+        let mut server = Server::with_auth_and_timers(
+            authority,
+            handshake,
+            auth,
+            Box::new(store),
+            0,
+            u64::MAX,
+            u64::MAX,
+        )
+        .expect("dựng server");
+        server.set_auth_deadline_ms(u64::MAX);
+
+        // Hai client nối + handshake + đăng nhập thật (Argon2id + SQLite). Handshake
+        // **chặn** chờ `Welcome` nên chạy ở luồng riêng; server bơm ở luồng chính.
+        let hello = net::hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
+        let client_thread = thread::spawn({
+            let hello = hello.clone();
+            let addr = addr.to_string();
+            let rules = rules.clone();
+            move || {
+                let mut client =
+                    net::connect_tcp(&addr, rules, mode).expect("nối client trong game");
+                client.handshake(&hello).expect("handshake client");
+                client
+                    .authenticate(&net::Credentials::register("game-client", "matkhau123"))
+                    .expect("đăng nhập client");
+                client
+            }
+        });
+        server
+            .accept_tcp(&listener, boom_room::PlayerId(1), 1)
+            .expect("accept client");
+        let bot_thread = thread::spawn({
+            let hello = hello.clone();
+            let addr = addr.to_string();
+            let rules = rules.clone();
+            move || {
+                let mut bot = net::connect_tcp(&addr, rules, mode).expect("nối bot");
+                bot.handshake(&hello).expect("handshake bot");
+                bot.authenticate(&net::Credentials::register("game-bot", "matkhau123"))
+                    .expect("đăng nhập bot");
+                bot
+            }
+        });
+        server
+            .accept_tcp(&listener, boom_room::PlayerId(2), 2)
+            .expect("accept bot");
+
+        // Server bơm cho tới khi cả hai client xong handshake: đồng hồ server bám **thời
+        // gian thật** nên loading barrier (15 s) và hạn đăng nhập không hết hạn sớm.
+        let start = Instant::now();
+        while !client_thread.is_finished() || !bot_thread.is_finished() {
+            let now = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
+            server
+                .poll(now, Duration::from_millis(1))
+                .expect("server poll");
+        }
+        let client = client_thread.join().expect("join client");
+        let mut bot = bot_thread.join().expect("join bot");
+
+        let mut game = Game::new(7, ClientOptions::default(), None, &profile).expect("dựng game");
+        game.bundle = Some(presentation_bundle());
+        game.net = Some(client);
+        // Luồng tự động của client trong `Game`: tạo phòng, ready, start khi đủ người.
+        game.net
+            .as_mut()
+            .expect("client trong game")
+            .enable_auto_flow(boom_proto::RoomCharacter::C00, 2)
+            .expect("bật luồng tự động");
+
+        let mut cues: Vec<String> = Vec::new();
+        let mut bgm_starts = 0u32;
+        let mut bot_auto = false;
+        let mut bomb_sent = false;
+        let mut round_seen = false;
+        let mut trapped_seen = false;
+        let mut bot_slot: Option<u8> = None;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        // Client tick theo **nhịp mô phỏng** (như vòng render thật): nếu tick nhanh hơn
+        // thì client dự đoán nhiều tick hơn server, đồng hồ trình diễn vượt xa event và
+        // sổ dọn mục quá sớm.
+        let step = 1.0 / f64::from(rules.ticks_per_second);
+        let mut accumulator = 0.0;
+        let mut last = start.elapsed().as_secs_f64();
+        loop {
+            // Server chạy trước: nhận input, gửi snapshot và event của lượt.
+            let now = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
+            server
+                .poll(now, Duration::from_millis(1))
+                .expect("server poll");
+            let now_secs = start.elapsed().as_secs_f64();
+            accumulator += now_secs - last;
+            last = now_secs;
+            while accumulator >= step {
+                accumulator -= step;
+                game.tick().expect("tick mạng");
+                // Bot gửi input mỗi tick (server không coi là mất kết nối) và đặt bom ở
+                // tick đầu có state rồi đứng yên ⇒ bị lửa bắt và chết.
+                if bot.state().is_some() {
+                    let place_bomb = !bomb_sent;
+                    bomb_sent = true;
+                    bot.predict(PlayerInput {
+                        dir: Dir::None,
+                        place_bomb,
+                    })
+                    .expect("dự đoán bot");
+                    bot.resend().expect("gửi lệnh bot");
+                }
+            }
+            bot.pump(Duration::ZERO).expect("bơm bot");
+            // Bot chỉ bật luồng tự động **sau** khi client trong `Game` đã tạo phòng: bật
+            // sớm thì bot tạo phòng riêng (sảnh lúc đó còn rỗng).
+            if !bot_auto
+                && game
+                    .net
+                    .as_ref()
+                    .is_some_and(|net| net.room().room().is_some())
+            {
+                bot_auto = true;
+                bot.enable_auto_flow(boom_proto::RoomCharacter::C01, 2)
+                    .expect("luồng tự động của bot");
+            }
+            // Khi lượt bắt đầu: sổ trình diễn có mục "mở đầu lượt" cho mọi người trong
+            // roster, ghi **một lần** (tick đầu lượt) chứ không ghi lại mỗi tick.
+            if !round_seen {
+                let roster: Vec<(u64, u8)> = match game.net.as_ref() {
+                    Some(net) => net
+                        .round_plan()
+                        .map(|plan| {
+                            plan.roster
+                                .iter()
+                                .map(|member| (member.player, member.slot))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    None => Vec::new(),
+                };
+                if !roster.is_empty() {
+                    round_seen = true;
+                    // Slot trận của bot: server bind slot theo `account_id`
+                    // (ADR 0009 Addendum B §B.2).
+                    let bot_player = bot.account().expect("bot đã đăng nhập").account_id;
+                    bot_slot = roster
+                        .iter()
+                        .find(|(player, _)| *player == bot_player)
+                        .map(|(_, slot)| *slot);
+                    for (_, slot) in roster {
+                        let item = game
+                            .journal
+                            .item_for(anim::Subject::Player(slot))
+                            .expect("mục mở đầu lượt phải có trong sổ");
+                        assert_eq!(item.kind, anim::PresentationKind::Start);
+                        assert_eq!(
+                            item.start_tick, 0,
+                            "mục mở đầu lượt không được ghi lại mỗi tick"
+                        );
+                    }
+                }
+            }
+            // Cue âm thanh tích luỹ.
+            let plan = game.take_audio_plan();
+            cues.extend(plan.cues);
+            if plan.start_bgm {
+                bgm_starts += 1;
+            }
+            // Khi event nhốt tới: sổ trình diễn có mục "nhốt" cho người chơi đó. Mục này
+            // sẽ bị mục chết **thay** sau (mỗi đối tượng một hiệu ứng, R-089) nên phải
+            // kiểm ngay lúc nhốt xảy ra.
+            if !trapped_seen && cues.iter().any(|cue| cue == "player_trapped") {
+                trapped_seen = true;
+                let item = game
+                    .journal
+                    .item_for(anim::Subject::Player(
+                        bot_slot.expect("bot phải có slot trong round"),
+                    ))
+                    .expect("mục nhốt phải có trong sổ trình diễn");
+                assert_eq!(item.kind, anim::PresentationKind::Trapped);
+            }
+            if cues.iter().any(|cue| cue == "player_died") {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "hết thời gian chờ event của server: {cues:?}"
+            );
+            thread::sleep(Duration::from_millis(1));
+        }
+
+        // Sổ trình diễn: mục nổ (theo ô bom) và mục chết (theo người chơi). Mục **nhốt** bị
+        // mục chết thay: mỗi đối tượng chỉ có một hiệu ứng đang chạy (R-089).
+        let bot_slot = bot_slot.expect("bot phải có slot trong round");
+        let death = game
+            .journal
+            .item_for(anim::Subject::Player(bot_slot))
+            .expect("mục chết phải có trong sổ trình diễn");
+        assert_eq!(death.kind, anim::PresentationKind::Death);
+        // Ô bom: bot đặt bom ở ô nó đứng, nên ô bom là ô của bot.
+        let confirmed = bot.confirmed_state().expect("state confirmed của bot");
+        let bot_player_state = confirmed.player(bot_slot).expect("người chơi của bot");
+        let bomb_cell = Cell::new(
+            bot_player_state.x.0 / rules.tile.0,
+            bot_player_state.y.0 / rules.tile.0,
+        );
+        let explosion = game
+            .journal
+            .item_for(anim::Subject::Cell(bomb_cell))
+            .expect("mục nổ phải có trong sổ trình diễn");
+        assert_eq!(explosion.kind, anim::PresentationKind::Explosion);
+
+        // Âm thanh: mỗi event phát **một lần**; BGM khởi động một lần và không restart.
+        for cue in [
+            "bomb_placed",
+            "bomb_exploded",
+            "player_trapped",
+            "player_died",
+        ] {
+            let count = cues.iter().filter(|played| *played == cue).count();
+            assert_eq!(count, 1, "cue {cue} phải phát đúng một lần: {cues:?}");
+        }
+        assert_eq!(bgm_starts, 1, "BGM chỉ khởi động một lần, không restart");
     }
 }
