@@ -186,8 +186,24 @@ cho thoát ứng dụng; lượt luôn kết thúc bằng màn kết quả vì s
 - `\r\n` trong chuỗi được chuẩn hóa thành `\n` lúc hiển thị (file nguồn giữ nguyên).
 - Font: **Be Vietnam Pro 1.002** (SIL OFL 1.1) nhúng trong binary (`assets/fonts/`) — không
   phụ thuộc font hệ thống, nên ảnh chụp và golden layout khớp trên mọi máy.
-- Chữ xuống dòng theo bề rộng hộp (`ui::layout` tính hộp, `ui::draw` vẽ) — không tràn ra
-  ngoài hộp và không mất chữ.
+- Hộp chữ giới hạn chữ **cả hai chiều**: xuống dòng theo bề rộng hộp và **cắt theo chiều
+  cao hộp** (UI_STRINGS_V1 §5.2.2) — chữ không bao giờ tràn ra ngoài hộp.
+- Nội dung **động** có policy riêng: ô nhập giữ phần **cuối** (thấy phần vừa gõ), khung chat
+  xếp tin theo chiều cao thật (tin mới nhất sát đáy, tin cũ bị cuộn), bảng giới hạn bề rộng
+  cột cho vừa khung và dòng cao theo nội dung thật.
+
+### Màn trận và HUD chẩn đoán
+
+- Màn trận của người chơi là **scene** (bản đồ + nhân vật), không phải layout `ui`: chữ cho
+  người chơi ở đó (tên map, trạng thái lượt) lấy từ **cùng** file chuỗi qua
+  `ui::layout::match_status_texts`.
+- HUD **chẩn đoán** (số đo tick/âm thanh/phím, `dự đoán`, `chờ ack`, `kết quả`) là việc QA,
+  không phải chữ cho người chơi: **mặc định tắt**, bật bằng cờ `--debug-hud`.
+
+```sh
+# QA: bật HUD chẩn đoán (tick/âm thanh/phím) trên màn trận.
+cargo run -p boom-client -- --connect 127.0.0.1:9000 --debug-hud
+```
 
 ### Ảnh UI (V1-032)
 

@@ -436,6 +436,31 @@ Phần **vẽ** dùng đúng bộ đo trên: `ui::draw` vẽ bằng font đã bu
 **hộp chữ** (`TextBox`) cho từng phần tử — cùng một hàm cho phần vẽ và test, nên test
 "chữ không tràn hộp" kiểm đúng thứ người chơi thấy (task #179).
 
+#### 5.2.2 Hộp chữ là giới hạn (chiều cao) — task #179
+
+Hộp chữ giới hạn chữ **cả hai chiều**: xuống dòng theo bề rộng hộp (§5.2.1) và **cắt
+theo chiều cao hộp**. Chữ vừa hộp thì giữ nguyên; chữ dài hơn thì chỉ giữ phần vừa
+hộp — **không** vẽ ra ngoài hộp, không rút/viết lại nội dung catalog. Quy tắc cắt
+(giữ đầu hay giữ cuối) theo vai trò:
+
+| Nội dung | Quy tắc |
+|---|---|
+| Chữ catalog trong ô cố định (tiêu đề, thông báo, nhãn nút) | giữ **đầu** (dòng trên cùng) |
+| Ô nhập | giữ **cuối**: con trỏ nằm ở cuối nên người chơi phải thấy phần vừa gõ |
+| Khung chat | mỗi tin cao theo **chiều cao thật** sau khi xuống dòng; tin mới nhất sát đáy khung, tin cũ hơn bị **cuộn** ra; tin cao hơn cả khung thì giữ phần **cuối** của tin |
+| Bảng | bề rộng cột giới hạn cho vừa khung; dòng cao theo nội dung thật nên tên dài **được xuống dòng** chứ không bị cắt; dòng không vừa khung thì không vẽ |
+
+Đây là quyết định **design** cho nội dung **động** (chat, ô nhập, tên phòng/tên người):
+mục "Chat" và "Tên người chơi" ở §5.2 yêu cầu không làm vỡ layout; giới hạn độ dài tên
+vẫn `unknown` nên client không cắt tên ở giữa — tên dài được xuống dòng trong ô
+cột, và nếu cả dòng không vừa khung thì dòng đó không vẽ (cuộn), không phải cắt tên.
+
+Chữ **cho người chơi** ở màn trận (đường chơi thật vẽ **scene**, không phải layout `ui`)
+lấy từ cùng nguồn: `ui::layout::match_status_texts` → khóa `room.map_name`,
+`room.loading`, `match.result_pending`, `app.loading`. HUD **chẩn đoán** (số đo tick/âm
+thanh/phím) là việc QA, không phải chữ cho người chơi: chỉ vẽ khi bật cờ `--debug-hud`
+(mặc định **tắt**), và vùng đó được đánh dấu bằng marker `l10n:allow-debug:` trong mã.
+
 Golden layout (số dòng + bề rộng của 44 chuỗi V1 có text ở 1× và 2×) nằm ở test
 `text::tests::golden_layout_matches`; ảnh layout local sinh bằng
 `cargo test -p boom-client -- --ignored write_golden_images --nocapture`.
@@ -457,6 +482,8 @@ Golden layout (số dòng + bề rộng của 44 chuỗi V1 có text ở 1× và
 7. **Phần code (issue #179)**: mọi chữ người chơi thấy ở màn V1 lấy từ file chuỗi (không có
    câu chữ viết tay trong mã đường chạy); khóa chưa có text hiện placeholder `«khóa»` **có glyph**
    trong font đã bundle; mọi chữ trong layout V1 **vừa hộp** của nó (wrap theo §5.2.1, không mất chữ).
+   Hộp chữ giới hạn **cả chiều cao** theo §5.2.2: chữ catalog của V1 đều vừa nên **không** bị cắt;
+   nội dung **động** (chat, ô nhập, tên phòng/tên người) được cuộn/cắt theo hộp chứ không tràn ra ngoài.
 
 ## 6. Còn thiếu và bước tiếp
 
