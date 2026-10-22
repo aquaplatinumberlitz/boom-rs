@@ -13,8 +13,9 @@
 //! ## Wrap
 //!
 //! Mỗi đoạn chữ có một hộp ([`crate::ui::layout::TextBox`]); chữ xuống dòng theo bề
-//! rộng hộp và không bao giờ vẽ ra ngoài hộp (UI_STRINGS_V1 §5.2.1). Ký tự không có
-//! glyph trong font được vẽ thành **hộp báo thiếu**, không bỏ qua âm thầm (AGENTS §4).
+//! rộng hộp, bị cắt theo chiều cao hộp và không bao giờ vẽ ra ngoài hộp
+//! (UI_STRINGS_V1 §5.2.1). Ký tự không có glyph trong font được vẽ thành **hộp báo
+//! thiếu**, không bỏ qua âm thầm (AGENTS §4).
 
 use boom_content::bundle::Bundle;
 use boom_content::map::CellKind;
@@ -22,10 +23,10 @@ use macroquad::prelude::*;
 
 use crate::render::Atlas;
 use crate::scene::{DrawItem, PixelRect, Scene};
-use crate::text::{GlyphCache, TextFont};
+use crate::text::{Clip, GlyphCache, TextFont};
 use crate::ui::layout::{
     Align, FIELD_BOTTOM_GAP, FIELD_INSET, Layout, Rect, TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT,
-    TextBox, TextRole, Tone, Widget,
+    TextBox, TextRole, Tone, Widget, text_size,
 };
 
 /// Nền màn.
@@ -129,7 +130,27 @@ pub fn draw(
                 primary,
                 ..
             } => draw_button(rect, *enabled, *primary),
-            Widget::Table { rect, rows, .. } => draw_table_background(rect, rows),
+            Widget::Table {
+                rect,
+                columns,
+                rows,
+            } => {
+                // Chiều cao dòng theo nội dung thật (tô dòng đang chọn khớp dòng
+                // chữ) — cùng hàm với phần layout.
+                let widths = crate::ui::layout::table_column_widths_fitted(
+                    columns,
+                    rows,
+                    &font.font,
+                    rect.width as f32,
+                );
+                let heights = crate::ui::layout::table_row_heights(
+                    rows,
+                    &font.font,
+                    &widths,
+                    rect.height as f32 - TABLE_HEADER_HEIGHT,
+                );
+                draw_table_background(rect, rows, &heights);
+            }
             _ => {}
         }
         for text_box in widget.text_boxes(&font.font) {
@@ -138,12 +159,15 @@ pub fn draw(
     }
 }
 
-/// Vẽ một hộp chữ: xuống dòng theo bề rộng hộp rồi vẽ từng dòng.
+/// Vẽ một hộp chữ: xuống dòng theo bề rộng hộp, cắt theo chiều cao hộp.
+///
+/// Chỉ phần chữ **vừa hộp** được vẽ ([`TextBox::laid_out`], UI_STRINGS_V1
+/// §5.2.1): chữ dài hơn hộp bị cắt theo [`crate::text::Clip`], không tràn ra ngoài.
 fn draw_text_box(font: &mut UiFont, text_box: &TextBox) {
     if text_box.text.is_empty() {
         return;
     }
-    let laid = crate::text::layout(&text_box.text, &font.font, text_box.size, text_box.width);
+    let laid = text_box.laid_out(&font.font);
     let x = match text_box.align {
         Align::Left => text_box.x,
         Align::Center => text_box.x + (text_box.width - laid.width()) / 2.0,
@@ -160,6 +184,54 @@ fn draw_text_box(font: &mut UiFont, text_box: &TextBox) {
         y,
         role_color(text_box.role),
     );
+}
+
+/// Vẽ lớp chữ của màn trận lên trên scene đã vẽ (dải trên cùng của cửa sổ trận).
+///
+/// Chỉ chữ **cho người chơi** — tên map và trạng thái lượt, lấy từ file chuỗi V1
+/// (xem [`crate::ui::layout::match_status_texts`]) và vẽ bằng font đã bundle nên
+/// chữ Việt có glyph đầy đủ.
+///
+/// HUD chẩn đoán (số đo tick/âm thanh/phím) là việc QA, **không** vẽ ở đây: đường
+/// chơi thật không có chữ viết tay (issue #179).
+///
+/// `width` là bề rộng cửa sổ màn trận (px) và `band_height` là chiều cao dải trên
+/// cùng; chữ được xuống dòng và cắt theo hộp nên không tràn ra ngoài dải.
+pub fn draw_match_overlay(
+    title: &str,
+    status: &str,
+    font: &mut UiFont,
+    width: u32,
+    band_height: f32,
+) {
+    let half = width as f32 / 2.0;
+    let boxes = [
+        TextBox {
+            text: title.to_owned(),
+            size: text_size::TITLE,
+            role: TextRole::Title,
+            x: 8.0,
+            y: 4.0,
+            width: half - 16.0,
+            height: band_height - 8.0,
+            align: Align::Left,
+            clip: Clip::Head,
+        },
+        TextBox {
+            text: status.to_owned(),
+            size: text_size::NOTICE,
+            role: TextRole::Notice,
+            x: half,
+            y: 4.0,
+            width: half - 8.0,
+            height: band_height - 8.0,
+            align: Align::Left,
+            clip: Clip::Head,
+        },
+    ];
+    for text_box in &boxes {
+        draw_text_box(font, text_box);
+    }
 }
 
 /// Vẽ khung màu (nền màn hoặc khung thay ảnh chưa duyệt).
@@ -201,24 +273,25 @@ fn draw_field(rect: &Rect, focused: bool) {
 }
 
 /// Vẽ bảng: tô dòng đang chọn (đầu bảng và dòng do phần chữ vẽ).
-fn draw_table_background(rect: &Rect, rows: &[crate::ui::layout::TableRow]) {
+///
+/// `heights` là chiều cao từng dòng (theo nội dung thật) nên tô đúng dòng chữ.
+fn draw_table_background(rect: &Rect, rows: &[crate::ui::layout::TableRow], heights: &[f32]) {
+    let mut y = rect.y as f32 + TABLE_HEADER_HEIGHT;
     for (index, row) in rows.iter().enumerate() {
-        if !row.selected {
-            continue;
-        }
-        let y = rect.y
-            + TABLE_HEADER_HEIGHT as i32
-            + i32::try_from(index).unwrap_or(0) * TABLE_ROW_HEIGHT as i32;
-        if y as f32 + TABLE_ROW_HEIGHT > rect.bottom() as f32 {
+        let height = heights.get(index).copied().unwrap_or(TABLE_ROW_HEIGHT);
+        if y + height > rect.bottom() as f32 {
             break;
         }
-        draw_rectangle(
-            (rect.x - 4) as f32,
-            (y - 4) as f32,
-            (rect.width + 8) as f32,
-            TABLE_ROW_HEIGHT - 2.0,
-            ROW_SELECTED,
-        );
+        if row.selected {
+            draw_rectangle(
+                (rect.x - 4) as f32,
+                y - 4.0,
+                (rect.width + 8) as f32,
+                height - 2.0,
+                ROW_SELECTED,
+            );
+        }
+        y += height;
     }
 }
 

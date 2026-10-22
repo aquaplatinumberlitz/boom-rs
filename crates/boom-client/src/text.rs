@@ -318,6 +318,72 @@ pub fn layout(text: &str, font: &TextFont, size: f32, max_width: f32) -> Layout 
     }
 }
 
+/// Cách cắt chữ khi phần hiển thị không vừa chiều cao hộp.
+///
+/// Hộp chữ là **giới hạn** của phần vẽ (UI_STRINGS_V1 §5.2.1): chữ vừa hộp thì
+/// giữ nguyên, chữ dài hơn thì cắt theo dòng — không vẽ ra ngoài hộp.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Clip {
+    /// Giữ phần **đầu**: dòng trên cùng còn lại, phần dưới bị cắt.
+    Head,
+    /// Giữ phần **cuối**: dòng dưới cùng còn lại, phần trên bị cắt.
+    ///
+    /// Dùng cho ô nhập: con trỏ nằm ở cuối nên người chơi phải thấy phần mình
+    /// vừa gõ, không phải đầu chuỗi.
+    Tail,
+}
+
+/// Số dòng chữ vừa trong chiều cao `max_height` (theo chiều cao dòng của font).
+///
+/// Dùng chung cho phần vẽ và test nên đo khớp vẽ (UI_STRINGS_V1 §5.2.1).
+pub fn visible_line_count(font: &TextFont, size: f32, max_height: f32) -> usize {
+    let line_height = font.line_height(size);
+    if line_height <= 0.0 || max_height <= 0.0 {
+        return 0;
+    }
+    let count = (max_height / line_height).floor();
+    if count <= 0.0 {
+        return 0;
+    }
+    count as usize
+}
+
+/// Layout chỉ giữ phần chữ **vừa hộp**: cắt theo chiều cao, không vẽ ra ngoài.
+///
+/// - Xuống dòng theo `max_width` như [`layout`].
+/// - Chỉ giữ số dòng vừa `max_height`; phần bị cắt theo `clip`.
+/// - Chiều cao kết quả **không vượt** `max_height`.
+pub fn layout_in_box(
+    text: &str,
+    font: &TextFont,
+    size: f32,
+    max_width: f32,
+    max_height: f32,
+    clip: Clip,
+) -> Layout {
+    let full = layout(text, font, size, max_width);
+    let keep = visible_line_count(font, size, max_height);
+    if full.lines.len() <= keep {
+        return full;
+    }
+    let start = match clip {
+        Clip::Head => 0,
+        Clip::Tail => full.lines.len() - keep,
+    };
+    let lines: Vec<Line> = full.lines[start..start + keep].to_vec();
+    let width = lines.iter().map(|line| line.width).fold(0.0f32, f32::max);
+    let height = lines.len() as f32 * full.line_height;
+    Layout {
+        lines,
+        width,
+        height,
+        line_height: full.line_height,
+        ascent: full.ascent,
+        descent: full.descent,
+        size: full.size,
+    }
+}
+
 /// Một cụm chữ (grapheme cluster) kèm metric từng ký tự.
 #[derive(Clone, Debug)]
 struct Cluster {

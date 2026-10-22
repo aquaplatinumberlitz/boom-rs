@@ -13,12 +13,15 @@
 //!   text catalog** (UI_STRINGS_V1 §3) — không hiện ảnh chưa duyệt.
 //! - Mỗi đoạn chữ có **một hộp** ([`TextBox`]): phần vẽ và test tràn hộp dùng chung
 //!   hàm [`Widget::text_boxes`] nên đo khớp vẽ (UI_STRINGS_V1 §5.2.1).
+//! - Hộp chữ là **giới hạn cả hai chiều**: chữ xuống dòng theo bề rộng hộp và bị
+//!   cắt theo chiều cao hộp ([`crate::text::Clip`]). Nội dung động (chat dài,
+//!   tên phòng dài, ô nhập dài) không tràn ra ngoài hộp.
 
 use boom_content::bundle::{Bundle, UiScreen, UiState};
 
 use crate::anim::Character;
 use crate::scene::Scene;
-use crate::text::TextFont;
+use crate::text::{Clip, TextFont};
 use crate::ui::model::{
     ActionId, FieldId, Focus, MatchProgress, MatchResult, RoomPhase, UiBackend, UiModel,
 };
@@ -299,8 +302,9 @@ pub enum Align {
 
 /// Một hộp chữ: nội dung, cỡ chữ và vùng được vẽ.
 ///
-/// Chữ **xuống dòng theo bề rộng hộp** (UI_STRINGS_V1 §5.2.1): hộp là giới hạn mà
-/// phần vẽ và test tràn hộp cùng dùng, nên test kiểm được đúng thứ người chơi thấy.
+/// Chữ **xuống dòng theo bề rộng hộp** và **bị cắt theo chiều cao hộp**
+/// (UI_STRINGS_V1 §5.2.1): hộp là giới hạn mà phần vẽ và test tràn hộp cùng
+/// dùng, nên test kiểm được đúng thứ người chơi thấy.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextBox {
     /// Nội dung chữ (ô mật khẩu đã thay bằng ký tự che).
@@ -319,6 +323,26 @@ pub struct TextBox {
     pub height: f32,
     /// Căn ngang trong hộp.
     pub align: Align,
+    /// Giữ phần đầu hay phần cuối khi chữ không vừa chiều cao hộp.
+    pub clip: Clip,
+}
+
+impl TextBox {
+    /// Chữ **được vẽ** trong hộp này.
+    ///
+    /// Dùng chung cho phần vẽ ([`crate::ui::draw`]) và test tràn hộp nên đo
+    /// khớp vẽ: hộp là giới hạn cả bề rộng lẫn chiều cao, chữ vừa hộp mới được
+    /// vẽ (UI_STRINGS_V1 §5.2.1).
+    pub fn laid_out(&self, font: &TextFont) -> crate::text::Layout {
+        crate::text::layout_in_box(
+            &self.text,
+            font,
+            self.size,
+            self.width,
+            self.height,
+            self.clip,
+        )
+    }
 }
 
 impl Widget {
@@ -326,6 +350,9 @@ impl Widget {
     ///
     /// Phần vẽ ([`crate::ui::draw`]) và test tràn hộp dùng **cùng** hàm này nên đo
     /// khớp vẽ; `font` cần cho bảng vì bề rộng cột là ô rộng nhất của cột.
+    ///
+    /// Mọi hộp đều **giới hạn chiều cao**: chữ dài hơn hộp bị cắt theo
+    /// [`Clip`], không tràn ra ngoài (UI_STRINGS_V1 §5.2.1).
     pub fn text_boxes(&self, font: &TextFont) -> Vec<TextBox> {
         match self {
             Self::Title { rect, text } => vec![TextBox {
@@ -337,6 +364,7 @@ impl Widget {
                 width: rect.width as f32,
                 height: rect.height as f32,
                 align: Align::Left,
+                clip: Clip::Head,
             }],
             Self::Notice { rect, text, error } => vec![TextBox {
                 text: text.clone(),
@@ -351,6 +379,7 @@ impl Widget {
                 width: rect.width as f32,
                 height: rect.height as f32,
                 align: Align::Left,
+                clip: Clip::Head,
             }],
             Self::Field {
                 rect,
@@ -374,6 +403,7 @@ impl Widget {
                         width: rect.width as f32,
                         height: FIELD_LABEL_GAP,
                         align: Align::Left,
+                        clip: Clip::Head,
                     },
                     TextBox {
                         text: shown,
@@ -384,6 +414,8 @@ impl Widget {
                         width: rect.width as f32 - 2.0 * FIELD_INSET,
                         height: rect.height as f32 - FIELD_BOTTOM_GAP,
                         align: Align::Left,
+                        // Ô nhập: giữ **cuối** để thấy phần vừa gõ.
+                        clip: Clip::Tail,
                     },
                 ]
             }
@@ -392,7 +424,17 @@ impl Widget {
                 columns,
                 rows,
             } => {
-                let widths = table_column_widths(columns, rows, font);
+                // Bề rộng cột được giới hạn cho vừa khung: bảng không tràn ra
+                // ngoài dù dữ liệu động (tên phòng/tên người) dài.
+                let widths = table_column_widths_fitted(columns, rows, font, rect.width as f32);
+                // Dòng cao theo nội dung thật: ô xuống nhiều dòng thì dòng cao hơn,
+                // tên dài **không bị cắt** (UI_STRINGS_V1 §5.2).
+                let heights = table_row_heights(
+                    rows,
+                    font,
+                    &widths,
+                    rect.height as f32 - TABLE_HEADER_HEIGHT,
+                );
                 let mut boxes = Vec::with_capacity(columns.len() + rows.len() * columns.len());
                 let mut x = rect.x as f32;
                 for (index, column) in columns.iter().enumerate() {
@@ -406,14 +448,15 @@ impl Widget {
                         width,
                         height: TABLE_HEADER_HEIGHT,
                         align: Align::Left,
+                        clip: Clip::Head,
                     });
                     x += width + TABLE_COLUMN_GAP;
                 }
+                let mut y = rect.y as f32 + TABLE_HEADER_HEIGHT;
                 for (row_index, row) in rows.iter().enumerate() {
-                    let y =
-                        rect.y as f32 + TABLE_HEADER_HEIGHT + row_index as f32 * TABLE_ROW_HEIGHT;
+                    let height = heights.get(row_index).copied().unwrap_or(TABLE_ROW_HEIGHT);
                     // Dòng vượt khung không được vẽ (tràn xuống dưới).
-                    if y + TABLE_ROW_HEIGHT > rect.bottom() as f32 {
+                    if y + height > rect.bottom() as f32 {
                         break;
                     }
                     for (index, cell) in row.cells.iter().enumerate() {
@@ -425,33 +468,16 @@ impl Widget {
                             x: x_of_column(&widths, rect.x as f32, index),
                             y,
                             width,
-                            height: TABLE_ROW_HEIGHT,
+                            height,
                             align: Align::Left,
+                            clip: Clip::Head,
                         });
                     }
+                    y += height;
                 }
                 boxes
             }
-            Self::Chat { rect, lines } => {
-                // Chỉ những dòng **vừa** khung mới được vẽ (dòng mới nhất ở dưới).
-                let visible = (rect.height as f32 / CHAT_LINE_HEIGHT).floor() as usize;
-                let start = lines.len().saturating_sub(visible);
-                lines
-                    .iter()
-                    .enumerate()
-                    .skip(start)
-                    .map(|(index, line)| TextBox {
-                        text: line.clone(),
-                        size: text_size::SMALL,
-                        role: TextRole::Small,
-                        x: rect.x as f32,
-                        y: rect.y as f32 + (index - start) as f32 * CHAT_LINE_HEIGHT,
-                        width: rect.width as f32,
-                        height: CHAT_LINE_HEIGHT,
-                        align: Align::Left,
-                    })
-                    .collect()
-            }
+            Self::Chat { rect, lines } => chat_text_boxes(rect, lines, font),
             Self::Button {
                 rect,
                 label,
@@ -470,6 +496,7 @@ impl Widget {
                 width: rect.width as f32,
                 height: rect.height as f32,
                 align: Align::Center,
+                clip: Clip::Head,
             }],
             Self::Frame { rect, label, .. } => {
                 if label.is_empty() {
@@ -484,6 +511,7 @@ impl Widget {
                         width: rect.width as f32 - 2.0 * FRAME_INSET,
                         height: rect.height as f32 - 2.0 * FRAME_INSET,
                         align: Align::Left,
+                        clip: Clip::Head,
                     }]
                 }
             }
@@ -500,12 +528,62 @@ impl Widget {
                         width: rect.width as f32 - 2.0 * FRAME_INSET,
                         height: CHAT_LINE_HEIGHT,
                         align: Align::Left,
+                        clip: Clip::Head,
                     }]
                 }
             }
             Self::MapArea { .. } => Vec::new(),
         }
     }
+}
+
+/// Hộp chữ của khung chat: mỗi tin chiếm **chiều cao thật** sau khi xuống dòng.
+///
+/// Policy (nội dung động, V1-035):
+///
+/// - Tin dài xuống nhiều dòng thì chiếm nhiều chiều cao; tin sau **không** bị
+///   chồng lên tin trước (mỗi tin là một hộp riêng).
+/// - Tin mới nhất nằm sát đáy khung; tin cũ hơn bị **cuộn** ra khung (không vẽ).
+/// - Tin cao hơn cả khung thì giữ phần **cuối** của tin (nội dung mới nhất).
+fn chat_text_boxes(rect: &Rect, lines: &[String], font: &TextFont) -> Vec<TextBox> {
+    let frame_height = rect.height as f32;
+    let heights: Vec<f32> = lines
+        .iter()
+        .map(|line| {
+            let laid = crate::text::layout(line, font, text_size::SMALL, rect.width as f32);
+            laid.height().max(CHAT_LINE_HEIGHT)
+        })
+        .collect();
+    let mut boxes = Vec::new();
+    // Xếp từ dưới lên: tin mới nhất sát đáy khung.
+    let mut bottom = rect.bottom() as f32;
+    for index in (0..lines.len()).rev() {
+        let height = heights[index].min(frame_height);
+        let y = bottom - height;
+        // Tin không vừa phần trống còn lại → tin này và các tin cũ hơn không vẽ.
+        if y < rect.y as f32 - 0.5 {
+            break;
+        }
+        boxes.push(TextBox {
+            text: lines[index].clone(),
+            size: text_size::SMALL,
+            role: TextRole::Small,
+            x: rect.x as f32,
+            y,
+            width: rect.width as f32,
+            height,
+            align: Align::Left,
+            // Tin cao hơn khung: giữ cuối (phần mới nhất của tin đó).
+            clip: if heights[index] > frame_height {
+                Clip::Tail
+            } else {
+                Clip::Head
+            },
+        });
+        bottom = y;
+    }
+    boxes.reverse();
+    boxes
 }
 
 /// Ký tự che giá trị ô mật khẩu.
@@ -532,6 +610,79 @@ pub fn table_column_widths(columns: &[String], rows: &[TableRow], font: &TextFon
         *width += 1.0;
     }
     widths
+}
+
+/// Bề rộng cột **sau khi giới hạn** cho vừa khung bảng.
+///
+/// Bảng V1 có dữ liệu động (tên phòng, tên người): ô rộng nhất có thể vượt khung
+/// thì bảng tràn ra ngoài màn. Ở đây bề rộng cột được cắt (cột rộng nhất trước)
+/// cho tổng bề rộng + khoảng cách vừa `max_width`; chữ trong ô vượt bề rộng cột
+/// thì xuống dòng và bị cắt theo chiều cao dòng — không tràn ra ngoài.
+pub fn table_column_widths_fitted(
+    columns: &[String],
+    rows: &[TableRow],
+    font: &TextFont,
+    max_width: f32,
+) -> Vec<f32> {
+    let mut widths = table_column_widths(columns, rows, font);
+    let gaps = TABLE_COLUMN_GAP * widths.len().saturating_sub(1) as f32;
+    let available = (max_width - gaps).max(0.0);
+    fit_widths(&mut widths, available);
+    widths
+}
+
+/// Cắt bề rộng cột (cột rộng nhất trước) cho tổng vừa `available`.
+fn fit_widths(widths: &mut [f32], available: f32) {
+    loop {
+        let total: f32 = widths.iter().sum();
+        if total <= available + 0.5 || widths.is_empty() {
+            return;
+        }
+        let widest = widths.iter().copied().fold(0.0f32, f32::max);
+        let count = widths
+            .iter()
+            .filter(|width| **width >= widest - 0.5)
+            .count();
+        if count == 0 {
+            return;
+        }
+        // Mỗi lượt cắt đủ lượng thừa nên tổng vừa `available` sau một lượt.
+        let share = (total - available) / count as f32;
+        for width in widths.iter_mut() {
+            if *width >= widest - 0.5 {
+                *width = (*width - share).max(0.0);
+            }
+        }
+    }
+}
+
+/// Chiều cao từng dòng của bảng.
+///
+/// Dòng cao theo nội dung thật: ô xuống nhiều dòng thì dòng cao hơn, nên tên
+/// dài **được xuống dòng** chứ không bị cắt (UI_STRINGS_V1 §5.2). Dòng không có ô
+/// nào xuống dòng thì cao bằng [`TABLE_ROW_HEIGHT`].
+///
+/// `max_height` là chiều cao còn trống của khung bảng: một dòng không được cao
+/// hơn cả khung (nếu không thì dòng đó không vẽ và các dòng sau bị đẩy ra).
+///
+/// Dùng chung cho phần vẽ và layout nên tô dòng đang chọn khớp với dòng chữ.
+pub fn table_row_heights(
+    rows: &[TableRow],
+    font: &TextFont,
+    widths: &[f32],
+    max_height: f32,
+) -> Vec<f32> {
+    rows.iter()
+        .map(|row| {
+            let mut height = TABLE_ROW_HEIGHT;
+            for (index, cell) in row.cells.iter().enumerate() {
+                let width = widths.get(index).copied().unwrap_or(0.0);
+                let laid = crate::text::layout(cell, font, text_size::ROW, width);
+                height = height.max(laid.height());
+            }
+            height.min(max_height.max(TABLE_ROW_HEIGHT))
+        })
+        .collect()
 }
 
 /// Bề rộng một chuỗi (px) theo metric của font, không xuống dòng.
@@ -722,17 +873,14 @@ fn room_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
     buttons(model, widgets, MARGIN, BUTTON_Y);
 }
 
-/// Màn trận: bản đồ và trạng thái lượt.
-fn match_layout<B: UiBackend>(
-    model: &UiModel<B>,
-    scene: Option<&Scene>,
-    widgets: &mut Vec<Widget>,
-) {
+/// Chữ của màn trận cho người chơi: (tên map, trạng thái lượt).
+///
+/// Lấy từ file chuỗi V1 theo khóa `UI_STRINGS_V1`; dùng chung cho layout V1 và cho
+/// lớp chữ vẽ trên scene (module [`crate::ui::draw`]) nên màn trận nói cùng một
+/// chữ, và chữ đó không viết tay trong mã.
+pub fn match_status_texts<B: UiBackend>(model: &UiModel<B>) -> (String, String) {
     let texts = model.texts();
-    widgets.push(Widget::Title {
-        rect: Rect::new(MARGIN, 4, 400, 34),
-        text: texts.get("room.map_name"),
-    });
+    let title = texts.get("room.map_name");
     let status = match model.match_progress() {
         Some(MatchProgress::Loading { remaining }) => {
             format!("{} {remaining}", texts.get("room.loading"))
@@ -742,6 +890,20 @@ fn match_layout<B: UiBackend>(
         }
         None => texts.get("app.loading"),
     };
+    (title, status)
+}
+
+/// Màn trận: bản đồ và trạng thái lượt.
+fn match_layout<B: UiBackend>(
+    model: &UiModel<B>,
+    scene: Option<&Scene>,
+    widgets: &mut Vec<Widget>,
+) {
+    let (title, status) = match_status_texts(model);
+    widgets.push(Widget::Title {
+        rect: Rect::new(MARGIN, 4, 400, 34),
+        text: title,
+    });
     widgets.push(Widget::Notice {
         rect: Rect::new(440, 4, 336, 24),
         text: status,
