@@ -561,3 +561,25 @@ Hệ quả:
   S→C 183. VN 141/142 có layout khác; không suy opcode/slot giữa hai build.
 - **VN server giả lập**: không gửi 176 (không thấy trong `server/src`), docs ghi không có handler
   S→C 141/142 và di chuyển đồng bộ qua UDP P2P — chỉ `vn_static`, không phải `vn_runtime`.
+
+## 19. RE KR 00967 — state→animation, frame duration và nhịp update (R-151)
+
+Tiếp nối mục 6 hàng đợi RE; Refs #148/V1-031. Build KR `00967`; REA MCP bản sao
+`kr-full.exe`, không mở DB gốc. Chi tiết/phạm vi ở
+[KR_RE_ANIM_STATE](../../research/findings/KR_RE_ANIM_STATE.md) và
+[evidence flame](../../evidence/measurements/kr-static-flame-2026-10-21/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-151 | **Lửa/segment sống theo frame, chưa có nhịp update/ms**: `CGOFlame` update `0xB711C0` (vtable `0x1745EF0`, slot 24 = `0x1745F50`) tăng `flame[i+51]` mỗi lần update; xoá segment khi `>= sub_B333D0(animId)` = `CGameObjectTemplate::GetAnimCount` `0xBA3FF0` (`B333D0` → `BA3FF0` → `B8E5A0(template+4)`). Không đọc elapsed/delta, không đọc duration ODT ⇒ đơn vị **frame** (1 update = 1 frame), **không có cơ sở quy đổi ms**. Consumer ODT khác: `BA40F0` đọc field per-anim (`[anim+4]`), `BA4160` cộng; `B338F0`/`B9CEC0`/`B9FDD0` dùng tổng; `B33B30` dùng `sub_15625C2` = **RNG** để chọn pha, không elapsed. State R-095 vẫn candidate: code `B44000` kiểm anim index `24`/`27–30`/`39–42`, chưa nối nhãn ODT; consumer chọn tâm/thân/đuôi/hướng lửa chưa định vị; nhịp gọi `B711C0` chưa xác định (xref duy nhất là vtable) | — | `kr_static` / confirmed (frame counter + GetAnimCount); `unknown` (ms/cadence, đơn vị field ODT, state mapping runtime, fire layer/direction) | `B711C0` `+51`, `+141`, `+36`; `B333D0` → `BA3FF0` → `B8E5A0`; vtable `0x1745EF0` slot `0x1745F50`; `BA40F0`/`BA4160`; `B338F0`; `B9CEC0`/`B9FDD0`; `B33B30`; `B44000`; evidence §11.6 |
+
+Hệ quả:
+
+- **Đơn vị**: hiển thị lửa tính bằng **frame**, không phải ms; `B711C0` chỉ `++`, không nhận `dt`.
+  Không đổi `bomb.flame_ms=500` hoặc bất kỳ giá trị profile nào khi chưa có nhịp update.
+- **ODT duration**: `BA40F0`/`BA4160` là consumer của field per-anim, nhưng chưa chứng minh field là
+  duration/ms; `B33B30` dùng RNG nên không phải elapsed. Không suy “duration ODT = ms”.
+- **State**: nhãn idle/walk/trapped/dead vẫn theo ODT (R-095 candidate); chưa có trace nối state core
+  với nhãn, và chưa thấy consumer chọn tâm/thân/đuôi/hướng lửa.
+- **Nhịp update**: chưa định vị call site/loop gọi vf24; do đó `frame → ms` vẫn `unknown`.
+- Đề xuất presentation: giữ frame-based, không đặt ms; nếu cần ms phải có PR riêng sau khi đo nhịp.
