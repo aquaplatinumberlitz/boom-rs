@@ -537,3 +537,25 @@ Hệ quả cho các claim liên quan:
   `B479E0`; packet VN 176/KR 183 dùng slot `+116` (= `B43750`), không slot 95. Candidate: position
   sync server cho player. Player input→position vẫn **unknown**, không đổi R-125/R-127.
 - **PR #177** đã đóng, không merge: R-132/R-133 không có trong nguồn chuẩn nên không còn việc hạ nhãn.
+
+## 18. RE KR 00967 — BomberAttr → consumer Bomb/Fire/Roller/speed (R-140, blocker)
+
+Tiếp nối #149/Q-020; §17 để phiên 2 (#148), mục này dùng §18. Build KR `00967`; REA MCP bản sao
+`kr-full.exe`, đối chiếu VN bằng IDB bản sao. Chi tiết/phạm vi ở
+[KR_RE_BOMBERATTR](../../research/findings/KR_RE_BOMBERATTR.md) và
+[evidence KR item](../../evidence/measurements/kr-static-item-2026-10-21/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-140 | **Blocker `CBomberAttr` → consumer Bomb/Fire/Roller/speed**: loader `0x13500D0` đọc row theo thứ tự `name; f0,f1,f2..f10`; theo thứ tự đó + `bomber_attr.json` field_map, f2/f3 = speed min/max, f4/f5 = bomb min/max, f6/f7 = range min/max; f5 bị kẹp **≤ 10** tại `0x1350438`/`0x1350448`. Nhưng **không có consumer** cho f2–f7: singleton `dword_19D8A90` chỉ có 4 xref (getter/lifecycle); row accessor duy nhất `0x1351D10` đọc field `row+408` và được dùng như availability/khởi tạo (`0xB349A0`, `0x6E27B0`), không phải bomb/range/speed. KR opcode 158 `0xE5D55E` → `sub_E5F450` → `sub_E14360` → `sub_E9E660` không cộng bomb/range/speed trong phần đã đọc; VN 158 `sub_706E0A` chỉ xoá pending. Không có consumer cho **Roller (kind 2)** hay **Shoe (kind 3)**; không đánh đồng. Speed level→px/bước vẫn **unknown** (R-125) | — | `kr_static` / **unknown (blocker)**; thứ tự loader + kẹp f5 `confirmed`, nhưng nghĩa f2–f7 vẫn theo R-042 `candidate`, và chưa có consumer nên **không** dùng làm base/max cho gameplay | `0x13500D0` loader; `0x1350438`/`0x1350448` kẹp 10; `dword_19D8A90` singleton; `0x1351D10` `row+408`; `0xB349A0`/`0x6E27B0`; `0xE5D55E`→`sub_E5F450`→`sub_E14360`→`sub_E9E660`; VN `sub_706E0A`; evidence §10.6 |
+
+Phạm vi blocker:
+
+- Đã đọc loader và toàn bộ xref của singleton/row accessor; **không** thấy đường đọc f2–f7 trong
+  bomber/item. Các hàm item đã đọc ở trên chỉ xử lý vị trí/pending/effect object, không cộng stat.
+- **Chưa** đọc hết thân `sub_E9E660` (0xE9E660 rất lớn) và chưa có runtime; kết luận "không cộng"
+  chỉ cho các đoạn đã đọc, không phải toàn hàm.
+- Chưa thấy `.themida` trong các đường này; nếu mở rộng sang hàm VM thì ghi entry theo
+  [DEVIRT_METHOD](../../research/findings/DEVIRT_METHOD.md).
+- Đề xuất profile: **không đổi** `characters.*`/`R-117`; giữ cấp (level), không đổi sang px. Nếu
+  sau này có consumer base/max thì PR profile riêng theo ADR 0013.

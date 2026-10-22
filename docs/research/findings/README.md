@@ -27,4 +27,5 @@ Manifest/probe trong [evidence](../../evidence/README.md) là dữ liệu đã q
 
 Kết quả mới gắn với ID trong [QUESTIONS](../QUESTIONS.md), có nguồn, kết luận và giới hạn.
 Chỉ thêm một file khi chủ đề độc lập; không sinh file tổng kết theo agent/phiên.
-| [KR_RE_TRAPPED_SPEED](KR_RE_TRAPPED_SPEED.md) | Truy vết `(dir,len)` khi bị nhốt: đường đã trace thuộc `CGOPet`/AI; R-136 nối dispatch dir→field `+1440`→reader `0xB40D60`; R-137 caller setter là NPC/AI (`B479E0`/`F087E0`), input dir→position player `unknown` (R-134…R-137) |
+| [KR_RE_TRAPPED_SPEED](KR_RE_TRAPPED_SPEED.md) | Truy vết `(dir,len)` khi bị nhốt: R-136 dispatch dir→field `+1440`→reader `0xB40D60`; R-137 direct caller setter là wrapper NPC, `B479E0` lớp sử dụng `unknown`; input dir→position player `unknown` (R-134…R-137) |
+| [KR_RE_BOMBERATTR](KR_RE_BOMBERATTR.md) | **R-140 blocker**: loader `CBomberAttr` `0x13500D0` đọc f0..f10, kẹp f5 ≤ 10, nhưng không có consumer f2–f7; item 158 không cộng stat trong phần đã đọc; Roller (2) ≠ Shoe (3); speed→px vẫn R-125 unknown |

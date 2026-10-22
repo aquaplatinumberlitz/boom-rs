@@ -1,8 +1,9 @@
 # Đo tĩnh KR 00967 — item/cap (2026-10-21, cập nhật 2026-10-22)
 
 Metadata cho lượt điều tra [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149) / Q-020.
-**Chưa tạo claim `kr_static` mới**: chưa định vị consumer của hiệu ứng Bomb/Fire/Roller, trần chỉ số
-(cap), hay vai trò bảng `ItemAttr` (R-051/R-052). Ghi lại mỏ neo + giới hạn + bước tiếp.
+**Chưa tạo claim `kr_static` có consumer**: chưa định vị consumer của hiệu ứng Bomb/Fire/Roller,
+trần chỉ số (cap), hay vai trò bảng `ItemAttr` (R-051/R-052). R-140 là **blocker** cho phần
+`BomberAttr`/item (xem bổ sung cuối file), không phải claim giá trị gameplay.
 
 ## Định danh build
 
@@ -69,3 +70,37 @@ Chưa đọc được ngữ nghĩa 8 dword và bảng thứ hai ⇒ **không** c
 3. Trần chỉ số: tìm nơi so sánh giá trị hiện tại với max trước khi cộng (thường là `min(cur+1, max)`).
 4. Nếu các hàm trên nằm trong `.themida` thì dừng và ghi entry VM theo
    [DEVIRT_METHOD](../../../research/findings/DEVIRT_METHOD.md).
+
+## Bổ sung 2026-10-23 — R-140 blocker: BomberAttr → consumer
+
+REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63b`; bundle
+`.re-work/evidence-r140-bomberattr-149.json` (19 record, không commit). Không mở DB gốc, không chạy
+client/server.
+
+| Kiểm | VA | Kết quả |
+|---|---|---|
+| `CBomberAttr` ctor | `0x134FD40` | vtable/khởi tạo object; không đọc stat |
+| Loader row | `0x13500D0` | đọc `name; f0,f1,f2..f10`; f2/f3 speed, f4/f5 bomb, f6/f7 range (thứ tự + `bomber_attr.json`, R-042 vẫn **candidate**) |
+| Kẹp f5 (bomb max) | `0x1350438`–`0x1350450` | `cmp eax,0xA`; nếu >10 ghi 10 — kẹp **bảng**, không phải runtime |
+| Singleton | `dword_19D8A90` | chỉ 4 xref: getter `0x559BA0`, lifecycle `0x1354E20`/`0x1355B60`, check `0xFBCD20` |
+| Row accessor | `0x1356500` → `0x1351D10` | chỉ đọc `row+408`; 9 caller dùng availability/khởi tạo (`0xB349A0`, `0x6E27B0`), không đọc f2–f7 |
+| Item path KR 158 | `0xE5D55E` → `0xE5F450` → `0xE14360` → `0xE9E660` | đọc count/u16/u8; nhánh vị trí/effect; **không** thấy `cur+1`/`min(cur+1,max)` cho bomb/range/speed trong phần đã đọc |
+| VN 158 | `sub_706E0A` | chỉ lấy ItemAttr row `244*kind+base+28`, clear pending `rec+16`, không cộng stat (`vn_static`) |
+| Roller/Shoe | kind 2 / 3 | không consumer KR; **không** đánh đồng Roller với Shoe |
+| Speed | — | không thấy `cấp → px/bước`; R-125 giữ `unknown` |
+
+**Kết luận:** `kr_static` confirmed thứ tự loader + kẹp f5 ≤ 10; **blocker** vì không có consumer
+f2–f7 và không có đường tăng/kẹp stat. Chưa đọc hết `sub_E9E660`; chưa có runtime. **Đề xuất profile:
+không đổi** — giữ `characters.*` cấp/level (R-117), không đổi sang px.
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_a7b10e81a75c73a095fb6051a1b8b920bea040539d54a3caf8affb5a0c964657` | `batch_decompile` `0x13500D0` | loader/thứ tự/kẹp f5 |
+| `ev_6a793b7a68430d9e91f10ca72bb7aacf103d8581bd1ff5b6cd15a8f6f3ad8519` | `batch_decompile` `0x134FD40`/`0x1196A70` | ctor, ItemAttr |
+| `ev_1d52291e32045de5b78dea123f1dc11097fac622be61a15b29422eff02f54e7b` | `xrefs` `0x19D8A90` | 4 xref |
+| `ev_eb051ef2d534b2541ef7f32da4e1e1ce5783a11768ad8c875446a81750c2bd0d` | `batch_decompile` `0x1356500` | row lookup |
+| `ev_ad4a51ff039e6fb8605395e7ecdfdcbd031e9efe6eb2fc427ee226f35d505bb9` | `batch_decompile` `0x1351D10` | `row+408` |
+| `ev_68acf8f616736e3cde275314a9e3eb581fb6d5e155a4df919b1cb4ae18917350` | `xrefs` `0x1351D10` | 9 caller availability |
+| `ev_0a1951685f0a6bb893535ee7c8077ffbb533ab557fa9816291abcf8766479a30` | `batch_decompile` `0xE5F450` | KR 158 |
+| `ev_f8628d13735542ad5390e5587da2fb9032d33849175ed875ad4a5851aa5f5504` | `batch_decompile` `0xE14360` | nhánh item |
+| `ev_61f31d6d657f4f1237d38bf40978dfb09b0a542391817ad8a3ba1da3b478e05b` | `batch_decompile` `0xE9E660` | effect lớn, chưa hết |
