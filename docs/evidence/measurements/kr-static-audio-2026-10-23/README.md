@@ -104,3 +104,34 @@ Số voice của pool (hằng khởi tạo) chưa định vị — không claim 
   push trong 649 entry + 597 site `0xD1CD10`; virtual `vf+148` (trong `0xEB9840`), id động, wrapper và
   script `PlayWaveEffect` theo tên chưa bị loại trừ.
 - Không sửa `data/assets/audio-v1.toml` hay bảng AUDIO_V1; đề xuất ở findings §7.
+
+## Lượt 2026-10-24 (phiên 2) — init pool voice (`CSoundManRenew`)
+
+Build KR `00967`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`,
+imagebase `0x00400000`, `RVA = VA − 0x400000`. Ngân sách thực dùng: **6 call phân tích**, **4 thân mới**
+(`0x60FA30`, `0xD20E10`, `0xD217F0`, `0xD1C0A0`); không đọc lại thân #200.
+
+| Vai trò | VA | RVA | Ghi chú |
+|---|---|---|---|
+| Con trỏ singleton | `0x019D8A88` | `0x015D8A88` | 4 xref data: `0x54EAF3`, `0x60FA34`, `0xD20E3D`, `0xD21800` |
+| Getter singleton | `0x0054EAF0` | `0x0014EAF0` | (không đọc lại, R-203) |
+| `IsInitialized` | `0x0060FA30` | `0x0020FA30` | `return dword_19D8A88 != 0` |
+| Base/singleton ctor | `0x00D20E10` | `0x00920E10` | vftable `TSingleton<CSoundManRenew>`; `dword_19D8A88 = (int)(this - 1)`; xref duy nhất từ `0xD1C0D3` |
+| Reset/huỷ | `0x00D217F0` | `0x009217F0` | vftable; `dword_19D8A88 = 0` |
+| Ctor `CSoundManRenew` | `0x00D1C0A0` | `0x0091C0A0` | 0x178; gọi `D21700`, `D20E10(this+1)`, gán vftable `CSoundManRenew`; zero-init nhiều field; `*(this+15)=1000`; `v2` decoder; `sub_D1C330(this)` cuối |
+| Caller init lớn | `0x01231BD0` | `0x00E31BD0` | gọi `D1C0A0` tại `0x1233BEA` |
+
+Trong thân ctor **không có store tới `+12`/`+16`** (byte); store thấy ở `+20/+24/+52/+56/+60=1000/
++104=v2/+116/+120=-1` (`this` là `_DWORD*`). `+60 = 1000` không phải `+12` ⇒ **không** suy là số voice.
+`sub_D1C330(this)` cuối là candidate init/reset pool (chưa đọc). Ánh xạ singleton ↔ `manager` của
+`0x14BF4D0` chưa kiểm lại.
+
+`evidence_id`: `ev_2f07cd5a83b86bb873b57228b7bbceeff5679e8af01fe194cf929c1e32438157` (xref
+singleton), `ev_378e543a82862ca886ff0e6cea85020fbc271e9870dc40ff0716786857af0650` (batch 3 thân),
+`ev_7fad1e9a26c2e984ef76011f2b1a1b643460862a04fa8f5c7498ca1ea6898faf` (xref `D20E10`),
+`ev_425ff98895aa5399da7536de5fd65f2ac448bf367d17f04420247665f5599d65` (xref `D1C0A0`),
+`ev_d48e48f7c10dae036d6151f87ec1dac236434f0e75bb0661f246d1a32b4f814a` (thân `D1C0A0`).
+
+**Kết luận lượt**: ctor `CSoundManRenew` đã đọc nhưng **không gán** `manager+12`/`+16`; nguồn số voice
+(literal/param/config) **chưa thấy** ⇒ vẫn `unknown`. `read_bytes` không hỗ trợ (`capability_unavailable`),
+1 lần, không retry. Bước tiếp: kiểm `sub_D1C330` xem có store `[manager+0Ch]`/`+10h` và nguồn giá trị không.

@@ -193,3 +193,56 @@ theo id) — đề xuất giữ design V1 nhưng ghi khác biệt ở R-207/§5.
 3. Kiểm tra script/pack có gọi `PlayWaveEffect("BombExplosion001")` không (đường theo tên).
 4. Nếu muốn đổi AUDIO_V1: mở task riêng theo ADR 0013, sửa cả `data/assets/audio-v1.toml` + bảng
    AUDIO_V1 + test, không gộp vào PR RE này.
+
+## 10. Lượt 2026-10-24 (phiên 2) — init pool voice: ctor `CSoundManRenew` đã đọc, count chưa thấy
+
+Câu hỏi hẹp #196: **số voice của pool `CSoundManRenew` lấy từ đâu** (hằng/param/config), nối writer
+`manager+12` với manager thật + đường init. Build KR `00967`, SHA-256
+`cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, imagebase `0x00400000`.
+Ngân sách thực dùng: **6 call phân tích**, **4 thân mới** (`0x60FA30`, `0xD20E10`, `0xD217F0`,
+`0xD1C0A0`); không đọc lại thân #200. Evidence: `ev_2f07cd5a…`, `ev_378e543a…`, `ev_7fad1e9a…`,
+`ev_425ff988…`, `ev_d48e48f7…` (VA/RVA ở
+[evidence](../../evidence/measurements/kr-static-audio-2026-10-23/README.md)).
+
+### 10.1. Chuỗi init (dương, trong thân đã đọc)
+
+- `dword_19D8A88` (singleton) có 4 xref data: getter `0x54EAF0`, `0x60FA34`, `0xD20E3D`, `0xD21800`.
+- `sub_60FA30` (`0x0060FA30`, 0x24): `return dword_19D8A88 != 0;` — **kiểm đã khởi tạo**.
+- `sub_D20E10` (`0x00D20E10`, 0x3A): gán `*this = &TSingleton<CSoundManRenew>::vftable` rồi
+  `dword_19D8A88 = (int)(this - 1)` — **ghi con trỏ singleton**; xref code duy nhất từ `sub_D1C0A0`
+  tại `0xD1C0D3`. (Ý nghĩa `this - 1` chưa diễn giải.)
+- `sub_D217F0` (`0x00D217F0`, 0x1E): gán vftable rồi `dword_19D8A88 = 0` — nhánh reset/huỷ.
+- Đường gọi: `sub_1231BD0` (`0x01231BD0`, 0x2C62) gọi `sub_D1C0A0` tại `0x1233BEA`.
+
+### 10.2. Thân ctor `sub_D1C0A0` (0x00D1C0A0, 0x178) — không thấy gán count
+
+Thân đọc được (rút gọn, giữ đúng thứ tự):
+
+```
+sub_D21700(this); sub_D20E10(this+1);                 // base/singleton ctor
+*this = &CSoundManRenew::vftable; *(this+1) = &...;   // vftable
+sub_D216C0(this+2);
+*(this+5)=0; *(this+6)=0; sub_4474A0(this+7);
+*(this+13)=0; *(this+14)=0; *(this+15)=1000;
+sub_D21620(this+16); sub_D215D0(this+18); sub_4474A0(this+20);
+sub_D21580(this+27); *(this+29)=0; *(this+30)=-1; sub_D21670(this+31);
+dword_16EA2B8("Mp3dec.asi");
+v2 = sub_14EF990(60) ? sub_14BE290(1,1) : 0;
+*(this+26)=v2; sub_D24140(this+31, v2);
+sub_D1C330(this);                                     // cuối thân
+```
+
+- **Không có store tới `+12`/`+16`** (byte) trong thân; các store thấy ở `+20/+24/+52/+56/+60=1000/
+  +104=v2/+116/+120=-1`. `+60 = 1000` **không** phải `+12`; **không** suy đây là số voice.
+- `sub_D1C330(this)` ở cuối là ứng viên init/reset pool (**candidate**, chưa đọc).
+- Chưa kiểm lại ánh xạ `dword_19D8A88` (singleton) ↔ `manager` mà `0x14BF4D0` nhận; không dùng offset
+  của ctor để suy count.
+
+### 10.3. Kết luận / blocker
+
+- **Số voice vẫn `unknown`**: nguồn literal/param/config **chưa thấy**; ctor chỉ zero-init + gọi
+  helper, không gán `manager+12`/`+16`. **Không** lấy 8 design V1, 649 entry, hay dung lượng container.
+- `read_bytes` REA IDA trả `capability_unavailable` (1 lần, không retry). Ngân sách 6 call/4 thân đã
+  dùng ⇒ dừng đúng hạn; không mở provider khác.
+- Bước tiếp: kiểm xem `sub_D1C330` có store `[manager+0Ch]`/`+10h` và nguồn giá trị **không** — chỉ
+  kết luận sau khi thấy store + dataflow; nếu vào VM/Themida thì ghi entry và dừng.
