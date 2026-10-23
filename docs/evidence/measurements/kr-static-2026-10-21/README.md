@@ -109,12 +109,13 @@ hệ quả player/bomber (ra/vào/grace) hay bomb-pass toàn hệ thống; khôn
 Batch REA `ev_f4a10721fe2b84a4ba9af47155213f3c6fa23ab83eadd0b5ccf5c000fad66787` (4 thân ưu tiên
 trong 14 xref; không đọc lại hàm R-154). Bundle `.re-work/evidence-r154-owner-callers-146.json`.
 
-| Caller | Call | Cách dùng `+268` | Collision/grace? |
+| Caller | Call | Cách dùng `+268` | Kiểm collision/grace trực tiếp? |
 |---|---|---|---|
-| `ACC340` | `0xACC4BA` | descriptor event (`AD4A40`/`AD62F0`/`AD9F20`) | không |
-| `AEF700` | `0xAEF904` | bỏ kết quả; nhánh bomb/item `B378F0`/`B37880` | không |
-| `EB73D0` | `0xEB75C1` | ghi effect `*(+4)`; `B70C10` | không |
-| `EB8000` | `0xEB8FA8`/`0xEB910E` | owner cho flame/effect `B70C10` | không |
+| `ACC340` | `0xACC4BA` | descriptor event (`AD4A40`/`AD62F0`/`AD9F20`) | chưa thấy |
+| `AEF700` | `0xAEF904` | bỏ kết quả; nhánh bomb/item `B378F0`/`B37880` | chưa thấy |
+| `EB73D0` | `0xEB75C1` | ghi effect `*(+4)`; `B70C10` | chưa thấy |
+| `EB8000` | `0xEB8FA8`/`0xEB910E` | owner cho flame/effect `B70C10` | chưa thấy |
 
-Cả 4 chỉ dùng/bỏ qua `+268` trong event/effect/score; không gọi `B37DB0`/`EA0FD0`/`+152`/`+328`/`MoveSimple`.
-**10 xref còn lại unknown**; không tạo R-155, không nâng owner thành confirmed; player/grace vẫn unknown.
+Cả 4 chỉ thấy dataflow descriptor/event, effect/flame hoặc bỏ kết quả; **chưa thấy kiểm collision/grace
+trực tiếp** (không gọi trực tiếp `B37DB0`/`EA0FD0`/`+152`/`+328`/`MoveSimple`). Helper/callee và **10 xref
+còn lại chưa loại trừ**; không tạo R-155, không nâng owner thành confirmed; player/grace vẫn unknown.
