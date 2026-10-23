@@ -8,7 +8,7 @@ use boom_content::map::{Terrain, is_walkable};
 use boom_content::rules::RulesProfile;
 use boom_core::{CharacterStats, CharacterStatsTable, Dir, Life, Stat, World, mode_by_id};
 use boom_proto::{InputBatch, InputBits, InputCommand};
-use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoundId};
+use boom_room::{CharacterId, PlayerId, RequestId, RoomAction, RoomCommand, RoomId, RoundId};
 
 use crate::{
     Authority, InputError, Logger, MatchOutcome, MatchSetup, OperationalConfig, ReplaySetup,
@@ -1338,6 +1338,154 @@ fn memory_transport_input_dedup_and_window() {
     let _ = server.poll(16, Duration::from_millis(200)).unwrap();
     let rejected = recv_input_rejected(&mut clients[0]);
     assert_eq!(rejected.reason, InputRejectReason::OutOfWindow);
+}
+
+/// Retire xảy ra ngay trong `InputTrack::submit` (batch chứa lệnh đã quá hạn ở đầu hàng)
+/// phải tới caller của `Server::poll` dưới dạng `InputRetired`, đúng room/round/account và
+/// đúng **một lần**; retire của `apply_tick` (gap timeout) không bị nhân đôi.
+#[test]
+fn poll_phat_input_retired_tu_submit_dung_mot_lan_va_khong_trung_apply_tick() {
+    let players = [PlayerId(1), PlayerId(2)];
+    let (mut server, mut clients) = server_with_clients(&players);
+    wire_handshake(&mut server, &mut clients);
+    authenticate(&mut server, &mut clients, &players);
+    let mut req = Requests::new(&players);
+    let host = players[0];
+    server
+        .room_command(
+            command(
+                host,
+                req.take(host),
+                RoomAction::Create {
+                    character: CharacterId::C00,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    let room = server.room_view().unwrap().id;
+    server
+        .room_command(
+            command(
+                players[1],
+                req.take(players[1]),
+                RoomAction::Join {
+                    room,
+                    character: CharacterId::C01,
+                },
+            ),
+            0,
+        )
+        .unwrap();
+    for &player in &players {
+        server
+            .room_command(
+                command(
+                    player,
+                    req.take(player),
+                    RoomAction::SetReady { ready: true },
+                ),
+                0,
+            )
+            .unwrap();
+    }
+    server
+        .room_command(command(host, req.take(host), RoomAction::Start), 0)
+        .unwrap();
+    for &player in &players {
+        server.ack_loading(player, 0).unwrap();
+    }
+    assert_eq!(server.phase(), ServerPhase::Playing);
+
+    let room = server.authority().room_id().unwrap();
+    let round = round_u32(server.authority());
+    // Qua nhiều tick để `target_tick = 0` chắc chắn cũ hơn `server_tick - late` (100 ms).
+    let _ = server.poll(200, Duration::ZERO).unwrap();
+    assert!(server.authority().tick().unwrap() > 0);
+    let hash_before = server.authority().state_hash().unwrap();
+    let position_before = server.authority().player_position(players[0]).unwrap();
+
+    // Nhánh submit: lệnh quá hạn nằm ở đầu hàng ⇒ `InputAck.retired = [1]`, không áp dụng.
+    let late = InputBatch {
+        round_id: round,
+        player: 0,
+        ack_snapshot: 0,
+        commands: vec![InputCommand {
+            seq: 1,
+            target_tick: 0,
+            bits: InputBits::new(4, false).unwrap(),
+        }],
+    };
+    send(&mut clients[0], &late);
+    let events = server.poll(200, Duration::from_millis(200)).unwrap();
+    let retired: Vec<(RoomId, RoundId, PlayerId, u32)> = events
+        .iter()
+        .filter_map(|event| match event {
+            crate::InternalServerEvent::InputRetired {
+                room,
+                round,
+                player,
+                seq,
+            } => Some((*room, *round, *player, *seq)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        retired,
+        vec![(room, RoundId(u64::from(round)), players[0], 1)]
+    );
+    // Quan sát không đổi state/hash/applied_seq semantics: retire vẫn tiến ack nhưng không áp dụng.
+    assert_eq!(server.authority().applied_seq(players[0]), Some(1));
+    assert_eq!(server.authority().state_hash(), Some(hash_before));
+    assert_eq!(
+        server.authority().player_position(players[0]),
+        Some(position_before)
+    );
+    // Retire đã báo không được phát lại ở poll sau (cùng tick).
+    let events = server.poll(200, Duration::ZERO).unwrap();
+    assert!(!events.iter().any(|event| matches!(
+        event,
+        crate::InternalServerEvent::InputRetired { seq: 1, .. }
+    )));
+
+    // Nhánh apply_tick: seq 4 đứng sau gap 2–3 nên submit **không** retire nó; gap timeout
+    // retire 2–3 rồi `retire_late` retire 4. Mỗi seq chỉ một event, không nhân đôi.
+    let tick = server.authority().tick().unwrap();
+    let gap = InputBatch {
+        round_id: round,
+        player: 0,
+        ack_snapshot: 0,
+        commands: vec![InputCommand {
+            seq: 4,
+            target_tick: tick.saturating_sub(1),
+            bits: InputBits::new(4, false).unwrap(),
+        }],
+    };
+    send(&mut clients[0], &gap);
+    let events = server.poll(200, Duration::from_millis(200)).unwrap();
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, crate::InternalServerEvent::InputRetired { .. })),
+        "gap chưa hết hạn thì chưa retire"
+    );
+    let events = server.poll(400, Duration::ZERO).unwrap();
+    let retired: Vec<u32> = events
+        .iter()
+        .filter_map(|event| match event {
+            crate::InternalServerEvent::InputRetired { seq, .. } => Some(*seq),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(retired, vec![2, 3, 4]);
+    assert_eq!(server.authority().applied_seq(players[0]), Some(4));
+    let events = server.poll(400, Duration::ZERO).unwrap();
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, crate::InternalServerEvent::InputRetired { .. })),
+        "retire apply_tick không được phát lại"
+    );
 }
 
 #[test]

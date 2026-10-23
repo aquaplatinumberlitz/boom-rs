@@ -276,6 +276,13 @@ pub struct Server {
     by_account: BTreeMap<PlayerId, PlayerId>,
     /// Số batch input bị **bỏ** vì client khai slot khác slot server bind từ phiên.
     input_slot_mismatch: u64,
+    /// `InputRetired` phát sinh ngay trong `InputTrack::submit` (retire đầu hàng khi nhận batch).
+    ///
+    /// `Authority::submit_input` trả các sequence này trong `InputAck.retired` nhưng chỉ
+    /// `apply_tick` phát `InternalServerEvent::InputRetired`. `poll` chuyển chúng thành event
+    /// cùng room/round/account và trả cho caller, để retire của nhánh submit không bị bỏ và
+    /// caller đo `applied_seq` thấy đúng tập đã giải quyết.
+    pending_input_retired: Vec<InternalServerEvent>,
     now_ms: u64,
     next_session: u64,
     /// Auth + store thật; `None` chỉ dành cho test handshake thuần.
@@ -307,6 +314,7 @@ impl Server {
             sessions: BTreeMap::new(),
             by_account: BTreeMap::new(),
             input_slot_mismatch: 0,
+            pending_input_retired: Vec::new(),
             now_ms: 0,
             next_session: 1,
             auth: None,
@@ -672,7 +680,11 @@ impl Server {
             }
         }
         self.flush_liveness(now_ms)?;
-        let events = self.authority.advance_to(now_ms)?;
+        let tick_events = self.authority.advance_to(now_ms)?;
+        // Retire của nhánh `submit` xảy ra khi xử lý frame ở trên, trước tick; trả cùng lượt
+        // gọi này để caller thấy retire trước khi đo `applied_seq`.
+        let mut events = std::mem::take(&mut self.pending_input_retired);
+        events.extend(tick_events);
         self.flush_events()?;
         self.flush_lifecycle(&events)?;
         self.flush_snapshots(now_ms)?;
@@ -792,7 +804,7 @@ impl Server {
                     .authority
                     .submit_input(room_player, &batch, self.now_ms)
                 {
-                    Ok(_) => {}
+                    Ok(ack) => self.queue_input_retired(room_player, ack.retired),
                     Err(crate::InputError::PlayerMismatch { expected, received }) => {
                         // Client khai slot khác slot server bind ⇒ **bỏ** batch + đếm,
                         // không áp dụng và không đổi state (không tin client khai — ADR 0005).
@@ -1512,6 +1524,34 @@ impl Server {
             serde_json::json!(self.input_slot_mismatch),
         );
         logger.warn(events::INPUT_SLOT_MISMATCH, fields);
+    }
+
+    /// Đưa các sequence `InputAck.retired` của nhánh `submit` vào event trả cho caller `poll`.
+    ///
+    /// Retire này đã xảy ra trong `InputTrack::submit` (ADR 0009 §3.3 bước 5), trước mọi tick;
+    /// event chỉ quan sát nên không đổi state/hash/applied_seq. `submit_input` chỉ chạy ở pha
+    /// `Playing` nên room và round public luôn có.
+    fn queue_input_retired(&mut self, player: PlayerId, retired: Vec<u32>) {
+        if retired.is_empty() {
+            return;
+        }
+        let room = self.authority.room_id().expect("pha Playing luôn có phòng");
+        let round = self
+            .authority
+            .current_round_id()
+            .map(|round| RoundId(u64::from(round)))
+            .expect("pha Playing luôn có round public");
+        self.pending_input_retired
+            .extend(
+                retired
+                    .into_iter()
+                    .map(|seq| InternalServerEvent::InputRetired {
+                        room,
+                        round,
+                        player,
+                        seq,
+                    }),
+            );
     }
 
     /// ID phòng **public** (giống `RoomState.room_id` mà client thấy).
