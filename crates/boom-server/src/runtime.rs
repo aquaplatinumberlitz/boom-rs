@@ -802,7 +802,7 @@ mod tests {
     use boom_content::bundle::Cell;
     use boom_proto::dto::auth::{Auth, AuthOk, AuthOp};
     use boom_proto::{
-        Hello, InputBatch, InputBits, InputCommand, LoadingAck, Message, MessageKind,
+        Hello, InputBatch, InputBits, InputCommand, LoadingAck, Message, MessageKind, Ping, Pong,
         RoomAction as RoomActionDto, RoomCharacter, RoomCommand as RoomCommandDto, RoomState,
         RoundStart, Snapshot, Welcome, decode_frame, encode_frame, limits::ProtocolLimits,
         read_envelope,
@@ -860,7 +860,10 @@ empty = "floor"
                 .map_err(|err| err.to_string())
         }
 
-        /// Nhận message đầu tiên có `kind` (bỏ qua message khác).
+        /// Nhận message đầu tiên có `kind`; trả `Pong` cho `Ping` để giữ liveness.
+        ///
+        /// Server gửi `Ping` định kỳ và đóng phiên nếu không nhận `Pong`; fixture không được
+        /// bỏ qua frame này chỉ vì test đang chờ `Snapshot`.
         fn recv_of<M: Message>(&mut self, kind: MessageKind) -> Result<M, String> {
             loop {
                 let frame = self
@@ -869,12 +872,45 @@ empty = "floor"
                     .map_err(|err| err.to_string())?
                     .ok_or_else(|| "server đóng kết nối".to_owned())?;
                 let (envelope, _) = read_envelope(&frame).map_err(|err| err.to_string())?;
+                if envelope.kind == MessageKind::Ping {
+                    let ping: Ping = decode_frame(&frame, &ProtocolLimits::v1())
+                        .map_err(|err| err.to_string())?;
+                    self.send(&Pong(ping.0))?;
+                    continue;
+                }
                 if envelope.kind == kind {
                     return decode_frame(&frame, &ProtocolLimits::v1())
                         .map_err(|err| err.to_string());
                 }
             }
         }
+    }
+
+    #[test]
+    fn client_answers_server_ping_while_waiting_for_pong() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind fixture");
+        let addr = listener.local_addr().expect("địa chỉ fixture");
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept fixture");
+            let mut transport = TcpTransport::from_stream(stream).expect("transport fixture");
+            let ping = encode_frame(&Ping(7), &ProtocolLimits::v1()).expect("encode Ping");
+            transport.send_frame(&ping).expect("gửi Ping");
+            let frame = transport
+                .recv_frame()
+                .expect("đọc Pong")
+                .expect("client phải trả Pong");
+            let (envelope, _) = read_envelope(&frame).expect("envelope Pong");
+            assert_eq!(envelope.kind, MessageKind::Pong);
+            let pong: Pong = decode_frame(&frame, &ProtocolLimits::v1()).expect("decode Pong");
+            assert_eq!(pong.0, 7);
+            let reply = encode_frame(&Pong(7), &ProtocolLimits::v1()).expect("encode Pong");
+            transport.send_frame(&reply).expect("gửi Pong");
+        });
+
+        let mut client = Client::connect(addr).expect("client fixture");
+        let pong: Pong = client.recv_of(MessageKind::Pong).expect("nhận Pong");
+        assert_eq!(pong.0, 7);
+        server.join().expect("thread fixture không panic");
     }
 
     /// Client TCP thật với bộ đệm tự quản.
@@ -1572,6 +1608,87 @@ empty = "floor"
         Err(format!("nhân vật slot {slot} không di chuyển"))
     }
 
+    /// Đọc snapshot Playing có tick **lớn hơn** `min_tick`.
+    ///
+    /// Dùng để chủ động vượt cửa sổ late của input trước khi gửi một lệnh cũ; không sleep.
+    fn read_playing_snapshot_after(
+        client: &mut Client,
+        my_slot: u8,
+        other_slot: u8,
+        min_tick: u32,
+    ) -> Result<(u32, Position, Position), String> {
+        for _ in 0..500 {
+            let snapshot: Snapshot = client.recv_of(MessageKind::Snapshot)?;
+            if snapshot.tick <= min_tick {
+                continue;
+            }
+            let mine = player_position(&snapshot, my_slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {my_slot}"))?;
+            let other = player_position(&snapshot, other_slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {other_slot}"))?;
+            return Ok((snapshot.tick, mine, other));
+        }
+        Err(format!("không có snapshot sau tick {min_tick}"))
+    }
+
+    /// Đọc thêm `ticks` snapshot và khẳng định vị trí `slot` **không đổi**.
+    fn wait_no_move(
+        client: &mut Client,
+        slot: u8,
+        before: Position,
+        ticks: usize,
+    ) -> Result<(), String> {
+        for _ in 0..ticks {
+            let snapshot: Snapshot = client.recv_of(MessageKind::Snapshot)?;
+            let mine = player_position(&snapshot, slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {slot}"))?;
+            if mine != before {
+                return Err(format!(
+                    "lệnh cũ không được di chuyển slot {slot}: {before:?} → {mine:?}"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Gửi lệnh mới theo từng snapshot cho tới khi `slot` di chuyển.
+    ///
+    /// Command cũ có thể tới sau khi server đã vượt `late`; mỗi vòng dùng sequence mới và
+    /// target từ snapshot mới, không resend payload cũ. Vòng đọc snapshot cũng trả `Pong`.
+    fn move_with_fresh_input(
+        client: &mut Client,
+        round_id: u32,
+        claimed_slot: u8,
+        other_slot: u8,
+        before: Position,
+        mut seq: u32,
+        dir: u8,
+    ) -> Result<(Position, Position), String> {
+        for _ in 0..50 {
+            let snapshot: Snapshot = client.recv_of(MessageKind::Snapshot)?;
+            let mine = player_position(&snapshot, claimed_slot)
+                .ok_or_else(|| format!("snapshot không có người chơi slot {claimed_slot}"))?;
+            if mine != before {
+                let other = player_position(&snapshot, other_slot)
+                    .ok_or_else(|| format!("snapshot không có người chơi slot {other_slot}"))?;
+                return Ok((mine, other));
+            }
+            send_move(client, round_id, claimed_slot, seq, snapshot.tick + 1, dir)?;
+            seq += 1;
+            for _ in 0..3 {
+                let next: Snapshot = client.recv_of(MessageKind::Snapshot)?;
+                let mine = player_position(&next, claimed_slot)
+                    .ok_or_else(|| format!("snapshot không có người chơi slot {claimed_slot}"))?;
+                if mine != before {
+                    let other = player_position(&next, other_slot)
+                        .ok_or_else(|| format!("snapshot không có người chơi slot {other_slot}"))?;
+                    return Ok((mine, other));
+                }
+            }
+        }
+        Err(format!("slot {claimed_slot} không di chuyển sau input mới"))
+    }
+
     /// Luồng acceptance: một probe + hai client thật, **join ngược thứ tự kết nối**.
     ///
     /// Mỗi client lấy slot của mình từ `RoundStart.roster` theo `account_id` (không suy từ
@@ -1677,8 +1794,29 @@ empty = "floor"
 
         let (tick_second, before_second, _) =
             read_playing_snapshot(&mut second, slot_second, slot_first)?;
+        // Chủ động đọc vượt cửa sổ late rồi gửi command cũ: snapshot backlog không được
+        // biến fixture thành lệnh stale rồi chờ vô ích.
+        let (stale_tick, _, _) = read_playing_snapshot_after(
+            &mut second,
+            slot_second,
+            slot_first,
+            tick_second.saturating_add(20),
+        )?;
+        if stale_tick <= tick_second {
+            return Err("snapshot chưa vượt cửa sổ late".to_owned());
+        }
         send_move(&mut second, round, slot_second, 1, tick_second + 1, 2)?;
-        let (after_second, _) = wait_move(&mut second, slot_second, slot_first, before_second)?;
+        wait_no_move(&mut second, slot_second, before_second, 3)?;
+        // Sequence mới, target từ snapshot mới; payload cũ không được resend.
+        let (after_second, _) = move_with_fresh_input(
+            &mut second,
+            round,
+            slot_second,
+            slot_first,
+            before_second,
+            2,
+            2,
+        )?;
 
         Ok((
             MoveOutcome {
