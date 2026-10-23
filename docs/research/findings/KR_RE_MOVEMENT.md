@@ -226,12 +226,29 @@ gate virtual **`+164`** phía trước. Predicate khác `0` **không đủ** k�
 
 - **Không** suy được player/bomber đi ra, đi vào, grace hay “không owner toàn hệ thống” từ nhánh pet/AI.
 - **Trong thân `B37DB0` không đọc owner/player/overlap**. `B38370` (`+268`) là getter owner **candidate**;
-  nó chỉ có **xref 14 hàm** (`ACC340`, `AEF700`, `EB73D0`, `EB8000`…), chưa phân loại đủ 14 thân và
+  nó có **xref 14 hàm**; mới phân loại **4/14** (`ACC340`, `AEF700`, `EB73D0`, `EB8000`), 10 thân còn lại **unknown**, và
   **không** được `B37DB0` gọi.
 - `+328` lấy từ descriptor+108; nghĩa/giá trị C00/C01, setter runtime và **thời điểm mất pass/timer**
   vẫn `unknown`. Không suy 40×40/assist từ pet.
 
-### 9.3 Evidence
+### 9.3 Phân loại 4 caller của getter `B38370` (`+268`)
+
+Batch đọc 4 thân ưu tiên trong 14 xref (4/14); không đọc lại hàm R-154:
+
+| Caller | Call `B38370` | Cách dùng `+268` | Kiểm collision/grace trực tiếp? |
+|---|---|---|---|
+| `ACC340` | `0xACC4BA` | gán vào `v20` rồi dựng descriptor event (`AD4A40`/`AD62F0`/`AD9F20`) | **Chưa thấy**; không gọi trực tiếp `B37DB0`/`EA0FD0`/`+152`/`+328` |
+| `AEF700` | `0xAEF904` | **bỏ kết quả**; nhánh bomb/item dùng `B378F0`/`B37880`, đọc `a2+176` | **Chưa thấy** |
+| `EB73D0` | `0xEB75C1` | ghi `*(v74+4)=owner`, truyền `B70C10` dựng effect | **Chưa thấy** |
+| `EB8000` | `0xEB8FA8`, `0xEB910E` | truyền owner vào `B70C10` cho flame/effect | **Chưa thấy** |
+
+- Cả 4 thân chỉ thấy dataflow **descriptor/event, effect/flame hoặc bỏ kết quả**; **chưa thấy kiểm
+  collision/grace trực tiếp** (không gọi trực tiếp predicate `B37DB0`, `EA0FD0`, flag `+152`/`+328`
+  hoặc `MoveSimple`). Helper/callee và **10 xref còn lại chưa loại trừ**.
+- Vì vậy **không tạo R-155**: chưa thấy kết nối trực tiếp `+268` vào collision/grace; player/bomber vẫn
+  `unknown`, không nâng owner thành confirmed.
+
+### 9.4 Evidence
 
 | `evidence_id` | Operation | Dùng cho |
 |---|---|---|
