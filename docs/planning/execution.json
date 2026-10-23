@@ -161,7 +161,7 @@
     {
       "id": "P7",
       "title": "Authority/mạng/phòng",
-      "status": "in_review",
+      "status": "in_progress",
       "owner": "net/backend",
       "depends_on": [
         "P5",
@@ -176,9 +176,9 @@
         "git:42bf8be9e5ae4ffac05c010d72c47c727f8b35b0",
         "git:743e8ea9cdf0b975eb55d814f84bfe75ad746ffc"
       ],
-      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
+      "verification": "Regression trước đây có hội tụ; sau sửa quan sát phải kiểm lại thực thi input. Chưa sign-off pha.",
       "blocker": "",
-      "next_action": "Authority/reconciliation/phòng/recovery và ma trận2/4×3 seed đã tích hợp. Diagnostic PR217 giải thích mốc đo/rejected có giới hạn; sửa submit-retire #218 và theo dõi flake test #219 rồi review G4."
+      "next_action": "Submit-retire PR222 đã merge; phép đo sau fix cho resolved3627/retired3626 nên mở lại V1-027 ở issue226. Sửa rootcause producer/timing, giữ limits/contract; #219 xử lý flake helper; rồi review G4."
     },
     {
       "id": "P8",
@@ -198,7 +198,7 @@
       ],
       "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": "Đang tích hợp/QA V1: 35/37 done, V1-035/036 bị chặn. Chốt G1–G6 theo bằng chứng; chỉ phát hành khi đủ 37 feature và 6 gate."
+      "next_action": "Đang QA/nghiệm thu V1:34/37 done sau khi mở lại V1-027; V1-035/036 bị chặn. G1passed, G2–G6 chưa passed; không phát hành trước đủ acceptance."
     },
     {
       "id": "P9",
@@ -268,17 +268,17 @@
     {
       "id": "G4",
       "title": "Protocol/state",
-      "status": "in_review",
+      "status": "blocked",
       "owner": "core/net",
-      "reviewer": "Codex (chưa sign-off gate)",
+      "reviewer": "Codex — yêu cầu sửa/kiểm lại issue226",
       "evidence": [
         "docs/specification/QA_NETWORK.md",
         "git:743e8ea9cdf0b975eb55d814f84bfe75ad746ffc",
         "git:4c17d85d0b660a9da2db30ab055e96bc6bd6ce15"
       ],
-      "verification": "Ma trận6/6 hội tụ; diagnostic PR217 ghi31 DTO BadSequence quanh chuyển lượt, reason thật unknown. Metric tạo→giải quyết có lỗ hổng submit-retire #218 cần sửa; chưa latency budget pass. Còn gate sign-off contract/recovery.",
+      "verification": "PR222 đã sửa event retire; runfa1291b resolved3627/retired3626, chỉ1mẫuapplied. Converged không chứng minh input hoạt động. Cần rootcause/acceptance226, theo dõi219 và gate sign-off.",
       "integration_commit": "",
-      "blocker": ""
+      "blocker": "V1-027 mở lại: lệnh input gần hết bị retire trong fixture scope-v1, cần kiểm producer/timing; chưa đặt latency budget pass."
     },
     {
       "id": "G5",
@@ -306,9 +306,9 @@
         "docs/planning/PROGRESS.md",
         "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
       ],
-      "verification": "V1-035/V1-036 chưa done, G1–G5 chưa passed; còn nghiệm thu gói cuối ba OS và sign-off release.",
+      "verification": "V1-027 mở lại ở226; V1-035/V1-036 chưa done; G2–G5 chưa passed; còn gói cuối3OS/sign-off.",
       "integration_commit": "",
-      "blocker": "V1-035/V1-036 chưa done, G1–G5 chưa passed; còn nghiệm thu gói cuối ba OS và sign-off release."
+      "blocker": "V1-027 mở lại ở226; V1-035/V1-036 chưa done; G2–G5 chưa passed; còn gói cuối3OS/sign-off."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"
