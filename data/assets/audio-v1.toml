@@ -6,11 +6,12 @@
 # Cột nhãn (AGENTS §4):
 # - `source`: nguồn của **entry** được trỏ tới (`kr_static`: entry có thật trong pack
 #   `FxSound` của build KR 00967; 15 entry V1 có SHA-256 trùng ở KR và VN — AUDIO_V1 §5).
-# - `status`: mức bằng chứng của **mapping** event → entry. Phần lớn mapping chưa có
-#   consumer gốc xác nhận event nào phát entry nào ⇒ là quyết định của V1 (`design`,
-#   R-082). Ngoại lệ `player_trapped`: consumer solo đã xác nhận id 77 (R-203/R-204)
-#   nên mapping `confirmed`. Policy voice/priority/dedup/loop vẫn là `design` R-083,
-#   không được suy thành confirmed từ mapping này.
+# - `status`: mức bằng chứng của **mapping** event → entry. Phần lớn dòng giữ `design`:
+#   đây là lựa chọn V1 chưa nâng nhãn/áp đầy đủ đối chiếu consumer (R-082), **không**
+#   có nghĩa client KR/VN không có consumer. R-204 đã tìm consumer cho một số event
+#   (nổ 7/8, đặt 9, chết 42, item 68/69); #206 chỉ nâng riêng mapping `player_trapped`
+#   (consumer solo id 77, R-203/R-204) sang `confirmed`. Policy voice/priority/dedup/loop
+#   vẫn là `design` R-083, không được suy thành confirmed từ mapping này.
 #   Riêng BGM: entry/mapping `MP3/Village` đã xác nhận (R-081), nhưng policy loop một
 #   voice là `design` (R-083) ⇒ dòng này vẫn `design`.
 # - `claims`: claim RULES_V1; `note`: lý do, giới hạn, ứng viên.
@@ -35,7 +36,7 @@ entry = "Wave/Cha_BombIgnite"
 source = "kr_static"
 claims = ["R-082"]
 status = "design"
-note = "tên fuse/ignite; chưa có trace consumer gốc"
+note = "R-204 có consumer 9/344 (tuyết); V1 giữ design, chưa nâng nhãn/áp đầy đủ đối chiếu"
 
 [[cues]]
 event = "bomb_exploded"
@@ -43,7 +44,7 @@ entry = "Wave/BombExplosion001"
 source = "kr_static"
 claims = ["R-082"]
 status = "design"
-note = "entry nổ chuẩn; pack có nhiều biến thể 001…032, chưa rõ quy tắc"
+note = "R-204 có consumer 7/8 (tuyết 343); BombExplosion001/471 không thấy consumer native trực tiếp (R-208); V1 giữ design"
 
 [[cues]]
 event = "item_revealed"
@@ -51,7 +52,7 @@ entry = "Wave/Itm_ItemPop"
 source = "kr_static"
 claims = ["R-082"]
 status = "design"
-note = "item lộ ra khỏi khối; design V1"
+note = "R-204 có consumer 69; V1 giữ design, chưa nâng nhãn"
 
 [[cues]]
 event = "item_picked"
@@ -59,7 +60,7 @@ entry = "Wave/Itm_ItemEaten"
 source = "kr_static"
 claims = ["R-082"]
 status = "design"
-note = "dùng chung Bomb/Fire/Roller; chưa có entry riêng cho V1"
+note = "R-204 có consumer 68; dùng chung Bomb/Fire/Roller, chưa có entry riêng cho V1"
 
 [[cues]]
 event = "player_trapped"
@@ -75,7 +76,7 @@ entry = "Wave/Cha_Die"
 source = "kr_static"
 claims = ["R-082"]
 status = "design"
-note = "entry chết chung; chưa có trace consumer gốc"
+note = "R-204 có consumer 42; V1 giữ design, chưa nâng nhãn/áp đầy đủ đối chiếu"
 
 [[cues]]
 event = "round_ended_win"
@@ -91,7 +92,7 @@ entry = "Wave/Ntc_Lose"
 source = "kr_static"
 claims = ["R-082"]
 status = "design"
-note = "thua; chưa có trace consumer gốc"
+note = "R-205 có consumer 78 và remap khi guard bật; V1 giữ design"
 
 [[cues]]
 event = "round_ended_draw"
@@ -99,7 +100,7 @@ entry = "Wave/Ntc_Draw"
 source = "kr_static"
 claims = ["R-082"]
 status = "design"
-note = "hòa; chưa có trace consumer gốc"
+note = "R-205 có consumer 43 và remap khi guard bật; V1 giữ design"
 
 [[cues]]
 event = "start_count_3"

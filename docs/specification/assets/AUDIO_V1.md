@@ -22,7 +22,8 @@ câu hỏi còn mở: [QUESTIONS](../../research/QUESTIONS.md) Q-015.
   quyết định phát SFX (server chỉ gửi event gameplay). Trước #196, **R-081 chỉ confirmed entry/mapping
   BGM**; loop/một voice và mapping event→entry, policy chồng tiếng là **design** (R-083/R-082). Sau
   lượt RE #196/#206, riêng mapping `player_trapped`→id 77 đã có consumer `kr_static` confirmed;
-  các mapping còn lại và policy chồng tiếng vẫn **design**.
+  các mapping còn lại vẫn **design** dù R-204 đã có consumer cho một số event, và policy chồng
+  tiếng vẫn **design**.
 - **Cập nhật 2026-10-23 (#196)**: đã trace consumer SFX phía client KR (bảng id tĩnh + dispatcher
   `0xD1CD10`): nổ **7/8/343**, nhốt **77/37**, chết **42**, item **68/69**, trap **174**; round-end/start
   remap `rand()%N+base` **chỉ khi guard `sub_76FBF0` bật** (guard tắt giữ id; modulo bias); BGM lấy tên
@@ -56,25 +57,26 @@ loader chung `boom_content::assets`. Trước đó bảng là khai báo Rust tro
 Bảng trong tài liệu này và bảng trong file data phải giống nhau — đổi một bảng thì đổi
 cả hai.
 
-Nhãn `design` trong bảng có nghĩa: entry có thật (đã kiểm hash ở §5), nhưng **chưa có bằng chứng
-consumer gốc** chọn entry đó cho event; đây là quyết định V1-034. Ngoại lệ duy nhất là
-`player_trapped` mang `confirmed`: consumer solo `0xB42D60` phát id 77 (`R-204`); nhánh couple id 37
-ngoài scope FFA. Việc V1 không phát thêm `Ntc_Help2` (444 — điều kiện `[this+0x2788]` riêng) và policy
-voice/priority/dedup/loop là quyết định `design` R-083, **không** phải kết luận client KR/FFA không có
-tiếng help. Nhãn `confirmed` chỉ nói về **mapping event→entry**, không nói policy.
-`unknown` là chưa chọn được entry, giữ im lặng tạm thời và
-theo dõi ở Q-015. Event core lấy từ `boom_core::EventKind`; các dòng `start_*`/`ui_click` là event
-trình diễn UI, không phải `EventKind`.
+Nhãn `design` trong bảng có nghĩa: entry có thật (đã kiểm hash ở §5) và V1 **giữ lựa chọn này,
+chưa nâng nhãn/áp đầy đủ đối chiếu consumer**; đây là quyết định V1-034, **không** có nghĩa client
+KR/VN không có consumer. R-204 đã tìm consumer cho một số event (nổ 7/8, đặt 9, chết 42, item 68/69);
+#206 chỉ nâng riêng mapping `player_trapped` sang `confirmed`: consumer solo `0xB42D60` phát id 77
+(`R-204`), nhánh couple id 37 ngoài scope FFA. Việc V1 không phát thêm `Ntc_Help2` (444 — điều kiện
+`[this+0x2788]` riêng) và policy voice/priority/dedup/loop là quyết định `design` R-083, **không**
+phải kết luận client KR/FFA không có tiếng help. Nhãn `confirmed` chỉ nói về **mapping event→entry**,
+không nói policy. `unknown` là chưa chọn được entry, giữ im lặng tạm thời và theo dõi ở Q-015. Event
+core lấy từ `boom_core::EventKind`; các dòng `start_*`/`ui_click` là event trình diễn UI, không phải
+`EventKind`.
 
 | Event V1 | EventKind / nguồn | Entry | Nhãn | Ghi chú |
 |---|---|---|---|---|
 | `bgm_loop` | BGM theo map (R-070) | `MP3/Village` | `design` | Entry/mapping confirmed R-081; loop policy design R-083 |
-| `bomb_placed` | `EventKind::BombPlaced` | `Wave/Cha_BombIgnite` | `design` | Tên fuse/ignite; chưa có trace consumer |
-| `bomb_exploded` | `EventKind::BombExploded` | `Wave/BombExplosion001` | `design` | Pack có `001…032`; chưa rõ biến thể, `chained` dùng cùng entry |
-| `item_revealed` | `EventKind::ItemRevealed` | `Wave/Itm_ItemPop` | `design` | Item lộ ra khỏi khối |
-| `item_picked` | `EventKind::ItemPicked` (Bomb/Fire/Roller) | `Wave/Itm_ItemEaten` | `design` | Một entry chung; chưa có entry riêng cho ba item V1 |
+| `bomb_placed` | `EventKind::BombPlaced` | `Wave/Cha_BombIgnite` | `design` | R-204 có consumer 9 (tuyết 344); V1 giữ design, chưa nâng nhãn/áp đầy đủ đối chiếu |
+| `bomb_exploded` | `EventKind::BombExploded` | `Wave/BombExplosion001` | `design` | R-204 có consumer 7/8 (tuyết 343); `BombExplosion001`/471 không thấy consumer native trực tiếp; V1 giữ design |
+| `item_revealed` | `EventKind::ItemRevealed` | `Wave/Itm_ItemPop` | `design` | R-204 có consumer 69; V1 giữ design, chưa nâng nhãn |
+| `item_picked` | `EventKind::ItemPicked` (Bomb/Fire/Roller) | `Wave/Itm_ItemEaten` | `design` | R-204 có consumer 68; một entry chung, chưa có entry riêng cho ba item V1 |
 | `player_trapped` | `EventKind::PlayerTrapped` | `Wave/Cha_LockedIn` | `confirmed` | Consumer solo `0xB42D60` phát id 77 (R-204); nhánh couple 37 ngoài scope FFA. V1 không phát 444 help (điều kiện riêng) và policy voice là design R-083 — không kết luận KR/FFA không có help |
-| `player_died` | `EventKind::PlayerDied` | `Wave/Cha_Die` | `design` | Entry chết chung; chưa có trace consumer |
+| `player_died` | `EventKind::PlayerDied` | `Wave/Cha_Die` | `design` | R-204 có consumer 42; V1 giữ design, chưa nâng nhãn/áp đầy đủ đối chiếu |
 | `round_ended_win` | `EventKind::RoundEnded { Win }` | `Wave/Ntc_Win` | `design` | Có thêm `MP3/Ntc_Win`; V1 chọn bản Wave |
 | `round_ended_lose` | `EventKind::RoundEnded { Lose }` | `Wave/Ntc_Lose` | `design` | Có thêm `MP3/Ntc_Lose`; V1 chọn bản Wave |
 | `round_ended_draw` | `EventKind::RoundEnded { Draw }` | `Wave/Ntc_Draw` | `design` | Có thêm `MP3/Ntc_Draw`; V1 chọn bản Wave |
@@ -162,8 +164,8 @@ stem `fx`/bảng khóa VN và kiểm trên pack VN thật, ngoài phạm vi KR c
 
 - Bundle schema 4 và client đã nối audio; kiểm tay BGM cần bundle thật + pack local (không commit
   asset).
-- Phần lớn event→entry chưa xác nhận bằng consumer gốc; `player_trapped` đã có consumer solo
-  (R-203/R-204). Q-015 vẫn cần trace/đối chiếu cho các event còn lại trước khi nâng R-082.
+- Phần lớn mapping vẫn `design` dù R-204 đã có consumer cho một số event; #206 chỉ nâng riêng
+  `player_trapped` (R-203/R-204). Q-015 vẫn cần rà/đối chiếu đầy đủ trước khi nâng các dòng khác.
 - Chưa xác nhận 8 voice/priority bằng client gốc; R-083 là design, có thể đổi khi có trace.
 - Chưa xử lý biến thể `BombExplosion001…032`, tiếng bước/quay, vỡ gạch, item bị lửa phá; hiện để
   trống/im lặng và ghi Q-015.
