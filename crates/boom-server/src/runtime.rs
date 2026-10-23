@@ -1631,14 +1631,14 @@ empty = "floor"
         Err(format!("không có snapshot sau tick {min_tick}"))
     }
 
-    /// Đọc thêm `ticks` snapshot và khẳng định vị trí `slot` **không đổi**.
+    /// Đọc thêm `snapshots` frame `Snapshot` và khẳng định vị trí `slot` **không đổi**.
     fn wait_no_move(
         client: &mut Client,
         slot: u8,
         before: Position,
-        ticks: usize,
+        snapshots: usize,
     ) -> Result<(), String> {
-        for _ in 0..ticks {
+        for _ in 0..snapshots {
             let snapshot: Snapshot = client.recv_of(MessageKind::Snapshot)?;
             let mine = player_position(&snapshot, slot)
                 .ok_or_else(|| format!("snapshot không có người chơi slot {slot}"))?;
@@ -1787,15 +1787,24 @@ empty = "floor"
 
         // Mỗi client đi theo **hướng khác nhau**: điều này chứng minh đúng nhân vật di
         // chuyển (đi ngang làm `x` đổi, đi dọc làm `y` đổi) chứ không chỉ "có ai đó đi".
-        let (tick_first, before_first, _) =
+        let (_tick_first, before_first, _) =
             read_playing_snapshot(&mut first, slot_first, slot_second)?;
-        send_move(&mut first, round, slot_first, 1, tick_first + 1, 4)?;
-        let (after_first, _) = wait_move(&mut first, slot_first, slot_second, before_first)?;
+        // Cả hai client dùng producer mới: target/sequence lấy từ snapshot mới, không
+        // gửi một lệnh từ snapshot đầu rồi chờ vô ích khi backlog đã vượt late.
+        let (after_first, _) = move_with_fresh_input(
+            &mut first,
+            round,
+            slot_first,
+            slot_second,
+            before_first,
+            1,
+            4,
+        )?;
 
         let (tick_second, before_second, _) =
             read_playing_snapshot(&mut second, slot_second, slot_first)?;
-        // Chủ động đọc vượt cửa sổ late rồi gửi command cũ: snapshot backlog không được
-        // biến fixture thành lệnh stale rồi chờ vô ích.
+        // Test clock dùng tick snapshot; protocol hiện có INPUT_LATE = 6 tick. +20 bảo đảm
+        // command seq1 bên dưới đã ra ngoài cửa sổ, không phụ thuộc wall-clock/scheduler.
         let (stale_tick, _, _) = read_playing_snapshot_after(
             &mut second,
             slot_second,
