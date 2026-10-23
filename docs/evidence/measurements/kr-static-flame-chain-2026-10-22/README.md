@@ -109,3 +109,29 @@ imagebase `0x00400000`, `RVA = VA − 0x400000`. REA `provider: ida` trên bản
 (`B391E0`, `EC2420`, `ED28C0`, `ED6FD0`, `EC1130`); update còn slot `+176/+164/+168/+172` chưa đọc
 và helper/callee chưa đọc nên **consumer vẫn `unknown`**, không loại trừ đường gián tiếp. Damage một
 lần hay cửa sổ, value/unit/cadence vẫn **unknown**; không đổi `bomb.flame_ms`/`bomb.fuse_ms`.
+
+## Lượt 2026-10-24 (phiên 2) — virtual callee `CGOBomb` update (message 27/damage)
+
+Build KR `00967`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`,
+base `0x00400000`, `RVA = VA − 0x400000`. Không đọc lại `B391E0`/`EC2420`/`EC1130`/`ED28C0`/`ED6FD0`.
+Vtable đọc trực tiếp từ file `.re-tmp/kr-full.exe` (parse PE, `.rdata`), không phải decompile.
+
+| Byte offset | Slot | Entry VA | RVA entry | Target | RVA target | Quan sát |
+|---:|---:|---|---|---|---|---|
+| `+0xA4` | 41 | `0x01744310` | `0x01344310` | `0x00B393D0` | `0x007393D0` | state 1; animation + `sub_E9C520` khi state 4; không msg27/damage |
+| `+0xA8` | 42 | `0x01744314` | `0x01344314` | `0x00B39AF0` | `0x00739AF0` | state 2; animation + `sub_E9C520`; không msg27/damage |
+| `+0xAC` | 43 | `0x01744318` | `0x01344318` | `0x00B3A3B0` | `0x0073A3B0` | state 3; ô + `sub_E9C520` + `sub_EA0790` (ô kề); không msg27/damage |
+| `+0xB0` | 44 | `0x0174431C` | `0x0134431C` | `0x00B3A790` | `0x0073A790` | nhánh 0/3/4; `sub_E9C520(this+36)` + effect slot `+200/+208`; không msg27/damage |
+
+Vtable base `0x0174426C` (CGOBomb; slot 24 = `0x00B391E0`). Bản thứ hai `0x0174727C`: slot 43 =
+`0x00B994C0` (chưa đọc), các slot còn lại giống.
+
+`evidence_id`: `ev_5c9de206787a5d0f99155da76d8fee85a98e0b8e70dd31c0a857146540c32856`
+(`B3A790`+`B3A3B0`), `ev_3f712b954329f16d037f1a5e08d1e3ab9aee130fbed3baa781f771305627c1fd`
+(`B393D0`+`B39AF0`). Call context `B391E0` lấy từ evidence dsh1
+`.re-work/evidence-r154-bombpass-146.json` (read-only), không decompile lại.
+
+**Kết luận**: 4 virtual callee của update là **đường phát** explosion/animation/effect; **không** xử lý
+message 27, **không** kiểm bomber-vs-ô-lửa/damage. Damage event-time hay cửa sổ vẫn `unknown`; các
+callee khác của `E9C520`/consumer message 27 chưa nối. Không dùng `500`/`2500` ms/animation `B711C0`
+làm luật damage. Ngân sách: 2 call batch (4 thân) + 1 mở REA; vtable đọc bytes file.
