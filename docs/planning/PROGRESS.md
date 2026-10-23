@@ -49,7 +49,7 @@ Chỉ release khi feature V1 đã nghiệm thu, tất cả gate passed và P8 do
 | G1 Content/map | passed | assets/RE | [BUNDLES.md](<../../docs/specification/assets/BUNDLES.md>); [village00-kr.toml](<../../data/maps/village00-kr.toml>); `891c7c7d3d76` |
 | G2 Movement/stats | in_review | RE/core | [0013-rule-source-precedence.md](<../../docs/decisions/0013-rule-source-precedence.md>); [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); [v1-dev.toml](<../../data/rules/v1-dev.toml>) |
 | G3 Bomb/damage/items | in_review | RE/core | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); [v1-dev.toml](<../../data/rules/v1-dev.toml>); [warmup_freezes_round.toml](<../../fixtures/scenarios/round/warmup_freezes_round.toml>); `bcd6362b64ff` |
-| G4 Protocol/state | in_review | core/net | [QA_NETWORK.md](<../../docs/specification/QA_NETWORK.md>); `743e8ea9cdf0` |
+| G4 Protocol/state | in_review | core/net | [QA_NETWORK.md](<../../docs/specification/QA_NETWORK.md>); `743e8ea9cdf0`; `4c17d85d0b66` |
 | G5 UX/localization | blocked | client/QA | [UI_STRINGS_V1.md](<../../docs/specification/localization/UI_STRINGS_V1.md>); [l10n_review_v1.py](<../../tools/l10n_review_v1.py>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `2b86a87fb4f4` |
 | G6 Release toàn bộ V1 | blocked | QA/integrator | [PROGRESS.md](<../../docs/planning/PROGRESS.md>); `303ab49a07c2` |
 

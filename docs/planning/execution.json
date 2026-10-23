@@ -92,7 +92,7 @@
       ],
       "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": "Rà readiness hồi cứu sau các task V1 đã tích hợp; review audit #208/PR211, không tự đặt done vì prototype đã chạy."
+      "next_action": "Audit readiness/gate PR211 đã merge và G1 đã sign-off riêng. Còn kết luận readiness hồi cứu cho các pha, không đặt done chỉ vì prototype đã chạy."
     },
     {
       "id": "P4",
@@ -178,7 +178,7 @@
       ],
       "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": "Authority/reconciliation/phòng/recovery đã tích hợp; đủ ma trận 2/4×3 seed. Phân tích số đo/input rejected #215 và review G4 trước sign-off pha."
+      "next_action": "Authority/reconciliation/phòng/recovery và ma trận2/4×3 seed đã tích hợp. Diagnostic PR217 giải thích mốc đo/rejected có giới hạn; sửa submit-retire #218 và theo dõi flake test #219 rồi review G4."
     },
     {
       "id": "P8",
@@ -273,9 +273,10 @@
       "reviewer": "Codex (chưa sign-off gate)",
       "evidence": [
         "docs/specification/QA_NETWORK.md",
-        "git:743e8ea9cdf0b975eb55d814f84bfe75ad746ffc"
+        "git:743e8ea9cdf0b975eb55d814f84bfe75ad746ffc",
+        "git:4c17d85d0b660a9da2db30ab055e96bc6bd6ce15"
       ],
-      "verification": "6/6 lượt steady 2/4×3 seed hội tụ; chưa là latency budget pass. Còn phân tích input/rejected #215 và gate sign-off contract/recovery.",
+      "verification": "Ma trận6/6 hội tụ; diagnostic PR217 ghi31 DTO BadSequence quanh chuyển lượt, reason thật unknown. Metric tạo→giải quyết có lỗ hổng submit-retire #218 cần sửa; chưa latency budget pass. Còn gate sign-off contract/recovery.",
       "integration_commit": "",
       "blocker": ""
     },
