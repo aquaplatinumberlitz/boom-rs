@@ -265,21 +265,23 @@ này = `0x00B391E0`, khớp update; các entry liên quan:
 | `+0xB0` | 44 | `0x0174431C` | `0x00B3A790` | update gọi ở nhánh state 0/3/4 (trước switch) |
 
 Bản vtable thứ hai `0x0174727C` cũng có slot 24 = `B391E0`, slot 41/42/44 giống, **slot 43 =
-`0x00B994C0`** (biến thể lớp khác; chưa đọc). Không suy entry của receiver khác.
+`0x00B994C0`** (bảng vtable thứ hai; **lớp/receiver chưa xác nhận**, entry chưa đọc). Không suy entry của receiver khác.
 
 ### 10.2. Quan sát 4 thân (đã đọc)
 
 - **`B3A790` (slot 44)**: lấy map `sub_E13290(*(this+106))`, tính ô từ `sub_B335C0/E0 / 40`, đặt
-  helper map, gọi **`sub_E9C520(this+36)`** (`0xB3AA67`) = `CalcBombDirectionExplosion` (R-139), spawn
-  effect qua slot `+200/+208`. **Chưa thấy** đọc/so message 27 hay kiểm bomber/ô lửa trong thân.
+  helper map, gọi **`sub_E9C520(this+36)`** (`0xB3AA67`) = `CalcBombDirectionExplosion` (R-139), rồi
+  gọi **virtual `+200/+208`** với tham số lấy từ thân; **chức năng hai virtual chưa xác nhận**
+  (`candidate`; chưa có locator/type proof cho hai virtual). **Chưa thấy** đọc/so message 27 hay kiểm
+  bomber/ô lửa trong thân.
 - **`B393D0` (slot 41) và `B39AF0` (slot 42)**: máy trạng thái 0..4 + bảng animation
   (`dword_19A54D0/19A550C…`, `dword_19A5628/19A5650…`), cập nhật vị trí/nảy; khi state = 4 và bomb
   đúng ô thì gọi **`sub_E9C520`**. **Chưa thấy** đọc/so message 27 hay kiểm bomber/damage trong thân.
-- **`B3A3B0` (slot 43)**: tính ô, gọi **`sub_E9C520`**, đặt `this[73] = sub_EA0790(...)` cho object ở
-  ô kề. `EA0790` **chưa đọc** nên **chưa xác nhận** đây là kiểm bomber hay object/type khác — giữ
-  **candidate**, không tự loại bomber. **Chưa thấy** đọc message 27/damage trong thân.
+- **`B3A3B0` (slot 43)**: tính ô, gọi **`sub_E9C520`**, đặt `this[73] = sub_EA0790(...)` với **toạ độ ô
+  kề**. `EA0790` **chưa đọc** nên predicate/return **chưa rõ** — chưa gán là kiểm object hay bomber
+  (**candidate**), không tự loại bomber. **Chưa thấy** đọc message 27/damage trong thân.
 - Trong bốn thân đã đọc, không thấy consumer message 27; chúng gọi `E9C520` (đăng ký ô) và/hoặc chạy
-  animation/effect. **Không** kết luận toàn bộ callee/virtual bên trong là producer.
+  animation và/hoặc virtual chưa đọc. **Không** kết luận toàn bộ callee/virtual bên trong là producer.
 
 ### 10.3. Kết luận / unknown
 
