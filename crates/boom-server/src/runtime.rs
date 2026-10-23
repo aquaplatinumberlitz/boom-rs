@@ -1587,27 +1587,6 @@ empty = "floor"
         step("gửi InputBatch", client.send(&batch))
     }
 
-    /// Chờ tới khi vị trí `slot` khác `before`; trả vị trí mới và vị trí người chơi khác.
-    fn wait_move(
-        client: &mut Client,
-        slot: u8,
-        other_slot: u8,
-        before: Position,
-    ) -> Result<(Position, Position), String> {
-        for _ in 0..500 {
-            let snapshot: Snapshot = client.recv_of(MessageKind::Snapshot)?;
-            let mine = player_position(&snapshot, slot)
-                .ok_or_else(|| format!("snapshot không có người chơi slot {slot}"))?;
-            if mine == before {
-                continue;
-            }
-            let other = player_position(&snapshot, other_slot)
-                .ok_or_else(|| format!("snapshot không có người chơi slot {other_slot}"))?;
-            return Ok((mine, other));
-        }
-        Err(format!("nhân vật slot {slot} không di chuyển"))
-    }
-
     /// Đọc snapshot Playing có tick **lớn hơn** `min_tick`.
     ///
     /// Dùng để chủ động vượt cửa sổ late của input trước khi gửi một lệnh cũ; không sleep.
@@ -2003,14 +1982,22 @@ empty = "floor"
 
         let (tick_first, before_first, _) =
             read_playing_snapshot(&mut first, slot_first, slot_second)?;
-        let (tick_second, before_second, _) =
+        let (_tick_second, before_second, _) =
             read_playing_snapshot(&mut second, slot_second, slot_first)?;
 
         // `first` khai slot của `second` ⇒ batch phải bị bỏ, không ai di chuyển.
         send_move(&mut first, round, slot_second, 1, tick_first + 1, 4)?;
-        // `second` gửi lệnh hợp lệ của mình: nó vẫn phải di chuyển.
-        send_move(&mut second, round, slot_second, 1, tick_second + 1, 2)?;
-        let (after_second, _) = wait_move(&mut second, slot_second, slot_first, before_second)?;
+        // `second` gửi lệnh hợp lệ của mình qua producer fresh (sequence/target mới):
+        // nó vẫn phải di chuyển dù snapshot backlog.
+        let (after_second, _) = move_with_fresh_input(
+            &mut second,
+            round,
+            slot_second,
+            slot_first,
+            before_second,
+            1,
+            2,
+        )?;
 
         // Chờ thêm vài snapshot rồi kiểm `first` **không** di chuyển.
         let mut first_moved = false;
