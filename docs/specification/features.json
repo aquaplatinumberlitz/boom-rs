@@ -1140,7 +1140,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "done",
       "owner": "qa",
       "depends_on": [
         "V1-025",
@@ -1150,12 +1150,12 @@
       "acceptance": "Chạy 4 client qua RTT100ms, jitter0–30ms, loss1%, duplicate/reorder có kiểm soát; không diverge vĩnh viễn.",
       "open_questions": "Transport chưa chốt; loss/reorder có thể nằm lớp dưới nếu dùng TCP.",
       "tracking": {
-        "assignee": "opencode-1",
-        "reviewer": "Codex",
+        "assignee": "opencode-1/dsh1 (fix); Codex (QA)",
+        "reviewer": "Codex (code); dsh2 (nghiệm thu)",
         "updated_at": "2026-10-24",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "e0dcdfc31e8eb49d0163bbb230eedb100db270df",
         "evidence": [
           "git:ea7c0070fbb06b4c7dc87ae5150d3195fd70851a",
           "docs/specification/QA_NETWORK.md",
@@ -1164,19 +1164,20 @@
           "git:42bf8be9e5ae4ffac05c010d72c47c727f8b35b0",
           "git:e6a1b27ceff28afe58221d87417a5abae9ed44df",
           "git:fa1291baa638bd07f5c3b21c753378acca7b44c7",
-          "docs/specification/QA_NETWORK.md"
+          "git:e0dcdfc31e8eb49d0163bbb230eedb100db270df",
+          "git:ed16335c889e87fe23bf7a467f70524d11b03746"
         ],
         "verification": {
-          "status": "failed",
-          "command": "cargo run -p boom-qa -- --profile scope-v1 --clients 2 --seed 1 --json-out local/qa-submit-retire-check/2-1.json",
-          "result": "CLI exit0 tại fa1291b nhưng nghiệm thu input cần mở lại: resolved3627/retired3626, latency.count1, converged/drainedtrue; reportSHA1ab40eae…eb02a, issue226 có lệnh/metadata. Build xanh không khắc phục thiếu chứng minh gameplay input."
+          "status": "passed",
+          "command": "cargo test -p boom-client net::tests::; cargo test -p boom-client net::prediction::tests::; cargo xtask ci; for c in 2 4; do for s in 1 2 3; do cargo run -p boom-qa -- --profile scope-v1 --clients \"$c\" --seed \"$s\"; done; done",
+          "result": "PR #230 r3: 12 job CI/smoke trên ba OS xanh; Codex kiểm 31 test mạng r3, 16 test predictor r2 và đối chứng clock đỏ/xanh. Sáu run, một lần mỗi tổ hợp, hai lượt mỗi bot: đủ hash 2/2 hoặc 4/4, ack hai bảng, hội tụ/drain, không timeout. Tổng 13.837 sequence resolved, 0 retire; latency.count = resolved − retired. SHA từng JSON, 286 input reject, 9 room reject và correction được giữ trong QA_NETWORK. dsh2 kiểm độc lập JSON và sign-off ở issue #226."
         },
         "review": {
-          "status": "changes_requested",
-          "result": "Codex mở lại acceptance sau phép đo độc lập post-PR222, issue226. Các approval172/174/182 là lịch sử implementation/recovery, không thay nghiệm thu input với số đo đã sửa."
+          "status": "approved",
+          "result": "Codex approve code ed16335 tại PR230 sau red/green scheduler control; dsh2 sign-off độc lập báo cáo SHA 319ed73a8f392f79193deff542e70e02037807e05d5bc03c493926bb0ffd46b8 và V1-027/G4: https://github.com/aquaplatinumberlitz/boom-rs/issues/226#issuecomment-6371735581"
         },
-        "blocker": "QA post-PR222 gần hết input bị retire; hash hội tụ chưa đủ chứng minh điều khiển trong fixture. Issue226 đang tìm rootcause.",
-        "next_action": "Issue226: phân biệt producer bot/fixture với predictor chung, tái hiện clock/target_tick/window, sửa có bằng chứng và kiểm lệnh hợp lệ thực sự áp dụng. Không tăng limits hoặc bỏ retired để làm số đẹp; không đổi luật KR."
+        "blocker": "",
+        "next_action": "Đạt nghiệm thu V1-027 sau PR #230 và ma trận sáu tổ hợp 2/4 bot × seed 1/2/3. Giữ giới hạn Linux fixture, correction và reject trong QA_NETWORK; không coi đây là SLA hoặc fidelity KR."
       }
     },
     {
@@ -1568,8 +1569,8 @@
           "status": "pending",
           "result": "Phần code đã được review trong các PR dẫn ở evidence; nghiệm thu feature cuối còn chờ nội dung V1 được người duyệt chấp nhận."
         },
-        "blocker": "V1-035 chưa duyệt nội dung; V1-027 mở lại ở issue226; còn smoke gói cuối ba OS sau khi hai dependency done.",
-        "next_action": "Chờ V1-027 sửa/kiểm lại input QA và V1-035 duyệt nội dung; sau cả hai done chạy smoke gói cuối Windows/Linux/macOS rồi review nghiệm thu."
+        "blocker": "V1-035 chưa duyệt text/ảnh dùng trong luồng; còn smoke gói cuối ba OS sau khi chốt nội dung. V1-027 đã nghiệm thu sau PR230 và ma trận kiểm lại.",
+        "next_action": "Chờ V1-035 được nghiệm thu; sau đó build/smoke gói cuối Windows/Linux/macOS. Giữ dependency V1-027 đã done."
       }
     },
     {

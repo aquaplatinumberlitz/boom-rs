@@ -487,6 +487,57 @@ latency p50/p95 = 87/112 ms (1831 mẫu), RTT p50/p95 = 158/194 ms (22 mẫu), `
 `room_rejected=1`. Đây chỉ là quan sát hồi quy trên Linux local, **không** đặt ngưỡng latency,
 không thay ma trận sáu tổ hợp và không chứng minh G4/V1-027.
 
+### Ma trận kiểm lại #226 — 2026-10-24 (Codex)
+
+Đo độc lập trên Linux 7.2.9-2-cachyos, Rust 1.99.0 (b940084d7), code
+ed16335c889e87fe23bf7a467f70524d11b03746 (PR #230 r3). Sáu tổ hợp chạy **tuần tự, mỗi tổ hợp một lần**,
+giữ scope-v1 và mặc định hai lượt; không tăng window/late hoặc đổi rules/profile.
+
+```sh
+cargo build -p boom-qa
+for c in 2 4; do for s in 1 2 3; do
+  target/debug/boom-qa --profile scope-v1 --clients "$c" --seed "$s" \
+    --json-out local/qa-network-post226/"$c"-"$s".json
+done; done
+```
+
+Thực tế build bằng CARGO_TARGET_DIR=/home/admin/boom-team/tmp/target-review; binary ở thư mục
+debug của target đó. Raw JSON/log/exit và manifest.json giữ local trong worktree review
+/home/admin/boom-rs-wt/review-pr230-r2/local/qa-network-post226/, không commit artifact.
+SHA-256 executable: b24b21d6fe24294d8a9c5f2042c3d15f79e9a66fa66aa1fcc85d221cc640ac53.
+
+| Bot | Seed | Thời gian ms | Sent batch | Resolved/retired seq | Latency p50/p95 ms | RTT p50/p95 ms | Correction p50/p95 mpx | Input/room rejected |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2 | 1 | 20520 | 1801 | 1593/0 | 87/109 | 157/195 | 0/18000 | 30/0 |
+| 2 | 2 | 19857 | 1791 | 1578/0 | 86/109 | 161/195 | 0/16000 | 33/2 |
+| 2 | 3 | 14439 | 1210 | 1048/0 | 89/114 | 150/184 | 4000/18000 | 28/1 |
+| 4 | 1 | 20730 | 3600 | 3165/0 | 86/111 | 160/209 | 0/18000 | 69/2 |
+| 4 | 2 | 21067 | 3641 | 3205/0 | 87/109 | 161/196 | 0/16000 | 64/2 |
+| 4 | 3 | 20880 | 3690 | 3248/0 | 88/109 | 158/205 | 0/14000 | 62/2 |
+
+Cả sáu run exit 0, converged=true, drained=true, timed_out=false, snapshot_missed=0.
+Mỗi bot hoàn tất **hai** lượt và ack **hai** bảng kết quả; mỗi lượt đủ 2/2 hoặc 4/4 hash client
+khớp hash server. Tổng 13837 sequence resolved, 0 retire;
+latency count của từng run bằng resolved trừ retired. Đây là kiểm lại lỗi gần hết input bị retire,
+bổ sung proof NetClient → batch → Authority → movement/bomb và regression clock ở PR #230;
+hội tụ hash riêng lẻ không thay proof input được áp dụng.
+
+Có 286 input reject và 9 room reject trong ma trận; giữ số gốc.
+InputRejected chưa phân loại sâu hơn DTO (giới hạn đã ghi ở chẩn đoán #215), không tự kết luận
+mọi reject có cùng nguyên nhân. Correction là sai số Manhattan tại cùng tick, gồm mẫu 0,
+**không phải latency**; p95 còn 14.000–18.000 mpx, không tuyên bố điều khiển đã đạt cảm giác KR.
+Latency là first-wire tới quan sát ack, chưa có SLA/ngưỡng nghiệm thu mới. Ma trận này là bản Rust,
+hồ sơ map/rules harness; không thay smoke UI/Việt hóa hoặc fidelity client gốc.
+
+| JSON local | SHA-256 |
+|---|---|
+| 2-1.json | 6a77a1fe32b9f3b89441415c5631b55909872c8b0b59205387fa0841e0ac17d4 |
+| 2-2.json | 57e706ce8481f32e1aeb1f80af1f007e178ecee780c00198a5f3613ad5c66847 |
+| 2-3.json | 80ee13bdf8b96290e737d14754b1f1f7facd3a2dbeb04cb3fff2e8b3cd5cdcf0 |
+| 4-1.json | b16af7211493b3d7bed15bbe7a752d41865a86feeb4f3b1bd161c4bd22d70682 |
+| 4-2.json | b28850a0d088e6a3922635b2661705a374d8df33b1d884c83fefc85741e11621 |
+| 4-3.json | 8b5974103305f27194702f25244465875b81d2762122f410a58f11a1c7ebe809 |
+
 ## Giới hạn
 
 - Harness đo **bản Rust hiện tại**, không kết luận gì về độ trùng khớp với client/server gốc
