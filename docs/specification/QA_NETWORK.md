@@ -410,7 +410,7 @@ apply/retire; trace đã gỡ, không có trong code):
 4. Harness đếm `retired` theo **event** `InputRetired`, không chỉ sequence đã resolved và đã gửi,
    nên `retired` có thể lệch đơn vị với `resolved`.
 
-**Sửa** (giữ payload bất biến sau lần gửi đầu, ADR 0009 §3.2/§3.4(e)):
+**Sửa (bot QA, phần client thật ở §r2 dưới)** (giữ payload bất biến sau lần gửi đầu, ADR 0009 §3.2/§3.4(e)):
 
 - `Predictor::predict_at(input, target_tick)` (API additive; `predict` gọi lại với tick state dự
   đoán) cho caller truyền tick authority ước lượng; dãy `target_tick` được kẹp không giảm theo
@@ -453,6 +453,30 @@ task, chưa chạy lại ma trận sáu tổ hợp, chưa đặt ngưỡng laten
 trên mã hiện tại + artifact JSON/log ở `local/`. Latency vẫn là first-wire → `applied_seq`, gồm
 thời gian bay và chờ `target_tick`, không phải RTT và không phải thời điểm áp dụng chính xác.
 `InputRejected` vẫn chỉ phân loại DTO `BadSequence` như #215; task này không đổi protocol/server.
+
+### #226 r2 (2026-10-24) — client thật dùng clock ước lượng, regression có thời gian điều khiển
+
+Phần trên chỉ sửa bot QA; **client sản phẩm** vẫn dùng đường cũ. Lượt r2 nối facade client:
+
+- `NetClient::predict` lấy `target_tick` từ `input_target_tick`: tick snapshot đã áp + số tick
+  trôi từ lúc nhận + RTT gần nhất. RTT đo bằng `Ping`/`Pong` của chính client trên đường input
+  (`input_ping_retry`/`record_input_pong`, EWMA 1/4); **không** đọc `one_way_delay_ms` của fixture.
+- `NetClient::send_window` gọi `window_for_send(max, target_tick)`: lệnh chưa gửi được stamp
+  `target_tick` tại lần đầu vào batch; lệnh đã gửi giữ nguyên payload khi resend (ADR 0009 §3.2).
+- Test `client_predict_stamps_target_tick_from_clock_and_resend_keeps_payload` dùng snapshot/RTT
+  đặt trước, kiểm target vượt tick confirmed và payload resend byte-identical.
+- Test `producer_batch_moves_and_places_bomb_with_controlled_fixture_clock` dùng fixture có trễ
+  **100 ms tường minh**, target tick do test đặt; đi qua `NetClient::predict`→`resend`→batch→
+  `Authority`, rồi kiểm người chơi di chuyển, bom được đặt, không có `InputRetired`. Test cũ
+  `scope_latency_fixture_applies_input_instead_of_retiring_it` (Real + ngưỡng 10 %) và test tự
+  gọi `state.step` đã bị bỏ; **không** dùng `TimingMode::Virtual` một mình làm bằng chứng delay
+  100 ms.
+- `ScheduledHarness` giữ `InputRetired` theo `round` của event (không lấy round hiện tại của
+  authority); `input.retired`/`resolved` cùng đơn vị sequence.
+
+**Giới hạn:** `input_target_override` chỉ là test hook cho fixture đồng hồ ảo; production luôn
+`None`. Ước lượng dùng đồng hồ thật + RTT đo được, chưa có lead/budget latency mới; không suy
+từ test fixture sang SLA hay nghiệm thu V1-027. Số đo cũ ở bảng trên vẫn là của bot QA trước r2.
 
 ## Giới hạn
 

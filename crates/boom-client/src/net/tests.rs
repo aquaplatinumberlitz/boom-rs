@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
@@ -2461,5 +2461,99 @@ fn round_result_round_ended_event_cung_mo_recovery() {
         !client
             .drain_kinds()
             .contains(&MessageKind::RoundResultRequest)
+    );
+}
+
+#[test]
+fn client_predict_stamps_target_tick_from_clock_and_resend_keeps_payload() {
+    let mut client = SoloClient::new();
+    let state = solo_state(7);
+    client.push_round_start(1);
+    client.push_snapshot(&solo_snapshot(&state, 1, 1));
+
+    // Đồng hồ kiểm soát: snapshot đã nhận cách đây 100 ms, RTT đo 50 ms.
+    // target_tick phải là tick authority ước lượng, không phải tick state dự đoán.
+    let now = Instant::now();
+    client.net.snapshot_received_at = Some(now - Duration::from_millis(100));
+    client.net.input_rtt = Some(Duration::from_millis(50));
+    let confirmed_tick = client.net.confirmed_state().expect("confirmed").tick;
+    let expected = client.net.input_target_tick_at(now);
+    assert!(
+        expected > confirmed_tick,
+        "clock estimate phải vượt tick confirmed: {expected} <= {confirmed_tick}"
+    );
+
+    client
+        .net
+        .predict(PlayerInput {
+            dir: Dir::Right,
+            place_bomb: true,
+        })
+        .expect("dự đoán");
+    client.net.resend().expect("gửi batch");
+    let first = client
+        .take_batch()
+        .expect("phải có batch input")
+        .commands
+        .into_iter()
+        .next()
+        .expect("batch có command");
+    assert!(
+        first.target_tick >= expected,
+        "target_tick phải lấy từ clock: {} < {expected}",
+        first.target_tick
+    );
+
+    // Resend phải giữ nguyên toàn bộ payload của lệnh đã gửi, kể cả target_tick.
+    client.net.resend().expect("resend batch");
+    let second = client
+        .take_batch()
+        .expect("phải có batch resend")
+        .commands
+        .into_iter()
+        .next()
+        .expect("batch resend có command");
+    assert_eq!(second, first, "resend phải giữ payload bất biến");
+}
+
+#[test]
+fn producer_batch_moves_and_places_bomb_with_controlled_fixture_clock() {
+    // Mạng có trễ 100 ms nhưng thời gian do fixture điều khiển; target_tick được đặt
+    // tường minh theo tick server + 8 (đủ cho trễ 6 tick ở 60 Hz). Đây không phải
+    // `TimingMode::Virtual` giao ngay: `ScheduledTransport` chỉ giao khi `advance_to`.
+    let out = ScheduledFaults {
+        delay_ms: 100,
+        ..ScheduledFaults::none()
+    };
+    let mut harness = ScheduledHarness::new(out, ScheduledFaults::none(), 20261024);
+    assert_eq!(harness.out_faults().delay_ms, 100);
+    assert_eq!(harness.in_faults(), ScheduledFaults::none());
+    harness.start_round();
+    let player = harness.client(0).player;
+    let start = harness.start_position(player).expect("có vị trí đầu");
+
+    for _step in 0..24 {
+        let target = harness.server_tick().unwrap_or(0) + 4;
+        harness.set_target_override(0, target);
+        harness.set_target_override(1, target);
+        harness.tick([Dir::Right, Dir::Right], [true, false]);
+    }
+
+    let tick = harness.server_tick().expect("server đã chạy");
+    let end = harness
+        .server_position(player, tick)
+        .expect("có vị trí server");
+    assert!(
+        end.0 > start.0,
+        "producer→batch→authority phải làm người chơi di chuyển: {start:?} -> {end:?}"
+    );
+    assert!(
+        harness.server_bomb_count() > 0,
+        "command đặt bom phải được authority áp dụng"
+    );
+    assert!(
+        harness.retired_commands().is_empty(),
+        "target_tick điều khiển đúng không được retire: {:?}",
+        harness.retired_commands()
     );
 }

@@ -264,6 +264,14 @@ impl<W: Transport> ClientSession<W> {
         self.send(&Pong(ping.0))
     }
 
+    /// Gửi `Ping` để đo RTT đường input; server trả `Pong` nguyên payload (ADR 0009 §2).
+    ///
+    /// `Ping`/`Pong` là message **hai chiều** trong giao thức, không phải message mới. Client
+    /// dùng nonce riêng để khớp mẫu; `Pong` lạ bị bỏ ở tầng [`super::NetClient`].
+    pub fn send_ping(&mut self, nonce: u64) -> Result<(), NetError> {
+        self.send(&Ping(nonce))
+    }
+
     /// Xin snapshot đầy đủ để resync (ADR 0009 §4.3).
     pub fn request_snapshot(
         &mut self,

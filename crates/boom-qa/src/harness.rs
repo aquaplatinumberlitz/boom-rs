@@ -537,9 +537,13 @@ fn run_impl(
                 };
                 eprintln!("[harness] t={now} event {name}");
             }
-            if let InternalServerEvent::InputRetired { player, seq, .. } = event {
-                let round = public_round_id(&server).unwrap_or(0);
-                retired.insert((round, player.0, seq));
+            if let InternalServerEvent::InputRetired {
+                round, player, seq, ..
+            } = event
+            {
+                // `round` là identity của chính event (PR #222), không phải round hiện tại
+                // của server: chuyển round/reconnect có thể làm current round khác.
+                retired.insert((round.0, player.0, seq));
             }
         }
         if server.phase() == ServerPhase::Results

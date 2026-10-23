@@ -707,6 +707,18 @@ pub struct ScheduledHarness {
     rejects: u32,
     /// Lý do từ chối gần nhất.
     last_reject: Option<String>,
+    /// Lỗi mạng đã cấu hình cho chiều client→server / server→client.
+    ///
+    /// Fixture **biết trước** cấu hình mạng của chính nó; dùng để điều khiển target_tick
+    /// một cách tường minh trong test (Codex review #226: "phải điều khiển mốc/delay tường
+    /// minh"), không phải nguồn của client sản phẩm.
+    out_faults: ScheduledFaults,
+    in_faults: ScheduledFaults,
+    /// Sequence bị authority retire, kèm round và người chơi.
+    ///
+    /// Lấy từ `InternalServerEvent::InputRetired` do `Authority::advance_to` trả về, không
+    /// suy từ event trên dây: dùng để chứng minh producer không tạo lệnh quá hạn.
+    retired_commands: Vec<(u64, PlayerId, u32)>,
 }
 
 impl ScheduledHarness {
@@ -887,6 +899,9 @@ impl ScheduledHarness {
             corrections: 0,
             rejects: 0,
             last_reject: None,
+            out_faults,
+            in_faults,
+            retired_commands: Vec::new(),
         }
     }
 
@@ -1052,7 +1067,15 @@ impl ScheduledHarness {
         self.advance_network(now_ms);
         // 4. Server nhận input đến hạn rồi chạy tick.
         self.receive_input(now_ms);
-        self.authority.advance_to(now_ms).expect("server chạy tick");
+        let retired = self.authority.advance_to(now_ms).expect("server chạy tick");
+        for event in retired {
+            if let boom_server::InternalServerEvent::InputRetired {
+                round, player, seq, ..
+            } = event
+            {
+                self.retired_commands.push((round.0, player, seq));
+            }
+        }
         self.record_server_state();
         // 5. Server gửi snapshot và event cho client.
         self.send_snapshot_and_events(now_ms);
@@ -1153,6 +1176,41 @@ impl ScheduledHarness {
         self.corrections
     }
 
+    /// Cấu hình trễ đã dùng cho chiều client→server (test kiểm tra fixture tường minh).
+    pub fn out_faults(&self) -> ScheduledFaults {
+        self.out_faults
+    }
+
+    /// Cấu hình trễ đã dùng cho chiều server→client.
+    pub fn in_faults(&self) -> ScheduledFaults {
+        self.in_faults
+    }
+
+    /// Tick server hiện tại.
+    pub fn server_tick(&self) -> Option<u32> {
+        self.authority.tick()
+    }
+
+    /// Số bom trong snapshot hiện tại của authority (0 nếu chưa có snapshot).
+    pub fn server_bomb_count(&self) -> usize {
+        self.authority
+            .snapshot(0, 1)
+            .and_then(Result::ok)
+            .map_or(0, |snapshot| snapshot.bombs.len())
+    }
+
+    /// Các sequence `InputRetired` đã thấy từ authority, kèm round và player.
+    pub fn retired_commands(&self) -> &[(u64, PlayerId, u32)] {
+        &self.retired_commands
+    }
+
+    /// Đặt target tick tường minh cho client (chỉ fixture test dùng).
+    pub fn set_target_override(&mut self, index: usize, target: u32) {
+        self.clients[index]
+            .net
+            .set_input_target_override(Some(target));
+    }
+
     /// Vị trí server của người chơi ở tick đã cho.
     pub fn server_position(&self, player: PlayerId, tick: u32) -> Option<(i32, i32)> {
         self.server_positions.get(&(player, tick)).copied()
@@ -1234,16 +1292,24 @@ impl ScheduledHarness {
                         self.duplicate_commands += 1;
                     }
                 }
-                if let Err(error) = self.authority.submit_input(client.player, &batch, now_ms) {
-                    // Server từ chối batch: gửi `InputRejected` như server thật.
-                    self.rejects += 1;
-                    self.last_reject = Some(error.to_string());
-                    let applied = self.authority.applied_seq(client.player).unwrap_or(0);
-                    let server_tick = self.authority.tick().unwrap_or(0);
-                    let rejected = reject_for(&batch, &error, applied, server_tick);
-                    let _ = client.in_server.send_frame(
-                        &encode_frame(&rejected, &limits).expect("encode input rejected"),
-                    );
+                match self.authority.submit_input(client.player, &batch, now_ms) {
+                    Ok(ack) => {
+                        let round = u64::from(self.authority.current_round_id().unwrap_or(0));
+                        for seq in ack.retired {
+                            self.retired_commands.push((round, client.player, seq));
+                        }
+                    }
+                    Err(error) => {
+                        // Server từ chối batch: gửi `InputRejected` như server thật.
+                        self.rejects += 1;
+                        self.last_reject = Some(error.to_string());
+                        let applied = self.authority.applied_seq(client.player).unwrap_or(0);
+                        let server_tick = self.authority.tick().unwrap_or(0);
+                        let rejected = reject_for(&batch, &error, applied, server_tick);
+                        let _ = client.in_server.send_frame(
+                            &encode_frame(&rejected, &limits).expect("encode input rejected"),
+                        );
+                    }
                 }
             }
         }
