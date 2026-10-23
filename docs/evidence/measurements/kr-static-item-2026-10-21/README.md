@@ -146,16 +146,16 @@ Batch 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 th�
 |---|---|---|---|
 | `FFFA70` | `0xFFFB49` | map `a2∈{1,2}`→id 53/54; **bỏ** lookup; virtual +380; `1191D20` gắn model | không thấy |
 | `1191DD0` | `0x1191DE8` | **bỏ** lookup; `1191D20` gắn model slot 0..4 | không thấy |
-| `1192700` | `0x1192983` | gán `v47`; **chưa thấy dùng lại trong phần đã đọc** (thân 0x5e8 chưa đủ); dispatcher item-use/ability theo id | không thấy |
+| `1192700` | `0x1192983` | gán `v47`; **không thấy dùng lại trong toàn bộ 227 dòng**; dispatcher item-use/ability theo id | không thấy trực tiếp |
 
 - Chỉ kết luận trong **3 phần thân đã đọc**: chưa thấy stat/cap/pickup từ row; chúng dùng **id** cho
   model/ability; `1191D20`/virtual +380 là helper chưa mở.
-- **Không tạo R-155**; helper/callee, phần còn lại `1192700` và 10 hành vi khác vẫn **unknown**.
+- **Không tạo R-155**; helper/callee `1191D20`/virtual +380 chưa phân tích vẫn **unknown**.
   Không suy client không có cap/không có stat từ 3 hàm.
 
 | `evidence_id` | Operation | Dùng cho |
 |---|---|---|
 | `ev_8f31d6f5c4a7c066ab814b1c4e8c6d50f60f13739f0d7876c32b5a49d58d831b` | `batch_decompile` `FFFA70`/`1191DD0`/`1192700` | batch 3 thân |
 | `ev_2cade073ec807e286c6ad46eac544ff77b2c9a94da901b14f9884e3aa41b49ec` | `procedure_pseudo_code` `1191DD0` | full 22 dòng |
-| `ev_bfe93de33e65ed3c8e56badd29bf9b64ff9299026b1b536139613d8212ff060e` | `procedure_pseudo_code` `1192700` | phần đầu (chưa đủ 0x5e8) |
+| `ev_bfe93de33e65ed3c8e56badd29bf9b64ff9299026b1b536139613d8212ff060e` | `procedure_pseudo_code` `1192700` | 227 dòng pseudocode đầy đủ |
 | `ev_7761a81f92fb0a7db078057fbc8dd0409aa56dd23e7c3915976160b8fe6980c0` | `analyze_function` `1192700` | giới hạn 100 instruction; không thêm kết luận |

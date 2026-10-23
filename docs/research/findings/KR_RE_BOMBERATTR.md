@@ -142,12 +142,12 @@ Batch đọc 3 thân chưa đọc trong 7 xref; không giải lại loader/looku
 |---|---|---|---|
 | `FFFA70` | `0xFFFB49` | **bỏ** kết quả `1197900` | map `a2∈{1,2}`→id 53/54; virtual +380; gắn model `1191D20` slot 0..3 |
 | `1191DD0` | `0x1191DE8` | **bỏ** kết quả | gắn model `1191D20` slot 0..4, flag 0 |
-| `1192700` | `0x1192983` | gán `v47`; **chưa thấy đọc lại trong phần đã đọc** (thân 0x5e8 chưa đủ) | dispatcher item-use/ability theo id; gắn model |
+| `1192700` | `0x1192983` | gán `v47`; **không thấy dùng lại trong toàn bộ 227 dòng** | dispatcher item-use/ability theo id; gắn model |
 
-- Trong **3 phần thân đã đọc** chưa thấy đọc `+96..+180`/weight/placement hay stat/cap/pickup từ row;
-  chúng dùng **id** để chọn model/ability; `1191D20`/virtual +380 là helper chưa mở, phần còn lại của
-  `1192700` (0x5e8) chưa đọc hết.
-- Đây là kết luận **giới hạn trong 3 thân**; helper/callee và 10 hành vi khác vẫn **unknown**.
+- Trong **3 thân** không thấy đọc trực tiếp `+96..+180`/weight/placement hay stat/cap/pickup từ row;
+  chúng dùng **id** để chọn model/ability. `1192700` đã đọc đủ **227 dòng pseudocode**; `v47` chỉ được gán.
+  `1191D20`/virtual +380 là helper chưa phân tích, chưa loại trừ.
+- Đây là kết luận **giới hạn trong 3 thân**; helper/callee `1191D20`/virtual +380 chưa phân tích vẫn **unknown**.
 - **Không tạo R-155**: chưa có consumer mới đọc row field hoặc áp stat/cap; player/cap vẫn unknown.
 - `1192700` có nhánh item-use/ability, nhưng không đọc row ItemAttr; không suy effect stat.
 
