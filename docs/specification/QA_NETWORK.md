@@ -125,16 +125,27 @@ khi session mới đăng ký thì nó đóng nhầm session mới (phiên mới 
 
 ## Đo độ trễ
 
-Harness đo **độ trễ input**: khoảng thời gian từ lúc bot gửi lệnh (sequence `seq`) tới lúc
-server **giải quyết** sequence đó (áp dụng hoặc retire).
+`latency_ms` là **thời gian lưu hành lệnh trong phép đo QA**, không phải RTT mạng: từ lúc bot
+**tạo** sequence (`sent_at_ms`) tới lần poll của harness thấy `applied_seq` của server vượt qua
+sequence đó (server áp dụng **hoặc** retire).
 
-- Bot ghi mốc gửi theo `(lượt, sequence)`; sequence đánh số lại theo từng lượt (ADR 0009 §3.1),
-  nên khoá phải theo lượt.
-- Harness đọc `applied_seq` của từng bot mỗi vòng poll; sequence vừa được giải quyết là mốc
-  "server đã xử lý".
-- Lệnh bị **retire** (quá hạn cửa sổ) không tính vào độ trễ: server đã loại nó, không áp dụng.
-- Báo cáo có `p50`/`p95`/`max`/`mean` của tập mẫu độ trễ, cùng `p50`/`p95` RTT đo bằng
-  `Ping`/`Pong`.
+- Bot ghi `sent_at_ms` trong `send_input` (`crates/boom-qa/src/bot.rs:1103-1157`, dòng ghi
+  1148-1155) **trước** khi `Predictor::window` (`crates/boom-client/src/net/prediction.rs:450-465`)
+  cắt cửa sổ tối đa 8 lệnh (`ProtocolLimits::max_commands`). Mốc này là **lúc lệnh vào hàng
+  đợi phía client**; nếu sequence mới chưa nằm trong batch vừa mã hoá thì nó **chưa lên dây**
+  ở mốc đó.
+- `input.sent` đếm **batch** (`commands_sent` tăng một lần mỗi `send_input`), còn
+  `input.resolved` đếm **sequence**. Hai cột khác đơn vị, không trừ trực tiếp cho nhau.
+- Harness đọc `applied_seq` mỗi vòng poll (`crates/boom-qa/src/harness.rs:699-733`).
+  `applied_seq` tiến khi `InputTrack::apply_tick` áp dụng/retire (`crates/boom-server/src/input.rs:281-345`)
+  **hoặc** khi `InputTrack::submit` retire đầu hàng (`input.rs:271-277`).
+- Chỉ retire phát `InternalServerEvent::InputRetired` từ `apply_tick` mới được harness loại khỏi
+  mẫu. Retire ngay trong `submit` (trường `InputAck.retired`) bị `Server::handle_frame` bỏ qua
+  bằng `Ok(_)` (`crates/boom-server/src/server.rs:786-803`), không có event/log, nên **vẫn được
+  tính** là mẫu độ trễ và không xuất hiện trong `input.retired`. Vì vậy `retired = 0` chỉ nói
+  "không có retire ở `apply_tick`", không chứng minh "không có lệnh nào bị retire".
+- `p50`/`p95`/`max`/`mean` là phân vị của tập mẫu đó. RTT `Ping`/`Pong` (`rtt_ms`) là phép đo
+  riêng, ghép theo nonce, và là số dùng khi cần nói về độ trễ mạng.
 
 ### RTT ghép theo nonce của `Ping`
 
@@ -280,6 +291,94 @@ Nguyên liệu thô để tái tạo (không commit, `local/` ignored):
 
 Kết quả trên chỉ là quan sát của bản Rust tại commit nêu trên với fixture `qa-village`/`qa-net`;
 không đánh giá gate G4 và không kết luận map/rules hay fidelity client KR.
+
+### Chẩn đoán ma trận 2026-10-23 (#215)
+
+Baseline phân tích: `743e8ea9cdf0b975eb55d814f84bfe75ad746ffc` (main). Số đo gốc của PR #212 nằm ở
+`/home/admin/boom-rs-wt/issue-210/local/qa-network-matrix/` (readonly; `local/` không commit): sáu
+cặp `<clients>-<seed>.json/.log/.exit`, sha256 ở bảng trên. Code của sáu run ở `1431854…`;
+`git diff 1431854..743e8ea` chỉ đổi docs/tools, không đổi `crates/`, nên chẩn đoán dưới đây áp dụng
+cho baseline này.
+
+Để lấy lý do `InputRejected` (sáu log cũ tắt `BOOM_QA_TRACE`), chạy **một** lần bổ sung cùng hồ sơ,
+2 bot, seed 1, có trace:
+
+```sh
+BOOM_QA_TRACE=1 cargo run -p boom-qa -- --profile scope-v1 --clients 2 --seed 1 \
+  --json-out local/issue-215-trace/2-1.json 2> local/issue-215-trace/2-1.trace
+```
+
+Kết quả: exit 0, 42.439 ms, `converged=true`, `drained=true`, `snapshot_missed=0`,
+`p50/p95 input = 847/1699 ms` (3.600 mẫu), `rejected=31`, `retired=0`, RTT p50/p95 = 154/206 ms.
+Vật liệu local (không commit): `local/issue-215-trace/2-1.json` sha256 `96c60db26adc…`,
+`2-1.trace` sha256 `f3617e420d4c…`. Lần chạy này **không** thay ma trận sáu tổ hợp và không dùng để
+tuyên bố pass.
+
+#### `InputRejected` được phân loại gì
+
+- Sáu log cũ **không** có lý do: chỉ có bảng/JSON, `input.rejected` 28/28/31/62/62/62 là **số batch**,
+  không kèm reason. Không thể phân loại từ sáu file này.
+- Run trace 2/1: 31/31 batch mang reason DTO `BadSequence` (bot0 15, bot1 16).
+- Cả 31 rơi thành hai cụm ngay sau `RoundFinished`: dòng 2529 (`t=21497`) rồi 2539–2593, và dòng
+  5133 (`t=42120`) rồi 5144–5200. Không có batch nào bị từ chối giữa lượt. Cụm thứ nhất kết thúc
+  trước `RoundStart round=2` (dòng 2625).
+- `BadSequence` trên dây **không** phải chẩn đoán cuối: `Server::send_input_rejected`
+  (`crates/boom-server/src/server.rs:1471-1476`) chỉ ánh xạ `OutOfWindow`, `GapTooLarge`,
+  `RateLimited`; mọi `InputError` khác — kể cả `NotPlaying`, `WrongRound`,
+  `NonContiguousSequence`, hay `BadSequence` do payload khác — đều thành `BadSequence`.
+  `Authority::submit_input` trả `NotPlaying` khi pha không phải `Playing`
+  (`crates/boom-server/src/authority.rs:733-735`), và `RoundFinished` chuyển pha sang `Results`
+  (`authority.rs:822-833`). Thứ tự trace vì vậy khớp với giả thuyết **input tới sau khi lượt đã kết
+  thúc (`NotPlaying`)**, không phải trùng sequence/payload giữa lượt.
+- Chưa chứng minh: server không log biến thể `InputError` thật, cũng không log pha lúc reject. Vì vậy
+  **reason thật = unknown**; chỉ kết luận được lớp DTO là `BadSequence` và vị trí là quanh chuyển
+  lượt. Chênh lệch 28 so với 31 là khác biệt thời điểm, không phải hằng số.
+- Phép kiểm tiếp theo: log `InputError` (discriminant) + `phase`/`round_id` tại
+  `send_input_rejected`, hoặc thêm reason DTO riêng cho `NotPlaying` (đổi protocol → task riêng);
+  chạy lại đúng 2/1 và 4/1 để so. Không sửa predictor/server trong task này.
+
+#### "Độ trễ input" p95 ~1,6 s là mốc nào
+
+Chuỗi đo thực tế:
+
+1. `send_input` tạo seq và ghi `sent_at_ms` (`bot.rs:1103-1157`), rồi mới lấy `Predictor::window`
+   tối đa 8 lệnh (`prediction.rs:450-465`). Seq mới **có thể chưa nằm trong batch** nếu hàng chờ
+   lớn hơn 8; mốc đã ghi là **lúc vào hàng chờ client**, không phải lúc lên dây.
+2. `target_tick` được gán lúc **tạo** lệnh bằng tick của state dự đoán (`prediction.rs:411-443`),
+   không phải lúc lệnh lần đầu vào batch. State dự đoán đã replay các lệnh chưa ack
+   (`prediction.rs:507-557`), nên tick này nằm trước tick server một khoảng xấp xỉ hàng lệnh đang
+   chờ. ADR 0009 §3.2 mô tả `target_tick` gán khi lệnh lần đầu vào batch; đây là khác biệt code với
+   mô tả đó, cần task riêng để quyết định, không sửa trong task này.
+3. Harness chỉ đọc `applied_seq` mỗi vòng poll (`harness.rs:699-733`); `applied_seq` tiến khi server
+   áp dụng/retire tại `apply_tick` (`input.rs:281-345`) hoặc retire tại `submit`
+   (`input.rs:271-277`, `authority.rs:771-777`). Vì vậy mẫu = **thời gian chờ trong hàng đợi client
+   + một chiều mạng + thời gian chờ tới `target_tick`/retire**, không phải "gửi→nhận", không phải
+   "áp dụng xong", và không phải RTT.
+4. `retired` chỉ đếm retire ở `apply_tick`. Retire trong `submit` bị bỏ (`server.rs:795`), nên một
+   phần mẫu có thể là lệnh **không hề được áp dụng**; tỉ lệ này chưa đo được.
+
+Ước lượng định lượng (không phải số đo trực tiếp): 3.600 sequence được giải quyết trong khoảng 40 s
+chơi × 2 bot ≈ 45 sequence/s/bot; p50 788–889 ms ⇒ theo Little's law có khoảng 36–40 sequence "đang
+bay" mỗi bot, lớn hơn cửa sổ 8. Nghĩa là phần lớn mẫu là **thời gian chờ trước/trong cửa sổ lệnh và
+chờ `target_tick`**, không phải RTT. RTT p50 156–167 ms (sáu run gốc) / 154 ms (trace) là phép đo
+`Ping`/`Pong` riêng, không mâu thuẫn với p50 input ~0,8 s.
+
+#### Kết luận được và không được
+
+- Được: sáu tổ hợp exit 0, hội tụ hash, drained, không timeout; `input.rejected` là số batch bị từ
+  chối, và trong run trace đều là `BadSequence` quanh chuyển lượt; p95 input 1,56–1,70 s là **thời
+  gian lưu hành theo định nghĩa của harness**, không phải RTT.
+- Không được: coi p95 ~1,6 s là "ngân sách latency đã đạt", coi hội tụ hash là bằng chứng latency,
+  hoặc so trực tiếp với RTT 100 ms của hồ sơ. Không có ngưỡng latency nào được chốt trong SCOPE_V1
+  hay task này; báo cáo **không** đặt pass/fail cho latency.
+- Không được: khẳng định nguyên nhân `InputRejected` là `NotPlaying` hay lỗi predictor/server; biến
+  thể `InputError` chưa được log. Không được khẳng định mọi mẫu latency đều đã được áp dụng, vì
+  retire trong `submit` không quan sát được.
+- Phép kiểm tiếp theo (theo thứ tự): (a) log `InputError` + pha/round khi reject; (b) phát
+  `InputAck.retired` của `submit` thành event/log và tách mẫu applied/retired; (c) ghi mốc **lần
+  đầu lệnh thực sự nằm trong batch** để tách queue khỏi wire; (d) chỉ sau đó mới bàn ngưỡng latency.
+  Việc (a)/(b) nằm ở `boom-server` — ngoài phạm vi #215, cần task riêng; không sửa predictor/server
+  ở đây.
 
 ## Giới hạn
 
