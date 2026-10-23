@@ -215,11 +215,12 @@ REA binding IDA trên bản sao; evidence: `ev_95b4134c…`, `ev_5cbb5977…`, `
   `sub_EBF450(sub_ED5270(queue), copy)`, tăng đếm, rồi `sub_ED7ED0(object)` + `sub_ECF590(...)`.
   **Trong thân push không có giá trị damage, không có ms/TTL** — mỗi ô nổ vẫn là một sự kiện message
   (id 27) được xếp hàng, khớp R-141.
-- **`sub_EC1130(this, a2, a3)`** (một trong 5 caller `ED5270`, mới đọc): lock `sub_4481D0` →
+- **`sub_EC1130(this, a2, a3)`** (một trong 5 caller `ED5270`, mới đọc): gọi `sub_4481D0(&word_16EC4CE, this)` →
   `sub_ED5270(this)` → `sub_ECC410(queue)`; `sub_ECBD00(&a2)` → `sub_EC01E0(*v4, a3)` →
-  `sub_EC05F0(this)` → unlock `sub_44F190` → `sub_ECF6A0`. **Không thấy** đọc/so message id 27 hay
-  vòng lặp dispatch trong thân; các callee `ECC410/ECBD00/EC01E0/EC05F0/ECF6A0` **chưa đọc** ⇒
-  EC1130 nhiều khả năng là **quản lý/clear+notify** (`candidate`), **không** chứng minh là consumer.
+  `sub_EC05F0(this)` → gọi `sub_44F190(...)` → `sub_ECF6A0`. `4481D0`/`44F190` **chưa phân tích** ở
+  lượt này nên **không** gọi là lock/unlock; chỉ ghi dataflow lời gọi. **Không thấy** đọc/so message
+  id 27 hay vòng lặp dispatch trong thân; các callee `ECC410/ECBD00/EC01E0/EC05F0/ECF6A0` **chưa đọc** ⇒
+  EC1130 có thể là **quản lý/clear+notify** (`candidate`), **không** chứng minh là consumer.
 
 ### 9.2. Âm tính có phạm vi (không nâng thành "không áp damage")
 
@@ -227,10 +228,10 @@ REA binding IDA trên bản sao; evidence: `ev_95b4134c…`, `ev_5cbb5977…`, `
   `ED5270/EBF450/EC2420/ECF590` hay thao tác đọc/so id 27/damage trong **thân đã đọc**; thân chỉ
   bật/nảy + `switch` state 0/1/2/3. Tuy nhiên update **vẫn gọi các slot `+176/+164/+168/+172`
   chưa đọc**, nên **không loại trừ** đường gián tiếp dispatch/damage qua chính update.
-- Helper `ED28C0` (đăng ký global `word_16EC4CE`, chèn `44F190`), `ED6FD0` (xoá `44EEC0` +
-  `EC54A0/EC5550`), `EDACC0` (chỉ `EBD450`/`EBD580`) đã đọc thân: **không** thấy vòng/so message 27
-  trong thân, nhưng **callee của chúng chưa đọc hết** ⇒ chỉ là "chưa thấy ở thân này", không phải
-  loại trừ toàn bộ helper.
+- Helper `ED28C0` (gọi `4481D0` với global `word_16EC4CE`, rồi `44F190`), `ED6FD0` (gọi `44EEC0` +
+  `EC54A0`/`EC5550`), `EDACC0` (chỉ `EBD450`/`EBD580`) đã đọc thân: **không** thấy vòng/so message 27
+  trong thân, nhưng **callee của chúng chưa đọc hết** ⇒ nhãn "đăng ký/chèn/xoá" chỉ là **candidate**,
+  và chỉ là "chưa thấy ở thân này", không phải loại trừ toàn bộ helper.
 
 ### 9.3. Hệ quả và blocker
 

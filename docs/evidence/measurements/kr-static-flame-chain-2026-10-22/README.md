@@ -93,9 +93,9 @@ imagebase `0x00400000`, `RVA = VA − 0x400000`. REA `provider: ida` trên bản
 | `CGOBomb` update (slot 24 vtable `0x174426C`) | `0x00B391E0` | `0x007391E0` | **chưa thấy** gọi trực tiếp helper/đọc id 27/damage; vẫn gọi slot `+176/+164/+168/+172` **chưa đọc** |
 | Push message (hàng đợi) | `0x00EC2420` | `0x00AC2420` | capacity `sub_EDB280`, đếm `queue+4`, copy `sub_ECB750`, thêm `sub_EBF450(sub_ED5270(queue))` |
 | Lấy danh sách hàng đợi | `0x00ED5270` | `0x00AD5270` | 5 caller: `EC1130`, `EC2420`, `ED28C0`, `ED6FD0`, `EDACC0` |
-| Caller `ED5270` mới đọc | `0x00EC1130` | `0x00AC1130` | lock `4481D0` → queue `ED5270` → `ECC410(queue)`; `ECBD00`→`EC01E0`; `EC05F0`; unlock `44F190`; `ECF6A0`; **không** thấy đọc/so id 27/vòng dispatch; callee chưa đọc ⇒ quản lý (`candidate`) |
+| Caller `ED5270` mới đọc | `0x00EC1130` | `0x00AC1130` | gọi `4481D0` (global `word_16EC4CE`) → queue `ED5270` → `ECC410(queue)`; `ECBD00`→`EC01E0`; `EC05F0`; gọi `44F190`; `ECF6A0`; `4481D0`/`44F190` chưa phân tích nên **không** nhãn lock/unlock; **không** thấy đọc/so id 27/vòng dispatch; callee chưa đọc ⇒ quản lý (`candidate`) |
 | Thêm phần tử | `0x00EBF450` | `0x00ABF450` | dùng bởi push; không thấy trong update bom |
-| Helper quản lý hàng đợi | `0x00ED28C0`, `0x00ED6FD0` | `0x00AD28C0`, `0x00AD6FD0` | đăng ký global `word_16EC4CE` / xoá; thân không có dispatch; **callee chưa đọc** |
+| Helper quản lý hàng đợi | `0x00ED28C0`, `0x00ED6FD0` | `0x00AD28C0`, `0x00AD6FD0` | `ED28C0` gọi `4481D0` (global `word_16EC4CE`) + `44F190`; `ED6FD0` gọi `44EEC0`/`EC54A0`/`EC5550`; nhãn đăng ký/xoá là **candidate**; thân không có dispatch; **callee chưa đọc** |
 | Helper bị gọi từ map | `0x00EDACC0` | `0x00ADACC0` | chỉ `sub_EBD450`/`sub_EBD580` gọi |
 
 `evidence_id`: `ev_95b4134c1dd7e15ab9f0945903679892fb25c4b08ae13790a29cfebbfe744256` (batch
