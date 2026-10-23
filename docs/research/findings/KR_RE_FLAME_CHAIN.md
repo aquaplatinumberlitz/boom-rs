@@ -197,3 +197,50 @@ hàm calc.
 
 Không có khác biệt nào buộc đổi `data/rules/*.toml` ngay; mọi thay đổi giá trị phải qua PR profile
 riêng theo ADR 0013 sau review.
+
+## 9. Lượt 2026-10-24 (phiên 2) — message 27: chưa thấy dispatch/damage trong các thân đã đọc
+
+Phạm vi hẹp theo #148/Q-019: tìm **một** consumer nhận/dispatch message id 27 trên `CGOBomb` và chỗ
+kiểm bomber-vs-ô-lửa. Ngân sách: 5 call phân tích, 3 thân mới (`ED28C0`, `ED6FD0`, `EC1130`);
+`B391E0`/`EC2420` đã có từ lượt trước. Build KR `00967` SHA-256
+`cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, imagebase `0x00400000`.
+REA binding IDA trên bản sao; evidence: `ev_95b4134c…`, `ev_5cbb5977…`, `ev_2a48a8f2…`,
+`ev_d6a164ca…`, `ev_a6953bcb…` (VA/RVA ở
+[evidence](../../evidence/measurements/kr-static-flame-chain-2026-10-22/README.md)).
+
+### 9.1. Dữ liệu dương (giữ nguyên)
+
+- **`sub_EC2420(queue, object, msg)` là push của một hàng đợi**: kiểm sức chứa `sub_EDB280(queue)`,
+  đếm ở `queue+4` (`*(queue+1)`), copy message `sub_ECB750(msg)`, thêm vào danh sách
+  `sub_EBF450(sub_ED5270(queue), copy)`, tăng đếm, rồi `sub_ED7ED0(object)` + `sub_ECF590(...)`.
+  **Trong thân push không có giá trị damage, không có ms/TTL** — mỗi ô nổ vẫn là một sự kiện message
+  (id 27) được xếp hàng, khớp R-141.
+- **`sub_EC1130(this, a2, a3)`** (một trong 5 caller `ED5270`, mới đọc): gọi `sub_4481D0(&word_16EC4CE, this)` →
+  `sub_ED5270(this)` → `sub_ECC410(queue)`; `sub_ECBD00(&a2)` → `sub_EC01E0(*v4, a3)` →
+  `sub_EC05F0(this)` → gọi `sub_44F190(...)` → `sub_ECF6A0`. `4481D0`/`44F190` **chưa phân tích** ở
+  lượt này nên **không** gọi là lock/unlock; chỉ ghi dataflow lời gọi. **Không thấy** đọc/so message
+  id 27 hay vòng lặp dispatch trong thân; các callee `ECC410/ECBD00/EC01E0/EC05F0/ECF6A0` **chưa đọc** ⇒
+  EC1130 có thể là **quản lý/clear+notify** (`candidate`), **không** chứng minh là consumer.
+
+### 9.2. Âm tính có phạm vi (không nâng thành "không áp damage")
+
+- **`CGOBomb` update `0x00B391E0`** (vtable `0x174426C` slot 24): **chưa thấy** lời gọi trực tiếp
+  `ED5270/EBF450/EC2420/ECF590` hay thao tác đọc/so id 27/damage trong **thân đã đọc**; thân chỉ
+  bật/nảy + `switch` state 0/1/2/3. Tuy nhiên update **vẫn gọi các slot `+176/+164/+168/+172`
+  chưa đọc**, nên **không loại trừ** đường gián tiếp dispatch/damage qua chính update.
+- Helper `ED28C0` (gọi `4481D0` với global `word_16EC4CE`, rồi `44F190`), `ED6FD0` (gọi `44EEC0` +
+  `EC54A0`/`EC5550`), `EDACC0` (chỉ `EBD450`/`EBD580`) đã đọc thân: **không** thấy vòng/so message 27
+  trong thân, nhưng **callee của chúng chưa đọc hết** ⇒ nhãn "đăng ký/chèn/xoá" chỉ là **candidate**,
+  và chỉ là "chưa thấy ở thân này", không phải loại trừ toàn bộ helper.
+
+### 9.3. Hệ quả và blocker
+
+- **Consumer message id 27 vẫn `unknown`**: chưa thấy trong các thân đã đọc; **không** kết luận
+  "damage không áp trong update", "consumer không nằm trong update/helper", hay "phải ở pump ngoài
+  object". Nó có thể ở callee/virtual chưa đọc, helper/pump, hoặc đường gián tiếp qua update.
+- Vì vậy damage **một lần khi nhận** hay **vùng có cửa sổ tồn tại**, value/unit/cadence: vẫn
+  **unknown**. Không nâng pointer/hàm push thành xác nhận damage.
+- Đầu mối phiên 1 **chưa đọc** (chỉ candidate, không dùng trong kết luận): `EB73D0` (site `EB75C1`
+  ghi field `+4` rồi `B70C10`) và `EB8000` (site `EB8FA8`/`EB910E` đưa `+268` vào `B70C10`, lửa/effect).
+- **Không** đổi `bomb.flame_ms`/`bomb.fuse_ms`; không lấy `B711C0` (animation) làm TTL damage, không
+  lấy `2500`/`500` làm gốc.

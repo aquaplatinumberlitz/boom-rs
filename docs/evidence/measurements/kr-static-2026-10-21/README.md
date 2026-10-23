@@ -88,7 +88,7 @@ REA MCP `provider_id: ida` trên bản sao; bundle `.re-work/evidence-r154-bombp
 | Ctor sensor | `B37150` → `1198240(bomb+144,1)` | `CSensorTrigger` flag `+152 = 1` mặc định |
 | Init | `B384E0` | `[bomb+328] = u8 descriptor+108` (`529C20`) |
 | Move consumer | `0x1310200` `CMovable::MoveSimple` | consumer đã trace thuộc **pet/AI**; gọi virtual +156 nhưng còn OR `EA0FD0` và gate +164; predicate khác 0 không đủ kết luận đi qua |
-| Owner getter | `B38370` (`+268`) | **xref 14 hàm**, chưa phân loại đủ 14 thân; **không** được `B37DB0` gọi |
+| Owner getter | `B38370` (`+268`) | **xref 14 hàm**; đã phân loại **4/14**, 10 thân còn lại unknown; **không** được `B37DB0` gọi |
 
 **Kết luận:** `kr_static` confirmed **thân predicate** `B37DB0`, ctor/flag và **nhánh `MoveSimple` có
 phạm vi pet/AI**; `candidate` owner getter (xref chưa phân loại); `unknown` đường bomber, nghĩa/giá trị
@@ -103,3 +103,19 @@ hệ quả player/bomber (ra/vào/grace) hay bomb-pass toàn hệ thống; khôn
 | `ev_6b5946b42a71659cbda31f34a6d4e2f65ca5af068973517f54a8cd8833fdc504` | `procedure_pseudo_code` `1310200` | MoveSimple |
 | `ev_dc3d84632f04b7616773024c1058afe0ae3659040f8ff455e8c57a3a9883f73f` | `batch_decompile` `B37150`/`B37560`/`B384E0` | ctor/Init |
 | `ev_1ed26a6f3c1bb7dff196630d81395bb64cda343c123acd908e9b8129e231dc4e` | `xrefs` `B38370` | owner getter callers |
+
+### R-154 — phân loại 4 caller `B38370` (`+268`)
+
+Batch REA `ev_f4a10721fe2b84a4ba9af47155213f3c6fa23ab83eadd0b5ccf5c000fad66787` (4 thân ưu tiên
+trong 14 xref; không đọc lại hàm R-154). Bundle `.re-work/evidence-r154-owner-callers-146.json`.
+
+| Caller | Call | Cách dùng `+268` | Kiểm collision/grace trực tiếp? |
+|---|---|---|---|
+| `ACC340` | `0xACC4BA` | descriptor event (`AD4A40`/`AD62F0`/`AD9F20`) | chưa thấy |
+| `AEF700` | `0xAEF904` | bỏ kết quả; nhánh bomb/item `B378F0`/`B37880` | chưa thấy |
+| `EB73D0` | `0xEB75C1` | ghi effect `*(+4)`; `B70C10` | chưa thấy |
+| `EB8000` | `0xEB8FA8`/`0xEB910E` | owner cho flame/effect `B70C10` | chưa thấy |
+
+Cả 4 chỉ thấy dataflow descriptor/event, effect/flame hoặc bỏ kết quả; **chưa thấy kiểm collision/grace
+trực tiếp** (không gọi trực tiếp `B37DB0`/`EA0FD0`/`+152`/`+328`/`MoveSimple`). Helper/callee và **10 xref
+còn lại chưa loại trừ**; không tạo R-155, không nâng owner thành confirmed; player/grace vẫn unknown.
