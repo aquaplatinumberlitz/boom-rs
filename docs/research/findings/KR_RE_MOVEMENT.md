@@ -194,9 +194,56 @@ này để kết luận cho bomber người chơi hay thay R-116 khi chưa có c
   `CMovable::MoveSimple` chưa được phân loại lớp.
 - Điều kiện "ô bị chặn" (`0xEA0FD0`) gộp nhiều vị từ; polarity của `CGOTileFixed`/`CGOTilePassable`
   trong `0xE9F9B0` chưa chốt (R-124 để `candidate`).
-- Không bao gồm bomb pass, đứng trên bom, cứu/được cứu, thuyền.
+- Bomb pass/đứng trên bom đã đọc ở R-154 (§9); không bao gồm cứu/được cứu, thuyền.
 
 ## 8. Câu hỏi mở
 
 Theo dõi ở [QUESTIONS](../../research/QUESTIONS.md): Q-017 (speed/px-per-step còn thiếu; mover/`len`
 của bomber chưa định vị), Q-004 (tick client 30 ms đã dùng để quy đổi nhưng chưa nối với KR).
+
+## 9. R-154 — bomb pass từ phía object bom (2026-10-23)
+
+Lượt hẹp #146/Q-017, V1-012/013. Chỉ theo object bom → predicate → consumer movement;
+không suy hộp người chơi/assist từ pet. Build KR `00967`, REA MCP bản sao `kr-full.exe`
+SHA-256 `cf72da11…e63b`.
+
+### 9.1 Predicate trên `CGOBomb`
+
+- `CGOBomb` vtable base `0x174426C` (slot 24 update `0xB391E0`; Init `B384E0` slot 40).
+- Slot **+156** = `0xB37DB0` (RVA `0x737DB0`): trả `0` nếu field `+328` (`0x148`) bằng `1` hoặc `2`
+  (`B38250`/`B38290`); ngược lại trả `CSensorTrigger` flag tại `+152` (`11982F0(bomb+144)`).
+- `B37150` ctor gọi `1198240(bomb+144, 1)` ⇒ `CSensorTrigger` flag `+152 = 1` mặc định.
+- `B384E0` Init ghi `+328` từ **u8 descriptor+108** (`sub_529C20(a2+108)`); chưa thấy setter runtime
+  khác trong phạm vi đọc.
+
+### 9.2 Consumer movement
+
+`CMovable::MoveSimple` `0x1310200` lấy object ở **ô đích** bằng `E9F9B0`, rồi gọi virtual **+156**
+(`v32`/`v30`) và coi kết quả `0` là chặn (nhánh `v56`/`v55`). Nó **không** kiểm ô hiện tại, không so
+owner/player. Hệ quả hình học:
+
+- Người đang đứng trên bom vẫn bước ra được vì chỉ ô đích được kiểm.
+- Không ai vào được ô bom nếu predicate trả `0`; predicate trả khác `0` thì mọi người đi qua.
+- **Không** có nhánh owner/overlap trong predicate này. `B38370` (`+268`) là getter owner candidate,
+  có 14 caller effect/score (`ACC340`, `AEF700`, `EB73D0`, `EB8000`…), **không** được `B37DB0` gọi.
+- “Quyền hết” phụ thuộc `+328`: nếu `+328` cố định theo descriptor thì là **type gate**, không phải
+  timer. Nghĩa/giá trị C00/C01 của `+328` và descriptor+108 vẫn `unknown`; không suy 40×40/assist.
+
+### 9.3 Evidence
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_5e78903bb67e4aedd78c545ed1e9fb28e468e31b81f59c699dc5a5d52ab8b3b0` | `xrefs` `B391E0` | vtable slots |
+| `ev_dd2e57841bf0c657c6ad6c5011585efee285b300934b2bf7ab61570413ce1748` | `xrefs` slot `17442CC` | vtable base |
+| `ev_4b7e3be19829ef5c67ec2ea460e85d88a52474154ca11cf60bda5cd84c3190a7` | `xrefs` `174426C` | 2 ctor users |
+| `ev_dc3d84632f04b7616773024c1058afe0ae3659040f8ff455e8c57a3a9883f73f` | `batch_decompile` `B37150`/`B37560`/`B384E0` | ctor/Init/`+328` |
+| `ev_5d06d1cab12064f869b98fb3190c705d121c999678088da9a1bb3d47d26c28d7` | `batch_decompile` `B37DB0`/`B393D0` | pass predicate |
+| `ev_a546b755dea30f480cb1532c4bb0d4c158c23e62c6bfdd451056bb6bfc2bac0c` | `batch_decompile` `B38250`/`B38290`/`11982F0` | `+328`/`+152` |
+| `ev_3bb870f56d8520b9f50ac48277eb33172caa25940c5d0de42a78ddb71588cb45` | `batch_decompile` `CSensorTrigger` | ctor flag |
+| `ev_6b5946b42a71659cbda31f34a6d4e2f65ca5af068973517f54a8cd8833fdc504` | `procedure_pseudo_code` `1310200` | MoveSimple consumer |
+| `ev_1ed26a6f3c1bb7dff196630d81395bb64cda343c123acd908e9b8129e231dc4e` | `xrefs` `B38370` | owner getter callers |
+| `ev_4d7754d19b3e1394445bc19e34f1ce72ea04598b46af0ce90b5fc890fc604d0b` | `procedure_pseudo_code` `B391E0` | update/state |
+
+**Kết luận:** `kr_static` **confirmed** predicate/vtable/MoveSimple consumer và việc predicate không
+owner; `candidate` owner getter `+268`; `unknown` nghĩa/giá trị `+328`/descriptor+108, setter runtime,
+VN counterpart. Không đổi profile; không suy bomb luôn pass.
