@@ -109,3 +109,73 @@ Bundle `.re-work/evidence-r150-bomberattr-149.json` (20 record, không commit).
   gặp `.themida`, dừng + ghi entry VM; (4) cần runtime/`read_bytes` để kiểm nhặt tại trần.
 - **Đề xuất profile: không đổi.** `characters.*` giữ cấp/level (R-117); nếu tìm được consumer
   base/max mới mở PR profile riêng theo ADR 0013.
+
+## R-153 — ItemAttr reader và bảng trọng số (2026-10-23)
+
+Tiếp nối #149/Q-007/Q-020, V1-016. Lượt này chỉ đọc `CItemResourceMan`/ItemAttr; **không lặp**
+`CBomberAttr`/`E9E660` của R-150. Build KR `00967`, REA MCP bản sao `kr-full.exe`
+SHA-256 `cf72da11…e63b`.
+
+### Loader và hai bảng
+
+`sub_1196A70` (VA `0x01196A70`, RVA `0x00D96A70`, segment `.priv`) là loader native (197 dòng,
+0x666 B), caller `sub_1231BD0` tại `0x123292B`. Nó đọc `Attr/ItemAttr` và dựng:
+
+| Bảng | Base | Stride | Count | Row đã thấy |
+|---|---|---|---|---|
+| Item (`CItemResourceMan`) | `+244048` (`0x3B950`) | `0xC0` = 192 | `+244036` (`0x3B944`) | `+8` key, `+20` tên (≤63), `+84` (`0x54`) **item id**, `+96..+180` 8 dword |
+| Group | `+28` (`0x1C`) | `0xF4` = 244 | `+16` (`0x10`) | `+8` container, `+20`/`+84` tên, `+148` (`0x94`) **số slot**, `+96/+108/+120`, `+184..+232` 5 dword |
+
+- `sub_1197900` tìm row item theo **`+84`**: `for i < count(+244036): if sub_57A870(row_i + 84) == id return row_i`; không thấy thì trả row 0.
+- Xref của lookup có **7 hàm**: `0xE84CD0`, `0x6B3FA0`, `0xB978B0`, `0xB98250`, `0xFFFA70`, `0x1191DD0`,
+  `0x1192700`. **Chỉ 4 thân đã đọc**: `E84CD0` đọc byte user-info/character rồi tạo model; `6B3FA0`,
+  `B978B0`, `B98250` tạo/đọc item model/UI từ id. Trong 4 thân này **không** thấy đọc weight/placement.
+  **3 thân còn lại** (`FFFA70`, `1191DD0`, `1192700`) và tác dụng bắc cầu của helper/virtual vẫn **unknown**;
+  xref 7 hàm không phải 7 thân đã đọc.
+- `B479E0` gọi `B978B0(this+513, id, 0)` — item model gắn vào bomber (slot/held); **chưa thấy** đường map drop.
+
+### Bảng trọng số 0x8000
+
+Loader cấp `0x8000` byte tại `+436048` (`0x6A750`), fill `0xFF`, rồi với từng group:
+
+```
+offset = 0
+for group in groups:
+    n = group[+148]                  // số slot
+    for i in offset .. offset+n-1:
+        table[i] = group_index
+    offset += n
+    if offset > 0x7FFF: error
+```
+
+- **Không chia tổng**, không nhân 100, không dùng `weight/sum`; đây là **bảng chỉ số group**
+  (slot count), không phải phần trăm. Nếu tổng < 0x8000, phần còn lại giữ `0xFF`.
+- Quét **literal displacement** `+0x6A750` trên disassembly: chỉ **2** tham chiếu, **cả hai trong loader**
+  (khởi tạo/ghi). **Chưa thấy reader trong phạm vi quét literal này**; không loại trừ alias/base đã
+  điều chỉnh, địa chỉ tính toán, helper, indirect hay VM.
+- Vì vậy không chứng minh client chọn item/drop; bảng có thể để dành cho VM/server/feature khác.
+  `weight` không phải `%`; `placement` không phải xác suất gạch.
+
+### Kết luận / giới hạn
+
+- `kr_static` **confirmed**: loader native, stride/count, item id `+84`, lookup `1197900`, và việc
+  loader fill bảng 0x8000. **Không** confirmed sự vắng mặt reader toàn bộ.
+- `candidate`: vai trò group table và 6 tên đặc biệt `off_19A6354` (một tên `LucciPocketGold`).
+- `unknown`: reader ngoài phạm vi literal, 3 thân caller chưa đọc và bắc cầu helper/virtual; client
+  chọn drop hay chỉ hiển thị placement server; nghĩa 8 dword item `+96..+180`; cap nhặt; xác suất 35%
+  (không suy từ weight). Không đọc thêm 35% server.
+
+### Evidence
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_fbc144c7328649f1257d84f59211000a8f77c9e09d3ef83c6addfbfcb375e827` | `procedure_pseudo_code` `1196A70` | loader 197 dòng |
+| `ev_180b89234db3ee43884ec244ad85aa9149fa01e8a592de2ccf70a45181a063b5` | `procedure_assembly` `1196A70` | offset/stride/field |
+| `ev_180777980cc9e987726f3bde0ac105722f37b04e90af024cd3fccefe00bbf096` | `batch_decompile` `1194A00`/`1196830` | ctor, container stride 192/244 |
+| `ev_5443f41efdd99dd89fbdf4a21fb353de409446fb26eaa645e7ebc18e163af082` | `batch_decompile` `1197340`/`1197C40` | group name→index, decrypt |
+| `ev_584dffb25e7eb71990bb6f3e50663c6c29ee83765161796cb8523af156559181` | `batch_decompile` `1196960`/`11970E0`/`1197900` | lookup id `+84` |
+| `ev_04618990e2e75ab6277b4cf65fa2d0d01c245685b1374e711c332e9f4707ec95` | `batch_decompile` `E84CD0`/`B978B0`/`B98250`/`6B3FA0` | consumer model/UI |
+| `ev_563814aa2dd0ce9050c19671db0233f91fd6decff136c9c1c7b504a9c82e08f0` | `batch_decompile` `B479E0`/`B4C9D0` | item model bomber |
+| `ev_be2b7b9e7c911bab723341f747844a7fd1576ef3793f088b1118fba1b43d7682` | `xrefs` `1197900` | 7 xref; chỉ 4 thân đã đọc |
+| `ev_21c2be2fcc6cc7f66194b179dc3f4baa59c4845e26a91db432e97cf46870f4e6` | `xrefs` `1196A70` | caller `123292B` |
+| `ev_3234408243c47bec6d8034fb6a1f347331e1673e45bd46527a127ec24dc8562c` | `xrefs` `B978B0` | 2 caller model |
