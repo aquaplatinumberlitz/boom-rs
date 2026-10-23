@@ -15,12 +15,19 @@ cách đóng gói payload thô vào bundle schema 4 và cách client áp volume/
   không phải bằng chứng event nào phát entry nào.
 - Chuỗi client VN có `Wave/%s`, `Wave/Fanfare%03d`, `BombExplosion%03d` và tên các entry
   (`/home/admin/boom-re-l10n/ca_strings.txt`; bản `/home/admin/boom-re/ca_strings.txt` tương ứng).
-  Không tìm thấy bảng event→entry hoặc trace `PlaySound` của consumer gốc trong phạm vi đã đọc.
+  Không tìm thấy bảng event→entry hoặc trace `PlaySound` của consumer gốc trong phạm vi đã đọc **trước #196**.
 - Tool l10n `kr_v1_content.py` chỉ chốt `music` = `FxSound/MP3/Village` (và `explosion_art` =
   `FxDesktop/Bomb/BombExplosion001`, không phải SFX); `idf.py` chỉ đọc/giải mã pack, không có bảng
   event→entry. `boom-re/docs/features.md` A10 (audio/BGM/SFX) vẫn ghi "chưa điều tra"; legacy server không chứa
   quyết định phát SFX (server chỉ gửi event gameplay). Vì vậy **R-081 chỉ confirmed entry/mapping BGM**; loop/một voice và mapping
   event→entry, policy chồng tiếng là **design** (R-083/R-082), không nhận `confirmed` KR/VN.
+- **Cập nhật 2026-10-23 (#196)**: đã trace consumer SFX phía client KR (bảng id tĩnh + dispatcher
+  `0xD1CD10`): nổ **7/8/343**, nhốt **77/37**, chết **42**, item **68/69**, trap **174**; round-end/start
+  remap `rand()%N+base` **chỉ khi guard `sub_76FBF0` bật** (guard tắt giữ id; modulo bias); BGM lấy tên
+  từ record map. Bảng §3 **giữ nguyên** trong
+  PR RE này (design); bằng chứng và đề xuất đổi mapping ở
+  [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md).
+
 - `boom-assets` chỉ đọc/ghi payload thô và hash; không decode Ogg/MP3/WAV. Không commit file âm thanh;
   output đi vào `local/` khi kiểm tay.
 - Bundle schema 4 mang `[[audio]]` + file `audio/<id>.<format>`; `content_hash` gồm metadata audio và

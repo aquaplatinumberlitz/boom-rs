@@ -127,10 +127,12 @@ SHA-256 `cf72da11…e63b`.
 | Group | `+28` (`0x1C`) | `0xF4` = 244 | `+16` (`0x10`) | `+8` container, `+20`/`+84` tên, `+148` (`0x94`) **số slot**, `+96/+108/+120`, `+184..+232` 5 dword |
 
 - `sub_1197900` tìm row item theo **`+84`**: `for i < count(+244036): if sub_57A870(row_i + 84) == id return row_i`; không thấy thì trả row 0.
-- 7 caller của lookup: `0xE84CD0`, `0x6B3FA0`, `0xB978B0`, `0xB98250`, `0xFFFA70`, `0x1191DD0`,
-  `0x1192700`. Đã đọc 4 caller đầu: `E84CD0` đọc byte user-info/character rồi tạo model; `6B3FA0`
-  và `B978B0`/`B4C9D0` tạo item model/UI từ id; **không** đọc weight/placement.
-- `B479E0` gọi `B978B0(this+513, id, 0)` — item model gắn vào bomber (slot/held), không phải map drop.
+- Xref của lookup có **7 hàm**: `0xE84CD0`, `0x6B3FA0`, `0xB978B0`, `0xB98250`, `0xFFFA70`, `0x1191DD0`,
+  `0x1192700`. **Chỉ 4 thân đã đọc**: `E84CD0` đọc byte user-info/character rồi tạo model; `6B3FA0`,
+  `B978B0`, `B98250` tạo/đọc item model/UI từ id. Trong 4 thân này **không** thấy đọc weight/placement.
+  **3 thân còn lại** (`FFFA70`, `1191DD0`, `1192700`) và tác dụng bắc cầu của helper/virtual vẫn **unknown**;
+  xref 7 hàm không phải 7 thân đã đọc.
+- `B479E0` gọi `B978B0(this+513, id, 0)` — item model gắn vào bomber (slot/held); **chưa thấy** đường map drop.
 
 ### Bảng trọng số 0x8000
 
@@ -148,18 +150,20 @@ for group in groups:
 
 - **Không chia tổng**, không nhân 100, không dùng `weight/sum`; đây là **bảng chỉ số group**
   (slot count), không phải phần trăm. Nếu tổng < 0x8000, phần còn lại giữ `0xFF`.
-- Toàn bộ disassembly chỉ có **2** tham chiếu tới `+0x6A750`, **cả hai trong loader** (khởi tạo/ghi).
-  **Không có native reader** của bảng này.
+- Quét **literal displacement** `+0x6A750` trên disassembly: chỉ **2** tham chiếu, **cả hai trong loader**
+  (khởi tạo/ghi). **Chưa thấy reader trong phạm vi quét literal này**; không loại trừ alias/base đã
+  điều chỉnh, địa chỉ tính toán, helper, indirect hay VM.
 - Vì vậy không chứng minh client chọn item/drop; bảng có thể để dành cho VM/server/feature khác.
   `weight` không phải `%`; `placement` không phải xác suất gạch.
 
 ### Kết luận / giới hạn
 
-- `kr_static` **confirmed**: loader native, stride/count, item id `+84`, lookup `1197900`, bảng
-  0x8000 và việc **không có native reader**.
+- `kr_static` **confirmed**: loader native, stride/count, item id `+84`, lookup `1197900`, và việc
+  loader fill bảng 0x8000. **Không** confirmed sự vắng mặt reader toàn bộ.
 - `candidate`: vai trò group table và 6 tên đặc biệt `off_19A6354` (một tên `LucciPocketGold`).
-- `unknown`: client có chọn drop hay chỉ hiển thị placement server; nghĩa 8 dword item `+96..+180`;
-  cap nhặt; xác suất 35% (không suy từ weight). Không đọc thêm 35% server.
+- `unknown`: reader ngoài phạm vi literal, 3 thân caller chưa đọc và bắc cầu helper/virtual; client
+  chọn drop hay chỉ hiển thị placement server; nghĩa 8 dword item `+96..+180`; cap nhặt; xác suất 35%
+  (không suy từ weight). Không đọc thêm 35% server.
 
 ### Evidence
 
@@ -172,6 +176,6 @@ for group in groups:
 | `ev_584dffb25e7eb71990bb6f3e50663c6c29ee83765161796cb8523af156559181` | `batch_decompile` `1196960`/`11970E0`/`1197900` | lookup id `+84` |
 | `ev_04618990e2e75ab6277b4cf65fa2d0d01c245685b1374e711c332e9f4707ec95` | `batch_decompile` `E84CD0`/`B978B0`/`B98250`/`6B3FA0` | consumer model/UI |
 | `ev_563814aa2dd0ce9050c19671db0233f91fd6decff136c9c1c7b504a9c82e08f0` | `batch_decompile` `B479E0`/`B4C9D0` | item model bomber |
-| `ev_be2b7b9e7c911bab723341f747844a7fd1576ef3793f088b1118fba1b43d7682` | `xrefs` `1197900` | 7 caller |
+| `ev_be2b7b9e7c911bab723341f747844a7fd1576ef3793f088b1118fba1b43d7682` | `xrefs` `1197900` | 7 xref; chỉ 4 thân đã đọc |
 | `ev_21c2be2fcc6cc7f66194b179dc3f4baa59c4845e26a91db432e97cf46870f4e6` | `xrefs` `1196A70` | caller `123292B` |
 | `ev_3234408243c47bec6d8034fb6a1f347331e1673e45bd46527a127ec24dc8562c` | `xrefs` `B978B0` | 2 caller model |
