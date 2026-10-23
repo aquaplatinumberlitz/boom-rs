@@ -64,7 +64,7 @@ Cột **Trạng thái nguồn**:
 | `unknown` | Chưa có locator catalog/ảnh phù hợp; không render tới khi bổ sung key/asset và duyệt. |
 
 Tổng hợp 125 khóa: **44 dòng có locator catalog** (33 `catalog-translated` + 11 `catalog-reused`),
-**24 dòng `review`**, **9 dòng `image-pending`** và **48 dòng `unknown`**. Không có dòng nào tự soạn
+**25 dòng `review`**, **9 dòng `image-pending`** và **47 dòng `unknown`**. Không có dòng nào tự soạn
 bản VI hay yêu cầu sửa bản dịch đã có. Mọi dòng `review`/`unknown` là **đầu việc của `boom-re-l10n`**:
 ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch.
 
@@ -157,7 +157,7 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `room.min_players` | Chưa đủ người để bắt đầu | `catalog:SmallPlayerNo` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.all_ready` | Chưa ready hết | `catalog:AllMustReady` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.loading` | Loading barrier | `catalog:Loading` | `catalog-reused` | Lấy `catalog.vi`; nhắc 15 giây theo SCOPE_V1 §3 nếu hiển thị đếm ngược. |
-| `room.kick` | Nút mời ra | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.kick`; chưa render. |
+| `room.kick` | Nút mời ra | `catalog:ForceQuit` | `review` | Catalog là nhãn hành động "강제탈퇴"/"Buộc rời đi" (`ForceQuit`); reviewer xác nhận dùng làm nút mời ra. Cần chọn/sửa key ở boom-re-l10n. |
 | `room.kick_confirm` | Xác nhận mời ra | `catalog:SureToBan` | `catalog-translated` | Giữ `%s`; lấy `catalog.vi`. |
 | `room.kicked` | Bị chủ phòng mời ra | `catalog:BannedByLeader` | `catalog-translated` | Lấy `catalog.vi`; bỏ khoảng trắng đầu khi render, không đổi chữ. |
 | `room.non_host_denied` | Non-host start/kick | `catalog:RoomLeaderOnly` | `catalog-translated` | Lấy `catalog.vi`. |
@@ -492,8 +492,8 @@ Số đếm khóa thiếu text do tool sinh nằm ở [§6.1](#61-báo-cáo-khó
 
 | Thiếu | Ảnh hưởng | Bước tiếp |
 |---|---|---|
-| 48 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn (client hiện placeholder `«khóa»`) | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
-| 24 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
+| 47 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn (client hiện placeholder `«khóa»`) | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
+| 25 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
 | 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 8 ảnh UI có chữ của V1-032 (§3) |
 | 8 ảnh UI có chữ ở trạng thái `needs_review_text` | Client phải vẽ text từ catalog thay cho ảnh | Duyệt ảnh (`translated`/`no_text`) rồi import CSV; đổi trạng thái trong bảng UI của closure |
 | Chưa có font/license trong repo | ~~V1-035 chưa bundle được font~~ | **Đã xong ở task #112**: Be Vietnam Pro 1.002 + `OFL.txt` trong `assets/fonts/`, nguồn/SHA-256 ở §5.1.1 |
@@ -522,9 +522,9 @@ python3 tools/l10n_export.py --check    # kiểm file đã xuất (không cần 
 |---|---:|---|---|
 | `catalog-translated` | 33 | có (`catalog.vi` nguyên văn) | — |
 | `catalog-reused` | 11 | có (`catalog.vi` nguyên văn) | — |
-| `review` | 24 | không | `needs-review` |
+| `review` | 25 | không | `needs-review` |
 | `image-pending` | 9 | không | `image-pending-review` |
-| `unknown` | 48 | không | `no-locator` |
+| `unknown` | 47 | không | `no-locator` |
 | **Tổng** | **125** | **44 có text / 81 chỉ có lý do** | — |
 
 Quy tắc của file xuất (nguồn chuẩn vẫn là `catalog.csv`, không lưu bản VI riêng):

@@ -576,9 +576,10 @@ image = "FxMap:Prepare/PRE_Bt_Roominfo`, `ảnh FxMap:Prepare/Dlg_PRE-NMRoominfo
 note = "Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt."
 
 [strings."room.kick"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.kick`; chưa render."
+catalog_id = "ForceQuit"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn hành động \"강제탈퇴\"/\"Buộc rời đi\" (`ForceQuit`); reviewer xác nhận dùng làm nút mời ra. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."room.kick_confirm"]
 catalog_id = "SureToBan"
