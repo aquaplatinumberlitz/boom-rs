@@ -278,14 +278,16 @@ chứng minh consumer gốc dùng entry cho event nào.
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
 | R-081 | Entry/mapping BGM V1 của map Village là `FxSound/MP3/Village` (270.601 B, SHA-256 `7a34054f23a66a1f19cd1cd47b70705bda0c774b6d2afd094c4bd5b6d709038f`), theo mapping map/theme R-070; **không** claim việc consumer gốc loop hay chỉ phát một voice | — | `kr_static` + `vn_static` / confirmed (chỉ entry/mapping) | R-070; [AUDIO_V1](../assets/AUDIO_V1.md) §2; `crates/boom-assets/src/audio.rs`; `boom-assets audio <pack> --list` |
-| R-082 | Mapping event→entry V1 (quyết định V1, **không phải** suy ra từ nguồn static): `bomb_placed`→`Wave/Cha_BombIgnite`, `bomb_exploded`→`Wave/BombExplosion001`, `item_revealed`→`Wave/Itm_ItemPop`, `item_picked` (Bomb/Fire/Roller)→`Wave/Itm_ItemEaten`, `player_trapped`→`Wave/Itm_UseTrap`, `player_died`→`Wave/Cha_Die`, `round_ended` thắng/thua/hòa→`Wave/Ntc_Win`/`Ntc_Lose`/`Ntc_Draw`, đếm ngược 3/2/1→`Wave/Ntc_Count3`/`Count2`/`Count1`, start→`Wave/Ntc_GameStart`, `ui_click`→`Wave/Bt_p_Default`; mapping là lựa chọn V1 vì chưa có trace consumer gốc, nhưng **cả 15 entry tồn tại trong KR và VN với cùng SHA-256** | — | `design` / design (entry có thật trong static; mapping do dự án chọn) | Issue #64; [AUDIO_V1](../assets/AUDIO_V1.md) §2–3; `crates/boom-assets/src/audio.rs` (`V1_AUDIO_USES`); Q-015 |
+| R-082 | Mapping event→entry V1 (quyết định V1, **không phải** suy ra từ nguồn static): `bomb_placed`→`Wave/Cha_BombIgnite`, `bomb_exploded`→`Wave/BombExplosion001`, `item_revealed`→`Wave/Itm_ItemPop`, `item_picked` (Bomb/Fire/Roller)→`Wave/Itm_ItemEaten`, `player_trapped`→`Wave/Cha_LockedIn` (**phần này superseded bởi R-203/R-204**), `player_died`→`Wave/Cha_Die`, `round_ended` thắng/thua/hòa→`Wave/Ntc_Win`/`Ntc_Lose`/`Ntc_Draw`, đếm ngược 3/2/1→`Wave/Ntc_Count3`/`Count2`/`Count1`, start→`Wave/Ntc_GameStart`, `ui_click`→`Wave/Bt_p_Default`; phần lớn mapping là lựa chọn V1 chưa nâng nhãn/áp đầy đủ đối chiếu consumer (R-204 đã có consumer cho một số event), nhưng **cả 15 entry tồn tại trong KR và VN với cùng SHA-256** | — | `design` / design (entry có thật trong static; mapping do dự án chọn; **riêng `player_trapped` đã confirmed bởi R-203/R-204, không nâng cả R-082**) | Issue #64; [AUDIO_V1](../assets/AUDIO_V1.md) §2–3; R-203; R-204; `crates/boom-assets/src/audio.rs` (`V1_AUDIO_USES`); Q-015 |
 | R-083 | Policy chồng tiếng V1: tối đa **8 voice SFX + 1 BGM**; BGM phát loop một bản, không tính voice và không restart khi reconcile; loop/một voice là design, không phải confirmed từ consumer gốc. Cùng một entry phát nhiều lần trong **cùng một tick** gộp thành một lần; event được dedup theo `(round_id, EventId)`, không phát lại khi replay/reconcile. Ưu tiên khi thiếu voice: round-end/start > explosion > trapped/died > bomb/item > UI; hết voice thì bỏ mục ưu tiên thấp nhất, hòa giữ `EventId` nhỏ hơn (cũ hơn). Qua tick vẫn được phát lại | — | `design` / design | Issue #64; [AUDIO_V1](../assets/AUDIO_V1.md) §4; Q-015; ADR 0008 (EventId/dedup); R-082 |
 
 R-081 xác nhận **entry/mapping asset BGM** từ manifest R-070 và hash trùng ở hai build; policy loop
-một voice thuộc R-083 design. R-082/R-083 là **DESIGN của dự
-án**, không phải claim `confirmed` KR/VN: chưa tìm thấy trace consumer phát SFX trong client gốc
-(A10 của `features.md` vẫn là "chưa điều tra") và chưa có consumer audio V1. Q-015 theo dõi việc
-đóng hai claim này; khi có trace, sửa bảng/giá trị thay vì tự nhận confirmed.
+một voice thuộc R-083 design. R-082/R-083 vẫn là **DESIGN của dự án** cho phần chưa nâng nhãn/áp đầy
+đủ đối chiếu consumer; điều này **không** có nghĩa client gốc không có consumer. Lượt RE #196
+(R-203/R-204) đã tìm consumer client KR cho nổ/đặt/nhốt/chết/item; #206 chỉ supersede riêng mapping
+`player_trapped` sang `Wave/Cha_LockedIn` (id 77 solo) và nâng **mapping đó** thành confirmed. Các
+mapping khác và policy R-083 giữ design; A10 của `features.md` ghi "chưa điều tra" là trạng thái
+trước #196. Q-015 theo dõi phần còn lại; không suy toàn R-082 thành confirmed.
 
 ## 10. Lịch sử chọn luật từ BnB — ADR 0012
 
@@ -696,9 +698,10 @@ Q-015, V1-034 (mục 8 hàng đợi RE). Số mục để trống theo yêu cầ
 hạn và đề xuất AUDIO_V1 ở [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md).
 
 Bối cảnh: R-081 chỉ confirmed **entry/mapping** BGM; R-082 (event→entry) và R-083 (chồng tiếng) là
-**design** vì chưa có consumer gốc. Lượt này tìm được consumer thật (bảng id tĩnh + API phát + các
-điểm gọi theo event), nên một phần R-082/R-083 có thể nâng bằng chứng — nhưng **không** tự đổi
-`data/assets/audio-v1.toml` trong PR này (đề xuất ở findings §7).
+**design** của V1 cho phần chưa nâng nhãn/áp đầy đủ đối chiếu consumer — **không** phải vì client
+không có consumer. Lượt này tìm được consumer thật (bảng id tĩnh + API phát + các điểm gọi theo event),
+nên một phần R-082/R-083 có thể nâng bằng chứng — #206 chỉ nâng riêng mapping `player_trapped`; các
+mapping khác và policy R-083 giữ design (đề xuất đầy đủ ở findings §7).
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
