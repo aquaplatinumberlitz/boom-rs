@@ -20,38 +20,38 @@ Không chia điểm cho in_progress/in_review/blocked. Scope đổi phải đổ
 | Trạng thái | V1 | Toàn catalog cần triển khai |
 |---|---:|---:|
 | Chưa làm | 0 | 75 |
-| Đang làm | 2 | 2 |
-| Bị chặn | 0 | 0 |
+| Đang làm | 0 | 0 |
+| Bị chặn | 2 | 2 |
 | Chờ review | 0 | 0 |
 | Đã nghiệm thu | 35 | 35 |
 
 ## Planning và gate phát hành — không cộng vào feature %
 
-Pha đang hoạt động: **P1, P2**. Chuẩn bị P0–P3: **1/4 pha hoàn tất**; các pha không có độ lớn bằng nhau.
-Cổng phát hành: **0/6 passed**. Milestone P8: **Chưa làm**.
+Pha đang hoạt động: **P1, P2, P3, P4, P5, P6, P7, P8**. Chuẩn bị P0–P3: **1/4 pha hoàn tất**; các pha không có độ lớn bằng nhau.
+Cổng phát hành: **1/6 passed**. Milestone P8: **Đang làm**.
 Chỉ release khi feature V1 đã nghiệm thu, tất cả gate passed và P8 done.
 
 | Pha | Trạng thái | Owner | Đầu ra | Gate hoàn thành |
 |---|---|---|---|---|
 | P0 Tổ chức docs/scope | Đã nghiệm thu | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
 | P1 Tìm thông tin còn thiếu | Đang làm | research | Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
-| P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0008, contracts-r3 trong code, harness scenario, CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
-| P3 Review sẵn sàng | Chưa làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |
-| P4 Nền móng/asset/oracle | Chưa làm | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
-| P5 Core/offline | Chưa làm | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
-| P6 Client hình/tiếng/input | Chưa làm | client | Scene/animation/render/audio/input | Content/presentation contract và acceptance tương ứng |
-| P7 Authority/mạng/phòng | Chưa làm | net/backend | Server/client round lifecycle | Authority/convergence, lifecycle và mạng có fixture |
-| P8 Tích hợp/QA/phát hành V1 | Chưa làm | integrator/QA | V1 end-to-end trên3OS | Tất cả37feature V1done và6gate releasepassed |
+| P2 Cấu trúc dự án/interface | Chờ review | architecture | ARCHITECTURE, contracts-r4, ADR protocol/client stack, harness scenario và CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
+| P3 Review sẵn sàng | Đang làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |
+| P4 Nền móng/asset/oracle | Chờ review | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
+| P5 Core/offline | Chờ review | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
+| P6 Client hình/tiếng/input | Đang làm | client | Scene/animation/render/audio/input | Content/presentation contract và acceptance tương ứng |
+| P7 Authority/mạng/phòng | Chờ review | net/backend | Server/client round lifecycle | Authority/convergence, lifecycle và mạng có fixture |
+| P8 Tích hợp/QA/phát hành V1 | Đang làm | integrator/QA | V1 end-to-end trên3OS | Tất cả37feature V1done và6gate releasepassed |
 | P9 Mở rộng full feature | Chưa làm | integrator | Các đợt W1–W4 theo registry | Toàn bộ112mục trong baseline hiện hành done; scope mới phải revision riêng |
 
 | Gate | Trạng thái | Owner | Bằng chứng |
 |---|---|---|---|
-| G1 Content/map | open | assets/RE | — |
-| G2 Movement/stats | open | RE/core | — |
-| G3 Bomb/damage/items | open | RE/core | — |
-| G4 Protocol/state | open | core/net | — |
-| G5 UX/localization | open | client/QA | — |
-| G6 Release toàn bộ V1 | open | QA/integrator | — |
+| G1 Content/map | passed | assets/RE | [BUNDLES.md](<../../docs/specification/assets/BUNDLES.md>); [village00-kr.toml](<../../data/maps/village00-kr.toml>); `891c7c7d3d76` |
+| G2 Movement/stats | in_review | RE/core | [0013-rule-source-precedence.md](<../../docs/decisions/0013-rule-source-precedence.md>); [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); [v1-dev.toml](<../../data/rules/v1-dev.toml>) |
+| G3 Bomb/damage/items | in_review | RE/core | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); [v1-dev.toml](<../../data/rules/v1-dev.toml>); [warmup_freezes_round.toml](<../../fixtures/scenarios/round/warmup_freezes_round.toml>); `bcd6362b64ff` |
+| G4 Protocol/state | in_review | core/net | [QA_NETWORK.md](<../../docs/specification/QA_NETWORK.md>); `743e8ea9cdf0` |
+| G5 UX/localization | blocked | client/QA | [UI_STRINGS_V1.md](<../../docs/specification/localization/UI_STRINGS_V1.md>); [l10n_review_v1.py](<../../tools/l10n_review_v1.py>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `2b86a87fb4f4` |
+| G6 Release toàn bộ V1 | blocked | QA/integrator | [PROGRESS.md](<../../docs/planning/PROGRESS.md>); `303ab49a07c2` |
 
 ## Từng feature V1
 
@@ -89,13 +89,13 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-027 | QA mạng 4 client | Đã nghiệm thu | qa / opencode-6 | Claude | Xong: bot dùng predictor client chung, correction p50/p95, disconnect/liveness/rejoin, 4 client hội tụ hash (PR #172); recover RoundResult khi mất frame (PR #174, đóng #166); recovery test tất định (PR #182, đóng #178); boom-qa phụ thuộc lib client (PR #183). | `ea7c0070fbb0`; [QA_NETWORK.md](<../../docs/specification/QA_NETWORK.md>); `26435d0cbb23`; `b9c94279db27`; `42bf8be9e5ae`; `e6a1b27ceff2` |
 | V1-028 | Lưu tài khoản và tùy chọn | Đã nghiệm thu | backend / opencode-1/opencode-2 | Claude/Codex | Done theo spec V1 hiện hành (rà #161). Ghi chú: Identity/tùy chọn bền đã có code/test; room/trận không cần phục hồi đúng scope. Chờ V1-001 done; giữ proof options #69/#77 và server identity/auth. | [0011-identity-persistence-log-v1.md](<../../docs/decisions/0011-identity-persistence-log-v1.md>); `06058297ddd9`; [sqlite.rs](<../../crates/boom-server/src/identity/sqlite.rs>); [options.rs](<../../crates/boom-client/src/options.rs>); `53aabbfb9023`; `c8b14a81e1e5`; `bf5ca50b338f`; `a3a78b0ec85b`; `ee779e43c9bc` |
 | V1-029 | Log/health và vận hành test | Đã nghiệm thu | backend / dsh-a/opencode-1 | Claude | Xong: log JSON vòng đời round có round_id, lý do disconnect, logger trước load_content (PR #169, đóng #165). | [0011-identity-persistence-log-v1.md](<../../docs/decisions/0011-identity-persistence-log-v1.md>); `06058297ddd9`; [admin.rs](<../../crates/boom-server/src/admin.rs>); [observability.rs](<../../crates/boom-server/src/observability.rs>); `8ffc64ed2421`; `8759e037c647`; `f9c482861e33` |
-| V1-030 | Map Village00 + dependency closure | Đã nghiệm thu | assets / opencode-4 | Claude/Codex | Xong: 0 unknown trong bundle Village00, test 4 spawn (PR #126, đóng #121). | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); `243d230fd7f0`; [closure.rs](<../../crates/boom-assets/src/closure.rs>); [sprite.rs](<../../crates/boom-assets/src/sprite.rs>); `9372f2074939`; `fd2e5d217251`; `282a051a5ce7`; [scene.rs](<../../crates/boom-client/src/scene.rs>); `abae61bba752`; `b3d4d068a3a7`; `4ec8acf9e133`; `891c7c7d3d76`; [BUNDLES.md](<../../docs/specification/assets/BUNDLES.md>) |
+| V1-030 | Map Village00 + dependency closure | Đã nghiệm thu | assets / opencode-4 | Claude/Codex | Xong: 0 unknown trong bundle Village00, test 4 spawn (PR #126, đóng #121). | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); `243d230fd7f0`; [closure.rs](<../../crates/boom-assets/src/closure.rs>); [sprite.rs](<../../crates/boom-assets/src/sprite.rs>); `9372f2074939`; `fd2e5d217251`; `282a051a5ce7`; [scene.rs](<../../crates/boom-client/src/scene.rs>); `abae61bba752`; `b3d4d068a3a7`; `4ec8acf9e133`; `891c7c7d3d76`; [BUNDLES.md](<../../docs/specification/assets/BUNDLES.md>); `2b86a87fb4f4` |
 | V1-031 | Animation C00/C01 và bomb | Đã nghiệm thu | client / opencode-3/opencode-4 | Claude | Xong: event mạng (trap/dead/explosion/start) vào journal trình diễn, reset khi sang round (PR #170); frame/pivot theo R-085…R-089 (#100/#122). | [animation.rs](<../../crates/boom-assets/src/animation.rs>); `389b6ce78fc1`; [anim.rs](<../../crates/boom-client/src/anim.rs>); `5242e48f6127`; `40fb031334dd`; `93288f1f300a`; `f545f24d6570`; `eff7f94c258e` |
 | V1-032 | UI luồng V1 bằng asset KR | Đã nghiệm thu | client / opencode-3 | Claude | Xong: --connect chạy UiModel<NetBackend>, Playing → ResultsAck → Room → trận 2, test tích hợp hai trận (PR #171, đóng #164). Layout KR (#150) là fidelity, không chặn luồng. | [closure.rs](<../../crates/boom-assets/src/closure.rs>); `4ec8acf9e133`; `c129a21815b8`; `395a7bcc14d6` |
 | V1-033 | Input/scale/focus | Đã nghiệm thu | client / dsh-b/opencode-2 | Claude/Codex | Done: mặc định mũi tên+Space (#51), rebind qua options.toml (#69, #77), integer scale + nhả phím khi mất focus (#51); reviewer độc lập Codex; không có dependency. | [input.rs](<../../crates/boom-client/src/input.rs>); `0c5df165ffab`; [options.rs](<../../crates/boom-client/src/options.rs>); `bf5ca50b338f`; `a3a78b0ec85b` |
-| V1-034 | Audio/volume | Đã nghiệm thu | client / dsh-b/dsh-a | Claude | Xong: AudioState/BGM/SFX nhận event mạng, own slot/round, không phát trùng khi duplicate/reconcile; mute/volume (PR #170, #106). | [audio.rs](<../../crates/boom-client/src/audio.rs>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `6dfdac10040c`; `aace7988256b`; `eff7f94c258e` |
-| V1-035 | Việt hóa UI V1 | Đang làm | client / opencode-3 | Claude/Codex | Cần người duyệt bản dịch (chủ dự án). | [vi-v1.toml](<../../data/l10n/vi-v1.toml>); [l10n.rs](<../../crates/boom-content/src/l10n.rs>); `71d36a66cd64`; `82033ce560ab` |
-| V1-036 | Build Windows/Linux/macOS | Đang làm | release / opencode-1 | Claude/Codex | Gói 3 OS + smoke (#110/#128/#168) đã có. V1-027 đã done (2026-10-22); còn chờ V1-035 (người duyệt bản dịch). Khi V1-035 done: chạy lại smoke gói 3 OS rồi nghiệm thu. | `d6ca5799c8c9` |
+| V1-034 | Audio/volume | Đã nghiệm thu | client / dsh-b/dsh-a | Claude | Done theo scope V1; cue trapped sửa theo R204 ở PR213. Q015/issue196 còn phần RE khác, không nâng cả audio policy KR. | [audio.rs](<../../crates/boom-client/src/audio.rs>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `6dfdac10040c`; `aace7988256b`; `eff7f94c258e`; `2b86a87fb4f4`; [audio-v1.toml](<../../data/assets/audio-v1.toml>) |
+| V1-035 | Việt hóa UI V1 | Bị chặn | client / opencode-2 (tool); chủ dự án/người duyệt nội dung | Claude/Codex | Chờ người duyệt text/ảnh thực dùng trong luồng V1; không dùng pending review làm nội dung đã chốt. | [vi-v1.toml](<../../data/l10n/vi-v1.toml>); [l10n.rs](<../../crates/boom-content/src/l10n.rs>); `71d36a66cd64`; `82033ce560ab`; [l10n_review_v1.py](<../../tools/l10n_review_v1.py>); [UI_STRINGS_V1.md](<../../docs/specification/localization/UI_STRINGS_V1.md>); `6ad3e062f096` |
+| V1-036 | Build Windows/Linux/macOS | Bị chặn | release / integrator/QA | Claude/Codex | Dependency V1-035 chưa được nghiệm thu; còn smoke gói cuối ba OS sau khi chốt nội dung. | `942045876f2a`; `d6ca5799c8c9`; `303ab49a07c2` |
 | V1-037 | Đối chiếu và báo sai khác | Đã nghiệm thu | qa / opencode-3 | Codex | Xong: oracle có provenance KR/VN tách golden, báo cáo sai khác tự sinh và kiểm trong cargo xtask ci (PR #184, đóng #180). Đo client gốc runtime vẫn hoãn (Q-009); claim RE mới (#146–#150) bổ sung oracle sau. | [VN_ENGINE_DIFF.md](<../../docs/research/findings/VN_ENGINE_DIFF.md>); `440bc8fd5648`; `b83a7cdcfcab`; [ORACLE_REPORT.md](<../../docs/research/ORACLE_REPORT.md>) |
 
 ## Các mục catalog ngoài V1
