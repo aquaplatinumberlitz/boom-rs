@@ -2,7 +2,7 @@
   "schema": 1,
   "baseline": "KR-00967-V1-scope-1",
   "plan": "docs/planning/REWRITE_PLAN.md",
-  "updated_at": "2026-10-19",
+  "updated_at": "2026-10-24",
   "readiness_phases": [
     "P0",
     "P1",
@@ -41,42 +41,42 @@
       ],
       "deliverable": "Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật",
       "exit_gate": "Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
-      "evidence": [],
-      "verification": "",
+      "evidence": [
+        "docs/research/QUESTIONS.md",
+        "docs/specification/gameplay/RULES_V1.md"
+      ],
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": "Issue #9 (START-A), #11 (START-B), #15 (Q-012); hạn 2026-11-02."
+      "next_action": "RE có câu hỏi/consumer mới ở #146–#150/#196; nguồn thiếu giữ candidate/unknown hoặc DESIGN theo ADR0013. Không đợi RE hết client để hoàn thiện V1."
     },
     {
       "id": "P2",
       "title": "Cấu trúc dự án/interface",
-      "status": "in_progress",
+      "status": "in_review",
       "owner": "architecture",
       "depends_on": [
         "P0"
       ],
-      "deliverable": "ARCHITECTURE r1, ADR 0004–0008, contracts-r3 trong code, harness scenario, CI ba OS",
+      "deliverable": "ARCHITECTURE, contracts-r4, ADR protocol/client stack, harness scenario và CI ba OS",
       "exit_gate": "Boundary/contracts review và giả định quan trọng được ghi nhận",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
       "evidence": [
         "docs/planning/ARCHITECTURE.md",
-        "docs/decisions/0004-time-numeric-model.md",
-        "docs/decisions/0005-authority-and-prediction.md",
-        "docs/decisions/0006-transport-default.md",
-        "docs/decisions/0008-extensibility-model.md",
-        "crates/boom-core/src/systems/mod.rs",
-        "crates/boom-scenario/src/scenario.rs"
+        "docs/decisions/0009-wire-protocol-input-snapshot-codec.md",
+        "docs/decisions/0010-client-stack-choice.md",
+        "crates/boom-core/src/sim.rs"
       ],
-      "verification": "",
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": "contracts-r3 đã approve (#2). Còn: ADR giao thức #14, spike client #12; hạn 2026-11-02."
+      "next_action": "Contracts-r4, protocol và client stack đã có code trên main; rà lại mô tả khung/chờ review trong kiến trúc và ghi sign-off pha theo bằng chứng."
     },
     {
       "id": "P3",
       "title": "Review sẵn sàng",
-      "status": "not_started",
+      "status": "in_progress",
       "owner": "integrator",
       "depends_on": [
         "P1",
@@ -84,68 +84,84 @@
       ],
       "deliverable": "Readiness và task prototype",
       "exit_gate": "Checklist readiness trong REWRITE_PLAN có kết luận",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
-      "evidence": [],
-      "verification": "",
+      "evidence": [
+        "docs/planning/REWRITE_PLAN.md",
+        "docs/planning/SCOPE_V1.md"
+      ],
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": ""
+      "next_action": "Audit readiness/gate PR211 đã merge và G1 đã sign-off riêng. Còn kết luận readiness hồi cứu cho các pha, không đặt done chỉ vì prototype đã chạy."
     },
     {
       "id": "P4",
       "title": "Nền móng/asset/oracle",
-      "status": "not_started",
+      "status": "in_review",
       "owner": "assets/RE",
       "depends_on": [
         "P3"
       ],
       "deliverable": "Workspace nhỏ, content resolver và oracle fixture",
       "exit_gate": "Legacy vẫn chạy, content unknown rõ và schema phù hợp",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
-      "evidence": [],
-      "verification": "",
+      "evidence": [
+        "docs/specification/assets/BUNDLES.md",
+        "docs/research/ORACLE_REPORT.md",
+        "git:891c7c7d3d76ed4f8e6807d9e32f4611917e3d10"
+      ],
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": ""
+      "next_action": "Asset/bundle/oracle đã có; Village00 0 unknown nội dung theo quyết định V1. Còn sign-off pha/G1 và ghi nhận giới hạn timing/consumer."
     },
     {
       "id": "P5",
       "title": "Core/offline",
-      "status": "not_started",
+      "status": "in_review",
       "owner": "core",
       "depends_on": [
         "P4"
       ],
       "deliverable": "Simulation/replay V1",
       "exit_gate": "Rule scenarios/state hash tái lập và giới hạn nguồn rõ",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
-      "evidence": [],
-      "verification": "",
+      "evidence": [
+        "crates/boom-core/src/sim.rs",
+        "fixtures/scenarios/round/warmup_freezes_round.toml",
+        "git:ee779e43c9bc870e5b07060264334cea479c6f14"
+      ],
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": ""
+      "next_action": "Core/scenario V1 đã tích hợp và feature tương ứng done; rà G2/G3 theo DESIGN/confirmed hiện hành, không coi regression là fidelity KR."
     },
     {
       "id": "P6",
       "title": "Client hình/tiếng/input",
-      "status": "not_started",
+      "status": "in_progress",
       "owner": "client",
       "depends_on": [
         "P4"
       ],
       "deliverable": "Scene/animation/render/audio/input",
       "exit_gate": "Content/presentation contract và acceptance tương ứng",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
-      "evidence": [],
-      "verification": "",
+      "evidence": [
+        "git:eff7f94c258e154c60a7c36a60ceaefdf7f5deba",
+        "git:82033ce560ab4649cdd57a3d228dd1a0669129a8",
+        "git:6ad3e062f096d902e0109ac76c764ec7f6b24b43",
+        "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7"
+      ],
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": ""
+      "next_action": "Client hình/tiếng/input/UI đã có; cue trapped #206/PR213 đã sửa và merge. Còn duyệt text/ảnh V1-035 và sign-off presentation, giữ rõ giới hạn DESIGN/chưa hiệu chuẩn KR."
     },
     {
       "id": "P7",
       "title": "Authority/mạng/phòng",
-      "status": "not_started",
+      "status": "in_review",
       "owner": "net/backend",
       "depends_on": [
         "P5",
@@ -153,29 +169,36 @@
       ],
       "deliverable": "Server/client round lifecycle",
       "exit_gate": "Authority/convergence, lifecycle và mạng có fixture",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
-      "evidence": [],
-      "verification": "",
+      "evidence": [
+        "docs/specification/QA_NETWORK.md",
+        "git:42bf8be9e5ae4ffac05c010d72c47c727f8b35b0",
+        "git:743e8ea9cdf0b975eb55d814f84bfe75ad746ffc"
+      ],
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": ""
+      "next_action": "Authority/reconciliation/phòng/recovery và ma trận2/4×3 seed đã tích hợp. Diagnostic PR217 giải thích mốc đo/rejected có giới hạn; sửa submit-retire #218 và theo dõi flake test #219 rồi review G4."
     },
     {
       "id": "P8",
       "title": "Tích hợp/QA/phát hành V1",
-      "status": "not_started",
+      "status": "in_progress",
       "owner": "integrator/QA",
       "depends_on": [
         "P7"
       ],
       "deliverable": "V1 end-to-end trên3OS",
       "exit_gate": "Tất cả37feature V1done và6gate releasepassed",
-      "reviewer": "",
+      "reviewer": "Codex (rà bằng chứng, chưa sign-off pha)",
       "integration_commit": "",
-      "evidence": [],
-      "verification": "",
+      "evidence": [
+        "docs/planning/PROGRESS.md",
+        "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
+      ],
+      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": ""
+      "next_action": "Đang tích hợp/QA V1: 35/37 done, V1-035/036 bị chặn. Chốt G1–G6 theo bằng chứng; chỉ phát hành khi đủ 37 feature và 6 gate."
     },
     {
       "id": "P9",
@@ -199,68 +222,93 @@
     {
       "id": "G1",
       "title": "Content/map",
-      "status": "open",
+      "status": "passed",
       "owner": "assets/RE",
-      "reviewer": "",
-      "evidence": [],
-      "verification": "",
-      "integration_commit": "",
+      "reviewer": "Codex — review độc lập PR126 và sign-off G1 tại issue208 ngày2026-10-23",
+      "evidence": [
+        "docs/specification/assets/BUNDLES.md",
+        "data/maps/village00-kr.toml",
+        "git:891c7c7d3d76ed4f8e6807d9e32f4611917e3d10"
+      ],
+      "verification": "PR126: cargo xtask ci có pack KR thật + CI3OS xanh, Codex APPROVE head00b13a9. Rà lại23/10: BOOM_KR_PACK_DIR=/home/admin/boomkr-full cargo test -p boom-assets --lib:55/55 PASS; closure0 unknown nội dung, 4 spawn floor/distinct/BFS≥2, atlas/hash/reload đạt. Timing/consumer native còn unknown/design theo BUNDLES, không nâng fidelity.",
+      "integration_commit": "891c7c7d3d76ed4f8e6807d9e32f4611917e3d10",
       "blocker": ""
     },
     {
       "id": "G2",
       "title": "Movement/stats",
-      "status": "open",
+      "status": "in_review",
       "owner": "RE/core",
-      "reviewer": "",
-      "evidence": [],
-      "verification": "",
+      "reviewer": "Codex (chưa sign-off gate)",
+      "evidence": [
+        "docs/decisions/0013-rule-source-precedence.md",
+        "docs/specification/gameplay/RULES_V1.md",
+        "data/rules/v1-dev.toml"
+      ],
+      "verification": "DESIGN speed/hitbox/time đã được chọn ở ADR0013; KR bomber consumer còn thiếu là fidelity gap. Cần sign-off Attr/candidate và profile release, không lấy pet/AI làm bomber.",
       "integration_commit": "",
       "blocker": ""
     },
     {
       "id": "G3",
       "title": "Bomb/damage/items",
-      "status": "open",
+      "status": "in_review",
       "owner": "RE/core",
-      "reviewer": "",
-      "evidence": [],
-      "verification": "",
+      "reviewer": "Codex (chưa sign-off gate)",
+      "evidence": [
+        "docs/specification/gameplay/RULES_V1.md",
+        "data/rules/v1-dev.toml",
+        "fixtures/scenarios/round/warmup_freezes_round.toml",
+        "git:bcd6362b64ff2145d85706aadb14e1e3ff3b99e5"
+      ],
+      "verification": "Luật hiện hành có nguồn/scenario; clock wording đã khớp R113 ở PR216. Còn sign-off boundary/profile phát hành (release=false), không đòi RE xong.",
       "integration_commit": "",
       "blocker": ""
     },
     {
       "id": "G4",
       "title": "Protocol/state",
-      "status": "open",
+      "status": "in_review",
       "owner": "core/net",
-      "reviewer": "",
-      "evidence": [],
-      "verification": "",
+      "reviewer": "Codex (chưa sign-off gate)",
+      "evidence": [
+        "docs/specification/QA_NETWORK.md",
+        "git:743e8ea9cdf0b975eb55d814f84bfe75ad746ffc",
+        "git:4c17d85d0b660a9da2db30ab055e96bc6bd6ce15"
+      ],
+      "verification": "Ma trận6/6 hội tụ; diagnostic PR217 ghi31 DTO BadSequence quanh chuyển lượt, reason thật unknown. Metric tạo→giải quyết có lỗ hổng submit-retire #218 cần sửa; chưa latency budget pass. Còn gate sign-off contract/recovery.",
       "integration_commit": "",
       "blocker": ""
     },
     {
       "id": "G5",
       "title": "UX/localization",
-      "status": "open",
+      "status": "blocked",
       "owner": "client/QA",
-      "reviewer": "",
-      "evidence": [],
-      "verification": "",
+      "reviewer": "Codex (chưa sign-off gate)",
+      "evidence": [
+        "docs/specification/localization/UI_STRINGS_V1.md",
+        "tools/l10n_review_v1.py",
+        "docs/specification/assets/AUDIO_V1.md",
+        "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7"
+      ],
+      "verification": "V1-035 chờ người duyệt text/ảnh thực dùng V1, bổ sung unknown và kiểm presentation/focus/glyph/wrap; cue trapped PR213 đã tích hợp.",
       "integration_commit": "",
-      "blocker": ""
+      "blocker": "V1-035 chờ người duyệt text/ảnh thực dùng V1, bổ sung unknown và kiểm presentation/focus/glyph/wrap; cue trapped PR213 đã tích hợp."
     },
     {
       "id": "G6",
       "title": "Release toàn bộ V1",
-      "status": "open",
+      "status": "blocked",
       "owner": "QA/integrator",
-      "reviewer": "",
-      "evidence": [],
-      "verification": "",
+      "reviewer": "Codex (chưa sign-off gate)",
+      "evidence": [
+        "docs/planning/PROGRESS.md",
+        "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
+      ],
+      "verification": "V1-035/V1-036 chưa done, G1–G5 chưa passed; còn nghiệm thu gói cuối ba OS và sign-off release.",
       "integration_commit": "",
-      "blocker": ""
+      "blocker": "V1-035/V1-036 chưa done, G1–G5 chưa passed; còn nghiệm thu gói cuối ba OS và sign-off release."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"

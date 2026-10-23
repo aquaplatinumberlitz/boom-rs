@@ -1281,7 +1281,7 @@
       "tracking": {
         "assignee": "opencode-4",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-21",
+        "updated_at": "2026-10-24",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "891c7c7d3d76ed4f8e6807d9e32f4611917e3d10",
@@ -1298,12 +1298,13 @@
           "git:b3d4d068a3a78a4c4b40a0bb76e28bc410893f7a",
           "git:4ec8acf9e133e45d351b589d2089bae446248e8f",
           "git:891c7c7d3d76ed4f8e6807d9e32f4611917e3d10",
-          "docs/specification/assets/BUNDLES.md"
+          "docs/specification/assets/BUNDLES.md",
+          "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7"
         ],
         "verification": {
           "status": "passed",
           "command": "BOOM_KR_PACK_DIR=… cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh; bundle thật 0 unknown, content_hash 80838d62…"
+          "result": "PR126 bundle thật0 unknown nội dung/spawn/BFS/hash đạt. Sau PR213 thay cue audio, hash hiện hành dea731aa… được kiểm real-pack; không dùng hash80838d62… cũ làm hash hiện tại."
         },
         "review": {
           "status": "approved",
@@ -1458,28 +1459,30 @@
       "tracking": {
         "assignee": "dsh-b/dsh-a",
         "reviewer": "Claude",
-        "updated_at": "2026-10-22",
+        "updated_at": "2026-10-24",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "eff7f94c258e154c60a7c36a60ceaefdf7f5deba",
+        "integration_commit": "2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7",
         "evidence": [
           "crates/boom-client/src/audio.rs",
           "docs/specification/assets/AUDIO_V1.md",
           "git:6dfdac10040cd124fc1558140ef6f3d591f0afb6",
           "git:aace7988256b384bf2f8d6a4d4454dcbe54401bf",
-          "git:eff7f94c258e154c60a7c36a60ceaefdf7f5deba"
+          "git:eff7f94c258e154c60a7c36a60ceaefdf7f5deba",
+          "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7",
+          "data/assets/audio-v1.toml"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh trên merge commit"
+          "result": "PR170 và PR213 đã merge, CI3OS xanh; Codex kiểm real-pack boom-assets55/55 và hash bundle r2. Chỉ mapping trapped77 confirmed; policy R083 và mapping khác giữ DESIGN."
         },
         "review": {
           "status": "approved",
-          "result": "Claude APPROVE PR #170 (head 3b6c2be)"
+          "result": "Claude APPROVE PR #170 (head 3b6c2be); Codex APPROVE PR #213 r2 head64b5620 (trapped→Cha_LockedIn, canonical R082 đồng bộ)"
         },
         "blocker": "",
-        "next_action": "Xong: AudioState/BGM/SFX nhận event mạng, own slot/round, không phát trùng khi duplicate/reconcile; mute/volume (PR #170, #106)."
+        "next_action": "Done theo scope V1; cue trapped sửa theo R204 ở PR213. Q015/issue196 còn phần RE khác, không nâng cả audio policy KR."
       }
     },
     {
@@ -1489,7 +1492,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "in_progress",
+      "implementation": "blocked",
       "owner": "client",
       "depends_on": [
         "V1-032"
@@ -1498,9 +1501,9 @@
       "acceptance": "Mọi chuỗi đường đi V1 có dấu/placeholder/wrap đúng; không dùng 23 pending review làm text đã chốt.",
       "open_questions": "Ảnh có chữ phải có quyết định review trước dùng; font Unicode dùng golden riêng.",
       "tracking": {
-        "assignee": "opencode-3",
+        "assignee": "opencode-2 (tool); chủ dự án/người duyệt nội dung",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-22",
+        "updated_at": "2026-10-24",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -1508,19 +1511,22 @@
           "data/l10n/vi-v1.toml",
           "crates/boom-content/src/l10n.rs",
           "git:71d36a66cd644832dc9ce014cfed21d3c4641e31",
-          "git:82033ce560ab4649cdd57a3d228dd1a0669129a8"
+          "git:82033ce560ab4649cdd57a3d228dd1a0669129a8",
+          "tools/l10n_review_v1.py",
+          "docs/specification/localization/UI_STRINGS_V1.md",
+          "git:6ad3e062f096d902e0109ac76c764ec7f6b24b43"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR #98 và trên main sau merge"
+          "result": "Code l10n PR #98/#188 và tool PR #209 đã merge; CI ba OS xanh ở các PR. Tool liệt kê 125 khóa (44 ready text, 15 review, 9 image-pending, 57 unknown); chưa phải approval nội dung."
         },
         "review": {
-          "status": "approved",
-          "result": "Comment APPROVE trên PR #98"
+          "status": "pending",
+          "result": "Phần code đã được review trong các PR dẫn ở evidence; nghiệm thu feature cuối còn chờ nội dung V1 được người duyệt chấp nhận."
         },
-        "blocker": "Cần người duyệt bản dịch (chủ dự án).",
-        "next_action": "Phần code xong (PR #188, đóng #179): mọi chuỗi UI qua l10n, placeholder, glyph/wrap/clip có test. Còn: người duyệt bản dịch các khóa unknown/review trong boom-re-l10n rồi chạy lại tools/l10n_export.py."
+        "blocker": "Chờ người duyệt text/ảnh thực dùng trong luồng V1; không dùng pending review làm nội dung đã chốt.",
+        "next_action": "Dùng tools/l10n_review_v1.py xuất local/l10n-review-v1.html; bổ sung key unknown, duyệt nghĩa/placeholder và quyết định ảnh hoặc fallback cho đúng V1; export lại theo UI_STRINGS_V1 §6, kiểm glyph/wrap/clip. Không yêu cầu duyệt toàn kho ảnh ngoài V1."
       }
     },
     {
@@ -1530,7 +1536,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "design_requirement",
-      "implementation": "in_progress",
+      "implementation": "blocked",
       "owner": "release",
       "depends_on": [
         "V1-027",
@@ -1540,26 +1546,28 @@
       "acceptance": "Build/cài và chạy trên3OS; thiếu pack/rules báo rõ; build xanh không đồng nghĩa V1done, release gate đòi toàn bộ37mục.",
       "open_questions": "Chưa xác định cấu hình máy tối thiểu; phải đo trước phát hành.",
       "tracking": {
-        "assignee": "opencode-1",
+        "assignee": "integrator/QA",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-22",
+        "updated_at": "2026-10-24",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
         "evidence": [
-          "git:d6ca5799c8c9dbae00a56d774049d8da88e1102f"
+          "git:942045876f2a2bb1dca5a7cbd133b0e0db26bf22",
+          "git:d6ca5799c8c9dbae00a56d774049d8da88e1102f",
+          "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
         ],
         "verification": {
           "status": "passed",
           "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "xanh ở PR  và trên main sau merge"
+          "result": "Gói build PR #110, license PR #128 và smoke cài/chạy PR #168 đã merge, CI ba OS xanh; chưa chạy nghiệm thu gói cuối sau khi V1-035 hoàn tất."
         },
         "review": {
-          "status": "approved",
-          "result": "Comment APPROVE trên PR "
+          "status": "pending",
+          "result": "Phần code đã được review trong các PR dẫn ở evidence; nghiệm thu feature cuối còn chờ nội dung V1 được người duyệt chấp nhận."
         },
-        "blocker": "",
-        "next_action": "Gói 3 OS + smoke (#110/#128/#168) đã có. V1-027 đã done (2026-10-22); còn chờ V1-035 (người duyệt bản dịch). Khi V1-035 done: chạy lại smoke gói 3 OS rồi nghiệm thu."
+        "blocker": "Dependency V1-035 chưa được nghiệm thu; còn smoke gói cuối ba OS sau khi chốt nội dung.",
+        "next_action": "Sau V1-035 done, chạy lại smoke gói Windows/Linux/macOS với cùng content/rules/protocol, kiểm báo lỗi thiếu tài nguyên rồi review nghiệm thu V1-036. Không nâng done chỉ vì build CI xanh."
       }
     },
     {

@@ -51,19 +51,19 @@ Trạng thái pha lấy từ [execution.json](execution.json); trạng thái fea
 [features.json](../specification/features.json). Khối bên dưới được sinh tự động, không sửa tay.
 
 <!-- PHASE_STATUS:START -->
-Pha đang hoạt động: **P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự án/interface**.
+Pha đang hoạt động: **P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự án/interface, P3 Review sẵn sàng, P4 Nền móng/asset/oracle, P5 Core/offline, P6 Client hình/tiếng/input, P7 Authority/mạng/phòng, P8 Tích hợp/QA/phát hành V1**.
 
 | Pha | Trạng thái | Owner | Đầu ra | Gate hoàn thành |
 |---|---|---|---|---|
 | P0 Tổ chức docs/scope | Đã nghiệm thu | integrator | Index, rules, registry, scope và migration | Nguồn chuẩn/link/tool rõ, giữ bằng chứng |
 | P1 Tìm thông tin còn thiếu | Đang làm | research | Claim có nguồn trong RULES_V1, fixture và QUESTIONS cập nhật | Câu hỏi chặn kiến trúc có trả lời hoặc phương án kiểm chứng rõ |
-| P2 Cấu trúc dự án/interface | Đang làm | architecture | ARCHITECTURE r1, ADR 0004–0008, contracts-r3 trong code, harness scenario, CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
-| P3 Review sẵn sàng | Chưa làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |
-| P4 Nền móng/asset/oracle | Chưa làm | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
-| P5 Core/offline | Chưa làm | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
-| P6 Client hình/tiếng/input | Chưa làm | client | Scene/animation/render/audio/input | Content/presentation contract và acceptance tương ứng |
-| P7 Authority/mạng/phòng | Chưa làm | net/backend | Server/client round lifecycle | Authority/convergence, lifecycle và mạng có fixture |
-| P8 Tích hợp/QA/phát hành V1 | Chưa làm | integrator/QA | V1 end-to-end trên3OS | Tất cả37feature V1done và6gate releasepassed |
+| P2 Cấu trúc dự án/interface | Chờ review | architecture | ARCHITECTURE, contracts-r4, ADR protocol/client stack, harness scenario và CI ba OS | Boundary/contracts review và giả định quan trọng được ghi nhận |
+| P3 Review sẵn sàng | Đang làm | integrator | Readiness và task prototype | Checklist readiness trong REWRITE_PLAN có kết luận |
+| P4 Nền móng/asset/oracle | Chờ review | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
+| P5 Core/offline | Chờ review | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
+| P6 Client hình/tiếng/input | Đang làm | client | Scene/animation/render/audio/input | Content/presentation contract và acceptance tương ứng |
+| P7 Authority/mạng/phòng | Chờ review | net/backend | Server/client round lifecycle | Authority/convergence, lifecycle và mạng có fixture |
+| P8 Tích hợp/QA/phát hành V1 | Đang làm | integrator/QA | V1 end-to-end trên3OS | Tất cả37feature V1done và6gate releasepassed |
 | P9 Mở rộng full feature | Chưa làm | integrator | Các đợt W1–W4 theo registry | Toàn bộ112mục trong baseline hiện hành done; scope mới phải revision riêng |
 <!-- PHASE_STATUS:END -->
 
