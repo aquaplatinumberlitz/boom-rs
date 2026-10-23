@@ -8,8 +8,10 @@ V1-030/031 (mục 7 hàng đợi RE). Claim ở
 
 **Kết luận chính:** ở client VN, lớp `CDataI16Alpha` có **accessor** cho frame 48 B: `vf8` trả con trỏ
 tới khối **f4..f11**, `vf9`/`vf10` là rộng/cao rect, `vf11`/`vf12`/`vf13` là **f0/f1/f2**, `vf14` **ghi
-f0/f1**, `vf15` lấy ảnh theo `f3`. Neo tile/object là `x = cột·40`, `y = hàng·40 + 39` (px). Object có
-**hai lớp sprite** tên `<tên>LayerStatic` và `<tên>LayerAdjust` (cả VN và KR đều ghép tên này). **Chưa**
+f0/f1**, `vf15` lấy **index từ `f3`** rồi gọi `vf16` (getter phần tử bảng theo index; nghĩa
+kiểu/handle/kích thước **chưa chứng minh**). Neo tile/object là `x = cột·40`, `y = hàng·40 + 39` (px).
+Bảng tên lớp có `<tên>LayerStatic`/`<tên>LayerAdjust`; loader VN và KR đều **ghép `LayerStatic`** — **chưa**
+chứng minh mỗi object nạp/giữ/vẽ đủ cặp sprite, và KR **chưa** có code xref `LayerAdjust`. **Chưa**
 tìm được hàm vẽ dùng `f8`–`f11`, nên **công thức đặt ảnh so vị trí thế giới, thứ tự Static/Adjust,
 clip và alpha vẫn `unknown`** — blocker có phạm vi, không đủ cơ sở đổi BUNDLES §7.
 
@@ -41,8 +43,8 @@ IDA-decompile với địa chỉ tuyệt đối, ghi rõ trong evidence. Không 
 | `vf12(frame)` | `0x008D5136` | `[frame+4]` | **f1** |
 | `vf13(frame)` | `0x008D514A` | `[frame+8]` | **f2** (trả nguyên, không diễn giải) |
 | `vf14(frame,a,b)` | `0x008D515E` | `[frame+0] = a; [frame+4] = b` | **ghi f0/f1** — registration thay đổi được |
-| `vf15(frame)` | `0x008D5180` | `(*this+64)(this, [frame+12])` | lấy ảnh theo **f3** (qua `vf16`) |
-| `vf16(index)` | `0x008D519B` | `*(this+16)[index]` | kích thước/ảnh theo index |
+| `vf15(frame)` | `0x008D5180` | `(*this+64)(this, [frame+12])` | lấy **index từ f3** rồi gọi `vf16` |
+| `vf16(index)` | `0x008D519B` | `*(this[16] + 4·index)` | **getter phần tử bảng theo index**; nghĩa kiểu/handle/kích thước: **unknown** |
 
 vtable của lớp có 7 bản (alpha/character/item/…) cùng trỏ các method trên (xref `0xC79714`,
 `0xC79794`, `0xC797E4`, `0xC79834`, `0xC79894`, `0xC79934`), nên đây là **lớp dữ liệu dùng chung**,
@@ -72,11 +74,12 @@ sub_413F32(this + 22, 40 * a4 + 39); // this[22] = 40 * hàng + 39
 
 - VN: loader map/object `sub_5C7F8E` (`0x5C8107`) và `sub_5C9741` (`0x5C9F66`) ghép tên
   `<Destination> + "LayerStatic"` bằng `strcat` trước khi nạp sprite. Bảng tên lớp ở `0xE48CA0`
-  trỏ `"LayerStatic"` (`0xC3797C`), `0xE48E1C` trỏ `"LayerAdjust"` (`0xC79760`) — tức object có
-  **cặp** tên lớp.
+  trỏ `"LayerStatic"` (`0xC3797C`), `0xE48E1C` trỏ `"LayerAdjust"` (`0xC79760`) — **bảng tên lớp có cả
+  hai tên**; chưa chứng minh object nạp/giữ/vẽ đủ cặp.
 - KR: `sub_BA3100` (`0xBA3384`) và `sub_BB2620` (`0xBB34C5`, `0xBB3545`) cũng ghép `LayerStatic`;
-  chuỗi `LayerAdjust` KR `0x17902D8` chỉ thấy trong bảng dữ liệu `0x19A64B4` (không xref code trực
-  tiếp). Vậy cơ chế **hai lớp** có ở cả hai build.
+  chuỗi `LayerAdjust` KR `0x17902D8` chỉ thấy trong bảng dữ liệu `0x19A64B4`, **không** có code xref
+  trực tiếp ⇒ **consumer `LayerAdjust` của KR: unknown**. Cơ chế cặp sprite theo từng object là
+  `candidate`, không phải confirmed.
 - **Chưa chứng minh** thứ tự vẽ (`Static` trước `Adjust`?), nơi clip theo viewport và cách áp alpha
   (surface alpha/colorkey `0xF81F` hay alpha stream). Không suy từ tên.
 
@@ -93,7 +96,7 @@ sub_413F32(this + 22, 40 * a4 + 39); // this[22] = 40 * hàng + 39
    `vf148`/`vf116` của tile chỉ là state/logic (ví dụ `CGOTilePassable__vf21`).
 4. **KR `CDataI16Alpha`**: RTTI `.?AVCDataI16Alpha@@` `0x19CFD30` còn, nhưng **không có xref/vtable**
    trong DB KR (RTTI stripped/không dùng), nên chưa xác nhận accessor KR tương ứng. KR có
-   `<name>LayerStatic` (như §4) nhưng chưa có hàm vẽ dùng f8–f11.
+   tên/loader `<name>LayerStatic` (như §4) nhưng **không** có code xref `LayerAdjust` và chưa có hàm vẽ dùng f8–f11.
 
 Hệ quả: câu hỏi hẹp của #201 (công thức f0/f1/f2/f8…f11 so vị trí thế giới, thứ tự Static/Adjust,
 clip/alpha) **chưa trả lời được**; Q-003 giữ `partial`. Không đổi BUNDLES §7 hay code.
@@ -103,7 +106,8 @@ clip/alpha) **chưa trả lời được**; Q-003 giữ `partial`. Không đổi
 1. Giữ nguyên công thức `design` hiện tại (canvas canh đáy, pivot_x trục trái) — **chưa có** bằng chứng
    consumer; đừng nâng thành `confirmed`.
 2. Ghi thêm dữ kiện đã kiểm: neo tile `(cột·40, hàng·40+39)`; f0/f1 **mutate được** qua `vf14` nên
-   không nên coi là hằng số sprite; object có **hai** lớp tên `LayerStatic`/`LayerAdjust`.
+   không nên coi là hằng số sprite; bảng tên lớp có `LayerStatic`/`LayerAdjust` và loader ghép
+   `LayerStatic`, nhưng **cặp sprite theo object chưa chứng minh**.
 3. Nếu cần chốt: bước tiếp là tìm **draw list/render pass** của map object (nơi gọi surface blit với
    screen rect + clip), hoặc đo runtime theo Q-009; khi có thì sửa BUNDLES + client theo task riêng.
 
@@ -114,7 +118,8 @@ clip/alpha) **chưa trả lời được**; Q-003 giữ `partial`. Không đổi
 - Accessor VN đọc trên `unpacked_ca.exe`; KR **chưa** xác nhận accessor tương ứng (RTTI còn nhưng
   không có consumer/vtable xref).
 - `f2` mới chỉ biết là `i32` trả nguyên; chưa có nghĩa.
-- `Static`/`Adjust` mới là **tên** lớp; thứ tự vẽ, clip/alpha **unknown**.
+- `Static`/`Adjust`: mới xác nhận **tên lớp + loader ghép `LayerStatic`**; cặp sprite theo object,
+  code xref `LayerAdjust`, thứ tự vẽ, clip/alpha **unknown**.
 - Không kết luận gì về BUNDLES/design hiện tại của V1.
 
 ## 8. Bước tiếp

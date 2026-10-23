@@ -541,3 +541,20 @@ Quy tắc của file xuất (nguồn chuẩn vẫn là `catalog.csv`, không lư
   khớp `status`, thiếu `reason`/`catalog_id`/`image`, placeholder lệch giữa hai khóa dùng
   chung một `catalog_id`, và text có dấu tổ hợp (chưa chuẩn hóa NFC). Kiểm tra NFC **đầy
   đủ** nằm ở tool (`unicodedata`), loader chỉ chặn dấu tổ hợp.
+
+## 7. RE trace UI V1 (2026-10-23, R-152)
+
+Lượt [#150](https://github.com/aquaplatinumberlitz/boom-rs/issues/150) / Q-021; build KR `00967`
+bản sao SHA-256 `cf72da11…e63b`. Chi tiết/evidence ở
+[KR_RE_UI](../../research/findings/KR_RE_UI.md). Không đổi trạng thái dịch/ảnh ở các bảng trên.
+
+- **Hitbox room list**: `sub_549180` (VA `0x00549180`) dùng 6 cặp `(left,top)` từ bảng
+  `0x19D8A58` = `(20,90)`, `(194,90)`, `(20,160)`, `(194,160)`, `(20,230)`, `(194,230)`;
+  `width/height` từ control vtable `+36`/`+40`; điểm click `sub_1504A5C` (`+136`/`+140`) trừ
+  origin container `sub_149BBA0`/`sub_149BEF0`. Công thức:
+  `left ≤ x < left+width`, `top ≤ y < top+height`; đơn vị **UI/input px**, không scale trong hàm.
+- **Ready (PrepareStage)**: `sub_6F47C0` (VA `0x006F47C0`) gọi
+  `sub_54BEF0(..., 512, 494, 0x10000000, 0x10000000)` và `sub_6F8790(..., "PRE_Bt_Ready")`;
+  key join `"%s/%s"` base object `+267088`, key pack `Prepare/PRE_Bt_Ready`.
+- **Chưa chứng minh**: native framebuffer/scale/focus path; ý nghĩa 4-int placement; các màn
+  login/result; `room.character_c00`/`c01` vẫn `unknown` (không tự đặt tên/dịch).

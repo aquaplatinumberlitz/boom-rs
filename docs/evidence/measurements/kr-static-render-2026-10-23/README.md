@@ -39,8 +39,8 @@ từ evidence rỗng.
 | `vf12` = f1 | VN | `0x008D5136` | `0x4D5136` |
 | `vf13` = f2 | VN | `0x008D514A` | `0x4D514A` |
 | `vf14` ghi f0/f1 | VN | `0x008D515E` | `0x4D515E` |
-| `vf15` ảnh theo f3 | VN | `0x008D5180` | `0x4D5180` |
-| `vf16` kích thước ảnh | VN | `0x008D519B` | `0x4D519B` |
+| `vf15` lấy index từ f3 → vf16 | VN | `0x008D5180` | `0x4D5180` |
+| `vf16` getter phần tử bảng theo index | VN | `0x008D519B` | `0x4D519B` |
 | vtable `CDataI16Alpha` (7 bản) | VN | `0x00C79714`, `0xC79794`, `0xC797E4`, `0xC79834`, `0xC79894`, `0xC79934` | `0x879714`… |
 | `CGOTile::vf33` neo tile | VN | `0x005BED20` | `0x1BED20` |
 | `CGOTileFixed::vf33` | VN | `0x005BEE9E` | `0x1BEE9E` |
@@ -59,8 +59,8 @@ từ evidence rỗng.
 | `vf10(frame)` | `[frame+28]−[frame+20]` | f7−f5 (cao rect) |
 | `vf11/vf12/vf13` | `[frame+0]/[frame+4]/[frame+8]` | f0/f1/f2 |
 | `vf14(frame,a,b)` | ghi `[frame+0]=a`, `[frame+4]=b` | f0/f1 **mutate được** |
-| `vf15(frame)` | `vf16([frame+12])` | ảnh theo f3 |
-| `vf16(i)` | `*(this+16)[i]` | kích thước ảnh |
+| `vf15(frame)` | `vf16([frame+12])` | lấy **index từ f3** rồi gọi `vf16` |
+| `vf16(i)` | `*(this[16] + 4*i)` | **getter phần tử bảng theo index**; nghĩa kiểu/handle/kích thước: **unknown** |
 
 ## Neo tile (VN, R-210)
 
@@ -71,10 +71,11 @@ mốc 1 px trên mép dưới ô.
 ## Lớp Static/Adjust (R-211)
 
 - VN loader ghép `strcat(name, "LayerStatic")` tại `0x5C8107`/`0x5C9F66`; bảng tên lớp có
-  `LayerStatic` (`0xC3797C`) và `LayerAdjust` (`0xC79760`).
+  `LayerStatic` (`0xC3797C`) và `LayerAdjust` (`0xC79760`). **Chưa** chứng minh mỗi object nạp/giữ/vẽ
+  đủ cặp sprite.
 - KR ghép `LayerStatic` tại `0xBA3384`/`0xBB34C5`/`0xBB3545`; `LayerAdjust` `0x17902D8` chỉ thấy
-  trong bảng dữ liệu `0x19A64B4`.
-- Chưa có vòng lặp vẽ hai lớp, nên **thứ tự/clip/alpha unknown**.
+  trong bảng dữ liệu `0x19A64B4`, **không** có code xref ⇒ consumer `LayerAdjust` KR: **unknown**.
+- Chưa có vòng lặp vẽ hai lớp, chưa chứng minh cặp theo object, nên **thứ tự/clip/alpha unknown**.
 
 ## Phạm vi đã tìm cho consumer f8–f11 (âm tính có giới hạn)
 
@@ -91,6 +92,8 @@ mốc 1 px trên mép dưới ô.
 
 - Không có `evidence_id` REA (timeout VN); bằng chứng là IDA-decompile + địa chỉ, kiểm lại được.
 - Không chạy client/không dựng ảnh; không đo runtime.
-- `f2` chưa có nghĩa; f8–f11 chưa có consumer; thứ tự/clip/alpha chưa có.
-- KR chưa xác nhận accessor tương ứng; chỉ xác nhận tên lớp `LayerStatic`/`LayerAdjust`.
+- `f2` chưa có nghĩa; f8–f11 chưa có consumer; cặp sprite theo object, consumer `LayerAdjust`,
+  thứ tự/clip/alpha chưa có.
+- KR chưa xác nhận accessor tương ứng; chỉ xác nhận **tên + loader** `LayerStatic`, không có code xref
+  `LayerAdjust`.
 - Không sửa BUNDLES §7/code/profile; đề xuất ở findings §6.

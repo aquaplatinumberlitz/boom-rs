@@ -618,7 +618,7 @@ Phạm vi blocker:
 - **Đã đọc hết** thân `sub_E9E660` (207 dòng, 0x644 B): không có phép `cur+1`/`min(cur+1,max)`/
   setter stat; chỉ ghi `+176`, effect/vị trí, virtual `+104`/`+80`. Các **callee effect** (`EB8000`,
   `EB7A60`, virtual `+104`) chưa mở hết; chưa có runtime.
-- **Không tạo R-151**: đã đọc hết `E9E660` nhưng không thấy consumer/`cur+1`/`min`.
+- **Không tạo claim riêng cho `E9E660`**: đã đọc hết nhưng không thấy consumer/`cur+1`/`min`; R-150 giữ blocker.
 - Chưa thấy `.themida` trong các đường này; nếu mở rộng sang hàm VM thì ghi entry theo
   [DEVIRT_METHOD](../../research/findings/DEVIRT_METHOD.md).
 - Đề xuất profile: **không đổi** `characters.*`/`R-117`; giữ cấp (level), không đổi sang px. Nếu
@@ -654,6 +654,76 @@ Hệ quả:
 - Nếu cần đóng Q-018: bước tiếp là devirt/đọc VM tại `0x00B534D0 → 0x02012376`, hoặc đo runtime
   (entry/seed, state 3, thời điểm packet 167) theo Q-009 — không suy từ VN.
 
+## § (đánh số khi merge) — RE KR 00967 — state→animation, duration ODT và nhịp update (R-151, blocker)
+
+Tiếp nối mục 6 hàng đợi RE; Refs #148/V1-031. Build KR `00967`; REA MCP bản sao
+`kr-full.exe`, không mở DB gốc. Chi tiết/phạm vi ở
+[KR_RE_ANIM_STATE](../../research/findings/KR_RE_ANIM_STATE.md) và
+[evidence flame](../../evidence/measurements/kr-static-flame-2026-10-21/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-151 | **Consumer `BA3530` đã thấy nhánh; blocker phần đơn vị/cadence/getter**: với `record = BADF80(animIdx)`, `BA3530` so `B33170()` với `[record+4]`: `[record+4] == -1` → gọi `B33170()`, return 1; `B33170() < [record+4]` → return 5 (giữ frame); đủ ngưỡng → `B33190(0)` reset, `B331E0()` lấy giá trị; `B331E0() < GetAnimCount` → return 4 (nhánh tiến/không giữ); cuối dãy + `B33F40()!=0` → `B33200(count-1)`, return 3 (giữ cuối); ngược lại `B33200(0)`, return 2 (quay đầu). Đây là **consumer so bộ đếm/chuyển/giữ cuối/quay đầu** đã thấy; **chưa chứng minh** đơn vị/cadence của `B33170`, tên/nghĩa getter, và runtime state. `BA40F0`/`BA4160` vẫn đọc field per-anim; `B33B30` dùng `sub_15625C2` = **RNG**. R-141 giữ confirmed lửa frame (`B711C0`/GetAnimCount); `B44000` mã `24`/`27–30`/`39–42` chưa nối nhãn; hướng/tâm/thân/đuôi lửa chưa có consumer; `B711C0` xref duy nhất vtable. | — | `kr_static` / **confirmed** (nhánh `BA3530`, mã trả 1/2/3/4/5); **unknown/blocker** (đơn vị/cadence/getter semantics, state runtime, fire layer); R-141 giữ confirmed frame | `BA3530`; `B33170`/`B33190`/`B331E0`/`B33200`/`B33230`; `B33F40`; `BA40F0`/`BA4160`; `B338F0`; `B9CEC0`/`B9FDD0`; `B33B30`; `B44000`; evidence §11.6 |
+
+Hệ quả:
+
+- **R-141 (đã có)**: hiển thị lửa tính bằng **frame**, không phải ms; `B711C0` chỉ `++`, không nhận `dt`.
+  Không đổi `bomb.flame_ms=500` hoặc bất kỳ giá trị profile nào khi chưa có nhịp update.
+- **ODT duration**: `BA40F0`/`BA4160` là consumer của field per-anim, nhưng chưa chứng minh field là
+  duration/ms; `B33B30` dùng RNG nên không phải elapsed. Không suy “duration ODT = ms”.
+- **State**: nhãn idle/walk/trapped/dead vẫn theo ODT (R-095 candidate); chưa có trace nối state core
+  với nhãn, và chưa thấy consumer chọn tâm/thân/đuôi/hướng lửa.
+- **Nhịp update**: chưa định vị call site/loop gọi vf24; do đó `frame → ms` vẫn `unknown`.
+- Đề xuất presentation: giữ frame-based, không đặt ms; nếu cần ms phải có PR riêng sau khi đo nhịp.
+
+## § (đánh số khi merge) — RE KR 00967 — UI V1: rect/hitbox và layout phòng (R-152)
+
+Tiếp nối #150/Q-012/Q-021, V1-032/033/035. Build KR `00967`; REA MCP bản sao `kr-full.exe`.
+Chi tiết/phạm vi ở [KR_RE_UI](../../research/findings/KR_RE_UI.md) và
+[evidence UI](../../evidence/measurements/kr-static-ui-2026-10-23/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-152 | **UI V1 — hitbox danh sách phòng + layout Ready**: `sub_549180` (lobby room list) lặp 6 ô, dùng bảng `0x19D8A58` = `(20,90)`, `(194,90)`, `(20,160)`, `(194,160)`, `(20,230)`, `(194,230)`; `width/height` lấy từ control vtable `+36`/`+40`; click `sub_1504A5C` đọc fields `+136`/`+140`, trừ gốc container `sub_149BBA0`/`sub_149BEF0`; hit khi `left ≤ x < left+width` và `top ≤ y < top+height` (đơn vị **UI/input px**, không scale trong hàm). `sub_6F47C0` (màn PrepareStage) tạo Ready bằng `sub_6F8790(..., "PRE_Bt_Ready")` + `sub_54BEF0(512,494,0x10000000,0x10000000)`; room info `(344,61,…)`, hai nút nhân vật `(541,231)`/`(690,231)`, nền `(800,600,40,48)`; caller `sub_6E3DF0` tại `0x6E3E64`. Key resource = ghép `base + "/" + key` (`6F8790`, `%s/%s`), base lấy từ object `+267088`; key pack tương ứng `Prepare/PRE_Bt_Ready`. **Chưa chứng minh**: diễn giải 4-int của `54BEF0` thành rect/scale, native framebuffer (800×600 chỉ là literal layout, không phải JPEG/FrameBuffer), focus path; `C00/C01→tên` vẫn `unknown` (`room.character_c00/c01` chưa có locator) | — | `kr_static` / **confirmed** (hit test 6 ô + công thức); `candidate` (Ready placement/key, rect interpretation); `unknown` (native size/scale/focus, C00/C01 name, các màn login/result) | `549180` (RVA `149180`); bảng `19D8A58`; `1504A5C`; `149BBA0`/`149BEF0`; `6F47C0` (RVA `2F47C0`); `6F8790`; `54BEF0`; `6E3DF0`; evidence §12 |
+
+## § (đánh số khi merge) — RE KR 00967 — âm thanh theo event (R-203…R-208)
+
+Đọc tĩnh client KR `00967` cho [#196](https://github.com/aquaplatinumberlitz/boom-rs/issues/196) /
+Q-015, V1-034 (mục 8 hàng đợi RE). Số mục để trống theo yêu cầu phiên (dải **R-203…R-249**); integrator
+đánh số khi merge. Định danh build (SHA-256 `cf72da11…e63b`, imagebase `0x400000`,
+`RVA = VA − 0x400000`), bảng VA/RVA và `evidence_id` ở
+[evidence KR audio](../../evidence/measurements/kr-static-audio-2026-10-23/README.md); suy luận, giới
+hạn và đề xuất AUDIO_V1 ở [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md).
+
+Bối cảnh: R-081 chỉ confirmed **entry/mapping** BGM; R-082 (event→entry) và R-083 (chồng tiếng) là
+**design** vì chưa có consumer gốc. Lượt này tìm được consumer thật (bảng id tĩnh + API phát + các
+điểm gọi theo event), nên một phần R-082/R-083 có thể nâng bằng chứng — nhưng **không** tự đổi
+`data/assets/audio-v1.toml` trong PR này (đề xuất ở findings §7).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-203 | **Bảng âm thanh tĩnh id→entry + API phát.** Mảng entry 0x20 B tại `0x19E40D8` (649 entry, id `0..651`): `+0` id, `+4` con trỏ tên `Wave/...`, `+0x1C` type; khởi tạo bởi `0x41C980`. Manager `CSoundManRenew` là singleton `0x19D8A88` (getter `0x54EAF0`); phát bằng `0xD1CD10(manager, id, a3, a4)`. Id V1: `7 Cha_BombExplode`, `8 Cha_BombExplodeMulti`, `9 Cha_BombIgnite`, `10 Cha_DominoBombIgnite`, `37 Cha_CoupleLockedIn`, `42 Cha_Die`, `43 Ntc_Draw`, `47 Ntc_GameEnd`, `68 Itm_ItemEaten`, `69 Itm_ItemPop`, `77 Cha_LockedIn`, `78 Ntc_Lose`, `164 Ntc_TimebombExplode`, `174 Itm_UseTrap`, `175 Ntc_Win`, `343 Cha_BombExplode_SnowBall`, `344 Cha_BombIgnite_SnowBall`, `444 Ntc_Help2`, `471 BombExplosion001` | id (số nguyên); tên entry dạng `Wave/<tên>` | `kr_static` / confirmed (bảng + dispatcher) | `0x19E40D8` (base), `0x41C980` (init), `0x19D8A88`/`0x54EAF0` (manager), `0xD1CD10`; evidence `ev_79413114…` |
+| R-204 | **Event → entry của client (có consumer).** Nổ bom: `0xEB3720` phát **7** (`a3=1`: dedup theo id — R-207, **không** phải cờ loop) hoặc **343** khi `sub_B38390(bomber) == 9` (bom tuyết); `0xEB9C30` phát **7** cho object type `31`. Đặt bom: `0x71F490`/`0xAF1140` phát **9**, tuyết type 9 → **344**; domino **10** (`0x8326F0`). Bị nhốt: `0xB42D60` phát **37** (`Cha_CoupleLockedIn`) nếu cờ couple `[ebp-0x34] != 0`, ngược lại **77** (`Cha_LockedIn`), cả hai `a3=1`; nếu `[this+0x2788] != 0` phát thêm **444** (`Ntc_Help2`). Chết: `0xB53C80` (slot 146 vtable `CGOBomber` `0x1744964`) gọi `vf+320(this,-1)` rồi phát **42**. Item: ăn/nhặt **68** (`0xB4B410`), item lộ **69** (`0xB8B680`), dùng trap **174** (`0xB9DEF0` case `a2==2`) | id | `kr_static` / confirmed (consumer từng event) | `0xEB3720`, `0xEB9C30`, `0x71F490`, `0xAF1140`, `0x8326F0`, `0xB42D60`, `0xB53C80`, `0xB4B410`, `0xB8B680`, `0xB9DEF0`; evidence `ev_6ac4a4d1…`, `ev_8cb8b610…` |
+| R-205 | **Chọn biến thể: remap modulo khi guard bật; guard tắt giữ id gốc; nổ không remap.** Trong `0xD1CD10`, **chỉ khi** `sub_76FBF0(&v24) != 0` mới lấy `v20 = sub_15625C2()` (`0x15625C2` = LCG MSVC `214013/2531011`, trả `(v>>16)&0x7FFF`) và remap; guard false thì **giữ nguyên `a2`**. Công thức `rand()%N + base` (evidence chỉ chứng minh công thức modulo; `rand()` 15-bit nên `%5`/`%6` có **modulo bias** — không claim phân bố đều): `18`/`128`→`436..439`, `21`→`440..443`, `43`→`428..429`, `47`→`430..435`, `64`→`445..446`, `78`→`447..452`, `175`→`453..457`. Nổ id `7`: nếu **7** đang phát (< 200 ms) thì dừng 7+8 và phát **8**; nếu **8** đang phát (< 200 ms) thì phát **7**; còn lại phát **8** rồi return. Tuyết: `343`/`344` theo type 9. Không thấy chọn theo tầm/hướng | `%N + base`, N = 2/4/5/6; cửa sổ 200 ms | `kr_static` / confirmed | `0xD1CD10` (`0xD1D012`–`0xD1D0F7`), `0x15625C2`, `0x14BEA70`; evidence `ev_79413114…` |
+| R-206 | **BGM do dữ liệu map quyết định, không hard-code; Village = id 48.** Bảng BGM 0x20 B tại `0x19E9258` (117 entry): id `48` = `Mp3/Village` (chuỗi `0x1761FE8`). `0xE71D70`: lấy map id (`0x123FC20`/`0x544520`), tra record map (`0xE04F00` quét danh sách, khớp `sub_E01930(i)`), lấy **tên BGM tại record+68** (`0xE02110`), ghép `"Mp3/%s"` rồi phát qua `0xD1D710`. Nếu bật `Xmas` thì thay bằng `Carol%02d` với `rand()%4` (Carol00..03). Loop/một voice **không** chứng minh được ở đây | tên entry; id 48 | `kr_static` / confirmed (chuỗi consumer); mapping map→"Village" cụ thể: `candidate` (record map chưa đọc) | `0x19E9258`, `0x1761FE8`, `0xE71D70`, `0xE04F00`, `0xE02110`, `0xD1D710`; evidence `ev_e53b55a5…`; R-081 |
+| R-207 | **Voice: pool cố định, dedup theo id, không ưu tiên/không đuổi.** `0x14BF4D0(manager, id, a3, a4)`: mảng voice tại `manager+16`, số voice `manager+12`; nếu `a3 != 0` mà đã có voice cùng id → **trả handle cũ, không phát thêm**; ngược lại tìm voice trạng thái `2` (rảnh); **không có voice rảnh → bỏ** (`return 0`), không dừng voice cũ/không ưu tiên. Volume nhân `*(float*)(manager+48)`. Cửa sổ dedup: 200 ms cho cặp `7/8`; 90 ms cho nhóm id `337..342` (`0xD1CD10`) | voice; 90/200 ms | `kr_static` / confirmed (cơ chế); **số voice của pool: unknown** (hằng khởi tạo chưa định vị) | `0x14BF4D0` (`0x14BF52F`–`0x14BF5DA`), `0x14BEA70`, `0xD1CD10`; evidence `ev_003bb7d0…` |
+| R-208 | **Bounded negative: không thấy direct call/literal-push cho brick-break hoặc `BombExplosion001` trong phạm vi quét.** Bảng 649 entry **không có tên** brick/break (chỉ `Npc_Pen_NpcEggBreak`, `Ui_BasketEggBreaking`, …) và `CPlayMap::ExplodeObjectByFlame` `0xEB9840` **không gọi trực tiếp** `0xD1CD10` — nhưng nó phá tile qua **virtual `vf+148`** (chưa đọc thân) nên **chưa loại trừ**. Id `471 Wave/BombExplosion001` không có `push 471` trong 597 site gọi trực tiếp ⇒ **không thấy consumer native trực tiếp**; id động/wrapper/đường script `PlayWaveEffect` (theo tên, `0xD16410`→`0xD1CD10`) **chưa bị loại trừ**. Vì vậy **không** kết luận "gạch vỡ không có tiếng" hay "tiếng chỉ gắn với bom" | — | `kr_static` / `confirmed` (quan sát âm tính **trong phạm vi quét direct call + literal push**; "bounded negative" là giới hạn phương pháp, **không** phải nhãn trạng thái) | `0xEB9840` (+`vf+148` chưa đọc), `0x41C980` (bảng), `0xD16410` (script by-name); evidence bảng ở [evidence](../../evidence/measurements/kr-static-audio-2026-10-23/README.md) |
+
+Hệ quả:
+
+- **Không đổi `data/assets/audio-v1.toml`** trong PR này. Đề xuất (cần task riêng, có review):
+  `player_trapped` nên là **77/37** (client) thay vì `Itm_UseTrap` (174 = tiếng dùng item trap);
+  `bomb_exploded` nên là **7/8** (+343 tuyết); `BombExplosion001` (471) **không thấy consumer native trực tiếp**
+  (chưa loại trừ id động/wrapper/script); `bomb_placed` **9** (+344 tuyết); round-end/start giữ entry nhưng biết
+  client **remap** id theo `rand()%N+base` **khi guard `sub_76FBF0` bật** (guard tắt giữ id gốc; modulo bias),
+  đích có thể là `Ntc_Win1..5`, `Ntc_Lose1..6`, `Ntc_Draw1..2`; `item_revealed` 69, `item_picked` 68, `player_died` 42
+  **khớp** V1.
+- BGM: consumer theo record map (tên tại `+68`) là bằng chứng mới cho R-081 phần **consumer**, không
+  phải loop policy; R-083 vẫn `design`.
+- Voice: bằng chứng mới cho R-083 phần **dedup theo id + không ưu tiên**: client **bỏ** khi hết voice
+  rảnh, không đuổi mức thấp nhất; V1 đang mô hình ngược lại (ưu tiên + bỏ mức thấp nhất). Đề xuất giữ
+  design V1 (8 voice) nhưng ghi khác biệt, không tự đổi.
+
 ## § (đánh số khi merge) — RE KR 00967 — render: accessor frame, neo tile và lớp Static/Adjust (R-209…R-211)
 
 Đọc tĩnh cho [#201](https://github.com/aquaplatinumberlitz/boom-rs/issues/201) / Q-002/Q-003, V1-030/031
@@ -665,15 +735,15 @@ và [evidence](../../evidence/measurements/kr-static-render-2026-10-23/README.md
 
 Bối cảnh: [MAPS §3](../assets/MAPS.md) đã đo 12×`i32` mỗi frame (f0/f1 đăng ký, f2 flag, f3 ảnh,
 f4–f7 rect, f8/f9 canvas, f10/f11 pivot) nhưng **chưa có consumer render**. Lượt này tìm được
-**accessor** của lớp dữ liệu ở VN, **neo tile** và **quy ước tên lớp `LayerStatic`/`LayerAdjust`**;
+**accessor** của lớp dữ liệu ở VN, **neo tile** và **quy ước **tên lớp** `LayerStatic`/`LayerAdjust`**;
 **chưa** tìm được hàm vẽ dùng f8–f11, nên câu hỏi công thức đặt ảnh + thứ tự lớp + clip/alpha vẫn mở
 (blocker có phạm vi §4 findings).
 
 | ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
 |---|---|---|---|---|
-| R-209 | **Accessor frame của `CDataI16Alpha` (VN) — f4..f11 là một khối liên tiếp, f0/f1/f2 đọc/ghi riêng.** `vf8(frame)` trả `frame + 16` = con trỏ tới **f4..f11** (`0x8D50DF`); `vf9` = `f6−f4` (rộng rect), `vf10` = `f7−f5` (cao rect) (`0x8D50F3`, `0x8D510B`); `vf11` = `f0`, `vf12` = `f1`, `vf13` = `f2` (`0x8D5123`, `0x8D5136`, `0x8D514A`); `vf14(frame,a,b)` **ghi f0/f1** (`0x8D515E`) ⇒ đăng ký **thay đổi được** theo frame; `vf15(frame)` lấy ảnh theo `f3` qua `vf16`, `vf16(index)` trả kích thước ảnh (`0x8D5180`, `0x8D519B`). Frame record 48 B, index `f3` | 12×`i32`/frame; rect/canvas/pivot: px | `vn_static` / confirmed (accessor); **consumer của f8–f11 chưa có** | VN `0x8D50DF`, `0x8D50F3`, `0x8D510B`, `0x8D5123`, `0x8D5136`, `0x8D514A`, `0x8D515E`, `0x8D5180`, `0x8D519B` (RVA `0x4D50DF`…`0x4D519B`); [MAPS §3](../assets/MAPS.md) |
+| R-209 | **Accessor frame của `CDataI16Alpha` (VN) — f4..f11 là một khối liên tiếp, f0/f1/f2 đọc/ghi riêng.** `vf8(frame)` trả `frame + 16` = con trỏ tới **f4..f11** (`0x8D50DF`); `vf9` = `f6−f4` (rộng rect), `vf10` = `f7−f5` (cao rect) (`0x8D50F3`, `0x8D510B`); `vf11` = `f0`, `vf12` = `f1`, `vf13` = `f2` (`0x8D5123`, `0x8D5136`, `0x8D514A`); `vf14(frame,a,b)` **ghi f0/f1** (`0x8D515E`) ⇒ đăng ký **thay đổi được** theo frame; `vf15(frame)` lấy **index từ `f3`** rồi gọi `vf16`; `vf16(index)` = `*(this[16] + 4·index)` — **getter phần tử bảng theo index**; ý nghĩa kiểu/handle/kích thước ảnh **chưa chứng minh** (`0x8D5180`, `0x8D519B`). Frame record 48 B, index `f3` | 12×`i32`/frame; rect/canvas/pivot: px | `vn_static` / confirmed (cấu trúc accessor); **nghĩa vf15/vf16 và consumer của f8–f11: unknown** | VN `0x8D50DF`, `0x8D50F3`, `0x8D510B`, `0x8D5123`, `0x8D5136`, `0x8D514A`, `0x8D515E`, `0x8D5180`, `0x8D519B` (RVA `0x4D50DF`…`0x4D519B`); [MAPS §3](../assets/MAPS.md) |
 | R-210 | **Neo thế giới của tile/object (VN): `x = cột·40`, `y = hàng·40 + 39`.** `CGOTile::vf33` `0x5BED20` ghi `this[19] = 40·a5` và `this[22] = 40·a4 + 39` (a5 = cột, a4 = hàng), rồi gọi `vf+20(this, a3, -1)` và `vf+12(this, 1)`. Đơn vị **px**, ô 40 px; mốc là **1 px trên mép dưới ô** (`row·40+39`), không phải tâm ô | px; ô 40 | `vn_static` / confirmed (công thức + vị trí ghi); caller map/loader: `candidate` | VN `0x5BED20` (RVA `0x1BED20`), `CGOTileFixed__vf33` `0x5BEE9E` |
-| R-211 | **Mỗi object có cặp sprite lớp `LayerStatic`/`LayerAdjust`.** Loader VN ghép tên `<tên>LayerStatic` bằng `strcat` (`0x5C8107` trong `sub_5C7F8E`, `0x5C9F66` trong `sub_5C9741`); bảng tên lớp có cả `LayerStatic` (`0xC3797C`) và `LayerAdjust` (`0xC79760`). KR cũng ghép `<tên>LayerStatic` (`0xBA3384` trong `sub_BA3100`, `0xBB34C5`/`0xBB3545` trong `sub_BB2620`); chuỗi `LayerAdjust` KR ở `0x17902D8` (chỉ thấy trong bảng dữ liệu `0x19A64B4`). **Thứ tự vẽ Static→Adjust, clip và alpha chưa chứng minh** | tên entry; 2 lớp | `vn_static` + `kr_static` / confirmed (tên lớp); **thứ tự/clip/alpha: unknown** | VN `0x5C7F8E`/`0x5C9741`; KR `sub_BA3100`/`sub_BB2620`, `0x19A64B4` |
+| R-211 | **Tên lớp `LayerStatic`/`LayerAdjust` và loader ghép `LayerStatic`; cặp sprite theo object chưa chứng minh.** Loader VN ghép tên `<tên>LayerStatic` bằng `strcat` (`0x5C8107` trong `sub_5C7F8E`, `0x5C9F66` trong `sub_5C9741`); bảng tên lớp có cả `LayerStatic` (`0xC3797C`) và `LayerAdjust` (`0xC79760`). KR cũng ghép `<tên>LayerStatic` (`0xBA3384` trong `sub_BA3100`, `0xBB34C5`/`0xBB3545` trong `sub_BB2620`); chuỗi `LayerAdjust` KR ở `0x17902D8` **chỉ thấy trong bảng dữ liệu** `0x19A64B4`, **không** có code xref trực tiếp. **Chưa** chứng minh mỗi object nạp/giữ/vẽ đủ hai sprite, chưa chứng minh thứ tự vẽ Static→Adjust, clip và alpha | tên entry | `vn_static` + `kr_static` / confirmed (**tên + loader đã thấy**); **cặp theo object, consumer `LayerAdjust`, thứ tự/clip/alpha: candidate/unknown** | VN `0x5C7F8E`/`0x5C9741`; KR `sub_BA3100`/`sub_BB2620`, `0x19A64B4` |
 
 Hệ quả:
 
