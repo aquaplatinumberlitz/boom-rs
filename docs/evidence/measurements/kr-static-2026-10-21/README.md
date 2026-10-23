@@ -88,7 +88,7 @@ REA MCP `provider_id: ida` trên bản sao; bundle `.re-work/evidence-r154-bombp
 | Ctor sensor | `B37150` → `1198240(bomb+144,1)` | `CSensorTrigger` flag `+152 = 1` mặc định |
 | Init | `B384E0` | `[bomb+328] = u8 descriptor+108` (`529C20`) |
 | Move consumer | `0x1310200` `CMovable::MoveSimple` | consumer đã trace thuộc **pet/AI**; gọi virtual +156 nhưng còn OR `EA0FD0` và gate +164; predicate khác 0 không đủ kết luận đi qua |
-| Owner getter | `B38370` (`+268`) | **xref 14 hàm**, chưa phân loại đủ 14 thân; **không** được `B37DB0` gọi |
+| Owner getter | `B38370` (`+268`) | **xref 14 hàm**; đã phân loại **4/14**, 10 thân còn lại unknown; **không** được `B37DB0` gọi |
 
 **Kết luận:** `kr_static` confirmed **thân predicate** `B37DB0`, ctor/flag và **nhánh `MoveSimple` có
 phạm vi pet/AI**; `candidate` owner getter (xref chưa phân loại); `unknown` đường bomber, nghĩa/giá trị
