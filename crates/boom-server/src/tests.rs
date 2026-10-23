@@ -654,7 +654,59 @@ struct WireClient {
 ///
 /// Trần là **số vòng**, không phải thời gian thật: tốc độ máy và độ phân giải timer của hệ
 /// điều hành (Windows `sleep(1 ms)` thực tế ~15.6 ms) không ảnh hưởng kết quả kiểm.
+///
+/// Chờ **frame** thì không dùng hằng số này: xem [`RECV_TIMEOUT`] và [`wait_within`] để biết
+/// vì sao trần số vòng không bảo đảm thread reader/writer của server đã được xếp lịch.
 const WAIT_ROUNDS: usize = 200_000;
+
+/// Trần chờ một frame/thông điệp từ server, tính bằng **thời gian thật**.
+///
+/// Đây là **trần phát hiện kẹt**, không phải ngưỡng hiệu năng: mọi lần chờ thoát ngay khi frame
+/// tới, nên máy chậm chỉ kéo dài thời gian test, không đổi kết quả kiểm.
+const RECV_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Số vòng nhường CPU trước khi bắt đầu ngủ ngắn giữa các lần thử.
+const RECV_SPIN_ROUNDS: u32 = 32;
+
+/// Chờ tối đa `limit` (thời gian thật) cho tới khi `probe` trả `Some`.
+///
+/// Vài vòng đầu dùng `yield_now` để giữ độ trễ thấp khi frame đã sẵn sàng; sau đó mỗi vòng ngủ
+/// 1 ms. Lý do: `yield_now` **không** đồng bộ với thread reader/writer của server. Trên Windows
+/// `SwitchToThread` trả về ngay khi CPU hiện tại không có thread sẵn sàng, nên một vòng đếm
+/// thuần (`WAIT_ROUNDS`) có thể cạn trong vài ms — trước khi writer được OS xếp lịch để gửi
+/// frame đã nằm trong hàng đợi của nó. Trần thời gian thật + ngủ ngắn bảo đảm thread khác có
+/// cơ hội chạy, đồng thời vẫn kết thúc hữu hạn và báo lỗi rõ khi frame thật sự không tới.
+fn wait_within<T>(limit: Duration, mut probe: impl FnMut() -> Option<T>) -> Option<T> {
+    let started = Instant::now();
+    let mut rounds = 0u32;
+    loop {
+        if let Some(value) = probe() {
+            return Some(value);
+        }
+        if started.elapsed() >= limit {
+            return None;
+        }
+        rounds = rounds.saturating_add(1);
+        if rounds <= RECV_SPIN_ROUNDS {
+            std::thread::yield_now();
+        } else {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
+/// Thông báo timeout kèm trạng thái transport để phân biệt "server chưa gửi" với "đã gửi nhưng
+/// chưa tới" và "đối phương đã đóng".
+fn timeout_message(c: &WireClient, what: &str, limit: Duration) -> String {
+    format!(
+        "timeout chờ {what} sau {limit:?}: eof={}, đã gửi={}, đã nhận={}, peer gửi={}, peer nhận={}",
+        c.reader.is_eof(),
+        c.reader.sent_frames(),
+        c.reader.delivered_frames(),
+        c.reader.peer_sent_frames(),
+        c.reader.peer_delivered_frames(),
+    )
+}
 
 /// Số lần gửi tối đa cho một yêu cầu.
 ///
@@ -965,13 +1017,15 @@ fn send<M: Message>(c: &mut WireClient, message: &M) {
 }
 
 fn recv_raw(c: &mut WireClient) -> Vec<u8> {
-    for _ in 0..WAIT_ROUNDS {
-        if let Some(frame) = c.reader.try_recv_frame().expect("đọc frame") {
-            return frame;
-        }
-        std::thread::yield_now();
+    recv_raw_within(c, RECV_TIMEOUT)
+}
+
+/// Như [`recv_raw`] nhưng có trần chờ riêng (dùng cho test của helper).
+fn recv_raw_within(c: &mut WireClient, limit: Duration) -> Vec<u8> {
+    match wait_within(limit, || c.reader.try_recv_frame().expect("đọc frame")) {
+        Some(frame) => frame,
+        None => panic!("{}", timeout_message(c, "frame", limit)),
     }
-    panic!("timeout chờ frame");
 }
 
 fn recv<M: Message>(c: &mut WireClient) -> M {
@@ -980,13 +1034,13 @@ fn recv<M: Message>(c: &mut WireClient) -> M {
 }
 
 fn recv_of<M: Message>(c: &mut WireClient, kind: MessageKind) -> M {
-    for _ in 0..WAIT_ROUNDS {
-        if let Some(message) = take_kind::<M>(c, kind) {
-            return message;
-        }
-        std::thread::yield_now();
+    match wait_within(RECV_TIMEOUT, || take_kind::<M>(c, kind)) {
+        Some(message) => message,
+        None => panic!(
+            "{}",
+            timeout_message(c, &format!("thông điệp {kind:?}"), RECV_TIMEOUT)
+        ),
     }
-    panic!("timeout chờ {kind:?}")
 }
 
 fn send_room(c: &mut WireClient, request: u64, action: RoomActionDto) {
@@ -1125,6 +1179,69 @@ fn recv_input_rejected(c: &mut WireClient) -> InputRejected {
     }
 }
 
+/// Frame tới **sau** khi ngân sách vòng (kiểu cũ) đã cạn vẫn phải được nhận.
+///
+/// Đo local: 200.000 vòng `yield_now` mất ~0,8 s. Độ trễ 1,2 s lớn hơn mốc đó, nên test chứng
+/// minh helper chờ theo **thời gian thật** tới khi frame tới, không chỉ quay một số vòng cố định
+/// rồi bỏ cuộc. Đây là kiểm tra hành vi chờ, không phải tái hiện lỗi scheduler của Windows.
+#[test]
+fn wait_frame_cho_du_frame_tre_thay_vi_het_vong_yield() {
+    let (mut peer, reader) = MemoryTransport::pair(MemoryConfig::seeded(71));
+    let (writer, _server_reader) = MemoryTransport::pair(MemoryConfig::seeded(72));
+    let mut client = WireClient { writer, reader };
+    let frame = encode_frame(&Ping(7), &ProtocolLimits::v1()).unwrap();
+    let sent = frame.clone();
+    let delay = Duration::from_millis(1_200);
+    let handle = std::thread::spawn(move || {
+        std::thread::sleep(delay);
+        peer.send_frame(&sent).expect("gửi frame trễ");
+    });
+    let started = Instant::now();
+    let received = recv_raw_within(&mut client, Duration::from_secs(30));
+    handle.join().unwrap();
+    assert!(
+        started.elapsed() >= delay,
+        "phải chờ frame tới, không được bỏ sớm"
+    );
+    assert_eq!(received, frame);
+}
+
+/// Thiếu frame phải kết thúc **hữu hạn** và báo lỗi rõ, không treo và không trả frame rỗng.
+#[test]
+fn wait_frame_bao_timeout_huu_han_khi_thieu_frame() {
+    // Giữ peer sống nhưng không gửi frame: không phải trường hợp EOF.
+    let (_peer, reader) = MemoryTransport::pair(MemoryConfig::seeded(81));
+    let (writer, _server_reader) = MemoryTransport::pair(MemoryConfig::seeded(82));
+    let mut client = WireClient { writer, reader };
+    let limit = Duration::from_millis(50);
+    let started = Instant::now();
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        recv_raw_within(&mut client, limit)
+    }));
+    let elapsed = started.elapsed();
+    let payload = outcome.expect_err("thiếu frame phải panic, không được treo");
+    let message = payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| {
+            payload
+                .downcast_ref::<&str>()
+                .map(|text| (*text).to_owned())
+        })
+        .unwrap_or_default();
+    assert!(message.contains("timeout chờ frame"), "{message}");
+    assert!(message.contains("50ms"), "{message}");
+    assert!(message.contains("eof=false"), "{message}");
+    assert!(
+        elapsed >= limit,
+        "không được báo timeout trước trần: {elapsed:?}"
+    );
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "phải kết thúc hữu hạn: {elapsed:?}"
+    );
+}
+
 fn server_with_clients(players: &[PlayerId]) -> (Server, Vec<WireClient>) {
     server_with_clients_config(players, u64::MAX, u64::MAX)
 }
@@ -1176,6 +1293,12 @@ fn wire_handshake_at(server: &mut Server, clients: &mut [WireClient], now_ms: u6
         let msg = hello(h.rules_hash);
         send(c, &msg);
         let _ = server.poll(now_ms, Duration::from_millis(100)).unwrap();
+        // `poll` chỉ đưa `Welcome` vào hàng đợi của writer thread rồi trả về, chưa bảo đảm writer
+        // đã gọi `send_frame`. Chờ marker của writer (không đi trên dây) để việc đọc không phụ
+        // thuộc việc OS có xếp lịch thread writer trong lúc `recv` chờ hay không.
+        server
+            .flush_outbound(RECV_TIMEOUT)
+            .expect("writer server không gửi hết frame");
         let welcome: Welcome = recv(c);
         welcomes.push(welcome);
     }
