@@ -88,7 +88,7 @@ REA MCP `provider_id: ida` trên bản sao; bundle `.re-work/evidence-r154-bombp
 | Ctor sensor | `B37150` → `1198240(bomb+144,1)` | `CSensorTrigger` flag `+152 = 1` mặc định |
 | Init | `B384E0` | `[bomb+328] = u8 descriptor+108` (`529C20`) |
 | Move consumer | `0x1310200` `CMovable::MoveSimple` | consumer đã trace thuộc **pet/AI**; gọi virtual +156 nhưng còn OR `EA0FD0` và gate +164; predicate khác 0 không đủ kết luận đi qua |
-| Owner getter | `B38370` (`+268`) | **xref 14 hàm**; đã phân loại **4/14**, 10 thân còn lại unknown; **không** được `B37DB0` gọi |
+| Owner getter | `B38370` (`+268`) | **14 callsite/xref**; đã đọc 4 thân lượt trước; các site còn lại chưa phân loại; **không** được `B37DB0` gọi |
 
 **Kết luận:** `kr_static` confirmed **thân predicate** `B37DB0`, ctor/flag và **nhánh `MoveSimple` có
 phạm vi pet/AI**; `candidate` owner getter (xref chưa phân loại); `unknown` đường bomber, nghĩa/giá trị
@@ -117,5 +117,28 @@ trong 14 xref; không đọc lại hàm R-154). Bundle `.re-work/evidence-r154-o
 | `EB8000` | `0xEB8FA8`/`0xEB910E` | owner cho flame/effect `B70C10` | chưa thấy |
 
 Cả 4 chỉ thấy dataflow descriptor/event, effect/flame hoặc bỏ kết quả; **chưa thấy kiểm collision/grace
-trực tiếp** (không gọi trực tiếp `B37DB0`/`EA0FD0`/`+152`/`+328`/`MoveSimple`). Helper/callee và **10 xref
+trực tiếp** (không gọi trực tiếp `B37DB0`/`EA0FD0`/`+152`/`+328`/`MoveSimple`). Helper/callee và **các callsite
 còn lại chưa loại trừ**; không tạo R-155, không nâng owner thành confirmed; player/grace vẫn unknown.
+
+### #146 — caller `B38370` mới (B3AE90/B9A990/E3), 2026-10-24
+
+Bundle lọc `.re-work/evidence-owner-player-sites-146-r1.json` (**7 record** đúng lượt; ledger gốc 9 record có thêm 2 batch flame `ev_3f712b95…`/`ev_5c9de206…`; không commit). Codex đã xác nhận
+hai bản sao cùng SHA `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, kích thước
+26.074.624 B, base `0x400000`; dùng read-only với **provenance thật** dưới đây, không phải clone1.
+
+| Evidence | Callsite → function | Actual subject / DB | Kết quả |
+|---|---|---|---|
+| `ev_0216a581…` | `B3AECE` → `B3AE90` (RVA `73AE90`) | `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; DB không có trong batch record | `B38370` → `B3ADD0`; chọn effect RPG/Sprinkler/Remote/Deco; không so player trực tiếp |
+| `ev_0216a581…` | `B9A99C`/`B9A9C8` → `B9A990` (RVA `79A990`) | cùng batch | guard `B38370(this) != -1`; khi khác -1 mới `a=1241780(B38370(this))`, `b=1241780(1240B00(0))`, ghi `this[172]` (byte `+0x2B0`); nhánh -1 không ghi/reset; helper/consumer **candidate/unknown** |
+| `ev_1e18205f…` | `B996B0`/`B9A3B0` (RVA `7996B0`/`79A3B0`) | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB copy `rea-ida-1e1Km8` | wrapper kiểm `this[172]` (byte `+0x2B0`); `B9A3B0` tính vị trí rồi gọi B9A990 |
+| `ev_fb3ed4dd…` | xref `B9A990` | `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; DB `rea-ida-GI3Raz` | 2 caller: B996B0/B9A3B0 |
+| `ev_d9c085e8…` | xref `B9A3B0` | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB `rea-ida-1e1Km8` | 3 callsite trong B99CF0 |
+| `ev_8134a6cc…` | helper `1240B00`/`1241780` | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB copy `rea-ida-1e1Km8` | `1240B00` trả kết quả gọi `57A870` tại `+68+12*a2`; `1241780` guard `this[41]`, gọi accessor `529C60` trên `*(this+42)+792*a2+112`, else `-1` |
+| `ev_868df24e…`, `ev_c23c3eb1…` | E3C4A2/E3C563 | boom-team; DB `rea-ida-GI3Raz` | `not_in_procedure`; chỉ xref/resolve, không đọc body/disasm mới, không kết luận class/VM |
+
+**Kết luận:** `B3AE90` chỉ là effect selector; `B9A990` **chỉ khi `B38370(this) != -1`** mới so hai
+transform `1241780(B38370(this))` và `1241780(1240B00(0))`, ghi `this[172]` (byte `+0x2B0`); nhánh -1
+không ghi/reset. `1240B00` chỉ trả kết quả gọi `57A870` tại `+68+12*a2`; `1241780` guard `this[41]` và
+gọi accessor `529C60` trên bảng `*(this+42)+792*a2+112`; nghĩa owner/local/team và consumer `this[172]`
+vẫn **candidate/unknown**, chưa thấy collision/grace. E3 chưa xác định function. Không mở các callsite
+còn lại; helper/callee chưa đọc unknown. Không đổi R-154/player grace.
