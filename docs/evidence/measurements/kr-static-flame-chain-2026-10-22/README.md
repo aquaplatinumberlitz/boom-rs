@@ -109,3 +109,32 @@ imagebase `0x00400000`, `RVA = VA − 0x400000`. REA `provider: ida` trên bản
 (`B391E0`, `EC2420`, `ED28C0`, `ED6FD0`, `EC1130`); update còn slot `+176/+164/+168/+172` chưa đọc
 và helper/callee chưa đọc nên **consumer vẫn `unknown`**, không loại trừ đường gián tiếp. Damage một
 lần hay cửa sổ, value/unit/cadence vẫn **unknown**; không đổi `bomb.flame_ms`/`bomb.fuse_ms`.
+
+## Lượt 2026-10-24 (phiên 2) — virtual callee `CGOBomb` update: chưa thấy dispatch/damage trực tiếp
+
+Build KR `00967`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`,
+base `0x00400000`, `RVA = VA − 0x400000`. Không đọc lại `B391E0`/`EC2420`/`EC1130`/`ED28C0`/`ED6FD0`.
+Vtable đọc trực tiếp từ file `.re-tmp/kr-full.exe` (parse PE); artifact local:
+`.re-work/vtable-174426C.json`, `.re-work/va2off-148.py`, `.re-work/evidence-148-virtuals.json`.
+
+| Byte offset | Slot | Entry VA | RVA entry | Target | RVA target | Quan sát trong thân |
+|---:|---:|---|---|---|---|---|
+| `+0xA4` | 41 | `0x01744310` | `0x01344310` | `0x00B393D0` | `0x007393D0` | state 1; animation + `sub_E9C520` khi state 4; **chưa thấy** msg27/damage trực tiếp |
+| `+0xA8` | 42 | `0x01744314` | `0x01344314` | `0x00B39AF0` | `0x00739AF0` | state 2; animation + `sub_E9C520`; **chưa thấy** msg27/damage trực tiếp |
+| `+0xAC` | 43 | `0x01744318` | `0x01344318` | `0x00B3A3B0` | `0x0073A3B0` | state 3; ô + `sub_E9C520` + `sub_EA0790` với toạ độ ô kề (predicate/return **chưa đọc** — candidate); chưa thấy msg27/damage |
+| `+0xB0` | 44 | `0x0174431C` | `0x0134431C` | `0x00B3A790` | `0x0073A790` | nhánh 0/3/4: virtual `+200`/`+208` (chưa rõ chức năng), sau đó `E9C520` tại `B3AA67`; chưa thấy msg27/damage trực tiếp |
+
+Vtable base `0x0174426C` (CGOBomb; slot 24 = `0x00B391E0`). Bảng thứ hai `0x0174727C`: slot 43 =
+`0x00B994C0` (chưa đọc), slot 24/41/42/44 giống — **lớp/receiver chưa xác nhận** (không có RTTI/ctor riêng).
+
+`evidence_id`: `ev_5c9de206787a5d0f99155da76d8fee85a98e0b8e70dd31c0a857146540c32856`
+(`B3A790`+`B3A3B0`), `ev_3f712b954329f16d037f1a5e08d1e3ab9aee130fbed3baa781f771305627c1fd`
+(`B393D0`+`B39AF0`). `B393D0` **đọc lại** body đã có trong clone dsh1
+`.re-work/evidence-r154-bombpass-146.json` (`ev_5d06d1cab12064f869b98fb3190c705d121c999678088da9a1bb3d47d26c28d7`);
+call context `B391E0` cũng lấy từ evidence dsh1, không decompile lại.
+
+**Kết luận**: **chưa thấy** dispatch/message 27 hoặc kiểm bomber-vs-ô-lửa/damage **trực tiếp** trong
+**bốn thân đã đọc**; không phủ định callee/virtual bên trong (chưa đọc), không kết luận cả bốn chỉ là
+producer. Damage event-time hay cửa sổ vẫn `unknown`; callee khác của `E9C520`/consumer 27 chưa nối.
+Không dùng `500`/`2500` ms/animation `B711C0` làm luật damage. Ngân sách: 2 call batch, **3 thân mới**
+(`B3A790`, `B3A3B0`, `B39AF0`) + **1 đọc lại** (`B393D0`); vtable đọc bytes file.
