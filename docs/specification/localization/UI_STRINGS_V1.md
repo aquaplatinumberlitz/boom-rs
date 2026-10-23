@@ -64,7 +64,7 @@ Cột **Trạng thái nguồn**:
 | `unknown` | Chưa có locator catalog/ảnh phù hợp; không render tới khi bổ sung key/asset và duyệt. |
 
 Tổng hợp 125 khóa: **44 dòng có locator catalog** (33 `catalog-translated` + 11 `catalog-reused`),
-**15 dòng `review`**, **9 dòng `image-pending`** và **57 dòng `unknown`**. Không có dòng nào tự soạn
+**24 dòng `review`**, **9 dòng `image-pending`** và **48 dòng `unknown`**. Không có dòng nào tự soạn
 bản VI hay yêu cầu sửa bản dịch đã có. Mọi dòng `review`/`unknown` là **đầu việc của `boom-re-l10n`**:
 ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch.
 
@@ -79,9 +79,9 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `app.network_error` | Hộp thoại mất mạng | `catalog:NetworkError` | `catalog-translated` | Lấy `catalog.vi`; wrap tối đa 3 dòng. |
 | `app.session_replaced` | Phiên bị thay | `catalog:szConnCloseMsg` | `catalog-translated` | Lấy `catalog.vi`; tối đa 2 dòng. |
 | `app.auth_failed` | Đăng nhập thất bại | `catalog:ErrLoginNotRegistered` | `review` | Catalog gắn luồng Nexon; reviewer chọn key phù hợp, không tự soạn. Cần chọn/sửa key ở boom-re-l10n. |
-| `app.version_mismatch` | Handshake phiên bản | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `app.version_mismatch`; chưa render. |
+| `app.version_mismatch` | Handshake phiên bản | `catalog:ErrVersionMisMatch` | `review` | Catalog là thông báo lệch phiên bản (`ErrVersionMisMatch`); reviewer xác nhận dùng cho handshake phiên bản, không đổi text. Cần chọn/sửa key ở boom-re-l10n. |
 | `app.content_mismatch` | Handshake rules/content | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `app.content_mismatch`; chưa render. |
-| `app.quit_confirm` | Hộp thoại thoát | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; chưa render. |
+| `app.quit_confirm` | Hộp thoại thoát | `catalog:WannaExitGame` | `review` | Catalog là hộp thoại xác nhận thoát game (`WannaExitGame`); reviewer xác nhận dùng cho `app.quit_confirm`, không đổi text. Cần chọn/sửa key ở boom-re-l10n. |
 | `app.invalid_map` | Map không hợp lệ | `catalog:InvalidMapReturnToLobby` | `catalog-translated` | Lấy `catalog.vi`. |
 
 ### 2.2 Đăng nhập
@@ -92,7 +92,7 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `login.account` | Nhãn ô tài khoản | `catalog:NewUserDlgID` | `review` | Catalog chỉ là nhãn ID; reviewer chọn key, không tự soạn. Cần chọn/sửa key ở boom-re-l10n. |
 | `login.password` | Nhãn ô mật khẩu | `catalog:Password` | `catalog-translated` | Lấy `catalog.vi`. |
 | `login.submit` | Nút đăng nhập | `catalog:DailyMission_Mission_Login` | `review` | Catalog gắn nhiệm vụ ngày; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n. |
-| `login.register` | Nút tạo tài khoản | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.register`; chưa render. |
+| `login.register` | Nút tạo tài khoản | `catalog:Register` | `review` | Catalog là nút "등록하기"/"Đăng ký" chung (`Register`); reviewer xác nhận dùng cho nút tạo tài khoản. Cần chọn/sửa key ở boom-re-l10n. |
 | `login.failed` | Sai tài khoản/mật khẩu | `catalog:ErrLoginNotRegistered` | `review` | Catalog gắn Nexon; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n. |
 | `login.empty` | Thiếu trường bắt buộc | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.empty`; chưa render. |
 | `login.account_rule` | Quy tắc tên tài khoản | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `login.account_rule`; chưa render. |
@@ -142,7 +142,7 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `common.close` | Nút đóng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `common.close`; chưa render. |
 | `room.info_title` | Tiêu đề thông tin phòng | `ảnh FxMap:Prepare/PRE_Bt_Roominfo`, `ảnh FxMap:Prepare/Dlg_PRE-NMRoominfo` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt. |
 | `room.host` | Nhãn chủ phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host`; chưa render. |
-| `room.players` | Nhãn danh sách người chơi | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.players`; chưa render. |
+| `room.players` | Nhãn danh sách người chơi | `catalog:User` | `review` | Catalog là nhãn "유저"/"Người chơi" chung (`User`); reviewer xác nhận dùng làm tiêu đề cột danh sách người chơi. Cần chọn/sửa key ở boom-re-l10n. |
 | `room.status` | Nhãn trạng thái | `catalog:RoomInfoDlgStatus` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.id` | Nhãn ID phòng | `catalog:RoomInfoDlgID` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.map` | Nhãn bản đồ | `ảnh FxMap:Prepare/CAStage` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt. |
@@ -163,7 +163,7 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `room.non_host_denied` | Non-host start/kick | `catalog:RoomLeaderOnly` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.name_changed` | Đổi tên phòng | `catalog:RoomNameChanged` | `catalog-translated` | Lấy `catalog.vi`. |
 | `room.host_changed` | Chuyển chủ phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host_changed`; chưa render. |
-| `room.slot_empty` | Slot trống | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `room.slot_empty`; chưa render. |
+| `room.slot_empty` | Slot trống | `catalog:Empty` | `review` | Catalog là nhãn "비어 있음"/"Trống" chung (`Empty`); reviewer xác nhận dùng cho slot trống. Cần chọn/sửa key ở boom-re-l10n. |
 | `room.chat_to_all` | Phạm vi chat | `catalog:ChatToAll` | `catalog-translated` | Lấy `catalog.vi`; V1 FFA không có `<Đồng đội>`. |
 | `room.stats_bomb` | Nhãn số bom | `catalog:PREEA` | `review` | Catalog là nhãn chung '개수'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
 | `room.stats_fire` | Nhãn tầm nổ | `catalog:PREPOW` | `review` | Catalog là nhãn '물줄기'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
@@ -176,14 +176,14 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | Khóa V1 | Phần tử / ngữ cảnh | Locator nguồn | Trạng thái nguồn | Yêu cầu hiển thị |
 |---|---|---|---|---|
 | `match.timer` | Nhãn đồng hồ | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer`; chưa render. |
-| `match.timer_format` | Định dạng mm:ss | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer_format`; chưa render. |
+| `match.timer_format` | Định dạng mm:ss | `catalog:Antarctic_DaliyRecordTime` | `review` | Catalog là format thời gian kỷ lục ngày của mode Antarctic (`%1$02d:%2$02d`); placeholder printf có vị trí, reviewer xác nhận dùng cho mm:ss của trận. Cần chọn/sửa key ở boom-re-l10n. |
 | `match.go` | Hiệu lệnh bắt đầu | `catalog:TutorialClickStartBackStress1` | `review` | Catalog là nhãn tutorial 'Nút Bắt đầu'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
 | `match.trapped` | Trạng thái bị nhốt | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.trapped`; chưa render. |
 | `match.eliminated` | Trạng thái bị loại | `catalog:BlueMonSay_event4_01` | `review` | Catalog gắn sự kiện quái; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
 | `match.disconnect_warning` | Cảnh báo mất kết nối | `catalog:ErrNetworkError` | `review` | Catalog là thông báo mất mạng chung, không có đếm ngược; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n. |
 | `match.disconnect_eliminated` | Bị loại do mất kết nối | `catalog:ErrDisconnectByServer` | `review` | Catalog là thông báo ngắt kết nối chung; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n. |
-| `match.item_bomb` | Tên item Bomb | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_bomb`; chưa render. |
-| `match.item_fire` | Tên item Fire | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_fire`; chưa render. |
+| `match.item_bomb` | Tên item Bomb | `catalog:NewShop_CategoryBomb` | `review` | Catalog là nhãn nhóm shop "물풍선"/"bom nước" (`NewShop_CategoryBomb`); VI viết thường, reviewer xác nhận dùng làm tên item Bomb trên HUD. Cần chọn/sửa key ở boom-re-l10n. |
+| `match.item_fire` | Tên item Fire | `catalog:PREPOW` | `review` | Catalog là nhãn chỉ số "물줄기"/"Tia nước" (`PREPOW`, đã dùng cho `room.stats_fire`); reviewer xác nhận dùng làm tên item Fire. Cần chọn/sửa key ở boom-re-l10n. |
 | `match.item_roller` | Tên item Roller | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_roller`; chưa render. |
 | `match.pickup` | Thông báo nhặt item | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.pickup`; chưa render. |
 | `match.result_pending` | Chờ server chốt kết quả | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `match.result_pending`; chưa render. |
@@ -197,7 +197,7 @@ ghi rõ id khóa V1 cần thêm/sửa; repo này không tự viết bản dịch
 | `result.lose` | Nhãn thua | `catalog:StateLose` | `catalog-translated` | Lấy `catalog.vi`; ảnh `Lose` cần duyệt nếu dùng. |
 | `result.draw` | Nhãn hòa | `ảnh FxStage:Game/Draw` | `image-pending` | Duyệt ảnh; nếu chưa duyệt thì dùng key catalog được chốt. |
 | `result.rank` | Cột hạng | `catalog:Olympic_TitleRank` | `catalog-translated` | Lấy `catalog.vi`. |
-| `result.player` | Cột người chơi | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.player`; chưa render. |
+| `result.player` | Cột người chơi | `catalog:User` | `review` | Catalog là nhãn "유저"/"Người chơi" chung (`User`); reviewer xác nhận dùng làm tiêu đề cột người chơi. Cần chọn/sửa key ở boom-re-l10n. |
 | `result.continue` | Nút tiếp tục | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.continue`; chưa render. |
 | `result.auto_return` | Đếm ngược về phòng | — | `unknown` | Cần sửa ở boom-re-l10n: thêm key/asset cho `result.auto_return`; chưa render. |
 | `result.winner` | Người thắng | `catalog:BigBattle_Ingame_Winner_Line1` | `review` | Catalog là câu BigBattle, không có `%s`; reviewer chọn key/format. Cần chọn/sửa key ở boom-re-l10n. |
@@ -492,8 +492,8 @@ Số đếm khóa thiếu text do tool sinh nằm ở [§6.1](#61-báo-cáo-khó
 
 | Thiếu | Ảnh hưởng | Bước tiếp |
 |---|---|---|
-| 57 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn (client hiện placeholder `«khóa»`) | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
-| 15 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
+| 48 khóa `unknown` chưa có locator catalog/ảnh | Không render được đúng nguồn (client hiện placeholder `«khóa»`) | **Cần sửa ở `boom-re-l10n`**: thêm key/asset tương ứng; repo này không tự soạn bản dịch |
+| 24 dòng `review` cần chọn lại ngữ cảnh/format | Có thể chọn sai key dù text catalog đúng | **Cần chọn/sửa key ở `boom-re-l10n`**; giữ text catalog, không viết lại |
 | 3.038 ảnh vẫn `pending`, chưa có `l10n/images_review.csv` | Không được coi ảnh nào là đã Việt hóa | Reviewer duyệt theo [IMAGE_REVIEW](IMAGE_REVIEW.md), import CSV; bắt đầu từ 8 ảnh UI có chữ của V1-032 (§3) |
 | 8 ảnh UI có chữ ở trạng thái `needs_review_text` | Client phải vẽ text từ catalog thay cho ảnh | Duyệt ảnh (`translated`/`no_text`) rồi import CSV; đổi trạng thái trong bảng UI của closure |
 | Chưa có font/license trong repo | ~~V1-035 chưa bundle được font~~ | **Đã xong ở task #112**: Be Vietnam Pro 1.002 + `OFL.txt` trong `assets/fonts/`, nguồn/SHA-256 ở §5.1.1 |
@@ -522,9 +522,9 @@ python3 tools/l10n_export.py --check    # kiểm file đã xuất (không cần 
 |---|---:|---|---|
 | `catalog-translated` | 33 | có (`catalog.vi` nguyên văn) | — |
 | `catalog-reused` | 11 | có (`catalog.vi` nguyên văn) | — |
-| `review` | 15 | không | `needs-review` |
+| `review` | 24 | không | `needs-review` |
 | `image-pending` | 9 | không | `image-pending-review` |
-| `unknown` | 57 | không | `no-locator` |
+| `unknown` | 48 | không | `no-locator` |
 | **Tổng** | **125** | **44 có text / 81 chỉ có lý do** | — |
 
 Quy tắc của file xuất (nguồn chuẩn vẫn là `catalog.csv`, không lưu bản VI riêng):

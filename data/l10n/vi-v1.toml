@@ -44,9 +44,10 @@ text = "Do lỗi mạng nên không thể tiếp tục chơi game."
 note = "Lấy `catalog.vi`; wrap tối đa 3 dòng."
 
 [strings."app.quit_confirm"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; chưa render."
+catalog_id = "WannaExitGame"
+status = "review"
+reason = "needs-review"
+note = "Catalog là hộp thoại xác nhận thoát game (`WannaExitGame`); reviewer xác nhận dùng cho `app.quit_confirm`, không đổi text. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."app.session_replaced"]
 catalog_id = "szConnCloseMsg"
@@ -55,9 +56,10 @@ text = "Có máy khác yêu cầu kết nối nên bạn bị đăng xuất."
 note = "Lấy `catalog.vi`; tối đa 2 dòng."
 
 [strings."app.version_mismatch"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.version_mismatch`; chưa render."
+catalog_id = "ErrVersionMisMatch"
+status = "review"
+reason = "needs-review"
+note = "Catalog là thông báo lệch phiên bản (`ErrVersionMisMatch`); reviewer xác nhận dùng cho handshake phiên bản, không đổi text. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."common.cancel"]
 status = "unknown"
@@ -287,9 +289,10 @@ text = "Mật khẩu"
 note = "Lấy `catalog.vi`."
 
 [strings."login.register"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.register`; chưa render."
+catalog_id = "Register"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nút \"등록하기\"/\"Đăng ký\" chung (`Register`); reviewer xác nhận dùng cho nút tạo tài khoản. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."login.submit"]
 catalog_id = "DailyMission_Mission_Login"
@@ -337,14 +340,16 @@ reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.hud`; client hiện placeholder."
 
 [strings."match.item_bomb"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_bomb`; chưa render."
+catalog_id = "NewShop_CategoryBomb"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn nhóm shop \"물풍선\"/\"bom nước\" (`NewShop_CategoryBomb`); VI viết thường, reviewer xác nhận dùng làm tên item Bomb trên HUD. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."match.item_fire"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_fire`; chưa render."
+catalog_id = "PREPOW"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn chỉ số \"물줄기\"/\"Tia nước\" (`PREPOW`, đã dùng cho `room.stats_fire`); reviewer xác nhận dùng làm tên item Fire. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."match.item_roller"]
 status = "unknown"
@@ -372,9 +377,10 @@ reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer`; chưa render."
 
 [strings."match.timer_format"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer_format`; chưa render."
+catalog_id = "Antarctic_DaliyRecordTime"
+status = "review"
+reason = "needs-review"
+note = "Catalog là format thời gian kỷ lục ngày của mode Antarctic (`%1$02d:%2$02d`); placeholder printf có vị trí, reviewer xác nhận dùng cho mm:ss của trận. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."match.trapped"]
 status = "unknown"
@@ -459,9 +465,10 @@ text = "Thua"
 note = "Lấy `catalog.vi`; ảnh `Lose` cần duyệt nếu dùng."
 
 [strings."result.player"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.player`; chưa render."
+catalog_id = "User"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn \"유저\"/\"Người chơi\" chung (`User`); reviewer xác nhận dùng làm tiêu đề cột người chơi. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."result.rank"]
 catalog_id = "Olympic_TitleRank"
@@ -633,9 +640,10 @@ text = "Đây là lệnh chỉ chủ phòng mới dùng được."
 note = "Lấy `catalog.vi`."
 
 [strings."room.players"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.players`; chưa render."
+catalog_id = "User"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn \"유저\"/\"Người chơi\" chung (`User`); reviewer xác nhận dùng làm tiêu đề cột danh sách người chơi. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."room.ready"]
 status = "image-pending"
@@ -655,9 +663,10 @@ reason = "no-locator"
 note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.ready_indicator`; client hiện placeholder."
 
 [strings."room.slot_empty"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.slot_empty`; chưa render."
+catalog_id = "Empty"
+status = "review"
+reason = "needs-review"
+note = "Catalog là nhãn \"비어 있음\"/\"Trống\" chung (`Empty`); reviewer xác nhận dùng cho slot trống. Cần chọn/sửa key ở boom-re-l10n."
 
 [strings."room.start"]
 status = "image-pending"
