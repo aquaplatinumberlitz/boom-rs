@@ -103,3 +103,18 @@ hệ quả player/bomber (ra/vào/grace) hay bomb-pass toàn hệ thống; khôn
 | `ev_6b5946b42a71659cbda31f34a6d4e2f65ca5af068973517f54a8cd8833fdc504` | `procedure_pseudo_code` `1310200` | MoveSimple |
 | `ev_dc3d84632f04b7616773024c1058afe0ae3659040f8ff455e8c57a3a9883f73f` | `batch_decompile` `B37150`/`B37560`/`B384E0` | ctor/Init |
 | `ev_1ed26a6f3c1bb7dff196630d81395bb64cda343c123acd908e9b8129e231dc4e` | `xrefs` `B38370` | owner getter callers |
+
+### R-154 — phân loại 4 caller `B38370` (`+268`)
+
+Batch REA `ev_f4a10721fe2b84a4ba9af47155213f3c6fa23ab83eadd0b5ccf5c000fad66787` (4 thân ưu tiên
+trong 14 xref; không đọc lại hàm R-154). Bundle `.re-work/evidence-r154-owner-callers-146.json`.
+
+| Caller | Call | Cách dùng `+268` | Collision/grace? |
+|---|---|---|---|
+| `ACC340` | `0xACC4BA` | descriptor event (`AD4A40`/`AD62F0`/`AD9F20`) | không |
+| `AEF700` | `0xAEF904` | bỏ kết quả; nhánh bomb/item `B378F0`/`B37880` | không |
+| `EB73D0` | `0xEB75C1` | ghi effect `*(+4)`; `B70C10` | không |
+| `EB8000` | `0xEB8FA8`/`0xEB910E` | owner cho flame/effect `B70C10` | không |
+
+Cả 4 chỉ dùng/bỏ qua `+268` trong event/effect/score; không gọi `B37DB0`/`EA0FD0`/`+152`/`+328`/`MoveSimple`.
+**10 xref còn lại unknown**; không tạo R-155, không nâng owner thành confirmed; player/grace vẫn unknown.
