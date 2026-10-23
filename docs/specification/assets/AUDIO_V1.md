@@ -2,8 +2,8 @@
 
 Phạm vi **V1-034 phần 1+2 (issue #64, #104)**. Tài liệu chốt bảng event→entry, policy chồng tiếng,
 cách đóng gói payload thô vào bundle schema 4 và cách client áp volume/mute. Nguồn chuẩn claim:
-[RULES_V1](../gameplay/RULES_V1.md) §10 (R-081…R-083); câu hỏi còn mở:
-[QUESTIONS](../../research/QUESTIONS.md) Q-015.
+[RULES_V1](../gameplay/RULES_V1.md) §10 (R-081…R-083) và mục RE âm thanh (R-203/R-204);
+câu hỏi còn mở: [QUESTIONS](../../research/QUESTIONS.md) Q-015.
 
 ## 1. Nguồn và giới hạn bằng chứng
 
@@ -11,7 +11,7 @@ cách đóng gói payload thô vào bundle schema 4 và cách client áp volume/
   mọi payload đọc được là **Ogg/Vorbis thô**. Tên thư mục `MP3/` là tên pack gốc, không phải định
   dạng payload.
 - Bản VN đã giải nén tại `/home/admin/boom-re/assets/fx` có 124 `MP3/` + 492 `Wave/`; 15 entry được
-  chọn cho V1 có mặt ở cả hai build và **SHA-256 trùng nhau** (bảng §2). Đây là bằng chứng asset,
+  chọn cho V1 có mặt ở cả hai build và **SHA-256 trùng nhau** (bảng §5). Đây là bằng chứng asset,
   không phải bằng chứng event nào phát entry nào.
 - Chuỗi client VN có `Wave/%s`, `Wave/Fanfare%03d`, `BombExplosion%03d` và tên các entry
   (`/home/admin/boom-re-l10n/ca_strings.txt`; bản `/home/admin/boom-re/ca_strings.txt` tương ứng).
@@ -19,14 +19,19 @@ cách đóng gói payload thô vào bundle schema 4 và cách client áp volume/
 - Tool l10n `kr_v1_content.py` chỉ chốt `music` = `FxSound/MP3/Village` (và `explosion_art` =
   `FxDesktop/Bomb/BombExplosion001`, không phải SFX); `idf.py` chỉ đọc/giải mã pack, không có bảng
   event→entry. `boom-re/docs/features.md` A10 (audio/BGM/SFX) vẫn ghi "chưa điều tra"; legacy server không chứa
-  quyết định phát SFX (server chỉ gửi event gameplay). Vì vậy **R-081 chỉ confirmed entry/mapping BGM**; loop/một voice và mapping
-  event→entry, policy chồng tiếng là **design** (R-083/R-082), không nhận `confirmed` KR/VN.
+  quyết định phát SFX (server chỉ gửi event gameplay). Trước #196, **R-081 chỉ confirmed entry/mapping
+  BGM**; loop/một voice và mapping event→entry, policy chồng tiếng là **design** (R-083/R-082). Sau
+  lượt RE #196/#206, riêng mapping `player_trapped`→id 77 đã có consumer `kr_static` confirmed;
+  các mapping còn lại và policy chồng tiếng vẫn **design**.
 - **Cập nhật 2026-10-23 (#196)**: đã trace consumer SFX phía client KR (bảng id tĩnh + dispatcher
   `0xD1CD10`): nổ **7/8/343**, nhốt **77/37**, chết **42**, item **68/69**, trap **174**; round-end/start
   remap `rand()%N+base` **chỉ khi guard `sub_76FBF0` bật** (guard tắt giữ id; modulo bias); BGM lấy tên
-  từ record map. Bảng §3 **giữ nguyên** trong
-  PR RE này (design); bằng chứng và đề xuất đổi mapping ở
+  từ record map. Bằng chứng và đề xuất đổi mapping ở
   [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md).
+- **Cập nhật 2026-10-23 (#206)**: chỉ đổi `player_trapped` sang `Wave/Cha_LockedIn` (id 77 solo,
+  R-203/R-204) và nâng **mapping đó** thành `confirmed`; `Itm_UseTrap` (id 174) là tiếng dùng item trap,
+  không phải nhân vật bị nhốt. Các dòng khác của bảng §3, voice/priority/dedup/loop và policy V1 vẫn
+  `design` R-083 — không suy policy thành confirmed từ mapping này.
 
 - `boom-assets` chỉ đọc/ghi payload thô và hash; không decode Ogg/MP3/WAV. Không commit file âm thanh;
   output đi vào `local/` khi kiểm tay.
@@ -51,10 +56,15 @@ loader chung `boom_content::assets`. Trước đó bảng là khai báo Rust tro
 Bảng trong tài liệu này và bảng trong file data phải giống nhau — đổi một bảng thì đổi
 cả hai.
 
-Nhãn `design` trong bảng có nghĩa: entry có thật (đã kiểm hash ở §2), nhưng **chưa có bằng chứng
-consumer gốc** chọn entry đó cho event; đây là quyết định V1-034. `unknown` là chưa chọn được entry,
-giữ im lặng tạm thời và theo dõi ở Q-015. Event core lấy từ `boom_core::EventKind`; các dòng
-`start_*`/`ui_click` là event trình diễn UI, không phải `EventKind`.
+Nhãn `design` trong bảng có nghĩa: entry có thật (đã kiểm hash ở §5), nhưng **chưa có bằng chứng
+consumer gốc** chọn entry đó cho event; đây là quyết định V1-034. Ngoại lệ duy nhất là
+`player_trapped` mang `confirmed`: consumer solo `0xB42D60` phát id 77 (`R-204`); nhánh couple id 37
+ngoài scope FFA. Việc V1 không phát thêm `Ntc_Help2` (444 — điều kiện `[this+0x2788]` riêng) và policy
+voice/priority/dedup/loop là quyết định `design` R-083, **không** phải kết luận client KR/FFA không có
+tiếng help. Nhãn `confirmed` chỉ nói về **mapping event→entry**, không nói policy.
+`unknown` là chưa chọn được entry, giữ im lặng tạm thời và
+theo dõi ở Q-015. Event core lấy từ `boom_core::EventKind`; các dòng `start_*`/`ui_click` là event
+trình diễn UI, không phải `EventKind`.
 
 | Event V1 | EventKind / nguồn | Entry | Nhãn | Ghi chú |
 |---|---|---|---|---|
@@ -63,7 +73,7 @@ giữ im lặng tạm thời và theo dõi ở Q-015. Event core lấy từ `boo
 | `bomb_exploded` | `EventKind::BombExploded` | `Wave/BombExplosion001` | `design` | Pack có `001…032`; chưa rõ biến thể, `chained` dùng cùng entry |
 | `item_revealed` | `EventKind::ItemRevealed` | `Wave/Itm_ItemPop` | `design` | Item lộ ra khỏi khối |
 | `item_picked` | `EventKind::ItemPicked` (Bomb/Fire/Roller) | `Wave/Itm_ItemEaten` | `design` | Một entry chung; chưa có entry riêng cho ba item V1 |
-| `player_trapped` | `EventKind::PlayerTrapped` | `Wave/Itm_UseTrap` | `design` | Ứng viên trap/bong bóng; **chưa xác nhận** đây là tiếng bị nhốt |
+| `player_trapped` | `EventKind::PlayerTrapped` | `Wave/Cha_LockedIn` | `confirmed` | Consumer solo `0xB42D60` phát id 77 (R-204); nhánh couple 37 ngoài scope FFA. V1 không phát 444 help (điều kiện riêng) và policy voice là design R-083 — không kết luận KR/FFA không có help |
 | `player_died` | `EventKind::PlayerDied` | `Wave/Cha_Die` | `design` | Entry chết chung; chưa có trace consumer |
 | `round_ended_win` | `EventKind::RoundEnded { Win }` | `Wave/Ntc_Win` | `design` | Có thêm `MP3/Ntc_Win`; V1 chọn bản Wave |
 | `round_ended_lose` | `EventKind::RoundEnded { Lose }` | `Wave/Ntc_Lose` | `design` | Có thêm `MP3/Ntc_Lose`; V1 chọn bản Wave |
@@ -78,8 +88,10 @@ giữ im lặng tạm thời và theo dõi ở Q-015. Event core lấy từ `boo
 | `item_destroyed` | `EventKind::ItemDestroyed` | — | `unknown` | V1 hiện không phát; Q-015 |
 
 Các phương án bị loại có chủ ý: `BombExplosion002…032` (chưa biết quy tắc biến thể), `Cha_BombExplode`
-(trùng nghĩa, chưa có trace), `Itm_PutTrap`/`Itm_UseTrap` (trap item, không chắc bong bóng), và
-`MP3/Ntc_*` (bản MP3 của cùng thông báo). Khi có trace, cập nhật R-082 và bảng này.
+(trùng nghĩa, chưa có trace), `Itm_PutTrap`/`Itm_UseTrap` (dùng item trap, **không phải** nhân vật bị
+nhốt — R-204), `Cha_CoupleLockedIn` (nhánh couple ngoài FFA V1), `Ntc_Help2` (V1 chọn không phát;
+điều kiện `[this+0x2788]` riêng, **không** suy từ việc FFA không có couple), và
+`MP3/Ntc_*` (bản MP3 của cùng thông báo). Khi có trace mới, cập nhật RULES_V1 và bảng này.
 
 ## 4. Chính sách chồng tiếng (design R-083)
 
@@ -94,7 +106,8 @@ Các phương án bị loại có chủ ý: `BombExplosion002…032` (chưa bi�
 | Qua tick | Được phát lại nếu event mới; không đặt cooldown toàn cục | Âm thanh là presentation, không đổi mô phỏng |
 | BGM khi reconcile | Không restart; chỉ đổi khi map/lượt đổi | Tránh nhấp/nháy BGM |
 
-Số voice/priority là **design**, chưa có bằng chứng client gốc; Q-015 theo dõi.
+Số voice/priority là **design**, chưa có bằng chứng client gốc; Q-015 theo dõi. Việc mapping
+`player_trapped` đã `confirmed` (R-204) **không** xác nhận policy trong bảng này; R-083 giữ `design`.
 
 ### 4.1 Thực hiện trong bundle/client (V1-034 phần 2)
 
@@ -119,7 +132,7 @@ không phải hash file đã decode. Toàn bộ 15 entry dưới đây có cùng
 | `Wave/Cha_Die` | sfx | ogg | 8858 | `96ad61a176dae1205d8d6a791ce83320785a66e2a4c09fbb867e7f236fd29fd6` |
 | `Wave/Itm_ItemEaten` | sfx | ogg | 8520 | `1c829ae9a499ceba0e50f7c4e584a09d19c590fdcc11e03b4fc4abca473ac266` |
 | `Wave/Itm_ItemPop` | sfx | ogg | 5664 | `acc3b99bb749b06884307214a886a923b8aec3e1115c9ade482686d00f5fd45c` |
-| `Wave/Itm_UseTrap` | sfx | ogg | 5639 | `bba70141174acd97d4d8593c2becea3361e82d7aab603a08585a302e5db24ab9` |
+| `Wave/Cha_LockedIn` | sfx | ogg | 6810 | `10249aa325d55f8b8623c3ffc81f864619c580074d627215f0786f2512427606` |
 | `Wave/Ntc_Count1` | sfx | ogg | 5894 | `0e32af891d1d6e42eb80a5da2c2ca04ce7be1dcaa5fc96bce25b6c1f6208021c` |
 | `Wave/Ntc_Count2` | sfx | ogg | 6135 | `bbd8f6c3da1a352e44be52a63c82ea69714ec44858dc2d0ef0ae7d7543a7fc45` |
 | `Wave/Ntc_Count3` | sfx | ogg | 6580 | `0f24f9c745f1b4ca818cb887c4e0550a9a9aac4fa9ad8368600940950599c60e` |
@@ -149,8 +162,8 @@ stem `fx`/bảng khóa VN và kiểm trên pack VN thật, ngoài phạm vi KR c
 
 - Bundle schema 4 và client đã nối audio; kiểm tay BGM cần bundle thật + pack local (không commit
   asset).
-- Chưa xác nhận event→entry bằng consumer gốc; chưa có trace `PlaySound`/log âm thanh. Q-015 cần
-  trace client hoặc đối chiếu code client để nâng R-082.
+- Phần lớn event→entry chưa xác nhận bằng consumer gốc; `player_trapped` đã có consumer solo
+  (R-203/R-204). Q-015 vẫn cần trace/đối chiếu cho các event còn lại trước khi nâng R-082.
 - Chưa xác nhận 8 voice/priority bằng client gốc; R-083 là design, có thể đổi khi có trace.
 - Chưa xử lý biến thể `BombExplosion001…032`, tiếng bước/quay, vỡ gạch, item bị lửa phá; hiện để
   trống/im lặng và ghi Q-015.

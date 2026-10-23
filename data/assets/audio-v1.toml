@@ -6,15 +6,18 @@
 # Cột nhãn (AGENTS §4):
 # - `source`: nguồn của **entry** được trỏ tới (`kr_static`: entry có thật trong pack
 #   `FxSound` của build KR 00967; 15 entry V1 có SHA-256 trùng ở KR và VN — AUDIO_V1 §5).
-# - `status`: mức bằng chứng của **mapping** event → entry. R-082: chưa có consumer gốc
-#   xác nhận event nào phát entry nào ⇒ mapping là quyết định của V1 (`design`).
+# - `status`: mức bằng chứng của **mapping** event → entry. Phần lớn mapping chưa có
+#   consumer gốc xác nhận event nào phát entry nào ⇒ là quyết định của V1 (`design`,
+#   R-082). Ngoại lệ `player_trapped`: consumer solo đã xác nhận id 77 (R-203/R-204)
+#   nên mapping `confirmed`. Policy voice/priority/dedup/loop vẫn là `design` R-083,
+#   không được suy thành confirmed từ mapping này.
 #   Riêng BGM: entry/mapping `MP3/Village` đã xác nhận (R-081), nhưng policy loop một
 #   voice là `design` (R-083) ⇒ dòng này vẫn `design`.
 # - `claims`: claim RULES_V1; `note`: lý do, giới hạn, ứng viên.
 #
 # Entry nào không chọn được thì **không** ghi dòng (giữ im lặng, theo dõi ở Q-015).
 #
-# Nguồn: RULES_V1 §10 (R-081…R-083), AUDIO_V1 §2–§5.
+# Nguồn: RULES_V1 §10 (R-081…R-083) và §RE âm thanh (R-203/R-204), AUDIO_V1 §2–§5.
 
 schema = 1
 
@@ -60,11 +63,11 @@ note = "dùng chung Bomb/Fire/Roller; chưa có entry riêng cho V1"
 
 [[cues]]
 event = "player_trapped"
-entry = "Wave/Itm_UseTrap"
+entry = "Wave/Cha_LockedIn"
 source = "kr_static"
-claims = ["R-082"]
-status = "design"
-note = "ứng viên trap/bong bóng; chưa có trace consumer gốc"
+claims = ["R-203", "R-204"]
+status = "confirmed"
+note = "consumer solo 0xB42D60 phát id 77 Cha_LockedIn (R-204); nhánh couple 37 ngoài scope FFA; không phát 444 help + voice/priority/dedup/loop là policy/design V1 R-083, không phải kết luận KR/FFA không có help"
 
 [[cues]]
 event = "player_died"

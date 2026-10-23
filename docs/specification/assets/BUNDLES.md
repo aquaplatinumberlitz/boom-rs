@@ -406,14 +406,14 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Sprite trong bundle | 70 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, vụ nổ, **9 ảnh UI**) |
 | Ảnh | 299 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1430 |
-| Audio V1 | 15 entry (1 BGM + 14 SFX), 467.063 byte (456,1 KiB) payload thô trong `audio/` (không commit) |
+| Audio V1 | 15 entry (1 BGM + 14 SFX), 468.234 byte (457,3 KiB) payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
 | Entry không phải ảnh | 4: BGM `FxSound/MP3/Village`, file map, 2 bảng chỉ số |
 | Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
 | `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
-| `content_hash` | `80838d629ae034e2c4ae6a1fb35e8ad2b4ef2bc87330dab80b347f9cebeb47cc` (schema 4, **có** audio) |
+| `content_hash` | `dea731aa0ca62cbac6b01f0627700f886905717258d0ceeeeaf90f715f1f5eae` (schema 4, **có** audio) |
 
 Cách kiểm lại:
 
@@ -422,6 +422,9 @@ BOOM_KR_PACK_DIR=/home/admin/boomkr-full \
   cargo run -p boom-assets --bin boom-assets -- bundle --map Village00 --out /tmp/b
 # content_hash phải bằng giá trị trên; dựng hai lần cho cùng hash và cùng byte file.
 ```
+
+#206 đổi `player_trapped` sang `Wave/Cha_LockedIn` (6810 B thay 5639 B) nên tổng audio và
+`content_hash` ở bảng trên đã đo lại; logic bundle không đổi.
 
 `content_hash` **băm cả byte file atlas**, nên đổi bộ mã PNG cũng đổi hash: giá trị ở
 trên gắn với bộ mã trong `Cargo.lock` hiện hành. Trước issue #121, giá trị ghi trong
