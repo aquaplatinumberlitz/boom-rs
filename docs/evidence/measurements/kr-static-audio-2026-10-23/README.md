@@ -104,3 +104,28 @@ Số voice của pool (hằng khởi tạo) chưa định vị — không claim 
   push trong 649 entry + 597 site `0xD1CD10`; virtual `vf+148` (trong `0xEB9840`), id động, wrapper và
   script `PlayWaveEffect` theo tên chưa bị loại trừ.
 - Không sửa `data/assets/audio-v1.toml` hay bảng AUDIO_V1; đề xuất ở findings §7.
+
+## Lượt 2026-10-24 (phiên 2) — init pool voice (`CSoundManRenew`)
+
+Build KR `00967`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`,
+imagebase `0x00400000`, `RVA = VA − 0x400000`. Ngân sách: 5 call phân tích, 3 thân mới
+(`0x60FA30`, `0xD20E10`, `0xD217F0`); không đọc lại thân #200.
+
+| Vai trò | VA | RVA | Ghi chú |
+|---|---|---|---|
+| Con trỏ singleton | `0x019D8A88` | `0x015D8A88` | 4 xref data: `0x54EAF3`, `0x60FA34`, `0xD20E3D`, `0xD21800` |
+| Getter singleton | `0x0054EAF0` | `0x0014EAF0` | (không đọc lại, R-203) |
+| `IsInitialized` | `0x0060FA30` | `0x0020FA30` | `return dword_19D8A88 != 0` |
+| Ctor/base ghi con trỏ | `0x00D20E10` | `0x00920E10` | gán vftable `TSingleton<CSoundManRenew>`; `dword_19D8A88 = (int)(this - 1)`; gọi từ `0xD1C0D3` |
+| Reset/huỷ | `0x00D217F0` | `0x009217F0` | gán vftable; `dword_19D8A88 = 0` |
+| Owner khởi tạo | `0x00D1C0A0` | `0x0091C0A0` | 0x178; gọi `D20E10`; **thân chưa đọc** |
+| Caller init lớn | `0x01231BD0` | `0x00E31BD0` | gọi `D1C0A0` tại `0x1233BEA` |
+
+`evidence_id`: `ev_2f07cd5a83b86bb873b57228b7bbceeff5679e8af01fe194cf929c1e32438157` (xref
+singleton), `ev_378e543a82862ca886ff0e6cea85020fbc271e9870dc40ff0716786857af0650` (batch 3 thân),
+`ev_7fad1e9a26c2e984ef76011f2b1a1b643460862a04fa8f5c7498ca1ea6898faf` (xref `D20E10`),
+`ev_425ff98895aa5399da7536de5fd65f2ac448bf367d17f04420247665f5599d65` (xref `D1C0A0`).
+
+**Kết luận lượt**: đã nối tới owner khởi tạo (`1231BD0 → D1C0A0 → D20E10`) và xác nhận writer con
+trỏ singleton, nhưng **chưa đọc** nơi ghi `manager+12` ⇒ **số voice vẫn `unknown`** (không phải
+literal/param/config đã biết). `read_bytes` không hỗ trợ (`capability_unavailable`); không retry.

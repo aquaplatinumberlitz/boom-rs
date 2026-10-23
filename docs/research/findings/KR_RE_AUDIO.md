@@ -193,3 +193,35 @@ theo id) — đề xuất giữ design V1 nhưng ghi khác biệt ở R-207/§5.
 3. Kiểm tra script/pack có gọi `PlayWaveEffect("BombExplosion001")` không (đường theo tên).
 4. Nếu muốn đổi AUDIO_V1: mở task riêng theo ADR 0013, sửa cả `data/assets/audio-v1.toml` + bảng
    AUDIO_V1 + test, không gộp vào PR RE này.
+
+## 10. Lượt 2026-10-24 (phiên 2) — init pool voice: chuỗi khởi tạo, writer `manager+12` chưa đọc
+
+Câu hỏi hẹp #196: **số voice của pool `CSoundManRenew` lấy từ đâu** (hằng/param/config), nối writer
+`manager+12` với manager thật + đường init. Build KR `00967`, SHA-256
+`cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, imagebase `0x00400000`.
+Ngân sách: 5 call phân tích, 3 thân mới (`0x60FA30`, `0xD20E10`, `0xD217F0`); không đọc lại thân #200.
+Evidence: `ev_2f07cd5a…`, `ev_378e543a…`, `ev_7fad1e9a…`, `ev_425ff988…` (VA/RVA ở
+[evidence](../../evidence/measurements/kr-static-audio-2026-10-23/README.md)).
+
+### 10.1. Đã thấy (dương, trong thân đã đọc)
+
+- `dword_19D8A88` (singleton) có 4 xref data: getter `0x54EAF0`, `0x60FA34`, `0xD20E3D`, `0xD21800`.
+- `sub_60FA30` (`0x0060FA30`, 0x24): `return dword_19D8A88 != 0;` — **kiểm đã khởi tạo**.
+- `sub_D20E10` (`0x00D20E10`, 0x3A): gán `*this = &TSingleton<CSoundManRenew>::vftable` rồi
+  `dword_19D8A88 = (int)(this - 1)` — **ghi con trỏ singleton**; xref code duy nhất tới nó là
+  `sub_D1C0A0` tại `0xD1C0D3`. (Ý nghĩa `this - 1` chưa diễn giải.)
+- `sub_D217F0` (`0x00D217F0`, 0x1E): gán vftable rồi `dword_19D8A88 = 0` — nhánh reset/huỷ.
+- Đường init đã nối tới cấp gọi: `sub_1231BD0` (`0x01231BD0`, 0x2C62 — hàm init lớn) gọi `sub_D1C0A0`
+  tại `0x1233BEA`; `sub_D1C0A0` (`0x00D1C0A0`, 0x178) gọi `sub_D20E10`. Đây là **owner khởi tạo**
+  singleton/manager.
+
+### 10.2. Chưa thấy / blocker
+
+- **Chưa đọc thân `sub_D1C0A0`** (và caller truyền tham số) nên **chưa thấy chỗ ghi `manager+12`**
+  (count) hoặc `manager+16` (mảng voice), chưa biết nguồn là **literal, tham số hay cấu hình**.
+  Vì vậy **số voice vẫn `unknown`**; **không** lấy 8 của design V1, số entry 649, hay dung lượng
+  container làm số voice KR.
+- `read_bytes` của REA IDA trả `capability_unavailable` nên không đọc bytes thay thế; không retry,
+  không mở provider khác. Ngân sách thân đã dùng 3/3 ⇒ dừng đúng hạn.
+- Bước tiếp tối thiểu: 1 thân `sub_D1C0A0` (và nếu cần, caller `0x1233BEA` để xem đối số) — sẽ thấy
+  store `[manager+0Ch]` + nguồn giá trị; nếu vào VM/Themida thì ghi entry và dừng.
