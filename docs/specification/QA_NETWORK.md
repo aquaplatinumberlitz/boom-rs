@@ -221,6 +221,66 @@ Test nhanh chạy trong `cargo xtask ci` (`crates/boom-qa/tests/harness.rs`): h�
 (lượt ngắn, mạng vẫn có mất/trùng/đảo thứ tự), 2 bot và 4 bot, 1 lượt — kiểm mọi bot đều vào
 phòng và dựng lại được hash của lượt.
 
+### Kết quả ma trận 2026-10-23 (opencode-4)
+
+Đo ngày 2026-10-23 (UTC) trên Linux 7.2.9-2-cachyos, `rustc`/`cargo` 1.99.0. Build/commit:
+`14318549297226fbe416aad452c87f67c0792a36` (`origin/main`, cây làm việc sạch trước khi chạy).
+Binary debug build bằng `cargo build -p boom-qa`; mỗi tổ hợp chạy tuần tự bằng:
+
+```sh
+cargo run -p boom-qa -- --profile scope-v1 --clients <2|4> --seed <1|2|3> \
+  --json-out local/qa-network-matrix/<clients>-<seed>.json
+```
+
+`--rounds` để mặc định theo hồ sơ (`rounds = 2`). Stdout+stderr của từng run lưu vào
+`local/qa-network-matrix/<clients>-<seed>.log`, exit code vào file `.exit` cùng thư mục
+(`local/` nằm trong `.gitignore`). Sáu tổ hợp đều exit 0; không run nào `timed_out`,
+`drained = false` hoặc thiếu hash. `recovered = false` ở cả sáu run vì scenario là `Steady`
+(`fault_round = null`), không phải lỗi phục hồi.
+
+| Clients | Seed | Exit | Thời gian (ms) | p95 input (ms) [mẫu] | p95 RTT (ms) [mẫu] | Batch input bị từ chối | Hội tụ | Drained | Timed out |
+|---:|---:|---:|---:|---:|---:|---:|---|---|---|
+| 2 | 1 | 0 | 42523 | 1581 [3624] | 199 [41] | 28 | có | có | không |
+| 2 | 2 | 0 | 41913 | 1672 [3627] | 215 [39] | 28 | có | có | không |
+| 2 | 3 | 0 | 42223 | 1565 [3657] | 197 [40] | 31 | có | có | không |
+| 4 | 1 | 0 | 42634 | 1676 [7243] | 192 [80] | 62 | có | có | không |
+| 4 | 2 | 0 | 42726 | 1587 [7224] | 198 [83] | 62 | có | có | không |
+| 4 | 3 | 0 | 42264 | 1595 [7256] | 185 [83] | 62 | có | có | không |
+
+Mọi phân vị đều có mẫu (`count > 0`), không có `null`; `snapshot_missed = 0` và
+`input.retired = 0` ở cả sáu run. Cột "Batch input bị từ chối" là số `input.rejected` do
+schema báo cáo; harness chỉ coi `timed_out`, chưa `drained` hoặc không hội tụ là lỗi, nên các
+giá trị này không làm exit code khác 0 và không được dùng để suy nguyên nhân ở đây.
+
+| Clients | Seed | Lượt | Bot | Hash server | Hash bot | Hội tụ |
+|---:|---:|---:|---:|---|---|---|
+| 2 | 1 | 1 | 2 | `14226134489770241462` | `bot0` = `14226134489770241462`<br>`bot1` = `14226134489770241462` | có |
+| 2 | 1 | 2 | 2 | `15829727555954839341` | `bot0` = `15829727555954839341`<br>`bot1` = `15829727555954839341` | có |
+| 2 | 2 | 1 | 2 | `3357971480158021122` | `bot0` = `3357971480158021122`<br>`bot1` = `3357971480158021122` | có |
+| 2 | 2 | 2 | 2 | `8429043139095620009` | `bot0` = `8429043139095620009`<br>`bot1` = `8429043139095620009` | có |
+| 2 | 3 | 1 | 2 | `3357971480158021122` | `bot0` = `3357971480158021122`<br>`bot1` = `3357971480158021122` | có |
+| 2 | 3 | 2 | 2 | `8551430651842991812` | `bot0` = `8551430651842991812`<br>`bot1` = `8551430651842991812` | có |
+| 4 | 1 | 1 | 4 | `14832401785224703741` | `bot0` = `14832401785224703741`<br>`bot1` = `14832401785224703741`<br>`bot2` = `14832401785224703741`<br>`bot3` = `14832401785224703741` | có |
+| 4 | 1 | 2 | 4 | `2300611997934512629` | `bot0` = `2300611997934512629`<br>`bot1` = `2300611997934512629`<br>`bot2` = `2300611997934512629`<br>`bot3` = `2300611997934512629` | có |
+| 4 | 2 | 1 | 4 | `13925574154528887970` | `bot0` = `13925574154528887970`<br>`bot1` = `13925574154528887970`<br>`bot2` = `13925574154528887970`<br>`bot3` = `13925574154528887970` | có |
+| 4 | 2 | 2 | 4 | `2300611997934512629` | `bot0` = `2300611997934512629`<br>`bot1` = `2300611997934512629`<br>`bot2` = `2300611997934512629`<br>`bot3` = `2300611997934512629` | có |
+| 4 | 3 | 1 | 4 | `10931218994403125820` | `bot0` = `10931218994403125820`<br>`bot1` = `10931218994403125820`<br>`bot2` = `10931218994403125820`<br>`bot3` = `10931218994403125820` | có |
+| 4 | 3 | 2 | 4 | `833496084450221151` | `bot0` = `833496084450221151`<br>`bot1` = `833496084450221151`<br>`bot2` = `833496084450221151`<br>`bot3` = `833496084450221151` | có |
+
+Nguyên liệu thô để tái tạo (không commit, `local/` ignored):
+
+| Run | JSON sha256 | Log sha256 |
+|---|---|---|
+| `2-1` | `d0030f57e4d15596d4463afaa8c4387f5c51fb8a3d9844b9866138dd76a3539e` | `ca705225f4356c43e8b0791e85d8bf3010ec6d0e25f1281a2c82029ae1e524f9` |
+| `2-2` | `96d1457a1790f012cb3a19632a35b95ac2919272f3691401e1b14337e8004fc6` | `098fb0f3a6e6046cbbe476c8b6bc70f4d3f659142a7551bf0087c2dbd24b3127` |
+| `2-3` | `5ade7c283a088a60b5abc658f718b9f60806e1f645243418419e5746c46e5ed2` | `bb155f70788a759811f9472a769c0efea8f808d48a79cd019b05f407b19049f2` |
+| `4-1` | `c735bb8a41a600d0046005326a82fc833accf7ea8e8fcfb014aa189887c7588a` | `86a055979acf7ee566e8c30d7277d261f7f11d129ec8dd0d2e1dccf624ebb4d0` |
+| `4-2` | `eafd0de2f0cb1f6e0062f357a7941c9922b2d6d56eb926ec93a21f9529238ae0` | `40d2544b5ceac35fb610e9518986e0f57415b148301e8b58042dc3bbbf2826c2` |
+| `4-3` | `6c651a3c0362fe527dade6659d845d926fdddb777ed3bed58a13e50813e9ef9d` | `a314789268a2a9105480d4f9b8c3359cd293a9c7302f373db85b5d21f49196c2` |
+
+Kết quả trên chỉ là quan sát của bản Rust tại commit nêu trên với fixture `qa-village`/`qa-net`;
+không đánh giá gate G4 và không kết luận map/rules hay fidelity client KR.
+
 ## Giới hạn
 
 - Harness đo **bản Rust hiện tại**, không kết luận gì về độ trùng khớp với client/server gốc
