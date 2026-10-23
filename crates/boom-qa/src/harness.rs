@@ -537,10 +537,13 @@ fn run_impl(
                 };
                 eprintln!("[harness] t={now} event {name}");
             }
-            if let InternalServerEvent::InputRetired { player, seq, .. } = event {
-                let round = public_round_id(&server).unwrap_or(0);
-                retired.insert((round, player.0, seq));
-                retired_count += 1;
+            if let InternalServerEvent::InputRetired {
+                round, player, seq, ..
+            } = event
+            {
+                // `round` là identity của chính event (PR #222), không phải round hiện tại
+                // của server: chuyển round/reconnect có thể làm current round khác.
+                retired.insert((round.0, player.0, seq));
             }
         }
         if server.phase() == ServerPhase::Results
@@ -724,6 +727,10 @@ fn run_impl(
                     };
                     resolved += 1;
                     if retired.contains(&(round, account_id, seq)) {
+                        // `retired`/`resolved` cùng đơn vị sequence: chỉ đếm lệnh đã được
+                        // server giải quyết và bot đã gửi (có trong `sent`). Retire không có
+                        // trong `sent` (seq lỗ hổng do reconnect/round cũ) không vào báo cáo.
+                        retired_count += 1;
                         continue;
                     }
                     latency.push(now.saturating_sub(sent.sent_at_ms));

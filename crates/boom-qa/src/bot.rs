@@ -170,7 +170,7 @@ pub struct BotConfig {
     pub content_sha256: [u8; 32],
     /// Chu kỳ gửi input (ms).
     pub input_interval_ms: u64,
-    /// Giữ tương thích cấu hình cũ; Predictor chung tự quyết target_tick, không dùng lead này.
+    /// Số tick nhắm trước tick server ước lượng khi gửi input (bù jitter/độ trễ còn lại).
     pub input_lead_ticks: u32,
     /// Chu kỳ gửi Ping để đo RTT (ms).
     pub ping_interval_ms: u64,
@@ -1100,6 +1100,27 @@ impl DirectDtoBot {
         self.room_command(RoomAction::SetReady { ready: true })
     }
 
+    /// Ước lượng tick authority lúc batch input mới tới server.
+    ///
+    /// `last_snapshot` là tick server trong snapshot và mốc bot nhận nó. Từ mốc đó cộng số
+    /// tick đã trôi (đồng hồ harness), trễ một chiều của hồ sơ và `input_lead_ticks` để
+    /// `target_tick` không cũ hơn cửa sổ `INPUT_LATE` của server (ADR 0009 §3.2, §3.5).
+    /// Lệnh phải chờ cửa sổ gửi được tính lại `target_tick` ở [`Predictor::window_for_send`]
+    /// tại lần gửi đầu, nên không bị trễ thêm do xếp hàng.
+    fn input_target_tick(&self, now_ms: u64, fallback_tick: u32) -> u32 {
+        let hz = self.config.world.rules().ticks_per_second.max(1);
+        let one_way_ms = u32::try_from(self.config.one_way_delay_ms).unwrap_or(u32::MAX);
+        let one_way_ticks = boom_core::ms_to_ticks(one_way_ms, hz);
+        let Some((snapshot_tick, received_at_ms)) = self.last_snapshot else {
+            return fallback_tick;
+        };
+        let elapsed_ms = u32::try_from(now_ms.saturating_sub(received_at_ms)).unwrap_or(u32::MAX);
+        snapshot_tick
+            .saturating_add(boom_core::ms_to_ticks(elapsed_ms, hz))
+            .saturating_add(one_way_ticks)
+            .saturating_add(self.config.input_lead_ticks)
+    }
+
     fn send_input(&mut self, now_ms: u64) -> Result<Option<Vec<u8>>, BotError> {
         let Some(round_id) = self.round_id else {
             return Ok(None);
@@ -1116,11 +1137,17 @@ impl DirectDtoBot {
             3 => boom_core::Dir::Left,
             _ => boom_core::Dir::Right,
         };
+        let fallback_tick = self
+            .predictor
+            .as_ref()
+            .and_then(Predictor::predicted_state)
+            .map_or(0, |state| state.tick);
+        let target_tick = self.input_target_tick(now_ms, fallback_tick);
         let Some(predictor) = self.predictor.as_mut() else {
             return Ok(None);
         };
         let seq = predictor
-            .predict(boom_core::PlayerInput { dir, place_bomb })
+            .predict_at(boom_core::PlayerInput { dir, place_bomb }, target_tick)
             .map_err(|err| BotError::Sync(err.to_string()))?;
         let Some(seq) = seq else {
             return Ok(None);
@@ -1131,27 +1158,33 @@ impl DirectDtoBot {
             self.predicted_positions
                 .insert(state.tick, (player.x.0, player.y.0));
         }
-        let commands = predictor.window(self.limits.max_commands);
-        let target_tick = predictor
+        let unsent_before: Vec<u32> = predictor
             .pending()
             .iter()
-            .find(|p| p.seq == seq)
-            .expect("lệnh mới")
-            .target_tick;
+            .filter(|command| !command.sent)
+            .map(|command| command.seq)
+            .collect();
+        let commands = predictor.window_for_send(self.limits.max_commands, target_tick);
         self.seq = seq;
         let batch = InputBatch {
             round_id: u32::try_from(round_id).unwrap_or(u32::MAX),
             player: slot,
             ack_snapshot: self.last_snapshot_seq,
-            commands,
+            commands: commands.clone(),
         };
-        self.stats.sent.insert(
-            (round_id, seq),
-            SentCommand {
-                sent_at_ms: now_ms,
-                target_tick,
-            },
-        );
+        // Ghi mốc cho **mọi** lệnh lần đầu vào batch này (lệnh có thể đã chờ cửa sổ qua
+        // nhiều chu kỳ), không chỉ lệnh vừa tạo: `resolved`/latency đo theo sequence.
+        for command in &commands {
+            if unsent_before.contains(&command.seq) {
+                self.stats.sent.insert(
+                    (round_id, command.seq),
+                    SentCommand {
+                        sent_at_ms: now_ms,
+                        target_tick: command.target_tick,
+                    },
+                );
+            }
+        }
         self.stats.commands_sent += 1;
         self.last_input_at_ms = now_ms;
         Ok(Some(self.encode(&batch)?))

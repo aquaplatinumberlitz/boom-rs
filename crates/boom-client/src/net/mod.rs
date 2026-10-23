@@ -120,6 +120,18 @@ impl From<PredictError> for NetError {
 /// không được gửi lại ⇒ client phải chờ timeout phía server.
 const ROOM_RETRY_INTERVAL: Duration = Duration::from_millis(500);
 
+/// Chu kỳ client tự gửi `Ping` để đo RTT của đường input (ms).
+///
+/// **Tham số vận hành** (design), không phải luật chơi: `Ping`/`Pong` là message hai chiều có
+/// sẵn trong giao thức (ADR 0009 §2), server trả nguyên payload. RTT đo được dùng để ước lượng
+/// tick authority lúc batch input tới server — không lấy độ trễ biết trước của fixture.
+const INPUT_RTT_PING_INTERVAL: Duration = Duration::from_secs(1);
+
+/// Hạn chờ `Pong` trước khi coi mẫu RTT bị mất và gửi `Ping` mới.
+///
+/// Mạng mất frame là bình thường (SCOPE_V1 §7.6); mẫu cũ không được chặn nhịp đo mãi.
+const INPUT_RTT_PING_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Bước một tick của client: bơm message, dự đoán, gửi cửa sổ lệnh.
 pub struct NetClient<W: Transport> {
     session: ClientSession<W>,
@@ -146,6 +158,30 @@ pub struct NetClient<W: Transport> {
     /// Chu kỳ gửi snapshot (ms) do server khai trong `Welcome`; presentation dùng để tính
     /// alpha nội suy.
     snapshot_interval_ms: u64,
+    /// Mốc **local** nhận snapshot đã áp gần nhất.
+    ///
+    /// Cùng với tick của snapshot, đây là gốc để ước lượng tick authority hiện tại khi gửi
+    /// input. Chỉ cập nhật khi snapshot thực sự được áp (`SnapshotOutcome::Applied`).
+    snapshot_received_at: Option<Instant>,
+    /// RTT gần nhất của đường input, đo bằng `Ping`/`Pong` của client.
+    ///
+    /// Không lấy `one_way_delay_ms` của fixture: client thật không biết trước độ trễ mạng.
+    input_rtt: Option<Duration>,
+    /// Target `tick` mà client dự đoán batch input mới tới server.
+    ///
+    /// `None` trên đường sản phẩm: dùng ước lượng từ snapshot + RTT đo được. Chỉ có
+    /// fixture/test gán giá trị để **điều khiển mốc thời gian tường minh** (đồng hồ ảo của
+    /// fixture không đo bằng `Instant` thật): giữ ngoài đường production.
+    input_target_override: Option<u32>,
+    /// Nonce `Ping` kế tiếp (khác 0 để không trùng marker test).
+    input_ping_nonce: u64,
+    /// `Ping` đang chờ `Pong`: `(nonce, mốc gửi local)`.
+    input_ping_pending: Option<(u64, Instant)>,
+    /// Mốc sớm nhất được gửi `Ping` đo RTT kế tiếp.
+    input_ping_at: Instant,
+    /// Đồng hồ test (fixture đồng hồ ảo); production luôn `None`.
+    #[cfg(test)]
+    input_clock_override: Option<Instant>,
     /// Event mới (đã dedup), chờ presentation lấy: `(round, event)`.
     ///
     /// **Round** đi kèm event vì khoá dedup của consumer là `(round_id, EventId)`
@@ -225,6 +261,14 @@ impl<W: Transport> NetClient<W> {
             account: None,
             last_snapshot_seq: 0,
             snapshot_interval_ms: 0,
+            snapshot_received_at: None,
+            input_rtt: None,
+            input_target_override: None,
+            input_ping_nonce: 0,
+            input_ping_pending: None,
+            input_ping_at: Instant::now(),
+            #[cfg(test)]
+            input_clock_override: None,
             events: Vec::new(),
             room: RoomFlow::new(),
             local_content: None,
@@ -326,19 +370,25 @@ impl<W: Transport> NetClient<W> {
 
     /// Dự đoán một bước của mình: sinh lệnh mới (chưa gửi).
     ///
+    /// `target_tick` của lệnh mới lấy từ ước lượng tick authority hiện tại
+    /// ([`NetClient::input_target_tick`]), không phải tick của state dự đoán đã cũ so với
+    /// server. Nếu lệnh phải chờ cửa sổ gửi, [`NetClient::send_window`] gán lại `target_tick`
+    /// tại lần đầu vào batch (ADR 0009 §3.2); lệnh đã gửi thì payload bất biến.
+    ///
     /// Chưa có snapshot nào thì chưa dự đoán được: lệnh chỉ được tạo khi đã biết state
     /// confirmed (ADR 0005). Lượt đã kết thúc thì **không** sinh lệnh: kết quả do server quyết,
     /// client giữ state confirmed và vẫn nhận message.
     ///
     /// Lệnh được gửi đi bằng [`NetClient::resend`].
     pub fn predict(&mut self, input: PlayerInput) -> Result<(), NetError> {
+        let target_tick = self.input_target_tick();
         let Some(predictor) = self.predictor.as_mut() else {
             return Ok(());
         };
         if !predictor.is_playing() {
             return Ok(());
         }
-        predictor.predict(input)?;
+        predictor.predict_at(input, target_tick)?;
         Ok(())
     }
 
@@ -348,6 +398,9 @@ impl<W: Transport> NetClient<W> {
     /// cơ chế gửi một lần rồi thôi". Lệnh đã gửi mà chưa ack vẫn phải được gửi lại **y nguyên
     /// payload** (không đổi `target_tick`) để server nhận được sau khi frame đầu bị mất.
     pub fn resend(&mut self) -> Result<(), NetError> {
+        // Đo RTT đường input bằng Ping/Pong của chính client (server trả nguyên payload).
+        // Chỉ gửi khi thực sự gửi cửa sổ lệnh, không làm nhiễu lưu lượng phòng/loading.
+        self.input_ping_retry()?;
         self.send_window()
     }
 
@@ -391,6 +444,149 @@ impl<W: Transport> NetClient<W> {
         self.predictor
             .as_ref()
             .map_or(0, |predictor| predictor.pending().len())
+    }
+
+    /// Ước lượng tick authority lúc batch input mới tới server.
+    ///
+    /// Gốc là snapshot đã áp: `tick(snapshot) + số tick trôi từ lúc nhận + RTT đo được`.
+    /// Cộng cả RTT (không phải nửa RTT) vì `target_tick` là tick **lúc batch tới server**, còn
+    /// snapshot đã cũ hơn một chiều khi vừa nhận. Không dùng độ trễ biết trước của fixture:
+    /// RTT lấy từ `Ping`/`Pong` của chính client ([`NetClient::input_ping_retry`]).
+    ///
+    /// ADR 0009 §3.2 cho phép tính/chỉnh `target_tick` cho lệnh **chưa gửi**; caller
+    /// ([`NetClient::predict`]) dùng ước lượng này lúc tạo lệnh, và
+    /// [`NetClient::send_window`] gán lại khi lệnh lần đầu vào batch.
+    /// Test hook: đặt target tick tường minh cho fixture có đồng hồ ảo.
+    ///
+    /// Không dùng trên đường sản phẩm; production luôn `None` để ước lượng từ snapshot/RTT.
+    #[cfg(test)]
+    pub(crate) fn set_input_target_override(&mut self, target: Option<u32>) {
+        self.input_target_override = target;
+    }
+
+    fn input_target_tick(&self) -> u32 {
+        // Chỉ có fixture/test gán override để điều khiển mốc thời gian tường minh; đường
+        // sản phẩm luôn tham chiếu target_tick None ⇒ dùng ước lượng bên dưới.
+        if let Some(target_tick) = self.input_target_override {
+            return target_tick;
+        }
+        self.input_target_tick_at(self.input_now())
+    }
+
+    /// Như [`NetClient::input_target_tick`] nhưng nhận mốc `now` để test điều khiển đồng hồ.
+    fn input_target_tick_at(&self, now: Instant) -> u32 {
+        let Some(confirmed) = self.predictor.as_ref().and_then(Predictor::confirmed_state) else {
+            return 0;
+        };
+        let Some(received_at) = self.snapshot_received_at else {
+            return confirmed.tick;
+        };
+        let hz = self.rules.ticks_per_second.max(1);
+        let elapsed_ms = u32::try_from(now.saturating_duration_since(received_at).as_millis())
+            .unwrap_or(u32::MAX);
+        let rtt_ms = self
+            .input_rtt
+            .map_or(0, |rtt| u32::try_from(rtt.as_millis()).unwrap_or(u32::MAX));
+        // Chuyển ms → tick bằng tay thay vì `ms_to_ticks`: `elapsed` có thể lớn (quá hạn
+        // `Pong`), mà `ms_to_ticks` panic khi kết quả vượt `Tick`; ở đây kẹp tại `u32::MAX`
+        // rồi để `saturating_add` trên `target_tick` xử lý phần còn lại.
+        let ticks = u64::from(elapsed_ms.saturating_add(rtt_ms)) * u64::from(hz);
+        let ticks = ticks.div_ceil(1_000);
+        confirmed
+            .tick
+            .saturating_add(u32::try_from(ticks).unwrap_or(u32::MAX))
+    }
+
+    /// Đồng hồ dùng cho input: production là `Instant::now`; test là đồng hồ fixture.
+    #[cfg(test)]
+    fn input_now(&self) -> Instant {
+        self.input_clock_override.unwrap_or_else(Instant::now)
+    }
+
+    /// Đồng hồ dùng cho input trên production.
+    #[cfg(not(test))]
+    fn input_now(&self) -> Instant {
+        Instant::now()
+    }
+
+    /// Test hook: gắn đồng hồ fixture vào toàn bộ input clock (target, Ping, snapshot).
+    ///
+    /// Lần gọi đầu chuyển các mốc đã có (snapshot/Ping) sang cùng gốc đồng hồ ảo; các lần
+    /// sau chỉ tiến `now`. Không dùng trên production.
+    #[cfg(test)]
+    pub(crate) fn set_input_clock(&mut self, now: Instant) {
+        if self.input_clock_override.is_none() {
+            if self.snapshot_received_at.is_some() {
+                self.snapshot_received_at = Some(now);
+            }
+            if self.input_ping_pending.is_none() {
+                self.input_ping_at = now;
+            }
+        }
+        self.input_clock_override = Some(now);
+    }
+
+    /// Gửi `Ping` đo RTT nếu đã tới nhịp và không có mẫu nào đang chờ.
+    ///
+    /// Chỉ chạy sau `AuthOk`: trước đó server vẫn echo `Ping`, nhưng không cần đo RTT khi chưa
+    /// vào trận. Mẫu quá hạn bị bỏ để một `Pong` mất không chặn nhịp đo.
+    fn input_ping_retry(&mut self) -> Result<(), NetError> {
+        if self.account.is_none() {
+            return Ok(());
+        }
+        // Chỉ đo RTT khi đang trong trận: Ping trong sảnh/loading không cần cho input và
+        // làm nhiễu các test đang kiểm frame room.
+        if !self
+            .predictor
+            .as_ref()
+            .is_some_and(|predictor| predictor.is_playing())
+        {
+            return Ok(());
+        }
+        let now = self.input_now();
+        if let Some((_, sent_at)) = self.input_ping_pending {
+            if now.saturating_duration_since(sent_at) < INPUT_RTT_PING_TIMEOUT {
+                return Ok(());
+            }
+            // Mẫu cũ coi như mất; cho phép gửi mẫu mới ngay.
+            self.input_ping_pending = None;
+            self.input_ping_at = now;
+        }
+        if now < self.input_ping_at {
+            return Ok(());
+        }
+        self.input_ping_nonce = self.input_ping_nonce.wrapping_add(1).max(1);
+        let nonce = self.input_ping_nonce;
+        self.session.send_ping(nonce)?;
+        self.input_ping_pending = Some((nonce, now));
+        self.input_ping_at = now + INPUT_RTT_PING_INTERVAL;
+        Ok(())
+    }
+
+    /// Ghi nhận `Pong` khớp nonce đang chờ và làm mượt RTT (EWMA 1/4).
+    ///
+    /// `Pong` lạ (không khớp mẫu đang chờ) bị bỏ: server có thể gửi `Pong` của phiên khác
+    /// hoặc frame trùng tới muộn, không được làm sai ước lượng.
+    fn record_input_pong(&mut self, nonce: u64) {
+        let Some((pending, sent_at)) = self.input_ping_pending else {
+            return;
+        };
+        if pending != nonce {
+            return;
+        }
+        let sample = self.input_now().saturating_duration_since(sent_at);
+        self.input_rtt = Some(match self.input_rtt {
+            None => sample,
+            Some(previous) => {
+                let nanos = previous
+                    .as_nanos()
+                    .saturating_mul(3)
+                    .saturating_add(sample.as_nanos())
+                    / 4;
+                Duration::from_nanos(u64::try_from(nanos).unwrap_or(u64::MAX))
+            }
+        });
+        self.input_ping_pending = None;
     }
 
     /// Lấy event mới (đã dedup theo `(round_id, EventId)`) — dạng **thô** trên dây.
@@ -662,7 +858,8 @@ impl<W: Transport> NetClient<W> {
                     "server gửi kind lạ {code:#06x}; đóng kết nối"
                 )));
             }
-            ClientMessage::Welcome(_) | ClientMessage::Pong(_) => {}
+            ClientMessage::Pong(pong) => self.record_input_pong(pong.0),
+            ClientMessage::Welcome(_) => {}
         }
         Ok(())
     }
@@ -908,6 +1105,9 @@ impl<W: Transport> NetClient<W> {
         // không được làm lùi `ack_snapshot`.
         if let SnapshotOutcome::Applied { .. } = outcome {
             self.last_snapshot_seq = snapshot.snapshot_seq;
+            // Gốc thời gian local của snapshot đã áp: dùng để ước lượng tick authority khi
+            // gửi input (không lấy tick state dự đoán vốn cũ hơn server).
+            self.snapshot_received_at = Some(self.input_now());
             // Snapshot cho thấy lượt đã chạy là bằng chứng server đã nhận `LoadingAck`
             // (loading barrier đã qua). Snapshot *trước lượt* (`tick == 0`) không phải bằng
             // chứng: xem [`RoomFlow::confirm_loading`].
@@ -918,8 +1118,16 @@ impl<W: Transport> NetClient<W> {
     }
 
     /// Gửi cửa sổ lệnh chưa ack (bắt đầu từ lệnh chưa ack nhỏ nhất, ADR 0009 §3.2).
+    ///
+    /// Lệnh **chưa gửi** trong cửa sổ được gán/chỉnh `target_tick` tại lần đầu vào batch,
+    /// theo tick authority ước lượng lúc gửi. Lệnh đã gửi giữ nguyên payload để resend
+    /// idempotent; đây là điều kiện để lệnh chờ cửa sổ không bị retire oan.
     fn send_window(&mut self) -> Result<(), NetError> {
-        let Some(predictor) = self.predictor.as_ref() else {
+        let target_tick = self.input_target_tick();
+        let (Some(round_id), Some(player)) = (self.current_round(), self.player_slot) else {
+            return Ok(());
+        };
+        let Some(predictor) = self.predictor.as_mut() else {
             return Ok(());
         };
         if !predictor.is_playing() {
@@ -929,13 +1137,10 @@ impl<W: Transport> NetClient<W> {
         if predictor.pending().is_empty() {
             return Ok(());
         }
-        let commands = predictor.window(self.session.limits().max_commands);
+        let commands = predictor.window_for_send(self.session.limits().max_commands, target_tick);
         if commands.is_empty() {
             return Ok(());
         }
-        let (Some(round_id), Some(player)) = (self.current_round(), self.player_slot) else {
-            return Ok(());
-        };
         let batch = InputBatch {
             round_id,
             player,

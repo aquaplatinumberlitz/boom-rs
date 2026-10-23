@@ -15,7 +15,8 @@ nào trong [RULES_V1](gameplay/RULES_V1.md).
 | Luật trận | Profile rules riêng của harness (`crates/boom-qa/rules/*.toml`) |
 
 Harness dùng trực tiếp source chuẩn `boom-client/src/net/prediction.rs` qua `#[path]` trong
-`boom-qa/src/lib.rs`: cùng API `predict/apply_snapshot/window/acknowledge`, không chép thuật toán. `RoomFlow` cũng
+`boom-qa/src/lib.rs`: cùng API `predict/predict_at/apply_snapshot/window/window_for_send/acknowledge`,
+không chép thuật toán. `RoomFlow` cũng
 include source client chung để kiểm fingerprint/roster/round cũ trước side effect.
 `boom-client` hiện chỉ có binary và #166 không mở quyền sửa Cargo/lib client; cách include này
 không kéo renderer/GPU vào QA. Tên public `DirectDtoBot`/factory giữ tương thích; phần lifecycle
@@ -387,6 +388,104 @@ với p50 input ~0,8 s.
   đầu lệnh thực sự nằm trong batch** để tách queue khỏi wire; (d) chỉ sau đó mới bàn ngưỡng latency.
   Việc (a)/(b) nằm ở `boom-server` — ngoài phạm vi #215, cần task riêng; không sửa predictor/server
   ở đây.
+
+### Xử lý #226: target_tick lúc gửi và đếm retired theo sequence (2026-10-24)
+
+Baseline `fa1291baa638bd07f5c3b21c753378acca7b44c7`. Task #226 (V1-027/G4) tách lỗi producer
+QA khỏi client thật, repro nhỏ trước khi sửa.
+
+**Nguyên nhân** (xác nhận bằng trace tạm ghi `target_tick`, tick server lúc submit và lúc
+apply/retire; trace đã gỡ, không có trong code):
+
+1. `DirectDtoBot::send_input` lấy `target_tick` do `Predictor::predict` gán **lúc tạo lệnh**, bằng
+   tick của state dự đoán. State đó dựng từ snapshot nên cũ hơn tick authority; với RTT hồ sơ
+   `scope-v1` (100 ms + jitter 0–30 ms, đo thực p50 ~158 ms), target cũ hơn `INPUT_LATE` (6 tick,
+   100 ms @60 Hz) ngay sau vài chục lệnh.
+2. Lỗi thứ hai làm trầm trọng: cửa sổ batch tối đa 8 lệnh chưa ack. Khi số lệnh chưa ack vượt 8,
+   lệnh mới **chưa vào batch** nhiều chu kỳ (20 ms/lệnh), nhưng `target_tick` vẫn giữ giá trị lúc
+   tạo; tới lần gửi đầu tiên thì đã quá hạn. Đây là khác biệt với ADR 0009 §3.2 ("chỉ tính/chỉnh
+   `target_tick` cho lệnh **chưa gửi**").
+3. `BotConfig.one_way_delay_ms` và `input_lead_ticks` của hồ sơ bị bỏ không dùng trong
+   `send_input`/predictor.
+4. Harness đếm `retired` theo **event** `InputRetired`, không chỉ sequence đã resolved và đã gửi,
+   nên `retired` có thể lệch đơn vị với `resolved`.
+
+**Sửa (bot QA, phần client thật ở §r2 dưới)** (giữ payload bất biến sau lần gửi đầu, ADR 0009 §3.2/§3.4(e)):
+
+- `Predictor::predict_at(input, target_tick)` (API additive; `predict` gọi lại với tick state dự
+  đoán) cho caller truyền tick authority ước lượng; dãy `target_tick` được kẹp không giảm theo
+  `seq`.
+- `PendingCommand.sent` + `Predictor::window_for_send(max, target_tick)`: lệnh **chưa gửi** được
+  gán/chỉnh `target_tick` tại đúng lần đầu vào batch; lệnh đã gửi resend y nguyên payload.
+- `DirectDtoBot` ước lượng tick server lúc gửi bằng `snapshot.tick + số tick trôi từ lúc nhận +
+  one_way_delay_ms + input_lead_ticks`, rồi ghi mốc `sent` tại **first-wire** cho mọi lệnh lần đầu
+  vào batch (không chỉ lệnh vừa tạo).
+- Harness chỉ tăng `retired` khi sequence đó đã resolved và có trong `sent`; do đó
+  `applied = resolved - retired` cùng đơn vị sequence.
+
+**Đo trước/sau** (cùng seed 1, `scope-v1`; số liệu thô trong `local/issue-226/`, không commit):
+
+| Lần chạy | Lệnh | `sent` (batch) | `resolved` | `retired` | `applied` | Latency count / p50 / p95 | RTT p50/p95 |
+|---|---|---:|---:|---:|---:|---|---|
+| Trước fix, 2 bot, 1 round (`before-scope-v1-2-1-r1.json`, sha256 `998ead32…`) | 2 bot | 1991 | 1825 | 1823* | 2 | 2 / 54 / 66 ms | 156 / 197 ms |
+| Sau fix, 2 bot, 2 round (`after-scope-v1-2-1.json`, sha256 `43910ebb…`) | 2 bot | 1800 | 1567 | 0 | 1567 | 1567 / 88 / 113 ms | 158 / 195 ms |
+| Sau fix, 4 bot, 2 round (`after-scope-v1-4-1.json`, sha256 `a4ad28f3…`) | 4 bot | 3735 | 3287 | 0 | 3287 | 3287 / 88 / 111 ms | 147 / 193 ms |
+
+\* Trước fix harness đếm `retired` theo event; sau fix đếm theo sequence đã resolved. Vì vậy cột
+`retired` trước fix chỉ dùng để thấy gần như toàn bộ lệnh bị retire, không so trực tiếp từng đơn vị
+với sau fix. Mỗi batch hiện tạo đúng một lệnh mới nên `created = sent`; `resolved < created` ở lần
+sau là các lệnh còn chờ khi round kết thúc, không phải retired.
+
+Lệnh:
+
+```text
+cargo run -p boom-qa -- --profile scope-v1 --clients 2 --seed 1 --json-out local/issue-226/after-scope-v1-2-1.json
+cargo run -p boom-qa -- --profile scope-v1 --clients 4 --seed 1 --json-out local/issue-226/after-scope-v1-4-1.json
+```
+
+Cả hai lần sau fix exit 0, `converged=true`, `drained=true`, `timed_out=false`; latency count bằng
+đúng `applied`, nên mọi mẫu latency là lệnh thực sự được áp dụng (không còn mẫu retire). Đây là
+bằng chứng **hồi quy** cho #226, không phải nghiệm thu G4/V1-027: chỉ chạy hai tổ hợp theo yêu cầu
+task, chưa chạy lại ma trận sáu tổ hợp, chưa đặt ngưỡng latency/tỉ lệ pass mới, và không sửa
+`INPUT_LATE`/`INPUT_LEAD`/profile để đạt số.
+
+**Giới hạn:** trace xác nhận nguyên nhân là instrumentation tạm, không lưu trong repo; kết luận dựa
+trên mã hiện tại + artifact JSON/log ở `local/`. Latency vẫn là first-wire → `applied_seq`, gồm
+thời gian bay và chờ `target_tick`, không phải RTT và không phải thời điểm áp dụng chính xác.
+`InputRejected` vẫn chỉ phân loại DTO `BadSequence` như #215; task này không đổi protocol/server.
+
+### #226 r2 (2026-10-24) — client thật dùng clock ước lượng, regression có thời gian điều khiển
+
+Phần trên chỉ sửa bot QA; **client sản phẩm** vẫn dùng đường cũ. Lượt r2 nối facade client:
+
+- `NetClient::predict` lấy `target_tick` từ `input_target_tick`: tick snapshot đã áp + số tick
+  trôi từ lúc nhận + RTT gần nhất. RTT đo bằng `Ping`/`Pong` của chính client trên đường input
+  (`input_ping_retry`/`record_input_pong`, EWMA 1/4); **không** đọc `one_way_delay_ms` của fixture.
+- `NetClient::send_window` gọi `window_for_send(max, target_tick)`: lệnh chưa gửi được stamp
+  `target_tick` tại lần đầu vào batch; lệnh đã gửi giữ nguyên payload khi resend (ADR 0009 §3.2).
+- Test `client_predict_stamps_target_tick_from_clock_and_resend_keeps_payload` dùng snapshot/RTT
+  đặt trước, kiểm target vượt tick confirmed và payload resend byte-identical.
+- Test `producer_batch_moves_and_places_bomb_with_controlled_fixture_clock` dùng fixture có trễ
+  **100 ms tường minh**, target tick do test đặt; đi qua `NetClient::predict`→`resend`→batch→
+  `Authority`, rồi kiểm người chơi di chuyển, bom được đặt, không có `InputRetired`. Test cũ
+  `scope_latency_fixture_applies_input_instead_of_retiring_it` (Real + ngưỡng 10 %) và test tự
+  gọi `state.step` đã bị bỏ; **không** dùng `TimingMode::Virtual` một mình làm bằng chứng delay
+  100 ms.
+- `ScheduledHarness` giữ `InputRetired` theo `round` của event (không lấy round hiện tại của
+  authority); `input.retired`/`resolved` cùng đơn vị sequence.
+
+**Giới hạn:** `input_target_override` và clock override chỉ là test hook cho fixture đồng hồ ảo;
+production luôn dùng `Instant::now` và target ước lượng thật. Clock test điều khiển chung
+snapshot_received_at, mốc gửi/nhận Ping và target để hai lần chạy cùng seed có cùng thứ tự frame.
+Ước lượng dùng đồng hồ thật + RTT đo được, chưa có lead/budget latency mới; không suy từ test
+fixture sang SLA hay nghiệm thu V1-027. Số đo cũ ở bảng trên vẫn là của bot QA trước r2.
+
+**Đo tham chiếu r2 (một run, không phải ma trận):** `scope-v1`, 2 bot, seed 1, head `f292fd7`
+(log/JSON `.re-work/qa-226-scope-v1-2-1.*`, không commit): exit 0, `converged=true`,
+`drained=true`, `timed_out=false`; `sent=2087` batch, `resolved=1831` sequence, `retired=0`,
+latency p50/p95 = 87/112 ms (1831 mẫu), RTT p50/p95 = 158/194 ms (22 mẫu), `rejected=28` batch,
+`room_rejected=1`. Đây chỉ là quan sát hồi quy trên Linux local, **không** đặt ngưỡng latency,
+không thay ma trận sáu tổ hợp và không chứng minh G4/V1-027.
 
 ## Giới hạn
 
