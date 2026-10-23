@@ -126,14 +126,15 @@ khi session mới đăng ký thì nó đóng nhầm session mới (phiên mới 
 ## Đo độ trễ
 
 `latency_ms` là **thời gian lưu hành lệnh trong phép đo QA**, không phải RTT mạng: từ lúc bot
-**tạo** sequence (`sent_at_ms`) tới lần poll của harness thấy `applied_seq` của server vượt qua
-sequence đó (server áp dụng **hoặc** retire).
+**tạo** sequence (`sent_at_ms`) tới lần poll của harness thấy `applied_seq` của server đã đạt hoặc
+vượt sequence đó (`applied_seq >= seq`; server áp dụng **hoặc** retire).
 
-- Bot ghi `sent_at_ms` trong `send_input` (`crates/boom-qa/src/bot.rs:1103-1157`, dòng ghi
-  1148-1155) **trước** khi `Predictor::window` (`crates/boom-client/src/net/prediction.rs:450-465`)
-  cắt cửa sổ tối đa 8 lệnh (`ProtocolLimits::max_commands`). Mốc này là **lúc lệnh vào hàng
-  đợi phía client**; nếu sequence mới chưa nằm trong batch vừa mã hoá thì nó **chưa lên dây**
-  ở mốc đó.
+- Bot lấy `sent_at_ms = now_ms` của lần `send_input` (`crates/boom-qa/src/bot.rs:1103-1157`); sau
+  `Predictor::predict` và `Predictor::window` (`crates/boom-client/src/net/prediction.rs:450-465`)
+  cắt cửa sổ tối đa 8 lệnh (`ProtocolLimits::max_commands`), bot mới ghi `stats.sent` (dòng
+  1148-1155). Mốc là `now_ms` của cùng lần gọi, **không phải mốc "first-wire"**: nếu hàng chờ lớn
+  hơn 8 thì sequence mới có thể chưa nằm trong batch vừa mã hoá và chưa lên dây ở mốc đó. Phép đo
+  hiện tại không chứng minh được seq đã vào batch hay đã lên dây.
 - `input.sent` đếm **batch** (`commands_sent` tăng một lần mỗi `send_input`), còn
   `input.resolved` đếm **sequence**. Hai cột khác đơn vị, không trừ trực tiếp cho nhau.
 - Harness đọc `applied_seq` mỗi vòng poll (`crates/boom-qa/src/harness.rs:699-733`).
@@ -341,9 +342,11 @@ tuyên bố pass.
 
 Chuỗi đo thực tế:
 
-1. `send_input` tạo seq và ghi `sent_at_ms` (`bot.rs:1103-1157`), rồi mới lấy `Predictor::window`
-   tối đa 8 lệnh (`prediction.rs:450-465`). Seq mới **có thể chưa nằm trong batch** nếu hàng chờ
-   lớn hơn 8; mốc đã ghi là **lúc vào hàng chờ client**, không phải lúc lên dây.
+1. `send_input` lấy `sent_at_ms = now_ms`, rồi `Predictor::predict` tạo seq và `Predictor::window`
+   cắt tối đa 8 lệnh; sau đó bot mới ghi `stats.sent` (`bot.rs:1103-1157`, dòng ghi 1148-1155;
+   `prediction.rs:450-465`). Mốc là thời điểm vào `send_input`, **không phải first-wire**; seq mới
+   **có thể chưa nằm trong batch** nếu hàng chờ lớn hơn 8. Phép đo chưa có mốc "lần đầu lên dây"
+   hay kích thước hàng chờ.
 2. `target_tick` được gán lúc **tạo** lệnh bằng tick của state dự đoán (`prediction.rs:411-443`),
    không phải lúc lệnh lần đầu vào batch. State dự đoán đã replay các lệnh chưa ack
    (`prediction.rs:507-557`), nên tick này nằm trước tick server một khoảng xấp xỉ hàng lệnh đang
@@ -351,17 +354,19 @@ Chuỗi đo thực tế:
    mô tả đó, cần task riêng để quyết định, không sửa trong task này.
 3. Harness chỉ đọc `applied_seq` mỗi vòng poll (`harness.rs:699-733`); `applied_seq` tiến khi server
    áp dụng/retire tại `apply_tick` (`input.rs:281-345`) hoặc retire tại `submit`
-   (`input.rs:271-277`, `authority.rs:771-777`). Vì vậy mẫu = **thời gian chờ trong hàng đợi client
-   + một chiều mạng + thời gian chờ tới `target_tick`/retire**, không phải "gửi→nhận", không phải
-   "áp dụng xong", và không phải RTT.
+   (`input.rs:271-277`, `authority.rs:771-777`). Mẫu bao trùm khoảng từ lúc tạo lệnh tới lúc giải
+   quyết; khoảng đó **có thể** gồm thời gian chờ trong hàng đợi client/cửa sổ lệnh, một chiều mạng
+   và thời gian chờ tới `target_tick`/retire. Nó không phải "gửi→nhận", không phải "áp dụng xong",
+   và không phải RTT.
 4. `retired` chỉ đếm retire ở `apply_tick`. Retire trong `submit` bị bỏ (`server.rs:795`), nên một
    phần mẫu có thể là lệnh **không hề được áp dụng**; tỉ lệ này chưa đo được.
 
-Ước lượng định lượng (không phải số đo trực tiếp): 3.600 sequence được giải quyết trong khoảng 40 s
-chơi × 2 bot ≈ 45 sequence/s/bot; p50 788–889 ms ⇒ theo Little's law có khoảng 36–40 sequence "đang
-bay" mỗi bot, lớn hơn cửa sổ 8. Nghĩa là phần lớn mẫu là **thời gian chờ trước/trong cửa sổ lệnh và
-chờ `target_tick`**, không phải RTT. RTT p50 156–167 ms (sáu run gốc) / 154 ms (trace) là phép đo
-`Ping`/`Pong` riêng, không mâu thuẫn với p50 input ~0,8 s.
+Cơ chế trên cho thấy `latency_ms` **có thể** gồm thời gian chờ trong hàng đợi client/cửa sổ lệnh và
+chờ `target_tick`, không chỉ RTT. Nhưng phép đo chưa có `first-wire`, kích thước hàng chờ hay tỉ lệ
+mẫu applied/retired, nên **không suy được tỷ trọng** của từng phần; nguyên nhân định lượng của
+p50/p95 vẫn là `unknown`. Không dùng p50 hay mean để suy số lệnh "đang bay" khi chưa đo trực tiếp.
+RTT p50 156–167 ms (sáu run gốc) / 154 ms (trace) là phép đo `Ping`/`Pong` riêng, không mâu thuẫn
+với p50 input ~0,8 s.
 
 #### Kết luận được và không được
 
@@ -371,6 +376,9 @@ chờ `target_tick`**, không phải RTT. RTT p50 156–167 ms (sáu run gốc) 
 - Không được: coi p95 ~1,6 s là "ngân sách latency đã đạt", coi hội tụ hash là bằng chứng latency,
   hoặc so trực tiếp với RTT 100 ms của hồ sơ. Không có ngưỡng latency nào được chốt trong SCOPE_V1
   hay task này; báo cáo **không** đặt pass/fail cho latency.
+- Không được: quy p95 cho hàng đợi client hay `target_tick` như kết luận định lượng. Cơ chế đó có
+  thể góp phần, nhưng chưa đo `first-wire`/queue size/tỉ lệ applied-retired nên tỷ trọng còn
+  `unknown`.
 - Không được: khẳng định nguyên nhân `InputRejected` là `NotPlaying` hay lỗi predictor/server; biến
   thể `InputError` chưa được log. Không được khẳng định mọi mẫu latency đều đã được áp dụng, vì
   retire trong `submit` không quan sát được.
