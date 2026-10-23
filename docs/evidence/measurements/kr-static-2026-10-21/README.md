@@ -84,16 +84,16 @@ REA MCP `provider_id: ida` trên bản sao; bundle `.re-work/evidence-r154-bombp
 | Kiểm | VA | Kết quả |
 |---|---|---|
 | `CGOBomb` vtable | `0x174426C` | slot 24 update `0xB391E0`; slot 40 Init `0xB384E0`; **slot +156 `0xB37DB0`** |
-| Pass predicate | `0xB37DB0` (RVA `0x737DB0`) | `0` nếu `[bomb+328]` (`0x148`) == 1/2 (`B38250`/`B38290`); ngược lại `11982F0(bomb+144)` = flag `+152` |
+| Pass predicate | `0xB37DB0` (RVA `0x737DB0`) | `0` nếu `[bomb+328]` (`0x148`) ∈ {1,2}; ngược lại trả flag `+152` (`11982F0(bomb+144)`) — flag `0` cũng cho predicate `0` |
 | Ctor sensor | `B37150` → `1198240(bomb+144,1)` | `CSensorTrigger` flag `+152 = 1` mặc định |
 | Init | `B384E0` | `[bomb+328] = u8 descriptor+108` (`529C20`) |
-| Move consumer | `0x1310200` `CMovable::MoveSimple` | gọi virtual +156 trên object **ô đích**, `0` = chặn; không kiểm ô hiện tại/owner |
-| Owner getter | `B38370` (`+268`) | 14 caller effect/score; **không** được `B37DB0` gọi |
+| Move consumer | `0x1310200` `CMovable::MoveSimple` | consumer đã trace thuộc **pet/AI**; gọi virtual +156 nhưng còn OR `EA0FD0` và gate +164; predicate khác 0 không đủ kết luận đi qua |
+| Owner getter | `B38370` (`+268`) | **xref 14 hàm**, chưa phân loại đủ 14 thân; **không** được `B37DB0` gọi |
 
-**Kết luận:** `kr_static` confirmed predicate + consumer movement và việc predicate **không owner**;
-`candidate` owner getter; `unknown` nghĩa/giá trị `+328`/descriptor+108, setter runtime, VN counterpart.
-“Đứng trên bom đi ra” là hệ quả chỉ kiểm ô đích; không phải cờ owner. Không suy bomb luôn pass; không
-đổi profile/40×40/assist.
+**Kết luận:** `kr_static` confirmed **thân predicate** `B37DB0`, ctor/flag và **nhánh `MoveSimple` có
+phạm vi pet/AI**; `candidate` owner getter (xref chưa phân loại); `unknown` đường bomber, nghĩa/giá trị
+`+328`/descriptor+108, setter runtime, owner role, player grace/ra/vào/timer, VN counterpart. Không suy
+hệ quả player/bomber (ra/vào/grace) hay bomb-pass toàn hệ thống; không đổi profile/40×40/assist.
 
 | `evidence_id` | Operation | Dùng cho |
 |---|---|---|

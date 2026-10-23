@@ -211,23 +211,25 @@ SHA-256 `cf72da11…e63b`.
 
 - `CGOBomb` vtable base `0x174426C` (slot 24 update `0xB391E0`; Init `B384E0` slot 40).
 - Slot **+156** = `0xB37DB0` (RVA `0x737DB0`): trả `0` nếu field `+328` (`0x148`) bằng `1` hoặc `2`
-  (`B38250`/`B38290`); ngược lại trả `CSensorTrigger` flag tại `+152` (`11982F0(bomb+144)`).
+  (`B38250`/`B38290`); ngược lại trả `CSensorTrigger` flag tại `+152` (`11982F0(bomb+144)`). Vì vậy
+  `+328 ∉ {1,2}` **không đủ** để predicate khác `0`: flag `+152 == 0` cũng cho `0`.
 - `B37150` ctor gọi `1198240(bomb+144, 1)` ⇒ `CSensorTrigger` flag `+152 = 1` mặc định.
 - `B384E0` Init ghi `+328` từ **u8 descriptor+108** (`sub_529C20(a2+108)`); chưa thấy setter runtime
   khác trong phạm vi đọc.
 
-### 9.2 Consumer movement
+### 9.2 Consumer `MoveSimple` — chỉ nhánh pet/AI đã đọc
 
-`CMovable::MoveSimple` `0x1310200` lấy object ở **ô đích** bằng `E9F9B0`, rồi gọi virtual **+156**
-(`v32`/`v30`) và coi kết quả `0` là chặn (nhánh `v56`/`v55`). Nó **không** kiểm ô hiện tại, không so
-owner/player. Hệ quả hình học:
+`CMovable::MoveSimple` `0x1310200` (consumer đã trace thuộc **pet/AI**, R-134/R-135; **chưa** nối mover
+bomber) lấy object ở ô đích bằng `E9F9B0`, gọi virtual **+156** (`v32`/`v30`) và coi kết quả `0` là
+chặn. Nhưng đây chỉ là **một** điều kiện: đường va chạm còn **OR `EA0FD0`** (quanh `0x13109BE`) và các
+gate virtual **`+164`** phía trước. Predicate khác `0` **không đủ** kết luận đi qua.
 
-- Người đang đứng trên bom vẫn bước ra được vì chỉ ô đích được kiểm.
-- Không ai vào được ô bom nếu predicate trả `0`; predicate trả khác `0` thì mọi người đi qua.
-- **Không** có nhánh owner/overlap trong predicate này. `B38370` (`+268`) là getter owner candidate,
-  có 14 caller effect/score (`ACC340`, `AEF700`, `EB73D0`, `EB8000`…), **không** được `B37DB0` gọi.
-- “Quyền hết” phụ thuộc `+328`: nếu `+328` cố định theo descriptor thì là **type gate**, không phải
-  timer. Nghĩa/giá trị C00/C01 của `+328` và descriptor+108 vẫn `unknown`; không suy 40×40/assist.
+- **Không** suy được player/bomber đi ra, đi vào, grace hay “không owner toàn hệ thống” từ nhánh pet/AI.
+- **Trong thân `B37DB0` không đọc owner/player/overlap**. `B38370` (`+268`) là getter owner **candidate**;
+  nó chỉ có **xref 14 hàm** (`ACC340`, `AEF700`, `EB73D0`, `EB8000`…), chưa phân loại đủ 14 thân và
+  **không** được `B37DB0` gọi.
+- `+328` lấy từ descriptor+108; nghĩa/giá trị C00/C01, setter runtime và **thời điểm mất pass/timer**
+  vẫn `unknown`. Không suy 40×40/assist từ pet.
 
 ### 9.3 Evidence
 
@@ -244,6 +246,7 @@ owner/player. Hệ quả hình học:
 | `ev_1ed26a6f3c1bb7dff196630d81395bb64cda343c123acd908e9b8129e231dc4e` | `xrefs` `B38370` | owner getter callers |
 | `ev_4d7754d19b3e1394445bc19e34f1ce72ea04598b46af0ce90b5fc890fc604d0b` | `procedure_pseudo_code` `B391E0` | update/state |
 
-**Kết luận:** `kr_static` **confirmed** predicate/vtable/MoveSimple consumer và việc predicate không
-owner; `candidate` owner getter `+268`; `unknown` nghĩa/giá trị `+328`/descriptor+108, setter runtime,
-VN counterpart. Không đổi profile; không suy bomb luôn pass.
+**Kết luận:** `kr_static` **confirmed** thân predicate `B37DB0`, ctor/flag và **nhánh `MoveSimple` có
+phạm vi pet/AI**; `candidate` owner getter `+268` (chưa phân loại xref); `unknown` đường bomber, nghĩa/
+giá trị `+328`/descriptor+108, setter runtime, owner role, player grace/timer, VN counterpart. Không đổi
+profile; không suy bomb luôn pass hay player pass.
