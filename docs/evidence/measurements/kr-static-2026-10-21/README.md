@@ -72,6 +72,34 @@ phạm vi và không loại trừ đường gián tiếp/wrapper/VM.
 - Chưa xác định hàm quy đổi **cấp tốc độ → px mỗi bước**; `CMovable::MoveSimple` chỉ nhận độ dài còn lại
   do caller cấp (xem `KR_RE_MOVEMENT` §5). Chuỗi `(dir,len)` đã đọc là của `CGOPet`, không phải bomber.
 - Polarity của `CGOTileFixed`/`CGOTilePassable` trong `0xE9F9B0` chưa chốt (candidate).
-- Không có bằng chứng cho bomb pass / đứng trên bom trong phép đọc này.
+- Bomb pass/đứng trên bom: xem bổ sung R-154 (predicate `B37DB0`, `+328`, `+152`, consumer `MoveSimple`).
 - Phạm vi lớp: mới xác định **đường đã trace** thuộc `CGOPet`/AI; **chưa chứng minh** cho bomber và
   không loại trừ mọi caller/lớp/wrapper/VM mà bomber có thể dùng.
+
+## Bổ sung 2026-10-23 — R-154 bomb pass từ object bom
+
+REA MCP `provider_id: ida` trên bản sao; bundle `.re-work/evidence-r154-bombpass-146.json`
+(15 record, không commit). Không đọc lại packet/setter R-136…R-138.
+
+| Kiểm | VA | Kết quả |
+|---|---|---|
+| `CGOBomb` vtable | `0x174426C` | slot 24 update `0xB391E0`; slot 40 Init `0xB384E0`; **slot +156 `0xB37DB0`** |
+| Pass predicate | `0xB37DB0` (RVA `0x737DB0`) | `0` nếu `[bomb+328]` (`0x148`) ∈ {1,2}; ngược lại trả flag `+152` (`11982F0(bomb+144)`) — flag `0` cũng cho predicate `0` |
+| Ctor sensor | `B37150` → `1198240(bomb+144,1)` | `CSensorTrigger` flag `+152 = 1` mặc định |
+| Init | `B384E0` | `[bomb+328] = u8 descriptor+108` (`529C20`) |
+| Move consumer | `0x1310200` `CMovable::MoveSimple` | consumer đã trace thuộc **pet/AI**; gọi virtual +156 nhưng còn OR `EA0FD0` và gate +164; predicate khác 0 không đủ kết luận đi qua |
+| Owner getter | `B38370` (`+268`) | **xref 14 hàm**, chưa phân loại đủ 14 thân; **không** được `B37DB0` gọi |
+
+**Kết luận:** `kr_static` confirmed **thân predicate** `B37DB0`, ctor/flag và **nhánh `MoveSimple` có
+phạm vi pet/AI**; `candidate` owner getter (xref chưa phân loại); `unknown` đường bomber, nghĩa/giá trị
+`+328`/descriptor+108, setter runtime, owner role, player grace/ra/vào/timer, VN counterpart. Không suy
+hệ quả player/bomber (ra/vào/grace) hay bomb-pass toàn hệ thống; không đổi profile/40×40/assist.
+
+| `evidence_id` | Operation | Dùng cho |
+|---|---|---|
+| `ev_5d06d1cab12064f869b98fb3190c705d121c999678088da9a1bb3d47d26c28d7` | `batch_decompile` `B37DB0`/`B393D0` | predicate |
+| `ev_a546b755dea30f480cb1532c4bb0d4c158c23e62c6bfdd451056bb6bfc2bac0c` | `batch_decompile` `B38250`/`B38290`/`11982F0` | `+328`/`+152` |
+| `ev_3bb870f56d8520b9f50ac48277eb33172caa25940c5d0de42a78ddb71588cb45` | `batch_decompile` `CSensorTrigger` | ctor flag |
+| `ev_6b5946b42a71659cbda31f34a6d4e2f65ca5af068973517f54a8cd8833fdc504` | `procedure_pseudo_code` `1310200` | MoveSimple |
+| `ev_dc3d84632f04b7616773024c1058afe0ae3659040f8ff455e8c57a3a9883f73f` | `batch_decompile` `B37150`/`B37560`/`B384E0` | ctor/Init |
+| `ev_1ed26a6f3c1bb7dff196630d81395bb64cda343c123acd908e9b8129e231dc4e` | `xrefs` `B38370` | owner getter callers |
