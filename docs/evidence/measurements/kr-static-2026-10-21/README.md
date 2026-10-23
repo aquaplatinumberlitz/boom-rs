@@ -119,3 +119,22 @@ trong 14 xref; không đọc lại hàm R-154). Bundle `.re-work/evidence-r154-o
 Cả 4 chỉ thấy dataflow descriptor/event, effect/flame hoặc bỏ kết quả; **chưa thấy kiểm collision/grace
 trực tiếp** (không gọi trực tiếp `B37DB0`/`EA0FD0`/`+152`/`+328`/`MoveSimple`). Helper/callee và **10 xref
 còn lại chưa loại trừ**; không tạo R-155, không nâng owner thành confirmed; player/grace vẫn unknown.
+
+### #146 — caller `B38370` mới (B3AE90/B9A990/E3), 2026-10-24
+
+Bundle `.re-work/evidence-owner-player-sites-146.json` (8 record; không commit). Codex đã xác nhận
+hai bản sao cùng SHA `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, kích thước
+26.074.624 B, base `0x400000`; dùng read-only với **provenance thật** dưới đây, không phải clone1.
+
+| Evidence | Callsite → function | Actual subject / DB | Kết quả |
+|---|---|---|---|
+| `ev_0216a581…` | `B3AECE` → `B3AE90` (RVA `73AE90`) | `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; DB không có trong batch record | `B38370` → `B3ADD0`; chọn effect RPG/Sprinkler/Remote/Deco; không so player trực tiếp |
+| `ev_0216a581…` | `B9A99C`/`B9A9C8` → `B9A990` (RVA `79A990`) | cùng batch | so owner với `sub_1240B00(0)` qua `sub_1241780`, ghi `this+172`; nghĩa local/consumer **candidate/unknown** |
+| `ev_1e18205f…` | `B996B0`/`B9A3B0` (RVA `7996B0`/`79A3B0`) | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB copy `rea-ida-1e1Km8` | wrapper kiểm `+172`; `B9A3B0` tính vị trí rồi gọi B9A990 |
+| `ev_fb3ed4dd…` | xref `B9A990` | `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; DB `rea-ida-GI3Raz` | 2 caller: B996B0/B9A3B0 |
+| `ev_d9c085e8…` | xref `B9A3B0` | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB `rea-ida-1e1Km8` | 3 callsite trong B99CF0 |
+| `ev_868df24e…`, `ev_c23c3eb1…` | E3C4A2/E3C563 | boom-team; DB `rea-ida-GI3Raz` | `not_in_procedure`; chỉ có disasm callsite, không kết luận class/VM |
+
+**Kết luận:** `B3AE90` chỉ là effect selector; `B9A990` có so owner với một giá trị nhưng chưa chứng minh
+local-player và chưa thấy collision/grace; `+172` consumer unknown. E3 chưa xác định function. Không mở
+10 xref còn lại; helper/callee chưa đọc unknown. Không đổi R-154/player grace.

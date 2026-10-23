@@ -267,3 +267,26 @@ Batch đọc 4 thân ưu tiên trong 14 xref (4/14); không đọc lại hàm R-
 phạm vi pet/AI**; `candidate` owner getter `+268` (chưa phân loại xref); `unknown` đường bomber, nghĩa/
 giá trị `+328`/descriptor+108, setter runtime, owner role, player grace/timer, VN counterpart. Không đổi
 profile; không suy bomb luôn pass hay player pass.
+
+### 9.5 Caller `B38370` mới — B3AE90 / B9A990 / E3 sites (2026-10-24)
+
+Tiếp #146, chỉ đọc thêm **3 nhóm callsite** trong 10 xref còn lại; không giải lại 4 thân đã đọc.
+Provenance thật: batch `B3AE90`/`B9A990` subject
+`/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; batch `B996B0`/`B9A3B0` và xref `B9A3B0` subject
+`/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`, DB copy `rea-ida-1e1Km8` (Codex xác nhận cùng
+SHA `cf72da11…e63b`); E3 resolve subject boom-team, DB `rea-ida-GI3Raz`. Không nói đây là clone1.
+
+| Call site | Containing function | Class/`this` | Dùng `+268` | Kết luận |
+|---|---|---|---|---|
+| `0xB3AECE` | `B3AE90` (RVA `0x73AE90`) | **candidate** effect/descriptor builder (`B3B150`); chưa có vtable proof | `B38370(this)` → `B3ADD0(owner)`, rồi chọn tên effect `BombRPGmonbomb`/`BombSprinklerb`/`BombRemotebomb`/`Bombdeco` | Chỉ **effect selector**; không thấy so player/overlap/grace |
+| `0xB9A99C`, `0xB9A9C8` | `B9A990` (RVA `0x79A990`) | **candidate** object/effect; class chưa chứng minh | owner = `B38370(this)`; so với `sub_1240B00(0)` qua `sub_1241780`; ghi `this+172 = (equal)` | Có **so owner với một giá trị** (có thể local player) nhưng **chưa** chứng minh nghĩa local-player, và **chưa** thấy collision/overlap/grace; `+172` consumer unknown |
+| `0xE3C4A2`, `0xE3C563` | `not_in_procedure` (IDA không nhận function) | chưa xác định | `E3C4A2`: owner → check `-1`, `sub_1243330(owner)`, virtual `+0xD0`; `E3C563`: owner vào chuỗi format | Chỉ thấy callsite/disasm; **không** kết luận hàm/class/consumer. `not_in_procedure` ≠ VM/không tồn tại |
+
+- `B9A3B0` gọi `B9A990` sau tính vị trí/rect; `B996B0` là wrapper kiểm `this+172` rồi gọi lại.
+  Chưa nối `+172` tới collision/grace; không suy từ tên field.
+- **Không** mở 10 xref còn lại; helper/callee chưa đọc vẫn **unknown**. Không đổi player grace,
+  40×40/corner hay R-154. `+268` vẫn **candidate owner**, không phải owner confirmed.
+
+Evidence: `ev_0216a581…` batch B3/B9; `ev_1e18205f…` batch B996/B9A3; `ev_fb3ed4dd…` xref B9A990;
+`ev_d9c085e8…` xref B9A3B0; `ev_868df24e…`/`ev_c23c3eb1…` E3 resolve. Bundle
+`.re-work/evidence-owner-player-sites-146.json`.
