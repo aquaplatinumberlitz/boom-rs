@@ -279,11 +279,16 @@ SHA `cf72da11…e63b`); E3 resolve subject boom-team, DB `rea-ida-GI3Raz`. Khôn
 | Call site | Containing function | Class/`this` | Dùng `+268` | Kết luận |
 |---|---|---|---|---|
 | `0xB3AECE` | `B3AE90` (RVA `0x73AE90`) | **candidate** effect/descriptor builder (`B3B150`); chưa có vtable proof | `B38370(this)` → `B3ADD0(owner)`, rồi chọn tên effect `BombRPGmonbomb`/`BombSprinklerb`/`BombRemotebomb`/`Bombdeco` | Chỉ **effect selector**; không thấy so player/overlap/grace |
-| `0xB9A99C`, `0xB9A9C8` | `B9A990` (RVA `0x79A990`) | **candidate** object/effect; class chưa chứng minh | owner = `B38370(this)`; so với `sub_1240B00(0)` qua `sub_1241780`; ghi `this+172 = (equal)` | Có **so owner với một giá trị** (có thể local player) nhưng **chưa** chứng minh nghĩa local-player, và **chưa** thấy collision/overlap/grace; `+172` consumer unknown |
+| `0xB9A99C`, `0xB9A9C8` | `B9A990` (RVA `0x79A990`) | **candidate** object/effect; class chưa chứng minh | `a = sub_1241780(B38370(this))`, `b = sub_1241780(sub_1240B00(0))`; ghi `this[172] = (a == b)` | Có **so hai kết quả transform**; helper chưa chứng minh nghĩa owner/local/team; **chưa** thấy collision/overlap/grace. `this[172]` = byte **+0x2B0 (688)**, không phải +172 |
 | `0xE3C4A2`, `0xE3C563` | `not_in_procedure` (IDA không nhận function) | chưa xác định | `E3C4A2`: owner → check `-1`, `sub_1243330(owner)`, virtual `+0xD0`; `E3C563`: owner vào chuỗi format | Chỉ thấy callsite/disasm; **không** kết luận hàm/class/consumer. `not_in_procedure` ≠ VM/không tồn tại |
 
-- `B9A3B0` gọi `B9A990` sau tính vị trí/rect; `B996B0` là wrapper kiểm `this+172` rồi gọi lại.
-  Chưa nối `+172` tới collision/grace; không suy từ tên field.
+- `B9A3B0` gọi `B9A990` sau tính vị trí/rect; `B996B0` là wrapper kiểm `this[172]` rồi gọi lại.
+  Chưa nối `this[172]` (byte `+0x2B0`) tới collision/grace; không suy từ tên field.
+- Helper vừa đọc (`ev_8134a6cc…`): `1240B00(this,a2)` đọc `this+68+12*a2`; `1241780(this,a2)` kiểm
+  `this[41]` rồi đọc `*(this+42)+792*a2+112`, ngoài range trả `-1`. Đây là hai **bảng/transform khác**;
+  chưa chứng minh owner/local/team, nên boolean `this[172]` vẫn **unknown**. Các index khác trong body
+  (`this[162/163/166/167/175/176]`) cũng là index `_DWORD*`, tương ứng byte +0x288/+0x28C/+0x298/
+  +0x29C/+0x2BC/+0x2C0; không nhầm với virtual slot.
 - **Không** mở 10 xref còn lại; helper/callee chưa đọc vẫn **unknown**. Không đổi player grace,
   40×40/corner hay R-154. `+268` vẫn **candidate owner**, không phải owner confirmed.
 

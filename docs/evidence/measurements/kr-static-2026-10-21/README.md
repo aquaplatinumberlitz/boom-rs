@@ -129,12 +129,15 @@ hai bản sao cùng SHA `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5b
 | Evidence | Callsite → function | Actual subject / DB | Kết quả |
 |---|---|---|---|
 | `ev_0216a581…` | `B3AECE` → `B3AE90` (RVA `73AE90`) | `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; DB không có trong batch record | `B38370` → `B3ADD0`; chọn effect RPG/Sprinkler/Remote/Deco; không so player trực tiếp |
-| `ev_0216a581…` | `B9A99C`/`B9A9C8` → `B9A990` (RVA `79A990`) | cùng batch | so owner với `sub_1240B00(0)` qua `sub_1241780`, ghi `this+172`; nghĩa local/consumer **candidate/unknown** |
-| `ev_1e18205f…` | `B996B0`/`B9A3B0` (RVA `7996B0`/`79A3B0`) | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB copy `rea-ida-1e1Km8` | wrapper kiểm `+172`; `B9A3B0` tính vị trí rồi gọi B9A990 |
+| `ev_0216a581…` | `B9A99C`/`B9A9C8` → `B9A990` (RVA `79A990`) | cùng batch | `a=1241780(B38370(this))`, `b=1241780(1240B00(0))`; ghi `this[172]` (byte `+0x2B0`); helper/consumer **candidate/unknown** |
+| `ev_1e18205f…` | `B996B0`/`B9A3B0` (RVA `7996B0`/`79A3B0`) | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB copy `rea-ida-1e1Km8` | wrapper kiểm `this[172]` (byte `+0x2B0`); `B9A3B0` tính vị trí rồi gọi B9A990 |
 | `ev_fb3ed4dd…` | xref `B9A990` | `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; DB `rea-ida-GI3Raz` | 2 caller: B996B0/B9A3B0 |
 | `ev_d9c085e8…` | xref `B9A3B0` | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB `rea-ida-1e1Km8` | 3 callsite trong B99CF0 |
+| `ev_8134a6cc…` | helper `1240B00`/`1241780` | `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`; DB copy `rea-ida-1e1Km8` | `1240B00` đọc `+68+12*a2`; `1241780` bound `this[41]`, đọc `*(this+42)+792*a2+112`, else `-1` |
 | `ev_868df24e…`, `ev_c23c3eb1…` | E3C4A2/E3C563 | boom-team; DB `rea-ida-GI3Raz` | `not_in_procedure`; chỉ có disasm callsite, không kết luận class/VM |
 
-**Kết luận:** `B3AE90` chỉ là effect selector; `B9A990` có so owner với một giá trị nhưng chưa chứng minh
-local-player và chưa thấy collision/grace; `+172` consumer unknown. E3 chưa xác định function. Không mở
+**Kết luận:** `B3AE90` chỉ là effect selector; `B9A990` so hai **transform** `1241780(B38370(this))`
+và `1241780(1240B00(0))`, ghi `this[172]` (byte `+0x2B0`). Helper `1240B00` đọc `+68+12*a2`;
+`1241780` đọc bảng `*(this+42)+792*a2+112` với bound `this[41]`; nghĩa owner/local/team và consumer
+`this[172]` vẫn **candidate/unknown**, chưa thấy collision/grace. E3 chưa xác định function. Không mở
 10 xref còn lại; helper/callee chưa đọc unknown. Không đổi R-154/player grace.
