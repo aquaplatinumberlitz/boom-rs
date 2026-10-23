@@ -134,6 +134,23 @@ SHA-256 `cf72da11…e63b`.
   xref 7 hàm không phải 7 thân đã đọc.
 - `B479E0` gọi `B978B0(this+513, id, 0)` — item model gắn vào bomber (slot/held); **chưa thấy** đường map drop.
 
+### Ba caller còn lại của lookup `1197900` (2026-10-24)
+
+Batch đọc 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 thân cũ:
+
+| Caller | Call | Dùng row trả về | Kết luận trong thân |
+|---|---|---|---|
+| `FFFA70` | `0xFFFB49` | **bỏ** kết quả `1197900` | map `a2∈{1,2}`→id 53/54; virtual +380; gắn model `1191D20` slot 0..3 |
+| `1191DD0` | `0x1191DE8` | **bỏ** kết quả | gắn model `1191D20` slot 0..4, flag 0 |
+| `1192700` | `0x1192983` | gán `v47`; **chưa thấy đọc lại trong phần đã đọc** (thân 0x5e8 chưa đủ) | dispatcher item-use/ability theo id; gắn model |
+
+- Trong **3 phần thân đã đọc** chưa thấy đọc `+96..+180`/weight/placement hay stat/cap/pickup từ row;
+  chúng dùng **id** để chọn model/ability; `1191D20`/virtual +380 là helper chưa mở, phần còn lại của
+  `1192700` (0x5e8) chưa đọc hết.
+- Đây là kết luận **giới hạn trong 3 thân**; helper/callee và 10 hành vi khác vẫn **unknown**.
+- **Không tạo R-155**: chưa có consumer mới đọc row field hoặc áp stat/cap; player/cap vẫn unknown.
+- `1192700` có nhánh item-use/ability, nhưng không đọc row ItemAttr; không suy effect stat.
+
 ### Bảng trọng số 0x8000
 
 Loader cấp `0x8000` byte tại `+436048` (`0x6A750`), fill `0xFF`, rồi với từng group:
