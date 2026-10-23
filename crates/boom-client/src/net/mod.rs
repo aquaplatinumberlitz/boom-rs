@@ -179,6 +179,9 @@ pub struct NetClient<W: Transport> {
     input_ping_pending: Option<(u64, Instant)>,
     /// Mốc sớm nhất được gửi `Ping` đo RTT kế tiếp.
     input_ping_at: Instant,
+    /// Đồng hồ test (fixture đồng hồ ảo); production luôn `None`.
+    #[cfg(test)]
+    input_clock_override: Option<Instant>,
     /// Event mới (đã dedup), chờ presentation lấy: `(round, event)`.
     ///
     /// **Round** đi kèm event vì khoá dedup của consumer là `(round_id, EventId)`
@@ -264,6 +267,8 @@ impl<W: Transport> NetClient<W> {
             input_ping_nonce: 0,
             input_ping_pending: None,
             input_ping_at: Instant::now(),
+            #[cfg(test)]
+            input_clock_override: None,
             events: Vec::new(),
             room: RoomFlow::new(),
             local_content: None,
@@ -465,7 +470,7 @@ impl<W: Transport> NetClient<W> {
         if let Some(target_tick) = self.input_target_override {
             return target_tick;
         }
-        self.input_target_tick_at(Instant::now())
+        self.input_target_tick_at(self.input_now())
     }
 
     /// Như [`NetClient::input_target_tick`] nhưng nhận mốc `now` để test điều khiển đồng hồ.
@@ -492,6 +497,35 @@ impl<W: Transport> NetClient<W> {
             .saturating_add(u32::try_from(ticks).unwrap_or(u32::MAX))
     }
 
+    /// Đồng hồ dùng cho input: production là `Instant::now`; test là đồng hồ fixture.
+    #[cfg(test)]
+    fn input_now(&self) -> Instant {
+        self.input_clock_override.unwrap_or_else(Instant::now)
+    }
+
+    /// Đồng hồ dùng cho input trên production.
+    #[cfg(not(test))]
+    fn input_now(&self) -> Instant {
+        Instant::now()
+    }
+
+    /// Test hook: gắn đồng hồ fixture vào toàn bộ input clock (target, Ping, snapshot).
+    ///
+    /// Lần gọi đầu chuyển các mốc đã có (snapshot/Ping) sang cùng gốc đồng hồ ảo; các lần
+    /// sau chỉ tiến `now`. Không dùng trên production.
+    #[cfg(test)]
+    pub(crate) fn set_input_clock(&mut self, now: Instant) {
+        if self.input_clock_override.is_none() {
+            if self.snapshot_received_at.is_some() {
+                self.snapshot_received_at = Some(now);
+            }
+            if self.input_ping_pending.is_none() {
+                self.input_ping_at = now;
+            }
+        }
+        self.input_clock_override = Some(now);
+    }
+
     /// Gửi `Ping` đo RTT nếu đã tới nhịp và không có mẫu nào đang chờ.
     ///
     /// Chỉ chạy sau `AuthOk`: trước đó server vẫn echo `Ping`, nhưng không cần đo RTT khi chưa
@@ -509,7 +543,7 @@ impl<W: Transport> NetClient<W> {
         {
             return Ok(());
         }
-        let now = Instant::now();
+        let now = self.input_now();
         if let Some((_, sent_at)) = self.input_ping_pending {
             if now.saturating_duration_since(sent_at) < INPUT_RTT_PING_TIMEOUT {
                 return Ok(());
@@ -540,7 +574,7 @@ impl<W: Transport> NetClient<W> {
         if pending != nonce {
             return;
         }
-        let sample = sent_at.elapsed();
+        let sample = self.input_now().saturating_duration_since(sent_at);
         self.input_rtt = Some(match self.input_rtt {
             None => sample,
             Some(previous) => {
@@ -1073,7 +1107,7 @@ impl<W: Transport> NetClient<W> {
             self.last_snapshot_seq = snapshot.snapshot_seq;
             // Gốc thời gian local của snapshot đã áp: dùng để ước lượng tick authority khi
             // gửi input (không lấy tick state dự đoán vốn cũ hơn server).
-            self.snapshot_received_at = Some(Instant::now());
+            self.snapshot_received_at = Some(self.input_now());
             // Snapshot cho thấy lượt đã chạy là bằng chứng server đã nhận `LoadingAck`
             // (loading barrier đã qua). Snapshot *trước lượt* (`tick == 0`) không phải bằng
             // chứng: xem [`RoomFlow::confirm_loading`].

@@ -137,6 +137,8 @@ struct Harness {
     hz: u32,
     /// Thư mục tạm chứa DB auth: khai sau `server` nên được xoá **sau** khi store đóng.
     _db_dir: tempfile::TempDir,
+    /// Gốc đồng hồ test cho input clock của client.
+    clock_origin: Instant,
 }
 
 impl Harness {
@@ -277,6 +279,7 @@ impl Harness {
             ticks: 0,
             hz,
             _db_dir: db_dir,
+            clock_origin: Instant::now(),
         }
     }
 
@@ -546,6 +549,11 @@ impl Harness {
 
     /// Một bước: client nhận snapshot và reconcile, dự đoán rồi gửi, server chạy tick.
     fn tick(&mut self, dirs: [Dir; 2]) {
+        // Đồng hồ test điều khiển cả target lẫn Ping; không để scheduler thật làm lệch
+        // thứ tự frame giữa hai lần chạy cùng seed.
+        let now = self.origin_ms + (self.ticks * 1_000) / u64::from(self.hz);
+        self.ticks += 1;
+        self.set_client_clocks(now);
         self.pump_clients();
         // Test Harness này kiểm vị trí/dự đoán theo tick server; đặt target tường minh
         // thay vì clock thật (test clock thật nằm ở `client_predict_stamps...`).
@@ -563,8 +571,6 @@ impl Harness {
         }
         // Mốc thời gian theo đúng lịch tick của server: tick `k` đến hạn ở
         // `origin + k*1000/hz`, nên mỗi bước chạy đúng một tick.
-        let now = self.origin_ms + (self.ticks * 1_000) / u64::from(self.hz);
-        self.ticks += 1;
         if self.ticks > 1 {
             // Nhận input **trước** khi server chạy tick:
             // 1. Chờ luồng đọc của server **lấy đủ** frame client đã gửi (đồng hồ server đứng
@@ -586,6 +592,13 @@ impl Harness {
                         .insert((client.player, tick), (player.x.0, player.y.0));
                 }
             }
+        }
+    }
+
+    fn set_client_clocks(&mut self, now_ms: u64) {
+        let now = self.clock_origin + Duration::from_millis(now_ms);
+        for client in &mut self.clients {
+            client.net.set_input_clock(now);
         }
     }
 
@@ -2523,8 +2536,8 @@ fn client_predict_stamps_target_tick_from_clock_and_resend_keeps_payload() {
 #[test]
 fn producer_batch_moves_and_places_bomb_with_controlled_fixture_clock() {
     // Mạng có trễ 100 ms nhưng thời gian do fixture điều khiển; target_tick được đặt
-    // tường minh theo tick server + 8 (đủ cho trễ 6 tick ở 60 Hz). Đây không phải
-    // `TimingMode::Virtual` giao ngay: `ScheduledTransport` chỉ giao khi `advance_to`.
+    // tường minh theo tick server + 4. Đây không phải `TimingMode::Virtual` giao ngay:
+    // `ScheduledTransport` chỉ giao khi `advance_to`.
     let out = ScheduledFaults {
         delay_ms: 100,
         ..ScheduledFaults::none()

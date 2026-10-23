@@ -474,9 +474,11 @@ Phần trên chỉ sửa bot QA; **client sản phẩm** vẫn dùng đường c
 - `ScheduledHarness` giữ `InputRetired` theo `round` của event (không lấy round hiện tại của
   authority); `input.retired`/`resolved` cùng đơn vị sequence.
 
-**Giới hạn:** `input_target_override` chỉ là test hook cho fixture đồng hồ ảo; production luôn
-`None`. Ước lượng dùng đồng hồ thật + RTT đo được, chưa có lead/budget latency mới; không suy
-từ test fixture sang SLA hay nghiệm thu V1-027. Số đo cũ ở bảng trên vẫn là của bot QA trước r2.
+**Giới hạn:** `input_target_override` và clock override chỉ là test hook cho fixture đồng hồ ảo;
+production luôn dùng `Instant::now` và target ước lượng thật. Clock test điều khiển chung
+snapshot_received_at, mốc gửi/nhận Ping và target để hai lần chạy cùng seed có cùng thứ tự frame.
+Ước lượng dùng đồng hồ thật + RTT đo được, chưa có lead/budget latency mới; không suy từ test
+fixture sang SLA hay nghiệm thu V1-027. Số đo cũ ở bảng trên vẫn là của bot QA trước r2.
 
 **Đo tham chiếu r2 (một run, không phải ma trận):** `scope-v1`, 2 bot, seed 1, head `f292fd7`
 (log/JSON `.re-work/qa-226-scope-v1-2-1.*`, không commit): exit 0, `converged=true`,

@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use boom_content::map::Terrain;
 use boom_content::rules::RulesProfile;
@@ -714,6 +714,8 @@ pub struct ScheduledHarness {
     /// minh"), không phải nguồn của client sản phẩm.
     out_faults: ScheduledFaults,
     in_faults: ScheduledFaults,
+    /// Gốc đồng hồ test dùng cho input clock của mọi client.
+    clock_origin: Instant,
     /// Sequence bị authority retire, kèm round và người chơi.
     ///
     /// Lấy từ `InternalServerEvent::InputRetired` do `Authority::advance_to` trả về, không
@@ -897,6 +899,7 @@ impl ScheduledHarness {
             duplicate_commands: 0,
             mismatches: 0,
             corrections: 0,
+            clock_origin: Instant::now(),
             rejects: 0,
             last_reject: None,
             out_faults,
@@ -1025,6 +1028,7 @@ impl ScheduledHarness {
     /// chạy tick, cuối cùng server gửi snapshot/event.
     pub fn tick(&mut self, dirs: [Dir; 2], bombs: [bool; 2]) {
         let now_ms = self.next_ms();
+        self.set_client_clocks(now_ms);
         // 1. Giao các frame đã đến hạn (snapshot/event của tick trước, input tới trễ).
         self.advance_network(now_ms);
         // 2. Client nhận message: chờ tới khi **mọi** frame server gửi đã được client xử lý
@@ -1091,6 +1095,7 @@ impl ScheduledHarness {
     pub fn drain(&mut self) -> u32 {
         for round in 0..200 {
             let now_ms = self.next_ms();
+            self.set_client_clocks(now_ms);
             self.advance_network(now_ms);
             // Chờ tới khi mọi frame server gửi đã được client xử lý (đồng hồ ảo đứng yên).
             self.pump_clients();
@@ -1237,6 +1242,14 @@ impl ScheduledHarness {
     }
 
     /// Mốc thời gian của tick kế tiếp (server tick `ticks`).
+    /// Đưa toàn bộ input clock của client về cùng mốc ảo của fixture.
+    fn set_client_clocks(&mut self, now_ms: u64) {
+        let now = self.clock_origin + Duration::from_millis(now_ms);
+        for client in &mut self.clients {
+            client.net.set_input_clock(now);
+        }
+    }
+
     fn next_ms(&mut self) -> u64 {
         let now = self.origin_ms + (self.ticks * 1_000) / u64::from(self.hz);
         self.ticks += 1;
