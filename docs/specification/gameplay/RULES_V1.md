@@ -766,3 +766,13 @@ Hệ quả:
   (mép dưới ô) — nhưng **không** chứng minh vùng ảnh canh đáy canvas.
 - f0/f1 **thay đổi được** (setter vf14): mọi mô hình coi f0/f1 là hằng số của sprite cần kiểm lại; frame
   record vẫn 48 B, 12 field.
+
+## § (đánh số khi merge) — RE KR 00967 — bomb pass từ phía object bom (R-154)
+
+Tiếp nối #146/Q-017, V1-012/013. Build KR `00967`; REA MCP bản sao `kr-full.exe`.
+Chi tiết/phạm vi ở [KR_RE_MOVEMENT](../../research/findings/KR_RE_MOVEMENT.md) và
+[evidence movement](../../evidence/measurements/kr-static-2026-10-21/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-154 | **Predicate passability của `CGOBomb` (chỉ thân hàm) + consumer `MoveSimple` đã đọc**: `CGOBomb` vtable `0x174426C` slot **+156** = `0xB37DB0` (RVA `0x737DB0`) trả `0` nếu `+328` (`0x148`) thuộc `{1,2}`; nếu không, trả flag `+152` của `CSensorTrigger` tại `+144` (`B38250`/`B38290`; `11982F0`), nên flag `+152 == 0` cũng cho predicate `0`. `B37150` ctor gọi `1198240(bomb+144,1)` (flag mặc định `1`); `B384E0` Init ghi `+328` từ **u8 descriptor+108** (`529C20`). **Trong thân `B37DB0` không đọc owner/player/overlap**; owner getter `B38370` (`+268`) chỉ có **xref 14 hàm**, chưa phân loại đủ 14 thân. `CMovable::MoveSimple` `0x1310200` — consumer đã trace thuộc **pet/AI** (R-134/R-135), **chưa** nối mover bomber — gọi virtual `+156` trên object ô đích, nhưng đường va chạm còn **OR `EA0FD0`** và các gate virtual **`+164`** phía trước; predicate khác `0` **không đủ** kết luận đi qua. Vì vậy **không** suy player/bomber grace, đi ra/vào, hay “không owner toàn hệ thống”; thời điểm mất pass/timer **unknown**. | — | `kr_static` / **confirmed** (predicate `B37DB0`, ctor/flag, nhánh `MoveSimple` có phạm vi pet/AI); **unknown** (đường bomber, nghĩa/giá trị `+328`, setter runtime, owner role, grace/timer, VN counterpart) | `B37DB0` (RVA `737DB0`); vtable `174426C` slot `+156`; `B38250`/`B38290`; `11982F0`; `1198240`; `B37150`; `B384E0`; `1310200`; `B38370`; evidence §R-154 |
