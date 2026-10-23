@@ -62,7 +62,7 @@ Pha đang hoạt động: **P1 Tìm thông tin còn thiếu, P2 Cấu trúc dự
 | P4 Nền móng/asset/oracle | Chờ review | assets/RE | Workspace nhỏ, content resolver và oracle fixture | Legacy vẫn chạy, content unknown rõ và schema phù hợp |
 | P5 Core/offline | Chờ review | core | Simulation/replay V1 | Rule scenarios/state hash tái lập và giới hạn nguồn rõ |
 | P6 Client hình/tiếng/input | Đang làm | client | Scene/animation/render/audio/input | Content/presentation contract và acceptance tương ứng |
-| P7 Authority/mạng/phòng | Chờ review | net/backend | Server/client round lifecycle | Authority/convergence, lifecycle và mạng có fixture |
+| P7 Authority/mạng/phòng | Đang làm | net/backend | Server/client round lifecycle | Authority/convergence, lifecycle và mạng có fixture |
 | P8 Tích hợp/QA/phát hành V1 | Đang làm | integrator/QA | V1 end-to-end trên3OS | Tất cả37feature V1done và6gate releasepassed |
 | P9 Mở rộng full feature | Chưa làm | integrator | Các đợt W1–W4 theo registry | Toàn bộ112mục trong baseline hiện hành done; scope mới phải revision riêng |
 <!-- PHASE_STATUS:END -->
