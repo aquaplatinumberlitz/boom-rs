@@ -226,14 +226,14 @@ gate virtual **`+164`** phía trước. Predicate khác `0` **không đủ** k�
 
 - **Không** suy được player/bomber đi ra, đi vào, grace hay “không owner toàn hệ thống” từ nhánh pet/AI.
 - **Trong thân `B37DB0` không đọc owner/player/overlap**. `B38370` (`+268`) là getter owner **candidate**;
-  nó có **xref 14 hàm**; mới phân loại **4/14** (`ACC340`, `AEF700`, `EB73D0`, `EB8000`), 10 thân còn lại **unknown**, và
+  nó có **14 callsite/xref**; đã đọc **4 hàm** (`ACC340`, `AEF700`, `EB73D0`, `EB8000`), các callsite còn lại **unknown**, và
   **không** được `B37DB0` gọi.
 - `+328` lấy từ descriptor+108; nghĩa/giá trị C00/C01, setter runtime và **thời điểm mất pass/timer**
   vẫn `unknown`. Không suy 40×40/assist từ pet.
 
 ### 9.3 Phân loại 4 caller của getter `B38370` (`+268`)
 
-Batch đọc 4 thân ưu tiên trong 14 xref (4/14); không đọc lại hàm R-154:
+Batch đọc 4 thân của lượt trước; không đọc lại hàm R-154:
 
 | Caller | Call `B38370` | Cách dùng `+268` | Kiểm collision/grace trực tiếp? |
 |---|---|---|---|
@@ -244,7 +244,7 @@ Batch đọc 4 thân ưu tiên trong 14 xref (4/14); không đọc lại hàm R-
 
 - Cả 4 thân chỉ thấy dataflow **descriptor/event, effect/flame hoặc bỏ kết quả**; **chưa thấy kiểm
   collision/grace trực tiếp** (không gọi trực tiếp predicate `B37DB0`, `EA0FD0`, flag `+152`/`+328`
-  hoặc `MoveSimple`). Helper/callee và **10 xref còn lại chưa loại trừ**.
+  hoặc `MoveSimple`). Helper/callee và **các callsite còn lại chưa loại trừ**.
 - Vì vậy **không tạo R-155**: chưa thấy kết nối trực tiếp `+268` vào collision/grace; player/bomber vẫn
   `unknown`, không nâng owner thành confirmed.
 
@@ -270,7 +270,7 @@ profile; không suy bomb luôn pass hay player pass.
 
 ### 9.5 Caller `B38370` mới — B3AE90 / B9A990 / E3 sites (2026-10-24)
 
-Tiếp #146, chỉ đọc thêm **3 nhóm callsite** trong 10 xref còn lại; không giải lại 4 thân đã đọc.
+Tiếp #146, chỉ đọc thêm **3 nhóm callsite**; xref của getter là **14 callsite**, không phải 14 hàm. Lượt trước đã đọc 4 thân; các nhóm site còn lại chưa phân loại, không suy “4 hàm ⇒ 10 hàm còn lại”.
 Provenance thật: batch `B3AE90`/`B9A990` subject
 `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; batch `B996B0`/`B9A3B0` và xref `B9A3B0` subject
 `/home/admin/boom-rs-dsh/re-kr2/.re-tmp/kr-full.exe`, DB copy `rea-ida-1e1Km8` (Codex xác nhận cùng
@@ -279,17 +279,18 @@ SHA `cf72da11…e63b`); E3 resolve subject boom-team, DB `rea-ida-GI3Raz`. Khôn
 | Call site | Containing function | Class/`this` | Dùng `+268` | Kết luận |
 |---|---|---|---|---|
 | `0xB3AECE` | `B3AE90` (RVA `0x73AE90`) | **candidate** effect/descriptor builder (`B3B150`); chưa có vtable proof | `B38370(this)` → `B3ADD0(owner)`, rồi chọn tên effect `BombRPGmonbomb`/`BombSprinklerb`/`BombRemotebomb`/`Bombdeco` | Chỉ **effect selector**; không thấy so player/overlap/grace |
-| `0xB9A99C`, `0xB9A9C8` | `B9A990` (RVA `0x79A990`) | **candidate** object/effect; class chưa chứng minh | `a = sub_1241780(B38370(this))`, `b = sub_1241780(sub_1240B00(0))`; ghi `this[172] = (a == b)` | Có **so hai kết quả transform**; helper chưa chứng minh nghĩa owner/local/team; **chưa** thấy collision/overlap/grace. `this[172]` = byte **+0x2B0 (688)**, không phải +172 |
-| `0xE3C4A2`, `0xE3C563` | `not_in_procedure` (IDA không nhận function) | chưa xác định | `E3C4A2`: owner → check `-1`, `sub_1243330(owner)`, virtual `+0xD0`; `E3C563`: owner vào chuỗi format | Chỉ thấy callsite/disasm; **không** kết luận hàm/class/consumer. `not_in_procedure` ≠ VM/không tồn tại |
+| `0xB9A99C`, `0xB9A9C8` | `B9A990` (RVA `0x79A990`) | **candidate** object/effect; class chưa chứng minh | **guard `B38370(this) != -1`**: khi khác `-1`, `a = 1241780(B38370(this))`, `b = 1241780(1240B00(0))`, ghi `this[172] = (a == b)`; nhánh `-1` **không ghi/không reset** | Có **so hai kết quả transform**; helper chưa chứng minh nghĩa owner/local/team; **chưa** thấy collision/overlap/grace. `this[172]` = byte **+0x2B0 (688)**, không phải +172 |
+| `0xE3C4A2`, `0xE3C563` | `not_in_procedure` (IDA không nhận function) | chưa xác định | chỉ có xref/resolve; **không** đọc body/disasm mới | Chỉ kết luận lookup không trả containing procedure; **không** kết luận class/consumer, không đồng nghĩa VM/không tồn tại |
 
 - `B9A3B0` gọi `B9A990` sau tính vị trí/rect; `B996B0` là wrapper kiểm `this[172]` rồi gọi lại.
   Chưa nối `this[172]` (byte `+0x2B0`) tới collision/grace; không suy từ tên field.
-- Helper vừa đọc (`ev_8134a6cc…`): `1240B00(this,a2)` đọc `this+68+12*a2`; `1241780(this,a2)` kiểm
-  `this[41]` rồi đọc `*(this+42)+792*a2+112`, ngoài range trả `-1`. Đây là hai **bảng/transform khác**;
-  chưa chứng minh owner/local/team, nên boolean `this[172]` vẫn **unknown**. Các index khác trong body
-  (`this[162/163/166/167/175/176]`) cũng là index `_DWORD*`, tương ứng byte +0x288/+0x28C/+0x298/
-  +0x29C/+0x2BC/+0x2C0; không nhầm với virtual slot.
-- **Không** mở 10 xref còn lại; helper/callee chưa đọc vẫn **unknown**. Không đổi player grace,
+- Helper vừa đọc (`ev_8134a6cc…`): `1240B00(this,a2)` **trả kết quả gọi `57A870` tại**
+  `this+68+12*a2`; thân này chưa trực tiếp chứng minh đọc giá trị hay nghĩa trường. `1241780(this,a2)`
+  guard `a2` trong `[0, this[41]-1]`, gọi accessor `529C60` trên `*(this+42)+792*a2+112`, ngoài range
+  trả `-1`. Semantics callee vẫn **unknown**, không gán local/team.
+- Các index khác trong body (`this[162/163/166/167/175/176]`) cũng là index `_DWORD*`, tương ứng byte
+  +0x288/+0x28C/+0x298/+0x29C/+0x2BC/+0x2C0; không nhầm với virtual slot.
+- **Không** mở các callsite còn lại; helper/callee chưa đọc vẫn **unknown**. Không đổi player grace,
   40×40/corner hay R-154. `+268` vẫn **candidate owner**, không phải owner confirmed.
 
 Evidence: `ev_0216a581…` batch B3/B9; `ev_1e18205f…` batch B996/B9A3; `ev_fb3ed4dd…` xref B9A990;
