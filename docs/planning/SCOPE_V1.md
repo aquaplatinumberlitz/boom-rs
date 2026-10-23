@@ -131,7 +131,10 @@ Scope đã quyết không có nghĩa gate đã xanh. Trạng thái G1–G6 lấy
 và hiện ở [PROGRESS](PROGRESS.md); spec này định nghĩa gate, không giữ một bảng trạng thái thủ công khác.
 G1 còn phải kiểm spawn không bị block và có đường thoát; tọa độ trong header chưa chứng minh điều đó.
 G3 bao gồm match duration/clock start và toàn bộ drop profile (xác suất có drop, trọng số, thời điểm
-hiện, flame-item, cap và pickup lúc đã cap). Clock bắt đầu khi loading barrier hoàn tất.
+hiện, flame-item, cap và pickup lúc đã cap). Loading barrier hoàn tất là mốc bắt đầu warmup/countdown
+theo rules; đồng hồ thời hạn lượt chỉ chạy sau warmup, nên warmup không ăn vào thời hạn lượt
+(R-113: `round.warmup_ms` 3000 ms, `oss`/design — quyết định áp dụng của V1, không phải timing
+`confirmed` KR).
 G6 yêu cầu toàn bộ37mục, kể cả persistence/log/audio/đối chiếu; một build chạy được chưa đủ để phát hành.
 Không cần đợi RE các mode later. Bắt đầu bằng asset closure, phép đo nhỏ và prototype offline trên nội dung đã chọn.
 
