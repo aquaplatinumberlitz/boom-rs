@@ -81,3 +81,27 @@ REA trước khi đóng, chỉ dùng làm mỏ neo tên lớp, không nằm tron
   hack `sub_E78350`; **không** phải fuse. Không suy fuse từ emulator.
 - `search_procedures`/`list_names` của REA không dùng được (timeout/không khai báo) nên việc tìm tên
   hàm dựa trên `idautils.Names()` qua IDA trực tiếp.
+
+## Lượt 2026-10-24 (phiên 2) — consumer message id 27 (blocker)
+
+Build KR `00967`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`,
+imagebase `0x00400000`, `RVA = VA − 0x400000`. REA `provider: ida` trên bản sao; 6 call/4 thân.
+
+| Vai trò | VA | RVA | Ghi chú |
+|---|---|---|---|
+| `CGOBomb` update (slot 24 vtable `0x174426C`) | `0x00B391E0` | `0x007391E0` | **không** gọi hàm hàng đợi; chỉ state/bật-nảy + slot `+176/+164/+168/+172` |
+| Push message (hàng đợi) | `0x00EC2420` | `0x00AC2420` | capacity `sub_EDB280`, đếm `queue+4`, copy `sub_ECB750`, thêm `sub_EBF450(sub_ED5270(queue))` |
+| Lấy danh sách hàng đợi | `0x00ED5270` | `0x00AD5270` | 5 caller: `EC1130`, `EC2420`, `ED28C0`, `ED6FD0`, `EDACC0` |
+| Thêm phần tử | `0x00EBF450` | `0x00ABF450` | dùng bởi push; không thấy trong update bom |
+| Helper quản lý hàng đợi | `0x00ED28C0`, `0x00ED6FD0` | `0x00AD28C0`, `0x00AD6FD0` | đăng ký global `word_16EC4CE` / xoá; không phải consumer |
+| Helper bị gọi từ map | `0x00EDACC0` | `0x00ADACC0` | chỉ `sub_EBD450`/`sub_EBD580` gọi |
+
+`evidence_id`: `ev_95b4134c1dd7e15ab9f0945903679892fb25c4b08ae13790a29cfebbfe744256` (batch
+`B391E0`+`EC2420`), `ev_5cbb597759f9b662872c323be8b13f064e01ac1ea1ffbf189d9f7a5380b59f39`
+(xref `ED5270`), `ev_2a48a8f2e0c60678a3ae4deb6249f66f57e28c939527f4cd765d2295756c972a` (batch
+`ED28C0`+`ED6FD0`), `ev_d6a164cad8e4a0a39a6541e7cce016d98b016a99ead6332cbe6755db1c5be6bc`
+(xref `EDACC0`). `0x00EDAC C0` (có space) là lỗi nhập của một lần gọi, không phải kết quả.
+
+**Kết luận lượt**: consumer message id 27 **không** ở update bom/helper hàng đợi; damage một lần hay
+cửa sổ, value/unit/cadence vẫn **unknown**. Blocker có phạm vi; bước tiếp là pump/dispatch bên ngoài.
+Không đổi `bomb.flame_ms`/`bomb.fuse_ms`.
