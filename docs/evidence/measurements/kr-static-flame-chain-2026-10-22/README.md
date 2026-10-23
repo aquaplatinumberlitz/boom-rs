@@ -122,7 +122,7 @@ Vtable đọc trực tiếp từ file `.re-tmp/kr-full.exe` (parse PE); artifact
 | `+0xA4` | 41 | `0x01744310` | `0x01344310` | `0x00B393D0` | `0x007393D0` | state 1; animation + `sub_E9C520` khi state 4; **chưa thấy** msg27/damage trực tiếp |
 | `+0xA8` | 42 | `0x01744314` | `0x01344314` | `0x00B39AF0` | `0x00739AF0` | state 2; animation + `sub_E9C520`; **chưa thấy** msg27/damage trực tiếp |
 | `+0xAC` | 43 | `0x01744318` | `0x01344318` | `0x00B3A3B0` | `0x0073A3B0` | state 3; ô + `sub_E9C520` + `sub_EA0790` với toạ độ ô kề (predicate/return **chưa đọc** — candidate); chưa thấy msg27/damage |
-| `+0xB0` | 44 | `0x0174431C` | `0x0134431C` | `0x00B3A790` | `0x0073A790` | nhánh 0/3/4; `sub_E9C520(this+36)` rồi gọi virtual `+200/+208` (chức năng **chưa xác nhận**); chưa thấy msg27/damage trực tiếp |
+| `+0xB0` | 44 | `0x0174431C` | `0x0134431C` | `0x00B3A790` | `0x0073A790` | nhánh 0/3/4: virtual `+200`/`+208` (chưa rõ chức năng), sau đó `E9C520` tại `B3AA67`; chưa thấy msg27/damage trực tiếp |
 
 Vtable base `0x0174426C` (CGOBomb; slot 24 = `0x00B391E0`). Bảng thứ hai `0x0174727C`: slot 43 =
 `0x00B994C0` (chưa đọc), slot 24/41/42/44 giống — **lớp/receiver chưa xác nhận** (không có RTTI/ctor riêng).

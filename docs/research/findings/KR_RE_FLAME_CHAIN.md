@@ -270,10 +270,9 @@ Bản vtable thứ hai `0x0174727C` cũng có slot 24 = `B391E0`, slot 41/42/44 
 ### 10.2. Quan sát 4 thân (đã đọc)
 
 - **`B3A790` (slot 44)**: lấy map `sub_E13290(*(this+106))`, tính ô từ `sub_B335C0/E0 / 40`, đặt
-  helper map, gọi **`sub_E9C520(this+36)`** (`0xB3AA67`) = `CalcBombDirectionExplosion` (R-139), rồi
-  gọi **virtual `+200/+208`** với tham số lấy từ thân; **chức năng hai virtual chưa xác nhận**
-  (`candidate`; chưa có locator/type proof cho hai virtual). **Chưa thấy** đọc/so message 27 hay kiểm
-  bomber/ô lửa trong thân.
+  helper map. **`B3A790` gọi virtual `+200` hoặc `+208` tại `B3A989`/`B3A9D0`; sau đó gọi
+  `sub_E9C520(this+36)` tại `B3AA67`.** Chức năng hai virtual **chưa xác nhận** (`candidate`);
+  **chưa thấy** dispatch/damage trực tiếp trong thân.
 - **`B393D0` (slot 41) và `B39AF0` (slot 42)**: máy trạng thái 0..4 + bảng animation
   (`dword_19A54D0/19A550C…`, `dword_19A5628/19A5650…`), cập nhật vị trí/nảy; khi state = 4 và bomb
   đúng ô thì gọi **`sub_E9C520`**. **Chưa thấy** đọc/so message 27 hay kiểm bomber/damage trong thân.
