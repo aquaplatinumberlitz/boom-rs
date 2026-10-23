@@ -18,10 +18,11 @@
 //! đặt bom của mình chỉ là **bóng chờ** ([`BombShadow`]), không vào state dự đoán.
 //!
 //! Về `target_tick` (ADR 0009 §3.2): mỗi `seq` được gán `target_tick` **một lần** và không đổi
-//! sau đó, nên payload bất biến khi resend. Công thức cụ thể hoá ở đây là
-//! `target_tick = tick của state dự đoán hiện tại`; công thức xấp xỉ trong ADR
-//! (`snapshot.tick + số tick local kể từ snapshot + 1`) không tính lệnh đang chờ nên dễ sinh
-//! `target_tick` trùng hoặc giảm theo `seq` — điều ADR 0009 §3.4(e) cấm.
+//! sau đó, nên payload bất biến khi resend. [`Predictor::predict_at`] cho caller gán
+//! `target_tick` theo ước lượng tick authority (ADR: `snapshot.tick + số tick local kể từ
+//! snapshot + 1`, cộng thêm trễ một chiều/lead nếu caller biết); [`Predictor::predict`] giữ
+//! dạng tương thích dùng tick state dự đoán. Cả hai kẹp `target_tick` không giảm theo `seq`
+//! (ADR 0009 §3.4(e)).
 //!
 //! Client tạo **một lệnh mỗi tick** (hướng đang giữ + cạnh bom của tick đó), nên cửa sổ 8 lệnh
 //! (ADR 0009 §3.5 `INPUT_REDUNDANCY` ≈ 133 ms) phủ RTT: lệnh đã gửi mà chưa ack vẫn nằm trong
@@ -68,6 +69,11 @@ pub struct PendingCommand {
     pub target_tick: u32,
     /// Byte hướng + cạnh bom.
     pub bits: InputBits,
+    /// Lệnh đã từng nằm trong một batch gửi hay chưa.
+    ///
+    /// Lệnh chưa gửi còn được tính lại `target_tick` khi lần đầu vào cửa sổ gửi; sau đó
+    /// payload bất biến (ADR 0009 §3.2).
+    pub sent: bool,
 }
 
 impl PendingCommand {
@@ -236,6 +242,9 @@ pub struct Predictor {
     shadows: Vec<BombShadow>,
     /// Sequence kế tiếp cấp; bắt đầu từ 1 cho mỗi `(round_id, player)`.
     next_seq: u32,
+    /// `target_tick` lớn nhất đã gán; dãy `target_tick` không giảm theo `seq`
+    /// (ADR 0009 §3.4(e)).
+    last_target_tick: u32,
     /// `snapshot_seq` lớn nhất đã áp.
     last_snapshot_seq: u32,
     /// Round hiện tại.
@@ -262,6 +271,7 @@ impl Predictor {
             pending: Vec::new(),
             shadows: Vec::new(),
             next_seq: 1,
+            last_target_tick: 0,
             last_snapshot_seq: 0,
             round_id: None,
             prev_snapshot: None,
@@ -406,6 +416,10 @@ impl Predictor {
     /// Lệnh mới nhận `seq` kế tiếp và `target_tick` bằng tick hiện tại của state dự đoán; giá trị
     /// này **không đổi** sau đó (payload bất biến khi resend, ADR 0009 §3.2).
     ///
+    /// Đây là dạng tương thích của [`Predictor::predict_at`] dùng tick state dự đoán. Caller có
+    /// đồng hồ server tốt hơn (ví dụ bot QA biết trễ một chiều của hồ sơ) nên gọi `predict_at`
+    /// để `target_tick` không cũ hơn server thật.
+    ///
     /// Trả về `Some(seq)` của lệnh vừa sinh, hoặc `None` khi chưa có state hoặc lượt đã kết thúc
     /// (lúc đó **không** sinh lệnh: server đã quyết kết quả).
     pub fn predict(&mut self, input: PlayerInput) -> Result<Option<u32>, PredictError> {
@@ -415,7 +429,29 @@ impl Predictor {
         if state.phase != Phase::Playing {
             return Ok(None);
         }
-        let target_tick = state.tick;
+        self.predict_at(input, state.tick)
+    }
+
+    /// Như [`Predictor::predict`] nhưng caller chỉ định `target_tick` của lệnh mới.
+    ///
+    /// Dùng khi caller ước lượng được tick authority lúc gói tin tới server (ví dụ
+    /// `snapshot.tick + tick trôi từ lúc nhận + trễ một chiều + lead`). `target_tick` được gán
+    /// **một lần** cho `seq` mới và không đổi khi resend (ADR 0009 §3.2). Giá trị được kẹp
+    /// không nhỏ hơn `target_tick` của lệnh trước để dãy không giảm theo `seq`
+    /// (ADR 0009 §3.4(e)).
+    pub fn predict_at(
+        &mut self,
+        input: PlayerInput,
+        target_tick: u32,
+    ) -> Result<Option<u32>, PredictError> {
+        let Some(state) = self.predicted.as_ref() else {
+            return Ok(None);
+        };
+        if state.phase != Phase::Playing {
+            return Ok(None);
+        }
+        let target_tick = target_tick.max(self.last_target_tick);
+        self.last_target_tick = target_tick;
         let seq = self.next_seq;
         self.next_seq = self
             .next_seq
@@ -426,6 +462,7 @@ impl Predictor {
             seq,
             target_tick,
             bits,
+            sent: false,
         });
         // Bóng bom chờ: presentation, **không** vào state dự đoán (ADR 0005).
         if input.place_bomb {
@@ -448,20 +485,54 @@ impl Predictor {
     /// Bắt đầu từ lệnh chưa ack nhỏ nhất còn giữ, tối đa `max` lệnh **liên tục** (ADR 0009
     /// §3.2): lệnh đã gửi nhưng chưa ack vẫn nằm trong cửa sổ để resend y nguyên payload.
     pub fn window(&self, max: usize) -> Vec<InputCommand> {
-        let mut out: Vec<InputCommand> = Vec::new();
-        for command in &self.pending {
-            if out.len() >= max {
+        let len = self.window_len(max);
+        self.pending[..len]
+            .iter()
+            .map(|command| command.to_command())
+            .collect()
+    }
+
+    /// Cửa sổ để **gửi**, gán `target_tick` cho lệnh chưa từng gửi tại đúng thời điểm gửi.
+    ///
+    /// ADR 0009 §3.2 cho phép tính/chỉnh `target_tick` của lệnh **chưa gửi**; chỉ khi lệnh
+    /// lần đầu vào batch thì payload mới bất biến. Cần vậy vì lệnh mới có thể phải chờ cửa
+    /// sổ trống (RTT cao ⇒ nhiều lệnh chưa ack); nếu giữ `target_tick` lúc tạo, lệnh tới
+    /// server muộn hơn `INPUT_LATE` và bị retire oan. Lệnh đã gửi giữ nguyên payload để
+    /// resend idempotent.
+    pub fn window_for_send(&mut self, max: usize, target_tick: u32) -> Vec<InputCommand> {
+        let len = self.window_len(max);
+        if len == 0 {
+            return Vec::new();
+        }
+        let mut next_target = target_tick.max(self.last_target_tick);
+        for command in &mut self.pending[..len] {
+            if !command.sent {
+                command.target_tick = command.target_tick.max(next_target);
+                command.sent = true;
+            }
+            next_target = next_target.max(command.target_tick);
+        }
+        self.last_target_tick = next_target;
+        self.pending[..len]
+            .iter()
+            .map(|command| command.to_command())
+            .collect()
+    }
+
+    /// Số lệnh liên tục từ lệnh chưa ack nhỏ nhất, tối đa `max`.
+    fn window_len(&self, max: usize) -> usize {
+        let mut len = 0;
+        for (index, command) in self.pending.iter().enumerate() {
+            if len >= max {
                 break;
             }
-            if let Some(last) = out.last()
-                && last.seq.checked_add(1) != Some(command.seq)
-            {
+            if index > 0 && self.pending[index - 1].seq.checked_add(1) != Some(command.seq) {
                 // Lỗ hổng sequence: dừng, không gửi batch sai cấu trúc (ADR 0009 §3.1).
                 break;
             }
-            out.push(command.to_command());
+            len += 1;
         }
-        out
+        len
     }
 
     /// Chuyển round: sequence input bắt đầu lại từ 1, lệnh và bóng của round cũ hết hiệu lực.
@@ -469,6 +540,7 @@ impl Predictor {
         self.pending.clear();
         self.shadows.clear();
         self.next_seq = 1;
+        self.last_target_tick = 0;
         self.last_snapshot_seq = 0;
         self.prev_snapshot = None;
         self.latest_snapshot = None;
@@ -708,6 +780,96 @@ mod tests {
         // `target_tick` không giảm theo `seq` (ADR 0009 §3.4(e)).
         assert!(window[0].target_tick <= window[1].target_tick);
         assert!(window[1].target_tick <= window[2].target_tick);
+    }
+
+    #[test]
+    fn predict_at_giu_target_do_caller_va_khong_giam() {
+        let mut predictor = Predictor::new(world(), 0).expect("predictor");
+        let state = two_player_state(7);
+        let snapshot = snapshot_of(&state, 1, 1);
+        predictor.apply_snapshot(&snapshot).expect("snapshot");
+        let input = PlayerInput {
+            dir: Dir::Right,
+            place_bomb: true,
+        };
+        predictor.predict_at(input, 10).expect("predict_at");
+        predictor.predict_at(input, 5).expect("predict_at");
+        let window = predictor.window(8);
+        assert_eq!(window.len(), 2);
+        assert_eq!(window[0].target_tick, 10);
+        // Không giảm theo `seq` dù caller đưa tick nhỏ hơn (ADR 0009 §3.4(e)).
+        assert_eq!(window[1].target_tick, 10);
+        // Resend y nguyên payload: cửa sổ không đổi khi đọc lại.
+        assert_eq!(window, predictor.window(8));
+    }
+
+    #[test]
+    fn predict_at_reset_target_theo_round() {
+        let mut predictor = Predictor::new(world(), 0).expect("predictor");
+        let state = two_player_state(7);
+        predictor
+            .apply_snapshot(&snapshot_of(&state, 1, 1))
+            .expect("snapshot");
+        predictor
+            .predict_at(
+                PlayerInput {
+                    dir: Dir::Right,
+                    place_bomb: false,
+                },
+                50,
+            )
+            .expect("predict_at");
+        predictor
+            .apply_snapshot(&snapshot_of(&state, 2, 1))
+            .expect("snapshot round 2");
+        predictor
+            .predict_at(
+                PlayerInput {
+                    dir: Dir::Left,
+                    place_bomb: false,
+                },
+                3,
+            )
+            .expect("predict_at");
+        assert_eq!(predictor.window(8)[0].target_tick, 3);
+    }
+
+    #[test]
+    fn window_for_send_gan_target_lan_dau_va_giu_payload() {
+        let mut predictor = Predictor::new(world(), 0).expect("predictor");
+        let state = two_player_state(7);
+        predictor
+            .apply_snapshot(&snapshot_of(&state, 1, 1))
+            .expect("snapshot");
+        let input = PlayerInput {
+            dir: Dir::Right,
+            place_bomb: false,
+        };
+        // Lệnh tạo với target cũ, chỉ được gán lại khi thực sự vào batch gửi.
+        predictor.predict_at(input, 2).expect("predict_at");
+        let first = predictor.window_for_send(8, 10);
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].target_tick, 10);
+        // Resend: target đã chốt, không đổi dù caller đưa tick lớn hơn.
+        let resend = predictor.window_for_send(8, 20);
+        assert_eq!(resend, first);
+
+        // Lệnh phải chờ cửa sổ (9 lệnh): chỉ 8 lệnh đầu vào batch, lệnh 9 được gán
+        // target tại lần gửi của chính nó, không phải lúc tạo.
+        predictor
+            .apply_snapshot(&snapshot_of(&state, 1, 2))
+            .expect("snapshot");
+        for _ in 0..9 {
+            predictor.predict_at(input, 3).expect("predict_at");
+        }
+        // Lệnh 1 đã gửi vẫn giữ target 10; các lệnh mới vào cửa sổ nhận target 30.
+        let window = predictor.window_for_send(8, 30);
+        assert_eq!(window.len(), 8);
+        assert_eq!(window[0].target_tick, 10);
+        assert_eq!(window[7].target_tick, 30);
+        predictor.acknowledge(8);
+        let later = predictor.window_for_send(8, 40);
+        assert_eq!(later[0].target_tick, 40);
     }
 
     #[test]
