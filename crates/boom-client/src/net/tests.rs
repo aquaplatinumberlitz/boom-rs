@@ -547,7 +547,11 @@ impl Harness {
     /// Một bước: client nhận snapshot và reconcile, dự đoán rồi gửi, server chạy tick.
     fn tick(&mut self, dirs: [Dir; 2]) {
         self.pump_clients();
+        // Test Harness này kiểm vị trí/dự đoán theo tick server; đặt target tường minh
+        // thay vì clock thật (test clock thật nằm ở `client_predict_stamps...`).
+        let target_tick = self.server.authority().tick().unwrap_or(0);
         for (index, client) in self.clients.iter_mut().enumerate() {
+            client.net.set_input_target_override(Some(target_tick));
             client
                 .net
                 .predict(PlayerInput {
