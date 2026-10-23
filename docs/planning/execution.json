@@ -178,7 +178,7 @@
       ],
       "verification": "Regression trước đây có hội tụ; sau sửa quan sát phải kiểm lại thực thi input. Chưa sign-off pha.",
       "blocker": "",
-      "next_action": "Submit-retire PR222 đã merge; phép đo sau fix cho resolved3627/retired3626 nên mở lại V1-027 ở issue226. Sửa rootcause producer/timing, giữ limits/contract; #219 xử lý flake helper; rồi review G4."
+      "next_action": "G4 và V1-027 đã sign-off sau PR230 + ma trận kiểm lại. P7 vẫn đang làm do dependency P6 và nghiệm thu pha riêng; không suy gate passed thành cả pha done."
     },
     {
       "id": "P8",
@@ -198,7 +198,7 @@
       ],
       "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": "Đang QA/nghiệm thu V1:34/37 done sau khi mở lại V1-027; V1-035/036 bị chặn. G1passed, G2–G6 chưa passed; không phát hành trước đủ acceptance."
+      "next_action": "35/37 V1 done; G1/G4 passed. Chờ V1-035 duyệt text/ảnh, V1-036 smoke gói cuối và sign-off G2/G3/G5/G6; chưa phát hành."
     },
     {
       "id": "P9",
@@ -268,17 +268,21 @@
     {
       "id": "G4",
       "title": "Protocol/state",
-      "status": "blocked",
+      "status": "passed",
       "owner": "core/net",
-      "reviewer": "Codex — yêu cầu sửa/kiểm lại issue226",
+      "reviewer": "dsh2 — sign-off độc lập issue226; Codex review code PR230",
       "evidence": [
         "docs/specification/QA_NETWORK.md",
         "git:743e8ea9cdf0b975eb55d814f84bfe75ad746ffc",
-        "git:4c17d85d0b660a9da2db30ab055e96bc6bd6ce15"
+        "git:4c17d85d0b660a9da2db30ab055e96bc6bd6ce15",
+        "git:e0dcdfc31e8eb49d0163bbb230eedb100db270df",
+        "git:ed16335c889e87fe23bf7a467f70524d11b03746",
+        "docs/decisions/0009-wire-protocol-input-snapshot-codec.md",
+        "crates/boom-client/src/net/tests.rs"
       ],
-      "verification": "PR222 đã sửa event retire; runfa1291b resolved3627/retired3626, chỉ1mẫuapplied. Converged không chứng minh input hoạt động. Cần rootcause/acceptance226, theo dõi219 và gate sign-off.",
-      "integration_commit": "",
-      "blocker": "V1-027 mở lại: lệnh input gần hết bị retire trong fixture scope-v1, cần kiểm producer/timing; chưa đặt latency budget pass."
+      "verification": "PR #230 r3 được Codex review độc lập; 12 job CI/smoke trên ba OS xanh. Sáu run scope-v1: 2/4 bot × seed 1/2/3, đủ hai lượt, hash và ack; 13.837 sequence resolved, 0 retire, không timeout, latency có mẫu áp dụng. dsh2 kiểm SHA, JSON, contract và sign-off V1-027/G4: https://github.com/aquaplatinumberlitz/boom-rs/issues/226#issuecomment-6371735581. Không đặt SLA hoặc nghiệm thu fidelity; chưa sign-off các gate khác.",
+      "integration_commit": "e0dcdfc31e8eb49d0163bbb230eedb100db270df",
+      "blocker": ""
     },
     {
       "id": "G5",
@@ -306,9 +310,9 @@
         "docs/planning/PROGRESS.md",
         "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
       ],
-      "verification": "V1-027 mở lại ở226; V1-035/V1-036 chưa done; G2–G5 chưa passed; còn gói cuối3OS/sign-off.",
+      "verification": "V1-027/G4 đã sign-off ở issue #226 sau PR #230 và ma trận kiểm lại. V1-035/V1-036 chưa done, G2/G3/G5 chưa passed; còn gói cuối trên ba OS và nghiệm thu release.",
       "integration_commit": "",
-      "blocker": "V1-027 mở lại ở226; V1-035/V1-036 chưa done; G2–G5 chưa passed; còn gói cuối3OS/sign-off."
+      "blocker": "V1-035/V1-036 chưa được nghiệm thu; G2/G3/G5 chưa passed; còn smoke gói cuối trên ba OS và sign-off."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"
