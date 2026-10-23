@@ -542,6 +542,30 @@ Quy tắc của file xuất (nguồn chuẩn vẫn là `catalog.csv`, không lư
   chung một `catalog_id`, và text có dấu tổ hợp (chưa chuẩn hóa NFC). Kiểm tra NFC **đầy
   đủ** nằm ở tool (`unicodedata`), loader chỉ chặn dấu tổ hợp.
 
+### 6.2 Trang review cục bộ (V1-035, issue #207)
+
+`tools/l10n_review_v1.py` dựng trang HTML **chỉ đọc** cho đúng 125 khóa §2, để chủ dự án
+duyệt tập khóa dùng trong V1. Mỗi dòng hiện khóa, ngữ cảnh, trạng thái/lý do chưa dùng,
+locator, text `ko`/`vi` lấy nguyên văn từ catalog nếu tra được, placeholder và ghi chú §2.
+Trang có lọc theo trạng thái và tìm khóa/ngữ cảnh; dòng `image-pending` liên kết tới công cụ
+duyệt ảnh cục bộ và ảnh KR/VN trong manifest, kèm trạng thái `images_review.csv` hiện có.
+Trang **không** ghi quyết định duyệt, không tạo nguồn text thứ hai và không thay
+`catalog.csv`/`data/l10n/vi-v1.toml`.
+
+Chạy từ root repo:
+
+```sh
+python3 tools/l10n_review_v1.py
+xdg-open local/l10n-review-v1.html
+```
+
+Mặc định đọc `/home/admin/boom-re-l10n/l10n/catalog.csv` và thư mục
+`/home/admin/boom-re-l10n/l10n/.cache/image-review/`; đổi bằng `--catalog`, `--images`,
+`--out`. Output nằm trong `local/` (đã Git bỏ qua), không commit HTML hay ảnh. Nếu thiếu
+catalog/manifest/ảnh, tool in cảnh báo dễ đọc và trang ghi rõ phần thiếu; không tự chọn ảnh
+thay thế. Đây là bản xem, không phải danh sách quyết định duyệt: nguồn chuẩn vẫn là §2,
+`catalog.csv` và file `vi-v1.toml` do tool xuất.
+
 ## 7. RE trace UI V1 (2026-10-23, R-152)
 
 Lượt [#150](https://github.com/aquaplatinumberlitz/boom-rs/issues/150) / Q-021; build KR `00967`
