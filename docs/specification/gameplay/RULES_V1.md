@@ -724,6 +724,17 @@ Hệ quả:
   rảnh, không đuổi mức thấp nhất; V1 đang mô hình ngược lại (ưu tiên + bỏ mức thấp nhất). Đề xuất giữ
   design V1 (8 voice) nhưng ghi khác biệt, không tự đổi.
 
+## § (đánh số khi merge) — RE KR 00967 — ItemAttr reader và bảng trọng số (R-153)
+
+Tiếp nối #149/Q-007/Q-020, V1-016. Build KR `00967`; REA MCP bản sao `kr-full.exe`.
+R-150 (BomberAttr/E9E660) giữ nguyên, không lặp; chi tiết ở
+[KR_RE_BOMBERATTR](../../research/findings/KR_RE_BOMBERATTR.md) và
+[evidence item](../../evidence/measurements/kr-static-item-2026-10-21/README.md).
+
+| ID | Claim | Giá trị | Nguồn / trạng thái | Locator |
+|---|---|---|---|---|
+| R-153 | **ItemAttr: loader + reader id; bảng trọng số 0x8000, reader chưa thấy trong phạm vi literal** — `CItemResourceMan` loader `0x1196A70` (RVA `0xD96A70`, segment `.priv`) đọc bảng item `+244048` stride **192** (`0xC0`), count `+244036`; row `+84` = item id, `+20` tên; `sub_1197900` tìm row theo `+84` (xref **7 hàm**; **đã đọc 4 thân**: `E84CD0`, `6B3FA0`, `B978B0`, `B98250` — dùng id cho model/UI; **3 thân còn lại** `FFFA70`/`1191DD0`/`1192700` và tác dụng bắc cầu helper/virtual **unknown**). Trong 4 thân đã đọc không thấy đọc weight/placement; **không** suy cho 3 thân còn lại. Bảng group `+28` stride **244** (`0xF4`), count `+16`; group `+148` (`0x94`) = số slot; loader tạo mảng `0x8000` byte tại `+436048` (`0x6A750`): khởi tạo `0xFF`, mỗi group ghi **group index** vào `[offset, offset+count)`, offset cộng dồn, cap `≤0x7FFF`; **không chia tổng** ⇒ không phải phần trăm. Quét **literal displacement** `+0x6A750` trên disassembly: chỉ **2** hit, cả hai trong loader (write) ⇒ **chưa thấy reader trong phạm vi quét literal này**. Không loại trừ alias/base điều chỉnh, địa chỉ tính toán, helper, indirect hoặc VM; không chứng minh client chọn item/drop. Placement: `B479E0`/`B4C9D0` tạo item model trên bomber (`this+513`) từ id; `E84CD0` đọc byte user-info/character, không phải map drop/brick. Weight ≠ %; placement ≠ xác suất gạch. | — | `kr_static` / **confirmed** (loader, kích thước/stride, id `+84`, lookup `1197900`, fill bảng 0x8000); `candidate` (vai trò group/6 tên đặc biệt); `unknown` (reader ngoài phạm vi literal, client drop vs server placement, nghĩa `+96..+180`, cap, 35%) | `1196A70` (RVA `D96A70`); `+244036`/`+244048` (0x3B944/0x3B950); `+16`/`+28`; `+148` (0x94); `+436048` (0x6A750); `1197900`; `E84CD0`; `6B3FA0`; `B978B0`; `B479E0`/`B4C9D0`; evidence §R-153 |
+
 ## § (đánh số khi merge) — RE KR 00967 — render: accessor frame, neo tile và lớp Static/Adjust (R-209…R-211)
 
 Đọc tĩnh cho [#201](https://github.com/aquaplatinumberlitz/boom-rs/issues/201) / Q-002/Q-003, V1-030/031
