@@ -245,14 +245,14 @@ REA binding IDA trên bản sao; evidence: `ev_95b4134c…`, `ev_5cbb5977…`, `
 - **Không** đổi `bomb.flame_ms`/`bomb.fuse_ms`; không lấy `B711C0` (animation) làm TTL damage, không
   lấy `2500`/`500` làm gốc.
 
-## 11. Lượt 2026-10-24 (phiên 2) — virtual callee của `CGOBomb` update: không xử lý message 27/damage
+## 10. Lượt 2026-10-24 (phiên 2) — virtual callee của `CGOBomb` update: chưa thấy dispatch/damage trực tiếp trong thân đã đọc
 
 Câu hỏi hẹp #148: bốn slot virtual mà `CGOBomb` update `0xB391E0` gọi (byte `+164/+168/+172/+176`)
 có xử lý message 27 hoặc kiểm bomber-vs-ô-lửa/damage không. Build KR `00967`,
 SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, base `0x00400000`.
 Không đọc lại `B391E0`/`EC2420`/`EC1130`/`ED28C0`/`ED6FD0`/`MoveSimple`; dùng call context đã có.
 
-### 11.1. Vtable và slot (đọc bytes PE, không phải decompile)
+### 10.1. Vtable và slot (đọc bytes PE, không phải decompile)
 
 `CGOBomb` vtable base `0x0174426C` (ctor proof R-154). Kiểm lại từ file: dword tại slot 24 của bảng
 này = `0x00B391E0`, khớp update; các entry liên quan:
@@ -267,25 +267,29 @@ này = `0x00B391E0`, khớp update; các entry liên quan:
 Bản vtable thứ hai `0x0174727C` cũng có slot 24 = `B391E0`, slot 41/42/44 giống, **slot 43 =
 `0x00B994C0`** (biến thể lớp khác; chưa đọc). Không suy entry của receiver khác.
 
-### 11.2. Quan sát 4 thân (đã đọc)
+### 10.2. Quan sát 4 thân (đã đọc)
 
 - **`B3A790` (slot 44)**: lấy map `sub_E13290(*(this+106))`, tính ô từ `sub_B335C0/E0 / 40`, đặt
   helper map, gọi **`sub_E9C520(this+36)`** (`0xB3AA67`) = `CalcBombDirectionExplosion` (R-139), spawn
-  effect qua slot `+200/+208`; không đọc/so message 27, không kiểm bomber/ô lửa.
+  effect qua slot `+200/+208`. **Chưa thấy** đọc/so message 27 hay kiểm bomber/ô lửa trong thân.
 - **`B393D0` (slot 41) và `B39AF0` (slot 42)**: máy trạng thái 0..4 + bảng animation
   (`dword_19A54D0/19A550C…`, `dword_19A5628/19A5650…`), cập nhật vị trí/nảy; khi state = 4 và bomb
-  đúng ô thì gọi **`sub_E9C520`**; không đọc/so message 27, không kiểm bomber/damage.
-- **`B3A3B0` (slot 43)**: tính ô, gọi **`sub_E9C520`**, đặt `this[73] = sub_EA0790(...)` (kiểm object
-  ở ô kề — nhánh dây chuyền, không phải bomber); không đọc message 27/damage.
-- Cả bốn là **đường phát** ô nổ/effect/animation, không phải consumer message 27.
+  đúng ô thì gọi **`sub_E9C520`**. **Chưa thấy** đọc/so message 27 hay kiểm bomber/damage trong thân.
+- **`B3A3B0` (slot 43)**: tính ô, gọi **`sub_E9C520`**, đặt `this[73] = sub_EA0790(...)` cho object ở
+  ô kề. `EA0790` **chưa đọc** nên **chưa xác nhận** đây là kiểm bomber hay object/type khác — giữ
+  **candidate**, không tự loại bomber. **Chưa thấy** đọc message 27/damage trong thân.
+- Trong bốn thân đã đọc, không thấy consumer message 27; chúng gọi `E9C520` (đăng ký ô) và/hoặc chạy
+  animation/effect. **Không** kết luận toàn bộ callee/virtual bên trong là producer.
 
-### 11.3. Kết luận / unknown
+### 10.3. Kết luận / unknown
 
-- Bốn virtual callee của update **không** xử lý message 27 và **không** kiểm bomber-vs-ô-lửa/damage;
-  chúng gọi `E9C520` (đăng ký ô → message 27) và/hoặc chạy animation/effect.
+- **Chưa thấy** dispatch/message 27 hoặc kiểm bomber-vs-ô-lửa/damage **trực tiếp** trong **bốn thân
+  đã đọc**. Không phủ định callee/virtual bên trong (chưa đọc) và không kết luận cả bốn chắc chắn chỉ
+  là producer.
 - **Không** kết luận toàn update/bom không có damage: các callee khác của `E9C520`, consumer message
   27 và đường flame/bomber vẫn chưa nối. Damage **event-time hay cửa sổ** vẫn `unknown`.
 - Không thấy giá trị/đơn vị damage trong các thân này; chỉ thấy hằng ô **40 px** và bảng animation.
   Không dùng `500`/`2500` ms hay `B711C0` làm luật damage.
-- Ngân sách dùng: **2 call batch decompile (4 thân)**, 1 lần mở REA; đọc vtable bằng bytes file
-  (không tính call native). Không có claim RULES mới (Codex giữ file).
+- Ngân sách: **2 call batch**, **3 thân mới** (`B3A790`, `B3A3B0`, `B39AF0`) + **1 đọc lại**
+  `B393D0` (đã có trong clone dsh1 `.re-work/evidence-r154-bombpass-146.json`, `ev_5d06d1…`), 1 lần
+  mở REA; vtable đọc bytes file. Không có claim RULES mới (Codex giữ file).
