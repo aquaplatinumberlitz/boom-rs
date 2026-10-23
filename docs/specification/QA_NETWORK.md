@@ -478,6 +478,13 @@ Phần trên chỉ sửa bot QA; **client sản phẩm** vẫn dùng đường c
 `None`. Ước lượng dùng đồng hồ thật + RTT đo được, chưa có lead/budget latency mới; không suy
 từ test fixture sang SLA hay nghiệm thu V1-027. Số đo cũ ở bảng trên vẫn là của bot QA trước r2.
 
+**Đo tham chiếu r2 (một run, không phải ma trận):** `scope-v1`, 2 bot, seed 1, head `f292fd7`
+(log/JSON `.re-work/qa-226-scope-v1-2-1.*`, không commit): exit 0, `converged=true`,
+`drained=true`, `timed_out=false`; `sent=2087` batch, `resolved=1831` sequence, `retired=0`,
+latency p50/p95 = 87/112 ms (1831 mẫu), RTT p50/p95 = 158/194 ms (22 mẫu), `rejected=28` batch,
+`room_rejected=1`. Đây chỉ là quan sát hồi quy trên Linux local, **không** đặt ngưỡng latency,
+không thay ma trận sáu tổ hợp và không chứng minh G4/V1-027.
+
 ## Giới hạn
 
 - Harness đo **bản Rust hiện tại**, không kết luận gì về độ trùng khớp với client/server gốc
