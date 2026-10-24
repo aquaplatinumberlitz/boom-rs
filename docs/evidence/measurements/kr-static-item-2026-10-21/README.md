@@ -1,4 +1,4 @@
-# Đo tĩnh KR 00967 — item/cap (2026-10-21, cập nhật 2026-10-22)
+# Đo tĩnh KR 00967 — item/cap (2026-10-21, cập nhật 2026-10-24)
 
 Metadata cho lượt điều tra [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149) / Q-020.
 **Chưa tạo claim `kr_static` có consumer**: chưa định vị consumer của hiệu ứng Bomb/Fire/Roller,
@@ -115,7 +115,7 @@ REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63
 |---|---|---|
 | Loader `CItemResourceMan` | `0x01196A70` (RVA `0x00D96A70`, `.priv`) | native 197 dòng; caller `0x123292B` |
 | Item table | `+244048` (`0x3B950`) | stride `0xC0`=192, count `+244036`; row `+8`, tên `+20`, **id `+84`**, 8 dword `+96..+180` |
-| Lookup item | `0x01197900` | tìm row theo `+84`; xref 7 hàm, **chỉ 4 thân đã đọc** (`E84CD0`/`6B3FA0`/`B978B0`/`B98250`); 3 thân + bắc cầu helper/virtual unknown |
+| Lookup item | `0x01197900` | tìm row theo `+84`; xref7hàm, **bảy thân đã đọc** qua hai lượt (bốn model/UI và ba caller R-153 bên dưới); effects bắc cầu helper/virtual còn unknown |
 | Group table | `+28` (`0x1C`) | stride `0xF4`=244, count `+16`; `+148`=số slot |
 | Bảng 0x8000 | `+436048` (`0x6A750`) | fill `0xFF`; ghi group index theo `[offset,offset+count)`, cap `0x7FFF`, **không chia tổng** |
 | Reader bảng 0x8000 | — | **chưa thấy trong phạm vi quét literal** `+0x6A750`: 2 hit, cả hai loader (write); alias/base điều chỉnh/address computed/helper/indirect/VM chưa loại trừ |
@@ -124,8 +124,8 @@ REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63
 
 **Kết luận:** `kr_static` confirmed loader/table/id/lookup và fill bảng 0x8000; **không** confirmed
 sự vắng mặt reader toàn bộ — chỉ **chưa thấy trong phạm vi quét literal** (alias/address computed/
-helper/indirect/VM chưa loại trừ). `candidate` vai trò group; `unknown` reader ngoài phạm vi, 3 thân
-caller chưa đọc, client drop vs server placement, nghĩa 8 dword, cap, 35%. `weight ≠ %`;
+helper/indirect/VM chưa loại trừ). `candidate` vai trò group; `unknown` reader ngoài phạm vi và effects
+bắc cầu helper/virtual trong ba caller đã đọc, client drop vs server placement, nghĩa 8 dword, cap, 35%. `weight ≠ %`;
 `placement ≠ xác suất gạch`; không suy từ R-051 hay 35% server.
 
 | `evidence_id` | Operation | Dùng cho |
@@ -139,7 +139,7 @@ caller chưa đọc, client drop vs server placement, nghĩa 8 dword, cap, 35%. 
 
 ### R-153 — 3 caller còn lại của lookup `1197900` (2026-10-24)
 
-Batch 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 thân cũ. Bundle
+Batch bổ sung ba thân còn lại trong bảy xref; không giải lại loader/lookup/bốn thân cũ. Bundle
 `.re-work/evidence-r153-three-callers-149.json`.
 
 | Caller | Call `1197900` | Kết quả trong phần thân đã đọc | Row `+96..+180`? |
@@ -149,8 +149,9 @@ Batch 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 th�
 | `1192700` | `0x1192983` | gán `v47`; **không thấy dùng lại trong toàn bộ 227 dòng**; dispatcher item-use/ability theo id | không thấy trực tiếp |
 
 - Chỉ kết luận trong **3 phần thân đã đọc**: chưa thấy stat/cap/pickup từ row; chúng dùng **id** cho
-  model/ability; `1191D20`/virtual +380 là helper chưa mở.
-- **Không tạo R-155**; helper/callee `1191D20`/virtual +380 chưa phân tích vẫn **unknown**.
+  model/ability; coverage dispatch `1191D20` được cập nhật ở checkpoint24/10 bên dưới, virtual+380 chưa resolve.
+- **Không tạo claim consumer mới**; dispatch `1191D20` đã đọc tại checkpoint bên dưới, effects
+  bắc cầu callee và virtual+380 vẫn **unknown**.
   Không suy client không có cap/không có stat từ 3 hàm.
 
 | `evidence_id` | Operation | Dùng cho |
@@ -159,3 +160,28 @@ Batch 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 th�
 | `ev_2cade073ec807e286c6ad46eac544ff77b2c9a94da901b14f9884e3aa41b49ec` | `procedure_pseudo_code` `1191DD0` | full 22 dòng |
 | `ev_bfe93de33e65ed3c8e56badd29bf9b64ff9299026b1b536139613d8212ff060e` | `procedure_pseudo_code` `1192700` | 227 dòng pseudocode đầy đủ |
 | `ev_7761a81f92fb0a7db078057fbc8dd0409aa56dd23e7c3915976160b8fe6980c0` | `analyze_function` `1192700` | giới hạn 100 instruction; không thêm kết luận |
+
+## Checkpoint helper1191D20 — 2026-10-24 (#149)
+
+Source `kr_static`, kết luận consumer **candidate/unknown**; không đổi R-153/profile. PE KR00967
+SHA `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, base0x400000.
+REA metadata báo open nhưng truy cập trả `Session not found`; không rebind/mở worker IDA mới.
+`binary_overview` không phải probe được IDA hỗ trợ. Lượt này dùng objdump PE-copy read-only.
+
+- `1191D20` dispatch trên arg0..7; đọc tới `1191DAA`, jump-table bytes tới `1191DCE`.
+  Gọi các entry `B49F40/B49FA0/B4A000/B4A040/B4A0D0/B4A150/B4A1D0`; không gán kiểu stat từ tên.
+- Raw target range **B49F40–B4A21A** có12thân đủ tới ret + prefixB4A210; cùng dispatcher là
+  **13thân đầy đủ +1prefix**. Batch đã vượt mốc4thân, được ghi nhận và dừng; không đếm một lệnh
+  objdump thành một thân. Không cấp thêm phân tích trong checkpoint này.
+- Trong bytes đã đọc có slot `+600/+618/+624/+63C/+648/+654`, clear `+26E4/+26E8`, ghi `+26B8`,
+  và call `529C60/55FD30`/virtual `+31C/+320`. **Chưa thấy trực tiếp** row `+96..+180`, `cur+1`
+  hoặc cap. Effects của callee/virtual chưa đọc ⇒ không phủ định stat/cap trong toàn callgraph.
+- Exact receiver/vtable của virtual **+380** trong callerFFFA70 còn unknown; target chưa resolve.
+  Không đọc lại ba caller đã cache, không quét literal/table lớn hoặc VM.
+
+Raw private clone `re-kr/.re-work/`: `item149-1191D20.asm` SHA
+`06d03c70b21271b66efa849677d38162ceebad6881637c587922d8ece7a2ab67`;
+`item149-1191D20-targets.asm` SHA
+`94c7ef3afe42b89accae72a5c77803f1ec9e2f7675cb62024d92f3ba789ebb46`.
+Bước tiếp: chứng minh receiver +380 hoặc dataflow từ item tới stat/cap; reuse các ranges trên.
+Không gọi helper là “chỉ model, không stat/cap”; root149 vẫn partial.

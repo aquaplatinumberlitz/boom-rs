@@ -44,8 +44,41 @@ không đổi cấu hình âm thanh toàn máy. Phép kiểm ghi nhận **đư�
 - GUI tương tác/network room→match trên Windows/macOS, DPI/desktop/backend khác.
 - Khôi phục đúng kích thước cửa sổ trên WM X11, và hành vi dưới kích thước canvas tối thiểu.
 - So đủ cue/BGM vòng lặp qua nhiều round; nghe qua phần cứng, performance và minimum hardware.
-- G2/G3 profile/fidelity và final package 3 OS chưa được kết luận từ đợt này.
+- G2/G3 profile/fidelity và nghiệm thu toàn bộ V1-036 còn mở; kết quả gói QA ba OS ở mục dưới.
 
 Các lỗi fixture tìm cửa sổ trước khi map và capture đầu không có đối chứng movement bị loại khỏi
 kết luận focus. Lượt thử defer resize không sửa được WM restore; code đã bỏ workaround đó.
 Không dùng những lượt setup lỗi để chứng minh chức năng chạy.
+
+## Gói QA ba OS từ đúng code đã review
+
+[Workflow40069259503](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40069259503)
+đã thành công (check + ba job package). Ref `fix/v1-window-ux-253`, head
+`28dad286c467a870c3047ff21b26ce82c654f2fc`, phiên bản `qa-20261024-28dad28`; code đã review độc lập
+và tích hợp qua PR255 (`796284d422baf14f2c0ab0c27a78100bc335c2f1`). Không tạo tag/GitHub Release.
+
+Đã tải ba archive và ba smoke-log, mở archive thật và chạy `check_package.py check` trên từng gói;
+đối chiếu9hash trong từng log với file đã mở (tổng27), version/head/fingerprint, kết luận10case/OS.
+[Metadata đầy đủ](package-qa.json). Archive/log giữ local tại worktree
+`/home/admin/boom-rs-wt/qa-checkpoints-253/local/package-qa-40069259503/`.
+
+| Archive | Byte | SHA-256 archive (không phải wrapper artifact GitHub) | Smoke/hash |
+|---|---:|---|---|
+| `boom-rs-qa-20261024-28dad28-linux-x86_64.tar.gz` | 5,229,858 | `1e348edd8b19fd23278c3b12e9d37788eed6a5a5220d0a14633c1c4b773d6d50` | 10/10, 9hashfile khớp |
+| `boom-rs-qa-20261024-28dad28-macos-aarch64.tar.gz` | 4,617,642 | `43cf1be236de3e4b36588ad4776abd39a5b6b0cafb5f68dde2287851edf1e5da` | 10/10, 9hashfile khớp |
+| `boom-rs-qa-20261024-28dad28-windows-x86_64.zip` | 4,368,500 | `ecd4e6d6a3e47ddc32eead7802acd1766dc3fff25f10b5194017f331f322bc28` | 10/10, 9hashfile khớp |
+
+Cả ba cùng profile `kr00967-v1-dev`, package-rules-hash `0xb357d66b1d761f89`, rules file SHA
+`3344e6b07451c79be36b4ffd78e7fc7b70be15342f2921d4fee2967da90dc2a6`, l10n SHA
+`fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960`.
+`health --offline` trả scopeoffline/statusunhealthy/contenthash0 là ngữ cảnh không chạy server,
+**không** phải bằng chứng live server healthy hoặc content hash của bundle game.
+
+Binary Linux **lấy từ archive** đã mở thêm snapshot room2× trên Xvfb/llvmpipe,1600×1200;
+RGBA bằng chính xác snapshot debug đã kiểm. Binary SHA và ảnh hash ở metadata. Không gọi lần này
+là GPU thật; không dùng Wine để chạy gói Windows hoặc giả GUI macOS đã kiểm.
+
+Đây là **gói QA/dev**: rules còn `release=false`/candidate theo ADR0013, chưa chọn minimum hardware,
+chưa nghiệm thu G2/G3/G5/G6 hoặc toàn bộ V1-036. Gói chỉ có Rust binaries/data/font/license;
+check chặn game pack/binary/media. Bằng chứng smoke ba OS đã có, không tiếp tục ghi “chưa smoke gói cuối”
+như blocker cũ; các giới hạn về GUI/hardware/profile vẫn phải ghi rõ khi chốt bản phát hành.

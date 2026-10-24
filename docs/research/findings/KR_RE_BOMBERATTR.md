@@ -48,8 +48,9 @@ nhặt item. f8–f10 được đọc tiếp (f8 = 10, f9 = 100, f10 thay đổi
   (`0x6E27B0`, `0x853A70`, `0xB349A0`, `0xDBFAC0`, `0xFB6920`, `0xFB8250`, `0x11499A0`,
   `0x1211140`, `0x12DA350`) dùng giá trị này như **availability/khởi tạo character** (ví dụ
   `0xB349A0` chọn nhánh theo giá trị; `0x6E27B0` lặp 0x2000 để lập bảng), **không** đọc f2–f7.
-- Vì vậy **không có consumer** cho f2–f7 trong phạm vi đã quét; không được dùng bảng này làm
-  base/max cho Bomb/Fire/Roller hay speed. R-042 vẫn là `candidate` (nghĩa trường), R-117 vẫn giữ
+- Vì vậy **không có consumer** cho f2–f7 trong phạm vi đã quét; chưa đủ gọi base/max của
+  Bomb/Fire/Roller hay speed là confirmed. Profile V1 vẫn chọn cấp candidate theo ngoại lệ
+  [ADR0013](../../decisions/0013-rule-source-precedence.md). R-042 vẫn là `candidate` (nghĩa trường), R-117 vẫn giữ
   cấp (level), không đổi sang px.
 
 ## 10.4 Item path Bomb/Fire/Roller
@@ -128,15 +129,15 @@ SHA-256 `cf72da11…e63b`.
 
 - `sub_1197900` tìm row item theo **`+84`**: `for i < count(+244036): if sub_57A870(row_i + 84) == id return row_i`; không thấy thì trả row 0.
 - Xref của lookup có **7 hàm**: `0xE84CD0`, `0x6B3FA0`, `0xB978B0`, `0xB98250`, `0xFFFA70`, `0x1191DD0`,
-  `0x1192700`. **Chỉ 4 thân đã đọc**: `E84CD0` đọc byte user-info/character rồi tạo model; `6B3FA0`,
-  `B978B0`, `B98250` tạo/đọc item model/UI từ id. Trong 4 thân này **không** thấy đọc weight/placement.
-  **3 thân còn lại** (`FFFA70`, `1191DD0`, `1192700`) và tác dụng bắc cầu của helper/virtual vẫn **unknown**;
-  xref 7 hàm không phải 7 thân đã đọc.
+  `0x1192700`. **Cả bảy thân đã đọc qua hai lượt**: bốn thân đầu `E84CD0`/`6B3FA0`/`B978B0`/
+  `B98250` dùng item model/UI từ id; ba thân `FFFA70`/`1191DD0`/`1192700` được bổ sung trong bảng
+  R-153 bên dưới. Chưa thấy đọc trực tiếp weight/placement trong các thân này; **effects bắc cầu**
+  của helper/virtual vẫn unknown. Số xref tự nó không chứng minh coverage; ở đây có hai lượt đọc đã ghi.
 - `B479E0` gọi `B978B0(this+513, id, 0)` — item model gắn vào bomber (slot/held); **chưa thấy** đường map drop.
 
 ### Ba caller còn lại của lookup `1197900` (2026-10-24)
 
-Batch đọc 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 thân cũ:
+Lượt bổ sung đã đọc ba thân còn lại trong bảy xref; không giải lại loader/lookup/bốn thân cũ:
 
 | Caller | Call | Dùng row trả về | Kết luận trong thân |
 |---|---|---|---|
@@ -146,9 +147,9 @@ Batch đọc 3 thân chưa đọc trong 7 xref; không giải lại loader/looku
 
 - Trong **3 thân** không thấy đọc trực tiếp `+96..+180`/weight/placement hay stat/cap/pickup từ row;
   chúng dùng **id** để chọn model/ability. `1192700` đã đọc đủ **227 dòng pseudocode**; `v47` chỉ được gán.
-  `1191D20`/virtual +380 là helper chưa phân tích, chưa loại trừ.
-- Đây là kết luận **giới hạn trong 3 thân**; helper/callee `1191D20`/virtual +380 chưa phân tích vẫn **unknown**.
-- **Không tạo R-155**: chưa có consumer mới đọc row field hoặc áp stat/cap; player/cap vẫn unknown.
+  Trước checkpoint helper24/10, dispatch `1191D20` chưa đọc; coverage mới ở mục cuối, effects bắc cầu/virtual+380 vẫn unknown.
+- Đây là kết luận **giới hạn trong 3 thân**; effects bắc cầu helper/virtual +380 vẫn **unknown**.
+- **Không tạo claim stat/cap mới**: chưa có consumer đọc row field hoặc áp stat/cap; player/cap vẫn unknown.
 - `1192700` có nhánh item-use/ability, nhưng không đọc row ItemAttr; không suy effect stat.
 
 ### Bảng trọng số 0x8000
@@ -178,7 +179,7 @@ for group in groups:
 - `kr_static` **confirmed**: loader native, stride/count, item id `+84`, lookup `1197900`, và việc
   loader fill bảng 0x8000. **Không** confirmed sự vắng mặt reader toàn bộ.
 - `candidate`: vai trò group table và 6 tên đặc biệt `off_19A6354` (một tên `LucciPocketGold`).
-- `unknown`: reader ngoài phạm vi literal, 3 thân caller chưa đọc và bắc cầu helper/virtual; client
+- `unknown`: reader ngoài phạm vi literal và effects bắc cầu helper/virtual trong ba caller đã đọc; client
   chọn drop hay chỉ hiển thị placement server; nghĩa 8 dword item `+96..+180`; cap nhặt; xác suất 35%
   (không suy từ weight). Không đọc thêm 35% server.
 
@@ -193,6 +194,14 @@ for group in groups:
 | `ev_584dffb25e7eb71990bb6f3e50663c6c29ee83765161796cb8523af156559181` | `batch_decompile` `1196960`/`11970E0`/`1197900` | lookup id `+84` |
 | `ev_04618990e2e75ab6277b4cf65fa2d0d01c245685b1374e711c332e9f4707ec95` | `batch_decompile` `E84CD0`/`B978B0`/`B98250`/`6B3FA0` | consumer model/UI |
 | `ev_563814aa2dd0ce9050c19671db0233f91fd6decff136c9c1c7b504a9c82e08f0` | `batch_decompile` `B479E0`/`B4C9D0` | item model bomber |
-| `ev_be2b7b9e7c911bab723341f747844a7fd1576ef3793f088b1118fba1b43d7682` | `xrefs` `1197900` | 7 xref; chỉ 4 thân đã đọc |
+| `ev_be2b7b9e7c911bab723341f747844a7fd1576ef3793f088b1118fba1b43d7682` | `xrefs` `1197900` | 7 xref; bảy thân đã đọc qua hai lượt, effects bắc cầu còn unknown |
 | `ev_21c2be2fcc6cc7f66194b179dc3f4baa59c4845e26a91db432e97cf46870f4e6` | `xrefs` `1196A70` | caller `123292B` |
 | `ev_3234408243c47bec6d8034fb6a1f347331e1673e45bd46527a127ec24dc8562c` | `xrefs` `B978B0` | 2 caller model |
+
+## Checkpoint24/10: dispatch helper đã đọc, consumer còn thiếu
+
+`kr_static` / candidate: đã đọc dispatch `1191D20` và các slot-accessor liền kề bằng PE-copy
+cùng SHA, chưa thấy stat/cap **trực tiếp**; effects callee/virtual chưa chứng minh. Virtual+380 vẫn
+chưa resolve receiver/target. [Evidence/ranges/SHA và giới hạn budget](../../evidence/measurements/kr-static-item-2026-10-21/README.md#checkpoint-helper1191d20--2026-10-24-149).
+Reuse cache này; không quay lại bước “1191D20 chưa đọc” hoặc phủ định toàn callgraph.
+Không đổi R-153, không tạo claim consumer hoặc giá trị luật mới.

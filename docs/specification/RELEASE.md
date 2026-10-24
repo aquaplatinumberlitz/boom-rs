@@ -91,6 +91,14 @@ Ngoài `release.yml`, `.github/workflows/ci.yml` chạy **mọi PR**:
 | `ci` | `cargo xtask ci` + `python tools/check_package.py test` (tự kiểm công cụ đóng gói) trên cả ba OS |
 | `smoke` | build debug → `pack` → `smoke` → upload artifact `smoke-log-<os>` (§3.2) |
 
+### Gói QA đã kiểm ngày2026-10-24
+
+Workflow[40069259503](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40069259503) từ
+head`28dad286c467a870c3047ff21b26ce82c654f2fc` đã ra ba archive version`qa-20261024-28dad28`.
+Mỗi OS đạt10ca smoke từ archive,27hashfile tổng cộng đã đối chiếu sau tải/mở gói; Linux còn kiểm
+snapshot2× bằng binary từ archive. [Hash/size/giới hạn](../evidence/measurements/rust-client-ux-2026-10-24/README.md#gói-qa-ba-os-từ-đúng-code-đã-review).
+Đây là QA/dev với `release=false`, không tag/Release, chưa thay nghiệm thu V1-036/G6 hoặc minimum hardware.
+
 ### 3.1 Công cụ đóng gói (`tools/check_package.py`)
 
 Một script, sáu lệnh (offline, không gọi mạng):
@@ -271,12 +279,12 @@ Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (f
 | Client (Windows/macOS) | không cần thư viện hệ thống ngoài | build release.yml |
 | Server | SQLite `bundled` ⇒ không cần cài libsqlite3 | [ADR 0011](../decisions/0011-identity-persistence-log-v1.md) §10 |
 | Binary trong gói chạy được trên OS của gói | `boom-server --help`/`content`/`health --offline` và `boom-client --help` chạy từ `bin/` của gói đã mở | smoke 3 OS trong `ci.yml` + `release.yml` (§3.2) |
-| Dung lượng gói | chưa đo (xem phần chưa đo) | — |
+| Dung lượng gói | Đã đo archive QA ba OS ngày24/10; không phải ước tính minimum disk/RAM | [Metadata QA](../evidence/measurements/rust-client-ux-2026-10-24/package-qa.json) |
 
 ### Chưa đo (phải đo trước khi phát hành)
 
 - Cấu hình máy tối thiểu (CPU/RAM/GPU) — câu hỏi mở của V1-036, chưa có phép đo.
-- Kích thước gói và thời gian build trên máy người dùng (chỉ đo trên runner CI).
+- Thời gian build/mở gói trên máy người dùng (build mới đo trên runner CI); dung lượng archive QA đã ghi trong metadata.
 - Hiệu năng render/cấu hình tối thiểu trên GPU thật: kiểm vận hành RTX3060 ngày24/10 đã có,
   chưa benchmark FPS/latency hoặc đại diện minimum hardware.
 - UX đa OS, khôi phục kích thước sau fullscreen trên WM X11 và nghe qua soundcard thật.
