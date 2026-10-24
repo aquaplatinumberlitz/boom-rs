@@ -156,7 +156,7 @@
       ],
       "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
       "blocker": "",
-      "next_action": "Client hình/tiếng/input/UI đã có; cue trapped #206/PR213 đã sửa và merge. Còn duyệt text/ảnh V1-035 và sign-off presentation, giữ rõ giới hạn DESIGN/chưa hiệu chuẩn KR."
+      "next_action": "V1-035 đã nghiệm thu và tích hợp PR241; còn sign-off runtime UX/presentation thuộc G5 (focus/nhả phím, scale/window/fullscreen, input/volume, playtest/SFX). Không giao lại duyệt text/ảnh đã hoàn thành."
     },
     {
       "id": "P7",
@@ -194,11 +194,13 @@
       "integration_commit": "",
       "evidence": [
         "docs/planning/PROGRESS.md",
-        "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
+        "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9",
+        "git:43739e2fa6abe09f28457f218648141113cd2fb4",
+        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d"
       ],
-      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
+      "verification": "Đã đối chiếu registry sau PR241/243:36/37 V1 done. PR249 bổ sung phép đo VN và hiệu chuẩn lửa đã được review/CI; không cấp nghiệm thu pha/gate mới.",
       "blocker": "",
-      "next_action": "35/37 V1 done; G1/G4 passed. Chờ V1-035 duyệt text/ảnh, V1-036 smoke gói cuối và sign-off G2/G3/G5/G6; chưa phát hành."
+      "next_action": "36/37 V1 done; V1-035 đã nghiệm thu, G1/G4 passed. Còn V1-036 smoke gói cuối và sign-off G2/G3/G5/G6; chưa phát hành."
     },
     {
       "id": "P9",
@@ -243,9 +245,11 @@
       "evidence": [
         "docs/decisions/0013-rule-source-precedence.md",
         "docs/specification/gameplay/RULES_V1.md",
-        "data/rules/v1-dev.toml"
+        "data/rules/v1-dev.toml",
+        "docs/evidence/measurements/vn-player-grace-2026-10-24/README.md",
+        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d"
       ],
-      "verification": "DESIGN speed/hitbox/time đã được chọn ở ADR0013; KR bomber consumer còn thiếu là fidelity gap. Cần sign-off Attr/candidate và profile release, không lấy pet/AI làm bomber.",
+      "verification": "DESIGN speed/hitbox/time đã được chọn ở ADR0013; KR bomber consumer còn thiếu là fidelity gap. Cần sign-off Attr/candidate và profile release, không lấy pet/AI làm bomber. PR249 đã tích hợp quan sát owner grace VN R-155 có review độc lập; non-owner/timer còn mở, không dùng phần pet/AI làm bomber.",
       "integration_commit": "",
       "blocker": ""
     },
@@ -259,9 +263,11 @@
         "docs/specification/gameplay/RULES_V1.md",
         "data/rules/v1-dev.toml",
         "fixtures/scenarios/round/warmup_freezes_round.toml",
-        "git:bcd6362b64ff2145d85706aadb14e1e3ff3b99e5"
+        "git:bcd6362b64ff2145d85706aadb14e1e3ff3b99e5",
+        "docs/evidence/measurements/vn-flame-window-2026-10-24/README.md",
+        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d"
       ],
-      "verification": "Luật hiện hành có nguồn/scenario; clock wording đã khớp R113 ở PR216. Còn sign-off boundary/profile phát hành (release=false), không đòi RE xong.",
+      "verification": "Luật hiện hành có nguồn/scenario; clock wording đã khớp R113 ở PR216. Còn sign-off boundary/profile phát hành (release=false), không đòi RE xong. PR249/dsh1 APPROVE head0e4141bf3ded4e2b12041e09c7792eb7560a736a và12CI/smoke3OS xanh: R-156 owner-only đã đo, R-158 hiệu chuẩn540ms/17tick. Đây là review thay đổi luật, chưa phải sign-off gate G3.",
       "integration_commit": "",
       "blocker": ""
     },
