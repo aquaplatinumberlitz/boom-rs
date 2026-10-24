@@ -108,6 +108,11 @@ impl Atlas {
     /// `origin` là góc trên-trái của vùng map trong không gian logic (HUD chiếm
     /// dải phía trên); toạ độ đích của lệnh vẽ tính trong không gian map.
     pub fn draw(&self, item: &DrawItem, origin: (f32, f32)) {
+        self.draw_scaled(item, origin, 1.0);
+    }
+
+    /// Vẽ UI vừa khung với cùng tỷ lệ hai chiều; đường vẽ map vẫn dùng scale 1.
+    pub fn draw_scaled(&self, item: &DrawItem, origin: (f32, f32), scale: f32) {
         let Some(texture) = self.pages.get(item.page as usize) else {
             return;
         };
@@ -117,6 +122,10 @@ impl Atlas {
             origin.1 + item.dest.y as f32,
             WHITE,
             DrawTextureParams {
+                dest_size: Some(macroquad::prelude::vec2(
+                    item.source.width as f32 * scale,
+                    item.source.height as f32 * scale,
+                )),
                 source: Some(Rect::new(
                     item.source.x as f32,
                     item.source.y as f32,

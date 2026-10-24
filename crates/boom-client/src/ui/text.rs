@@ -84,8 +84,8 @@ mod tests {
     #[test]
     fn missing_key_shows_placeholder_not_invented_text() {
         let texts = Texts::embedded();
-        // `login.title` là `unknown` trong file chuỗi → placeholder.
-        assert_eq!(texts.get("login.title"), "«login.title»");
+        // Tiêu đề đã được duyệt; chỉ khóa không tồn tại mới còn placeholder.
+        assert_eq!(texts.get("login.title"), "Đăng nhập");
         // Khóa không có trong file cũng ra placeholder, không phải chuỗi rỗng.
         assert_eq!(texts.get("app.khong_ton_tai"), "«app.khong_ton_tai»");
         // Khóa có trong file nhưng chưa có text ≠ khóa không có trong file.

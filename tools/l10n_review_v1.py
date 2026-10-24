@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tạo trang HTML review cục bộ cho 125 khóa UI V1.
+"""Tạo trang HTML review cục bộ cho 126 khóa UI V1.
 
 Nguồn (chỉ đọc, không sửa):
 
@@ -519,7 +519,7 @@ def render_html(
             + f'<td><div class="small muted">{esc(row.section)}</div>{esc(row.context)}</td>'
             + f'<td>{status_badge(row.status)}<div class="small">{reason_text(row)}</div></td>'
             + f'<td class="locator">{catalog_cell(catalog_lookup)}</td>'
-            + f'<td class="text-cell">{text_cell(catalog_lookup.ko if catalog_lookup else None, "ko")}</td>'
+            + f'<td class="text-cell">{text_cell(catalog_lookup.ko if catalog_lookup else None, "en" if catalog_lookup and catalog_lookup.catalog_id.startswith("boom_rs_v1.") else "ko")}</td>'
             + f'<td class="text-cell">{text_cell(catalog_lookup.vi if catalog_lookup else None, "vi")}</td>'
             + f'<td class="placeholder">{placeholder_html(catalog_lookup)}</td>'
             + f'<td class="locator">{image_cell(images, image_dir, image_dir / "index.html", image_dir / "manifest.json")}</td>'
@@ -612,7 +612,7 @@ Sinh lúc: {esc(generated)} — output nằm trong thư mục đã Git bỏ qua,
 <table>
 <thead><tr>
 <th>Khóa V1</th><th>Ngữ cảnh</th><th>Trạng thái / lý do</th><th>Locator catalog</th>
-<th>KO (nguồn)</th><th>VI (nguồn)</th><th>Placeholder</th><th>Ảnh / công cụ review</th>
+<th>Nguồn (KR / DESIGN EN)</th><th>VI (nguồn)</th><th>Placeholder</th><th>Ảnh / công cụ review</th>
 <th>Yêu cầu hiển thị / ghi chú §2</th>
 </tr></thead>
 <tbody>
@@ -657,11 +657,48 @@ def text_cell(value: str | None, lang: str) -> str:
     return f'<div class="text" lang="{esc(lang)}">{esc(value)}</div>'
 
 
+def approved_images_html(image_manifest: dict | None, image_dir: Path) -> str:
+    """Ảnh thật bundle sẽ dùng; tách khỏi các locator text dự phòng."""
+    import tomllib
+    path = ROOT / "data/assets/ui-vi-v1.toml"
+    if not path.is_file():
+        return ""
+    decisions = tomllib.loads(path.read_text(encoding="utf-8"))
+    base_ui = tomllib.loads((ROOT / "data/assets/ui-v1.toml").read_text(encoding="utf-8"))
+    entries = {row["id"]: row.get("entry") for row in base_ui["elements"]}
+    parts = ['<section id="approved-images"><h2>Ảnh Việt hóa đã duyệt</h2>',
+             '<p>Chủ dự án duyệt ngày 2026-10-24. Đây là nguồn ảnh cho bundle Việt hóa; '
+             'chữ catalog ở trên vẫn là dự phòng. Ảnh Win/Lose dùng nhãn Thắng/Thua.</p>']
+    for item in decisions["images"]:
+        paths = []
+        if item["kind"] == "png":
+            paths = [ROOT / "local/l10n-assets" / item["file"]]
+        elif image_manifest is not None:
+            logical = entries.get(item["id"], "")
+            if logical:
+                pack, entry = logical.split("/", 1)
+                found = image_manifest.get((pack, entry), {})
+                paths = [image_dir / image["full"] for image in (found.get("vn") or {}).get("images", [])]
+        parts.append('<div><h3>' + esc(item["id"]) + '</h3><code>SHA256 ' + esc(item["sha256"]) + '</code><br>')
+        for asset in paths:
+            if asset.is_file():
+                url = file_uri(asset)
+                parts.append('<a href="' + esc(url) + '"><img style="max-width:300px;max-height:180px" src="' + esc(url) + '" alt="' + esc(item["id"]) + '"></a>')
+            else:
+                parts.append('<span class="muted">Chưa có file local: ' + esc(asset) + '</span>')
+        parts.append('</div>')
+    parts.append('</section>')
+    return "".join(parts)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--spec", type=Path, default=SPEC_PATH, help="file UI_STRINGS_V1.md")
     parser.add_argument("--catalog", type=Path, default=CATALOG_PATH, help="catalog Việt hóa")
     parser.add_argument("--images", type=Path, default=IMAGE_REVIEW_DIR, help="thư mục review ảnh cục bộ")
+    parser.add_argument("--image-decisions", type=Path,
+                        default=Path("/home/admin/boom-re-l10n/l10n/images_review.csv"),
+                        help="quyết định duyệt thật; nếu chưa có thì dùng mẫu CSV ở cache")
     parser.add_argument("--out", type=Path, default=OUT_PATH, help="file HTML cục bộ cần ghi")
     args = parser.parse_args()
 
@@ -684,7 +721,8 @@ def main() -> int:
         warnings.extend(catalog_warnings)
         catalog_rows = sum(len(value) for value in catalog.values()) if catalog else None
         manifest = load_image_manifest(args.images / "manifest.json", warnings)
-        image_statuses = load_image_review(args.images / "images_review.csv", warnings)
+        decisions = args.image_decisions if args.image_decisions.is_file() else args.images / "images_review.csv"
+        image_statuses = load_image_review(decisions, warnings)
 
         counts = Counter(row.status for row in rows)
         text = render_html(
@@ -701,6 +739,7 @@ def main() -> int:
             warnings,
             args.out,
         )
+        text = text.replace("</footer>", "</footer>" + approved_images_html(manifest, args.images), 1)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(text, encoding="utf-8")
     except (export.ExportError, OSError) as error:
