@@ -56,16 +56,15 @@ observation** theo nghĩa đó, không phải claim toàn hệ thống.
 Proper Wine `winedbg --gdb` (i386), byte gate 16B `6a50…8b83` @`0x7324c0`; entry/return `0x6e9aee`
 trước Left. Owner-only, map Ocean01, một case mỗi mốc:
 
-| Case | Trap native | N/frame | N0 sau RET | frame18 start | Kết quả |
+| Case | Tọa độ native tại capture | N/frame | N0 sau RET | frame18 start | Kết quả |
 |---|---|---|---:|---:|---|
-| good200 | x50,y39 | 1 / 18 | 531.084441 ms | 504.432797 ms | trapped |
+| good200 | x50,y39 (sample) | 1 / 14 | 531.084441 ms | 504.432797 ms | trapped |
 | phase12 | x50,y39 | 1 / 18 | 535.176555 ms | 492.810326 ms | trapped |
 | phase13 | x50,y39 | 0 / 19 | 561.943179 ms | 530.836641 ms | alive, no trap/no120 |
 
 - **Frame 18 harm / frame 19 expired** ⇒ cửa sổ tồn tại thật owner-only, không chỉ animation. Native XY
   decode+checksum đối chiếu getter `0x58D56D` EAX=40 lúc spawn `(40,39)`; **không dùng getter KR**.
-- Animation lifetime/frame scalar ≠ damage TTL; mapping field ms sang Rust (`tick+flame_ticks-2`,
-  active/clear) đang review root/dsh1, **không** ghi engine `500` là hằng số.
+- Animation lifetime/frame scalar ≠ damage TTL; R-158 chọn540ms cho V1 tại30Hz và tính đủ số tick; đây là hiệu chuẩn, không phải hằng timer native.
 - Evidence/CSV: [`vn-flame-window-2026-10-24`](../../evidence/measurements/vn-flame-window-2026-10-24/README.md),
   [samples.csv](../../evidence/measurements/vn-flame-window-2026-10-24/samples.csv).
 - Giới hạn: owner-only; chưa non-owner, chưa repeated, chưa exact TTL/range; fixture provenance đã biết.

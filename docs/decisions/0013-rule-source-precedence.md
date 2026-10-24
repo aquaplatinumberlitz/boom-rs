@@ -26,7 +26,7 @@ riêng, không phải quy tắc candidate KR luôn thắng OSS hoặc confirmed.
 ## So khớp đại lượng và áp dụng ngay
 
 [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)
-R-110…R-118 là bảng lựa chọn **mọi khóa** của `data/rules/v1-dev.toml`.
+R-110…R-118 và R-158 là bảng lựa chọn **mọi khóa** của `data/rules/v1-dev.toml`.
 Khôi phục round 120000 ms, tile 40 px, Bomb/Fire +1 và trọng số 3650/2800/2000.
 R-051 confirmed số trong bảng, **vai trò bảng còn unknown** (R-052): dùng cho drop ba item V1 là
 quyết định áp dụng riêng, không gọi trọng số là phần trăm hay xác suất drop gốc.
@@ -34,7 +34,8 @@ quyết định áp dụng riêng, không gọi trọng số là phần trăm ha
 Giữ tick server 30 Hz: R-013 30 ms/bước **client** không xác nhận tick server.
 Giữ timer trap 4000 ms: R-026 6359 ms giữa **packet** có xử lý/gửi, không xác nhận timer nội bộ.
 Giữ speed 24 px/s/level vì raw checksum R-043 chưa xác thực; cấp tốc độ không phải vận tốc.
-Fuse/lửa/chance/hitbox/assist/touch/warmup giữ BnB vì chưa có confirmed cùng đại lượng.
+Fuse/chance/hitbox/assist/touch/warmup giữ BnB vì chưa có confirmed cùng đại lượng.
+Lửa dùng hiệu chuẩn R-158 theo bổ sung24/10 bên dưới.
 Roller +1 giữ OSS design; không nâng R-045 candidate. Nhịp clip KR 100 ms giữ design riêng
 vì BnB không cung cấp timing clip này. Không dùng asset tồn tại để xác nhận consumer.
 
@@ -63,3 +64,16 @@ Profile đổi identity/hash; client/server/replay phải cùng rules. Fixture `
 không dự kiến đổi golden. CI xanh chỉ chứng minh regression, không chứng nhận fidelity.
 Phương án giữ BnB đè confirmed bị bác theo quyết định mới; phương án bỏ VN bị bác vì tầng 2 được giữ.
 Đảo quyết định bằng ADR mới, giữ claim và bằng chứng lịch sử.
+
+## Bổ sung 2026-10-24 — dùng phép đo động VN cho cửa sổ lửa
+
+Chủ dự án xác nhận kết quả đo động client VN dùng được làm nguồn luật, gần ngang phân tích tĩnh KR.
+Không chờ đo lại KR hoặc chứng minh lại toàn bộ fixture trước khi dùng quan sát VN có build, điều kiện
+và giới hạn rõ. R-155/R-156 xác nhận hành vi owner và cửa sổ lửa; không suy non-owner hoặc timer ms cố định.
+
+Riêng `bomb.flame_ms`, thay fallback BnB bằng hiệu chuẩn V1 **540ms**, R-158 (`design`): ba capture
+vùng lửa hết sau khoảng531–562ms từ native return, có đối chứng counter18 trúng/counter19 sống.
+Không đổi19update native thành19tick Rust. 540ms làm tròn lên17tick tại30Hz; lửa sống đủ17tick kể cả
+tick tạo, `until = created + ticks - 1`. Đây là lựa chọn ánh xạ có chủ ý theo số đo, không đổi nhãn
+bằng chứng thành “native chứa hằng540ms”. Phần giảm TTL ngay lúc tạo của R-109 không còn áp dụng;
+chain, phá gạch/item và các phần khác giữ nguyên. Fuse và timer nhốt vẫn theo R-115.

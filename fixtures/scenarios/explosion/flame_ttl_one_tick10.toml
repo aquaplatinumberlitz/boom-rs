@@ -1,8 +1,7 @@
-# Biên TTL một tick, vụ nổ ở **tick 10** (không phải tick 0): cùng kết luận với tick 0 —
-# lửa đã hết hạn ngay trong tick nổ nên không có ô lửa, không ai bị nhốt; blast vẫn phá gạch.
-name = "flame_ticks = 1: vụ nổ ở tick 10 không có lửa, không gây sát thương"
+# R-158: tuổi lửa tính cả tick tạo; một tick vẫn nhốt người, tick kế tiếp hết lửa.
+name = "flame_ticks = 1: gây sát thương đúng tick nổ 10"
 features = ["V1-014", "V1-015", "V1-020"]
-claims = ["R-023", "R-030", "R-033", "R-109"]
+claims = ["R-156", "R-158"]
 status = "active"
 ticks = 13
 overlays = ["../../rules/flame-ttl-one.toml"]
@@ -34,28 +33,28 @@ count = 1
 [[expect]]
 tick = 11
 event = "player_trapped"
-count = 0
+count = 1
 
 [[expect]]
 tick = 11
 at = [1, 1]
-flame = false
+flame = true
 
 [[expect]]
 tick = 11
 at = [2, 1]
-flame = false
+flame = true
 
 [[expect]]
 tick = 11
 at = [3, 1]
-flame = false
+flame = true
 kind = "floor"
 
 [[expect]]
 tick = 11
 player = 0
-life = "alive"
+life = "trapped"
 
 [[expect]]
 tick = 12

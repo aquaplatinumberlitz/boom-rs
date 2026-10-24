@@ -122,6 +122,16 @@ class PrecedenceTests(unittest.TestCase):
         self.assertTrue(any("tầng thấp hơn" in error and "grid.tile_px" in error
                             for error in errors), errors)
 
+    def test_flame_calibration_cannot_revert_to_bnb_or_claim_native_ms(self):
+        # Native counter18/19 supports a DESIGN mapping, not a confirmed ms literal.
+        for override in (
+            {"source": "oss", "status": "design", "claims": ["R-103", "R-115"]},
+            {"source": "vn_runtime", "status": "confirmed", "claims": ["R-156"]},
+        ):
+            with self.subTest(override=override):
+                errors = self.errors({"bomb.flame_ms": override})
+                self.assertTrue(any("bomb.flame_ms" in error for error in errors), errors)
+
     def test_candidate_cannot_override_confirmed(self):
         errors = self.errors({"grid.tile_px": {"source": "kr_static", "status": "candidate"}})
         self.assertTrue(any("grid.tile_px" in error for error in errors), errors)

@@ -251,8 +251,8 @@ sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
   đã bị BnB đè (ví dụ vòng 120→180 s); nay về lại giá trị gốc, **bằng chứng gốc không bị hạ nhãn**.
 - **Vẫn theo BnB** (`oss` / `design`) vì chưa có nguồn `confirmed` cùng đại lượng: nhịp tick
   **30 Hz** (R-113 — R-013 chỉ đo bước *client*, không xác nhận tick server), warmup **3 s**
-  (R-113), tốc độ **24 px/s mỗi cấp** (R-114 — R-043 còn `candidate`), fuse/lửa/nhốt
-  **2500/500/4000 ms** (R-115 — R-026 là khoảng packet, không phải timer nội bộ), hộp va chạm
+  (R-113), tốc độ **24 px/s mỗi cấp** (R-114 — R-043 còn `candidate`), fuse/nhốt
+  **2500/4000 ms** (R-115 — R-026 là khoảng packet, không phải timer nội bộ), hộp va chạm
   **26×26 px** / assist **12 px** / khoảng chạm **28 px** (R-116), Roller **+1 cấp** (R-111),
   xác suất gạch có item **35%** (R-112 — R-053 `unknown`).
 - **`design` riêng** (BnB **không** cung cấp cùng đại lượng, nên **không** phải lựa chọn từ BnB):
@@ -269,3 +269,17 @@ và [ADR 0013](../decisions/0013-rule-source-precedence.md).
 
 **Số liệu không suy ra từ phần trăm.** Tỷ lệ feature `done` và số claim `confirmed` **không**
 phải % fidelity; xem [REWRITE_PLAN §Nguyên tắc fidelity](REWRITE_PLAN.md#nguyên-tắc-fidelity-và-đo-nguồn).
+
+### 10.4 Cửa sổ lửa theo phép đo VN — 2026-10-24
+
+Theo quyết định chủ dự án, dùng phép đo động VN trực tiếp. R-155 xác nhận owner đi ra khỏi bom
+rồi không vào lại; R-156 xác nhận cửa sổ lửa, cùng tọa độ x50/y39: counter18 trúng, counter19 sống.
+Phạm vi là owner/build/mode được đo, chưa suy non-owner hoặc damage lặp sau khi đã nhốt.
+
+V1 thay riêng lựa chọn lửa của R-115 và boundary TTL của R-109 bằng **R-158**: hiệu chuẩn540ms,
+ceil17tick ở30Hz, tính cả tick tạo (`until=created+ticks-1`). Đối chứng native hết vùng hoạt động
+sau khoảng531–562ms từ return; 540ms là lựa chọn tích hợp có sai số theo tick, không phải hằng
+native hoặc phép đổi19update VN thành19tick Rust. Fuse/trap, chain, phá gạch/item giữ lựa chọn cũ.
+Metadata và scalar đối chứng ở [evidence VN](../evidence/measurements/vn-flame-window-2026-10-24/README.md).
+Giới hạn animation clip/hướng vẽ lửa trong G-02 vẫn còn; không lấy field lifetime để tuyên bố đã khớp
+mọi đuôi hiệu ứng native. Gate/feature progress vẫn theo execution.json/features.json.

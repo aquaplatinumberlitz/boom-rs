@@ -1,9 +1,7 @@
-# flame_ms 500 = 30 tick ở 60 Hz. BnB (game.js:448–451) giảm ttl của vụ nổ **ngay trong tick
-# nổ**, nên lửa có mặt ở `flame_ticks - 1` = 29 tick: lửa sinh ở tick 10 (step 11) còn tới hết
-# step 39, mất ở step 40.
-name = "Lửa tồn tại bomb.flame_ms trừ một tick vì bị giảm ngay lúc nổ"
+# Fixture 60 Hz/500 ms: 30 tick có lửa. Nổ tại tick10, còn tới tick39 (step40), hết ở step41.
+name = "Lửa tồn tại đủ bomb.flame_ms tính từ tick tạo"
 features = ["V1-014"]
-claims = ["R-023", "R-109"]
+claims = ["R-156", "R-158"]
 status = "active"
 ticks = 41
 map = [
@@ -28,11 +26,11 @@ range = 1
 fuse = 10
 
 [[expect]]
-tick = 39
+tick = 40
 at = [1, 1]
 flame = true
 
 [[expect]]
-tick = 40
+tick = 41
 at = [1, 1]
 flame = false
