@@ -398,3 +398,16 @@ fn approved_draw_art_is_not_shown_for_a_winner() {
     assert!(!layout.widgets.iter().any(|widget| matches!(widget,
         Widget::Art { sprite, .. } if sprite == "FxStage/Game/Draw")));
 }
+
+/// Lỗi đăng ký trùng tài khoản phải khác thông báo sai mật khẩu.
+#[test]
+fn account_exists_has_its_own_resolved_message() {
+    use crate::ui::model::UiError;
+    let texts = Texts::embedded();
+    assert_eq!(UiError::AccountExists.message_key(), "login.account_exists");
+    assert_eq!(UiError::InvalidCredentials.message_key(), "login.failed");
+    assert_ne!(
+        texts.get(UiError::AccountExists.message_key()),
+        texts.get(UiError::InvalidCredentials.message_key())
+    );
+}
