@@ -306,9 +306,9 @@
     {
       "id": "G5",
       "title": "UX/localization",
-      "status": "in_review",
+      "status": "passed",
       "owner": "client/QA",
-      "reviewer": "dsh2 nghiệm thu V1-035; chưa sign-off gate G5",
+      "reviewer": "DSH2 — nghiệm thu độc lập tiêu chí G5 tại issue278 và review exact head PR nghiệm thu; không ký G6 hoặc GUI Windows/macOS",
       "evidence": [
         "docs/specification/localization/UI_STRINGS_V1.md",
         "tools/l10n_review_v1.py",
@@ -320,11 +320,12 @@
         "git:796284d422baf14f2c0ab0c27a78100bc335c2f1",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/window-restore.json",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
-        "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
+        "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816",
+        "docs/planning/SCOPE_V1.md"
       ],
-      "verification": "V1-035 đã nghiệm thu; PR255/dsh2APPROVE exact28dad286+CI3OSxanh. UI800×600/1600×1200khớp RGBA nearest; NVIDIAfullscreen/focus có đối chứng movement, rebind S/F10/F11, capture BGM/SFX/volume/mute qua private virtual sink. Đây là kiểm Linux có giới hạn, chưa sign-off gateG5. Issue270 sửa miniquadEWMH: KWin normal2cycles restores600×560, initiallymaximized2cycles preservesmaximized, rebindF10/F11/startupfullscreenpass; Linuxonly, khôngG5signoff. Task273/PR274 actualLinuxarchive cùngKWin4case normal/max2cycles/rebind đã kiểm; pulse ngắn failedfixture giữ causeunknown, held-keymethodgreen; khôngGUIWinMac/minHW/G5signoff.",
-      "integration_commit": "",
-      "blocker": "Cần sign-off UX/presentation G5: GUI/backend đa OS/WM khác, phần cứng âm thanh/minimum hardware và playtest còn thiếu. Lỗi khôi phục frame KWin/X11 đã có sửa/đối chứng issue270; không coi đây là GUI Windows/macOS hoặc gate passed."
+      "verification": "Nghiệm thu G5 theo SCOPE6/7.9 và V1-032/033/034/035: 126text/6sprite đã duyệt, font/glyph/wrap/NFC/placeholder/golden; scale1x/2x RGBA; actualLinux focus/movement/rebind; BGM/SFX/volume/mute đường phát số và regression reconcile không phát trùng. PR271/274 sửa và kiểm KWin normal/max2cycles/rebind từ actualarchive bc3a1aef. Các bằng chứng đã merge/review, 3OS CI/golden/package không thay GUI. Quyết định G5 có reviewer độc lập issue278/PR exacthead; phạm vi functional V1, không nghiệm thu GUIWinMac, minimumHW, physicalDAC hoặc fidelityKR. Giữ failure pulse ngắn và giới hạn raw. G6/V1-036 và G2/G3 còn mở.",
+      "integration_commit": "0886f81ca8702e5dcbe9aabab1c6e212c0fa4816",
+      "blocker": ""
     },
     {
       "id": "G6",
@@ -340,9 +341,9 @@
         "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
         "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
       ],
-      "verification": "36/37V1done; task273 QA40107097457 exactreviewedcode95985fe941be5199568b012482c8eac88b33629f success4/4jobs:3archive tải/mở/check,27filehash/10smokeOS/135crate+notice miniquad đủ, rules6350/17/540/L10N cùngbyte. PR274finalmetadatae066d4a independentDSH2APPROVE+12CI3OS. ActualLinuxarchiveKWinnormal/max2cycles+rebind4case; failedshortpulse preserved/causeunknown. OldQA400916 vàprefixed401059 giữhistory. G2/G3/G5in_review/G6blocked, chưasign-off036/minHW/GUIWinMac/physicalaudio/release.",
+      "verification": "36/37V1done; task273 QA40107097457 exactreviewedcode95985fe941be5199568b012482c8eac88b33629f success4/4jobs:3archive tải/mở/check,27filehash/10smokeOS/135crate+notice miniquad đủ, rules6350/17/540/L10N cùngbyte. PR274finalmetadatae066d4a independentDSH2APPROVE+12CI3OS. ActualLinuxarchiveKWinnormal/max2cycles+rebind4case; failedshortpulse preserved/causeunknown. OldQA400916 vàprefixed401059 giữhistory. G2/G3in_review; G5 nghiệm thu functional V1 ở issue278; G6blocked, chưasign-off036/minHW/GUIWinMac/physicalaudio/release.",
       "integration_commit": "",
-      "blocker": "V1-036/minimumhardwareCPU/RAM/GPU chưa đo; G2/G3/G5 chưa sign-off/profile dev releasefalse,12KRcandidate; GUIđaOS/G5 cònthiếu. Currentpackage/fingerprint đãđạt, khôngcòndùngoldpackageblocking."
+      "blocker": "V1-036/minimumhardwareCPU/RAM/GPU chưa đo; G2/G3 chưa sign-off/profile dev releasefalse,12KRcandidate; GUI đa OS/platform validation còn thiếu. Currentpackage/fingerprint đãđạt, khôngcòndùngoldpackageblocking."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"
