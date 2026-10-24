@@ -296,3 +296,53 @@ Không có getter evidence dùng được từ các lượt đó. Root tiếp qu
 đổi sang actor bootstrap/native158 event để arm tự động; không retry cùng đường lỗi vô hạn. Ca writer
 đặt breakpoint rộng trước đó cũng không dùng làm timing. Lượt r7 đã stop bằng command2, supervisorDONE;
 không còn client/namespace riêng của phép đo. Không sửa/kill phiên dùng chung.
+
+
+## Amount và XY tại virtual movement thực — R-171
+
+Câu hỏi: **lời gọi movement thực nhận amount bao nhiêu và XY đổi ra sao trước/sau Roller?**
+Capture `host-movement-amount-146-r2-caller-observe` giữ cùng fixtureVN bc875…/Factory01index193/
+room19, đúngmột117/158kind2, không111/151/120. [4rows](movement-amount.csv) và
+[44rawhash/phạm vi](movement-amount.json) giữ cả probe/harness/server thực dùng và lượt guard lỗi trước đó.
+Root Codex chạy duy nhất trong namespaceuser/net/PID/mount riêng, loopback và `/tmp`/display riêng;
+đã stopcommand2, supervisorDONE/exec99379EXIT0. Không gọi hàm trong inferior hoặc ép stat.
+
+Probe tại **call59D902→actualhero.v+244=59DA6F** và **return59D908**. Mỗi phase chỉ một cặp entry/return,
+kiểm sameactor/type/controller, amountpointer=`EBP+12`, target59DA6F và checksumXY. Return kiểm
+sameframe/thread và target không đổi. PRE arm từactualherobootstrap, POST arm sau handlernative158
+715E90 đãreturn71B717; logpacketphảiđúngmộtkind2. Thời gian debugger chỉ dùng kiểmthứtự,
+**không** là timing/vận tốc/FPS. Không suy actor hoặc hànhvi từ `ready`/keydown/serverACK.
+
+| Phase | Native amount trước/sau call | Native XY trước→sau | EAX tại return | Caller return |
+|---|---|---|---:|---|
+| Trước Roller | 5→0 | (560,519)→(560,514) | 5 | 131E9DF |
+| Sau native158 return | 6→0 | (560,284)→(560,278) | 6 | 131E9DF |
+
+Actor449162552/C664C4, controller449164076/C6630C, frameEBP1233148/amountptr1233160 và
+thread[42000,312,0] giữ nguyên. Native158return815660557626827ns nằmgiữa hai cặp; không dùng
+khoảngđó làm tốc độ item hoặc thời gian mô phỏng. Đây là **amount5 đi5pixel vàamount6 đi6pixel
+trong hai đoạn dọc cụ thể**. Không suy mọi hướng/collision/max hoặc native level/FPS/px/s; EAX ghi
+đúng giá trị quan sát, không tự đặt nghĩa toànhàm là “consumed” từ hai con số bằng nhau.
+
+### Caller thực khác giả định và nguồn chưa nối
+
+Lượt đầu `host-movement-amount-146-r1` không có consumerpair dùngđược: guard hard-code
+outerreturn5A1035 bị từchối trước khi ghi entry. Lỗi giả định caller được giữ riêng, không là kếtquả
+âm của gameplay. Lượt r2 đổi phương pháp thành **ghi caller thực** với các guardtype/target/ptr/XY
+vẫn giữ; quan sát outerreturn131E9DF ở cảhai cặp. Không retry cùng lỗi hoặc xóa raw thấtbại.
+
+Cache22B131E9D0..131E9E6 có directcall131E9DA→59D894 (return131E9DF), nhưng chưa có đủ thân
+producer để đặt tên/ýnghĩa. Không gọi cả vùng131E9 là VM/pet từ địa chỉ hoặc gán nó cho5A0F75.
+Cache5A0F75prefix chỉ chứng minh **conditional** cases4..7 dùng amountpointer, gọi59D894 và trừ EAX;
+chưa chứngminh nó là caller của hai capture này. Cũng chưa loại trừ nó chạy ở các thời điểm không chụp.
+`controller+58=7` của R-170 là protectedfield, **không phải** hero.v+58state; hero+58 là Y.
+
+Staticcache lượt consumer có prefix5A0F75768B, helper59605825B và prefix59D894172B:965B/3units,
+vượt grant2body mộtunit đãghi rõ. SlotC66708 `6fda5900→59DA6F` được kiểm từPE và kiểm lại runtime.
+Không suy phầnđuôi5A0F75/consumerkhác từ prefix. Boxpayload không được lưu đủ để tự giải mã lại
+sau capture; decode live kiểmcookie/checksum, tươngtự giới hạn R-170.
+
+R-171 chốt quan sát **argument→XY trong lời gọi thực** ở hai ca, không nối toànbộ đường
+R-170producer hoặc dùng đồnghồ R-169 để suy normalization. Bước tiếp: reuse actualcaller/sourcecache
+để truy nguồn amount/cadence hoặc writer/clamp có ca rõ; không đo lại cặp này chỉ để được cùng số.
+Profile speed24DESIGN, cap/identityKR và toànbộgate giữ nguyên.
