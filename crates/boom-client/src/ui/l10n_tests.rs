@@ -119,10 +119,14 @@ fn v1_layouts() -> Vec<(UiScreen, layout::Layout)> {
     layouts
 }
 
-/// Bảng `[[ui]]` của bundle V1 (nguồn: `data/assets/ui-v1.toml`).
+/// Bảng UI V1 kết hợp manifest ảnh Việt hóa được chủ dự án duyệt.
 fn bundle_ui() -> boom_content::bundle::Bundle {
     let table = boom_content::assets::UiTable::from_toml(boom_content::assets::UI_V1)
         .expect("bảng UI V1 phải hợp lệ");
+    let approved = boom_content::ui_localization::UiLocalization::from_toml(include_str!(
+        "../../../../data/assets/ui-vi-v1.toml"
+    ))
+    .expect("manifest ảnh Việt hóa");
     let ui = table
         .elements
         .iter()
@@ -131,7 +135,11 @@ fn bundle_ui() -> boom_content::bundle::Bundle {
             screen: element.screen,
             role: element.role,
             entry: element.entry.clone(),
-            state: element.state,
+            state: if approved.images.iter().any(|image| image.id == element.id) {
+                boom_content::bundle::UiState::Selected
+            } else {
+                element.state
+            },
             reason: element.reason.clone(),
             sprite: element.entry.clone(),
             source: element.source,
@@ -180,7 +188,7 @@ fn every_string_and_the_placeholder_have_glyphs() {
             );
         }
     }
-    assert_eq!(checked, 44, "số khóa V1 có text trong file chuỗi");
+    assert_eq!(checked, 126, "số khóa V1 có text trong file chuỗi");
 
     // Placeholder của khóa chưa có text cũng phải vẽ được (không hộp báo thiếu).
     let placeholder = l10n::placeholder("app.quit_confirm");
@@ -945,6 +953,41 @@ fn skip_allowed_region(chars: &[char], after_marker: usize) -> usize {
         line_start = cursor;
         if cursor >= chars.len() {
             return chars.len();
+        }
+    }
+}
+
+/// Khi bật các ảnh đã duyệt, cột ảnh không được tràn xuống hàng nút thao tác.
+#[test]
+fn approved_images_and_fallback_frames_stay_above_the_action_buttons() {
+    for (screen, layout) in v1_layouts() {
+        for widget in layout.widgets {
+            let rect = match widget {
+                Widget::Art { rect, .. } | Widget::Frame { rect, .. } if rect.x >= 600 => rect,
+                _ => continue,
+            };
+            assert!(
+                rect.bottom() <= 480,
+                "màn {screen:?}: phần tử ảnh/nhãn {rect:?} đè vùng nút từ y=496"
+            );
+            assert!(rect.x + rect.width as i32 <= 800);
+        }
+    }
+}
+
+/// Review V1 đã chốt: không còn placeholder kể cả khóa có trong catalog.
+#[test]
+fn all_v1_screens_use_resolved_text_after_content_review() {
+    let font = font();
+    for (screen, layout) in v1_layouts() {
+        for widget in layout.widgets {
+            for text in widget.text_boxes(&font) {
+                assert!(
+                    l10n::placeholder_key(&text.text).is_none(),
+                    "màn {screen:?} còn placeholder {:?}",
+                    text.text
+                );
+            }
         }
     }
 }

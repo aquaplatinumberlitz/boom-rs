@@ -185,13 +185,10 @@ fn wrong_password_shows_the_login_failed_key() {
 #[test]
 fn texts_come_from_the_l10n_keys() {
     let model = model();
-    // Khóa chưa có text → placeholder rõ ràng, không phải chữ tự soạn.
-    assert_eq!(title_of(&model), "«login.title»");
+    // Khóa đã được chốt tại catalog: kiểm đúng nội dung người chơi thấy.
+    assert_eq!(title_of(&model), "Đăng nhập");
     let labels = button_labels(&model);
-    assert_eq!(
-        labels,
-        vec!["«login.submit»", "«login.register»", "Thoát game"]
-    );
+    assert_eq!(labels, vec!["Đăng nhập", "Đăng ký", "Thoát game"]);
 
     // Khóa có text chốt → lấy nguyên văn từ file chuỗi.
     let layout = layout::layout(&model, None, None);
@@ -313,8 +310,8 @@ fn only_selected_ui_elements_are_drawn_as_images() {
         .collect();
     // `result.win` có text chốt trong file chuỗi → khung hiện text catalog.
     assert!(frames.contains(&"Thắng"), "khung: {frames:?}");
-    // `result.background` chưa có text → placeholder.
-    assert!(frames.contains(&"«result.background»"), "khung: {frames:?}");
+    // Nhãn nền đã có text trong catalog; fixture vẫn không được bật ảnh excluded.
+    assert!(frames.contains(&"Kết quả"), "khung: {frames:?}");
     // Và không được vẽ ảnh của hai phần tử đó.
     assert!(!images.contains(&"FxStage/Game/Win"));
 }
@@ -378,4 +375,26 @@ fn typing_goes_into_the_focused_field() {
         .iter()
         .any(|widget| matches!(widget, Widget::Field { masked: true, value, .. } if value == "x"));
     assert!(masked, "mật khẩu phải được đánh dấu để che");
+}
+
+/// Ảnh Hòa được duyệt vẫn chỉ dùng cho kết quả hòa, không hiện cạnh nhãn Thắng.
+#[test]
+fn approved_draw_art_is_not_shown_for_a_winner() {
+    let mut model = in_room();
+    model.activate(ActionId::RoomReady);
+    model.activate(ActionId::RoomStart);
+    finish_match(&mut model);
+    assert_eq!(
+        model.outcome().unwrap().self_result,
+        crate::ui::model::MatchResult::Win
+    );
+    let mut bundle = ui_bundle();
+    let mut draw = bundle.ui[1].clone();
+    draw.id = "result.draw".to_owned();
+    draw.state = UiState::Selected;
+    draw.sprite = Some("FxStage/Game/Draw".to_owned());
+    bundle.ui.push(draw);
+    let layout = layout::layout(&model, Some(&bundle), None);
+    assert!(!layout.widgets.iter().any(|widget| matches!(widget,
+        Widget::Art { sprite, .. } if sprite == "FxStage/Game/Draw")));
 }

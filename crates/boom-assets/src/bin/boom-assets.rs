@@ -35,6 +35,9 @@ struct Options {
     map: Option<String>,
     out: Option<PathBuf>,
     pack_dir: Option<PathBuf>,
+    ui_localization: Option<PathBuf>,
+    vn_pack_dir: Option<PathBuf>,
+    l10n_assets_dir: Option<PathBuf>,
 }
 
 fn usage() -> ExitCode {
@@ -46,7 +49,7 @@ fn usage() -> ExitCode {
          boom-assets sprite-info <pack-dir> <stem> <entry> [--build kr|vn]\n  \
          boom-assets sprite-png <pack-dir> <stem> <entry> <out-dir> [--build kr|vn]\n  \
          boom-assets audio <pack-dir> --list [--all] [--extract DIR] [--build kr|vn]\n  \
-         boom-assets bundle --map <map> --out <dir> [--pack-dir <dir>]"
+         boom-assets bundle --map <map> --out <dir> [--pack-dir <dir>] [--ui-localization <manifest> --vn-pack-dir <dir> --l10n-assets-dir <dir>]"
     );
     ExitCode::from(2)
 }
@@ -61,6 +64,9 @@ fn options(args: &[String]) -> Option<Options> {
     let mut map = None;
     let mut out = None;
     let mut pack_dir = None;
+    let mut ui_localization = None;
+    let mut vn_pack_dir = None;
+    let mut l10n_assets_dir = None;
     let mut index = 1; // bỏ tên lệnh
     while index < args.len() {
         match args[index].as_str() {
@@ -92,6 +98,15 @@ fn options(args: &[String]) -> Option<Options> {
                 out = Some(PathBuf::from(args.get(index + 1)?));
                 index += 2;
             }
+            "--ui-localization" | "--vn-pack-dir" | "--l10n-assets-dir" => {
+                let value = Some(PathBuf::from(args.get(index + 1)?));
+                match args[index].as_str() {
+                    "--ui-localization" => ui_localization = value,
+                    "--vn-pack-dir" => vn_pack_dir = value,
+                    _ => l10n_assets_dir = value,
+                }
+                index += 2;
+            }
             "--pack-dir" => {
                 pack_dir = Some(PathBuf::from(args.get(index + 1)?));
                 index += 2;
@@ -111,6 +126,9 @@ fn options(args: &[String]) -> Option<Options> {
         map,
         out,
         pack_dir,
+        ui_localization,
+        vn_pack_dir,
+        l10n_assets_dir,
     })
 }
 
@@ -155,13 +173,34 @@ fn bundle(opts: &Options) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let built = match build_bundle(&pack_dir, &map) {
+    let mut built = match build_bundle(&pack_dir, &map) {
         Ok(built) => built,
         Err(e) => {
             eprintln!("{}: {e}", pack_dir.display());
             return ExitCode::FAILURE;
         }
     };
+    if let Some(path) = opts.ui_localization.as_deref() {
+        let result = fs::read_to_string(path)
+            .map_err(|e| e.to_string())
+            .and_then(|text| boom_content::ui_localization::UiLocalization::from_toml(&text))
+            .and_then(|manifest| {
+                built.apply_ui_localization(
+                    &manifest,
+                    opts.vn_pack_dir.as_deref(),
+                    opts.l10n_assets_dir
+                        .as_deref()
+                        .unwrap_or_else(|| Path::new(".")),
+                )
+            });
+        if let Err(error) = result {
+            eprintln!("Việt hóa UI {}: {error}", path.display());
+            return ExitCode::FAILURE;
+        }
+    } else if opts.vn_pack_dir.is_some() || opts.l10n_assets_dir.is_some() {
+        eprintln!("cần --ui-localization khi chỉ định nguồn ảnh Việt hóa");
+        return ExitCode::FAILURE;
+    }
     if let Err(e) = built.write(out) {
         eprintln!("{}: {e}", out.display());
         return ExitCode::FAILURE;

@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import os
 import re
 import sys
 import tomllib
@@ -45,7 +46,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SPEC_PATH = ROOT / "docs/specification/localization/UI_STRINGS_V1.md"
 OUT_PATH = ROOT / "data/l10n/vi-v1.toml"
-DEFAULT_CATALOG = Path("/home/admin/boom-re-l10n/l10n/catalog.csv")
+DEFAULT_CATALOG = Path(os.environ.get("BOOM_L10N_CATALOG", "/home/admin/boom-re-l10n/l10n/catalog.csv"))
 
 SCHEMA = 1
 LOCALE = "vi-VN"

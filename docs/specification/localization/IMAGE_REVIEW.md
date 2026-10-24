@@ -60,6 +60,23 @@ Lệnh kiểm tra toàn bộ trước khi ghi nguyên tử vào `l10n/images_rev
 File này chỉ được tạo khi nhập kết quả, không dùng bảng `pending` để giả làm kết quả
 đã duyệt. Có thể nhập lại CSV đã chỉnh để cập nhật quyết định.
 
+## Quyết định V1 ngày 2026-10-24
+
+Chủ dự án đã duyệt 9 mục image-pending của trang local/l10n-review-v1.html, tương ứng 8 tài nguyên
+khác nhau. Quyết định đã nhập vào l10n/images_review.csv: 8 translated, 3.030 pending giữ nguyên.
+Các trạng thái pending trong file mẫu ở .cache không phải kết quả duyệt hiện hành; tool review V1
+ưu tiên file quyết định thật.
+
+FxStage:Game/Draw dùng PNG 216×71 nền trong suốt do chủ dự án ghép từ ba ảnh VN; file local
+local/l10n-assets/FxStage/Game/Draw.png trong boom-rs, SHA-256 ghi ở
+[manifest UI Việt hóa](../../../data/assets/ui-vi-v1.toml). Media không đưa vào Git.
+Các ảnh pending còn lại được duyệt dùng bản VN; chỉ 6 sprite thuộc closure được nhập vào bundle
+Việt hóa, các ảnh đã duyệt nhưng ngoài scope vẫn để excluded. Ảnh Win/Lose không nằm trong tập
+image-pending được duyệt; V1 dùng text Thắng/Thua.
+
+Lệnh dựng bundle và quy tắc frame/hash ở [UI_STRINGS_V1 §3.2](UI_STRINGS_V1.md#32-bundle-ui-việt-hóa-đã-duyệt-2026-10-24).
+Quyết định này không duyệt 23 chuỗi review legacy hoặc toàn bộ 3.038 ứng viên ảnh.
+
 ## Thống kê đã kiểm tra
 
 Cập nhật 2026-10-19:

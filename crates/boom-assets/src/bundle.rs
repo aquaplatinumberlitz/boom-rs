@@ -125,6 +125,7 @@ struct PackedPage {
 ///
 /// `content_hash` đã được chốt trong [`BuiltBundle::bundle`]; dựng lại từ cùng pack là ra
 /// cùng hash.
+#[derive(Clone)]
 pub struct BuiltBundle {
     /// Metadata bundle.
     pub bundle: Bundle,
@@ -661,7 +662,16 @@ struct DecodedSprite {
 /// Trả lỗi (dạng lý do) nếu blob không phải sprite, có ảnh rỗng, hoặc frame trỏ tới ảnh
 /// không có.
 fn decode_sprite(pack_dir: &Path, pack: &str, path: &str) -> Result<DecodedSprite, String> {
-    let handle = Pack::open(pack_dir, pack, Build::Kr).map_err(|e| e.to_string())?;
+    decode_sprite_from_build(pack_dir, pack, path, Build::Kr)
+}
+
+fn decode_sprite_from_build(
+    pack_dir: &Path,
+    pack: &str,
+    path: &str,
+    build: Build,
+) -> Result<DecodedSprite, String> {
+    let handle = Pack::open(pack_dir, pack, build).map_err(|e| e.to_string())?;
     let blob = handle
         .read_named(path)
         .map_err(|e| format!("đọc entry thất bại: {e}"))?;
@@ -1849,5 +1859,208 @@ mod tests {
             }
         }
         assert!(checked > 100, "số ảnh kiểm tra quá ít: {checked}");
+    }
+}
+
+impl BuiltBundle {
+    /// Áp ảnh Việt hóa đã duyệt; lỗi hash/nguồn không thay đổi bundle đang có.
+    ///
+    /// Mỗi ảnh VN dùng frame VN; PNG biên tập dùng một frame mới. Media chỉ nằm local.
+    ///
+    /// # Errors
+    /// Thiếu nguồn, hash sai, ID không phải UI, ảnh quá lớn hoặc bundle không hợp lệ.
+    pub fn apply_ui_localization(
+        &mut self,
+        manifest: &boom_content::ui_localization::UiLocalization,
+        vn_pack_dir: Option<&Path>,
+        png_dir: &Path,
+    ) -> Result<(), String> {
+        use boom_content::rules::Source;
+        use boom_content::ui_localization::ImageKind;
+        manifest.validate()?;
+        let mut localized = self.clone();
+        for approval in &manifest.images {
+            let ui_index = localized
+                .bundle
+                .ui
+                .iter()
+                .position(|u| u.id == approval.id)
+                .ok_or_else(|| format!("không có phần tử UI {}", approval.id))?;
+            let ui = &localized.bundle.ui[ui_index];
+            if ui.state == UiState::Excluded {
+                return Err(format!(
+                    "{} bị loại khỏi closure, không tự bật lại bằng ảnh",
+                    approval.id
+                ));
+            }
+            let sprite_id = ui
+                .sprite
+                .as_deref()
+                .ok_or_else(|| format!("{} thiếu sprite", approval.id))?;
+            let sprite_index = localized
+                .bundle
+                .sprites
+                .iter()
+                .position(|s| s.id == sprite_id)
+                .ok_or_else(|| format!("không có sprite {sprite_id}"))?;
+            if localized.bundle.sprites[sprite_index].role != boom_content::bundle::ROLE_UI {
+                return Err(format!("{sprite_id} không phải sprite UI"));
+            }
+            let (decoded, source, locator) = match approval.kind {
+                ImageKind::VnPack => {
+                    let dir = vn_pack_dir.ok_or("cần --vn-pack-dir để nạp ảnh VN đã duyệt")?;
+                    let pack = approval.pack.as_deref().ok_or("thiếu pack VN")?;
+                    let entry = approval.entry.as_deref().ok_or("thiếu entry VN")?;
+                    (
+                        decode_sprite_from_build(dir, pack, entry, Build::Vn)?,
+                        Source::VnStatic,
+                        format!("VN {pack}/{entry}"),
+                    )
+                }
+                ImageKind::Png => {
+                    let file = approval.file.as_deref().ok_or("thiếu file PNG")?;
+                    (
+                        decode_localized_png(&png_dir.join(file))?,
+                        Source::Design,
+                        format!("PNG {file}"),
+                    )
+                }
+            };
+            if decoded.sha256 != approval.sha256 {
+                return Err(format!(
+                    "{}: SHA256 nguồn không khớp quyết định duyệt",
+                    approval.id
+                ));
+            }
+            let mut images = Vec::new();
+            for (index, image) in decoded.images.iter().enumerate() {
+                if image.width > ATLAS_WIDTH || image.height > ATLAS_HEIGHT {
+                    return Err(format!("{}: ảnh Việt hóa vượt giới hạn atlas", approval.id));
+                }
+                let page = if image.width == 0 || image.height == 0 {
+                    None
+                } else {
+                    let bytes = encode_png(&image.rgba, image.width, image.height)
+                        .map_err(|e| e.to_string())?;
+                    let page = u32::try_from(localized.pages.len()).map_err(|e| e.to_string())?;
+                    localized.bundle.atlas.push(AtlasPage {
+                        file: page_relative_path(page as usize),
+                        width: image.width,
+                        height: image.height,
+                        sha256: sha256_hex(&bytes),
+                    });
+                    localized.pages.push(bytes);
+                    Some(page)
+                };
+                images.push(SpriteImage {
+                    index: u32::try_from(index).map_err(|e| e.to_string())?,
+                    page,
+                    x: 0,
+                    y: 0,
+                    width: image.width,
+                    height: image.height,
+                    pixel_sha256: sha256_hex(&image.rgba),
+                });
+            }
+            let sprite = &mut localized.bundle.sprites[sprite_index];
+            sprite.images = images;
+            sprite.frames = decoded.frames;
+            sprite.source_sha256 = decoded.sha256;
+            sprite.status = if source == Source::Design {
+                EvidenceStatus::Design
+            } else {
+                EvidenceStatus::Confirmed
+            };
+            let ui = &mut localized.bundle.ui[ui_index];
+            ui.state = UiState::Selected;
+            ui.source = source;
+            ui.status = sprite.status;
+            ui.reason = format!(
+                "vi-VN: {} duyệt ngày {}; {}; SHA256 {}",
+                manifest.reviewed_by, manifest.reviewed_at, locator, approval.sha256
+            );
+        }
+        localized.bundle.content_hash = localized.bundle.compute_content_hash();
+        localized.bundle.validate().map_err(|e| e.to_string())?;
+        *self = localized;
+        Ok(())
+    }
+}
+
+fn decode_localized_png(path: &Path) -> Result<DecodedSprite, String> {
+    let bytes = fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let sha256 = sha256_hex(&bytes);
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut reader = decoder.read_info().map_err(|e| e.to_string())?;
+    let (width, height) = (reader.info().width, reader.info().height);
+    if width == 0 || height == 0 || width > ATLAS_WIDTH || height > ATLAS_HEIGHT {
+        return Err("PNG Việt hóa có kích thước không hợp lệ/vượt giới hạn atlas".into());
+    }
+    let mut raw = vec![0; reader.output_buffer_size().ok_or("PNG quá lớn")?];
+    let info = reader.next_frame(&mut raw).map_err(|e| e.to_string())?;
+    let input = &raw[..info.buffer_size()];
+    let rgba = match info.color_type {
+        png::ColorType::Rgba => input.to_vec(),
+        png::ColorType::Rgb => input
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .flat_map(|p| [p[0], p[1], p[2], 255])
+            .collect(),
+        png::ColorType::Grayscale => input.iter().flat_map(|&p| [p, p, p, 255]).collect(),
+        png::ColorType::GrayscaleAlpha => input
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .flat_map(|p| [p[0], p[0], p[0], p[1]])
+            .collect(),
+        png::ColorType::Indexed => return Err("PNG palette chưa được giải".into()),
+    };
+    Ok(DecodedSprite {
+        frames: vec![Frame {
+            image: 0,
+            offset_x: 0,
+            offset_y: 0,
+            flag: 0,
+            x0: 0,
+            y0: 0,
+            x1: width as i32,
+            y1: height as i32,
+            canvas_width: width as i32,
+            canvas_height: height as i32,
+            pivot_x: 0,
+            pivot_y: 0,
+        }],
+        images: vec![RawImage {
+            width,
+            height,
+            rgba,
+        }],
+        sha256,
+    })
+}
+
+#[cfg(test)]
+mod localized_tests {
+    use super::*;
+
+    #[test]
+    fn localized_png_frame_covers_the_whole_new_canvas() {
+        // 2x3 khác bố cục/cạnh ô KR; alpha phải giữ nguyên.
+        let rgba: Vec<u8> = (0..6).flat_map(|n| [n, 20, 30, n * 40]).collect();
+        let bytes = encode_png(&rgba, 2, 3).unwrap();
+        let dir = std::env::temp_dir().join(format!("boom-localized-png-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("edited.png");
+        fs::write(&path, &bytes).unwrap();
+        let image = decode_localized_png(&path).unwrap();
+        assert_eq!(image.sha256, sha256_hex(&bytes));
+        assert_eq!(image.images[0].rgba, rgba);
+        assert_eq!(image.frames.len(), 1);
+        let frame = &image.frames[0];
+        assert_eq!((frame.x0, frame.y0, frame.x1, frame.y1), (0, 0, 2, 3));
+        assert_eq!((frame.canvas_width, frame.canvas_height), (2, 3));
+        fs::remove_dir_all(dir).unwrap();
     }
 }

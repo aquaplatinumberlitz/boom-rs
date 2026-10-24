@@ -17,7 +17,7 @@
 //!   cắt theo chiều cao hộp ([`crate::text::Clip`]). Nội dung động (chat dài,
 //!   tên phòng dài, ô nhập dài) không tràn ra ngoài hộp.
 
-use boom_content::bundle::{Bundle, UiScreen, UiState};
+use boom_content::bundle::{Bundle, UiRole, UiScreen, UiState};
 
 use crate::anim::Character;
 use crate::scene::Scene;
@@ -841,7 +841,7 @@ fn room_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
                     if member.ready {
                         texts.get("room.ready")
                     } else {
-                        texts.get("room.ready_cancel")
+                        texts.get("room.ready_indicator")
                     },
                     character_label(texts, member.character),
                 ],
@@ -1051,7 +1051,18 @@ fn ui_elements_layout<B: UiBackend>(
         return;
     };
     let texts = model.texts();
-    let elements = bundle.ui_by_screen(model.screen());
+    let outcome_art = model.outcome().map(|outcome| match outcome.self_result {
+        MatchResult::Win => "result.win",
+        MatchResult::Lose => "result.lose",
+        MatchResult::Draw => "result.draw",
+    });
+    let elements: Vec<_> = bundle
+        .ui_by_screen(model.screen())
+        .into_iter()
+        .filter(|element| {
+            element.role != UiRole::ResultArt || Some(element.id.as_str()) == outcome_art
+        })
+        .collect();
     let art_count = u32::try_from(
         elements
             .iter()
@@ -1066,6 +1077,7 @@ fn ui_elements_layout<B: UiBackend>(
     // ô khung được tính lại để mọi phần tử đều vừa cột (không tràn xuống nút).
     let available = SIDE_RECT.height;
     let art_height = available
+        .saturating_sub(frame_count.saturating_mul(FRAME_MIN_HEIGHT))
         .checked_div(art_count)
         .unwrap_or(0)
         .min(ART_HEIGHT);

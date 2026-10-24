@@ -656,49 +656,131 @@ mod tests {
 
     /// Golden layout: (khóa l10n, số dòng 1×, rộng 1×, số dòng 2×, rộng 2×).
     ///
-    /// Bám kín bộ chuỗi V1 có text (44 khóa). Sinh lại bằng test `print_golden_layout`
+    /// Bám kín bộ chuỗi V1 có text (126 khóa). Sinh lại bằng test `print_golden_layout`
     /// (in ra đúng định dạng hằng này).
     const GOLDEN: &[(&str, usize, u16, usize, u16)] = &[
+        ("app.auth_failed", 2, 192, 2, 385),
+        ("app.connecting", 1, 162, 1, 324),
+        ("app.content_mismatch", 2, 187, 2, 373),
         ("app.invalid_map", 2, 183, 2, 365),
         ("app.loading", 1, 64, 1, 128),
         ("app.network_error", 2, 190, 2, 380),
+        ("app.quit_confirm", 1, 196, 1, 393),
         ("app.session_replaced", 2, 177, 2, 354),
+        ("app.version_mismatch", 1, 139, 1, 278),
+        ("common.cancel", 1, 24, 1, 48),
+        ("common.close", 1, 34, 1, 67),
+        ("common.confirm", 1, 18, 1, 36),
         ("lobby.back", 1, 51, 1, 102),
+        ("lobby.background", 1, 57, 1, 114),
+        ("lobby.channel", 1, 66, 1, 132),
         ("lobby.channel_desc", 1, 183, 1, 367),
+        ("lobby.chat_hint", 1, 96, 1, 192),
+        ("lobby.chat_send", 1, 21, 1, 41),
         ("lobby.chat_tab_all", 1, 41, 1, 82),
         ("lobby.chat_tab_notice", 1, 67, 1, 134),
         ("lobby.chat_too_long", 1, 109, 1, 217),
+        ("lobby.create", 1, 67, 1, 134),
+        ("lobby.create_dialog", 1, 67, 1, 134),
+        ("lobby.empty", 2, 186, 2, 372),
         ("lobby.exit", 1, 75, 1, 151),
         ("lobby.help", 1, 52, 1, 103),
+        ("lobby.join", 1, 67, 1, 135),
         ("lobby.join_failed", 1, 135, 1, 271),
         ("lobby.join_session", 1, 98, 1, 196),
         ("lobby.leave_session", 1, 74, 1, 149),
         ("lobby.options", 1, 57, 1, 113),
+        ("lobby.refresh", 1, 53, 1, 106),
+        ("lobby.room_count", 1, 53, 1, 107),
+        ("lobby.room_full", 1, 118, 1, 236),
+        ("lobby.room_host", 1, 67, 1, 134),
         ("lobby.room_info_changed", 2, 186, 2, 371),
         ("lobby.room_name", 1, 65, 1, 131),
         ("lobby.room_removed", 1, 155, 1, 310),
         ("lobby.room_status", 1, 64, 1, 128),
+        ("lobby.show_all", 1, 83, 1, 166),
+        ("lobby.state_playing", 1, 63, 1, 126),
+        ("lobby.state_waiting", 1, 60, 1, 120),
+        ("lobby.title", 1, 57, 1, 114),
+        ("lobby.wait_room", 1, 100, 1, 200),
+        ("login.account", 1, 12, 1, 25),
+        ("login.account_exists", 2, 174, 2, 348),
+        ("login.account_rule", 3, 181, 3, 362),
+        ("login.background", 1, 68, 1, 135),
+        ("login.empty", 2, 173, 2, 346),
+        ("login.failed", 2, 192, 2, 385),
         ("login.password", 1, 57, 1, 114),
+        ("login.register", 1, 51, 1, 102),
+        ("login.submit", 1, 68, 1, 135),
+        ("login.title", 1, 68, 1, 135),
+        ("match.background", 1, 50, 1, 100),
+        ("match.disconnect_eliminated", 1, 160, 1, 320),
+        ("match.disconnect_warning", 2, 180, 2, 361),
+        ("match.eliminated", 1, 88, 1, 175),
+        ("match.go", 1, 49, 1, 98),
+        ("match.hud", 1, 87, 1, 174),
+        ("match.item_bomb", 1, 61, 1, 122),
+        ("match.item_fire", 1, 53, 1, 106),
+        ("match.item_roller", 1, 56, 1, 112),
+        ("match.navigation", 1, 109, 1, 218),
+        ("match.pickup", 1, 117, 1, 234),
+        ("match.result_pending", 1, 120, 1, 240),
+        ("match.timer", 1, 101, 1, 202),
+        ("match.timer_format", 1, 75, 1, 150),
+        ("match.trapped", 1, 79, 1, 159),
+        ("options.apply", 1, 52, 1, 103),
         ("options.fullscreen", 1, 90, 1, 180),
         ("options.music", 1, 58, 1, 116),
         ("options.sfx", 1, 114, 1, 228),
+        ("options.volume", 1, 58, 1, 115),
         ("options.windowed", 1, 88, 1, 176),
+        ("result.auto_return", 1, 139, 1, 278),
+        ("result.background", 1, 48, 1, 97),
+        ("result.continue", 1, 59, 1, 118),
+        ("result.draw", 1, 25, 1, 51),
         ("result.draw_all", 1, 135, 1, 270),
+        ("result.info_bar", 1, 82, 1, 164),
+        ("result.info_good", 1, 54, 1, 107),
         ("result.lose", 1, 31, 1, 62),
+        ("result.player", 1, 66, 1, 132),
         ("result.rank", 1, 57, 1, 114),
         ("result.title", 1, 48, 1, 97),
+        ("result.waiting", 1, 171, 1, 341),
         ("result.win", 1, 39, 1, 78),
+        ("result.winner", 1, 76, 1, 151),
         ("room.all_ready", 2, 195, 2, 389),
+        ("room.background", 1, 65, 1, 131),
+        ("room.character", 1, 56, 1, 112),
+        ("room.character_c00", 1, 64, 1, 128),
+        ("room.character_c01", 1, 67, 1, 134),
         ("room.chat_to_all", 1, 74, 1, 147),
+        ("room.create_submit", 1, 67, 1, 134),
+        ("room.create_title", 1, 67, 1, 134),
+        ("room.host", 1, 67, 1, 134),
+        ("room.host_changed", 1, 144, 1, 288),
         ("room.id", 1, 12, 1, 25),
+        ("room.info_dialog", 1, 100, 1, 201),
+        ("room.info_label", 1, 100, 1, 201),
+        ("room.info_title", 1, 100, 1, 201),
+        ("room.kick", 1, 66, 1, 132),
         ("room.kick_confirm", 1, 141, 1, 283),
         ("room.kicked", 2, 199, 2, 398),
+        ("room.leave", 1, 62, 1, 124),
         ("room.leave_ready_confirm", 4, 186, 4, 371),
         ("room.loading", 1, 64, 1, 128),
+        ("room.map", 1, 44, 1, 87),
         ("room.map_name", 1, 52, 1, 103),
         ("room.min_players", 2, 187, 2, 375),
         ("room.name_changed", 1, 177, 1, 354),
         ("room.non_host_denied", 2, 183, 2, 367),
+        ("room.players", 1, 66, 1, 132),
+        ("room.ready", 1, 57, 1, 113),
+        ("room.ready_cancel", 1, 82, 1, 163),
+        ("room.ready_indicator", 1, 90, 1, 181),
+        ("room.slot_empty", 1, 37, 1, 74),
+        ("room.start", 1, 49, 1, 98),
+        ("room.stats_bomb", 1, 53, 1, 107),
+        ("room.stats_fire", 1, 53, 1, 106),
         ("room.stats_speed", 1, 44, 1, 88),
         ("room.status", 1, 64, 1, 128),
         ("room.title_label", 1, 65, 1, 131),
@@ -748,7 +830,7 @@ mod tests {
                 );
             }
         }
-        assert_eq!(checked, 44, "số khóa V1 có text trong file chuỗi");
+        assert_eq!(checked, 126, "số khóa V1 có text trong file chuỗi");
     }
 
     /// Font phải phủ đủ cặp dấu tiếng Việt mà UI_STRINGS_V1 §5.3 yêu cầu.
@@ -882,8 +964,11 @@ mod tests {
     fn missing_key_shows_explicit_placeholder() {
         let l10n = l10n();
         assert_eq!(l10n_text(&l10n, "app.loading"), "Đang tải...");
-        // `app.quit_confirm` là khóa `unknown` (chưa có locator catalog/ảnh).
-        assert_eq!(l10n_text(&l10n, "app.quit_confirm"), "«app.quit_confirm»");
+        // Khóa xác nhận thoát đã được chốt nguyên văn từ catalog.
+        assert_eq!(
+            l10n_text(&l10n, "app.quit_confirm"),
+            "Bạn có muốn thoát game hông?"
+        );
         assert_eq!(
             l10n_text(&l10n, "app.khong_co_trong_file"),
             "«app.khong_co_trong_file»"
@@ -897,8 +982,8 @@ mod tests {
         let l10n = l10n();
         let ready = layout_l10n(&l10n, "app.loading", &font, GOLDEN_SIZE, GOLDEN_WIDTH);
         assert_eq!(ready.lines()[0].text, "Đang tải...");
-        let missing = layout_l10n(&l10n, "app.quit_confirm", &font, GOLDEN_SIZE, GOLDEN_WIDTH);
-        assert_eq!(missing.lines()[0].text, "«app.quit_confirm»");
+        let missing = layout_l10n(&l10n, "app.missing", &font, GOLDEN_SIZE, GOLDEN_WIDTH);
+        assert_eq!(missing.lines()[0].text, "«app.missing»");
     }
 
     /// Golden layout: số dòng và độ rộng của chuỗi V1 ở 1× và 2×.
