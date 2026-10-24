@@ -10,8 +10,8 @@ Kế hoạch thực hiện: [REWRITE_PLAN](REWRITE_PLAN.md); danh mục: [FEATUR
 
 | Phạm vi | Done / tổng | Tỷ lệ số mục |
 |---|---:|---:|
-| Release 1 | 35 / 37 | 94.59% |
-| Toàn catalog cần triển khai | 35 / 112 | 31.25% |
+| Release 1 | 36 / 37 | 97.30% |
+| Toàn catalog cần triển khai | 36 / 112 | 32.14% |
 
 Có **2 mục drop_legacy** hiển thị riêng trong CSV, không cộng vào done hoặc mẫu số.
 Đây là tỷ lệ **số mục nghiệm thu**, không phải % công sức, thời gian hay fidelity KR.
@@ -21,9 +21,9 @@ Không chia điểm cho in_progress/in_review/blocked. Scope đổi phải đổ
 |---|---:|---:|
 | Chưa làm | 0 | 75 |
 | Đang làm | 0 | 0 |
-| Bị chặn | 2 | 2 |
+| Bị chặn | 1 | 1 |
 | Chờ review | 0 | 0 |
-| Đã nghiệm thu | 35 | 35 |
+| Đã nghiệm thu | 36 | 36 |
 
 ## Planning và gate phát hành — không cộng vào feature %
 
@@ -50,7 +50,7 @@ Chỉ release khi feature V1 đã nghiệm thu, tất cả gate passed và P8 do
 | G2 Movement/stats | in_review | RE/core | [0013-rule-source-precedence.md](<../../docs/decisions/0013-rule-source-precedence.md>); [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); [v1-dev.toml](<../../data/rules/v1-dev.toml>) |
 | G3 Bomb/damage/items | in_review | RE/core | [RULES_V1.md](<../../docs/specification/gameplay/RULES_V1.md>); [v1-dev.toml](<../../data/rules/v1-dev.toml>); [warmup_freezes_round.toml](<../../fixtures/scenarios/round/warmup_freezes_round.toml>); `bcd6362b64ff` |
 | G4 Protocol/state | passed | core/net | [QA_NETWORK.md](<../../docs/specification/QA_NETWORK.md>); `743e8ea9cdf0`; `4c17d85d0b66`; `e0dcdfc31e8e`; `ed16335c889e`; [0009-wire-protocol-input-snapshot-codec.md](<../../docs/decisions/0009-wire-protocol-input-snapshot-codec.md>); [tests.rs](<../../crates/boom-client/src/net/tests.rs>) |
-| G5 UX/localization | blocked | client/QA | [UI_STRINGS_V1.md](<../../docs/specification/localization/UI_STRINGS_V1.md>); [l10n_review_v1.py](<../../tools/l10n_review_v1.py>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `2b86a87fb4f4` |
+| G5 UX/localization | in_review | client/QA | [UI_STRINGS_V1.md](<../../docs/specification/localization/UI_STRINGS_V1.md>); [l10n_review_v1.py](<../../tools/l10n_review_v1.py>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `2b86a87fb4f4`; [ui-vi-v1.toml](<../../data/assets/ui-vi-v1.toml>); `43739e2fa6ab` |
 | G6 Release toàn bộ V1 | blocked | QA/integrator | [PROGRESS.md](<../../docs/planning/PROGRESS.md>); `303ab49a07c2` |
 
 ## Từng feature V1
@@ -94,8 +94,8 @@ Chi tiết mọi mục, proof/review/dependency nằm trong [CSV](../specificati
 | V1-032 | UI luồng V1 bằng asset KR | Đã nghiệm thu | client / opencode-3 | Claude | Xong: --connect chạy UiModel<NetBackend>, Playing → ResultsAck → Room → trận 2, test tích hợp hai trận (PR #171, đóng #164). Layout KR (#150) là fidelity, không chặn luồng. | [closure.rs](<../../crates/boom-assets/src/closure.rs>); `4ec8acf9e133`; `c129a21815b8`; `395a7bcc14d6` |
 | V1-033 | Input/scale/focus | Đã nghiệm thu | client / dsh-b/opencode-2 | Claude/Codex | Done: mặc định mũi tên+Space (#51), rebind qua options.toml (#69, #77), integer scale + nhả phím khi mất focus (#51); reviewer độc lập Codex; không có dependency. | [input.rs](<../../crates/boom-client/src/input.rs>); `0c5df165ffab`; [options.rs](<../../crates/boom-client/src/options.rs>); `bf5ca50b338f`; `a3a78b0ec85b` |
 | V1-034 | Audio/volume | Đã nghiệm thu | client / dsh-b/dsh-a | Claude | Done theo scope V1; cue trapped sửa theo R204 ở PR213. Q015/issue196 còn phần RE khác, không nâng cả audio policy KR. | [audio.rs](<../../crates/boom-client/src/audio.rs>); [AUDIO_V1.md](<../../docs/specification/assets/AUDIO_V1.md>); `6dfdac10040c`; `aace7988256b`; `eff7f94c258e`; `2b86a87fb4f4`; [audio-v1.toml](<../../data/assets/audio-v1.toml>) |
-| V1-035 | Việt hóa UI V1 | Bị chặn | client / opencode-2 (tool); chủ dự án/người duyệt nội dung | Claude/Codex | Chờ người duyệt text/ảnh thực dùng trong luồng V1; không dùng pending review làm nội dung đã chốt. | [vi-v1.toml](<../../data/l10n/vi-v1.toml>); [l10n.rs](<../../crates/boom-content/src/l10n.rs>); `71d36a66cd64`; `82033ce560ab`; [l10n_review_v1.py](<../../tools/l10n_review_v1.py>); [UI_STRINGS_V1.md](<../../docs/specification/localization/UI_STRINGS_V1.md>); `6ad3e062f096` |
-| V1-036 | Build Windows/Linux/macOS | Bị chặn | release / integrator/QA | Claude/Codex | V1-035 chưa duyệt text/ảnh dùng trong luồng; còn smoke gói cuối ba OS sau khi chốt nội dung. V1-027 đã nghiệm thu sau PR230 và ma trận kiểm lại. | `942045876f2a`; `d6ca5799c8c9`; `303ab49a07c2` |
+| V1-035 | Việt hóa UI V1 | Đã nghiệm thu | client / Codex (nội dung/code); chủ dự án (duyệt ảnh) | dsh2 (độc lập) | Đã nghiệm thu V1-035. Theo dõi G5/runtime UX riêng; tên gốc C00/C01 tiếp tục RE #150, hiện dùng nhãn DESIGN theo scope. | [vi-v1.toml](<../../data/l10n/vi-v1.toml>); [l10n.rs](<../../crates/boom-content/src/l10n.rs>); `71d36a66cd64`; `82033ce560ab`; [l10n_review_v1.py](<../../tools/l10n_review_v1.py>); [UI_STRINGS_V1.md](<../../docs/specification/localization/UI_STRINGS_V1.md>); `6ad3e062f096`; [ui-vi-v1.toml](<../../data/assets/ui-vi-v1.toml>); [ui_localization.rs](<../../crates/boom-content/src/ui_localization.rs>); `43739e2fa6ab` |
+| V1-036 | Build Windows/Linux/macOS | Bị chặn | release / integrator/QA | Claude/Codex | Nội dung V1-035 đã nghiệm thu; còn build/smoke gói cuối Windows/Linux/macOS với bộ chuỗi và bundle Việt hóa đã duyệt. | `942045876f2a`; `d6ca5799c8c9`; `303ab49a07c2` |
 | V1-037 | Đối chiếu và báo sai khác | Đã nghiệm thu | qa / opencode-3 | Codex | Xong: oracle có provenance KR/VN tách golden, báo cáo sai khác tự sinh và kiểm trong cargo xtask ci (PR #184, đóng #180). Đo client gốc runtime vẫn hoãn (Q-009); claim RE mới (#146–#150) bổ sung oracle sau. | [VN_ENGINE_DIFF.md](<../../docs/research/findings/VN_ENGINE_DIFF.md>); `440bc8fd5648`; `b83a7cdcfcab`; [ORACLE_REPORT.md](<../../docs/research/ORACLE_REPORT.md>) |
 
 ## Các mục catalog ngoài V1
