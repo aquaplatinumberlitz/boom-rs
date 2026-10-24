@@ -1,0 +1,729 @@
+{
+  "question": "C64 plateau across 12 native kind2 ACKs and getter end-control",
+  "scope": "single selected VN actor 449222352; C64 field only; no global KR cap/level/FPS/every-frame amount",
+  "actor": 449222352,
+  "vtable": "0xc664c4",
+  "controller_vtable": "0xc6630c",
+  "actor_binding": "bootstrap-selected; handler receiver not proved",
+  "initial_C64": 5,
+  "initial_XY": {
+    "x": 560,
+    "y": 519
+  },
+  "C64_sequence": [
+    5,
+    6,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+  ],
+  "C64_after_return": [
+    6,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+  ],
+  "plateau": {
+    "field": "C64",
+    "initial": 5,
+    "after_pickup1": 6,
+    "after_pickup2": 7,
+    "further_ACKs_at_7": 10,
+    "getter_eax": 7,
+    "getter_C64": 7,
+    "ack_rows": 24,
+    "trap_total": 27
+  },
+  "getter": {
+    "entry": {
+      "kind": "getter_entry",
+      "handler": "0x595cb6",
+      "return_pc": "0x5a64e6",
+      "entry_esp": 1233252,
+      "esp_gate": "recorded_not_asserted; cached595CB6 has one stack arg/ret4",
+      "monotonic_ns": 843272366145113,
+      "thread": [
+        42000,
+        316,
+        0
+      ],
+      "trap_count": 26,
+      "selected_actor": 449222352,
+      "hero": 449222352,
+      "hero_vtable": "0xc664c4",
+      "controller_vtable": "0xc6630c",
+      "C64": {
+        "state": "ok",
+        "value": 7,
+        "raw": "7060c61a8ab7c61ae010191d"
+      },
+      "x": {
+        "state": "ok",
+        "value": 560,
+        "raw": "ead0c61a68afc61a98c5181d"
+      },
+      "y": {
+        "state": "ok",
+        "value": 39,
+        "raw": "9fb6c61ae385c61ad805191d"
+      }
+    },
+    "return": {
+      "kind": "getter_return",
+      "return_pc": "0x5a64e6",
+      "eax": 7,
+      "entry_esp": 1233252,
+      "return_esp": 1233260,
+      "esp_gate": "recorded_not_asserted; cached595CB6 has one stack arg/ret4",
+      "monotonic_ns": 843272368854066,
+      "thread": [
+        42000,
+        316,
+        0
+      ],
+      "trap_count": 27,
+      "selected_actor": 449222352,
+      "hero": 449222352,
+      "hero_vtable": "0xc664c4",
+      "controller_vtable": "0xc6630c",
+      "C64": {
+        "state": "ok",
+        "value": 7,
+        "raw": "7060c61a8ab7c61ae010191d"
+      },
+      "x": {
+        "state": "ok",
+        "value": 560,
+        "raw": "ead0c61a68afc61a98c5181d"
+      },
+      "y": {
+        "state": "ok",
+        "value": 39,
+        "raw": "9fb6c61ae385c61ad805191d"
+      }
+    },
+    "eax": 7,
+    "return_pc": "0x5a64e6",
+    "esp_gate": "recorded_not_asserted; cached595CB6 has one stack arg/ret4"
+  },
+  "packets": {
+    "picks": 12,
+    "coords": [
+      [
+        11,
+        14
+      ],
+      [
+        10,
+        14
+      ],
+      [
+        9,
+        14
+      ],
+      [
+        8,
+        14
+      ],
+      [
+        7,
+        14
+      ],
+      [
+        6,
+        14
+      ],
+      [
+        5,
+        14
+      ],
+      [
+        4,
+        14
+      ],
+      [
+        3,
+        14
+      ],
+      [
+        2,
+        14
+      ],
+      [
+        1,
+        14
+      ],
+      [
+        0,
+        14
+      ]
+    ],
+    "all_kind2": true,
+    "c117": 12,
+    "s158": 12,
+    "forbidden": []
+  },
+  "positive_controls": {
+    "method": "native XY samples whose begin/end clocks lie within the final held-command intervals; clocks select rows, not velocity",
+    "controls": [
+      {
+        "key": "Down",
+        "native_y_first": 46,
+        "native_y_last": 193,
+        "samples": 22,
+        "unit": "native XY px; no velocity inference"
+      },
+      {
+        "key": "Up",
+        "native_y_first": 193,
+        "native_y_last": 53,
+        "samples": 21,
+        "unit": "native XY px; no velocity inference"
+      }
+    ],
+    "settled_Y": 39,
+    "no_velocity_inference": true
+  },
+  "failures_preserved": {
+    "r1": "zero captures/bootstrap registration failure; not physics negative",
+    "r2": "only3 movement pairs captured before coverage abort; 12 wire ACK not 12 native; no cap"
+  },
+  "notes": [
+    "box payload not fully saved; offline cipher recompute unavailable",
+    "decoder live checksum ok; getter EAX7 corroborates C64=7",
+    "no direct 715E90 receiver binding; actor is bootstrap-selected"
+  ],
+  "limitations": [
+    "not a global KR cap/level/FPS claim",
+    "no per-frame amount claim",
+    "getter end-control only"
+  ],
+  "manifest": [
+    {
+      "path": "host-roller-cap-149-r1/00-initial.png",
+      "size": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "path": "host-roller-cap-149-r1/01-channels.png",
+      "size": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "path": "host-roller-cap-149-r1/02-lobby.png",
+      "size": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "path": "host-roller-cap-149-r1/03-create-dialog.png",
+      "size": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "path": "host-roller-cap-149-r1/04-room.png",
+      "size": 385945,
+      "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+    },
+    {
+      "path": "host-roller-cap-149-r1/05-match.png",
+      "size": 440240,
+      "sha256": "3d7715626a557aaa095aaf5712778e4ec7170541c89493f3ccc3a7d5d3516081"
+    },
+    {
+      "path": "host-roller-cap-149-r1/consumer-captures.jsonl",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "host-roller-cap-149-r1/error.txt",
+      "size": 64,
+      "sha256": "1f5e7f45edf95db2d972af7468863ade2e3947adccb5c646339097492ef048ec"
+    },
+    {
+      "path": "host-roller-cap-149-r1/failed-native-bootstrap.png",
+      "size": 440223,
+      "sha256": "b2967eee576c0dc2850ce15b40ade0ee446e7b92cbbc1aaf4f8fadc5eccd93c8"
+    },
+    {
+      "path": "host-roller-cap-149-r1/harness-used.py",
+      "size": 16642,
+      "sha256": "2d2a09c49438d7dd004659daf83ee21a52dca92af8c3cde57046ace7c60a02ce"
+    },
+    {
+      "path": "host-roller-cap-149-r1/isolation.json",
+      "size": 680,
+      "sha256": "917b9515e5ea93119fb522d0333f46302021ea7824818996ea267ef415e29cd2"
+    },
+    {
+      "path": "host-roller-cap-149-r1/packets.jsonl",
+      "size": 17302,
+      "sha256": "250e475afed2e8b7f422cabcf931cb3550b1ff959fbcdf1ece7c99867d195f0e"
+    },
+    {
+      "path": "host-roller-cap-149-r1/packets.log",
+      "size": 13553,
+      "sha256": "78d50fb66806ff735baf93af211f0cf5e33d06ec30787118cbc7644582b5a88b"
+    },
+    {
+      "path": "host-roller-cap-149-r1/pids.json",
+      "size": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "path": "host-roller-cap-149-r1/probe-ready.json",
+      "size": 281,
+      "sha256": "93b34044d108332d85b3d15ea9013d2ee1c4002e217294cd5e0abd0ff6abe3fd"
+    },
+    {
+      "path": "host-roller-cap-149-r1/probe-template-used.gdb",
+      "size": 12845,
+      "sha256": "88e81950fd688b8e194c1a33ca4ff36c7f0eafe6c5dc95a45f86dcdf8f81babf"
+    },
+    {
+      "path": "host-roller-cap-149-r1/probe.gdb",
+      "size": 12845,
+      "sha256": "88e81950fd688b8e194c1a33ca4ff36c7f0eafe6c5dc95a45f86dcdf8f81babf"
+    },
+    {
+      "path": "host-roller-cap-149-r1/server-used.py",
+      "size": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "path": "host-roller-cap-149-r1/server.log",
+      "size": 13553,
+      "sha256": "78d50fb66806ff735baf93af211f0cf5e33d06ec30787118cbc7644582b5a88b"
+    },
+    {
+      "path": "host-roller-cap-149-r1/sources.json",
+      "size": 430,
+      "sha256": "5d9092302667ec8afd1ac7ec2bf209cef6efebf79925981932d4f6ee513291a5"
+    },
+    {
+      "path": "host-roller-cap-149-r1/start.json",
+      "size": 1296,
+      "sha256": "f2ccc4959be9f7c599df0b28c595eba5b3398dcdc626cfe4589322e30ed65aa6"
+    },
+    {
+      "path": "host-roller-cap-149-r1/supervisor.log",
+      "size": 235,
+      "sha256": "31a5bb0832a704e687d5b857fbd357068cc5eb068c4601bf302063a7339a2d33"
+    },
+    {
+      "path": "host-roller-cap-149-r1/winedbg.log",
+      "size": 15213,
+      "sha256": "308de635cb69a338bb4e957d8070935fd7400f0066439a3c42dbf734c59ad12c"
+    },
+    {
+      "path": "host-roller-cap-149-r1/xvfb.log",
+      "size": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/00-initial.png",
+      "size": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/01-channels.png",
+      "size": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/02-lobby.png",
+      "size": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/03-create-dialog.png",
+      "size": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/04-room.png",
+      "size": 385945,
+      "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/05-match.png",
+      "size": 440460,
+      "sha256": "a825ceb083942db7ed5054732926f6abf7f82f962ecd001adb34dde77094c54c"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/06-after-twelve-roller.png",
+      "size": 405531,
+      "sha256": "80252d56477df6abafa53488931809ec247d8c489872ba0d1e9a990b46b1ee2e"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/ack.json",
+      "size": 42,
+      "sha256": "7eddbab34d07743ba51bd450f4cc7395e73a45486f3be6c780643b6f0290d1d4"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/command.json",
+      "size": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/consumer-captures.jsonl",
+      "size": 4235,
+      "sha256": "794a06a5b2214a663e87c17cb286bdc85f5e375be9db40e6b4f2b05d1462b6a9"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/consumer-error.json",
+      "size": 115,
+      "sha256": "5a71f07e03382196d74b1547bfccd3aaddaaacfc0beb339e1d3ac0a8c5f39d90"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/harness-used.py",
+      "size": 16656,
+      "sha256": "4a9e2e38b9348694146ad230e07285365895c1a630cf594d1f805194a22b53b2"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/hero-target.json",
+      "size": 180,
+      "sha256": "bfcbafc9e590fd913f2b35de2797db4e3a04ddb8a2e0fbc5d270179072468512"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/isolation.json",
+      "size": 680,
+      "sha256": "37c775ec732672e521dd6613913f73a4e7d5d96afbc12d9e38980e010c6017f5"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/item158-native-entry.json",
+      "size": 174,
+      "sha256": "74eb8854d8975db9b6be7b23f4ee6c3cc8ba91f405231023d441060204b11edf"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/item158-native-events.jsonl",
+      "size": 980,
+      "sha256": "c6a92d76f981e3ec388c3b189eebb79574bfe15c953bab4290294cf5717fd9eb"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/item158-native-return.json",
+      "size": 152,
+      "sha256": "c9147ecda1ec8a369451105bc5223c694f1266d4ae9c61a384dbeda2b2125fe4"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/packets.jsonl",
+      "size": 23312,
+      "sha256": "8cee09b786e16ccebebe6f92f38bb61c2117ccad4848c6e11936f9a0bf788acd"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/packets.log",
+      "size": 18288,
+      "sha256": "96ae9bf37747acfd449f905cfa37948f10a870ca167cde5def4caaf4af44cef4"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/pids.json",
+      "size": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/position-samples.jsonl",
+      "size": 74041,
+      "sha256": "d4ecfa7065b1778ad1fee28a3d392d8de4afdcd5646470eab2c97cbc146a60c1"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/probe-ready.json",
+      "size": 281,
+      "sha256": "93b34044d108332d85b3d15ea9013d2ee1c4002e217294cd5e0abd0ff6abe3fd"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/probe-template-used.gdb",
+      "size": 13622,
+      "sha256": "27718ace33ba3f877a1ad14b45ed110c4f2240151066bba75eda523434f07168"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/probe.gdb",
+      "size": 13622,
+      "sha256": "27718ace33ba3f877a1ad14b45ed110c4f2240151066bba75eda523434f07168"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/ready.json",
+      "size": 74,
+      "sha256": "b7b4202fba6bbdce07c8539ce94b492da7f0208008de1f64f60efb5f68ea8509"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/registered-hooks.json",
+      "size": 219,
+      "sha256": "48f3683e6098e331c9f64fc4182d51926ba589c2e13e22a429be8fa3302509f8"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/server-used.py",
+      "size": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/server.log",
+      "size": 18288,
+      "sha256": "96ae9bf37747acfd449f905cfa37948f10a870ca167cde5def4caaf4af44cef4"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/sources.json",
+      "size": 430,
+      "sha256": "3053415f8973e7677c3c44492372aad94fcaea9309b18002b4ddaa0a69c5fe5e"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/start.json",
+      "size": 1296,
+      "sha256": "728ea20594b25b216e46795c9c0e0cf52b6deb4e0a490c5cd995c5e1dff7c7cd"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/supervisor.log",
+      "size": 516,
+      "sha256": "a1bb72e8e886524e38cde32afc425b0adc60b96fe914e3ee289fb175f3b324f7"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/winedbg.log",
+      "size": 15313,
+      "sha256": "c2c789907274f286f63aeb65043fa61b394768320eea3f09fbddce162696f635"
+    },
+    {
+      "path": "host-roller-cap-149-r2-register-boot/xvfb.log",
+      "size": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/00-initial.png",
+      "size": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/01-channels.png",
+      "size": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/02-lobby.png",
+      "size": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/03-create-dialog.png",
+      "size": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/04-room.png",
+      "size": 385945,
+      "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/05-match.png",
+      "size": 441014,
+      "sha256": "ed266e16d44e3070e34e18846dfdf9b2abe3b72d2ab9d1816d84ac9ebffd3c58"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/06-after-twelve-roller.png",
+      "size": 405345,
+      "sha256": "e378074d6460281fd83c5c7b8749e98e39bb9ce8c523e73e1d5b819ebff90278"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/07-final-cap-moving-down.png",
+      "size": 406253,
+      "sha256": "757652666cfd121f1ae08ed32f55b9dafab97dc079fe31f6d1566a4443c536af"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/08-final-cap-moving-up.png",
+      "size": 405291,
+      "sha256": "74c48fd4864e326f93b8e64869477c577d237d2100ef56a2c15a6032ce90cba0"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/ack.json",
+      "size": 42,
+      "sha256": "e327f68d1eda3153499ced77c598d9030cb29ba2678a0523a6af44e489b765eb"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/command.json",
+      "size": 23,
+      "sha256": "0f6c4ff78c19bcb32aae21fbec11f02d6b53f9e297605a2e9d6f143e16bdbab3"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/getter-entry.json",
+      "size": 566,
+      "sha256": "7d0c14c45ffe649668cb2c36dfb165a11e8c39c3af8a151febb6c8e36dd87a85"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/getter-events.jsonl",
+      "size": 1145,
+      "sha256": "997ae33b2f4f7d16091bb7027a155d2ab50b7b79f03f5511c3f2cb470de9fe2d"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/getter-return.json",
+      "size": 577,
+      "sha256": "3eb02a9c660c02284b498f3ea432d779534beda2a3ec207841ff476da786041d"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/harness-used.py",
+      "size": 16664,
+      "sha256": "ce2b450ed7f70d4e71b9668691a68446ad055b03ff860b935eecac54641715ac"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/hero-target.json",
+      "size": 566,
+      "sha256": "2a71156dd8f8c61e0fe3fce20b23dc907c4b2f2ad999f121232775086056bbc0"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/isolation.json",
+      "size": 680,
+      "sha256": "39d7e3192bcf25a6862eff0961f473cfa9642f1f6fca4a62eb3024ba5aecc7ea"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/native-ack-entry.json",
+      "size": 544,
+      "sha256": "482fe46710f7773dd5711e5c96215ada9c7c1bc9681b1e581d54073354a4a0dd"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/native-ack-events.jsonl",
+      "size": 12810,
+      "sha256": "079267d93e880d0ceb39f69fa3b75d19405dc2574ca9bdfc872910bdeeac426a"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/native-ack-return.json",
+      "size": 522,
+      "sha256": "44a471feedd29fdd505b58b62f252b72780ccec145bbd1f78a0b08327349ca75"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/packets.jsonl",
+      "size": 24911,
+      "sha256": "a718c86a3359eb1bff127dfbf3b6d1ff2e94dde7402eec584afb3acc7bf8dcb2"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/packets.log",
+      "size": 19566,
+      "sha256": "356b88ad8f57eb0e4f110f14486b436b355c26da9a7b59bcb1a1e44a4c28a101"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/pids.json",
+      "size": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/position-samples.jsonl",
+      "size": 145461,
+      "sha256": "b0d6924c059b7670b99f593f0de25e14ea5a27535e4f0effd4fa404229cb5030"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/probe-ready.json",
+      "size": 296,
+      "sha256": "5996605b62cf35ee8945d0d65e3285ef1c7a17e6d00839bd5e7f28b6c2e937b2"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/probe-template-used.gdb",
+      "size": 12674,
+      "sha256": "1d14ad5ba833de7d62c34b2c7972509d4cda58f1da862971d3d1b8d257c0bd28"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/probe.gdb",
+      "size": 12674,
+      "sha256": "1d14ad5ba833de7d62c34b2c7972509d4cda58f1da862971d3d1b8d257c0bd28"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/ready.json",
+      "size": 74,
+      "sha256": "dd618ce545a582334bd5a76d6bd49abcd530532a46d59eee63961846cc613d19"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/registered-hooks.json",
+      "size": 222,
+      "sha256": "5d81cd0a91606abb905e333bfcc59efc2d755bdc71d13699832456191c97423e"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/server-used.py",
+      "size": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/server.log",
+      "size": 19566,
+      "sha256": "356b88ad8f57eb0e4f110f14486b436b355c26da9a7b59bcb1a1e44a4c28a101"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/sources.json",
+      "size": 428,
+      "sha256": "c62461b39b6612c9dff34019dc8df866f8623c6f78219ecd3fe45afadfb23815"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/start.json",
+      "size": 1294,
+      "sha256": "a326b3553af7fba8d52bbf096e1e691a169cfd34dd41cde916ccd273d9408485"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/supervisor.log",
+      "size": 999,
+      "sha256": "9f5df6516b18c1917849b30df254c2ab7d8057d6bd736485db903524661f375c"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/winedbg.log",
+      "size": 15231,
+      "sha256": "f0bb07cdae5164ac54cbd273919d6de46c7f4ae552324c900aca09c297897aca"
+    },
+    {
+      "path": "host-roller-cap-149-r3-native-ack-fields/xvfb.log",
+      "size": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    }
+  ],
+  "schema": 1,
+  "claim": "R-172",
+  "issues": [
+    149,
+    146
+  ],
+  "source": "vn_runtime",
+  "status": "confirmed (C64/getter scalar plateau on the selected actor only)",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386",
+    "map": "Factory01, pack index193, room19",
+    "patch_scope": "Disclosed IAT/devirt/offline fixture as R170/R171; user authorizes scoped VN runtime, vanilla equivalence not established"
+  },
+  "baseline": "61719d547f10b74ac7d150ccdf149fcb8cf5456a",
+  "raw_root_private": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240",
+  "runtime": {
+    "run": "host-roller-cap-149-r3-native-ack-fields",
+    "owner": "Codex only",
+    "isolation": "private user/net/PID/mount namespaces, loopback only, private tmpfs /tmp and Xvfb displayfd",
+    "termination": "stop3, supervisorDONE, exec4431 EXIT0, runtime owner false after owned child exit",
+    "meaning": "native158 handler entry/return markers; selected bootstrap actor read at each marker, not proof of handler ECX receiver"
+  },
+  "C64_before_entry": [
+    5,
+    6,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+  ],
+  "manifest_policy": "Only paths/sizes/digests are public; binary/pack/media/raw assembly and runtime logs remain private.",
+  "verification": {
+    "independent_root_recompute": "cap-r3-independent-verification.json: raw 24rows/getter/packet/control checks PASS; all manifest hashes verified separately",
+    "mock_plumbing": "6 synthetic offline callback/registration/schema/failclosed checks passed before runtime; not physics evidence",
+    "box_payload_limit": "Live checksum/cookie decoder validates values; full encrypted payload absent, so later offline cipher recomputation is not possible. EAX7 independently corroborates final value."
+  }
+}

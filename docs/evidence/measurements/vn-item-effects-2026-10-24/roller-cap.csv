@@ -1,0 +1,26 @@
+row_type,index,event,native_index,monotonic_ns,C64,C64_raw,X,Y,trap_count,actor,vtable,controller_vtable,thread,return_pc,actor_binding
+initial,0,initial,0,843253859857767,5,7060c61a8ab7c61ac8cec61a,560,519,1,449222352,0xc664c4,0xc6630c,,,bootstrap-selected; handler receiver not proved
+ack,1,entry,1,843270344903852,5,7060c61a8ab7c61ac8cec61a,560,494,2,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,1,return,1,843270351199548,6,7060c61a8ab7c61ac8cec61a,560,494,3,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,2,entry,2,843270606871859,6,7060c61a8ab7c61ac8cec61a,560,446,4,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,2,return,2,843270621798743,7,7060c61a8ab7c61ac8cec61a,560,446,5,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,3,entry,3,843270809460623,7,7060c61a8ab7c61ac8cec61a,560,404,6,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,3,return,3,843270815072868,7,7060c61a8ab7c61ac8cec61a,560,404,7,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,4,entry,4,843271063355203,7,7060c61a8ab7c61ac8cec61a,560,341,8,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,4,return,4,843271069330648,7,7060c61a8ab7c61ac8cec61a,560,341,9,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,5,entry,5,843271312209528,7,7060c61a8ab7c61ac8cec61a,560,285,10,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,5,return,5,843271318109774,7,7060c61a8ab7c61ac8cec61a,560,285,11,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,6,entry,6,843271321468477,7,7060c61a8ab7c61ac8cec61a,560,285,12,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,6,return,6,843271327645082,7,7060c61a8ab7c61ac8cec61a,560,285,13,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,7,entry,7,843271539337634,7,7060c61a8ab7c61ac8cec61a,560,229,14,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,7,return,7,843271545527210,7,7060c61a8ab7c61ac8cec61a,560,229,15,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,8,entry,8,843271745106860,7,7060c61a8ab7c61ac8cec61a,560,187,16,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,8,return,8,843271751418306,7,7060c61a8ab7c61ac8cec61a,560,187,17,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,9,entry,9,843271928070526,7,7060c61a8ab7c61ac8cec61a,560,131,18,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,9,return,9,843271934857142,7,7060c61a8ab7c61ac8cec61a,560,131,19,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,10,entry,10,843271938498566,7,7060c61a8ab7c61ac8cec61a,560,131,20,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,10,return,10,843271944237711,7,7060c61a8ab7c61ac8cec61a,560,131,21,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,11,entry,11,843272143424411,7,7060c61a8ab7c61ac8cec61a,560,82,22,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,11,return,11,843272149920977,7,7060c61a8ab7c61ac8cec61a,560,82,23,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,12,entry,12,843272356455704,7,7060c61a8ab7c61ac8cec61a,560,39,24,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved
+ack,12,return,12,843272362451890,7,7060c61a8ab7c61ae010191d,560,39,25,449222352,0xc664c4,0xc6630c,42000:316:0,0x71b717,bootstrap-selected; handler receiver not proved

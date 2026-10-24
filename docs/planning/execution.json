@@ -255,9 +255,10 @@
         "docs/evidence/measurements/vn-item-effects-2026-10-24/movement-producer.json",
         "docs/evidence/measurements/vn-item-effects-2026-10-24/movement-amount.json",
         "git:2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
-        "git:fd5b46c41914bd95b2a2efec7b5856b553436dcb"
+        "git:fd5b46c41914bd95b2a2efec7b5856b553436dcb",
+        "docs/evidence/measurements/vn-item-effects-2026-10-24/roller-cap.json"
       ],
-      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành. PR272/R170 actualgetter5→6 vàPR275/R171 actualv244amount5/6→Ydelta−5/−6 đãreviewđộc lập/12CI3OS; chỉ hai ca native, khônglevel/FPS/normalization/profilechange. Chuẩn bị câu hỏi plateauRoller có đối chứng, chưa sign-offG2.",
+      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành. PR272/R170 actualgetter5→6 vàPR275/R171 actualv244amount5/6→Ydelta−5/−6 đãreviewđộc lập/12CI3OS; chỉ hai ca native, khônglevel/FPS/normalization/profilechange. R172 bổ sung C64 plateau7 qua12Roller/nativegettercuối7/nativeXYcontrol trong mộtactorVN; không nâng C00/C01candidate/level/globalKRcap, không sign-offG2.",
       "integration_commit": "",
       "blocker": "Cần review độc lập quyết định profile phát hành/12khóaC00/C01candidate; loader từ chối candidate khi release=true. Không đổi nhãn bằng chứng để vượt gate. Nativefidelity khác có thể backlog theo SCOPE10.5, không cần đóng hết146/149."
     },

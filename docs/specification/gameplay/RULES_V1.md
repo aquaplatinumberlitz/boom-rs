@@ -921,3 +921,19 @@ về level/đơn vị; không tự nâng source chỉ vì return và bước pix
 Hai EAX5/6 là giá trị quan sát, chưa gán nghĩa toànhàm. R-170 getter vàR-169velocity là các capture khác;
 không ghép đồnghồ để tạo công thức cấp tốc độ. Phần arg→XY trong hai lời gọi này đã có kếtquả, còn
 sourceproducer/cadence/writer/normalization là câu hỏi tiếp, không đổi profile từ dữ liệu chưa cùng đại lượng.
+
+## 36. Plateau của trường/getter movement sau nhiều Roller VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-172 | CùngactorVN/C664C4 và controllerhero+5F4/C6630C: protectedcontroller+64 banđầu5; native158pickup1 trả6, pickup2 trả7, pickup3..12 giữ7 dù 12ACKkind2 đều xửlý. Saupickup12, actualhero595CB6 return5A64E6 cóEAX7/C647; nativeXY vẫnđiDown/Up trong đối chứng cuối | Trường/getter scalar5→6→7 rồi plateau7 qua10ACK thêm; khônglevel/đơnvị thời gian | vn_runtime / confirmed (trường/getter trongđúng actor và12pickup đã đo) | [CSV/manifest/guard/failure](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#plateau-c64-sau-12-roller--r-172); fixturebc875…/Factory01index193/room19, actor449222352;24nativeACKrows+2getterrows/27traps. Chọn actor từ bootstrap, không chứng minh ECXreceiver của handler715E90; không suy capmọiKR/C00/C01/level/FPS/writer hoặc every-frame amount |
+
+C64 tại mỗi entry/return native được đọc có kiểm cookie/checksum; EAX7 cuối là giá trị register độc lập.
+Payload mãhóa không được lưu đủ để giải mã lại offline, giới hạn giống R-170/R-171. Mười ACK sau khi
+đạt7 không làm C64 tăng trong các mốc đã chụp; đây là plateau quan sát, chưa xác định maxfield/clampwriter.
+Đối chứng nativeXY đi xuống46→193 và lên193→53, không suy vận tốc từ keydown hoặc đồnghồ debugger.
+
+Lượt capr1 không đăngký bootstrap nên không có phépđo. Capr2 có ba cặp actualv244 amount5/6/7 với
+Ydelta−5/−6/−7, sauđó bỏsót cặp trước pickup4 và failclosed; không lấy12wireACK thành12nativecapture.
+Capr3 chuyển điểm quan sát sang native158entry/return và getter cuối; giữ toàn bộ raw các lượt.
+Không sửa profile, nhãn C00/C01 candidate hoặc gate; cadence/normalization/identity và writer vẫn theo Q-017/Q-020.

@@ -346,3 +346,45 @@ R-171 chốt quan sát **argument→XY trong lời gọi thực** ở hai ca, kh
 R-170producer hoặc dùng đồnghồ R-169 để suy normalization. Bước tiếp: reuse actualcaller/sourcecache
 để truy nguồn amount/cadence hoặc writer/clamp có ca rõ; không đo lại cặp này chỉ để được cùng số.
 Profile speed24DESIGN, cap/identityKR và toànbộgate giữ nguyên.
+
+## Plateau C64 sau 12 Roller — R-172
+
+[25 dòng CSV](roller-cap.csv) gồm bootstrap và24entry/return của12native158;
+[metadata/getter/đối chứng/93hash](roller-cap.json). FixtureVN VBNB_116bc875…,
+Factory01index193/room19, cùngactor449222352/C664C4/controllerC6630C. Quyền dùng đo độngVN
+theo ADR0002/0013; giữ giới hạn IAT/devirt/offline, chưa chứng minh vanilla tương đương.
+
+| Mốc native | C64 entry→return | Ghi nhận |
+|---|---|---|
+| Bootstrap | 5 | Trường protectedcontroller+64, cookie/checksum hợp lệ |
+| Pickup1 | 5→6 | Một117/158kind2 |
+| Pickup2 | 6→7 | Cùngactor/controller |
+| Pickup3…12 | 7→7, mười lần | Cả12ACKnative đã xửlý; không lấy wireACK làm nativecapture |
+| Getter cuối | EAX7/C647 | 595CB6→5A64E6, cùngactor/thread, entryESP1233252→return1233260 |
+
+12vịtríitem duy nhất x14/y11…0, không111/151/120. Tổng27traps, khôngconsumer-error.
+Sauđó nativeXY vẫn điDown46→193 vàUp193→53, cuối về39. Các khoảng650ms chỉ chọn mẫu
+đối chứng; không suy vận tốc/FPS từ keydown hay thời gian debugger. HaiACK5/6 có cùngY285,
+haiACK9/10 cùngY131 được giữ nguyên; không bỏ các hàng không đổiXY.
+
+**Kết luận:** protectedC64 plateau7 sau hai lần tăng, qua thêm10ACK, getter cuối7 và đối chứng
+di chuyển. Không gọi trường đó là cấp tốc độ, capmọiKR/C00/C01, per-frameamount hoặc maxfield.
+Actor được chọn từ bootstrap và đọc ở mốc handler; chưa chứng minh đó là ECXreceiver715E90.
+Payload box không lưu đủ để giải mã lại offline; decoderlive đã kiểm cookie/checksum, registerEAX
+cuối corroborates7. Writer/clamp/cadence/normalization và ánhxạ nhânvậtKR còn riêng.
+
+### Giữ các lượt chưa đủ quan sát
+
+- Capr1: thiếu instanceHeroBoot dù báoready, không có capture. Bản sửa đăngkýhook được kiểm offline
+  oldfalsepositive/newgreen/mutationred và review độc lập trước chạy.
+- Capr2: ba cặp actualv244 amount5/6/7 cóYdelta−5/−6/−7; sau native158 thứ3 không quan sát đủ cặp
+  trước pickup4, guard failclosed. 12wireACK tổng cộng chỉ có3nativeentry/return; không kết luậncap
+  hoặc nhánhamount>=8. Prefix59D894 đãcache không chứa threshold8.
+- Capr3: đổi điểm quan sát sang native158entry/return/C64 và getter cuối, không lặp input/probe lỗi.
+  Kiểm offline callback/schema/24ACK synthetic/getter/sameactor/failclosed không phải gameplay.
+  Giữ rawcả3lượt, chỉ publicmanifest; không publish ảnh/pack/binary/longasm.
+
+Nguồn đã dùng được giữ trong rawrun: frozenharness/probe/server, sources/start/isolation,
+registered-hooks, nativeACK/getter, packetlog, XYsamples và supervisor. Máy chỉ có một runtime
+owner; stop3 kết thúc namespace riêng, wrapper xácnhận ownerfalse. Profile và các gate không đổi.
+Bước tiếp là writer/maxfield/nhánh hoặc normalization có cạnh/ca mới; không đo lại plateau7 này.
