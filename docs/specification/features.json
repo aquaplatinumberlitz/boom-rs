@@ -1570,7 +1570,7 @@
         },
         "review": {
           "status": "pending",
-          "result": "Phần code đã được review trong các PR dẫn ở evidence; nghiệm thu feature cuối còn chờ nội dung V1 được người duyệt chấp nhận."
+          "result": "Phần code đã được review trong các PR dẫn ở evidence; V1-035 đã nghiệm thu và tích hợp PR241. Còn nghiệm thu gói cuối ba OS với nội dung đã duyệt; chưa cấp approval feature V1-036."
         },
         "blocker": "Nội dung V1-035 đã nghiệm thu; còn build/smoke gói cuối Windows/Linux/macOS với bộ chuỗi và bundle Việt hóa đã duyệt.",
         "next_action": "Build/smoke gói cuối ba OS sau integration43739e2; bundle Việt hóa dùng ui-vi-v1.toml và nguồn media local đúng hash. V1-027/V1-035 đã done; không coi CI build thay nghiệm thu gói cuối."
