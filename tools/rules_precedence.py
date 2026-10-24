@@ -231,6 +231,17 @@ def expectations() -> list[Quantity]:
             forbidden=(("R-043", "raw px/tick, checksum chưa xác thực"),),
         ),
         Quantity(
+            key="player.trapped_speed_px_per_s",
+            quantity="trapped_speed",
+            unit="px/s",
+            context="V1 design; hiệu chuẩn slow movement VN R-161/R-162",
+            tier="project_design",
+            sources=("design",),
+            status="design",
+            selection="R-162",
+            support=("R-161",),
+        ),
+        Quantity(
             key="player.trap_to_death_ms",
             quantity="trap_to_death_timer",
             unit="ms",

@@ -154,3 +154,12 @@ Sampler có3reset3→0 sớm;không gọi wholetrace epoch đơn điệu,200coun
 R-160 chọn6350msDESIGN→191tickRust30Hz,chếtT+190(~6333ms);khôngliteralnative timer.
 Receiver71734E/5AF165 đã khóa trongcase này, thay blocker“chưa biết cùnghero”củacheckpointtrước.
 Increment/reset writer/clocknative,deathanimationtail,non-owner,input/touch-order vẫn Q018.
+
+## Input khi bị nhốt (R-161/R-162)
+
+Hai capture VN24/10 cùngfixture/sameactor xác nhận sau native11 nhânvật vẫn đi chậm theo
+Left/Right; idle không đổiXY. R1alive±5px/bước, trapped±1px/bước; R3repeat haihướng±1px.
+[Evidence/manifest/CSV](../../evidence/measurements/vn-trapped-input-2026-10-24/README.md) giữ93rawhash
+vàr2failed/excluded. **17px/s là calibrationDESIGN R-162**, khôngliteralnative; thay đứngyênR-036.
+Space sau11 không có111 mới chưa tách gate/cap/cell; không gọi là confirmedbombgate.
+Trụcdọc/hìnhhọc bubble/level/crosscharacter vàtouchorder còn #147; không đóng root từ kếtquả này.

@@ -29,6 +29,15 @@ status = "confirmed"
 claims = ["R-010", "R-110"]
 note = "ADR 0013; khôi phục nguồn confirmed cùng đại lượng; giới hạn áp dụng xem claim lựa chọn"
 
+# Tốc độ khi bị nhốt: hiệu chuẩn VN R-161/R-162; độc lập cấp tốc độ.
+[player.trapped_speed_px_per_s]
+value = 17
+unit = "px/s"
+source = "design"
+status = "design"
+claims = ["R-161", "R-162"]
+note = "17px/s là lựa chọn hiệu chuẩn từ hai ca VN cùngactor, không phải hằng native/áp mọi character. Hộp/bám góc giữ DESIGN hiện hành."
+
 [player.speed_px_per_s_per_level]
 value = 24
 unit = "px/s"

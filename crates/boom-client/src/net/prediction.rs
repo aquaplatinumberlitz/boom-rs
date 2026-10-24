@@ -387,6 +387,14 @@ impl Predictor {
         // Ack là sequence đã **giải quyết** (áp dụng hoặc retire): bỏ mọi lệnh `seq <=` giá trị này.
         self.pending.retain(|command| command.seq > acked_seq);
         self.shadows.retain(|shadow| shadow.seq > acked_seq);
+        if !state
+            .player(self.player_id)
+            .is_some_and(|player| player.life == boom_core::Life::Alive)
+        {
+            // Correction có thể nhốt/giết mình trước ack lệnh đặt bom. Bỏ bóng trình diễn,
+            // giữ nguyên payload của lệnh đã tạo để resend vẫn bất biến.
+            self.shadows.clear();
+        }
         self.confirmed = Some(state);
         self.last_snapshot_seq = snapshot.snapshot_seq;
         self.round_id = Some(snapshot.round_id);
@@ -441,7 +449,7 @@ impl Predictor {
     /// (ADR 0009 §3.4(e)).
     pub fn predict_at(
         &mut self,
-        input: PlayerInput,
+        mut input: PlayerInput,
         target_tick: u32,
     ) -> Result<Option<u32>, PredictError> {
         let Some(state) = self.predicted.as_ref() else {
@@ -450,6 +458,10 @@ impl Predictor {
         if state.phase != Phase::Playing {
             return Ok(None);
         }
+        // Chỉ lọc intent của lệnh MỚI, không sửa bits lệnh đã gửi khi correction/replay.
+        input.place_bomb &= state
+            .player(self.player_id)
+            .is_some_and(|player| player.life == boom_core::Life::Alive);
         let target_tick = target_tick.max(self.last_target_tick);
         self.last_target_tick = target_tick;
         let seq = self.next_seq;
@@ -1045,7 +1057,7 @@ mod tests {
     }
 
     #[test]
-    fn bi_nhot_hay_chet_giu_nguyen_trong_du_doan() {
+    fn bi_nhot_di_cham_nguoi_chet_dung_yen_trong_du_doan() {
         for life in [boom_core::Life::Trapped { since: 3 }, boom_core::Life::Dead] {
             let mut predictor = Predictor::new(world(), 0).expect("predictor");
             let mut state = two_player_state(7);
@@ -1069,10 +1081,64 @@ mod tests {
             );
             assert_eq!(
                 (predicted.players[0].x, predicted.players[0].y),
-                (before.players[0].x, before.players[0].y),
-                "người chơi đã chết/bị nốt không được dịch chuyển khi dự đoán"
+                (
+                    boom_core::Mpx(
+                        before.players[0].x.0
+                            + if matches!(life, boom_core::Life::Trapped { .. }) {
+                                predictor.world.rules().trapped_speed.0
+                            } else {
+                                0
+                            }
+                    ),
+                    before.players[0].y,
+                ),
+                "trapped đi chậm theo cùng luật core; dead giữ vị trí"
             );
         }
+    }
+
+    #[test]
+    fn bi_nhot_hay_chet_khong_tao_bong_bom_cho() {
+        for life in [boom_core::Life::Trapped { since: 3 }, boom_core::Life::Dead] {
+            let mut predictor = Predictor::new(world(), 0).expect("predictor");
+            let mut state = two_player_state(7);
+            state.players[0].life = life;
+            predictor
+                .apply_snapshot(&snapshot_of(&state, 1, 1))
+                .unwrap();
+            predictor
+                .predict(PlayerInput {
+                    dir: Dir::Right,
+                    place_bomb: true,
+                })
+                .unwrap();
+            assert!(predictor.bomb_shadows().is_empty());
+            assert!(!predictor.window_for_send(1, 7)[0].bits.place_bomb());
+        }
+    }
+
+    #[test]
+    fn correction_nhot_bo_bong_bom_nhung_khong_sua_lenh_da_gui() {
+        let mut predictor = Predictor::new(world(), 0).expect("predictor");
+        let mut state = two_player_state(7);
+        predictor
+            .apply_snapshot(&snapshot_of(&state, 1, 1))
+            .unwrap();
+        predictor
+            .predict(PlayerInput {
+                dir: Dir::None,
+                place_bomb: true,
+            })
+            .unwrap();
+        let sent = predictor.window_for_send(1, 7);
+        assert!(sent[0].bits.place_bomb());
+        assert_eq!(predictor.bomb_shadows().len(), 1);
+        state.players[0].life = boom_core::Life::Trapped { since: 7 };
+        predictor
+            .apply_snapshot(&snapshot_of(&state, 1, 2))
+            .unwrap();
+        assert!(predictor.bomb_shadows().is_empty());
+        assert_eq!(predictor.window_for_send(1, 7), sent);
     }
 
     #[test]

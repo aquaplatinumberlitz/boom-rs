@@ -1,0 +1,645 @@
+{
+  "schema": 1,
+  "issue": 259,
+  "root_issue": 147,
+  "baseline": "f5ffb03e80ef28dce3fb946af60391d42b7edae9",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386",
+    "map": "Ocean01 VN672",
+    "room_type": 19
+  },
+  "scope": "same-actor horizontal movement; no claim on vertical/crosscharacter/collision geometry/bomb gate",
+  "calibration": {
+    "key": "player.trapped_speed_px_per_s",
+    "value": 17,
+    "unit": "px/s",
+    "source": "design",
+    "status": "design"
+  },
+  "private_root": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240",
+  "cases": [
+    {
+      "run": "host-trapped-input-147-r1",
+      "valid_trapped_measurement": true,
+      "excluded_reason": null,
+      "hero_from_getter": null,
+      "native11": [
+        {
+          "kind": "serialize",
+          "monotonic_ns": 790643749683135,
+          "object": 449298672,
+          "vtable": "0xc664c4",
+          "x": 35,
+          "y": 39,
+          "counter_26e0": 0,
+          "subtype": 11,
+          "return": "0x5aef7c",
+          "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x00702b95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d59 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+          "bubble": "0x10976338",
+          "bubble_vtable": "0xc2e21c",
+          "bubble_age": 0
+        }
+      ],
+      "native13": [
+        {
+          "kind": "serialize",
+          "monotonic_ns": 790650108172555,
+          "object": 449298672,
+          "vtable": "0xc664c4",
+          "x": 35,
+          "y": 39,
+          "counter_26e0": 0,
+          "subtype": 13,
+          "return": "0x717354",
+          "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x007172a7 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d51 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+          "bubble": "0x10976338",
+          "bubble_vtable": "0xc2e21c",
+          "bubble_age": 0
+        }
+      ],
+      "samples": 253,
+      "unique_xy_records": 36,
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609807,
+          "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 628183,
+          "sha256": "6975bd2c84511467a977ffdd4d590284a8b61032687a49ba193485d0a56eb762"
+        },
+        {
+          "path": "06-alive-right.png",
+          "size": 627801,
+          "sha256": "a4f407028d1131c75af36e4ad276308fb0b94234041a7dbe193c07803923c211"
+        },
+        {
+          "path": "07-alive-return.png",
+          "size": 627057,
+          "sha256": "43c229ebe097bdb2e9cbe9737f0e45458867bc64bb0c29783768c0b6b757a017"
+        },
+        {
+          "path": "08-bomb.png",
+          "size": 627447,
+          "sha256": "c3e4d403fcc2d6ee82bd17c1dd9c5186304387988e928fd49d3f7268ad546add"
+        },
+        {
+          "path": "09-before-trapped-input.png",
+          "size": 628696,
+          "sha256": "c4063f4ae44e9aed4bd45d394c628ce7f70f712408cc51b290a85d0e7076be69"
+        },
+        {
+          "path": "10-trapped-left.png",
+          "size": 627844,
+          "sha256": "19b42af8236bfd86b61d161bc19a90dd42d29fd4a8775c3a830ab9517603bd41"
+        },
+        {
+          "path": "11-trapped-right.png",
+          "size": 628105,
+          "sha256": "fbddda811bee8452ab245d990eb7eeca7f13541f1662179f572987d10092afdf"
+        },
+        {
+          "path": "12-trapped-space.png",
+          "size": 628526,
+          "sha256": "2618a91ebe1eefa3c549b8292cd86c3c92bfe38e9b933dd102120a659c637f22"
+        },
+        {
+          "path": "13-trapped-space-late.png",
+          "size": 628919,
+          "sha256": "05279fb3e1417fad39d81aa9dda06f2eee7f7158e86dee5c326d3a18f49d227f"
+        },
+        {
+          "path": "14-after-death.png",
+          "size": 626722,
+          "sha256": "12831dd94f507c01316d45377a1b08d7be38e0ed4d78f5b4f6d80aaa73a27bac"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "3f4b9bb07ceca1ba0392709104a13c1498c15f800d0afc06122b4e2a89135c7c"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "1ba05b90d8b9a9aa0fe83371abd62a50e29ab68cc2d88815ee738b6e7c17fec8"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 10169,
+          "sha256": "af87fbdfa48a59da3af5bfdf7f6ea8462a16b30261a7d84bd85aa49dd09f819e"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "ce7e2a4f8c041d5edfd9be1ceeeda1ce702d1cf06d8be073c3873602e3650e89"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 3241,
+          "sha256": "c65c690bc4852dbba1ff7137708251587b604e2645596e69a623e6ff9403eda8"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 18412,
+          "sha256": "5097add8daabbbea8cc258712d30a7f4950fa65af942cf1175be6eeff61c7e71"
+        },
+        {
+          "path": "packets.log",
+          "size": 14403,
+          "sha256": "90b40dded313cc059558af567e0749c45255be02dc9ce90ced7de77c1b2b8885"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 30844,
+          "sha256": "a5deef4f5362013d43479580d2d75837ecca7d00f68e7c44b3e21e746dc08c8d"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "02432ff42513bb72d112008d73cb674e5265d73bde3cf243ba35fa270a8063af"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 4681,
+          "sha256": "8048d0f4e1d482dcd97b9ba921a3ace7c9d7efef47edd46f442fa53a67cba242"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "c0b931af2a4bb0d0823ed0cd66e57807cdc3d5ee3f50d55688170e54e236d1ac"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "52b96579b704dfdafbe2fc01d0ab5f1749e53b64a01a16a9bc16d72c7d55932f"
+        },
+        {
+          "path": "server.log",
+          "size": 14403,
+          "sha256": "90b40dded313cc059558af567e0749c45255be02dc9ce90ced7de77c1b2b8885"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1937,
+          "sha256": "be07bb42ced40a7090cccb44fa88900a48279d1fd0ccdf7e4094e832c0dee6aa"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "ce7e2a4f8c041d5edfd9be1ceeeda1ce702d1cf06d8be073c3873602e3650e89"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15047,
+          "sha256": "751efa73fe2a92cfb10aa6e8b24d97a776a5bbb56f25a04ca4da4589e2dcc157"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ],
+      "hero_last_target": {
+        "kind": "serialize",
+        "monotonic_ns": 790643749683135,
+        "object": 449298672,
+        "vtable": "0xc664c4",
+        "x": 35,
+        "y": 39,
+        "counter_26e0": 0,
+        "subtype": 11,
+        "return": "0x5aef7c",
+        "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x00702b95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d59 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+        "bubble": "0x10976338",
+        "bubble_vtable": "0xc2e21c",
+        "bubble_age": 0
+      }
+    },
+    {
+      "run": "host-trapped-input-147-r2",
+      "valid_trapped_measurement": false,
+      "excluded_reason": "Không có native11/13 sau151; không dùng làm ca negative/timing, lỗi chưa xác định.",
+      "hero_from_getter": null,
+      "native11": [
+        {
+          "kind": "serialize",
+          "monotonic_ns": 790781260516268,
+          "object": 449151448,
+          "vtable": "0xc664c4",
+          "x": 35,
+          "y": 39,
+          "counter_26e0": 0,
+          "subtype": 11,
+          "return": "0x5aef7c",
+          "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x00702b95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d59 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+          "bubble": "0x10976338",
+          "bubble_vtable": "0xc2e21c",
+          "bubble_age": 0
+        }
+      ],
+      "native13": [],
+      "samples": 18,
+      "unique_xy_records": 18,
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 628059,
+          "sha256": "802180f5783de5b820051d46b545bf55193811bfefee8129726f70c7298db94a"
+        },
+        {
+          "path": "06-alive-control.png",
+          "size": 626866,
+          "sha256": "32e87d211428f76f1edcab69213acbbb728712b40bfaaac33c973d94d63a3ff8"
+        },
+        {
+          "path": "07-bomb.png",
+          "size": 627653,
+          "sha256": "943f39dd6df3ddb142159bf94572ed5a3100f764ff66ba0ac73b4c98b538e7cb"
+        },
+        {
+          "path": "command.json",
+          "size": 539,
+          "sha256": "b477aa8878591cf482a0c997a967008728bf67a5e47d10a1c6f76440eaed5ed1"
+        },
+        {
+          "path": "error.txt",
+          "size": 36,
+          "sha256": "5c6d8ec52fa5c44b9495be20d302122f5cff0ac0d1c80fab8b26e046e2f9287e"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 10169,
+          "sha256": "adc66dd6bc4f1616b0ab813378acc53ea77c5c75a66d827e0fd6d3377e8cf7d7"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "351ad0fdd3e6e3613df319c349c010cee9187a8b79d086e138992fb605f6cc06"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 1123,
+          "sha256": "683967f212096922e70ce3c17e51a0b494580580a8483bae20731714d06be7c8"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 16254,
+          "sha256": "6a07e6da5e9ef61d3ab82f803797aa942cfe05586a2a2459091bd5e8a5a984fc"
+        },
+        {
+          "path": "packets.log",
+          "size": 12737,
+          "sha256": "dc524a6bfdecba342e1cd6194c9efd20c50620640b1ed8eeca635120aa7337f1"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "a8658cf26aa7f9cd208af11bc9a5d2ac1dad29bf3385d1b07c04295a21c89d5f"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 2106,
+          "sha256": "c6232512e2b6569a52b58307ed2bb49eb9dac5c805651e050551c8789cdb5de0"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "bec7da62406f70f7023ac659d42bc85c45706596a1f99fe6c07e179601ecc5b5"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 4681,
+          "sha256": "515618a2cb3210e57c8c58c854fc029439f1cf8384555244904ee3654bce73b1"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "362d4c7c160b7fba2d8d6db072d42c152d9dccf73b7f05b6e3419cd897df5f42"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "37bd9eb16eae953264681613ecf380f7a96f77f5eaea0d865101b234b8dfc21a"
+        },
+        {
+          "path": "server.log",
+          "size": 12737,
+          "sha256": "dc524a6bfdecba342e1cd6194c9efd20c50620640b1ed8eeca635120aa7337f1"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1041,
+          "sha256": "e10502c0b450b88e59108ebf657c259f9582dd2533adc7175a245cf1be43b284"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "351ad0fdd3e6e3613df319c349c010cee9187a8b79d086e138992fb605f6cc06"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15392,
+          "sha256": "4aad25872cd3ae2c111bd696e614a408f31e99b2defa141ab807a9149f944d02"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ],
+      "hero_last_target": {
+        "kind": "serialize",
+        "monotonic_ns": 790781260516268,
+        "object": 449151448,
+        "vtable": "0xc664c4",
+        "x": 35,
+        "y": 39,
+        "counter_26e0": 0,
+        "subtype": 11,
+        "return": "0x5aef7c",
+        "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x00702b95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d59 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+        "bubble": "0x10976338",
+        "bubble_vtable": "0xc2e21c",
+        "bubble_age": 0
+      }
+    },
+    {
+      "run": "host-trapped-input-147-r3",
+      "valid_trapped_measurement": true,
+      "excluded_reason": null,
+      "hero_from_getter": null,
+      "native11": [
+        {
+          "kind": "serialize",
+          "monotonic_ns": 790946943730505,
+          "object": 449555808,
+          "vtable": "0xc664c4",
+          "x": 40,
+          "y": 39,
+          "counter_26e0": 0,
+          "subtype": 11,
+          "return": "0x5aef7c",
+          "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x00702b95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d59 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+          "bubble": "0x10976338",
+          "bubble_vtable": "0xc2e21c",
+          "bubble_age": 0
+        }
+      ],
+      "native13": [
+        {
+          "kind": "serialize",
+          "monotonic_ns": 790953272366839,
+          "object": 449555808,
+          "vtable": "0xc664c4",
+          "x": 40,
+          "y": 39,
+          "counter_26e0": 0,
+          "subtype": 13,
+          "return": "0x717354",
+          "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x007172a7 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d51 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+          "bubble": "0x10976338",
+          "bubble_vtable": "0xc2e21c",
+          "bubble_age": 0
+        }
+      ],
+      "samples": 154,
+      "unique_xy_records": 43,
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375251,
+          "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 628283,
+          "sha256": "84904f9e16e0ae2f000091e1c5eb9d68e08f552ebcc0ade67112d739731694b9"
+        },
+        {
+          "path": "06-bomb-positive.png",
+          "size": 628096,
+          "sha256": "293cf5d18616107c1f461aa5f43bf1a9774103094b662e272d3fa9273a65ba36"
+        },
+        {
+          "path": "07-trapped-right.png",
+          "size": 629444,
+          "sha256": "4edc786d7d5f723859322a93e1371236bc2f7d0cc28a56f7c982091f0923ce47"
+        },
+        {
+          "path": "08-trapped-left.png",
+          "size": 628956,
+          "sha256": "4076b839c359e13f0575282ba2eb2e36bc43676ff5c6641ce5011dc4fff2f855"
+        },
+        {
+          "path": "09-trapped-space.png",
+          "size": 629097,
+          "sha256": "dcf607676ccefa41a900a762048c757b13acb7563938b97692a0ab3c3025c0b8"
+        },
+        {
+          "path": "10-trapped-wait.png",
+          "size": 628343,
+          "sha256": "7f65ea8c60462c7ec928217915cea1680b65f000569162f6d4c7528666d1ede9"
+        },
+        {
+          "path": "11-after-death.png",
+          "size": 626375,
+          "sha256": "857271a4c909c6e4a5271b354319afb7ec3344edf279760197dec1f7729dc214"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "5701ce12cd198daada95221b5f339ab71c79f0a20aa97e9316e8ff1abcabb12a"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "1661631cbabbcb9c6211c1ce953522c6e64e43758fbbed2a57825142b8561711"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "51f280de6a875feaed40afdddb41cead2ead532e534d2b1816c2517481af97ae"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "68d06b6feaa09eca03f1e41c15a8a9a7a793fb058b38bbbf3993ea342b6abe63"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 10172,
+          "sha256": "f453629d8474fbcf77c0407fb0f86ffe5b34cde7813f1e12b30f2b779d35a0bc"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 144,
+          "sha256": "be2311d409afdf2a4c6e84c371ae7d143e50d3d63d544f930dcb2b336a7a38bf"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 2560,
+          "sha256": "4e1f0b09ec452534ae18a79a4e28277f02caea222fd3b42fb09874fe1e413306"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 19275,
+          "sha256": "a6a46eb5d709fef5fe4b0ebaf5cd33fd6d1692982f32a4b9bbc26f5da1bf6161"
+        },
+        {
+          "path": "packets.log",
+          "size": 15101,
+          "sha256": "aec59f41e3bc0a644c6577c6542f0a4812d98cea7768ac1e8000fd5a26af1997"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 18771,
+          "sha256": "0c747b5cfb325e4ec61edb022d9278c3e3347998bcee5546e051bfab6deda3d6"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "336680f4041638b87a541bff194c8273544fc02d51ee1adf2b2c4457a73d1183"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5088,
+          "sha256": "022488b4f538d7dedf9ef83edbfa5e24395914e0ef538b85b52b43a9b4fac7cf"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "618f16754bfc0ffa2d4577431fa4dd84b7e491c959c66fe90e3fc38d1609213f"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "d6a906722d6edc4d0281df244a19192a335bd9fae87b9debe5462b56b7ce6521"
+        },
+        {
+          "path": "server.log",
+          "size": 15101,
+          "sha256": "aec59f41e3bc0a644c6577c6542f0a4812d98cea7768ac1e8000fd5a26af1997"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1396,
+          "sha256": "e35e6773a44b621465d7358d5eb0accd58ae4bca2bd581d6148eb3a237eef372"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "eba7f10e989946ffc8fbbc4fb448be512cb95c1e407df75067935cf8c2548c0f"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15286,
+          "sha256": "751582c41bc5ce038e60988c2ee8691465ca3f2a83581fbb96ba0fdfee532535"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ],
+      "hero_last_target": {
+        "object": 449555808,
+        "vtable": "0xc664c4",
+        "x": 40,
+        "y": 39,
+        "native_getter_result": 40,
+        "getter": "0x58d56d",
+        "monotonic_ns": 790950581631051
+      }
+    }
+  ]
+}

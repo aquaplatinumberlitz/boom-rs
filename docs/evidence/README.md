@@ -2,6 +2,7 @@
 
 | Artifact | Nội dung và giới hạn |
 |---|---|
+| [measurements/vn-trapped-input-2026-10-24/README.md](measurements/vn-trapped-input-2026-10-24/README.md) | Hai capture VN cùngactor xác nhận trapped vẫn đi chậm theo phím ngang;17px/s là calibration DESIGN, bombgate/hìnhhọc bubble chưa biết |
 | [kr_feature_inventory.json](inventory/kr_feature_inventory.json) | CA.exe + 13 IDX/IDD hash, 51.467 entry; không xác nhận gameplay |
 | [kr_feature_candidates.csv](inventory/kr_feature_candidates.csv) | 46 nhóm matcher, số khớp và ví dụ; asset signal, không runtime |
 | [kr_asset_groups.csv](inventory/kr_asset_groups.csv) | Toàn bộ nhóm tên tài nguyên cấp đầu |

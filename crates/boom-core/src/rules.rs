@@ -34,6 +34,8 @@ pub struct Rules {
     pub tile: Mpx,
     /// Tốc độ một cấp, mpx/tick, làm tròn xuống khi đổi từ px/s.
     pub speed_per_level: Mpx,
+    /// Tốc độ riêng khi bị nhốt, mpx/tick; không nhân cấp tốc độ (R-161/R-162).
+    pub trapped_speed: Mpx,
     pub round_ticks: Tick,
     /// Số tick đóng băng đầu lượt: không movement, không đặt bom, không timer; đồng hồ lượt
     /// chỉ chạy sau warmup (R-100).
@@ -101,6 +103,13 @@ impl Rules {
             ticks_per_second: hz,
             tile: Mpx::from_px(tile_px),
             speed_per_level: Mpx(speed_px_s * Mpx::PER_PX / i32_of(i64::from(hz))),
+            trapped_speed: Mpx(i32_of(p.int_in(
+                "player.trapped_speed_px_per_s",
+                "px/s",
+                0,
+                10_000,
+            )?) * Mpx::PER_PX
+                / i32_of(i64::from(hz))),
             round_ticks: ms("round.duration_ms")?,
             warmup_ticks,
             fuse_ticks: ms("bomb.fuse_ms")?,

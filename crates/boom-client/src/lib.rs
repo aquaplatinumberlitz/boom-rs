@@ -3001,6 +3001,12 @@ unit = "ms"
 source = "design"
 status = "design"
 
+[player.trapped_speed_px_per_s]
+value = 17
+unit = "px/s"
+source = "design"
+status = "design"
+
 [player.speed_px_per_s_per_level]
 value = 24
 unit = "px/s"

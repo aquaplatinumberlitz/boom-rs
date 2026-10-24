@@ -154,6 +154,11 @@ class PrecedenceTests(unittest.TestCase):
                 errors = self.errors({"player.trap_to_death_ms": override})
                 self.assertTrue(any("player.trap_to_death_ms" in error for error in errors), errors)
 
+    def test_trapped_speed_calibration_is_not_a_native_literal(self):
+        errors = self.errors({"player.trapped_speed_px_per_s": {
+            "source": "vn_runtime", "status": "confirmed", "claims": ["R-161"]}})
+        self.assertTrue(any("player.trapped_speed_px_per_s" in error for error in errors), errors)
+
     def test_client_step_is_not_a_server_tick(self):
         errors = self.errors({"sim.ticks_per_second": {"claims": ["R-113", "R-013"]}})
         self.assertTrue(any("R-013" in error for error in errors), errors)

@@ -9,7 +9,8 @@
 //!   tâm hàng đang đứng rồi thử lại, chỉ khi lệch không quá `player.corner_assist_px`.
 //! - `grace` cấp cho **mọi** người có hộp chồng ô bom lúc đặt, và bị xóa khi hộp rời hẳn ô
 //!   (R-107; BnB `server/game.js:150–153,392–399`). Không ai thêm lại sau khi mất.
-//! - Người bị nhốt đứng yên (R-036; BnB `server/game.js:631–633`), không có slow movement.
+//! - Người bị nhốt đi chậm theo `player.trapped_speed_px_per_s` (R-161/R-162).
+//!   Hộp va chạm/bám góc giữ DESIGN hiện hành; chưa xác nhận hình học bubble native.
 //!
 //! Thứ tự xóa `grace`: BnB xóa ở đầu tick (`updateBombPass`) trước khi người chơi di chuyển,
 //! V1 xóa ở cuối bước movement. Hai cách cho cùng kết quả: người chơi rời hẳn ô bom trong
@@ -52,7 +53,7 @@ impl System for Movement {
             ..
         } = state;
         for (player, input) in players.iter_mut().zip(inputs) {
-            if player.life != Life::Alive || input.dir == Dir::None {
+            if player.life == Life::Dead || input.dir == Dir::None {
                 continue;
             }
             if player.facing != input.dir {
@@ -132,7 +133,11 @@ fn collides(world: &World, field: &Field, bombs: &[Bomb], player: u8, x: Mpx, y:
 /// Một bước di chuyển theo hướng `dir`: thử bước trước, bị chặn thì mới bám góc.
 fn move_player(world: &World, p: &mut Player, dir: Dir, bombs: &[Bomb], field: &Field) {
     let (dx, dy) = dir.delta();
-    let step = world.speed(p.speed.value);
+    let step = match p.life {
+        Life::Alive => world.speed(p.speed.value),
+        Life::Trapped { .. } => world.rules().trapped_speed,
+        Life::Dead => return,
+    };
     let assist = world.rules().corner_assist.0;
     let tile = world.rules().tile.0;
     if dx != 0 {
@@ -281,12 +286,31 @@ mod tests {
     }
 
     #[test]
-    fn trapped_player_does_not_move() {
+    fn trapped_player_moves_slowly_without_using_speed_level() {
         let w = world(&["#####", "#0..#", "#####"]);
         let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
         s.players[0].life = Life::Trapped { since: 0 };
         run(&w, &mut s, Dir::Right, 20);
+        assert_eq!(s.players[0].x, Mpx(65_660));
+        s.players[0].speed.value = 1;
+        run(&w, &mut s, Dir::Left, 20);
         assert_eq!(s.players[0].x, Mpx(60_000));
+        s.players[0].life = Life::Dead;
+        run(&w, &mut s, Dir::Right, 1);
+        assert_eq!(s.players[0].x, Mpx(60_000));
+    }
+
+    #[test]
+    fn trapped_player_still_obeys_collision_policy() {
+        let w = world(&["####", "#0##", "####"]);
+        let mut s = SimulationState::new_round(&w, &[setup(0)], 1).unwrap();
+        s.players[0].life = Life::Trapped { since: 0 };
+        run(&w, &mut s, Dir::Right, 60);
+        assert!(s.players[0].x.0 <= 67_000);
+        assert!(
+            s.players[0].x.0 > 66_717,
+            "dừng cách mép không quá một bước"
+        );
     }
 
     #[test]

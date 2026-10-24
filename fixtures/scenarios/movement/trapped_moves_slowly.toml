@@ -1,7 +1,7 @@
-# R-029 là candidate web ("đi rất chậm"); V1 chọn DESIGN: người bị nhốt đứng yên (R-036).
-name = "Người bị nhốt không di chuyển trong V1"
+# R-161 xác nhận di chuyển chậm; R-162 chọn17px/s (283mpx/tick ở60Hz).
+name = "Người bị nhốt di chuyển chậm theo profile V1"
 features = ["V1-011", "V1-012"]
-claims = ["R-029", "R-036"]
+claims = ["R-161", "R-162"]
 status = "active"
 ticks = 60
 map = [
@@ -27,5 +27,5 @@ dir = "right"
 tick = 60
 player = 0
 cell = [1, 1]
-pos_mpx = [60000, 60000]
+pos_mpx = [76980, 60000]
 life = "trapped"

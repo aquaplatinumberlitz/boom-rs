@@ -1,0 +1,63 @@
+# DESIGN R-162: pipeline movement trước life. Sau6tick Alive tới72px, Trapped ở100px;
+# khoảng cách28px đúngbiên chưa chạm. Tick6 TrappedLeft283mpx→99.717px, khoảngcách27.717:
+# life phải pop ngaytickđó. Nếu life chạy trước movement thì tick7 chưa códeath và caseđỏ.
+name = "Trapped di chuyển vào ngưỡng chạm trước bước life cùng tick"
+features = ["V1-020"]
+claims = ["R-108", "R-161", "R-162"]
+status = "active"
+ticks = 7
+map = [
+    "######",
+    "#0...#",
+    "######",
+]
+
+[[player]]
+id = 0
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [1, 1]
+
+[[player]]
+id = 1
+speed = [5, 7]
+bombs = [1, 10]
+range = [1, 7]
+cell = [2, 1]
+life = "trapped"
+
+[[input]]
+tick = 0
+player = 0
+dir = "right"
+
+[[input]]
+tick = 6
+player = 0
+dir = "none"
+
+[[input]]
+tick = 6
+player = 1
+dir = "left"
+
+[[expect]]
+tick = 6
+event = "player_died"
+count = 0
+
+[[expect]]
+tick = 7
+event = "player_died"
+where = { player = 1, by = 0 }
+count = 1
+
+[[expect]]
+tick = 7
+player = 1
+pos_mpx = [99717, 60000]
+life = "dead"
+
+[end]
+outcome = "winner:0"
