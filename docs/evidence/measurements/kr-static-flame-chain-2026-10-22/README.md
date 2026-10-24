@@ -149,7 +149,7 @@ base `0x00400000`, `RVA = VA − 0x400000`. Binding REA dùng chung; provenance 
 | Vai trò | VA | RVA | Quan sát |
 |---|---|---|---|
 | vtable base `0x174426C` slot 50 | `0x00B3B370` | `0x0073B370` | stub: `push/mov/push/mov/mov esp/pop/retn 10h`, size 0xD; không state/call |
-| vtable base slot 52 | `0x00B3B390` | `0x0073B390` | pseudocode rỗng — candidate stub (chưa đọc asm) |
+| vtable base slot 52 | `0x00B3B390` | `0x0073B390` | pseudocode rỗng; asm lỗi `Session not found` (không retry) — **candidate stub**, chưa khẳng định no-op |
 | vtable thứ hai `0x174727C` slot 50/52 | `0x00B73120`/`0x00B73290` | `0x00773120`/`0x00773290` | entry khác (chưa đọc); lớp/receiver chưa xác nhận |
 | Flame segment push | `0x00B70C10` | `0x00770C10` | nếu `[141]>=15` dịch mảng; thêm 8 giá trị vào `[36/51/66/81/96/97/126/142]`, tăng `[141]` (max 15); không player/damage |
 | Flame per-frame | `0x00B713D0` | `0x007713D0` | `B70E30`+`1220830`; chọn `Flame_FlameRpgM/C` theo `v13>=0xC`, gọi vtable `+20`, lưu `[144]`; nếu map `[143]`: ô `pos/40`, `E9F9B0` object tại ô, nhánh `B323D0`/`B72400` → vtable `+104`, `B33200`, `B32570`; **chưa thấy** player alive→trapped/dead |
@@ -160,7 +160,8 @@ base `0x00400000`, `RVA = VA − 0x400000`. Binding REA dùng chung; provenance 
 (`B70C10`), `ev_36183f4d24629469da8234fd88332e78092b11aaa0b7321dac6200b8826d7abe`
 (`B713D0`).
 
-**Kết luận**: base virtual `+200/+208` là no-op; `B70C10` chỉ thêm segment; `B713D0` là animation
-per-frame + nhánh object-at-cell **candidate**. Damage một lần hay cửa sổ vẫn `unknown`; chưa có
-giá trị/đơn vị/start/end; không lấy lifetime animation `B711C0` làm TTL sát thương. Ngân sách:
-6 native call (1 timeout `binary_overview`, không retry), 4 thân mới + 1 asm cùng thân.
+**Kết luận**: base virtual `+200/+208` là no-op (`B3B370` asm proof; `B3B390` còn **candidate** vì asm
+lỗi worker); `B70C10` chỉ thêm segment; `B713D0` là animation per-frame + nhánh object-at-cell
+**candidate**. Damage một lần hay cửa sổ vẫn `unknown`; chưa có giá trị/đơn vị/start/end; không lấy
+lifetime animation `B711C0` làm TTL sát thương. Ngân sách: 7 native call (1 timeout `binary_overview`
++ 1 asm `B3B390` lỗi `Session not found`, không retry), 4 thân mới + 1 asm `B3B370` proof.

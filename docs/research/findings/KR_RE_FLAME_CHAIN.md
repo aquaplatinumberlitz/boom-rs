@@ -314,7 +314,8 @@ open/close/rebind.
 
 - `B3B370`: asm đầy đủ `push ebp; mov ebp,esp; push ecx; mov [ebp-4],ecx; mov esp,ebp; pop ebp;
   retn 10h` (size 0xD) — **stub rỗng**, không đọc/ghi state, không gọi gì.
-- `B3B390`: pseudocode rỗng (`;`) — **candidate stub** (chưa đọc asm).
+- `B3B390`: pseudocode rỗng (`;`); asm **chưa lấy được** vì worker session chết
+  (`Session not found: rea-782a5303-…`, `retryable:false`) ⇒ giữ **candidate stub**, không khẳng định no-op.
 - Bảng thứ hai trỏ `B73120`/`B73290` (chưa đọc); **lớp/receiver chưa xác nhận** nên chưa kết luận
   runtime dùng bảng nào. Trên bảng base, hai virtual này **không tạo effect/damage**.
 
@@ -337,8 +338,9 @@ tương tác object/bom, chưa đọc callee).
 ### 11.4. Kết luận / unknown
 
 - Damage **một lần hay cửa sổ** vẫn `unknown`; chưa có giá trị/đơn vị/start/end.
-- Base virtual `+200/+208` là **no-op**; `B70C10` chỉ thêm segment; `B713D0` là **animation per-frame**
+- Base `+200` (`B3B370`) là **no-op** (asm proof); `+208` (`B3B390`) còn **candidate** vì asm lỗi worker. `B70C10` chỉ thêm segment; `B713D0` là **animation per-frame**
   + nhánh object-at-cell chưa rõ. Không lấy lifetime animation làm lifetime sát thương.
 - Chưa nối consumer player alive→trapped/dead; nhánh damage có thể ở `E9C520`/player update chưa đọc.
-- Ngân sách: **6 native call** (1 `binary_overview` timeout không dữ liệu, không retry), **4 thân mới**
-  (`B3B370`, `B3B390`, `B70C10`, `B713D0`), 1 asm cùng thân `B3B370`. Không claim RULES mới.
+- Ngân sách: **7 native call** (1 `binary_overview` timeout + 1 asm `B3B390` lỗi `Session not found`,
+  đều không retry), **4 thân mới** (`B3B370`, `B3B390`, `B70C10`, `B713D0`), 1 asm cùng thân `B3B370`
+  (proof no-op). Không claim RULES mới.
