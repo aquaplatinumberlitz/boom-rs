@@ -15,6 +15,7 @@
 
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr};
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -1769,7 +1770,7 @@ fn duplicate_input_thuc_su_den_server_va_khong_ap_hai_lan() {
 
 // --- Luồng phòng end-to-end với server thật (ADR 0009 Addendum B) ---
 
-use super::fixture::{ROOM_MAP_ID, RoomHarness};
+use super::fixture::{HandshakeProbe, ROOM_MAP_ID, RoomHarness};
 use boom_proto::RoomRejectReason;
 
 /// Số bước bơm tối đa khi chờ một mốc trạng thái phòng.
@@ -1978,6 +1979,53 @@ fn hai_client_trong_luong_phong_day_du() {
         "client tạo phòng phải là host"
     );
     assert!(!harness.client(1).net.room().is_host());
+}
+
+#[test]
+fn handshake_phase_chi_release_auth_sau_khi_du_welcome() {
+    // Client 0 bị giữ trước handshake: setup phải chờ đủ Welcome rồi mới release Auth.
+    let probe = HandshakeProbe::new(4, 0);
+    let new_harness = RoomHarness::new_with_probe(
+        4,
+        ScheduledFaults::none(),
+        ScheduledFaults::none(),
+        251,
+        Arc::clone(&probe),
+    );
+    assert_eq!(new_harness.client_count(), 4);
+    assert!(
+        !probe.auth_before_all(),
+        "không được Auth trước khi đủ Welcome"
+    );
+}
+
+#[test]
+fn handshake_phase_failure_abort_khong_deadlock() {
+    // Client 1 panic trước Welcome; main phải thấy thread finished, đóng release gate để các
+    // client đang chờ nhận Err và join, không chạy tiếp Auth/không treo.
+    let probe = HandshakeProbe::with_panic_before_welcome(3, 0, 1);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = RoomHarness::new_with_probe(
+            3,
+            ScheduledFaults::none(),
+            ScheduledFaults::none(),
+            253,
+            Arc::clone(&probe),
+        );
+    }));
+    let panic = result.expect_err("setup phải abort khi client thread panic");
+    let message = if let Some(message) = panic.downcast_ref::<String>() {
+        message.clone()
+    } else if let Some(message) = panic.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else {
+        panic!("panic payload không phải chuỗi");
+    };
+    assert!(
+        message.contains("setup handshake phòng thất bại") && message.contains("client thread 1"),
+        "panic phải là failure handshake của client 1, thấy: {message}"
+    );
+    assert_eq!(probe.auth_count(), 0, "abort cleanup không được phát Auth");
 }
 
 #[test]
