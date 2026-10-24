@@ -1,0 +1,604 @@
+{
+  "schema": 1,
+  "claim": "R-170",
+  "issues": [
+    146,
+    149
+  ],
+  "baseline": "2cb926fe6615259218b673356f1a06e61fffe4ba",
+  "sources": [
+    "vn_runtime",
+    "vn_static"
+  ],
+  "status": "confirmed (observed getter/field values and static callsites), level/branch identity unknown",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386",
+    "patch_scope": "Same disclosed devirt/IAT/offline fixture as R-166/R-168/R-169; vanilla equivalence not established; user authorized scoped VN runtime evidence"
+  },
+  "raw_roots_private": {
+    "runtime": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-producer-146-r7-event-phase",
+    "static": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed",
+    "failed_setups": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240"
+  },
+  "runtime": {
+    "owner": "Codex only; private user/net/PID/mount namespace; loopback only; private /tmp and displayfd Xvfb; stopped by own command2, supervisorDONE",
+    "map": "Factory01 index193, room19",
+    "actor": 449413520,
+    "vtable": "0xC664C4",
+    "controller": 449415044,
+    "controller_vtable": "0xC6630C",
+    "packets": {
+      "117": 1,
+      "111": 0,
+      "120": 0,
+      "S158": 1,
+      "S151": 0
+    },
+    "pickup_kind": 2,
+    "native_item_entry": {
+      "handler": "0x715e90",
+      "return_pc": "0x71b717",
+      "monotonic_ns": 813008051545103
+    },
+    "native_item_return": {
+      "return_pc": "0x71b717",
+      "monotonic_ns": 813008066092487,
+      "pre_capture_count": 2
+    },
+    "capture_count": 4,
+    "positive_control_actual_y": [
+      519,
+      394,
+      519,
+      394,
+      274,
+      112
+    ],
+    "requested_targets_are_not_actual_positions": true
+  },
+  "observation": {
+    "controller_59EC93_eax": [
+      5,
+      6
+    ],
+    "hero_595CB6_eax": [
+      5,
+      6
+    ],
+    "controller_box64": [
+      5,
+      6
+    ],
+    "controller_box58": [
+      7,
+      7
+    ],
+    "controller_box2f8_box304_box20fc": 0,
+    "hero_raw2468": [
+      255,
+      255
+    ],
+    "hero_raw246c": [
+      0,
+      0
+    ],
+    "hero_raw2688": [
+      11079,
+      11251
+    ],
+    "branch": "unknown; equality with box64 does not prove selected path",
+    "units": "native scalar returned to movement amount producer, no established level or time unit",
+    "timing_excluded": true,
+    "limits": [
+      "One actor/build/mode and one pickup; no KR C00/C01 identity or max mapping",
+      "Sparse self-disabling breakpoints provide scalar/order only; no speed/latency/level from this instrumented run",
+      "R-169 velocity is an independent earlier capture, not a timing calibration of this run",
+      "No current branch or boxed64 writer/clamp proven; native158 entry/return is not an internal writer locator",
+      "local_ebp_m14_old_context logged before store, not returned amount or level",
+      "Reader validates cookie/checksum live; saved 12-byte box headers alone cannot independently reconstruct missing 10-byte payload",
+      "Native branch in base and virtual128 consumer body remain incomplete; half/double/bonus paths must not be generalized"
+    ]
+  },
+  "static_ranges_verified_from_fixture": [
+    {
+      "capture": "producer-bodies.json",
+      "label": "595CB6",
+      "start": "0x595cb6",
+      "end_exclusive": "0x595d06",
+      "bytes": 80,
+      "sha256": "ccfe3fe02fb7c383afdcae264f3cde814149579c31a8a0b8c3b9bec219189d05"
+    },
+    {
+      "capture": "producer-bodies.json",
+      "label": "594E1E",
+      "start": "0x594e1e",
+      "end_exclusive": "0x594e25",
+      "bytes": 7,
+      "sha256": "ae081ae38d0812bbf806032fd69b9c81f3cf1461c42414b26bcd7dc5d6475717"
+    },
+    {
+      "capture": "producer-bodies.json",
+      "label": "594E25",
+      "start": "0x594e25",
+      "end_exclusive": "0x594e2c",
+      "bytes": 7,
+      "sha256": "10a34e293eb4b9f2e1c511449f9022a59abb8d18f12be1693a88528ea34fc95e"
+    },
+    {
+      "capture": "producer-bodies.json",
+      "label": "594A06",
+      "start": "0x594a06",
+      "end_exclusive": "0x594a0d",
+      "bytes": 7,
+      "sha256": "658c413258c2c0de7dc89b5fc3ed201d81b0a5d61a453542f4e8e5a8362fdfac"
+    },
+    {
+      "capture": "producer-bodies.json",
+      "label": "594E2C",
+      "start": "0x594e2c",
+      "end_exclusive": "0x594e56",
+      "bytes": 42,
+      "sha256": "11c14116d1315079eea65cf4f468bc1d51717794b16a35e88a6bbae33b267473"
+    },
+    {
+      "capture": "controller38-bodies.json",
+      "label": "59EC93",
+      "start": "0x59ec93",
+      "end_exclusive": "0x59ed72",
+      "bytes": 223,
+      "sha256": "6e1aba2aeab6bc5d1ba0bf357938ffe1ad610e5408427eb6bbcd1241e430407e"
+    },
+    {
+      "capture": "controller38-bodies.json",
+      "label": "597EC6",
+      "start": "0x597ec6",
+      "end_exclusive": "0x597eec",
+      "bytes": 38,
+      "sha256": "a50ad8f2d6694d01936ce53f5c871939d5b382c7bad0966a66bf9c426f77b3c5"
+    },
+    {
+      "capture": "controller38-bodies.json",
+      "label": "4AD0AA",
+      "start": "0x4ad0aa",
+      "end_exclusive": "0x4ad0d1",
+      "bytes": 39,
+      "sha256": "059b506b868965bfdec8d542b79ae9b358bd9b94d1a4f2ccc61448728c2b8ca2"
+    },
+    {
+      "capture": "controller38-bodies.json",
+      "label": "414543",
+      "start": "0x414543",
+      "end_exclusive": "0x4146d9",
+      "bytes": 406,
+      "sha256": "ef85d95f8a5ada147e679281be7bd172c539e378420a58404c002d81c2ebc715"
+    },
+    {
+      "capture": "helper-bodies.json",
+      "label": "90019A",
+      "start": "0x90019a",
+      "end_exclusive": "0x9001fb",
+      "bytes": 97,
+      "sha256": "86af6df6e212e33d769740ffa118de63ebbb45f71d9da57372d76f7b803ce497"
+    },
+    {
+      "capture": "helper-bodies.json",
+      "label": "595BCD",
+      "start": "0x595bcd",
+      "end_exclusive": "0x595c4d",
+      "bytes": 128,
+      "sha256": "634b235bd4fb9fb4ffc8d97eacde067830d635be6b11fffffd2a80b7007842e9"
+    },
+    {
+      "capture": "helper-bodies.json",
+      "label": "900114",
+      "start": "0x900114",
+      "end_exclusive": "0x900117",
+      "bytes": 3,
+      "sha256": "e598d0c3ba86d917b177d7adde0556aa99bc355543c57aee0a3e50b684dd7e99"
+    },
+    {
+      "capture": "writer-callsite-bytes.json",
+      "label": "setter_return_58d430",
+      "start": "0x58d430",
+      "end_exclusive": "0x58d44c",
+      "bytes": 28,
+      "sha256": "eff470b71533be16b61557d3dccff25cf88c46b6c475f75a8ffc4f8c2894c8ba"
+    },
+    {
+      "capture": "writer-callsite-bytes.json",
+      "label": "helper_5a55e0",
+      "start": "0x5a55e0",
+      "end_exclusive": "0x5a560d",
+      "bytes": 45,
+      "sha256": "ef8d7275880dc78f5e8d380daaaf2ef645a1a42b8ff194a54a18e18de5a68d30"
+    },
+    {
+      "capture": "writer-callsite-bytes.json",
+      "label": "writer_59da60_slice",
+      "start": "0x59da60",
+      "end_exclusive": "0x59e210",
+      "bytes": 1968,
+      "sha256": "04a198a7e14c4a36df473d7cdda53b6738b0b7b376d99604f81caea24688b0b4"
+    },
+    {
+      "capture": "writer-callsite-bytes.json",
+      "label": "caller_59d8f8",
+      "start": "0x59d8f8",
+      "end_exclusive": "0x59d90c",
+      "bytes": 20,
+      "sha256": "aa438c63fdaa18b4beb66a3aca9b4228387f59f89f35d57d7883eda082e843ce"
+    },
+    {
+      "capture": "writer-callsite-bytes.json",
+      "label": "return_131e9d0",
+      "start": "0x131e9d0",
+      "end_exclusive": "0x131e9e6",
+      "bytes": 22,
+      "sha256": "68e688867a7d4a01434e783ad244649fa14d0e645934ff559587aa204a32b99b"
+    },
+    {
+      "capture": "writer-callsite-bytes.json",
+      "label": "58D42B_setter_full",
+      "start": "0x58d42b",
+      "end_exclusive": "0x58d44c",
+      "bytes": 33,
+      "sha256": "582ed278ee2a04a81dba374209b497ab970b46b460df7a6062372bc475ab618f"
+    }
+  ],
+  "coverage": "Cache reused only, zero new native provider calls/body reads for export. Prior five-function/143B round and four-function/706B round include tiny accessors; prior body-budget overruns remain disclosed in checkpoint. Full59DA6F and5A0F75 not analyzed here.",
+  "failed_setups": [
+    {
+      "run": "host-producer-146-r1",
+      "result": "setup/observer failure; excluded from measurement",
+      "reason": "Python setup substitution failed",
+      "retained": true
+    },
+    {
+      "run": "host-producer-146-r2",
+      "result": "setup/observer failure; excluded from measurement",
+      "reason": "No actor/position bootstrap before phase arm",
+      "retained": true
+    },
+    {
+      "run": "host-producer-146-r3",
+      "result": "setup/observer failure; excluded from measurement",
+      "reason": "Broad UI getter bootstrap exhausted; no actual actor",
+      "retained": true
+    },
+    {
+      "run": "host-producer-146-r4-actor-bootstrap",
+      "result": "setup/observer failure; excluded from measurement",
+      "reason": "Preflight assertion then display allocation failure; no capture",
+      "retained": true
+    },
+    {
+      "run": "host-producer-146-r5-auto-display",
+      "result": "setup/observer failure; excluded from measurement",
+      "reason": "Actual hero found; debugger phase arm not acknowledged",
+      "retained": true
+    },
+    {
+      "run": "host-producer-146-r6-gdb-signal",
+      "result": "setup/observer failure; excluded from measurement",
+      "reason": "Private GDB signal produced observer-control failure before captures",
+      "retained": true
+    }
+  ],
+  "files": [
+    {
+      "root": "runtime",
+      "path": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "root": "runtime",
+      "path": "01-channels.png",
+      "bytes": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "root": "runtime",
+      "path": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "root": "runtime",
+      "path": "03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "root": "runtime",
+      "path": "04-room.png",
+      "bytes": 386015,
+      "sha256": "4b7ac4c0d9c8075c2e0c392d98ef55fefb213367a1d72c46cb85c442c935c02b"
+    },
+    {
+      "root": "runtime",
+      "path": "05-match.png",
+      "bytes": 409533,
+      "sha256": "82cf877918c8427ffc4171ab8f14ffa2ca6edecf7646e3c0b49458ec8a8e4dfa"
+    },
+    {
+      "root": "runtime",
+      "path": "06-event-phase-capture.png",
+      "bytes": 404898,
+      "sha256": "c600325a4b15a3d1b1f874a10c0c4122b3022d1603561b6ff71e857c1050f1c8"
+    },
+    {
+      "root": "runtime",
+      "path": "ack.json",
+      "bytes": 42,
+      "sha256": "cca37edfd4d625ac919e04ce56a717433c5a56eae2b2a0b90aba1f7bd3189766"
+    },
+    {
+      "root": "runtime",
+      "path": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "root": "runtime",
+      "path": "harness-used.py",
+      "bytes": 15350,
+      "sha256": "9a2e637dee3e056242911c5e49a04f4fba2a8a68e38dee3b37df7a201d82860b"
+    },
+    {
+      "root": "runtime",
+      "path": "hero-target.json",
+      "bytes": 180,
+      "sha256": "a715e21a157fb79287bab67a4c4248fd1e62ad041bff4a16dbfc53eeef301ea4"
+    },
+    {
+      "root": "runtime",
+      "path": "item158-native-entry.json",
+      "bytes": 81,
+      "sha256": "02201ee45ad7dde00b381860f49a12793f1c33fc1e4534368b9eba6c83b47a0f"
+    },
+    {
+      "root": "runtime",
+      "path": "item158-native-return.json",
+      "bytes": 82,
+      "sha256": "612922662d1bb78e08ca3e5f175243e120986f911065bfaf782dea2e032ec6b9"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.jsonl",
+      "bytes": 40965,
+      "sha256": "c682166ea30a53e92576fcab29e0d286f73728d64ffdca34a1eb79e83064f44c"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.log",
+      "bytes": 32133,
+      "sha256": "8a37cdbfbf61368e56e690aeb8634f70e7be8067ef2906459d91fec833367c8f"
+    },
+    {
+      "root": "runtime",
+      "path": "pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "root": "runtime",
+      "path": "position-samples.jsonl",
+      "bytes": 1165111,
+      "sha256": "0315f5b36a5e15e0502372085511d9886ff14efbc068e00462ddabadaf879b62"
+    },
+    {
+      "root": "runtime",
+      "path": "probe-ready.json",
+      "bytes": 206,
+      "sha256": "656ffbbe532b4f208cc9023cdde4b6a8cc887ebafee63fb9a1d2cb636f4fc704"
+    },
+    {
+      "root": "runtime",
+      "path": "probe-template-used.gdb",
+      "bytes": 7847,
+      "sha256": "4214c56bac7cd79151330250e13c0701b9c0e20b514b52c9b9048cc2e7f7d64f"
+    },
+    {
+      "root": "runtime",
+      "path": "probe.gdb",
+      "bytes": 7847,
+      "sha256": "4214c56bac7cd79151330250e13c0701b9c0e20b514b52c9b9048cc2e7f7d64f"
+    },
+    {
+      "root": "runtime",
+      "path": "producer-captures.jsonl",
+      "bytes": 3124,
+      "sha256": "dcfc98e35e9593b2eb01dd63ef95648bffd6b510860314ba4ba868664ef4e2a9"
+    },
+    {
+      "root": "runtime",
+      "path": "ready.json",
+      "bytes": 74,
+      "sha256": "867c9f36a10e85e3b4cb2a546871dac53282a5cb4f7decf6104c6cf6549d1496"
+    },
+    {
+      "root": "runtime",
+      "path": "server-used.py",
+      "bytes": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "root": "runtime",
+      "path": "server.log",
+      "bytes": 32133,
+      "sha256": "8a37cdbfbf61368e56e690aeb8634f70e7be8067ef2906459d91fec833367c8f"
+    },
+    {
+      "root": "runtime",
+      "path": "supervisor.log",
+      "bytes": 2756,
+      "sha256": "05134902722c7515d09e13d7c446e79879dfa3acefb6128bc98eeb5c32bc8041"
+    },
+    {
+      "root": "runtime",
+      "path": "winedbg.log",
+      "bytes": 15657,
+      "sha256": "789eeb6eccc0cad2c60bb9e5467d12e51961955f287144d63c7e607a554d6a92"
+    },
+    {
+      "root": "runtime",
+      "path": "xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "root": "static",
+      "path": "producer-bodies.json",
+      "bytes": 1380,
+      "sha256": "ec51b1a0a8b612f53c1e077eb0c7ab6bb61e5fd14c164a25b9056c627c0cacab"
+    },
+    {
+      "root": "static",
+      "path": "controller38-bodies.json",
+      "bytes": 994,
+      "sha256": "41a82fcf0822a6b2e787df2ea8dcbdb956f23750d9c5cf4756c44209ef8bfdca"
+    },
+    {
+      "root": "static",
+      "path": "helper-bodies.json",
+      "bytes": 877,
+      "sha256": "05ab06a8ff34873e353f7395e18260916bfee1b3851c6dd09a21ff20cb04bfa2"
+    },
+    {
+      "root": "static",
+      "path": "writer-callsite-bytes.json",
+      "bytes": 5706,
+      "sha256": "d01e240db2a9e5b5a59f91e9f08d30e565b0b50fddebe3f5e8db21ab995c8779"
+    },
+    {
+      "root": "static",
+      "path": "checkpoint-source-producer.md",
+      "bytes": 6513,
+      "sha256": "e1c2579e9081317296b4ed8d9c2389499d632af6a52135cb870f23d88209f525"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r1/supervisor.log",
+      "bytes": 70,
+      "sha256": "f1b005e6294985e4dabc12b55093a94309e99223b5ccc2a1a4725af7c97388be"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r1/winedbg.log",
+      "bytes": 7332,
+      "sha256": "0463d98234ac073cd662f072d39504188752bec6c48f9fc037231e36d182cc1f"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r2/producer-captures.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r2/supervisor.log",
+      "bytes": 520,
+      "sha256": "2cce37ff4b15fb4f612644d52ef81790c1f9a1aabff09fd7a707eea56a18fd00"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r2/winedbg.log",
+      "bytes": 15396,
+      "sha256": "75cb81259af5d9b776501634b4f02f5903d1fdef2a9bb960fa567777d3b6a147"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r3/probe-ready.json",
+      "bytes": 207,
+      "sha256": "eab5a8d87132c03cedf467dc23333a4bbc86e25a26820b357a0b88f54754c14f"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r3/producer-captures.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r3/supervisor.log",
+      "bytes": 96,
+      "sha256": "69491941ae724357cc1184abd970f00437f8f3276b48921bf1c498e17c00123f"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r3/winedbg.log",
+      "bytes": 14887,
+      "sha256": "e3f933789def97af6bb9da87157ff5826802ad8676dc362a54d53e6d20bb2aaa"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r4-actor-bootstrap/supervisor.log",
+      "bytes": 77,
+      "sha256": "db80e3861213ae8bf7a9d56055367ee30ddea8149d7a2b44f208863ec73282bf"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r5-auto-display/hero-target.json",
+      "bytes": 180,
+      "sha256": "64fcee4d178559784626bfb3be1b380485a8ad955d0f50099b3578e9cddb4fb0"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r5-auto-display/probe-ready.json",
+      "bytes": 206,
+      "sha256": "656ffbbe532b4f208cc9023cdde4b6a8cc887ebafee63fb9a1d2cb636f4fc704"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r5-auto-display/producer-captures.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r5-auto-display/supervisor.log",
+      "bytes": 1064,
+      "sha256": "cd09e6405da5edba0b65408e0a3551ccba0fe4063f0cc24d2708d68ba69eaf9f"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r5-auto-display/winedbg.log",
+      "bytes": 15704,
+      "sha256": "d7650a919bf7f06a08a84e1371405b4996500ed1aec8a0bada4e59adca279941"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r6-gdb-signal/hero-target.json",
+      "bytes": 180,
+      "sha256": "98be44065f9115b36d980ddba9f5fae33fa99b6b86e32e7f6455604c743f2332"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r6-gdb-signal/probe-ready.json",
+      "bytes": 206,
+      "sha256": "656ffbbe532b4f208cc9023cdde4b6a8cc887ebafee63fb9a1d2cb636f4fc704"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r6-gdb-signal/producer-captures.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r6-gdb-signal/supervisor.log",
+      "bytes": 1097,
+      "sha256": "054077420f7298de486943a778b164c80eafd97298087484aa78cc1869f30fdf"
+    },
+    {
+      "root": "failed_setups",
+      "path": "host-producer-146-r6-gdb-signal/winedbg.log",
+      "bytes": 15993,
+      "sha256": "30ba9f3a947743695402b5c545d5e905206ecc4cea814a0010f8fe5741484169"
+    }
+  ]
+}

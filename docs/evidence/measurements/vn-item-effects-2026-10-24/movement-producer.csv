@@ -1,0 +1,5 @@
+phase,getter,return_pc,native_eax,hero,hero_vtable,controller,controller_vtable,native_x,native_y,controller_box64,hero_raw2468,hero_raw246c,monotonic_ns,timing_excluded
+1,controller,0x595cce,5,449413520,0xc664c4,449415044,0xc6630c,560,519,5,255,0,813003597711378,True
+1,amount,0x5a64e6,5,449413520,0xc664c4,449415044,0xc6630c,560,519,,255,0,813003603853014,True
+2,controller,0x595cce,6,449413520,0xc664c4,449415044,0xc6630c,560,274,6,255,0,813008777273531,True
+2,amount,0x5a64e6,6,449413520,0xc664c4,449415044,0xc6630c,560,274,,255,0,813008779984453,True

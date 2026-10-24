@@ -159,7 +159,17 @@ timing/side effect audio; input latency/focus; hội tụ và correction trong f
 playtest tình huống chuẩn. `snapdiff.py` so snapshot bộ nhớ VM, không phải image diff.
 Ngưỡng chính xác gắn fixture/nguồn hoặc quyết định DESIGN; không chép ngưỡng 0 px/99,5% của plan cũ.
 
-## Rà bằng chứng gate V1 (2026-10-23)
+## Rà bằng chứng gate V1 (2026-10-23) — audit lịch sử, không phải hàng đợi hiện hành
+
+> **Trạng thái hiện hành sau PR271 (24/10):** V1-035 đã nghiệm thu, V1-036 `in_review`,
+> **36/37** feature và **2/6** gate. PR213 đã merge; bảng 125khóa/57unknown/15review/9image-pending
+> bên dưới là số tại baseline audit23/10, không phải yêu cầu duyệt lại hiện tại.
+> V1 hiện có126khóa được nghiệm thu ở PR241; các sửa/review/QA sau audit xem
+> [PROGRESS](PROGRESS.md), [execution.json](execution.json),
+> [UI_STRINGS_V1](../specification/localization/UI_STRINGS_V1.md) và
+> [gói QA hiện hành](../evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json).
+> Giữ bảng lịch sử để đối chiếu; không nhận việc hoặc đổi gate theo trạng thái cũ trong bảng.
+
 
 Mục này là **audit đọc** trên worktree `issue-208`, baseline `5dfcfe9a`; tại baseline audit (sau fetch
 ngày 2026-10-23), `origin/main` ở `743e8ea9` (PR #209/#212 đã merge; PR #213 còn mở) và các commit/PR
@@ -170,7 +180,7 @@ passed ở đây**. Ba mức tách riêng: feature `done` (registry + acceptance
 reviewer độc lập) ≠ fidelity (oracle/playtest). Build xanh, smoke 3 OS và regression test **không**
 thay bằng chứng fidelity hoặc QA người chơi.
 
-Bảng trả lời: gate yêu cầu gì ([SCOPE_V1 §6](SCOPE_V1.md#6-gate-còn-mở-owner-và-bằng-chứng-nghiệm-thu)),
+**Bảng lịch sử tại baseline audit23/10.** Bảng trả lời: gate yêu cầu gì ([SCOPE_V1 §6](SCOPE_V1.md#6-gate-còn-mở-owner-và-bằng-chứng-nghiệm-thu)),
 bằng chứng nào **đã tích hợp**, phần nào còn thiếu, bước/owner đề xuất. Cột “Thiếu” chỉ nêu việc chưa
 có; không hạ/nâng nhãn claim và không thay sổ chuẩn.
 
@@ -221,10 +231,10 @@ hoặc đo lại cửa sổ lửa đã có chỉ để giảm số issue.
 
 | Luồng / thứ tự | Issue | Câu hỏi cần chốt | Nghiệm thu V1 và phần fidelity còn lại |
 |---|---|---|---|
-| DSH1 — gameplay hiện hành | #149 rồi #146 | Hoàn tất capacity, sau đó Roller → cấp → vận tốc thực trên cùng receiver | Capacity R-168 đã tích hợp PR264: getter dừng10 trước allocator trongkhi pool25 còn15entry đạt điều kiện. Còn Roller/cấp/tốc độ; không gán số đo px/s cho level khi chưa nối consumer. |
-| DSH2 — presentation native hiện hành | #196 hoặc #150 | Một cạnh có nguồn cụ thể: helper init voice count/receiver hoặc consumer tên/layout | D1C330 là cạnh init đã chọn; không quét lại bảng sound/caller cũ. Native tên/layout/voice còn thiếu là fidelity; không giao lại duyệt text/ảnh V1-035. |
+| DSH1 — gameplay hiện hành | #149 rồi #146 | Hoàn tất capacity, sau đó Roller → cấp → vận tốc thực trên cùng receiver | Capacity R-168 đã tích hợp PR264; Roller đổi vận tốc cùng actor R-169 đã tích hợp PR268. Native getter R-170 đã đo return5→6 sau một Roller; câu hỏi tiếp là ý nghĩa level/nhánh/writer và amount → số bước → vận tốc. Không đo lại capacity/getter case hoặc đổi tên số pixel thành level. |
+| DSH2 — presentation native hiện hành | #196 hoặc #150 | Một cạnh có nguồn cụ thể: helper init voice count/receiver hoặc consumer tên/layout | R-212/count và R-213/EOS đã tích hợp PR266/269. Cạnh hiện tại là consumer tiếng gạch vỡ; UI giữ thiếu writer/identity có điều kiện mở lại. Không quét lại init/597soundcalls hoặc giao lại duyệt V1-035. |
 | Chỉ mở khi có ca kiểm chứng mới | #147 / #148 | Input/touch/non-owner hoặc nhánh damage/render chưa được đo | R-155/R-156/R-158/R-159/R-160/R-161 đã có; không đo lại owner grace, cửa sổ lửa, endpoint nhốt chỉ để giảm số issue. |
-| Codex song song | G2/G3/G5 và V1-036 | Audit source/profile/acceptance; gói QA đúng luật hiện hành; GUI/hardware blocker cụ thể | Không bắt V1 chờ hết sáu root RE; không đổi candidate/unknown thành confirmed hoặc tự nâng gatepassed. Gói QA cũ28dad là lịch sử trước timer6350/trapped17, cần QA đúng currentcode. |
+| Codex song song | G2/G3/G5 và V1-036 | Audit source/profile/acceptance; gói QA đúng luật hiện hành; GUI/hardware blocker cụ thể | Không bắt V1 chờ hết sáu root RE; không đổi candidate/unknown thành confirmed hoặc tự nâng gatepassed. [Gói QA40091603701](../evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json) đã kiểm luật6350/17/540; PR271 sửa fullscreenKWin sau gói đó. Gói cuối phải theo head phát hành thực, không chạy lại chỉ vì thêm docsRE. |
 
 Chỉ dùng **hai session dsh hiện có**. Mỗi luồng làm tuần tự; Codex giữ RULES_V1, QUESTIONS,
 index, profile và ledger; worker trả evidence riêng, không sửa chung các file này. Không dùng OpenCode
@@ -253,6 +263,31 @@ kiểm wording trước push và review độc lập song song CI, không thêm 
    điều kiện mở lại và link Q/issue; không tiếp tục quét để tìm lại mỏ neo cũ.
 5. Worker bàn giao cả kết quả dương, phạm vi âm và phần chưa biết. Chỉ lập PR khi có evidence/đầu ra
    mới; không tạo PR chỉ lặp unknown. Review đúng head + CI ba OS + safe-merge trước tích hợp.
+
+#### Hợp đồng phép đo dùng lại — chủ dự án chấp thuận 2026-10-24
+
+Với câu hỏi hành vi, chuỗi thực hiện là **tĩnh chọn điểm quan sát → động có đối chứng → tĩnh giải thích**.
+DSH1 chuẩn bị consumer/probe gameplay; DSH2 làm presentation có đầu vào rõ và review độc lập;
+Codex giữ một runtime owner, kiểm raw và xử lý lỗi harness. Giữ hai session; chỉ tăng nhân lực khi có
+câu hỏi độc lập đủ đầu vào và năng lực review, không tăng để bù lỗi setup hoặc tranh runtime.
+
+Một harness được dùng lại qua các câu hỏi, với kiểm trước chạy:
+
+- Build/hash/patch đúng; PID/network/display/log và gamecopy riêng. Bootstrap chỉ theo actual actor/type,
+  không bắt đầu ngân sách bắt nhân vật từ màn đăng nhập hoặc phụ thuộc tọa độ giả định.
+- `ready` cần đúng actor và dữ liệu native hợp lệ; marker khởi tạo hook, stage hoặc packet giả lập chưa đủ.
+  Xác nhận debugger đúng kiến trúc và ACK mới của từng lệnh; không nhận prompt cũ làm ACK.
+- Breakpoint tự tiếp tục vẫn gây trap/observer overhead. Ghi số hit/stop thực, tắt ngay sau capture;
+  đo thời gian phải loại hoặc định lượng ảnh hưởng debugger. Không đặt hook toàn cục mỗi frame để đo vận tốc.
+- Sau hai lỗi setup, worker dừng chạy lại và giao raw cho Codex sửa nguyên nhân đã xác định.
+  Chỉ chạy lại khi input/method đã đổi có lý do; lỗi setup không là bằng chứng âm của gameplay.
+- Một run có thể lấy level/getter, bước, vị trí và item liên quan; mỗi đại lượng có đối chứng/đơn vị/sai số
+  riêng. Reuse kết quả đã nghiệm thu và giữ cả dữ liệu lỗi; không chạy lại chỉ để có con số đẹp.
+
+Điểm kết thúc của một câu hỏi là kết luận có phạm vi + bằng chứng/unknown còn lại + bước tiếp;
+Codex review và chọn bước kế sau checkpoint/PR, không để worker chờ toàn bộ CI. Một câu hỏi thành
+một PR đủ review, không chia theo snippet hoặc gom chủ đề không liên quan. Không hạ chuẩn exact-head
+approval, CI ba OS và safe-merge; không tăng % hoặc pass gate theo số lượt RE.
 
 Mỗi issue gốc có checklist câu hỏi **đã trả lời / đang làm / chưa biết / hoãn có điều kiện**. Số câu
 hỏi được trả lời là tiến độ research riêng, không cộng vào feature % và không gọi là % fidelity.

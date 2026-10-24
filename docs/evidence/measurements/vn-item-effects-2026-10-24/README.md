@@ -216,11 +216,83 @@ Idle khoảng29.2s bao gồm setup trước command, không coi đó là nhiều
 
 Đọc thử sáu box ở vùng đã có mỏneo facet: +514/+520/+52C/+538/+544 giữ nguyên; +550 lỗi read/checksum
 ở755/755mẫu, được ghi riêng, không bỏXY. Không từ đó kết luận mọi stat bất biến hoặc đặt tên +550 làspeed.
-Nativelevel/getter/writer vẫnunknown. Đọc tĩnh inputcontroller thựcC6630C+0C→5AE857→59C1BC và
+Tại captureR-169 nativelevel/getter/writer chưa nối; getter thực được bổ sung riêng R-170 bên dưới, level/writer vẫnunknown. Đọc tĩnh inputcontroller thựcC6630C+0C→5AE857→59C1BC và
 heroC664C4+DC/+218→592DE6/596DB7 chỉ nối state/dir/effect; helper chưa mở. Getter59A263 trảboxed
 controller+20B8 nhưng chưa có consumer tốcđộ. Không gán body cậpnhật21 của facet thànhmover hoặc
 lấy±4targetcorrection cũ làm normalization. Coverage/hashes giữ cả11byte/bodyoverrun, không đếmthunk là0body.
 
 R-169 xác nhận hiệu ứng tăng vận tốc trong caVN, **chưa nâng Roller+1level R-045 hoặc speed24DESIGN**,
-chưa đổi profile. Bước tiếp: cần source actualXY-delta arithmetic hoặc writer/consumer cấp trên đúng
-receiver rồi mới probe giá trị cấp; không đo lại mộtRoller chỉ để có số đẹp hơn.
+chưa đổi profile. Bước tiếp tạiR-169 là source actualXY-delta/consumer đúngreceiver; R-170 bên dưới đã bổ sung actualgetter5→6, nhưng ý nghĩa cấp/writer vẫn mở. Không đo lại mộtRoller chỉ để có số đẹp hơn.
+
+
+## Giá trị getter đưa vào movement trước/sau Roller — R-170
+
+Câu hỏi: **getter thực sự được actor đang chơi gọi có đổi giá trị sau một Roller không?**
+Ca `host-producer-146-r7-event-phase` trả lời được câu hỏi này, bổ sung R-169. Không đồng nhất
+scalar với tên “level”, không hiệu chuẩn px/s từ lượt đặt breakpoint này và không thay profile Rust.
+
+Cùng fixture VN VBNB_116 SHA `bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1`,
+Factory01/index193/room19; root Codex là runtime owner duy nhất. Namespace user/net/PID/mount riêng,
+chỉ loopback, `/tmp` riêng, Xvfb cấp display tự động. Chỉ gửi input/nhận item qua giao thức; không ép
+stat hoặc gọi hàm trong inferior. Giữ giới hạn patch đã công khai ở R-166/R-168/R-169, chưa chứng minh
+vanilla-equivalence. Theo ADR0002/0013 và quyết định chủ dự án, dùng trực tiếp quan sát VN trong phạm vi này.
+
+[CSV bốn lần trả về](movement-producer.csv) và [manifest52hash](movement-producer.json) giữ source,
+raw runtime, harness/probe/server thực dùng và chẩn đoán setup lỗi. Root tính lại số dòng/operand,
+kiểm packet và thứ tự native, đối chiếu18 vùng byte cache với đúng fixture PE. Không có analysis provider
+hoặc thân native mới được mở khi xuất metadata.
+
+### Điểm quan sát và đối chứng
+
+Actor bootstrap một lần ở updater `5B1472`, sau khi kiểm vtable thật `C664C4`, controller
+`hero+5F4`/`C6630C` và XY checksum. Hai breakpoint tại **địa chỉ trả về**, tự tắt sau mỗi getter:
+
+- Controller `C6630C+38 → 59EC93` trả tại `595CCE` trong `595CB6`.
+- Hero `C664C4+12C → 595CB6` trả tại `5A64E6` trong base updater `5A6244`.
+  Source lưu EAX vào local amount rồi, sau các modifier có điều kiện, truyền con trỏ local qua
+  virtual+128 tại `5A65C8 → 5A0F75`; thân consumer này chưa đọc.
+
+PRE được arm ngay tại actor bootstrap. POST được arm sau **handler native158 `715E90` trả về
+`71B717`**, cùng thread; không dùng timestamp gửi packet làm mốc hoàn thành hành vi, không interrupt
+Wine đang chạy. Có đúngmột C117/S158 kind2, không C111/S151/C120 trong toàn capture. Đối chứng chuyển
+động đọc XY thật: Y519→394→519 trước, qua394→274 tới item, sau đó112; X560. Target399/279/119
+khác actual394/274/112, không dùng target thay vị trí đo.
+
+| Phase | Actor / controller | Controller return | Hero amount return | Box controller+64 | XY tại hai lần chụp |
+|---|---|---:|---:|---:|---|
+| Trước item | 449413520 /449415044 | 5 | 5 | 5 | 560,519 |
+| Sau native158 return | Cùng hai pointer/vtable | 6 | 6 | 6 | 560,274 |
+
+Hai PRE tại813003597711378/813003603853014ns; native158 entry813008051545103 và
+return813008066092487ns; hai POST tại813008777273531/813008779984453ns. Chỉ dùng clock để kiểm
+**thứ tự**, mọi timing/vận tốc của capture này bị loại do debugger. PREcapturecount2 trước khi armPOST;
+không coi `probe-ready` hoặc ACKcommand là kết quả getter.
+
+### Phần đã nối và phần vẫn chưa biết
+
+`59EC93`223B chọn giữa các protected field theo predicate: +2F8/+304, fallback+58 hoặc+64 với
+clamp+20FC. Runtime +64 đổi5→6; +58=7, +2F8/+304/+20FC=0 giữ nguyên. **Chưa chứng minh branch đã chọn
++64** chỉ từ giá trị bằng nhau, chưa nối writer/clamp của pickup. Reader kiểm cookie/checksum trực tiếp;
+raw12byte box header không chứa đủ10byte payload để tự giải mã lại độc lập sau run, giới hạn này được giữ.
+Hero raw+2468=255/+246C=0 nên guard bonus của `595CB6` không bật trong ca; raw+2688=11079/11251
+chỉ là counter quan sát, không quy ra ms. `local_ebp_m14_old_context` ghi trước store, không phải lượng
+vừa trả về hoặc level. +550 của sampler vẫn lỗi read/checksum riêng, không loại XY vì lỗi probe stat này.
+
+Có hai cạnh tĩnh đã lưu: producer→local amount→virtual+128, và arithmetic/writer XY ở
+`59DA6F` prefix→virtual+68→`5A55EC`→`58D42B`. Chưa đọc đủ cầu nối `5A0F75`, không tuyên bố đã nối
+mọi nhánh, collision hoặc speed normalization. Các round cache cũ có tiny accessor/body vượt budget
+đã ghi trong checkpoint; không đếm một lệnh batch là một body hoặc xóa phần đã đọc để giảm count.
+
+R-170 xác nhận **return scalar5→6 và protected field5→6 trong đúng actor/case**. R-169 xác nhận
+hiệu ứng vận tốc ở **capture khác**; không lấy hai capture làm một phép đo native level/FPS, không
+suy24px/s/level, max/identity C00/C01KR. Bước tiếp: reuse receiver/consumer đã tìm, giải nghĩa nhánh
+và writer/clamp hoặc kiểm amount→XY trên ca có đối chứng; không đo lại capacity hoặc lặp bootstrap cũ.
+
+### Các lượt không dùng làm kết quả
+
+Sáu setup trước r7 được giữ nguyên cùng diagnostic hashes: lỗi Python/path, thiếu actor bootstrap,
+bootstrap UI quá rộng, lỗi preflight/display, phase arm không ACK, và signal debugger dừng sai context.
+Không có getter evidence dùng được từ các lượt đó. Root tiếp quản và sửa theo nguyên nhân, cuối cùng
+đổi sang actor bootstrap/native158 event để arm tự động; không retry cùng đường lỗi vô hạn. Ca writer
+đặt breakpoint rộng trước đó cũng không dùng làm timing. Lượt r7 đã stop bằng command2, supervisorDONE;
+không còn client/namespace riêng của phép đo. Không sửa/kill phiên dùng chung.
