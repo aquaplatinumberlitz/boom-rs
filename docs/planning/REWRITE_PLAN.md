@@ -221,12 +221,10 @@ hoặc đo lại cửa sổ lửa đã có chỉ để giảm số issue.
 
 | Luồng / thứ tự | Issue | Câu hỏi cần chốt | Nghiệm thu V1 và phần fidelity còn lại |
 |---|---|---|---|
-| dsh1 — lượt đầu | #146 | Cấp tốc độ thật → vận tốc; hitbox/rẽ của đúng bomber | Một cấu hình có số đo px/s chưa xác nhận cấp tốc độ. Cần consumer hoặc phép đo có cấp đã xác minh; DESIGN hiện hành chỉ đủ V1 sau review G2, không nâng thành native confirmed. |
-| dsh1 — lượt tiếp | #149 | Stat trước/sau Bomb/Fire/Roller; pickup tại cap | Kiểm base, tăng và trần theo từng đại lượng; nối field/consumer. Vai trò bảng ItemAttr chưa có bằng chứng giữ unknown; không gộp weight với xác suất. |
-| dsh2 — lượt đầu | #147 | Vào trạng thái nhốt → timer/expiry → chết; biên touch/timeout | Ưu tiên điểm đo từ native code và runtime VN offline. Khoảng packet không phải timer nội bộ; trường countdown chưa nối state chỉ là candidate. Cứu đồng đội/kim ngoài V1. |
-| dsh2 — lượt tiếp | #148 | Non-owner, biên hết damage; clip/hướng/layer/cadence | R-156/R-158 đã giải phần owner. Logic damage và trình diễn có acceptance riêng; frame KR còn thiếu là fidelity gap, không tự suy từ lifetime V1. |
-| Sau hai luồng trên / có cạnh rõ | #150 | Layout/focus/scale và identity KR | V1-035 đã nghiệm thu. Codex kiểm runtime UI Rust ở G5; native KR layout/identity còn thiếu theo Q-021, không giao lại duyệt text/ảnh đã xong. |
-| Sau hai luồng trên / có cạnh rõ | #196 | Event→SFX/BGM, volume/dedup; count/loop/nhánh động | Kiểm thực thi mapping và policy V1 đã chọn. Số voice native chưa biết có thể tiếp tục theo Q-015; policy DESIGN cần review, không gọi là đã khớp native. |
+| DSH1 — gameplay hiện hành | #149 rồi #146 | Hoàn tất capacity, sau đó Roller → cấp → vận tốc thực trên cùng receiver | Capacity R-168 đã tích hợp PR264: getter dừng10 trước allocator trongkhi pool25 còn15entry đạt điều kiện. Còn Roller/cấp/tốc độ; không gán số đo px/s cho level khi chưa nối consumer. |
+| DSH2 — presentation native hiện hành | #196 hoặc #150 | Một cạnh có nguồn cụ thể: helper init voice count/receiver hoặc consumer tên/layout | D1C330 là cạnh init đã chọn; không quét lại bảng sound/caller cũ. Native tên/layout/voice còn thiếu là fidelity; không giao lại duyệt text/ảnh V1-035. |
+| Chỉ mở khi có ca kiểm chứng mới | #147 / #148 | Input/touch/non-owner hoặc nhánh damage/render chưa được đo | R-155/R-156/R-158/R-159/R-160/R-161 đã có; không đo lại owner grace, cửa sổ lửa, endpoint nhốt chỉ để giảm số issue. |
+| Codex song song | G2/G3/G5 và V1-036 | Audit source/profile/acceptance; gói QA đúng luật hiện hành; GUI/hardware blocker cụ thể | Không bắt V1 chờ hết sáu root RE; không đổi candidate/unknown thành confirmed hoặc tự nâng gatepassed. Gói QA cũ28dad là lịch sử trước timer6350/trapped17, cần QA đúng currentcode. |
 
 Chỉ dùng **hai session dsh hiện có**. Mỗi luồng làm tuần tự; Codex giữ RULES_V1, QUESTIONS,
 index, profile và ledger; worker trả evidence riêng, không sửa chung các file này. Không dùng OpenCode
@@ -235,6 +233,14 @@ trong đợt này; chỉ mở lại khi chủ dự án cho phép mới. Không m
 Một actor/base-function cache cùng SHA được chia sẻ giữa hai luồng; chỉ một owner phân tích thân mới.
 
 Mỗi lượt có một câu hỏi, baseline/build/SHA, owner file, reviewer và phép nghiệm thu:
+
+Mỗi task là **một câu hỏi có điểm kết thúc**: ghi câu hỏi, cache/điều đã biết, cạnh hoặc hypothesis mới,
+bằng chứng đủ kết luận, ngân sách/điều kiện dừng/fileowner, kết quả confirmed/candidate/unknown và bước tiếp.
+Đối với hành vi speed/cap/trapped/collision/damage, dùng phép đo offline có đối chứng sớm nếu truy tĩnh
+không tiến; tĩnh tìm điểm quan sát/giải thích cơ chế. Có thể thu nhiều đại lượng liên quan trong một run,
+nhưng mỗi kết luận phải có đối chứng riêng, native quantity/đơn vị/sai số/build/patch; không dùng keydown,
+lịch emu hay packet clock thay thời điểm hành vi native. Gom phát hiện trong cùng câu hỏi thành PR đủ review;
+kiểm wording trước push và review độc lập song song CI, không thêm vòng tích hợp cho từng snippet.
 
 1. Reuse cache; kiểm đúng receiver/build trước khi truy. Mốc **8 yêu cầu phân tích / 4 thân hàm mới**;
    đọc bằng REA, IDA hoặc objdump đều tính thân mới. Đọc lại cache đúng SHA không phải phát hiện mới.

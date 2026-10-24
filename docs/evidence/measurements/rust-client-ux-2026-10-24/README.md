@@ -82,3 +82,34 @@ là GPU thật; không dùng Wine để chạy gói Windows hoặc giả GUI mac
 chưa nghiệm thu G2/G3/G5/G6 hoặc toàn bộ V1-036. Gói chỉ có Rust binaries/data/font/license;
 check chặn game pack/binary/media. Bằng chứng smoke ba OS đã có, không tiếp tục ghi “chưa smoke gói cuối”
 như blocker cũ; các giới hạn về GUI/hardware/profile vẫn phải ghi rõ khi chốt bản phát hành.
+
+
+## Gói QA đúng profile hiện hành — task265
+
+[Workflow40091603701](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40091603701)
+đã success4/4job; version`qa-20261024-641f99a`, head`641f99aa997813eca77ecd1d0ef554b3fd55c272`
+đã review/mergePR264 và có cùng code/luật với integration4fa1588. Đây là lượt cần thiết vì gói28dad ở
+trên có trap4000/trapped trướcPR260; không giả bằng chứng gói cũ đã kiểm luật6350/17 hiện hành.
+
+[package-current-qa.json](package-current-qa.json) giữ archivebytes/SHA/log/fingerprint và27hashfile
+được đối chiếu trên baarchive sau tải/mở. Mỗi OS có10ca smoke đúng kỳvọng từ chính archive trên runner
+của OS đó; local chỉ unpack/check/hash, không chạy macOS/Windows qua Linux rồi gọi là GUI.
+
+| Archive OS/arch | Byte | SHA-256 |
+|---|---:|---|
+| linux-x86_64 | 5231024 | `7b0bfb7812f72af735d70ed968b107c25a845be8f6c2f5f07fd381c0641bee9e` |
+| macos-aarch64 | 4616823 | `d587a42624df407f7df7e02033dc2ab690503f4aa4ab61694964396f65f40d8c` |
+| windows-x86_64 | 4367734 | `d2d93f049bfe7debca846e025e63cba3ace8cbc30c0ae05bf1f1a387be541554` |
+
+Cảba có package-rules-hash`0x322a09ca1c8453f7`, rulesfileSHA
+`83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323`; l10nSHA vẫn
+`fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960`.
+TOML thực cùng trap6350/trapped17/flame540 vàreleasefalse; so file byte-identical với currentprofile.
+Package-rules-hash không đồng nhất world state/replay hash. Offlinehealthunhealthy/content0 vẫn là
+ngữ cảnh offline, không dùng làm bằng chứng livehealthy/contentbundlehash.
+
+Linux binary lấy từ archive mở snapshotroom2×1600×1200 với bundleVi đã duyệt, trên Xvfb/llvmpipe.
+Hashbinary/ảnh/log nằm trong metadata; ảnh RGBA bằng snapshotroom trước đã review. Đây không thay
+focus/audio/realGPU hoặc GUIWindows/macOS, không benchmark minimumhardware. Không có media vàoGit.
+G2/G3/G5 vẫn in_review/G6blocked/V1-036in_review; chỉ cập nhật evidence đúng profile, không ký gate
+thay người review, không gỡ candidate hoặc tự chọn license phát hành.

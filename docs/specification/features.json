@@ -1563,19 +1563,20 @@
           "git:d6ca5799c8c9dbae00a56d774049d8da88e1102f",
           "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9",
           "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json",
-          "git:796284d422baf14f2c0ab0c27a78100bc335c2f1"
+          "git:796284d422baf14f2c0ab0c27a78100bc335c2f1",
+          "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json"
         ],
         "verification": {
           "status": "passed",
-          "command": "workflow release40069259503 + check_package.py check các archive + đối chiếu27hash + Linux room snapshot2×",
-          "result": "QA/dev head28dad286 đã dựng ba OS và smoke10/10ca mỗi OS từ archive thật; archive tải/mở/check và27hashfile khớp log; rules/l10n đồng nhất. Linux archive GUI1600×1200 RGBA khớp debug. Không phải nghiệm thu GUI ba OS/minimum hardware/profile release."
+          "command": "releaseworkflow40091603701 + unpack/check3archives +27SHAfilematches + Linuxroom2×snapshot fromarchive",
+          "result": "QA/dev reviewedhead641f99a dựng3OS/smoke10caOS,3archivechecks/27hash khớp; currentrulestrap6350/trapped17/flame540 byte-identical. LinuxarchiveUI1600×1200 RGBAkhớp previousreviewedroom onllvmpipe. Không GUIWinMac/minHW/profile release; old28dadmetadataretainedhistorical."
         },
         "review": {
           "status": "pending",
-          "result": "Code UX PR255 được dsh2 review độc lập,CI3OSxanh; package QA có bằng chứng nhưng feature V1-036 chưa sign-off,minimum hardware/profile phát hành chưa chốt."
+          "result": "Code264/capacityreviewindepdsh1+12CIpassed; task265gói/audit đang independentreview, khôngphải feature/gatesignoff."
         },
         "blocker": "Cần nghiệm thu V1-036 và cấu hình máy tối thiểu; QA dùng profile dev release=false, G2/G3/G5 chưa passed.",
-        "next_action": "Review gói QA và giới hạn tại hồ sơUX24/10; chốt minimum hardware và profile phát hành qua review, hoàn tất nghiệm thu UX/gate. Không chạy lại smoke3OS đã có hoặc giao lại duyệt V1-035."
+        "next_action": "Sign-off G2/G3/G5/profile và đo/chốt minimumhardware; GUIđaOS/WMframe/audiohardwarelimits theoRELEASE. Current3OSQA/fingerprints đãcó40091603701; chỉ dựng lại khi code/rules thay đổi có lý do, không chạy lại networkmatrix hay duyệt V1-035."
       }
     },
     {

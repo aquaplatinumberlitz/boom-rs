@@ -99,6 +99,32 @@ Mỗi OS đạt10ca smoke từ archive,27hashfile tổng cộng đã đối chi�
 snapshot2× bằng binary từ archive. [Hash/size/giới hạn](../evidence/measurements/rust-client-ux-2026-10-24/README.md#gói-qa-ba-os-từ-đúng-code-đã-review).
 Đây là QA/dev với `release=false`, không tag/Release, chưa thay nghiệm thu V1-036/G6 hoặc minimum hardware.
 
+### Gói QA cho luật hiện hành — task #265
+
+Gói `qa-20261024-28dad28` ở trên là **lịch sử**: profile tại head28dad có trap4000ms, trước PR258
+hiệu chuẩn6350ms và PR260 trapped-speed17px/s. Không dùng smoke đó để tuyên bố đã kiểm các luật mới.
+Task[#265](https://github.com/aquaplatinumberlitz/boom-rs/issues/265) dựng đúng một workflow QA mới
+[40091603701](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40091603701),
+version`qa-20261024-641f99a`, từ reviewed head`641f99aa997813eca77ecd1d0ef554b3fd55c272`.
+Workflow đã **success4/4job**, tải/mở/check đủ baarchive, đối chiếu27hashfile với log và10smokecase/OS.
+Metadata [package-current-qa.json](../evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json)
+ghi archive/SHA/fingerprint và profile thực trong gói: trap6350ms, trapped17px/s, flame540ms.
+Linux binary từ archive đã mở room2×1600×1200 trên Xvfb/llvmpipe, RGBA khớp ảnh room đã review;
+không phải GUIWindows/macOS hoặc minimumhardware. Không tag/Release, mọi giới hạn gate còn nguyên.
+
+### Blocker nghiệm thu hiện hành của G2/G3/G5/V1-036
+
+| Phần | Đã có bằng chứng | Còn chặn nghiệm thu / bước cụ thể | Fidelity giữ backlog |
+|---|---|---|---|
+| G2 movement/stats | Movement/hitbox/assist/time DESIGN có scenario; owner graceVN; trapped17px/s R-162 đã tích hợp | Review độc lập việc áp12khóa C00/C01candidate và profile phát hành; loader không cho `release=true` với candidate. Không chỉ bật cờ release hoặc đổi nhãn. Roller/level mới phải xét cùng đại lượng trước khi thay speed24DESIGN. | Chưa nối đủ Attr/native identity, hitbox/corner và đường cong tốc độ; không yêu cầu mọi mode later. |
+| G3 bomb/damage/items | Flame540ms R-158, trap6350ms R-160, created-tick boundary/replay; Bomb/Fire +1 và cap behavior có source | Sign-off profile/boundary/drop V1; gói đúng profile hiện tại đã kiểm ở task265; sign-off gate vẫn thiếu. R-168 capacity10 là actorVN riêng, chưa đủ đổi cap C00/C01KR. | Writer/clamp, non-owner/repeatdamage/animationtail và ItemAttr table role còn mở. |
+| G5 UX/localization | V1-035approved; Linux integer scale/focus/rebind + capture BGM/SFX/volume/mute đã kiểm | GUI Windows/macOS, khôi phục window-frame sau fullscreen trên WM X11, kiểm thực hành trên thiết bị âm thanh/phần cứng và review giới hạn G5; các bằng chứng này không được thay bằng `--help` smoke. | Native KR layout/name/voice count/loop chưa đủ, tách khỏi việc font/chuỗi Việt đã duyệt. |
+| V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, G2/G3/G5sign-off; giữ36/37 và2/6 tới khi đạt. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
+
+Profile hiện vẫn `release=false`; ngoại lệ12khóaKRcandidate ở ADR0013 chưa được thay bằng quyết định
+phát hành mới. DESIGN đã được review ở từng PR không đồng nghĩa đã sign-off toàn gate. Không thêm
+file plan/tổng kết song song; tracking ở execution.json/PROGRESS, câu hỏi native ở QUESTIONS/rootissues.
+
 ### 3.1 Công cụ đóng gói (`tools/check_package.py`)
 
 Một script, sáu lệnh (offline, không gọi mạng):
