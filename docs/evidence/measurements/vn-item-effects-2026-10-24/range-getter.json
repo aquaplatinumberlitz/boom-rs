@@ -12,7 +12,7 @@
     "runtime": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-item-range-receiver-149-r1",
     "static": "/home/admin/boom-rs-dsh/re-kr2/.re-work/item149-receiver-prep"
   },
-  "scope": "Actual virtual range getter receiver before/after one Fire; base boxed value with untraced overrides; no cap or KR identity claim",
+  "scope": "Actual virtual range getter receiver before/after one Fire; base boxed value with untraced overrides; no cap or KR identity claim; static allocation scan returns entry only when both boxed predicates are zero, no pool-size writer or literal10 established",
   "observed_calls": 2,
   "raw_return_rows": 3,
   "distinct_return_values": [
@@ -276,6 +276,97 @@
       "path": "getter-578963-full.hex",
       "size": 66,
       "sha256": "b19e1366ec42b4e13a8805b1b45afd0c12d22cc981f091590b8326e660ca9f60"
+    },
+    {
+      "root": "static",
+      "path": "allocation-59F493-full.asm",
+      "size": 2320,
+      "sha256": "ad056db3535b6d68c9ab5cad6106f56ce27a2902a71efa5682d56dfeaff575ec"
+    },
+    {
+      "root": "static",
+      "path": "allocation-59F493-full.hex",
+      "size": 390,
+      "sha256": "2a0518f3adeaf9033083a3a539f411ec166dc08e8f78964615a391cc7703eb67"
+    },
+    {
+      "root": "static",
+      "path": "base-579DC0-full.asm",
+      "size": 1620,
+      "sha256": "4c4cacc46b285292e122b66712fed7998b228937eaa54808659589f70082b6d3"
+    },
+    {
+      "root": "static",
+      "path": "base-579DC0-full.hex",
+      "size": 336,
+      "sha256": "d498b7eb4496cb61049434e8cfa5fc27bbf439e035d202797a7e81009f70fe10"
+    },
+    {
+      "root": "static",
+      "path": "base-578A16-full.asm",
+      "size": 6652,
+      "sha256": "0e5e07ff682174151ec77d013af080d5821d4306e9034e2e9d41ff892f4b8470"
+    },
+    {
+      "root": "static",
+      "path": "base-578A16-full.hex",
+      "size": 1191,
+      "sha256": "a3966874554b4450b54c4230f4243c3bbda5bc5ab5142e9e927d998e35df7a22"
+    },
+    {
+      "root": "static",
+      "path": "predicate-58D4DA.asm",
+      "size": 94,
+      "sha256": "b4aeaecd6e524524f4a62a681b84fb4f7e77326b7deb4a8357aef2ea44054520"
+    },
+    {
+      "root": "static",
+      "path": "predicate-58D4DA.hex",
+      "size": 24,
+      "sha256": "d1689d0f82a1b5a6d9091a05bdf86c965c0fb43f12f728be009ff5ffb0f1b7b5"
+    },
+    {
+      "root": "static",
+      "path": "predicate-59111A.asm",
+      "size": 94,
+      "sha256": "f717b25cf34d2f6f41381a8b9f1a1ed02f06d03a8ba9721808799a684f5d365e"
+    },
+    {
+      "root": "static",
+      "path": "predicate-59111A.hex",
+      "size": 33,
+      "sha256": "07c5c6a60be6f74194a0d2e0374b70bf6a08b1e8359e74f65e84ba1c0289f023"
+    },
+    {
+      "root": "static",
+      "path": "vtable-C663C4-48.txt",
+      "size": 76,
+      "sha256": "925d2cd518dbc2068670fc17a3d88434bb629a9a92ba2d3a1c2a9ad1974e5720"
     }
-  ]
+  ],
+  "allocation": {
+    "source": "vn_static",
+    "status": "confirmed (bounded functions and table, not runtime predicate values)",
+    "caller_prefix": "0x5B1EC5 virtual+0x48 on same facet as Range",
+    "vtable_slot": {
+      "va": "0xC6640C",
+      "file_offset": "0x86580C",
+      "bytes": "93f45900",
+      "target": "0x59F493"
+    },
+    "path": [
+      "0x59F493 same facet receiver -> 0x579DC0",
+      "0x579DC0 subtracts8 from facet -> container hero+0x508",
+      "0x578A16 scans [container+0x4C] with [container+0x50] count"
+    ],
+    "accept": "entry boxed+0x1C==0 via0x58D4DA AND entry boxed+0xE4==0 via0x59111A",
+    "return": "no accepted entry returns0; accepted entry fills output descriptor and returns selected entry pointer",
+    "reader": "both predicate functions tail to known boxed reader0x414543",
+    "unknown": [
+      "runtime list count/entry predicate values",
+      "count writer or stat clamp",
+      "whether effective ceiling10 is a fixed pool or stat maximum",
+      "KR counterpart/character identity"
+    ]
+  }
 }

@@ -36,7 +36,7 @@ Không biến một lần nhặt/thử đặt bịtừchối thành giới hạn
 
 Parser `parse_bomb_record` đặt tên một field là **power**, nhưng fieldđó luôn1 trong caFire này.
 Không ghi `power1→2`: field thực đổi là **r18**, qua vf31 theo legacy
-`docs/vm_6EFD4A_inputs.md` §5; callsite native thực là5B1F92, còn5B1FB5 là lời gọi VMcache và `docs/oc_e-game.md` §5a-5d.
+`docs/vm_6EFD4A_inputs.md` §5; callsite native thực là5B1F92, còn5B1FB5 là directcall6EFD24 và `docs/oc_e-game.md` §5a-5d.
 152được server dựng từ chính record111 nên không phải bằng chứng độc lập thứhai về getter/stat.
 Việc hiểu vai trò tầm của r18 dùng trace/đối chiếu legacy đã có R-025; phép đo này ghi đúng scalar.
 
@@ -88,7 +88,7 @@ Không nâng12khóa candidate target hoặc đổi profile từ kết quả riê
 
 Ca `host-item-range-receiver-149-r1` dùng cùng fixture/Ocean01, một Firekind1 tại(2,0).
 [range-getter.csv](range-getter.csv) nối **hai native call** với hai bản ghi111;
-[range-getter.json](range-getter.json) giữ39hash runtime/static, gồm các ảnh và raw chỉ có local.
+[range-getter.json](range-getter.json) giữ50hash runtime/static, gồm các ảnh và raw chỉ có local.
 Bytegate PE/archi386 được kiểm trước khi gắn probe; thời gian debugger không dùng để đo fuse/latency.
 Server vẫn chỉ xác nhận pickup/đặt/nổ theo lịch8s emu, không tự tính stat.
 
@@ -100,7 +100,7 @@ Sau đặt quả thứhai, phần nổ/nhốt trong raw nằm ngoài phép so ge
 Probe ghi **2 call/3 return rows**: hai return rows của lần thứhai có cùng receiver/target/value và
 nằm trước cùng111. CSV giữ số hàng trả về nhưng chỉ tính một lần gọi; không coi đây là ba lần lặp.
 Callsite5B1FB5 trước đây trích theo legacy **không phải virtualgetter**: đó là directcall6EFD24 sau
-khi ECX đã nạp lại CGameMsgCache. Phân biệt facet+0x510 với vtable chính của heroC664C4.
+khi ECX đã nạp lại từ[EBP−0x14]; vai trò đối tượng này chưa được xác nhận trong bundle50hash. Phân biệt facet+0x510 với vtable chính của heroC664C4.
 
 Đọc tĩnh cùng SHA: wrapper5AE518 có gate byte receiver+0x2C14, khác0 trả hằng1, bằng0 tail5A021B.
 Thân5A021B đầy đủ gọi578963 lấy giá trị nền rồi có các override có điều kiện qua virtual+0x90 và
@@ -111,4 +111,22 @@ runtime nội dung box. Không gọi đây là DWORDstat trực tiếp hoặc gi
 R-166 xác nhận getter thực sự tiêu thụ khi tạo111 và scalar1→2 trong đúng ca, không xác nhận toàn bộ
 ngữ nghĩa gate/override, statmax, Roller hay ánh xạ C00/C01KR. Trần hữu hiệu10 của R-163 giữ phạm vi
 cũ. Bước tiếp là allocation virtual+0x48 trên **cùng facet** và writer/clamp của box, tránh lặp nhầm
-VMcallsite hoặc bảy KRlookupcaller đã cache.
+directcallsite cũ hoặc bảy KRlookupcaller đã cache.
+
+
+## Nhánh chọn phần tử bom — R-167
+
+Cùng caller trước getter tầm,5B1EC5 gọi virtual+0x48 trên facet+0x510. TableC663C4+48 trỏ59F493;
+hàm này gọi579DC0 với facet nguyên. **579DC0** mới trừ8, đưa container=hero+0x508 tới578A16.
+Đây là cạnh đọc tĩnh trên cùng SHA, chưa phải một lần đo runtime giá trị list/count.
+
+578A16 duyệt list tại container+0x4C, count tại+0x50; phần tử được chọn khi hai giá trị boxed
+entry+0x1C vàentry+0xE4 cùng0. Hai getter8/11byte58D4DA/59111A tail tới reader414543 đã cache.
+Nếu không có phần tử đạt điều kiện, hàm trả0. Nếu có, hàm điền descriptor và trả pointer phần tử
+đã chọn qua579DC0/59F493. Toàn thân397byte578A16 đã đọc, không lấy prefix96byte làm toàn hàm.
+
+Kết quả giải được **cơ chế từ chối khi không tìm được phần tử**, chưa giải nguồn số lượng phần tử
+hoặc giới hạn stat. Trong những thân đã đọc không thấy literal10 hoặc writer count+50. Không gọi
+hai boxedfield là cờ active/id khi chưa có consumer; số10 vẫn chỉ là R-163 runtime. Cạnh tiếp cần đo
+count/predicate trong cùng actor trước/sau pickup hoặc tìm writer có địa chỉ cụ thể; không quét lại
+bảy KRlookupcaller và không đọc các hàm cleanup chỉ để tăng số body.

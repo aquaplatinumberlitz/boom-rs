@@ -182,7 +182,8 @@ Trần hữu hiệu của fixture/actor chưa phân biệt stat cap/pool; không
 
 Ca bổ sung cùng fixture đã khóa virtual5B1F92/+7C trên facet hero+510/C663C4→5AE518:
 trước Fire trả1, sau117/158 trả2, khớp đúng111r18. Có2call/3returnrows, hàng duplicate không phải ca3.
-[39hash và CSV](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#receiver-thật-của-getter-tầm--r-166).
-Call5B1FB5 là VMcache sau đổi receiver; không dùng nó làm địa chỉ getter.
+[50hash và CSV](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#receiver-thật-của-getter-tầm--r-166).
+Call5B1FB5 là directcall6EFD24 sau đổi receiver; vai trò đối tượng mới chưa xác nhận trong bundle,
+không dùng nó làm địa chỉ virtualgetter.
 Base578963 đọc boxfacet+1C (hero+52C theo số học), qua virtual+BC/414543; wrapper và5A021B có
 nhánh override chưa đo. Writer/cap và ánh xạ KR vẫn mở, không suy toàn bộ stat từ offset này.
