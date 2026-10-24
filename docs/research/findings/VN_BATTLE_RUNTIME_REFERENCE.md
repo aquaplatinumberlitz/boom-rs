@@ -143,3 +143,14 @@ chưa nối với5px của actor đo. Không nâng thành speed consumer hoặc 
 Raw static/cache private ở `re-kr2/.re-work/trap-timer-147/`; không đọc lại15literalhit/VM cũ.
 Bước tiếp #147: receiver/trigger của site717348 và watch seed có đối chứng; không lấy khoảng packet
 6359ms hay counter162 làm timer nhốt. #146 cần level/setter nối đúng actor trước đo mới.
+
+## Native bubble counter và endpoint nhốt/chết24/10 (R-159/R-160)
+
+[Evidence/CSV/hash/reset](../../evidence/measurements/vn-trap-timer-2026-10-24/README.md): same-runhero
+C664C4 vàmemberC2E21C,controllerhero+5F4 slot40→5960B4/member378/slot88→57450F→58D507 đọcboxed+40.
+Nhánh716FE1 bắtvalue200/stage56C0=200 rồi71734E→5AF165subtype13;value0đãquansátở11.
+Ba baseline6332–6355ms giữaentry11/entry13;negative ngoài lửa không11/13,HELP còn+5,2s.
+Sampler có3reset3→0 sớm;không gọi wholetrace epoch đơn điệu,200counter không phải200ms/tickRust.
+R-160 chọn6350msDESIGN→191tickRust30Hz,chếtT+190(~6333ms);khôngliteralnative timer.
+Receiver71734E/5AF165 đã khóa trongcase này, thay blocker“chưa biết cùnghero”củacheckpointtrước.
+Increment/reset writer/clocknative,deathanimationtail,non-owner,input/touch-order vẫn Q018.

@@ -225,7 +225,7 @@ Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành--
 | G-02 | Hình lửa theo hướng | Clip lửa 100 frame gộp thân/đuôi/nhánh (`candidate`) | Mọi ô lửa dùng **dải frame lõi 28..=59** (`design`) | R-078, R-087; [BUNDLES §7.1](../specification/assets/BUNDLES.md#71-chọn-clip-và-frame-v1) | Q-003 |
 | G-03 | Chuỗi chết | Clip chết kết thúc bằng ảnh rỗng 0×0 (dữ liệu `confirmed`) | Sổ trình diễn (R-089): chuỗi chết phát **trọn clip**, xong nhân vật giữ **khung cuối có ảnh**; nếu clip không có khung nào có ảnh thì **không vẽ**. Ở chế độ mạng chưa nối event server vào sổ (#114) nên chưa có chuỗi chết để phát | R-077, R-086, R-089 ([RULES_V1 §8.1](../specification/gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r-085r-089)); [BUNDLES §7.2](../specification/assets/BUNDLES.md#72-sổ-trình-diễn-v1) | Q-003 |
 | G-04 | Fuse bom | Chưa biết (`unknown`); emulator tự đặt 2,5 s | 2,5 s (`oss` / design — BnB) | R-021, R-022, R-115 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-006 |
-| G-05 | Nhốt → chết | Đo được khoảng packet **6,359 s** (`vn_runtime` / confirmed) — là khoảng packet có xử lý/gửi, **không** phải timer nội bộ | **4 s** (`oss` / design — BnB); **không** phải 6,30 s cũ của R-076 (claim đã superseded) | R-026, R-076 (superseded), R-115 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-006 |
+| G-05 | Nhốt → chết | Native bubble threshold200; serialize11→13 đo6332–6355ms, HELP còn+5,2s; sampler córeset sớm, chưa có literalms | **6350ms** calibrationDESIGN R-160→191tick30Hz/chếtT+190 (~6333ms); thay fallback4s, không đổi200counter native thànhtickRust | R-159/R-160 ([RULES_V1 §25](../specification/gameplay/RULES_V1.md#25-nhốt--hết-hạn-vn-và-hiệu-chuẩn-v1-2026-10-24)); [evidence](../evidence/measurements/vn-trap-timer-2026-10-24/README.md) | Q-006/Q-018 |
 | G-06 | Tốc độ nhân vật | Quan sát thô 5→6 px/tick ở 30 ms, checksum chưa xác thực (`candidate`) | **24 px/s mỗi cấp** (`oss` / design — BnB); **không** phải 33 px/s cũ của R-075 (claim đã superseded) | R-043, R-045, R-075 (superseded), R-114 ([RULES_V1 §4](../specification/gameplay/RULES_V1.md#4-nhân-vật-và-tốc-độ); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-005 |
 | G-07 | Nhịp tick | 30 ms/bước đo được ở **client** (`vn_runtime` / confirmed) — **không** xác nhận tick server | **30 Hz** (`oss` / design — BnB); 33 Hz cũ của R-074 đã superseded | R-013, R-074 (superseded), R-113 ([RULES_V1 §2](../specification/gameplay/RULES_V1.md#2-trận-và-thời-gian); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-004 |
 | G-08 | Người bị nhốt có di chuyển không | "Đi rất chậm" (`web`/`candidate`), chưa có px/s | Đứng yên (`design` — R-036; BnB cũng đứng yên nên cơ chế này giữ theo ADR 0012) | R-029, R-036, R-108 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-005 |
@@ -251,8 +251,8 @@ sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
   đã bị BnB đè (ví dụ vòng 120→180 s); nay về lại giá trị gốc, **bằng chứng gốc không bị hạ nhãn**.
 - **Vẫn theo BnB** (`oss` / `design`) vì chưa có nguồn `confirmed` cùng đại lượng: nhịp tick
   **30 Hz** (R-113 — R-013 chỉ đo bước *client*, không xác nhận tick server), warmup **3 s**
-  (R-113), tốc độ **24 px/s mỗi cấp** (R-114 — R-043 còn `candidate`), fuse/nhốt
-  **2500/4000 ms** (R-115 — R-026 là khoảng packet, không phải timer nội bộ), hộp va chạm
+  (R-113), tốc độ **24 px/s mỗi cấp** (R-114 — R-043 còn `candidate`), fuse
+  **2500ms** (R-115), hộp va chạm
   **26×26 px** / assist **12 px** / khoảng chạm **28 px** (R-116), Roller **+1 cấp** (R-111),
   xác suất gạch có item **35%** (R-112 — R-053 `unknown`).
 - **`design` riêng** (BnB **không** cung cấp cùng đại lượng, nên **không** phải lựa chọn từ BnB):
@@ -300,3 +300,11 @@ blocker phát hành; một DESIGN chưa được nghiệm thu cũng không đư�
 UI Việt hóa V1-035 đã được nghiệm thu; G5 còn kiểm runtime focus/input/scale/cửa sổ/âm lượng/SFX.
 V1-036 cần kiểm gói cuối trên Windows/Linux/macOS với version/fingerprints; gói QA không phải tuyên bố
 release/fidelity. Native KR layout, số voice và các nhánh trình diễn chưa xác nhận vẫn là backlog fidelity.
+
+### 10.6 Hiệu chuẩn vòng đời nhốt theo VN24/10
+
+R-159 xác nhận counter/consumer200 trong đúng ca VN; R-160 chọn6350ms cho Rust,191tick30Hz và
+chết ởT+190 khi tính tick tạo. Mốc là native serialize11→13; chưa tách death-animation tail, không
+suy hằngtimer server, writer/clock hoặc200tickRust. Sampler early resets giữ trong evidence, không
+làm epoch đơn điệu giả. Các giới hạn này có owner/root147 và điều kiện mở lại khi thấy endpoint/mode
+khác; không giao lại phép đo owner-grace/lửa đã có. G3 cần sign-off riêng, scope37feature không đổi.

@@ -26,13 +26,14 @@ riêng, không phải quy tắc candidate KR luôn thắng OSS hoặc confirmed.
 ## So khớp đại lượng và áp dụng ngay
 
 [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)
-R-110…R-118 và R-158 là bảng lựa chọn **mọi khóa** của `data/rules/v1-dev.toml`.
+R-110…R-118, R-158 và R-160 là bảng lựa chọn **mọi khóa** của `data/rules/v1-dev.toml`.
 Khôi phục round 120000 ms, tile 40 px, Bomb/Fire +1 và trọng số 3650/2800/2000.
 R-051 confirmed số trong bảng, **vai trò bảng còn unknown** (R-052): dùng cho drop ba item V1 là
 quyết định áp dụng riêng, không gọi trọng số là phần trăm hay xác suất drop gốc.
 
 Giữ tick server 30 Hz: R-013 30 ms/bước **client** không xác nhận tick server.
-Giữ timer trap 4000 ms: R-026 6359 ms giữa **packet** có xử lý/gửi, không xác nhận timer nội bộ.
+Lựa chọn trap4000ms lịch sử dựa BnB; hiệu chuẩn R-160 hiện6350ms theo native endpoint VN ở bổ sung dưới.
+R-026 6359ms giữa **packet** có xử lý/gửi vẫn không xác nhận timer nội bộ.
 Giữ speed 24 px/s/level vì raw checksum R-043 chưa xác thực; cấp tốc độ không phải vận tốc.
 Fuse/chance/hitbox/assist/touch/warmup giữ BnB vì chưa có confirmed cùng đại lượng.
 Lửa dùng hiệu chuẩn R-158 theo bổ sung24/10 bên dưới.
@@ -76,4 +77,19 @@ vùng lửa hết sau khoảng531–562ms từ native return, có đối chứng
 Không đổi19update native thành19tick Rust. 540ms làm tròn lên17tick tại30Hz; lửa sống đủ17tick kể cả
 tick tạo, `until = created + ticks - 1`. Đây là lựa chọn ánh xạ có chủ ý theo số đo, không đổi nhãn
 bằng chứng thành “native chứa hằng540ms”. Phần giảm TTL ngay lúc tạo của R-109 không còn áp dụng;
-chain, phá gạch/item và các phần khác giữ nguyên. Fuse và timer nhốt vẫn theo R-115.
+chain, phá gạch/item và các phần khác giữ nguyên. Fuse vẫn theo R-115; timer nhốt được cập nhật ở bổ sung dưới.
+
+## Bổ sung2026-10-24 — counter bubble VN và hiệu chuẩn nhốt
+
+R-159 nối native receiver/consumer: ngưỡng stage+56C0=200 so với boxed age của đúng bubble,
+nhánh716FE1 dẫn subtype13; ba capture native serialize11→13 là6332–6355ms, có đối chứng ngoài lửa.
+HELP còn ở+5,2s. Counter có3reset sớm trong phép lấy mẫu; không coi200 là200ms/200tickRust và
+không dùng tỉ lệ counter/wall-clock làm quy đổi. Chưa đọc increment writer/seed constructor.
+
+Chọn R-160 `player.trap_to_death_ms=6350` (`design`/design) thay fallback BnB4000; đây là calibration
+của vòng đời quan sát, không hằngms native confirmed. 30Hz ceil191tick, tính tick tạo→chếtT+190,
+~6333ms hiệu dụng. Native serialize11→13 được chọn làm mốc tương ứng RustTrapped→Dead; nếu13 thuộc
+cuối animation/mode khác, mở lại hiệu chuẩn. Fuse/flame/speed/cap/touch-order và warmup giữ nguyên.
+[Evidence/range/hash/reset/overhead](../evidence/measurements/vn-trap-timer-2026-10-24/README.md).
+Quyết định dựa quyền dùng đo động VN của chủ dự án; cần reviewer độc lập exacthead trước merge,
+không nâng gate/phát hành hoặc nhãn native literal từ một giá trị calibration.

@@ -10,7 +10,8 @@
 //!    `by` là người chạm.
 //!
 //! **Timer nhốt tính cả tick bị nhốt** (R-108): người bị nhốt ở tick `T` chết ở tick
-//! `T + trap_ticks - 1` — 120 tick ở profile V1 (4000 ms ở 30 Hz). BnB giảm `trapTicks` ngay
+//! `T + trap_ticks - 1` — profile V1 hiệu chuẩn 6350ms/191tick ở30Hz (R-160),
+//! chết ở T+190 (~6333ms). Cơ chế tính tick tạo giữ từ BnB: giảm `trapTicks` ngay
 //! trong tick bị nhốt (`server/game.js:569` chạy sau `applyFlameDamage`), nên tick bị nhốt là
 //! tick giảm đầu tiên.
 //!
@@ -202,6 +203,40 @@ mod tests {
         let p = s.players.iter_mut().find(|p| p.id == id).unwrap();
         p.x = Mpx(x);
         p.y = Mpx(y);
+    }
+
+    /// R-159/R-160: native HELP còn sau 5,2s; V1 hiệu chuẩn bằng endpoint native,
+    /// không đổi 200 bước counter VN thành 200 tick Rust.
+    #[test]
+    fn vn_calibrated_trap_survives_five_seconds_and_expires_at_boundary() {
+        let profile =
+            RulesProfile::from_toml(include_str!("../../../../data/rules/v1-dev.toml")).unwrap();
+        let mut calibrated = Rules::from_profile(&profile).unwrap();
+        assert_eq!(calibrated.ticks_per_second, 30);
+        assert_eq!(calibrated.trap_ticks, 191);
+        // Thử từ mốc nhốt, không cộng warmup vào thời gian này.
+        calibrated.warmup_ticks = 0;
+        let (world, mut state) = pair(calibrated);
+        for tick in 0..190 {
+            let events = step(&world, &mut state);
+            assert_eq!(
+                state.players[1].life,
+                Life::Trapped { since: 0 },
+                "tick {tick}"
+            );
+            assert!(
+                !events
+                    .iter()
+                    .any(|event| matches!(event.kind, EventKind::PlayerDied { .. }))
+            );
+        }
+        let events = step(&world, &mut state);
+        assert_eq!(state.players[1].life, Life::Dead);
+        assert!(events.iter().any(|event| event.kind
+            == EventKind::PlayerDied {
+                player: 1,
+                by: None
+            }));
     }
 
     #[test]

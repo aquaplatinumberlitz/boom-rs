@@ -1,0 +1,840 @@
+{
+  "fixture_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+  "raw_root_local": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240",
+  "files": [
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "04-room.png",
+      "bytes": 407592,
+      "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "05-match.png",
+      "bytes": 627911,
+      "sha256": "9eb7c936ecc867e093f42f3eac28cf04ab604049bc14498cdd9abda28859c1f9"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "06-native-trapped.png",
+      "bytes": 628341,
+      "sha256": "061c7f0429448725561a2369cc2e69238fac581d5bfd4a775f86531d40fcf0cb"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "07-native-dead.png",
+      "bytes": 626001,
+      "sha256": "ff4a77a4d6467dc9f9d047e1847ba0894c28df5b2b0fe2ba37fa3307798132bf"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "ack.json",
+      "bytes": 42,
+      "sha256": "7e4ce128b731efcb42020b7a14748ac8e3c9784aa554af7d2cb82a793d546e62"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "death-event.json",
+      "bytes": 1052,
+      "sha256": "f00519609745e0d22762daa2ddfd209ba2630a6f93fd0a56e8d2136be9667891"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "native-events.jsonl",
+      "bytes": 2608,
+      "sha256": "2246399336b266590de1be57573fcb118d0d1bdd5708ffd9ce3a402ea4aa5df0"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "packets.jsonl",
+      "bytes": 21286,
+      "sha256": "a59f0ea60e549bd4162ba4319a1cdefa22476e720580786a79e3c9064fec98f2"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "packets.log",
+      "bytes": 16639,
+      "sha256": "dbfd359e67e0243f043ff67e14000dbfef58a77f7e7f1e76e0b7fd7750c14551"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "pids.json",
+      "bytes": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "probe.gdb",
+      "bytes": 2591,
+      "sha256": "247bd5554fc1841caf0650931c2c0a0538db8c618d58a6345bbf1666a30b258d"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "proxy-context.json",
+      "bytes": 94,
+      "sha256": "640f0e123f27083d199d6c8b2394cb804eb83537e9de466504998aa58a124a02"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "ready.json",
+      "bytes": 58,
+      "sha256": "404d4ba067f997a085ee2cd21e59ea18352b20620d3a1f9feab40dd71cc9cd31"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "supervisor.log",
+      "bytes": 541,
+      "sha256": "36f73f17571272fb713e0a2f8e252186a796ab411a492e48e13ad04e16e888e7"
+    },
+    {
+      "run": "host-trap-native-147-r1",
+      "file": "trap-event.json",
+      "bytes": 1052,
+      "sha256": "0f0cf50ec7c7cbabbad700b0b6e64af059c7553fcd3226347a4f65ce62424aec"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "01-channels.png",
+      "bytes": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "03-create-dialog.png",
+      "bytes": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "04-room.png",
+      "bytes": 407526,
+      "sha256": "2fc424ed11863369cfe8f0353ba9571bdbe54e160bc759319dc2c2e89b5fdb61"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "05-match.png",
+      "bytes": 627911,
+      "sha256": "9eb7c936ecc867e093f42f3eac28cf04ab604049bc14498cdd9abda28859c1f9"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "06-after-3p8s.png",
+      "bytes": 628841,
+      "sha256": "0b2b3d262f3b5561c47e2f59c7952a7b4ececdec91e36a5041a631c903a7a2e3"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "07-after-5p2s.png",
+      "bytes": 628509,
+      "sha256": "49fcefbb3f9343e9491ddb30a8ac0c2b63fd64975155a248e342efeedf7b66fc"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "08-native-dead.png",
+      "bytes": 626433,
+      "sha256": "7ed8302879de0dc737e27e28967a08925df1055e472657076daf48a161a123ab"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "ack.json",
+      "bytes": 42,
+      "sha256": "9cedc7c934a61dbd467b11f6ed9f44b875b951a8fe4031ad84e4c389b7c82bc6"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "death-event.json",
+      "bytes": 1052,
+      "sha256": "4b625e8138327f980c3eb05990784f6b639fa4c87a85fbf374d62381f9be960c"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "native-events.jsonl",
+      "bytes": 2608,
+      "sha256": "bd1617a1d6083fb739646cb9a9aa353b670ff84bc2b9c2523b485fa25b6dc830"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "packets.jsonl",
+      "bytes": 18965,
+      "sha256": "20ae91672cd5136901aa96a223f575df42c3e84b1d810a9f1e8942b7a7a87f87"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "packets.log",
+      "bytes": 14857,
+      "sha256": "5d834e930f275a0ae5cd4d59b6f28e9c51cd865be2cb50d9fb02c6d11d5f4037"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "pids.json",
+      "bytes": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "probe.gdb",
+      "bytes": 2591,
+      "sha256": "d6212ab0edae55d722bee02dea032b15c4b6fa9a6dd74b4e44ed408609f28cf7"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "proxy-context.json",
+      "bytes": 94,
+      "sha256": "c781840522324ffa841cf9f40124d8534b831b32c61ef284e0acab21270ad698"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "ready.json",
+      "bytes": 58,
+      "sha256": "988fea57724acb872766cbde7618acfd41be37d02edbf86f058a659d37975b97"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "supervisor.log",
+      "bytes": 733,
+      "sha256": "d729316f536abe723344cfdc3d474e378a3b920e846991714470aca2a038aac3"
+    },
+    {
+      "run": "host-trap-native-147-r2",
+      "file": "trap-event.json",
+      "bytes": 1052,
+      "sha256": "9507f1151015e15f2857a09402f24db0eed6df1ee0ec7f2f1264fd5412840081"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "03-create-dialog.png",
+      "bytes": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "04-room.png",
+      "bytes": 407592,
+      "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "05-match.png",
+      "bytes": 627911,
+      "sha256": "9eb7c936ecc867e093f42f3eac28cf04ab604049bc14498cdd9abda28859c1f9"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "06-after-5p2s.png",
+      "bytes": 628080,
+      "sha256": "fcecf3e8dc62426dd767a9a11503587cb3c3d13740d2eecdc7a681189da69ac5"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "07-native-dead.png",
+      "bytes": 626282,
+      "sha256": "02dca7a679b03b1be20ff044f03eb5a356679885481470904f8682ba1ec0da57"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "ack.json",
+      "bytes": 42,
+      "sha256": "99b3a343aced2a01ab10d72e5d3f97ce7384d6c9c40329c8bc8e952c99bd7b62"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "death-event.json",
+      "bytes": 1052,
+      "sha256": "4be4d565e9681120eec8987cb97c3e10ab3facca693518f6d636358416ce65d8"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "native-events.jsonl",
+      "bytes": 2608,
+      "sha256": "d0d0a95623064f51e29033a7eab711e63ed6dc167cf5dd51d4cc9d1c073f9dcc"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "packets.jsonl",
+      "bytes": 20894,
+      "sha256": "417089557517c8a60e27fa37d5d5593586a30094efd8735b1d981ab37e80dbf2"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "packets.log",
+      "bytes": 16358,
+      "sha256": "6cf5443df9b1a45a7bc7d2921d3f4f98ca9bbb77e2cf2d88374ebc7bd60ba3d7"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "pids.json",
+      "bytes": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "probe.gdb",
+      "bytes": 2591,
+      "sha256": "014ad945c48d18fbd0b3eb398abfaa1fac35e0051e392802f7798cb50fc0b3af"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "proxy-context.json",
+      "bytes": 94,
+      "sha256": "7978c464555e91583b2b2d0b3fa4ce762b5bddf91fc9904509eb014f6366630d"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "ready.json",
+      "bytes": 58,
+      "sha256": "0d125353e5b26342342633ef8b7df85bb6162a1a095d169ed875816746e4214f"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "supervisor.log",
+      "bytes": 556,
+      "sha256": "0f55e5aee9920a204e30c9fb9536c64651c05a075a4ac77421831e8e292fbf76"
+    },
+    {
+      "run": "host-trap-native-147-r3",
+      "file": "trap-event.json",
+      "bytes": 1052,
+      "sha256": "36cc7830636d6f38bacfde0750632e83eb243c698840cc706849adb5861c9e2d"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "01-channels.png",
+      "bytes": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "03-create-dialog.png",
+      "bytes": 375188,
+      "sha256": "2498618812b393d99fb05857c09905b673992858657c8c169274b832a86551a9"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "04-room.png",
+      "bytes": 407526,
+      "sha256": "2fc424ed11863369cfe8f0353ba9571bdbe54e160bc759319dc2c2e89b5fdb61"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "05-match.png",
+      "bytes": 627911,
+      "sha256": "9eb7c936ecc867e093f42f3eac28cf04ab604049bc14498cdd9abda28859c1f9"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "06-outside-before-blast.png",
+      "bytes": 627144,
+      "sha256": "a74650f0bfb2dee9e30dca7a1fc1d7ed9dc96cb5fb2c73796b0369f8da4faa25"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "07-outside-no-trap.png",
+      "bytes": 628175,
+      "sha256": "b1ea7a50d773f3eb06d46d500dc6d9c5888dfa9ea507da28d18d5676d7dd82a4"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "ack.json",
+      "bytes": 42,
+      "sha256": "aec42df1655998c7fc3354222c64afec1998a53943013090f07e50a3dfb560ca"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "packets.jsonl",
+      "bytes": 20664,
+      "sha256": "9140c3377352bc6d49a36f71a0f73fe3e349267f368d5ebab87ec947cdbb8e55"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "packets.log",
+      "bytes": 16190,
+      "sha256": "618ae6eb9af4d4fe87608fc92c249926b2e106b504c5e6519573f59c002a06bc"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "pids.json",
+      "bytes": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "probe.gdb",
+      "bytes": 2597,
+      "sha256": "1e49a5c7b597512f38248dce6d95778334675f956d637d39faad3ccec6f13e5a"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "proxy-context.json",
+      "bytes": 94,
+      "sha256": "4b2acef3133371eb7d8b26a7886900c0f9ca8e87b323d1f362be6c1468cc3b6b"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "ready.json",
+      "bytes": 58,
+      "sha256": "94d33ae93398a5df965adc784df4207ae3a41412f1de8054a09fa494805d2e14"
+    },
+    {
+      "run": "host-trap-native-147-negative",
+      "file": "supervisor.log",
+      "bytes": 686,
+      "sha256": "8130dd1366437de34dbf7a52c94ec7905659ab9c2b7a46f85ec6f2dd220f55ec"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "01-channels.png",
+      "bytes": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "03-create-dialog.png",
+      "bytes": 375188,
+      "sha256": "2498618812b393d99fb05857c09905b673992858657c8c169274b832a86551a9"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "04-room.png",
+      "bytes": 407592,
+      "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "05-match.png",
+      "bytes": 627911,
+      "sha256": "9eb7c936ecc867e093f42f3eac28cf04ab604049bc14498cdd9abda28859c1f9"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "06-after-5p2s.png",
+      "bytes": 628189,
+      "sha256": "aa5e1aa3eb288fe38fe57ae52c417bb44523d8822edb3892f37c784201957340"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "07-native-dead.png",
+      "bytes": 627445,
+      "sha256": "0683c1e98340bb4ad5766f08bfeb4631d8b504e8442ce9749684f64e81d4d6a7"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "ack.json",
+      "bytes": 42,
+      "sha256": "830de94ca03f245b384eba540f3febc996f4ad6db71db56a6f2de30decf97a8d"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "death-event.json",
+      "bytes": 1052,
+      "sha256": "ae55ddccdbd6dc47a9e7966678d1a284414bd9e43995021b9176c375c3259e26"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "native-events.jsonl",
+      "bytes": 2711,
+      "sha256": "deb7763046685a06c1667c164797e8403505f5d5a09fbeee8c4aa6fe14ee0660"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "packets.jsonl",
+      "bytes": 19353,
+      "sha256": "c71d0ef7a11360601e93ff956dbe133276df47e0498cd70c58ad42da60ee50d6"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "packets.log",
+      "bytes": 15138,
+      "sha256": "613e7299183fe1a6d5fa786104ec46f8d8ad2bd726e61f5529a9df725640b9de"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "pids.json",
+      "bytes": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "probe.gdb",
+      "bytes": 2873,
+      "sha256": "10b9f1b5b03a974c058e150a149d20761e967956babf3ab51e3d5d75dcf9a70b"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "proxy-context.json",
+      "bytes": 94,
+      "sha256": "cd1d6a33fb76e97b3a3f40b9ee26aeb107b0a109a4619bb74dda5311665ac750"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "ready.json",
+      "bytes": 58,
+      "sha256": "5b7f2285343afdfb7ec465c509042948d201f2beaa5bd34336f48d6ec5fb6eaa"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "supervisor.log",
+      "bytes": 556,
+      "sha256": "2b83cc14cbd2d1184da4dab7e901a0536bb2d6ef2ccdc5965dd18e0b65ed71d8"
+    },
+    {
+      "run": "host-trap-native-147-fields",
+      "file": "trap-event.json",
+      "bytes": 1052,
+      "sha256": "74027300499bc4f1d016a379d2d16618885cccc9bab80b1e57c8e20967edad3c"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "01-channels.png",
+      "bytes": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "03-create-dialog.png",
+      "bytes": 375188,
+      "sha256": "2498618812b393d99fb05857c09905b673992858657c8c169274b832a86551a9"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "04-room.png",
+      "bytes": 407526,
+      "sha256": "2fc424ed11863369cfe8f0353ba9571bdbe54e160bc759319dc2c2e89b5fdb61"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "05-match.png",
+      "bytes": 627911,
+      "sha256": "9eb7c936ecc867e093f42f3eac28cf04ab604049bc14498cdd9abda28859c1f9"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "06-after-5p2s.png",
+      "bytes": 628303,
+      "sha256": "615fade412fce43ebbe94741fa298229c0058dca230977055fc98ae1b683b4ce"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "07-native-dead.png",
+      "bytes": 626515,
+      "sha256": "8769a172c1d17046dd8607a62d30680bb73cdc206dbc2f2d169c925cc0517e7b"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "ack.json",
+      "bytes": 42,
+      "sha256": "4f55b946ee222e136f7a3324c26cd1bb55e5eaf6f31f9b9f39277e3e9429610c"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "death-event.json",
+      "bytes": 1052,
+      "sha256": "856047be412ca2b8162f451afac3d927959b7602dc6c53bd53fa4d734c37cc70"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "native-events.jsonl",
+      "bytes": 3029,
+      "sha256": "d6c142311bad27b806ce3ea2d2e48d292515bedc2293ee77951a5ddbe3ebf5ef"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "packets.jsonl",
+      "bytes": 25477,
+      "sha256": "07f29d7995cfbb89ae6b596a51df41ceaf28cbde596069a5c1c79c6b19a81f65"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "packets.log",
+      "bytes": 19981,
+      "sha256": "686039f242a0e4c50813005b29b06d132573a8d3fff04e9283038e75c94d7233"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "pids.json",
+      "bytes": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "probe.gdb",
+      "bytes": 3388,
+      "sha256": "e4800ec0c05d3e931e869d27dc2d18e2706057634920e574b39265dce176cbd8"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "proxy-context.json",
+      "bytes": 94,
+      "sha256": "4475bfc7d562d29531efb9ad322aed0330776d08dd809939dfe5e5e789baee25"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "ready.json",
+      "bytes": 58,
+      "sha256": "4c3a6eed3b8ed7084e2640aa82bf00d9209188d7c9d61967ba7a617a19355c2a"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "supervisor.log",
+      "bytes": 556,
+      "sha256": "4c69c858426cf2f0dc19a910484f6061e2178b16952030dd83f1055694614e66"
+    },
+    {
+      "run": "host-trap-native-147-threshold",
+      "file": "trap-event.json",
+      "bytes": 1052,
+      "sha256": "febf8b7c903953023e47f4f071280d361f85395d2a31292bf8d890767b7bb70a"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "01-channels.png",
+      "bytes": 609815,
+      "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "03-create-dialog.png",
+      "bytes": 375207,
+      "sha256": "d45a3e5cf7f2ac389e352129c61c87dded83f0ae4804d7dc27966ea178764caa"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "04-room.png",
+      "bytes": 407592,
+      "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "05-match.png",
+      "bytes": 627911,
+      "sha256": "9eb7c936ecc867e093f42f3eac28cf04ab604049bc14498cdd9abda28859c1f9"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "06-after-5p2s.png",
+      "bytes": 628480,
+      "sha256": "5e508a2f5aa749a26047de5ffd8f22b144724b8bb975ed8180dd70cd34a54299"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "07-native-dead.png",
+      "bytes": 625991,
+      "sha256": "ea3f3bdd379ea75521eeb9c04f526cfa8f36b4944bfdc1abbe864307a2a60e13"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "ack.json",
+      "bytes": 42,
+      "sha256": "702502f9df208c2951c007b50080085a176afd9539afe494cb4095916445586c"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "death-event.json",
+      "bytes": 1122,
+      "sha256": "c91650c8cf5d0a2c0ff05fbe01d9f1e67b883582245d4876efb3684d3c8ee514"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "native-events.jsonl",
+      "bytes": 3241,
+      "sha256": "8a8db5654d579b9edcb20ef5d7fd8c07bedf65b0a6dbded0275467b9397abf4b"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "packets.jsonl",
+      "bytes": 23617,
+      "sha256": "874bfebe64a05f7a112a2c1579d4a425164244db67a6ce90ecb577374ad907a1"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "packets.log",
+      "bytes": 18517,
+      "sha256": "68fcc5cb5aa5470be67b088951cf2f534c956a2f4c6cad4b9dc0c27e29009e80"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "pids.json",
+      "bytes": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "position-samples.jsonl",
+      "bytes": 27517,
+      "sha256": "7fd2a7c96cc78c4a8c63b847489080deca7494c18624daead3b73fdb416764a8"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "probe.gdb",
+      "bytes": 3834,
+      "sha256": "60cbaba626caa04eeee7b0137e278ecc7558387c54439973ddb029c1c7172cab"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "proxy-context.json",
+      "bytes": 94,
+      "sha256": "96e8e6a0cd688635b211ddacbda5a9c9f77e664aeaba8fa305a31f0d9496671c"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "ready.json",
+      "bytes": 58,
+      "sha256": "f956d0395fd5dd31fba5a12faeddf56eda82dcaf1409a4146bc1d392cf0cf146"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "supervisor.log",
+      "bytes": 590,
+      "sha256": "6dab4bcd888cf5f0625ce8b6c05e12d068d9fa8e2a62ed39d6bb9946004074ef"
+    },
+    {
+      "run": "host-trap-native-147-bubble-age",
+      "file": "trap-event.json",
+      "bytes": 1122,
+      "sha256": "5df49170b992c0ee15ffd1acdf9894f22bab64e355c86725658df8b5242187d8"
+    }
+  ]
+}

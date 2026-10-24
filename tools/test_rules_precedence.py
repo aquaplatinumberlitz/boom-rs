@@ -141,9 +141,18 @@ class PrecedenceTests(unittest.TestCase):
         self.assertTrue(any("không thuộc đại lượng" in error for error in errors), errors)
 
     def test_claim_of_another_context_is_rejected(self):
-        errors = self.errors({"player.trap_to_death_ms": {"claims": ["R-115", "R-026"]}})
+        errors = self.errors({"player.trap_to_death_ms": {"claims": ["R-160", "R-159", "R-026"]}})
         self.assertTrue(any("ngữ cảnh khác" in error and "R-026" in error
                             for error in errors), errors)
+
+    def test_trap_calibration_cannot_revert_or_claim_native_ms(self):
+        for override in (
+            {"source": "oss", "status": "design", "claims": ["R-103", "R-115"]},
+            {"source": "vn_runtime", "status": "confirmed"},
+        ):
+            with self.subTest(override=override):
+                errors = self.errors({"player.trap_to_death_ms": override})
+                self.assertTrue(any("player.trap_to_death_ms" in error for error in errors), errors)
 
     def test_client_step_is_not_a_server_tick(self):
         errors = self.errors({"sim.ticks_per_second": {"claims": ["R-113", "R-013"]}})

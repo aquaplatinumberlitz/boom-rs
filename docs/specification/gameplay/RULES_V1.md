@@ -339,7 +339,7 @@ Biên TTL giảm ngay lúc tạo của R-109 được thay riêng bởi R-158 (�
 | R-112 | `drop.weight_bomb/fire/roller` trả số bảng VN; `drop.brick_item_chance` giữ BnB | 3650:2800:2000; 350 permille | Trọng số `vn_static` / confirmed (số bảng); chance `oss` / design | R-051 `sub_89F3DE`; R-052 vai trò bảng vẫn unknown. Dùng bảng làm trọng số ba item V1 là quyết định áp dụng, không xác nhận xác suất drop gốc. Chance R-053 unknown → R-106/BnB `server/game.js:20,425–439` SHA §10 |
 | R-113 | `sim.ticks_per_second`; `round.warmup_ms` giữ BnB | 30 Hz; 3000 ms | `oss` / design | R-100/BnB `server/game.js:12–19,616–646` SHA §10. R-013 đo bước client, không xác nhận tick server; R-060 xác nhận pha GO nhưng không xác nhận 3 s |
 | R-114 | `player.speed_px_per_s_per_level` giữ BnB | 24 px/s/level | `oss` / design | R-102/BnB `server/characters.js:15`; R-043 checksum chưa xác thực; speed level không phải px/s |
-| R-115 | `bomb.fuse_ms` / `player.trap_to_death_ms` giữ BnB; lựa chọn flame500ms là lịch sử, hiện dùng R-158 | 2500/500/4000 ms (flame hiện540ms) | `oss` / design | R-103/BnB `server/game.js:14–17` SHA §10; R-021 unknown, R-022 emu candidate; R-026 là khoảng packet, không phải timer nội bộ; R-079 timing trình diễn không phải TTL damage |
+| R-115 | `bomb.fuse_ms` giữ BnB; lựa chọn flame500ms/trap4000ms là lịch sử, hiện dùng R-158/R-160 | 2500ms (flame hiện540ms; trap hiện6350ms) | `oss` / design | R-103/BnB `server/game.js:14–17` SHA §10; R-021 unknown, R-022 emu candidate; R-026 là khoảng packet, không phải timer nội bộ; R-079 timing trình diễn không phải TTL damage |
 | R-116 | `player.collision_half_px`, `player.corner_assist_px`, `player.trap_touch_distance_px` giữ BnB | 13/12/28 px | `oss` / design | R-107/R-108/BnB `server/game.js:31–32,546–567` SHA §10; chưa có KR/VN confirmed cùng đại lượng; R-028 không xác nhận khoảng cách |
 | R-117 | Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
 | R-118 | `presentation.frame_duration_ms` giữ design riêng | 100 ms | `design` / design | R-085; R-079 unknown; BnB không cung cấp nhịp clip KR. RE consumer frame/timing có thể thay sau |
@@ -368,7 +368,7 @@ chưa tách được theo từng khóa thì validator **fail closed** (báo lỗ
 | `player.speed_px_per_s_per_level` | R-114 | speed_px_per_s_per_level | px/s | `oss` | design | BnB 5c108e8 |
 | `bomb.fuse_ms` | R-115 | bomb_fuse | ms | `oss` | design | BnB 5c108e8 |
 | `bomb.flame_ms` | R-158 | bomb_flame | ms | `design` | design | V1 design |
-| `player.trap_to_death_ms` | R-115 | trap_to_death_timer | ms | `oss` | design | BnB 5c108e8 |
+| `player.trap_to_death_ms` | R-160 | trap_to_death_timer | ms | `design` | design | V1 design |
 | `player.collision_half_px` | R-116 | collision_box_half | px | `oss` | design | BnB 5c108e8 |
 | `player.corner_assist_px` | R-116 | corner_assist | px | `oss` | design | BnB 5c108e8 |
 | `player.trap_touch_distance_px` | R-116 | trap_touch_distance | px | `oss` | design | BnB 5c108e8 |
@@ -796,3 +796,18 @@ server chỉ gửi đặt/nổ, không tính damage/collision. Biết các patch
 R-141 và các báo cáo tĩnh KR giữ nguyên phạm vi: counter animation KR không tự chứng minh damage.
 R-156 là bằng chứng chức năng VN riêng; R-158 là hiệu chuẩn cho fixed step V1, không khẳng định19tick
 native bằng17tick Rust. Không thay fuse, timer nhốt, speed, bản đồ hoặc chế độ ngoài scope.
+
+## 25. Nhốt → hết hạn VN và hiệu chuẩn V1 (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-159 | Trong fixture VN owner đứng yên bị bom nhốt: cùng hero/bubble native, nhánh `716FE1` so age từ bubble+0x40 với stage+0x56C0=200 rồi đi tới `71734E`→sender`5AF165` subtype13; ngưỡng phụ stage+0x56B4=16. Ba lần baseline có serialize11→13 khoảng6332,232–6355,413ms | 200 bước counter native; khoảng native-event ms là phép đo riêng | `vn_static` + `vn_runtime` / confirmed (đúng build/case) | [Evidence](../../evidence/measurements/vn-trap-timer-2026-10-24/README.md), SHA bc875…; controller+5F4/member378→bubble vtableC2E21C slot88→57450F→58D507→boxed+40; cùngptr trong từngrun. Sampler có3reset sớm3→0, không có epoch đơn điệu toàn kỳ; không gọi200 làms/tickRust hoặc hằngtimer server |
+| R-160 | `player.trap_to_death_ms` chọn6350ms hiệu chuẩn endpoint native R-159 thay fallback BnB4000ms. 30Hz làm tròn lên191tick; `life` tính tick bị nhốt nên chết T+190 (~6333,333ms) | 6350ms (lựa chọn V1),191tick ở30Hz | `design` / design | R-159; ba repeat baseline, HELP vẫn ở+5,2s, negative ngoài lửa không có11/13. Ánh xạ native serialize11→serialize13 thành Rust Trapped→Dead; chưa tách death-animation tail native. Nếu endpoint13 được chứng minh nằm sau animation/phụ thuộc mode thì phải hiệu chuẩn lại. Không đổi200counter thành200tickRust/không gọi6350làliteralnative |
+
+R-115 chỉ còn chọn fuse2500ms; trap4000ms của R-103/R-115 là lịch sử cho khóa này.
+Cơ chế tính tick tạo, timeout trước touch, warmup đóng băng giữ R-108; giá trị R-160 đổi thời hạn,
+không tự xác nhận thứ tự touch/timeout, input khi trapped hoặc non-owner của client gốc.
+R-026 vẫn confirmed **khoảng packet** riêng; R-160 không dùng clock packet làm nguồn timer.
+Fixture VN động được dùng theo quyết định chủ dự án/ADR0013; không đòi server gốc hoặc RE lại KR.
+Không nâng root147/G3 thành done chỉ vì claim này đã có. Increment writer, ý nghĩa reset, native clock
+unit, mode/character khác và animation-death phase còn trong Q-018.
