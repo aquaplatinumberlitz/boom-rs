@@ -1,8 +1,9 @@
-# VN flame window — đo runtime offline (PARTIAL, chưa kết luận một lần vs cửa sổ)
+# VN flame window — đo runtime offline (confirmed owner-only boundary; TTL còn mở)
 
-Trạng thái: **partial**, PR metadata (không claim luật). Task #240 (FLAME), dsh2; đo ngày 2026-10-24.
-VN là nguồn tin cậy theo AGENTS §4; đây là build VN đo được, không phải vùng untrusted. Tuy nhiên
-fixture có devirt/patch nên hành vi dưới đây vẫn là **candidate**, không phải luật KR `confirmed`.
+Task #240 (FLAME), dsh2; đo ngày 2026-10-24. **Quyết định user 2026-10-24**: kết quả đo động client VN
+dùng được làm nguồn luật, gần ngang phân tích tĩnh KR; không bắt re-equivalence. Vì vậy quan sát
+owner-only dưới đây là **confirmed physical observation** theo quyết định user, không hạ cấp chỉ vì
+VN/devirt đã biết. TTL/non-owner/repeated vẫn chưa đo và không được suy.
 
 ## Điều kiện đo
 - Client VN offline `ca_fixed_patched.exe` (clone1 `.re-work/vn-grace-240/game/`), SHA-256
@@ -13,12 +14,13 @@ fixture có devirt/patch nên hành vi dưới đây vẫn là **candidate**, kh
   (fuse 8 s = `emu_choice`), **không** gửi collision/damage.
 - Namespace loopback-only + PID namespace; game/prefix clone1; raw/ảnh giữ local, không public.
 
-## Provenance fixture (candidate, chưa đủ)
+## Provenance fixture (đã biết, không hạ cấp theo quyết định user)
 `patch-audit.md` (clone1): original `13a0a33c…`, `ca_fixed` `c88a23c8…`, devirt `f7e89f8d…`, fixture
 `bc875ba5…`; 25 patch offline/localhost + 10 IP `127.0.0.1` byte-proven. **Nhưng** `.devirt` thay đổi
 đường gameplay (CGameMsgCache ring setter, `CGameStage__OnPacket` 552, `CGameStage::Init`, map load,
 random guards, **`CBombOwner__vf33` 0x5788C9 EXPERIMENT plain skip**); không có manifest/checksum tracked;
-**semantic equivalence chưa chứng minh** ⇒ mọi quan sát là **candidate**.
+**semantic equivalence chưa chứng minh**; theo quyết định user, provenance này được ghi nhưng không
+hạ cấp quan sát (không tuyên bố vanilla equivalence).
 
 ## Phương pháp
 - Mốc: `packets.jsonl` proxy CLOCK_MONOTONIC (ns); lịch input/snapshot `supervisor.log` cùng host.
@@ -42,6 +44,55 @@ random guards, **`CBombOwner__vf33` 0x5788C9 EXPERIMENT plain skip**); không c�
   xấp xỉ; với `visible-early/late-700` mốc là KEYDOWN thật. Đây chỉ là **delay host-marker→packet
   report**, không phải thời điểm vào ô hay TTL.
 
+## Xác nhận native boundary — proper Wine, owner-only (2026-10-24)
+
+Proper `winedbg --gdb` (i386), byte gate 16B `6a50…8b83` @`0x7324c0`; entry/return `0x6e9aee` xảy ra
+**trước** Left. Ba case owner-only:
+
+| Case | Tọa độ native tại capture | N / frame | N0 sau RET | frame18 start | N0 − frame0 capture | Kết quả |
+|---|---|---|---:|---:|---:|---|
+| good200 | x50,y39 (sample) | 1 / 14 | 531.084441 ms | 504.432797 ms | 525.731787 ms | trapped |
+| phase12 | x50,y39 | 1 / 18 | 535.176555 ms | 492.810326 ms | 529.390210 ms | trapped |
+| phase13 | x50,y39 | 0 / 19 | 561.943179 ms | 530.836641 ms | 556.467914 ms | **alive**, no trap/no120 |
+
+- phase12: native callback trap = RET+496.023519 ms, first x50 sample = RET+498.156211 ms, N1 frame18;
+  phase13: frame18 x55 @+530.836641 ms, frame19 x50 @+561.943179 ms, alive; good200 frame18 start
+  +504.432797 ms. Cột N0 − frame0 là khoảng thời gian; CSV lưu riêng mốc frame0 sau RET. Good200: mẫu x50 ở counter14, trước callback nhốt1,381ms; callback không ghi counter riêng, không dùng run này làm bằng chứng counter18.
+- **Frame 18 harm, frame 19 expired** ⇒ đây là **cửa sổ tồn tại thật owner-only**, không chỉ animation;
+  phase12 trap callback có flame object `435156080` (`0x19EFF470`) và frame18; phase13 N0/frame19,
+  ảnh alive.
+- Native XY decode + checksum, đối chiếu getter `0x58D56D` EAX=40 lúc spawn `(40,39)`; **không dùng
+  getter KR**. Trap callback phase12 mang cùng flame object.
+- `N0`/frame18/frame19 scalar trong [samples.csv](samples.csv); creation thực nằm trong `ENTRY..RET`,
+  **không** có mốc cố định 500 ms. Animation lifetime **không** đồng nhất damage TTL; ánh xạ sang Rust theo R-158: chọn540ms có chủ ý và tính đủ số tick, không giảm tuổi ngay lúc tạo. 540ms là hiệu chuẩn V1, không phải hằng timer nguyên bản.
+- Giới hạn: owner-only, một map/fixture; chưa non-owner, chưa repeated, chưa exact TTL/range.
+
+## Tái lập lượt proper và kiểm soát sai số
+
+Raw dùng cho ba dòng CSV nằm dưới clone `re-kr/.re-work/vn-grace-240/`:
+`host-flame-coordinate-good200/`, `host-flame-phase12/`, `host-flame-phase13/`.
+
+1. Dùng đúng fixture/hash ở trên, bản sao game/prefix, display và namespace PID/network riêng chỉ loopback.
+   Server gửi152/151 cho đúng một id; fuse8s là `emu_choice`, không dùng làm timer native.
+2. `winedbg --gdb` phải báo i386 và byte tại0x7324C0 khớp. Ghi entry và return thực (0x6E9AEE),
+   không dùng “probe ready” hoặc S151 log thay return.
+3. Bắt getter0x58D56D một lần: vtable hero0xC664C4, native EAX=40 khi spawn; kiểm hộp X tại+0x4C,
+   Y tại+0x58 bằng reader0x414543 (pointer tại box+8, XOR từng byte, cookie/checksum). Sau xác minh
+   tắt breakpoint; lấy mẫu chỉ đọc `/proc/<PE-pid>/mem` mỗi5ms và loại mẫu sai checksum.
+4. Bắt nhánh **đang có segment** tại0x5ACEDC (ESI=flame), lọc X40/Y39, lấy pointer rồi tắt breakpoint.
+   Đọc N tại+0x234, counter tại+0xCC. Không đặt breakpoint ở mọi lần vào0x5ACE4F: pool195ô làm chậm client.
+5. Đặt bom tại(0,0), đi ra(2,0); khi counter lửa đạt12 hoặc13 mới gửi Left0.35s. Ghi tọa độ thực,
+   counter/N và callback0x5AEEA0; callback phase12 mang cùng pointer flame và tọa độ(50,39).
+6. Chụp sau khi vào, kiểm native trap/C120-11 và trạng thái sống. Đóng tiến trình sở hữu trước khi
+   tính hash. Các script cũ có kill chung không dùng trong phép đo này.
+
+`host-flame-coordinate-200` bị loại vì breakpoint rộng làm bước5px mất khoảng400ms thay vì30ms;
+không có return hợp lệ trước timeout. `host-flame-winedbg-late450` chỉ là lỗi khởi tạo script/login,
+không phải case âm. Lượt450 hợp lệ là `host-flame-winedbg-450-measure`.
+Sai số lấy mẫu5ms, thêm nhiễu debugger/scheduler và pha update; phép đo xác nhận counter18/19 cùng
+tọa độ, không xác nhận một hằng540ms trong native. Hiệu chuẩn R-158 dùng độ phân giải một tick V1
+cộng sai số lấy mẫu, không tuyên bố khớp mọi đuôi ảnh/animation.
+
 ## Quan sát ảnh từng run
 - visible-early: `09-flame-before-input` — owner vẫn `(2,0)`, **chưa trapped**; không nhận ra art lửa rõ
   (bom `(0,0)` bị cây decorative che). `10-late-enter` — trapped.
@@ -52,12 +103,13 @@ random guards, **`CBombOwner__vf33` 0x5788C9 EXPERIMENT plain skip**); không c�
 - Ảnh sau chỉ cho thấy trapped/report **không lặp trong cửa sổ quan sát**; **không** suy được hit-once vs
   repeated khi đã trapped (trapped có thể chặn report/damage follow-up).
 
-## Kết luận partial
+## Kết luận partial (đợt trước proper Wine — giữ lịch sử)
 - **Không** đặt upper/lower bound native TTL/cửa sổ từ input/report. Bảng trên chỉ là delay quan sát.
 - Ba run trap sau khi vào ô; late-700 **gửi lệnh Left** ở +858.1 ms (KEYDOWN), ảnh sau cho ở `(1,0)`
   vẫn alive, không `120/11`; **thời điểm vào ô chưa đo**. Đây là **quan sát**, không suy bound/TTL.
-- Chưa có client-receive/`t_enter`; `09` visible-early không chứng minh lửa đã hiện trước input ⇒
-  **chưa loại trừ one-shot xử lý trễ**; chưa có TTL/one-shot vs window conclusive.
+- Đợt proper Wine xác nhận client xử lý nổ **xong trước Left**; owner ngoài không trap lúc nổ, vào ô
+  sau return thì trap ⇒ case này không phải one-shot áp dụng lúc nổ cho owner ngoài. Vẫn **không** suy
+  TTL/non-owner; boundary frame18/19 ở mục xác nhận phía trên.
 - Không suy fire 500 ms/2500 ms.
 
 ## Refinement module-return (2026-10-24, thất bại — không claim receipt)
@@ -94,8 +146,9 @@ Raw SHA-256 (sau closed):
 stop namespace, không retry. **Không** claim handler/`151`-return/receipt.
 
 ## Bước tiếp (không loop)
-Runtime hook đúng module/VN native address (không quét VM) hoặc audit semantic fixture devirt để chứng minh
-client đã xử lý nổ trước input; nếu không, giữ partial với các quan sát trên.
+R-155/R-156 dùng các quan sát owner-only đã xác nhận; R-158 chọn hiệu chuẩn540ms và tính đủ tuổi lửa
+cho V1. Non-owner, damage lặp và hằng TTL native vẫn mở trong Q-019, không chặn lựa chọn hiệu chuẩn
+đã ghi phạm vi. Không chạy thêm probe/runtime trong task này; không claim500/540 là hằng số gốc.
 
 ## Raw và SHA-256 (sau đóng)
 | File (clone1 `.re-work/vn-grace-240/`) | SHA-256 |
@@ -124,12 +177,39 @@ client đã xử lý nổ trước input; nếu không, giữ partial với các
 | `host-flame-late-700/09-before-input.png` | `479809d9f05b4a27b1a0db8f85bca239aed2e9f558349ee7c42049c111a1eba8` |
 | `host-flame-late-700/10-late-enter.png` | `db042eb42fa27e9ede53ae9ad3c8a93bae249b91c26f286e12ad43d3dcb6b1ff` |
 | `host-flame-late-700/11-after-enter.png` | `fb8ad5db26d9c67c06c8698db7da85504499bfdd78ab863d5ece69c980f56975` |
+| `host-flame-phase12/proxy-context.json` | `4052d93a92bde7af45e77c9ecd21621d8606bcb15dc088ce27c8a2753df8cf45` |
+| `host-flame-phase12/explosion-entry.json` | `92099aab2b66b38e9efd7b258811ad5a73dd817ad01b875af714b755aa278aaa` |
+| `host-flame-phase12/explosion-return.json` | `2588cea423884e9eedc33df9c90b77950d190dd4c15a67a122351ac1930ab407` |
+| `host-flame-phase12/packets.jsonl` | `6395fd9e9c35ab8831bfd451a46d2aff98408972fc958c8b37464931f52952fb` |
+| `host-flame-phase12/supervisor.log` | `380ea36df0650dd30bd0bae46baf374310eec8ecfbb0f951f25176ea6799a7d1` |
+| `host-flame-phase12/flame-target.json` | `2153736595ec12c054071b5388e906874e4737bfc13902517789ef9acece3dd5` |
+| `host-flame-phase12/hero-target.json` | `0e91d24d4377b4262ba909a81e14c604ee011df7519833165eb65f5d770ad05d` |
+| `host-flame-phase12/native-trap.jsonl` | `45abd3d116bdc10bf671bba01c2483f33263393541b5f0cb5ff8b196b6458ed7` |
+| `host-flame-phase12/position-samples.jsonl` | `5348c898063de1cd783335637460fd7fe4f64e20a208c50ef3fcde67720f111f` |
+| `host-flame-phase13/proxy-context.json` | `a8d7f80af9e02e50b4bb1d865797bec39bce1f008c09172ff6b0c5e3482328e3` |
+| `host-flame-phase13/explosion-entry.json` | `4c3c46a05395d14ff2a991141d87e24484d7598baa37a5c43326e06008a211fa` |
+| `host-flame-phase13/explosion-return.json` | `457b79513c0053629e36591836fe5c50c9e28fe385666edd675e326aca641a95` |
+| `host-flame-phase13/packets.jsonl` | `69cb06b7300f8fe83679a4433f94aaff022cc112615d4af4393084dac5a4416e` |
+| `host-flame-phase13/supervisor.log` | `525f2eaf678b7ecd59d1ab1827297d0699ab4f7516dfa10602bf20bd0aabcc8a` |
+| `host-flame-phase13/flame-target.json` | `12bd970fe7cde29076e2a4cc180aa2ce4927f898f4d9e0c9fdb0765e5721bcbe` |
+| `host-flame-phase13/hero-target.json` | `f75d157d6d22a204f22c0d5b2a4146a14e008e24542821cd857fb6447c07ee0c` |
+| `host-flame-phase13/position-samples.jsonl` | `931667bd018af9f9f14a38e95433b68b881fcb083769c4aca8f84668f6b7b58a` |
+| `host-flame-coordinate-good200/proxy-context.json` | `440032babb9c271a7fbad24458fca29bb0b27a2dc54c1f961cbb57db590b4179` |
+| `host-flame-coordinate-good200/hero-target.json` | `e5946d122a0beba69937d9a7d2529364e967dee136545c2953ad2c5333540e19` |
+| `host-flame-coordinate-good200/flame-target.json` | `24efd0cb77e34bec6c79c5333fdc7b5f034ea0f7fe450749a451fef8f02fb93f` |
+| `host-flame-coordinate-good200/explosion-entry.json` | `49c0aeb2405ef149f395782ce54d2218478f2bbe543ec6ae77742920b76b9d48` |
+| `host-flame-coordinate-good200/explosion-return.json` | `6866b6188f584617f9af37a264224b3ac6bbc0f23d77bf2ab2e4c522864c7f63` |
+| `host-flame-coordinate-good200/native-trap.jsonl` | `7c7853922f139557e14e547c95855057a2e76242a67ae408af1d1e1c1a16075f` |
+| `host-flame-coordinate-good200/position-samples.jsonl` | `fee84a6eebe499606fbcf299fd91a6ffe0324d54e5eaf04e5fddcfa755fb0c92` |
+| `host-flame-coordinate-good200/packets.jsonl` | `13afef427c78c37318925fd4d7e2acddb34407d8ec4cb1b3b32952a751c60045` |
+| `host-flame-coordinate-good200/supervisor.log` | `67361a12e6790cffb76cff25807c04d1f7c503cd6e30b429e0c3c7463202f282` |
 
 ## Giới hạn
-- Không có clock hook client-receive; input time là lúc supervisor gửi phím, không phải lúc vào ô.
+- Bốn lượt đầu chỉ có input/report clock; lượt proper có native return, tọa độ thật và counter lửa. Thời điểm lấy mẫu có độ phân giải5ms, không phải clock server gốc.
 - Ảnh không timestamp từng frame; capture interval thực tế ~157–180 ms; `(0,0)` bị cây che.
-- Fixture có devirt gameplay + experiment skip; semantic equivalence chưa chứng minh ⇒ candidate.
-- Một client/map; fuse/S151 server giả `emu_choice`; không suy KR `confirmed`, không đổi RULES/profile.
+- Fixture có devirt gameplay + experiment skip; provenance ghi để truy vết, **không** hạ cấp theo
+  quyết định user; không tuyên bố vanilla equivalence.
+- Một client/map; fuse8s/S151 do server giả là `emu_choice`. R-155/R-156 dùng VN runtime; R-158 là lựa chọn ánh xạ của engine, không tuyên bố đã đo KR.
 
 Index chung: [docs/evidence/README.md](../../README.md) mục measurements (không sửa file index).
-Canonical `VN_BATTLE_RUNTIME_REFERENCE` chờ PR242 merge/owner; chưa link để tránh sửa file dsh1.
+Nguồn tổng hợp: [VN_BATTLE_RUNTIME_REFERENCE](../../../research/findings/VN_BATTLE_RUNTIME_REFERENCE.md).

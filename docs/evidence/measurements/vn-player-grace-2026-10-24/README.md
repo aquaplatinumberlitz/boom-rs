@@ -1,9 +1,10 @@
 # VN player grace — runtime owner-only, 2026-10-24
 
 Task [#240](https://github.com/aquaplatinumberlitz/boom-rs/issues/240), scope **VN runtime**. Build
-đo là VN `VBNB_116`; đây là hai quan sát owner-only (run2/run3). Theo AGENTS §4 và ADR 0002/0013, quan
-sát VN **confirmed** cùng đại lượng có thể dùng cho luật chung; lần này mới owner-only, patch manifest
-chưa rõ nên giữ **candidate**, không tự nâng confirmed. Chưa đo trực tiếp KR và không suy non-owner.
+đo là VN `VBNB_116`; đây là hai quan sát owner-only (run2/run3). Theo **quyết định user 2026-10-24**,
+kết quả đo động VN dùng được làm nguồn luật gần ngang tĩnh KR; không bắt re-equivalence. Hai quan sát
+này là **confirmed owner-only physical observation**; provenance fixture vẫn ghi, nhưng không hạ cấp
+chỉ vì devirt/VN đã biết. Chưa đo non-owner/TTL và không suy non-owner.
 Raw local (không commit): `.re-work/vn-grace-240/host-run-2/` và `host-run-3/`.
 
 ## Fixture / provenance
@@ -34,8 +35,8 @@ offline/anti-cheat + localhost + lobby ctor repair; `fix_iat.py` (`471ff80` line
 (line 225), `0x5788C9` CBombOwner **plain-skip EXPERIMENT** (line 341), random guards
 `0x5A6E89`/`0x6F287E`/`0x754C82` (lines 280/289/298; bomber/NPC/stage-clear), `0x736C27` map load
 (line 209), `0x71581A` packet552 (line 307), `0x9682E5` stage init (line 165). Không có manifest:
-**semantic reconstruction/equivalence chưa chứng minh**; đây là lý do giữ **candidate đặc biệt cho
-grace owner-only**, không nâng claim.
+**semantic reconstruction/equivalence chưa chứng minh**; ghi provenance để truy vết, không hạ cấp quan
+sát theo quyết định user; không tuyên bố vanilla equivalence.
 
 ## Quan sát
 

@@ -1,7 +1,4 @@
-# Overlay cho scenario: biên TTL **hai tick** — lửa sống đúng một tick.
-# `bomb.flame_ms = 17` ở 60 Hz ⇒ `flame_ticks = 2` (ceil(17·60/1000) = 2). BnB sinh vụ nổ với
-# `ttl = 2` rồi giảm TTL ngay trong tick nổ (`server/game.js:448–451`) nên ttl 2 → 1: lửa còn
-# ở tick nổ và hết ở tick kế tiếp (`until = tick + flame_ticks - 2`).
+# Overlay test: 17 ms ở60Hz làm tròn lên 2 tick; R-158 tính cả tick tạo.
 schema = 1
 overlay_id = "flame-ttl-two"
 base = "skeleton-test"
