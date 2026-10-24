@@ -146,7 +146,8 @@ còn lại; helper/callee chưa đọc unknown. Không đổi R-154/player grace
 ### #146 — player grace sau đặt bom (lượt 24/10)
 
 Bundle lọc `.re-work/evidence-player-grace-146-r1.json` (**7 record**; không commit). Subject/actual:
-`/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`, DB copy `rea-ida-GUJhP1`, base `0x400000`, SHA
+`/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; xref record ghi DB copy `rea-ida-GUJhP1`, batch
+record không có metadata DB riêng; base `0x400000`, SHA
 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`; không nói đây là clone khác.
 
 | Evidence | Hàm/site | Kết quả |

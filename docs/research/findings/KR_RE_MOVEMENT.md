@@ -302,8 +302,8 @@ Evidence: `ev_0216a581…` batch B3/B9; `ev_1e18205f…` batch B996/B9A3; `ev_fb
 Hỏi: người **vừa đặt bom** có được đi ra/đi xuyên/quay vào không, theo owner/overlap/flag nào và mất
 khi nào. Baseline `6a2473f`; chỉ đọc thêm 4 thân mới + xref; không giải lại B3AE90/B9A990/B996B0/
 B9A3B0/1240B00/1241780/B37DB0/1310200/B44000/B77B10. Provenance: 7 record lọc
-`.re-work/evidence-player-grace-146-r1.json`; subject boom-team, DB copy `rea-ida-GUJhP1`, cùng SHA
-`cf72da11…e63b`.
+`.re-work/evidence-player-grace-146-r1.json`; subject boom-team; các xref record ghi DB copy `rea-ida-GUJhP1`,
+hai batch record không có metadata DB riêng; cùng SHA `cf72da11…e63b`.
 
 | Hàm / site | Dùng gì | Kết luận cho grace |
 |---|---|---|
