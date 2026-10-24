@@ -50,7 +50,8 @@ impl UiError {
     /// Khóa lấy từ file chuỗi V1; client không tự soạn câu thông báo lỗi.
     pub fn message_key(self) -> &'static str {
         match self {
-            Self::InvalidCredentials | Self::AccountExists => "login.failed",
+            Self::InvalidCredentials => "login.failed",
+            Self::AccountExists => "login.account_exists",
             Self::MissingField => "login.empty",
             Self::RoomGone => "lobby.room_removed",
             Self::RoomFull => "lobby.room_full",

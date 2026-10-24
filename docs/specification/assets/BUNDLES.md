@@ -712,3 +712,17 @@ chưa có consumer gốc xác nhận (Q-003).
   (đổi bộ mã PNG không đổi hash) thì reader phải giải PNG và đối chiếu từng vùng RGBA
   với `pixel_sha256` — việc đó cần thêm bộ giải ảnh vào `boom-content` (quyết định kiến
   trúc, thuộc integrator).
+
+
+## Overlay ảnh UI Việt hóa đã duyệt
+
+[ui-vi-v1.toml](../../../data/assets/ui-vi-v1.toml) chứa quyết định chủ dự án ngày 2026-10-24.
+CLI bundle nhận --ui-localization, --vn-pack-dir và --l10n-assets-dir; cách chạy, hash PNG Hòa và
+phạm vi nguồn ở [UI_STRINGS_V1 §3.2](../localization/UI_STRINGS_V1.md#32-bundle-ui-việt-hóa-đã-duyệt-2026-10-24).
+
+BuiltBundle::apply_ui_localization kiểm manifest và SHA trước khi thay bundle; lỗi không sửa bản
+đang có. VN I16 dùng frame VN, PNG đã biên tập tạo một frame toàn canvas. Mỗi ảnh Việt hóa nằm ở
+trang atlas bổ sung có hash file/pixel; source_sha256 của sprite, nguồn/lý do UI và content_hash
+được cập nhật rồi validate. Không sửa pack/ảnh KR và không bật ảnh thiếu approval. Layout chỉ chọn
+result art tương ứng kết quả người chơi; renderer thu nhỏ đồng tỷ lệ khi ảnh rộng hơn cột UI.
+Đây là overlay DESIGN của bản Việt hóa Rust, không phải khẳng định cách engine KR ghép ảnh.

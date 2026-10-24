@@ -5,25 +5,26 @@ schema = 1
 locale = "vi-VN"
 generated_by = "tools/l10n_export.py"
 catalog_source = "/home/admin/boom-re-l10n/l10n/catalog.csv"
-catalog_sha256 = "79a704b991f749ee46e66fdcafda8dd62ccbe5f6a4c9152e8de3d20e1fe59513"
+catalog_sha256 = "c054a1135eadf1fed188086df6f5d3f6ea89007051a17cb9603380659073954b"
 spec_source = "docs/specification/localization/UI_STRINGS_V1.md"
 
 [strings."app.auth_failed"]
 catalog_id = "ErrLoginNotRegistered"
-status = "review"
-reason = "needs-review"
-note = "Catalog gắn luồng Nexon; reviewer chọn key phù hợp, không tự soạn. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "ID không tồn tại hoặc bạn nhập sai mật khẩu."
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."app.connecting"]
 catalog_id = "ConnectingToSvr"
-status = "review"
-reason = "needs-review"
-note = "Catalog là câu chờ chung; reviewer chọn key/ngữ cảnh, không tự soạn bản mới. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Vui lòng chờ trong giây lát"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."app.content_mismatch"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.content_mismatch`; chưa render."
+catalog_id = "boom_rs_v1.app.content_mismatch"
+status = "catalog-translated"
+text = "Dữ liệu game không khớp. Cập nhật dữ liệu rồi kết nối lại nha."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."app.invalid_map"]
 catalog_id = "InvalidMapReturnToLobby"
@@ -45,9 +46,9 @@ note = "Lấy `catalog.vi`; wrap tối đa 3 dòng."
 
 [strings."app.quit_confirm"]
 catalog_id = "WannaExitGame"
-status = "review"
-reason = "needs-review"
-note = "Catalog là hộp thoại xác nhận thoát game (`WannaExitGame`); reviewer xác nhận dùng cho `app.quit_confirm`, không đổi text. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Bạn có muốn thoát game hông?"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."app.session_replaced"]
 catalog_id = "szConnCloseMsg"
@@ -57,25 +58,27 @@ note = "Lấy `catalog.vi`; tối đa 2 dòng."
 
 [strings."app.version_mismatch"]
 catalog_id = "ErrVersionMisMatch"
-status = "review"
-reason = "needs-review"
-note = "Catalog là thông báo lệch phiên bản (`ErrVersionMisMatch`); reviewer xác nhận dùng cho handshake phiên bản, không đổi text. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Phiên bản không khớp."
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."common.cancel"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `common.cancel`; chưa render."
+catalog_id = "boom_rs_v1.common.cancel"
+status = "catalog-translated"
+text = "Hủy"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."common.close"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `common.close`; chưa render."
+catalog_id = "boom_rs_v1.common.close"
+status = "catalog-translated"
+text = "Đóng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."common.confirm"]
 catalog_id = "OptionDlgYes"
-status = "review"
-reason = "needs-review"
-note = "Catalog là 'Có' trong hộp thoại tùy chọn; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Có"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."lobby.back"]
 catalog_id = "BackButton"
@@ -84,14 +87,16 @@ text = "Quay lại"
 note = "Lấy `catalog.vi`."
 
 [strings."lobby.background"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.background`; client hiện placeholder."
+catalog_id = "boom_rs_v1.lobby.background"
+status = "catalog-translated"
+text = "Sảnh chờ"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.channel"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.channel`; chưa render."
+catalog_id = "boom_rs_v1.lobby.channel"
+status = "catalog-translated"
+text = "Kênh tự do"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.channel_desc"]
 catalog_id = "ChannelExplain1"
@@ -100,14 +105,16 @@ text = "Kênh tự do. Ai cũng vào được."
 note = "Lấy `catalog.vi`; tooltip."
 
 [strings."lobby.chat_hint"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.chat_hint`; chưa render."
+catalog_id = "boom_rs_v1.lobby.chat_hint"
+status = "catalog-translated"
+text = "Nhập tin nhắn..."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.chat_send"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.chat_send`; chưa render."
+catalog_id = "boom_rs_v1.lobby.chat_send"
+status = "catalog-translated"
+text = "Gửi"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.chat_tab_all"]
 catalog_id = "LobbySquare_ChatTab_All"
@@ -128,20 +135,22 @@ text = "[Tối đa 150 ký tự]"
 note = "Dùng giới hạn 150; đếm grapheme cluster, giữ `%`/`[...]` nếu có."
 
 [strings."lobby.create"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxStage:Lobby/LB_Bt_T_Create-NM"
-note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog được chốt."
+catalog_id = "boom_rs_v1.lobby.create"
+status = "catalog-translated"
+text = "Tạo phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.create_dialog"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.create_dialog`; client hiện placeholder."
+catalog_id = "boom_rs_v1.lobby.create_dialog"
+status = "catalog-translated"
+text = "Tạo phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.empty"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.empty`; chưa render."
+catalog_id = "boom_rs_v1.lobby.empty"
+status = "catalog-translated"
+text = "Chưa có phòng. Tạo phòng để chơi nha."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.exit"]
 catalog_id = "GBExit"
@@ -156,9 +165,10 @@ text = "Trợ giúp"
 note = "Lấy `catalog.vi`; có thể ẩn nếu chưa có nội dung."
 
 [strings."lobby.join"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.join`; chưa render."
+catalog_id = "boom_rs_v1.lobby.join"
+status = "catalog-translated"
+text = "Vào phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.join_failed"]
 catalog_id = "CantJoinRoom"
@@ -185,26 +195,28 @@ text = "Tùy chọn"
 note = "Lấy `catalog.vi`."
 
 [strings."lobby.refresh"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.refresh`; chưa render."
+catalog_id = "boom_rs_v1.lobby.refresh"
+status = "catalog-translated"
+text = "Làm mới"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.room_count"]
-catalog_id = "BigBattle_Lobby_Desc_UserCount"
-status = "review"
-reason = "needs-review"
-note = "Catalog là format BigBattle; reviewer chọn format, giữ `%d`. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "boom_rs_v1.lobby.room_count"
+status = "catalog-translated"
+text = "Số người"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.room_full"]
-catalog_id = "InvalidMaxUser"
-status = "review"
-reason = "needs-review"
-note = "Catalog nói số người không hợp lệ; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "boom_rs_v1.lobby.room_full"
+status = "catalog-translated"
+text = "Phòng đã đủ người."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.room_host"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.room_host`; chưa render."
+catalog_id = "boom_rs_v1.lobby.room_host"
+status = "catalog-translated"
+text = "Chủ phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.room_info_changed"]
 catalog_id = "RoomInfoChanged"
@@ -231,56 +243,70 @@ text = "Trạng thái"
 note = "Lấy `catalog.vi`."
 
 [strings."lobby.show_all"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.show_all`; client hiện placeholder."
+catalog_id = "boom_rs_v1.lobby.show_all"
+status = "catalog-translated"
+text = "Tất cả phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.state_playing"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.state_playing`; chưa render."
+catalog_id = "boom_rs_v1.lobby.state_playing"
+status = "catalog-translated"
+text = "Đang chơi"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.state_waiting"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.state_waiting`; chưa render."
+catalog_id = "boom_rs_v1.lobby.state_waiting"
+status = "catalog-translated"
+text = "Đang chờ"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.title"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.title`; chưa render."
+catalog_id = "boom_rs_v1.lobby.title"
+status = "catalog-translated"
+text = "Sảnh chờ"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."lobby.wait_room"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `lobby.wait_room`; client hiện placeholder."
+catalog_id = "boom_rs_v1.lobby.wait_room"
+status = "catalog-translated"
+text = "Phòng đang chờ"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."login.account"]
 catalog_id = "NewUserDlgID"
-status = "review"
-reason = "needs-review"
-note = "Catalog chỉ là nhãn ID; reviewer chọn key, không tự soạn. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "ID"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
+
+[strings."login.account_exists"]
+catalog_id = "boom_rs_v1.login.account_exists"
+status = "catalog-translated"
+text = "Tài khoản đã có người dùng. Chọn tên khác nha."
+note = "Chuỗi DESIGN cho lỗi đăng ký Rust; phân biệt sai mật khẩu."
 
 [strings."login.account_rule"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.account_rule`; chưa render."
+catalog_id = "boom_rs_v1.login.account_rule"
+status = "catalog-translated"
+text = "Tài khoản có 3–24 ký tự: chữ không dấu, số, dấu gạch dưới hoặc gạch nối."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."login.background"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.background`; client hiện placeholder."
+catalog_id = "boom_rs_v1.login.background"
+status = "catalog-translated"
+text = "Đăng nhập"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."login.empty"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.empty`; chưa render."
+catalog_id = "boom_rs_v1.login.empty"
+status = "catalog-translated"
+text = "Nhập tài khoản và mật khẩu nha."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."login.failed"]
 catalog_id = "ErrLoginNotRegistered"
-status = "review"
-reason = "needs-review"
-note = "Catalog gắn Nexon; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "ID không tồn tại hoặc bạn nhập sai mật khẩu."
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."login.password"]
 catalog_id = "Password"
@@ -290,107 +316,117 @@ note = "Lấy `catalog.vi`."
 
 [strings."login.register"]
 catalog_id = "Register"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nút \"등록하기\"/\"Đăng ký\" chung (`Register`); reviewer xác nhận dùng cho nút tạo tài khoản. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Đăng ký"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."login.submit"]
 catalog_id = "DailyMission_Mission_Login"
-status = "review"
-reason = "needs-review"
-note = "Catalog gắn nhiệm vụ ngày; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Đăng nhập"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."login.title"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `login.title`; chưa render."
+catalog_id = "boom_rs_v1.login.title"
+status = "catalog-translated"
+text = "Đăng nhập"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.background"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.background`; client hiện placeholder."
+catalog_id = "boom_rs_v1.match.background"
+status = "catalog-translated"
+text = "Sân đấu"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.disconnect_eliminated"]
-catalog_id = "ErrDisconnectByServer"
-status = "review"
-reason = "needs-review"
-note = "Catalog là thông báo ngắt kết nối chung; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "boom_rs_v1.match.disconnect_eliminated"
+status = "catalog-translated"
+text = "Bạn bị loại do mất kết nối."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.disconnect_warning"]
-catalog_id = "ErrNetworkError"
-status = "review"
-reason = "needs-review"
-note = "Catalog là thông báo mất mạng chung, không có đếm ngược; reviewer chọn key. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "boom_rs_v1.match.disconnect_warning"
+status = "catalog-translated"
+text = "Mất kết nối. Đang chờ kết nối lại."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.eliminated"]
-catalog_id = "BlueMonSay_event4_01"
-status = "review"
-reason = "needs-review"
-note = "Catalog gắn sự kiện quái; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "boom_rs_v1.match.eliminated"
+status = "catalog-translated"
+text = "Bạn đã bị loại."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.go"]
-catalog_id = "TutorialClickStartBackStress1"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn tutorial 'Nút Bắt đầu'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "QuestStart"
+status = "catalog-translated"
+text = "Bắt đầu"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."match.hud"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.hud`; client hiện placeholder."
+catalog_id = "boom_rs_v1.match.hud"
+status = "catalog-translated"
+text = "Thông tin trận"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.item_bomb"]
 catalog_id = "NewShop_CategoryBomb"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn nhóm shop \"물풍선\"/\"bom nước\" (`NewShop_CategoryBomb`); VI viết thường, reviewer xác nhận dùng làm tên item Bomb trên HUD. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "bom nước"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."match.item_fire"]
 catalog_id = "PREPOW"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn chỉ số \"물줄기\"/\"Tia nước\" (`PREPOW`, đã dùng cho `room.stats_fire`); reviewer xác nhận dùng làm tên item Fire. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Tia nước"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."match.item_roller"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.item_roller`; chưa render."
+catalog_id = "boom_rs_v1.match.item_roller"
+status = "catalog-translated"
+text = "Tăng tốc"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.navigation"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.navigation`; client hiện placeholder."
+catalog_id = "boom_rs_v1.match.navigation"
+status = "catalog-translated"
+text = "Trận đang diễn ra"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.pickup"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.pickup`; chưa render."
+catalog_id = "boom_rs_v1.match.pickup"
+status = "catalog-translated"
+text = "Đã lượm vật phẩm."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.result_pending"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.result_pending`; chưa render."
+catalog_id = "boom_rs_v1.match.result_pending"
+status = "catalog-translated"
+text = "Đang chờ kết quả..."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.timer"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.timer`; chưa render."
+catalog_id = "boom_rs_v1.match.timer"
+status = "catalog-translated"
+text = "Thời gian còn lại"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.timer_format"]
-catalog_id = "Antarctic_DaliyRecordTime"
-status = "review"
-reason = "needs-review"
-note = "Catalog là format thời gian kỷ lục ngày của mode Antarctic (`%1$02d:%2$02d`); placeholder printf có vị trí, reviewer xác nhận dùng cho mm:ss của trận. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "boom_rs_v1.match.timer_format"
+status = "catalog-translated"
+text = "%02d:%02d"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."match.trapped"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `match.trapped`; chưa render."
+catalog_id = "boom_rs_v1.match.trapped"
+status = "catalog-translated"
+text = "Đang bị nhốt"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."options.apply"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `options.apply`; chưa render."
+catalog_id = "boom_rs_v1.options.apply"
+status = "catalog-translated"
+text = "Áp dụng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."options.fullscreen"]
 catalog_id = "OptionDlgFullScreen"
@@ -411,9 +447,10 @@ text = "Hiệu ứng âm thanh"
 note = "Lấy `catalog.vi`."
 
 [strings."options.volume"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `options.volume`; chưa render."
+catalog_id = "boom_rs_v1.options.volume"
+status = "catalog-translated"
+text = "Âm lượng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."options.windowed"]
 catalog_id = "OptionDlgWindowMode"
@@ -422,25 +459,28 @@ text = "Chế độ cửa sổ"
 note = "Lấy `catalog.vi`."
 
 [strings."result.auto_return"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.auto_return`; chưa render."
+catalog_id = "boom_rs_v1.result.auto_return"
+status = "catalog-translated"
+text = "Về phòng sau %d giây."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."result.background"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.background`; client hiện placeholder."
+catalog_id = "boom_rs_v1.result.background"
+status = "catalog-translated"
+text = "Kết quả"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."result.continue"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.continue`; chưa render."
+catalog_id = "boom_rs_v1.result.continue"
+status = "catalog-translated"
+text = "Về phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."result.draw"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxStage:Game/Draw"
-note = "Duyệt ảnh; nếu chưa duyệt thì dùng key catalog được chốt."
+catalog_id = "boom_rs_v1.result.draw"
+status = "catalog-translated"
+text = "Hòa"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."result.draw_all"]
 catalog_id = "TournamentNoWinner"
@@ -449,14 +489,16 @@ text = "Không có người thắng"
 note = "Lấy `catalog.vi`; reviewer chốt ngữ cảnh giải đấu."
 
 [strings."result.info_bar"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.info_bar`; client hiện placeholder."
+catalog_id = "boom_rs_v1.result.info_bar"
+status = "catalog-translated"
+text = "Bảng kết quả"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."result.info_good"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.info_good`; client hiện placeholder."
+catalog_id = "boom_rs_v1.result.info_good"
+status = "catalog-translated"
+text = "Hay lắm!"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."result.lose"]
 catalog_id = "StateLose"
@@ -466,9 +508,9 @@ note = "Lấy `catalog.vi`; ảnh `Lose` cần duyệt nếu dùng."
 
 [strings."result.player"]
 catalog_id = "User"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn \"유저\"/\"Người chơi\" chung (`User`); reviewer xác nhận dùng làm tiêu đề cột người chơi. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Người chơi"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."result.rank"]
 catalog_id = "Olympic_TitleRank"
@@ -483,9 +525,10 @@ text = "Kết quả"
 note = "Lấy `catalog.vi`."
 
 [strings."result.waiting"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `result.waiting`; chưa render."
+catalog_id = "boom_rs_v1.result.waiting"
+status = "catalog-translated"
+text = "Đang chờ người chơi khác..."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."result.win"]
 catalog_id = "StateWin"
@@ -494,10 +537,10 @@ text = "Thắng"
 note = "Lấy `catalog.vi`; ảnh `Win` cần duyệt nếu dùng."
 
 [strings."result.winner"]
-catalog_id = "BigBattle_Ingame_Winner_Line1"
-status = "review"
-reason = "needs-review"
-note = "Catalog là câu BigBattle, không có `%s`; reviewer chọn key/format. Cần chọn/sửa key ở boom-re-l10n."
+catalog_id = "boom_rs_v1.result.winner"
+status = "catalog-translated"
+text = "Người thắng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.all_ready"]
 catalog_id = "AllMustReady"
@@ -506,25 +549,28 @@ text = "Mọi người chơi phải ở trạng thái sẵn sàng."
 note = "Lấy `catalog.vi`."
 
 [strings."room.background"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.background`; client hiện placeholder."
+catalog_id = "boom_rs_v1.room.background"
+status = "catalog-translated"
+text = "Phòng chờ"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.character"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxMap:Prepare/CAStage"
-note = "Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt."
+catalog_id = "boom_rs_v1.room.character"
+status = "catalog-translated"
+text = "Nhân vật"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.character_c00"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c00`; chưa render."
+catalog_id = "boom_rs_v1.room.character_c00"
+status = "catalog-translated"
+text = "Nhân vật 1"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR. Nhãn tạm theo C00/C01; tên gốc còn unknown ở #150."
 
 [strings."room.character_c01"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.character_c01`; chưa render."
+catalog_id = "boom_rs_v1.room.character_c01"
+status = "catalog-translated"
+text = "Nhân vật 2"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR. Nhãn tạm theo C00/C01; tên gốc còn unknown ở #150."
 
 [strings."room.chat_to_all"]
 catalog_id = "ChatToAll"
@@ -533,25 +579,28 @@ text = "<Mọi người>"
 note = "Lấy `catalog.vi`; V1 FFA không có `<Đồng đội>`."
 
 [strings."room.create_submit"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.create_submit`; chưa render."
+catalog_id = "boom_rs_v1.room.create_submit"
+status = "catalog-translated"
+text = "Tạo phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.create_title"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxStage:Lobby/Dlg_LB-NMCreate"
-note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog được chốt."
+catalog_id = "boom_rs_v1.room.create_title"
+status = "catalog-translated"
+text = "Tạo phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.host"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host`; chưa render."
+catalog_id = "boom_rs_v1.room.host"
+status = "catalog-translated"
+text = "Chủ phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.host_changed"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.host_changed`; chưa render."
+catalog_id = "boom_rs_v1.room.host_changed"
+status = "catalog-translated"
+text = "Chủ phòng đã thay đổi."
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.id"]
 catalog_id = "RoomInfoDlgID"
@@ -560,26 +609,28 @@ text = "ID"
 note = "Lấy `catalog.vi`."
 
 [strings."room.info_dialog"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.info_dialog`; client hiện placeholder."
+catalog_id = "boom_rs_v1.room.info_dialog"
+status = "catalog-translated"
+text = "Thông tin phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.info_label"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.info_label`; client hiện placeholder."
+catalog_id = "boom_rs_v1.room.info_label"
+status = "catalog-translated"
+text = "Thông tin phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.info_title"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxMap:Prepare/PRE_Bt_Roominfo`, `ảnh FxMap:Prepare/Dlg_PRE-NMRoominfo"
-note = "Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt."
+catalog_id = "boom_rs_v1.room.info_title"
+status = "catalog-translated"
+text = "Thông tin phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.kick"]
 catalog_id = "ForceQuit"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn hành động \"강제탈퇴\"/\"Buộc rời đi\" (`ForceQuit`); reviewer xác nhận dùng làm nút mời ra. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Buộc rời đi"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."room.kick_confirm"]
 catalog_id = "SureToBan"
@@ -594,9 +645,10 @@ text = "Bạn đã bị chủ phòng mời ra. Hãy tham gia phòng khác."
 note = "Lấy `catalog.vi`; bỏ khoảng trắng đầu khi render, không đổi chữ."
 
 [strings."room.leave"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.leave`; chưa render."
+catalog_id = "boom_rs_v1.room.leave"
+status = "catalog-translated"
+text = "Rời phòng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.leave_ready_confirm"]
 catalog_id = "WannaExitToLobby"
@@ -611,10 +663,10 @@ text = "Đang tải..."
 note = "Lấy `catalog.vi`; nhắc 15 giây theo SCOPE_V1 §3 nếu hiển thị đếm ngược."
 
 [strings."room.map"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxMap:Prepare/CAStage"
-note = "Duyệt ảnh; nếu chưa duyệt thì render text từ key catalog được chốt."
+catalog_id = "boom_rs_v1.room.map"
+status = "catalog-translated"
+text = "Bản đồ"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.map_name"]
 catalog_id = "map:Village00"
@@ -642,50 +694,51 @@ note = "Lấy `catalog.vi`."
 
 [strings."room.players"]
 catalog_id = "User"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn \"유저\"/\"Người chơi\" chung (`User`); reviewer xác nhận dùng làm tiêu đề cột danh sách người chơi. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Người chơi"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."room.ready"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxMap:Prepare/PRE_Bt_Ready"
-note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog."
+catalog_id = "boom_rs_v1.room.ready"
+status = "catalog-translated"
+text = "Sẵn sàng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.ready_cancel"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxMap:Prepare/PRE_Bt_Ready"
-note = "Cùng nút ready; duyệt ảnh hoặc render text từ key catalog."
+catalog_id = "boom_rs_v1.room.ready_cancel"
+status = "catalog-translated"
+text = "Hủy sẵn sàng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.ready_indicator"]
-status = "unknown"
-reason = "no-locator"
-note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `room.ready_indicator`; client hiện placeholder."
+catalog_id = "boom_rs_v1.room.ready_indicator"
+status = "catalog-translated"
+text = "Chưa sẵn sàng"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.slot_empty"]
 catalog_id = "Empty"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn \"비어 있음\"/\"Trống\" chung (`Empty`); reviewer xác nhận dùng cho slot trống. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Trống"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."room.start"]
-status = "image-pending"
-reason = "image-pending-review"
-image = "FxMap:Prepare/PRE_Bt_Start"
-note = "Duyệt ảnh `translated`; nếu chưa duyệt thì render text từ key catalog."
+catalog_id = "boom_rs_v1.room.start"
+status = "catalog-translated"
+text = "Bắt đầu"
+note = "Chuỗi DESIGN của UI Rust mới, đã chốt tại catalog; không phải claim/bản dịch KR."
 
 [strings."room.stats_bomb"]
 catalog_id = "PREEA"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn chung '개수'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Số lượng"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."room.stats_fire"]
 catalog_id = "PREPOW"
-status = "review"
-reason = "needs-review"
-note = "Catalog là nhãn '물줄기'; reviewer chọn key/ngữ cảnh. Cần chọn/sửa key ở boom-re-l10n."
+status = "catalog-translated"
+text = "Tia nước"
+note = "Codex chốt ngữ cảnh UI V1 ngày 2026-10-24; lấy catalog.vi nguyên văn."
 
 [strings."room.stats_speed"]
 catalog_id = "PRESPD"

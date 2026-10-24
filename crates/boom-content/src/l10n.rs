@@ -900,17 +900,17 @@ note = "Cần sửa ở boom-re-l10n: thêm key/asset cho `app.quit_confirm`; ch
     fn file_in_repo_is_valid() {
         let text = include_str!("../../../data/l10n/vi-v1.toml");
         let l10n = L10n::from_toml(text).unwrap();
-        assert_eq!(l10n.len(), 125);
+        assert_eq!(l10n.len(), 126);
         let with_text = l10n
             .keys()
             .filter(|key| l10n.text(key).as_str().is_some())
             .count();
-        assert_eq!(with_text, 44);
+        assert_eq!(with_text, 126);
         let missing = l10n
             .keys()
             .filter(|key| l10n.text(key).missing().is_some())
             .count();
-        assert_eq!(missing, 81);
+        assert_eq!(missing, 0);
     }
 
     #[test]

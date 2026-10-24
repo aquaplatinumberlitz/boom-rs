@@ -1,0 +1,47 @@
+# Ảnh Việt hóa V1 đã được chủ dự án duyệt ngày 2026-10-24.
+# Chỉ metadata/hash; pack và PNG ở local, không commit media.
+schema = 1
+locale = "vi-VN"
+reviewed_by = "project_owner"
+reviewed_at = "2026-10-24"
+
+[[images]]
+id = "lobby.create"
+kind = "vn_pack"
+pack = "fx"
+entry = "Lobby/LB_Bt_T_Create-NM"
+sha256 = "2ada8361d8fe254a1331ead047f3b8533e304c8fa9e2209c36006e5573fe17d4"
+
+[[images]]
+id = "lobby.create_dialog"
+kind = "vn_pack"
+pack = "fx"
+entry = "Lobby/Dlg_LB-NMCreate"
+sha256 = "50159304dcfd7c8cfa5e3597ae0c7bec7693c0347e0364ac4d524c39a9e51af4"
+
+[[images]]
+id = "room.ready"
+kind = "vn_pack"
+pack = "fx"
+entry = "Prepare/PRE_Bt_Ready"
+sha256 = "37cd86a2af539928617070a91642c475d65bdcc06d4f231f5248f9484dee2104"
+
+[[images]]
+id = "room.start"
+kind = "vn_pack"
+pack = "fx"
+entry = "Prepare/PRE_Bt_Start"
+sha256 = "fb59a513557a4e29104bb3093cb20dcb9ca4d6713b6cc6ecf58166d2774df70e"
+
+[[images]]
+id = "room.info_dialog"
+kind = "vn_pack"
+pack = "fx"
+entry = "Prepare/Dlg_PRE-NMRoominfo"
+sha256 = "b448b3f99dfdda156b5e6c22fe10e28523217fc82813e7b2dc7bb2c16818a31e"
+
+[[images]]
+id = "result.draw"
+kind = "png"
+file = "FxStage/Game/Draw.png"
+sha256 = "0e97b144e486e9bad424e009d5e1a5f6e15c3a57b70fd427ad9ee25d06dca543"

@@ -294,3 +294,57 @@ Bản vtable thứ hai `0x0174727C` cũng có slot 24 = `B391E0`, slot 41/42/44 
 - Ngân sách: **2 call batch**, **3 thân mới** (`B3A790`, `B3A3B0`, `B39AF0`) + **1 đọc lại**
   `B393D0` (đã có trong clone dsh1 `.re-work/evidence-r154-bombpass-146.json`, `ev_5d06d1…`), 1 lần
   mở REA; vtable đọc bytes file. Không có claim RULES mới (Codex giữ file).
+
+## 11. Lượt 2026-10-24 (phiên 2) — virtual `+200/+208`, `B70C10`, per-frame flame: chưa thấy damage
+
+Câu hỏi #148: lửa áp sát thương **một lần** hay **vùng tồn tại**; nếu cửa sổ thì start/end + giá trị/đơn vị.
+Build KR `00967`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, base
+`0x00400000`. Binding REA dùng chung (actual path `/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`,
+IDB `/home/admin/.cache/rea/seeded-workspaces/rea-ida-GUJhP1/kr-full.exe.i64`); **không**
+open/close/rebind.
+
+### 11.1. Slot 50/52 của vtable `CGOBomb` `0x174426C`
+
+`B3A790` gọi virtual byte `+200`/`+208` = slot 50/52, entry VA `0x1744334`/`0x174433C`:
+
+| Bảng | Slot 50 | Slot 52 |
+|---|---|---|
+| `0x174426C` (base) | `0x00B3B370` | `0x00B3B390` |
+| `0x174727C` (bảng thứ hai) | `0x00B73120` | `0x00B73290` |
+
+- `B3B370`: asm đầy đủ `push ebp; mov ebp,esp; push ecx; mov [ebp-4],ecx; mov esp,ebp; pop ebp;
+  retn 10h` (size 0xD) — **stub rỗng**, không đọc/ghi state, không gọi gì.
+- `B3B390`: pseudocode rỗng (`;`); asm **chưa lấy được** vì worker session chết
+  (`Session not found: rea-782a5303-…`, `retryable:false`) ⇒ giữ **candidate stub**, không khẳng định no-op.
+- Bảng thứ hai trỏ `B73120`/`B73290` (chưa đọc). RTTI đọc read-only từ PE cùng SHA
+  (`kr-bomb-rtti-20261024.json`, không qua REA): `0x174426C` = `.?AVCGOBomb@@` (COL `0x17EC8F4`,
+  TypeDesc `0x19B9874`); `0x174727C` = `.?AVCGOSnowBomb@@` (COL `0x17ED93C`, TypeDesc `0x19C55C0`).
+  Lookup/runtime receiver của **bom thường** vẫn chưa nối; **không** dùng nhánh SnowBomb để chốt
+  grace/lửa V1. Trên bảng base: `+200` (`B3B370`) asm xác nhận **không có hành động**; `+208`
+  (`B3B390`) **unknown/candidate** (asm lỗi worker, không suy no-op).
+
+### 11.2. `B70C10` (flame segment push)
+
+`B70C10(this, a2..a9)`: nếu `this[141] >= 15` thì dịch các mảng phần tử (`sub_15259A0`, bước
+`4*count-4`/`8*count-8`); sau đó ghi `a2→[141+36]`, `a3→[+51]`, `a4→[+66]`, `a6→[+81]`,
+`a8→[2*141+96]`, `a9→[+97]`, `a5→[141+126]`, `a7→[142]`, tăng `[141]`. Đây là **thêm một segment**
+vào object (tối đa 15), không kiểm player/damage.
+
+### 11.3. `B713D0` (per-frame flame)
+
+`sub_B70E30` lấy cell/anim; `sub_1220830` (thời gian?) chọn animation `Flame_FlameRpgM` khi
+`v13 >= 0xC`, ngược lại `Flame_FlameRpgC`, gọi vtable `+20`, lưu `[144]`. Sau đó nếu `[143]` (map)
+khác 0: tính ô `pos/40`, `sub_E9F9B0(map,x,y)` lấy object tại ô; nếu object null, `sub_B323D0(obj)==0`
+hoặc `sub_B72400(obj)!=0` thì gọi vtable `+104`, `sub_B33200`, `sub_B32570`. **Chưa thấy** kiểm
+player alive→trapped/dead trong thân; ý nghĩa nhánh object-at-cell là **candidate** (có thể là
+tương tác object/bom, chưa đọc callee).
+
+### 11.4. Kết luận / unknown
+
+- Damage **một lần hay cửa sổ** vẫn `unknown`; chưa có giá trị/đơn vị/start/end.
+- Base `+200` (`B3B370`) là **no-op** (asm proof); `+208` (`B3B390`) còn **candidate** vì asm lỗi worker. `B70C10` chỉ thêm segment; `B713D0` là **animation per-frame**
+  + nhánh object-at-cell chưa rõ. Không lấy lifetime animation làm lifetime sát thương.
+- Chưa nối consumer player alive→trapped/dead; nhánh damage có thể ở `E9C520`/player update chưa đọc.
+- Ngân sách: **7 native call** (1 `binary_overview` timeout + 1 asm `B3B390` lỗi `Session not found`,
+  đều không retry), **4 thân mới** (`B3B370`, `B3B390`, `B70C10`, `B713D0`), 1 asm cùng thân `B3B370`
+  (proof no-op). Không claim RULES mới.

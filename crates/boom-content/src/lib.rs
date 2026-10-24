@@ -15,3 +15,6 @@ pub mod hash;
 pub mod l10n;
 pub mod map;
 pub mod rules;
+
+/// Manifest ảnh UI Việt hóa đã duyệt, không chứa game media.
+pub mod ui_localization;

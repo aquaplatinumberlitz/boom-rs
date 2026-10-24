@@ -220,22 +220,22 @@ id = "result.win"
 screen = "result"
 role = "result_art"
 entry = "FxStage/Game/Win"
-state = "needs_review_text"
+state = "excluded"
 source = "kr_static"
 status = "confirmed"
 claims = []
-reason = "ảnh 4 frame ghép chữ Latin 'WIN!!'; phải duyệt cả chuỗi frame mới dùng, không chỉ frame 0"
+reason = "V1 dùng nhãn tiếng Việt đã chốt từ catalog; ảnh Win/Lose không thuộc tập image-pending chủ dự án duyệt ngày 2026-10-24 nên không hiển thị"
 
 [[elements]]
 id = "result.lose"
 screen = "result"
 role = "result_art"
 entry = "FxStage/Game/Lose"
-state = "needs_review_text"
+state = "excluded"
 source = "kr_static"
 status = "confirmed"
 claims = []
-reason = "ảnh 5 frame ghép chữ Latin 'LOSE!!'; chuỗi frame chưa được người duyệt xem đủ nên V1 vẽ nhãn bằng text từ catalog"
+reason = "V1 dùng nhãn tiếng Việt đã chốt từ catalog; ảnh Win/Lose không thuộc tập image-pending chủ dự án duyệt ngày 2026-10-24 nên không hiển thị"
 
 [[elements]]
 id = "result.draw"

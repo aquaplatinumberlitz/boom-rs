@@ -323,8 +323,7 @@ fn draw_button(rect: &Rect, enabled: bool, primary: bool) {
 
 /// Vẽ ảnh UI đã duyệt (`selected`).
 ///
-/// Ảnh vẽ ở kích thước gốc, canh giữa trong ô. Nếu ảnh không vừa ô thì vẽ khung
-/// thay — không cắt ảnh, không hiện ảnh khác.
+/// Ảnh canh giữa, thu nhỏ cùng tỷ lệ khi lớn hơn ô; không cắt chữ/ảnh.
 fn draw_art(rect: &Rect, sprite: &str, atlas: Option<&Atlas>, bundle: Option<&Bundle>) {
     let Some(item) = art_item(bundle, sprite, rect) else {
         draw_frame(rect, Tone::Excluded);
@@ -334,15 +333,32 @@ fn draw_art(rect: &Rect, sprite: &str, atlas: Option<&Atlas>, bundle: Option<&Bu
         draw_frame(rect, Tone::Excluded);
         return;
     };
-    if item.source.width > rect.width || item.source.height > rect.height {
-        // Ảnh không vừa ô: vẽ khung thay, không cắt ảnh.
+    let image_height = rect
+        .height
+        .saturating_sub(crate::ui::layout::CHAT_LINE_HEIGHT as u32);
+    let scale = art_scale(
+        item.source.width,
+        item.source.height,
+        rect.width,
+        image_height,
+    );
+    if scale <= 0.0 {
         draw_frame(rect, Tone::Excluded);
         return;
     }
-    // Ảnh vẽ ở kích thước gốc, canh giữa trong ô.
-    let offset_x = (rect.width.saturating_sub(item.source.width)) as f32 / 2.0;
-    let offset_y = (rect.height.saturating_sub(item.source.height)) as f32 / 2.0;
-    atlas.draw(&item, (offset_x, offset_y));
+    let offset_x = (rect.width as f32 - item.source.width as f32 * scale) / 2.0;
+    let offset_y = (image_height as f32 - item.source.height as f32 * scale) / 2.0;
+    atlas.draw_scaled(&item, (offset_x, offset_y), scale);
+}
+
+/// Thu nhỏ ảnh theo cùng tỷ lệ, giữ đủ pixel nguồn và không phóng to.
+fn art_scale(width: u32, height: u32, box_width: u32, box_height: u32) -> f32 {
+    if width == 0 || height == 0 {
+        return 0.0;
+    }
+    (box_width as f32 / width as f32)
+        .min(box_height as f32 / height as f32)
+        .min(1.0)
 }
 
 /// Lệnh vẽ ảnh UI: cắt vùng của sprite trong atlas rồi đưa vào ô đã cấp.
@@ -400,5 +416,18 @@ fn draw_map(rect: &Rect, atlas: Option<&Atlas>, scene: Option<&Scene>) {
     }
     for item in &scene.objects {
         atlas.draw(item, origin);
+    }
+}
+
+#[cfg(test)]
+mod localized_art_tests {
+    use super::*;
+    #[test]
+    fn merged_draw_fits_the_sidebar_without_cropping_or_stretching() {
+        let scale = art_scale(216, 71, 156, 160);
+        assert!((216.0 * scale - 156.0).abs() < 0.01);
+        assert!(71.0 * scale < 160.0);
+        assert_eq!(art_scale(80, 40, 156, 160), 1.0);
+        assert_eq!(art_scale(0, 40, 156, 160), 0.0);
     }
 }
