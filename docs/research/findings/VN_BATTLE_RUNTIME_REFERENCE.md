@@ -19,10 +19,11 @@ Tra lại bằng `git -C /home/admin/boom-re show <commit>:<path>`.
 | VN-B05 | Loại phòng14/16/22/32/33 vào trận thường;17 có UI RPG và gửi120/21 khi trúng bom | `e0f9a49`: `docs/roomtype17_rpg.png`, `docs/roomtype32.png`, `tools/roomtype_loop.sh` | Chạy một người Village01; semantics mất HP của21 chưa chắc, server RPG chưa làm |
 | VN-B06 | C→S88 đầu khi vào phòng là lựa chọn tự gửi; không được ghi đè map host | `0e71e8a`: thay đổi server và docs | Bài học lifecycle, không bắt giao thức mới sao chép opcode cũ |
 
-## Grace của owner sau đặt bom — candidate runtime 2026-10-24
+## Grace của owner sau đặt bom — confirmed owner-only runtime 2026-10-24
 
-Đây là **candidate**, chưa phải claim canonical VN-Bxx; đề nghị Codex xét claim riêng sau review.
-Nguồn: hai run host private (#240) tại `.re-work/vn-grace-240/host-run-{2,3}/`, raw local; evidence
+Theo **quyết định user 2026-10-24**, kết quả đo động VN dùng được làm nguồn luật gần ngang tĩnh KR;
+không bắt re-equivalence. Đây là **confirmed owner-only physical observation**, chỉ owner-only; chưa
+non-owner/TTL. Nguồn: hai run host private (#240) tại `.re-work/vn-grace-240/host-run-{2,3}/`, raw local; evidence
 công khai [`docs/evidence/measurements/vn-player-grace-2026-10-24/README.md`](../../evidence/measurements/vn-player-grace-2026-10-24/README.md) (PR #242).
 
 | Case | Fixture / quan sát | Kết quả owner-only |
@@ -34,8 +35,8 @@ công khai [`docs/evidence/measurements/vn-player-grace-2026-10-24/README.md`](.
   Không claim timer ≤/>5 s: chưa đo thời điểm nhận 152/tick.
 - Fixture rebuild có **devirt gameplay reconstruction** (bomb msg-cache `0x6EFD4A`, CBombOwner
   `0x5788C9` experiment, random guards), không chỉ offline/localhost. Đã đối chiếu 25 patch +10 IP
-  +15 devirt sites; không manifest nên semantic equivalence chưa chứng minh → giữ candidate đặc biệt,
-  không nâng claim.
+  +15 devirt sites; không manifest nên semantic equivalence chưa chứng minh → provenance ghi để truy vết,
+  không hạ cấp theo quyết định user; không tuyên bố vanilla equivalence.
 - Bomb cell `(14,0)` từ packet 111; screen chỉ approximate (owner visual bounds x≈760→719, y center
   ≈62, feet≈78; không phải native coords). Không dùng hold 0.45 s/5 s làm timer; `monotonic_ns`
   trong supervisor chỉ là command clock, không phải fuse.
@@ -45,6 +46,29 @@ công khai [`docs/evidence/measurements/vn-player-grace-2026-10-24/README.md`](.
 - Gap: non-owner đứng chồng ô lúc 152 chưa đo. Không dùng getter KR `0xB335C0/0xB335E0` cho VN khi
   chưa xác minh; `tools/gdb/spawn.gdb` chỉ in spawn, không phải player; chấp nhận screen approx +
   packet cell `(14,0)`.
+
+## Cửa sổ sát thương lửa — confirmed owner-only 2026-10-24
+
+**Quyết định user 2026-10-24:** kết quả đo động client VN dùng được làm nguồn luật, gần ngang phân
+tích tĩnh KR; không cần chờ tái kiểm/re-equivalence. Phần dưới là **confirmed owner-only physical
+observation** theo nghĩa đó, không phải claim toàn hệ thống.
+
+Proper Wine `winedbg --gdb` (i386), byte gate 16B `6a50…8b83` @`0x7324c0`; entry/return `0x6e9aee`
+trước Left. Owner-only, map Ocean01, một case mỗi mốc:
+
+| Case | Trap native | N/frame | N0 sau RET | frame18 start | Kết quả |
+|---|---|---|---:|---:|---|
+| good200 | x50,y39 | 1 / 18 | 531.084441 ms | 504.432797 ms | trapped |
+| phase12 | x50,y39 | 1 / 18 | 535.176555 ms | 492.810326 ms | trapped |
+| phase13 | x50,y39 | 0 / 19 | 561.943179 ms | 530.836641 ms | alive, no trap/no120 |
+
+- **Frame 18 harm / frame 19 expired** ⇒ cửa sổ tồn tại thật owner-only, không chỉ animation. Native XY
+  decode+checksum đối chiếu getter `0x58D56D` EAX=40 lúc spawn `(40,39)`; **không dùng getter KR**.
+- Animation lifetime/frame scalar ≠ damage TTL; mapping field ms sang Rust (`tick+flame_ticks-2`,
+  active/clear) đang review root/dsh1, **không** ghi engine `500` là hằng số.
+- Evidence/CSV: [`vn-flame-window-2026-10-24`](../../evidence/measurements/vn-flame-window-2026-10-24/README.md),
+  [samples.csv](../../evidence/measurements/vn-flame-window-2026-10-24/samples.csv).
+- Giới hạn: owner-only; chưa non-owner, chưa repeated, chưa exact TTL/range; fixture provenance đã biết.
 
 ## Đưa vào công việc hiện hành
 
