@@ -2,6 +2,7 @@
 
 | Artifact | Nội dung và giới hạn |
 |---|---|
+| [measurements/vn-flame-render-2026-10-24/README.md](measurements/vn-flame-render-2026-10-24/README.md) | Native VN power1 nối tâm/L/U/R/D với motion0/15/30/45/60; ODT76state giống byte VN/KR. Duration/cadence/biến thể còn thiếu;61rawhash |
 | [measurements/vn-item-effects-2026-10-24/README.md](measurements/vn-item-effects-2026-10-24/README.md) | VN offline: Bomb1→2, Firefieldr18 1→2; Factory01 trần hữu hiệu10 qua3 lượt/đặt lại sau151;210rawhash. Stat/pool/KRidentity vàRoller còn thiếu |
 | [measurements/vn-trapped-input-2026-10-24/README.md](measurements/vn-trapped-input-2026-10-24/README.md) | Hai capture VN cùngactor xác nhận trapped vẫn đi chậm theo phím ngang;17px/s là calibration DESIGN, bombgate/hìnhhọc bubble chưa biết |
 | [kr_feature_inventory.json](inventory/kr_feature_inventory.json) | CA.exe + 13 IDX/IDD hash, 51.467 entry; không xác nhận gameplay |

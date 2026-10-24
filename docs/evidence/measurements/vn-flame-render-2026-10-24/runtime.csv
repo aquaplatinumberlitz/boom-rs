@@ -1,0 +1,12 @@
+run,phase,object,x,y,motion,label,native_counter,boxed_motion_28,boxed_counter_34,variant_240
+host-flame-render-148-r1,selector_valid_before_occlusion,431092264,0,39,15,15 FireL01,1,0,0,0
+host-flame-render-148-r1,after_state_helpers_before_base_draw,431092264,0,39,15,15 FireL01,1,15,1,0
+host-flame-render-148-r1,selector_valid_before_occlusion,431092848,40,39,0,00 FireC01,1,0,0,0
+host-flame-render-148-r1,after_state_helpers_before_base_draw,431092848,40,39,0,00 FireC01,1,0,1,0
+host-flame-render-148-r1,selector_valid_before_occlusion,431093432,80,39,45,45 FireR01,1,0,0,0
+host-flame-render-148-r1,after_state_helpers_before_base_draw,431093432,80,39,45,45 FireR01,1,45,1,0
+host-flame-render-148-r1,selector_valid_before_occlusion,431151832,40,79,60,60 FireD01,1,0,0,0
+host-flame-render-148-up-r1,selector_valid_before_occlusion,431092848,40,39,30,30 FireU01,1,0,0,0
+host-flame-render-148-up-r1,after_state_helpers_before_base_draw,431092848,40,39,30,30 FireU01,1,30,1,0
+host-flame-render-148-up-r1,selector_valid_before_occlusion,431151832,40,79,0,00 FireC01,1,0,0,0
+host-flame-render-148-up-r1,after_state_helpers_before_base_draw,431151832,40,79,0,00 FireC01,1,0,1,0
