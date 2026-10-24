@@ -155,3 +155,33 @@ Block+0 làdriver, voicehandles+4+4i(i0..15), handle riêng+44; sốbyte block k
 Chỉ static initialization được xác nhận, không runtime16guaranteed. TìmcounttrênCSoundManRenew+12
 là sai receiver; negativector/D1C330 cũ giữ ý nghĩa phạm vi, đã có cạnh engine đúng nên không giao lại.
 Rustpolicy8voice R-083 chưa đổi trongPR nguồn này, loop/volume/brickbreak còn Q-015.
+
+
+## BGM callback EOS và mapping dependency — R-213
+
+[bgm-eos-loop.json](bgm-eos-loop.json) giữ11rawhash private,5PEbodyranges và7pointer/exportmatches.
+BinaryKRcf72… như trên; dependency `/home/admin/boomkr-full/Mss32.dll`,
+SHA`5cafd1f6910e6eddaacf6b33cc42ea93e2835e61dc9cb91c6f8aca79f6a02e9b`,
+preferredbase21100000. Toàn bộ con trỏ snapshot16EA854/858/868/870/894/89C/8A0 khớp exportRVA
+trong DLL đi kèm; chỉheader/exportdata được đọc, không newDLLbody/provider/runtime.
+
+14BEB10 đặt user_data(sample,5,1) và đăng ký `_AIL_register_EOS_callback@8` tới14BEC60;
+callback nhánh user5!=0 gọi `_AIL_start_sample@4` trên cùng sample. Nhánh user5==0 mới cleanup.
+Từ đó xác nhận static looprequest có điều kiện, không literal0=no-loop hoặc callbackcleanup-only.
+Literal0 được truyền trong wrapper không tự đủ giải loop; userdata6 vàvolumeAPI được giữ riêng.
+
+Các thân hàm kết thúc tại RET:
+
+| Bắt đầu | Byte cuối thân | Số byte |
+|---|---|---:|
+| `0xD1D710` | `0xD1D78A` | 123 |
+| `0xD1DA60` | `0xD1DC04` | 421 |
+| `0x14BF390` | `0x14BF4BD` | 302 |
+| `0x14BEB10` | `0x14BEC5C` | 333 |
+| `0x14BEC60` | `0x14BECCB` | 108 |
+
+`int3` tại `0x14BEC5D` là padding, được loại khỏi thân hàm. Hai capture dẫn xuất D1D710/D1DA60
+được giữ nguyên124/422byte (kèm1byte `int3` cuối tạiD1D78B/D1DC05); phạm vi thân thực123/421byte
+trong bảng vàmanifest loại padding. Không sửa/xóa raw chỉ để đổi số body. Không đọc adjacentmethod làm proof.
+Chưa có nghe/runtimeEOS/livebinding; không đổi Rustmapping/8voice/profile, không kýG5. R-206/R-213
+nối mapBGM→hàm→callbackrequest; namedexportmatch không chứng nhận playback mọidevice/mode.

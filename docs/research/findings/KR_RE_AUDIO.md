@@ -117,7 +117,7 @@ Nổ bom **không** random: id `7` xử lý riêng — nếu `7` đang phát (<2
 Ghi chú: `0xB42D60` còn gọi `sub_D1CD10` với id `444` (`Ntc_Help2`) khi `[this+0x2788] != 0` — tiếng
 "help" của người bị nhốt; và trước đó có một id khác ở `0xB43200` (âm thanh tương tác, chưa gán event).
 
-## 4. BGM (R-206)
+## 4. BGM (R-206; yêu cầu lặp bổ sung R-213 ở §12)
 
 - Bảng BGM 0x20 B tại `0x19E9258`, 117 entry; id `48` = `Mp3/Village` (chuỗi `0x1761FE8`, tham chiếu
   `0x41B590+838`).
@@ -183,7 +183,7 @@ theo id) — đề xuất giữ design V1 nhưng ghi khác biệt ở R-207/§5.
 - Bảng id→entry đọc từ **bản dump đã init**; 649 entry là số entry parse được, có thể còn id trống.
 - Chưa đọc record map trong data pack để chứng minh map Village trỏ tới tên `Village` (R-081 phủ phần
   entry/hash).
-- Khởi tạo pool tối đa16voice đã nối ở R-212; runtime count/hằng volume chưa kiểm đầy đủ, loop flag BGM chưa thấy.
+- Khởi tạo pool tốiđa16voice đã nối ở R-212; R-213/§12 nối yêu cầu gọi lại sample từEOS. Runtimecount/âm thanh lặp thực/volume còn giới hạn.
 - "Không thấy consumer" cho 471/brick-break là **bounded negative** chỉ cho direct call + literal push
   trong 649 entry + 597 site `0xD1CD10`; virtual `vf+148`, id động, wrapper và script theo tên chưa bị loại trừ.
 
@@ -272,3 +272,43 @@ Nguồn/staticdataflow confirmed; số thực tạo trên máy chạy chưa đo,
 hơn hoặc0. Voice8/priority/eviction củaV1 giữ DESIGN R-083 khácnative; PR này không đổiaudioengine.
 Câu hỏi tiếp có căn cứ là runtime enginecount/volume, BGMloop hoặc brick-breakconsumer; không tiếp
 quét bảng597soundcalls hayD1C330 đã giải.
+
+
+## 12. BGM: yêu cầu khởi động lại sample từ callback EOS — R-213
+
+Câu hỏi con: đường BGM từ map có **yêu cầu lặp** không, hay literal0 ởwrapper nghĩa là khôngloop?
+Reuse E71D70/R-206 chọn `Mp3/%s`→D1D710; các thân mới `0xD1D710` (123 B) → `0xD1DA60` (421 B) → `0x14BF390` (302 B)
+→ `0x14BEB10` (333 B) → callback `0x14BEC60` (108 B). [11hash/PEranges và DLLexport proof](../../evidence/measurements/kr-static-audio-2026-10-23/bgm-eos-loop.json).
+Không lấy đối số queue/force hoặc hằng 0 làm cờ lặp khi chưa thấy consumer.
+
+Handle tại `block+0x44` của engine được dùng cho BGM. Trong14BEB10, tại`0x14BEBE3..0x14BEBEA` đặt `user_data(sample, 5, 1)`,
+rồi14BEC06 đăng ký callback14BEC60. Callback đọc user_data(sample,5); **nếu khác0**, tại14BEC76
+nó gọi lại hàm start trên **cùng samplehandle** rồi trả về. **Nếu bằng0** mới đi nhánh clear userdata,
+optionalhook vàrelease. Kết luận sơ bộ "callback chỉ cleanup/không restart" bị bác khi Codex đọc raw;
+không dùng absence của direct-reentry D1D710 để phủ định lời gọi API ở nhánh còn lại.
+
+Tên API được giải bằng dữ liệu thật của dependency, không đoán từmãoperation:
+KR snapshot tại16EA868 chứa211149B0, DLL `Mss32.dll` đi kèm có preferredbase21100000 và export
+`_AIL_start_sample@4` đúngRVA149B0. Sáu pointer khác cũng khớp export trên **cùng base/DLL**:
+
+| Pointer slot KR | Export DLL đã đối chiếu |
+|---|---|
+|16EA854|_AIL_sample_status@4|
+|16EA858|_AIL_set_sample_volume_pan@12|
+|16EA868|_AIL_start_sample@4|
+|16EA870|_AIL_init_sample@12|
+|16EA894|_AIL_sample_user_data@8|
+|16EA89C|_AIL_set_sample_user_data@12|
+|16EA8A0|_AIL_register_EOS_callback@8|
+
+DLLSHA`5cafd1f6910e6eddaacf6b33cc42ea93e2835e61dc9cb91c6f8aca79f6a02e9b`,332namedexports;
+chỉ đọc PEheaders/exporttable, không mở provider hoặc đọc thêm thân DLL. PEimports của exe có ít tên
+không đồng nghĩa các pointer này không giải được: **giá trị snapshot vẫn có địa chỉ**, khớp dependency.
+Đây là static snapshot/preferred-base mapping; không khẳng định runtime loader/relocation hoặcDLLđang
+được nạp hiện tại đã được đo. Các file và địa chỉ dùng được ghi trong manifest, không publish DLL.
+
+R-213 xác nhận **yêu cầu khởi động lại có điều kiện từ EOS** trên đường BGM đã trace. Chưa đo nghe
+hết track/lặp thực/độ liền mạch, chưa đọc toàn bộ đườngstop/đổiuser5, không chứng minh luôn lặp trong
+mọi mode. Nativecount/capSFX R-212 và chính sách Rust8voice/priority/mộtBGM/reconcile vẫn giữ nguồn
+riêng. Bước tiếp chỉ mở lại khi cần runtimeEOS/stop-control hoặc một consumer mới, không quét lại các
+thân wrapper này hay hỏi cùng opaqueAPI đã được map.
