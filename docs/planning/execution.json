@@ -249,11 +249,13 @@
         "docs/specification/gameplay/RULES_V1.md",
         "data/rules/v1-dev.toml",
         "docs/evidence/measurements/vn-player-grace-2026-10-24/README.md",
-        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d"
+        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d",
+        "docs/evidence/measurements/vn-trapped-input-2026-10-24/README.md",
+        "git:d8f1ba9b7f9aed73a6676b74c3ab104b6ca55244"
       ],
-      "verification": "DESIGN speed/hitbox/time đã được chọn ở ADR0013; KR bomber consumer còn thiếu là fidelity gap. Cần sign-off Attr/candidate và profile release, không lấy pet/AI làm bomber. PR249 đã tích hợp quan sát owner grace VN R-155 có review độc lập; non-owner/timer còn mở, không dùng phần pet/AI làm bomber.",
+      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành.",
       "integration_commit": "",
-      "blocker": ""
+      "blocker": "Cần review độc lập quyết định profile phát hành/12khóaC00/C01candidate; loader từ chối candidate khi release=true. Không đổi nhãn bằng chứng để vượt gate. Nativefidelity khác có thể backlog theo SCOPE10.5, không cần đóng hết146/149."
     },
     {
       "id": "G3",
@@ -267,11 +269,15 @@
         "fixtures/scenarios/round/warmup_freezes_round.toml",
         "git:bcd6362b64ff2145d85706aadb14e1e3ff3b99e5",
         "docs/evidence/measurements/vn-flame-window-2026-10-24/README.md",
-        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d"
+        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d",
+        "docs/evidence/measurements/vn-trap-timer-2026-10-24/README.md",
+        "docs/evidence/measurements/vn-item-effects-2026-10-24/README.md",
+        "git:f5ffb03e80ef28dce3fb946af60391d42b7edae9",
+        "git:4fa158895d1753190986f2b48ef309c5a5aaa210"
       ],
-      "verification": "Luật hiện hành có nguồn/scenario; clock wording đã khớp R113 ở PR216. Còn sign-off boundary/profile phát hành (release=false), không đòi RE xong. PR249/dsh1 APPROVE head0e4141bf3ded4e2b12041e09c7792eb7560a736a và12CI/smoke3OS xanh: R-156 owner-only đã đo, R-158 hiệu chuẩn540ms/17tick. Đây là review thay đổi luật, chưa phải sign-off gate G3.",
+      "verification": "PR249R158flame540ms/17tick và PR258R160trap6350ms/191tick, PR260trapped17px/s đã review độc lập và12CI3OS xanh; createdtick/scenario/replay giữ nguồn/giới hạn. PR264R168 đo limit10 trước pool25 trong một actorVN, chưa sửa capKR. Clockwarmup đúngR113. Cần sign-off profile/boundary/drop, không đòi RE hếtmode hoặc tự nâng gate từ review luật.",
       "integration_commit": "",
-      "blocker": ""
+      "blocker": "Profile phát hành vàsign-off boundary/dropV1 chưa chấp nhận; currentpackage đã kiểm task265,không còn blocker gói dùng luật cũ. Không lấy capactorVN thànhmọiKR hoặc packettime thànhliteral native."
     },
     {
       "id": "G4",
@@ -322,11 +328,12 @@
         "docs/planning/PROGRESS.md",
         "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
-        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json"
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json"
       ],
-      "verification": "36/37V1done; QApackage40069259503 head28dad286 đạt smoke10ca/OS và archive/hash đã kiểm. V1-036 đang review,còn minimum hardware/profile release; G2/G3/G5 chưa passed,không tuyên bố release.",
+      "verification": "36/37V1done; task265 QA40091603701 exacthead641f99aa997813eca77ecd1d0ef554b3fd55c272 success4/4jobs: cả3archive tải/mở/check,27hashfile khớp,10smokecase/OS, rules6350/17/540 đồng nhất. Linux archive room2×1600×1200 RGBAkhớp ảnh đãreview trênllvmpipe; khôngGUIWinMac/minHW/livehealth. Old28dadpackage làhistorical. G2/G3/G5 vẫnin_review/G6blocked; chưa sign-off036 hoặc release.",
       "integration_commit": "",
-      "blocker": "V1-036 chưa sign-off/minimum hardware chưa chốt; G2/G3/G5 chưa passed, profile dev release=false. SmokeQA3OS đã có."
+      "blocker": "V1-036/minimumhardwareCPU/RAM/GPU chưa đo; G2/G3/G5 chưa sign-off/profile dev releasefalse,12KRcandidate; GUIđaOS/G5 cònthiếu. Currentpackage/fingerprint đãđạt, khôngcòndùngoldpackageblocking."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"

@@ -1,0 +1,133 @@
+{
+  "run_id": 40091603701,
+  "url": "https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40091603701",
+  "version": "qa-20261024-641f99a",
+  "head": "641f99aa997813eca77ecd1d0ef554b3fd55c272",
+  "baseline": "4fa158895d1753190986f2b48ef309c5a5aaa210",
+  "purpose": "QA archive smoke for current calibrated trap6350/trapped17/flame540; replaces old28dad only as current package verification, not historical evidence",
+  "source": "design",
+  "status": "implementation_verification",
+  "artifact_download_local": "local/package-qa-40091603701",
+  "verified_file_hashes": 27,
+  "items": [
+    {
+      "platform": "linux-x86_64",
+      "archive": "boom-rs-qa-20261024-641f99a-linux-x86_64/boom-rs-qa-20261024-641f99a-linux-x86_64.tar.gz",
+      "bytes": 5231024,
+      "sha256": "7b0bfb7812f72af735d70ed968b107c25a845be8f6c2f5f07fd381c0641bee9e",
+      "unpacked_local": "local/package-qa-40091603701/unpacked/boom-rs-qa-20261024-641f99a-linux-x86_64/boom-rs-qa-20261024-641f99a-linux-x86_64",
+      "smoke_log": "boom-rs-qa-20261024-641f99a-linux-x86_64-smoke/smoke-log.txt",
+      "smoke_sha256": "ddf5d485ee5d114c281e9ced6ce92bbb57236837f2ee0bf370b7a7b62d033279",
+      "smoke_cases": 10,
+      "file_hashes_verified": 9,
+      "package_check": "passed",
+      "fingerprint": {
+        "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "package_rules_hash": "0x322a09ca1c8453f7",
+        "package_rules_profile": "kr00967-v1-dev",
+        "protocol_limits_version": 1,
+        "rules_hash": 0,
+        "rules_profile_id": "unknown",
+        "scope": "offline",
+        "server_version": "0.0.0",
+        "state_schema": 1,
+        "status": "unhealthy",
+        "wire_schema": 1
+      },
+      "profile_values": {
+        "trap_to_death_ms": 6350,
+        "trapped_speed_px_per_s": 17,
+        "flame_ms": 540
+      },
+      "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
+      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+    },
+    {
+      "platform": "macos-aarch64",
+      "archive": "boom-rs-qa-20261024-641f99a-macos-aarch64/boom-rs-qa-20261024-641f99a-macos-aarch64.tar.gz",
+      "bytes": 4616823,
+      "sha256": "d587a42624df407f7df7e02033dc2ab690503f4aa4ab61694964396f65f40d8c",
+      "unpacked_local": "local/package-qa-40091603701/unpacked/boom-rs-qa-20261024-641f99a-macos-aarch64/boom-rs-qa-20261024-641f99a-macos-aarch64",
+      "smoke_log": "boom-rs-qa-20261024-641f99a-macos-aarch64-smoke/smoke-log.txt",
+      "smoke_sha256": "588a9b7d135ef51a183b67af0196659c4fcebd8b304f67cfca7141925455c852",
+      "smoke_cases": 10,
+      "file_hashes_verified": 9,
+      "package_check": "passed",
+      "fingerprint": {
+        "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "package_rules_hash": "0x322a09ca1c8453f7",
+        "package_rules_profile": "kr00967-v1-dev",
+        "protocol_limits_version": 1,
+        "rules_hash": 0,
+        "rules_profile_id": "unknown",
+        "scope": "offline",
+        "server_version": "0.0.0",
+        "state_schema": 1,
+        "status": "unhealthy",
+        "wire_schema": 1
+      },
+      "profile_values": {
+        "trap_to_death_ms": 6350,
+        "trapped_speed_px_per_s": 17,
+        "flame_ms": 540
+      },
+      "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
+      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+    },
+    {
+      "platform": "windows-x86_64",
+      "archive": "boom-rs-qa-20261024-641f99a-windows-x86_64/boom-rs-qa-20261024-641f99a-windows-x86_64.zip",
+      "bytes": 4367734,
+      "sha256": "d2d93f049bfe7debca846e025e63cba3ace8cbc30c0ae05bf1f1a387be541554",
+      "unpacked_local": "local/package-qa-40091603701/unpacked/boom-rs-qa-20261024-641f99a-windows-x86_64/boom-rs-qa-20261024-641f99a-windows-x86_64",
+      "smoke_log": "boom-rs-qa-20261024-641f99a-windows-x86_64-smoke/smoke-log.txt",
+      "smoke_sha256": "db939e56533ea4c7491640df61361b515aacf62f8f69c4d77ca8138260d968b1",
+      "smoke_cases": 10,
+      "file_hashes_verified": 9,
+      "package_check": "passed",
+      "fingerprint": {
+        "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "package_rules_hash": "0x322a09ca1c8453f7",
+        "package_rules_profile": "kr00967-v1-dev",
+        "protocol_limits_version": 1,
+        "rules_hash": 0,
+        "rules_profile_id": "unknown",
+        "scope": "offline",
+        "server_version": "0.0.0",
+        "state_schema": 1,
+        "status": "unhealthy",
+        "wire_schema": 1
+      },
+      "profile_values": {
+        "trap_to_death_ms": 6350,
+        "trapped_speed_px_per_s": 17,
+        "flame_ms": 540
+      },
+      "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
+      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+    }
+  ],
+  "limits": [
+    "All three archive smoke logs executed on respective CI OS; local unpack/check/hash verification only onLinux",
+    "offline health unhealthy/content0 is not live health",
+    "release=false/candidate stats remain; not release or fidelity acceptance",
+    "No Windows/macOS GUI, minimum hardware or physical audio playback certification",
+    "No tag/GitHubRelease published"
+  ],
+  "linux_ui_probe": {
+    "backend": "Xvfb/Mesa llvmpipe",
+    "logical_room": "800x600 at integer2x",
+    "physical_size": [
+      1600,
+      1200
+    ],
+    "binary_from_archive": "boom-rs-qa-20261024-641f99a-linux-x86_64/boom-rs-qa-20261024-641f99a-linux-x86_64.tar.gz",
+    "binary_sha256": "196e9d86899eae2ef3f39a518b3f9631a0a9441b048e024b44d7c8e087d95405",
+    "snapshot_local": "local/package-qa-40091603701/linux-room-2x.png",
+    "snapshot_sha256": "f3ab7d31675ffb511842e8ae9c9eb86cad34214d742f193270192b09b230b98c",
+    "log_sha256": "8195e559887a9bab34faf6b0dee3bb47dfd9685e30342c1b6901fb74e7f5f70d",
+    "comparison_source_previous_private": "/home/admin/boom-rs-wt/v1-window-ux-253/local/qa-ux-253/ui-room-scale2-after.png",
+    "rgba_equal_previous_reviewed_linux_room": true,
+    "limits": "not physical GPU/minimum hardware/Windows orMacGUI/focus/audio revalidation"
+  }
+}
