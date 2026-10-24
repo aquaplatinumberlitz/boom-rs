@@ -159,3 +159,28 @@ Batch 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 th�
 | `ev_2cade073ec807e286c6ad46eac544ff77b2c9a94da901b14f9884e3aa41b49ec` | `procedure_pseudo_code` `1191DD0` | full 22 dòng |
 | `ev_bfe93de33e65ed3c8e56badd29bf9b64ff9299026b1b536139613d8212ff060e` | `procedure_pseudo_code` `1192700` | 227 dòng pseudocode đầy đủ |
 | `ev_7761a81f92fb0a7db078057fbc8dd0409aa56dd23e7c3915976160b8fe6980c0` | `analyze_function` `1192700` | giới hạn 100 instruction; không thêm kết luận |
+
+## Checkpoint helper1191D20 — 2026-10-24 (#149)
+
+Source `kr_static`, kết luận consumer **candidate/unknown**; không đổi R-153/profile. PE KR00967
+SHA `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`, base0x400000.
+REA metadata báo open nhưng truy cập trả `Session not found`; không rebind/mở worker IDA mới.
+`binary_overview` không phải probe được IDA hỗ trợ. Lượt này dùng objdump PE-copy read-only.
+
+- `1191D20` dispatch trên arg0..7; đọc tới `1191DAA`, jump-table bytes tới `1191DCE`.
+  Gọi các entry `B49F40/B49FA0/B4A000/B4A040/B4A0D0/B4A150/B4A1D0`; không gán kiểu stat từ tên.
+- Raw target range **B49F40–B4A21A** có12thân đủ tới ret + prefixB4A210; cùng dispatcher là
+  **13thân đầy đủ +1prefix**. Batch đã vượt mốc4thân, được ghi nhận và dừng; không đếm một lệnh
+  objdump thành một thân. Không cấp thêm phân tích trong checkpoint này.
+- Trong bytes đã đọc có slot `+600/+618/+624/+63C/+648/+654`, clear `+26E4/+26E8`, ghi `+26B8`,
+  và call `529C60/55FD30`/virtual `+31C/+320`. **Chưa thấy trực tiếp** row `+96..+180`, `cur+1`
+  hoặc cap. Effects của callee/virtual chưa đọc ⇒ không phủ định stat/cap trong toàn callgraph.
+- Exact receiver/vtable của virtual **+380** trong callerFFFA70 còn unknown; target chưa resolve.
+  Không đọc lại ba caller đã cache, không quét literal/table lớn hoặc VM.
+
+Raw private clone `re-kr/.re-work/`: `item149-1191D20.asm` SHA
+`06d03c70b21271b66efa849677d38162ceebad6881637c587922d8ece7a2ab67`;
+`item149-1191D20-targets.asm` SHA
+`94c7ef3afe42b89accae72a5c77803f1ec9e2f7675cb62024d92f3ba789ebb46`.
+Bước tiếp: chứng minh receiver +380 hoặc dataflow từ item tới stat/cap; reuse các ranges trên.
+Không gọi helper là “chỉ model, không stat/cap”; root149 vẫn partial.

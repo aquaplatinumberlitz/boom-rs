@@ -1,0 +1,91 @@
+{
+  "run_id": 40069259503,
+  "url": "https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40069259503",
+  "version": "qa-20261024-28dad28",
+  "head": "28dad286c467a870c3047ff21b26ce82c654f2fc",
+  "items": [
+    {
+      "archive": "boom-rs-qa-20261024-28dad28-linux-x86_64/boom-rs-qa-20261024-28dad28-linux-x86_64.tar.gz",
+      "bytes": 5229858,
+      "sha256": "1e348edd8b19fd23278c3b12e9d37788eed6a5a5220d0a14633c1c4b773d6d50",
+      "unpacked_local": "local/package-qa-40069259503/unpacked/boom-rs-qa-20261024-28dad28-linux-x86_64/boom-rs-qa-20261024-28dad28-linux-x86_64",
+      "smoke_log": "boom-rs-qa-20261024-28dad28-linux-x86_64-smoke/smoke-log.txt",
+      "smoke_sha256": "78e73603518c905368d87f49cbf0536e4d61e99e9075dda3b3ce5897ef6dc421",
+      "smoke_cases": 10,
+      "file_hashes_verified": 9,
+      "package_check": "passed",
+      "fingerprint": {
+        "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "package_rules_hash": "0xb357d66b1d761f89",
+        "package_rules_profile": "kr00967-v1-dev",
+        "protocol_limits_version": 1,
+        "rules_hash": 0,
+        "rules_profile_id": "unknown",
+        "scope": "offline",
+        "server_version": "0.0.0",
+        "state_schema": 1,
+        "status": "unhealthy",
+        "wire_schema": 1
+      }
+    },
+    {
+      "archive": "boom-rs-qa-20261024-28dad28-macos-aarch64/boom-rs-qa-20261024-28dad28-macos-aarch64.tar.gz",
+      "bytes": 4617642,
+      "sha256": "43cf1be236de3e4b36588ad4776abd39a5b6b0cafb5f68dde2287851edf1e5da",
+      "unpacked_local": "local/package-qa-40069259503/unpacked/boom-rs-qa-20261024-28dad28-macos-aarch64/boom-rs-qa-20261024-28dad28-macos-aarch64",
+      "smoke_log": "boom-rs-qa-20261024-28dad28-macos-aarch64-smoke/smoke-log.txt",
+      "smoke_sha256": "990290f7f5279a0b6b28e2d94c978d4b4e939aece683d8d64d703f962f9aa744",
+      "smoke_cases": 10,
+      "file_hashes_verified": 9,
+      "package_check": "passed",
+      "fingerprint": {
+        "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "package_rules_hash": "0xb357d66b1d761f89",
+        "package_rules_profile": "kr00967-v1-dev",
+        "protocol_limits_version": 1,
+        "rules_hash": 0,
+        "rules_profile_id": "unknown",
+        "scope": "offline",
+        "server_version": "0.0.0",
+        "state_schema": 1,
+        "status": "unhealthy",
+        "wire_schema": 1
+      }
+    },
+    {
+      "archive": "boom-rs-qa-20261024-28dad28-windows-x86_64/boom-rs-qa-20261024-28dad28-windows-x86_64.zip",
+      "bytes": 4368500,
+      "sha256": "ecd4e6d6a3e47ddc32eead7802acd1766dc3fff25f10b5194017f331f322bc28",
+      "unpacked_local": "local/package-qa-40069259503/unpacked/boom-rs-qa-20261024-28dad28-windows-x86_64/boom-rs-qa-20261024-28dad28-windows-x86_64",
+      "smoke_log": "boom-rs-qa-20261024-28dad28-windows-x86_64-smoke/smoke-log.txt",
+      "smoke_sha256": "ceb50f0cfc902d4ebb043f377324c9959bf5dfc7904b002ed2d21184a92e424e",
+      "smoke_cases": 10,
+      "file_hashes_verified": 9,
+      "package_check": "passed",
+      "fingerprint": {
+        "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "package_rules_hash": "0xb357d66b1d761f89",
+        "package_rules_profile": "kr00967-v1-dev",
+        "protocol_limits_version": 1,
+        "rules_hash": 0,
+        "rules_profile_id": "unknown",
+        "scope": "offline",
+        "server_version": "0.0.0",
+        "state_schema": 1,
+        "status": "unhealthy",
+        "wire_schema": 1
+      }
+    }
+  ],
+  "linux_gui": {
+    "size": [
+      1600,
+      1200
+    ],
+    "debug_release_rgba_equal": true,
+    "binary_sha256": "8dac1cf1edba295e24e1eb39c0e636618d8eb4036ca3dd8cd76b2f07c5238510",
+    "shot_sha256": "f3ab7d31675ffb511842e8ae9c9eb86cad34214d742f193270192b09b230b98c",
+    "backend": "Xvfb/llvmpipe",
+    "scope": "room snapshot from actual archive binary, not live GPU/performance"
+  }
+}

@@ -196,11 +196,13 @@
         "docs/planning/PROGRESS.md",
         "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9",
         "git:43739e2fa6abe09f28457f218648141113cd2fb4",
-        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d"
+        "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json"
       ],
       "verification": "Đã đối chiếu registry sau PR241/243:36/37 V1 done. PR249 bổ sung phép đo VN và hiệu chuẩn lửa đã được review/CI; không cấp nghiệm thu pha/gate mới.",
       "blocker": "",
-      "next_action": "36/37 V1 done; V1-035 đã nghiệm thu, G1/G4 passed. Còn V1-036 smoke gói cuối và sign-off G2/G3/G5/G6; chưa phát hành."
+      "next_action": "36/37V1done, G1/G4passed. PR255 sửa UXscale/fullscreen có kiểm Linux; QApackage3OS đã smoke và kiểm archive/hash. Còn V1-036 nghiệm thu/minimum hardware, G2/G3profile release và G5UX; chưa phát hành."
     },
     {
       "id": "P9",
@@ -302,11 +304,13 @@
         "docs/specification/assets/AUDIO_V1.md",
         "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7",
         "data/assets/ui-vi-v1.toml",
-        "git:43739e2fa6abe09f28457f218648141113cd2fb4"
+        "git:43739e2fa6abe09f28457f218648141113cd2fb4",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
+        "git:796284d422baf14f2c0ab0c27a78100bc335c2f1"
       ],
-      "verification": "V1-035 được dsh2 nghiệm thu độc lập (issue237 comment6378320356);126/126text và6spriteđãduyệt đã tíchhợpPR241,CI/smoke3OSxanh. Font/layout1×/2×,5màn800×600 vàsidebarregression đã kiểm; chưa có đủ runtime UX gate.",
+      "verification": "V1-035 đã nghiệm thu; PR255/dsh2APPROVE exact28dad286+CI3OSxanh. UI800×600/1600×1200khớp RGBA nearest; NVIDIAfullscreen/focus có đối chứng movement, rebind S/F10/F11, capture BGM/SFX/volume/mute qua private virtual sink. Đây là kiểm Linux có giới hạn, chưa sign-off gateG5.",
       "integration_commit": "",
-      "blocker": "Cần sign-off runtime focus/nhả phím, scale/window/fullscreen, input/volume và playtest/SFX; ảnh UI-demo chạy --scale2 vẫn800×600 nên không dùng làm proof GPU2×."
+      "blocker": "Cần sign-off UX/presentation G5 với giới hạn đã ghi: WM X11 ra fullscreen không khôi phục đúng frame cũ; GUI/backend đa OS, phần cứng âm thanh/minimum hardware và playtest còn thiếu. Lỗi UI scale đã sửa, không còn dùng ảnh800×600 làm proof2×."
     },
     {
       "id": "G6",
@@ -316,11 +320,13 @@
       "reviewer": "Codex (chưa sign-off gate)",
       "evidence": [
         "docs/planning/PROGRESS.md",
-        "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
+        "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json"
       ],
-      "verification": "V1-027/G4 đã sign-off; V1-035 đã nghiệm thu và tích hợpPR241. V1-036 còn smoke gói cuối ba OS; G2/G3/G5 chưa passed.",
+      "verification": "36/37V1done; QApackage40069259503 head28dad286 đạt smoke10ca/OS và archive/hash đã kiểm. V1-036 đang review,còn minimum hardware/profile release; G2/G3/G5 chưa passed,không tuyên bố release.",
       "integration_commit": "",
-      "blocker": "V1-036 chưa nghiệm thu; G2/G3/G5 chưa passed; còn smoke gói cuối ba OS và sign-off release."
+      "blocker": "V1-036 chưa sign-off/minimum hardware chưa chốt; G2/G3/G5 chưa passed, profile dev release=false. SmokeQA3OS đã có."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"

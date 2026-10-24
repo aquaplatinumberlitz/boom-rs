@@ -92,3 +92,54 @@ Fixture sau này cần lưu PID/port, commit/config, kiểm server đúng lần 
 Không chạy `wineserver -k` hoặc kill tiến trình chung trong phiên có người khác đang dùng Wine.
 Log runtime trong `logs/` là dữ liệu local có thể không đi cùng Git; ảnh/script/docs đã commit là
 artifact bền vững, chưa thay thế trace đầy đủ cho phép đo timing.
+
+## Movement/trap: checkpoint bounded24/10 (#146/#147)
+
+Nguồn VN fixture `bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1` như
+[provenance owner-grace](../../evidence/measurements/vn-player-grace-2026-10-24/README.md).
+Các tọa độ/thời gian quan sát trong đúng run/cấu hình là `vn_runtime` / confirmed; nối cơ chế/level
+vẫn candidate/unknown. Phân tích cạnh máy là `vn_static` trong fixture cùng SHA. Không đổi luật
+chỉ từ các cạnh bên dưới.
+
+### Vận tốc một cấu hình, chưa biết speed level
+
+Phân tích lại nativeXY đã có của `host-flame-coordinate-good200`, `phase12`, `phase13`; không
+chạy lại client. `begin_ns` đầu→cuối, y giữ nguyên, dx liên tiếp±5, chọn cửa sổ theo command sau
+khi thu dữ liệu. Độ phân giải bị giới hạn bởi sampler nominal5ms; số lẻ không phải độ chính xácµs.
+
+| Run/đoạn | dx(px) | Thời lượng(ms) | Trung bình(px/s) |
+|---|---:|---:|---:|
+| good200 trái | -35 | 207,548528 | 168,635 |
+| good200 phải | 75 | 448,227236 | 167,326 |
+| phase12 trái | -35 | 212,266142 | 164,887 |
+| phase12 phải | 75 | 431,524711 | 173,802 |
+| phase13 trái | -35 | 209,681500 | 166,920 |
+| phase13 phải | 75 | 441,022350 | 170,059 |
+| phase13 trái trước trap | -60 | 350,343348 | 171,261 |
+
+Giữ toàn bộ khoảng164,887–173,802px/s; đoạn phase12-phải có interval5,201ms chưa rõ nguyên nhân,
+không tự loại như lỗi clock. Không suy C00/C01, native speed-level, cap, hoặc server30Hz từ bảng.
+Raw `position-samples.jsonl` SHA: good200`fee84a6eebe499606fbcf299fd91a6ffe0324d54e5eaf04e5fddcfa755fb0c92`,
+phase12`5348c898063de1cd783335637460fd7fe4f64e20a208c50ef3fcde67720f111f`,
+phase13`931667bd018af9f9f14a38e95433b68b881fcb083769c4aca8f84668f6b7b58a`.
+Script tái tính/raw giữ trong clone `re-kr/.re-work/speed-146/`; flame evidence đã lưu provenance của các run.
+
+Actor vtableC664C4 slot21/+0x54 (84byte)→5B1472; wrapper gọi5A6244@5B1646. Cache wrapper SHA
+`c2559f3d25fd11c9592fac362bfad365781b28c7b0d3f812b7c77e11ef685858`.
+Base cache `5A6244–5A7005` SHA`54c558a6a728dc5de6f3d97b341249536c4e36a0d0ee58e42fd91a3cda599a46`
+là **range chưa trọn hàm** (hàm còn đi tiếp), semantics chỉ đọc một phần; ±4 ở path target/current
+chưa nối với5px của actor đo. Không nâng thành speed consumer hoặc đổi24px/s/level của profile.
+
+### Timer nhốt: sender chưa nối được seed/expiry
+
+- `900462` là notifier so getter5A6128 với arg rồi có thể emit0xB; chưa phải setter. Getter+2C0
+  cho mã0/1/2/default3; không tự đặt tên3=trapped.
+- Counter+26E0 giảm ở5A62B1; call+0x54@5A62BF có receiver **memberthis+D18**, chưa resolve target,
+  không gán sang hero5B1472. Hero+0x28C→5AF9AB clear counter nhưng packet trực tiếp là162, không120/13.
+- Sender5AF165 (đủ range5AF165–5AF1CE) xây packet120 với subtypearg. Stage7172E7 chỉ đọc prefix
+  tới717500; site717348 truyền13 vào virtual+0x1C0 trên arg0. **Receiver chưa chứng minh cùng actor**,
+  trigger/seed timer chưa nối; chỉ là candidate producer C120/13.
+
+Raw static/cache private ở `re-kr2/.re-work/trap-timer-147/`; không đọc lại15literalhit/VM cũ.
+Bước tiếp #147: receiver/trigger của site717348 và watch seed có đối chứng; không lấy khoảng packet
+6359ms hay counter162 làm timer nhốt. #146 cần level/setter nối đúng actor trước đo mới.

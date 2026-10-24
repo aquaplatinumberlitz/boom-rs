@@ -146,8 +146,8 @@ Batch đọc 3 thân chưa đọc trong 7 xref; không giải lại loader/looku
 
 - Trong **3 thân** không thấy đọc trực tiếp `+96..+180`/weight/placement hay stat/cap/pickup từ row;
   chúng dùng **id** để chọn model/ability. `1192700` đã đọc đủ **227 dòng pseudocode**; `v47` chỉ được gán.
-  `1191D20`/virtual +380 là helper chưa phân tích, chưa loại trừ.
-- Đây là kết luận **giới hạn trong 3 thân**; helper/callee `1191D20`/virtual +380 chưa phân tích vẫn **unknown**.
+  `1191D20`/virtual +380 tại lượt23/10 là helper chưa phân tích, chưa loại trừ; checkpoint24/10 bên dưới cập nhật coverage.
+- Đây là kết luận **giới hạn trong 3 thân**; effects bắc cầu helper/virtual +380 vẫn **unknown**.
 - **Không tạo R-155**: chưa có consumer mới đọc row field hoặc áp stat/cap; player/cap vẫn unknown.
 - `1192700` có nhánh item-use/ability, nhưng không đọc row ItemAttr; không suy effect stat.
 
@@ -178,7 +178,7 @@ for group in groups:
 - `kr_static` **confirmed**: loader native, stride/count, item id `+84`, lookup `1197900`, và việc
   loader fill bảng 0x8000. **Không** confirmed sự vắng mặt reader toàn bộ.
 - `candidate`: vai trò group table và 6 tên đặc biệt `off_19A6354` (một tên `LucciPocketGold`).
-- `unknown`: reader ngoài phạm vi literal, 3 thân caller chưa đọc và bắc cầu helper/virtual; client
+- `unknown`: reader ngoài phạm vi literal và effects bắc cầu helper/virtual trong ba caller đã đọc; client
   chọn drop hay chỉ hiển thị placement server; nghĩa 8 dword item `+96..+180`; cap nhặt; xác suất 35%
   (không suy từ weight). Không đọc thêm 35% server.
 
@@ -196,3 +196,11 @@ for group in groups:
 | `ev_be2b7b9e7c911bab723341f747844a7fd1576ef3793f088b1118fba1b43d7682` | `xrefs` `1197900` | 7 xref; chỉ 4 thân đã đọc |
 | `ev_21c2be2fcc6cc7f66194b179dc3f4baa59c4845e26a91db432e97cf46870f4e6` | `xrefs` `1196A70` | caller `123292B` |
 | `ev_3234408243c47bec6d8034fb6a1f347331e1673e45bd46527a127ec24dc8562c` | `xrefs` `B978B0` | 2 caller model |
+
+## Checkpoint24/10: dispatch helper đã đọc, consumer còn thiếu
+
+`kr_static` / candidate: đã đọc dispatch `1191D20` và các slot-accessor liền kề bằng PE-copy
+cùng SHA, chưa thấy stat/cap **trực tiếp**; effects callee/virtual chưa chứng minh. Virtual+380 vẫn
+chưa resolve receiver/target. [Evidence/ranges/SHA và giới hạn budget](../../evidence/measurements/kr-static-item-2026-10-21/README.md#checkpoint-helper1191d20--2026-10-24-149).
+Reuse cache này; không quay lại bước “1191D20 chưa đọc” hoặc phủ định toàn callgraph.
+Không đổi R-153, không tạo claim consumer hoặc giá trị luật mới.
