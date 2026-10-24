@@ -32,6 +32,10 @@ công khai [`docs/evidence/measurements/vn-player-grace-2026-10-24/README.md`](.
 
 - Đây là **owner-only**, hai run; không suy TTL ms, không suy grace toàn hệ thống/all non-owner.
   Không claim timer ≤/>5 s: chưa đo thời điểm nhận 152/tick.
+- Fixture rebuild có **devirt gameplay reconstruction** (bomb msg-cache `0x6EFD4A`, CBombOwner
+  `0x5788C9` experiment, random guards), không chỉ offline/localhost. Đã đối chiếu 25 patch +10 IP
+  +15 devirt sites; không manifest nên semantic equivalence chưa chứng minh → giữ candidate đặc biệt,
+  không nâng claim.
 - Bomb cell `(14,0)` từ packet 111; screen chỉ approximate (owner visual bounds x≈760→719, y center
   ≈62, feet≈78; không phải native coords). Không dùng hold 0.45 s/5 s làm timer; `monotonic_ns`
   trong supervisor chỉ là command clock, không phải fuse.

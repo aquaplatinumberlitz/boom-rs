@@ -11,12 +11,31 @@ Raw local (không commit): `.re-work/vn-grace-240/host-run-2/` và `host-run-3/`
 | Thành phần | Giá trị |
 |---|---|
 | Client | VN `VBNB_116`, `ca_fixed_patched.exe` SHA-256 `bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1`, PE32 i386 |
-| Source copy | `/home/admin/boom-re/wine/Boom` (git HEAD `9ac2075`), copy riêng trong `.re-work/vn-grace-240/game`; exe đã patch offline/link localhost từ fixture có sẵn — **patch behavior chưa xác minh đầy đủ** (thiếu manifest) |
+| Source / rebuild | `/home/admin/boom-re/wine/Boom` (git HEAD `9ac2075`), copy riêng trong `.re-work/vn-grace-240/game`. Fixture là output chuỗi rebuild có **devirt gameplay reconstruction**, không chỉ offline/localhost; hash đầy đủ + patch scope bên dưới. |
 | Map | `assets/fx/Map/Village01.map`, SHA-256 `1ca7e03ecb9b343fc54ae5d51dca006588cd2cd7e6f23cf212681dd66ff81b28`; version 1000, `W=15,H=13` |
 | Spawn slot0 | `(col14,row0)` — map spawn list index 0/3; packet 111 x=14,y=0. **Không** dùng spawn `(13,1)` của KR |
 | Server | fakeserver gửi 152/151 theo timer, **không tự mô phỏng collision/damage**; fuse **60 s = emu_choice**. Run2 stop trước nổ; run3 S151 gửi ids0..7 nhưng chỉ 1 bom được đặt |
 | Flow | `501/189 mode1/190/189 mode0/191`; run2/run3 `ready.json` = `match_ready`, stages 10/11/12/13 |
 | Raw packet | run2 `host-run-2/packets.log:195–197`; run3 `host-run-3/packets.log:163–165` |
+
+### Rebuild / patch scope
+
+```
+unpacked_ca.exe  13a0a33cccc8f5f5124cdd8dac863b68118e6dda83340649b897fc41faed364a
+ca_fixed.exe     c88a23c8dd886a6c80e06ea52a4399ad8ef34932bc7a25d06b804bf8a1c3750c
+ca_devirt.exe    f7e89f8db031655ada9e5f4a6a0213d9da21fbc9bc2b54861947e0073b1e5080
+ca_fixed_patched bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1
+```
+
+Direct byte check: **25/25** `patch_client` patches, **10/10** IP slots→`127.0.0.1`, **15/15** devirt
+sites `E9` into `.devirt` in `ca_devirt`/fixture. `patch_client.py` (`e728f6b` lines 15–26/36–47) là
+offline/anti-cheat + localhost + lobby ctor repair; `fix_iat.py` (`471ff80` line 366) là IAT/loader.
+`devirt.py` (`d422f56`, BLOCKS line 30) có **gameplay/runtime reconstruction**: `0x6EFD4A` bomb msg-cache
+(line 225), `0x5788C9` CBombOwner **plain-skip EXPERIMENT** (line 341), random guards
+`0x5A6E89`/`0x6F287E`/`0x754C82` (lines 280/289/298; bomber/NPC/stage-clear), `0x736C27` map load
+(line 209), `0x71581A` packet552 (line 307), `0x9682E5` stage init (line 165). Không có manifest:
+**semantic reconstruction/equivalence chưa chứng minh**; đây là lý do giữ **candidate đặc biệt cho
+grace owner-only**, không nâng claim.
 
 ## Quan sát
 
