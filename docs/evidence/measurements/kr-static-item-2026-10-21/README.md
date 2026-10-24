@@ -124,8 +124,8 @@ REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63
 
 **Kết luận:** `kr_static` confirmed loader/table/id/lookup và fill bảng 0x8000; **không** confirmed
 sự vắng mặt reader toàn bộ — chỉ **chưa thấy trong phạm vi quét literal** (alias/address computed/
-helper/indirect/VM chưa loại trừ). `candidate` vai trò group; `unknown` reader ngoài phạm vi, 3 thân
-caller chưa đọc, client drop vs server placement, nghĩa 8 dword, cap, 35%. `weight ≠ %`;
+helper/indirect/VM chưa loại trừ). `candidate` vai trò group; `unknown` reader ngoài phạm vi và effects
+bắc cầu helper/virtual trong ba caller đã đọc, client drop vs server placement, nghĩa 8 dword, cap, 35%. `weight ≠ %`;
 `placement ≠ xác suất gạch`; không suy từ R-051 hay 35% server.
 
 | `evidence_id` | Operation | Dùng cho |
@@ -139,7 +139,7 @@ caller chưa đọc, client drop vs server placement, nghĩa 8 dword, cap, 35%. 
 
 ### R-153 — 3 caller còn lại của lookup `1197900` (2026-10-24)
 
-Batch 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 thân cũ. Bundle
+Batch bổ sung ba thân còn lại trong bảy xref; không giải lại loader/lookup/bốn thân cũ. Bundle
 `.re-work/evidence-r153-three-callers-149.json`.
 
 | Caller | Call `1197900` | Kết quả trong phần thân đã đọc | Row `+96..+180`? |
@@ -149,8 +149,9 @@ Batch 3 thân chưa đọc trong 7 xref; không giải lại loader/lookup/4 th�
 | `1192700` | `0x1192983` | gán `v47`; **không thấy dùng lại trong toàn bộ 227 dòng**; dispatcher item-use/ability theo id | không thấy trực tiếp |
 
 - Chỉ kết luận trong **3 phần thân đã đọc**: chưa thấy stat/cap/pickup từ row; chúng dùng **id** cho
-  model/ability; `1191D20`/virtual +380 là helper chưa mở.
-- **Không tạo R-155**; helper/callee `1191D20`/virtual +380 chưa phân tích vẫn **unknown**.
+  model/ability; coverage dispatch `1191D20` được cập nhật ở checkpoint24/10 bên dưới, virtual+380 chưa resolve.
+- **Không tạo claim consumer mới**; dispatch `1191D20` đã đọc tại checkpoint bên dưới, effects
+  bắc cầu callee và virtual+380 vẫn **unknown**.
   Không suy client không có cap/không có stat từ 3 hàm.
 
 | `evidence_id` | Operation | Dùng cho |
