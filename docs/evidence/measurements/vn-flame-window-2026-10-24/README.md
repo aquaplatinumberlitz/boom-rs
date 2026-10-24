@@ -45,16 +45,17 @@ random guards, **`CBombOwner__vf33` 0x5788C9 EXPERIMENT plain skip**); không c�
 ## Quan sát ảnh từng run
 - visible-early: `09-flame-before-input` — owner vẫn `(2,0)`, **chưa trapped**; không nhận ra art lửa rõ
   (bom `(0,0)` bị cây decorative che). `10-late-enter` — trapped.
-- late-700: `09-before-input` — owner `(2,0)`, chưa trapped; `10-late-enter` — vào `(1,0)`, **alive**;
-  `11-after-enter` — vẫn **alive**, không `120/11`.
-- late-050/300: `09-late-enter` — trapped; `10-after-enter` — lửa đã hết nhưng vẫn trapped.
+- late-700: `09-before-input` — owner `(2,0)`, chưa trapped; `10-late-enter` — ảnh sau cho ở `(1,0)`, **alive**
+  (thời điểm vào ô chưa đo); `11-after-enter` — vẫn **alive**, không `120/11`.
+- late-050/300: `09-late-enter` — trapped; `10-after-enter` — vẫn trapped. Không nhận dạng được art lửa
+  trong ảnh nên **không** kết luận “lửa đã hết”.
 - Ảnh sau chỉ cho thấy trapped/report **không lặp trong cửa sổ quan sát**; **không** suy được hit-once vs
   repeated khi đã trapped (trapped có thể chặn report/damage follow-up).
 
 ## Kết luận partial
 - **Không** đặt upper/lower bound native TTL/cửa sổ từ input/report. Bảng trên chỉ là delay quan sát.
-- Ba run trap sau khi vào ô; late-700 vào `(1,0)` lúc ~+858 ms (KEYDOWN) vẫn alive, không `120/11`.
-  Đây là **quan sát**, không suy “window kết thúc trước 858 ms”.
+- Ba run trap sau khi vào ô; late-700 **gửi lệnh Left** ở +858.1 ms (KEYDOWN), ảnh sau cho ở `(1,0)`
+  vẫn alive, không `120/11`; **thời điểm vào ô chưa đo**. Đây là **quan sát**, không suy bound/TTL.
 - Chưa có client-receive/`t_enter`; `09` visible-early không chứng minh lửa đã hiện trước input ⇒
   **chưa loại trừ one-shot xử lý trễ**; chưa có TTL/one-shot vs window conclusive.
 - Không suy fire 500 ms/2500 ms.
