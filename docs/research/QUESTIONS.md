@@ -47,3 +47,17 @@ Trạng thái: `open`, `partial` (đã có quyết định tạm, còn hiệu ch
 4. Unknown ảnh hưởng interface phải báo integrator trước khi giao task code phụ thuộc.
 
 Mode/item ngoài V1 trong nguồn web giữ làm đầu mối later.
+
+
+## Điều phối câu hỏi V1 và fidelity sau audit 2026-10-24
+
+Nguồn quyết định và thứ tự làm: [REWRITE_PLAN](../planning/REWRITE_PLAN.md), mục điều phối sáu issue RE.
+Q-017/Q-020 thuộc luồng di chuyển/chỉ số; Q-018/Q-019 thuộc luồng nhốt/sát thương; Q-021/Q-015 tiếp tục
+phần native UI/audio sau các câu hỏi gameplay ưu tiên hoặc khi có cạnh mới rõ. Hai session dsh hiện có;
+Codex xử lý checkpoint và nghiệm thu G5/gói song song. Không mở lại phép đo owner grace/lửa đã hoàn tất
+ở task #240; non-owner/biên còn thiếu giữ tại #146/#148.
+
+Một câu hỏi có thể được trả lời cho V1 bằng DESIGN được review trong khi phần native vẫn unknown.
+Trạng thái đó phải ghi riêng ở claim/profile và acceptance; không đóng câu hỏi native bằng kết quả test
+implementation. Phần hoãn giữ owner, điều kiện mở lại và phạm vi đã tìm tại Q/issue gốc, thay vì lặp quét.
+Thứ tự này không hạ nhãn các claim confirmed và không thay baseline scope hoặc % feature.

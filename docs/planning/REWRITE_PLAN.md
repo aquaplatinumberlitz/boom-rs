@@ -1,6 +1,7 @@
 # Kế hoạch tổng viết lại engine Boom KR bằng Rust
 
-Cập nhật: 2026-10-23 (rà bằng chứng gate V1 G1–G6, việc còn thiếu và sổ pha/gate stale).
+Cập nhật: 2026-10-24 (chốt sáu issue RE theo câu hỏi, nghiệm thu V1 và fidelity còn lại).
+Trước đó: 2026-10-23 (rà bằng chứng gate V1 G1–G6, việc còn thiếu và sổ pha/gate stale).
 **Kế hoạch tổng hiện hành**, thay vai trò điều hành của
 [REWRITE_PLAN_2026-10-19 cũ](../archive/plans/REWRITE_PLAN_2026-10-19.md).
 Cập nhật: 2026-10-22 (hàng đợi RE theo consumer và giới hạn nguồn).
@@ -210,9 +211,59 @@ Khi mở economy phải có transaction/idempotency, ownership và nguồn balan
 
 ## Việc tiếp theo — đợt 1 (GitHub issues)
 
-### Hàng đợi RE client KR cho dsh (2026-10-22)
+### Điều phối sáu issue RE và nghiệm thu V1 (2026-10-24)
 
-Owner **dsh-RE**, reviewer Claude/Codex; dùng phiên cố định hiện có, làm **tuần tự**.
+Quyết định chủ dự án trong task [#253](https://github.com/aquaplatinumberlitz/boom-rs/issues/253):
+chốt phần cần cho V1 và tiếp tục phần fidelity bằng câu hỏi có điểm dừng. Giữ nguyên scope, thứ tự
+nguồn ADR 0013 và acceptance gốc của sáu issue; hoàn thành một phép đo không tự đóng issue gốc.
+Task đo hẹp #240 đã nghiệm thu, PR #249 đã tích hợp R-155/R-156/R-158. Không giao lại owner grace
+hoặc đo lại cửa sổ lửa đã có chỉ để giảm số issue.
+
+| Luồng / thứ tự | Issue | Câu hỏi cần chốt | Nghiệm thu V1 và phần fidelity còn lại |
+|---|---|---|---|
+| dsh1 — lượt đầu | #146 | Cấp tốc độ thật → vận tốc; hitbox/rẽ của đúng bomber | Một cấu hình có số đo px/s chưa xác nhận cấp tốc độ. Cần consumer hoặc phép đo có cấp đã xác minh; DESIGN hiện hành chỉ đủ V1 sau review G2, không nâng thành native confirmed. |
+| dsh1 — lượt tiếp | #149 | Stat trước/sau Bomb/Fire/Roller; pickup tại cap | Kiểm base, tăng và trần theo từng đại lượng; nối field/consumer. Vai trò bảng ItemAttr chưa có bằng chứng giữ unknown; không gộp weight với xác suất. |
+| dsh2 — lượt đầu | #147 | Vào trạng thái nhốt → timer/expiry → chết; biên touch/timeout | Ưu tiên điểm đo từ native code và runtime VN offline. Khoảng packet không phải timer nội bộ; trường countdown chưa nối state chỉ là candidate. Cứu đồng đội/kim ngoài V1. |
+| dsh2 — lượt tiếp | #148 | Non-owner, biên hết damage; clip/hướng/layer/cadence | R-156/R-158 đã giải phần owner. Logic damage và trình diễn có acceptance riêng; frame KR còn thiếu là fidelity gap, không tự suy từ lifetime V1. |
+| Sau hai luồng trên / có cạnh rõ | #150 | Layout/focus/scale và identity KR | V1-035 đã nghiệm thu. Codex kiểm runtime UI Rust ở G5; native KR layout/identity còn thiếu theo Q-021, không giao lại duyệt text/ảnh đã xong. |
+| Sau hai luồng trên / có cạnh rõ | #196 | Event→SFX/BGM, volume/dedup; count/loop/nhánh động | Kiểm thực thi mapping và policy V1 đã chọn. Số voice native chưa biết có thể tiếp tục theo Q-015; policy DESIGN cần review, không gọi là đã khớp native. |
+
+Chỉ dùng **hai session dsh hiện có**. Mỗi luồng làm tuần tự; Codex giữ RULES_V1, QUESTIONS,
+index, profile và ledger; worker trả evidence riêng, không sửa chung các file này. Không dùng OpenCode
+trong đợt này; chỉ mở lại khi chủ dự án cho phép mới. Không mua quota, đổi provider hoặc mở thêm session
+để né hạn mức.
+Một actor/base-function cache cùng SHA được chia sẻ giữa hai luồng; chỉ một owner phân tích thân mới.
+
+Mỗi lượt có một câu hỏi, baseline/build/SHA, owner file, reviewer và phép nghiệm thu:
+
+1. Reuse cache; kiểm đúng receiver/build trước khi truy. Mốc **8 yêu cầu phân tích / 4 thân hàm mới**;
+   đọc bằng REA, IDA hoặc objdump đều tính thân mới. Đọc lại cache đúng SHA không phải phát hiện mới.
+2. Thử 2–3 hướng có căn cứ. Hai lần lặp cùng đường không có bằng chứng mới thì dừng nhánh và hỏi
+   Codex; không retry mù lỗi `retryable:false`, capability thiếu hoặc entry VM đã biết.
+3. Codex đọc raw và giải blocker tại checkpoint. Cấp thêm chỉ khi nêu cạnh mới, câu hỏi và ngân sách
+   bổ sung cụ thể. Runtime VN offline có một owner thực thi tại một thời điểm, copy/namespace/PID riêng.
+4. Sau **hai lượt không có tiến triển**, Codex ghi quyết định: đổi sang phép đo động có đối chứng;
+   chọn DESIGN có nguồn/acceptance và reviewer; hoặc hoãn phần fidelity. Mục hoãn có owner, lý do,
+   điều kiện mở lại và link Q/issue; không tiếp tục quét để tìm lại mỏ neo cũ.
+5. Worker bàn giao cả kết quả dương, phạm vi âm và phần chưa biết. Chỉ lập PR khi có evidence/đầu ra
+   mới; không tạo PR chỉ lặp unknown. Review đúng head + CI ba OS + safe-merge trước tích hợp.
+
+Mỗi issue gốc có checklist câu hỏi **đã trả lời / đang làm / chưa biết / hoãn có điều kiện**. Số câu
+hỏi được trả lời là tiến độ research riêng, không cộng vào feature % và không gọi là % fidelity.
+Chỉ đóng issue gốc khi acceptance gốc đã đạt hoặc có quyết định đổi phạm vi được ghi rõ; phần native
+chưa hoàn thành không được đổi nhãn thành confirmed/done để đóng issue.
+
+Codex làm **G5 và V1-036 song song với RE**: kiểm focus/nhả phím, integer scale/cửa sổ/fullscreen,
+keybind, volume/mute, SFX/BGM và luồng Việt hóa thật; chuẩn bị archive + smoke ba OS từ code đã review.
+G2/G3/G5 cần sign-off độc lập cho source/profile/acceptance hiện hành. Giữ rõ llvmpipe, thiết bị audio
+ảo và giới hạn phần cứng; package smoke không thay nghiệm thu UX hoặc fidelity. Chỉ cập nhật G6/P8
+khi mọi dependency/feature/gate thực sự đạt, không yêu cầu RE hết các mode later.
+
+### Các cạnh RE tham chiếu (lập 2026-10-22)
+
+
+Bảng dưới giữ các cạnh/caller tham chiếu; ưu tiên và hai luồng hiện hành lấy từ mục điều phối 2026-10-24
+ở trên. Owner **dsh-RE**, reviewer Claude/Codex; từng luồng làm tuần tự trong session cố định.
 Ưu tiên theo ảnh hưởng gameplay V1 và đường consumer có thể truy tiếp, không theo số issue hay
 số asset. Đây là hàng đợi trong kế hoạch hiện hành, không mở scope hoặc tăng tỷ lệ feature done.
 Nguồn backlog: [QUESTIONS](../research/QUESTIONS.md), [RULES_V1](../specification/gameplay/RULES_V1.md),
@@ -266,7 +317,8 @@ nhận evidence mới để đối chiếu, **không** biến regression thành 
 server fuse/drop/rank không còn code mà không có consumer client, full semantics Themida/anti-cheat,
 1.151 map hoặc mode/shop/economy/guild later; pack decoder đã làm; giao thức/auth/DB/QA/build Rust mới.
 Duyệt 23 text/ảnh Việt hóa và đo GPU/phần cứng là việc review/QA, không phải RE tĩnh.
-Đo oracle runtime theo Q-009 vẫn đang hoãn; không tự đổi thành chạy client online.
+Runtime VN offline đã được chủ dự án chấp thuận và dùng ở R-155/R-156; các phép đo tiếp theo cần
+checkpoint/đối chứng như trên. Q-009 tiếp tục giữ phần oracle chưa có; không tự mở client online.
 Archive chỉ giữ đầu mối, không dùng backlog/gate cũ để mở lại scope.
 
 Tool kiểm thứ tự nguồn [#145](https://github.com/aquaplatinumberlitz/boom-rs/issues/145) đã có;
@@ -274,7 +326,7 @@ BnB giữ làm nguồn design cho chỗ trống, không thay consumer KR/VN conf
 
 
 Bảng phân công đợt 1 dưới đây giữ lịch sử tổ chức luồng; trạng thái thực tế xem issue/registry,
-không suy rằng task chưa làm chỉ vì còn trong bảng. Hàng đợi RE hiện hành là mục ngay trên;
+không suy rằng task chưa làm chỉ vì còn trong bảng. Ưu tiên RE hiện hành là mục điều phối sáu issue 2026-10-24;
 không tự mở lại phép đo Wine hoặc task cũ từ bảng này. Quy trình nhận/bàn giao ở TEAM_WORKFLOW §5–6.
 
 | Issue | Việc | Phụ thuộc | Worker | Điều phối/review | Lượt |
