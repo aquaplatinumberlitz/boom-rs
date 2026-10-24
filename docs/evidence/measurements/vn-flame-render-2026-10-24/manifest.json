@@ -1,0 +1,700 @@
+{
+  "schema": 1,
+  "root_issue": 148,
+  "fixture": {
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "build": "VN VBNB_116 patched offline fixture",
+    "map": "Ocean01 VN672",
+    "room_type": 19
+  },
+  "raw_root_private": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240",
+  "cases": [
+    {
+      "run": "host-flame-render-148-r1",
+      "scope": "state selector mapping only, not physical timing/pixel output",
+      "hero_target": {
+        "kind": "serialize",
+        "monotonic_ns": 794805434330418,
+        "object": 449563272,
+        "vtable": "0xc664c4",
+        "x": 40,
+        "y": 39,
+        "counter_26e0": 0,
+        "subtype": 11,
+        "return": "0x5aef7c",
+        "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x00702b95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d59 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+        "bubble": "0x10976338",
+        "bubble_vtable": "0xc2e21c",
+        "bubble_age": 0
+      },
+      "proxy_context": {
+        "arch": "i386",
+        "bytes": "6a50b8c396b600e813902a008bd98b83",
+        "monotonic_ns": 794754869565697
+      },
+      "observations": [
+        {
+          "phase": "selector_valid_before_occlusion",
+          "monotonic_ns": 794805453484996,
+          "object": 431092264,
+          "vtable": "0xc35594",
+          "x": 0,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 15,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 15,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 0
+        },
+        {
+          "phase": "after_state_helpers_before_base_draw",
+          "monotonic_ns": 794805459663141,
+          "object": 431092264,
+          "vtable": "0xc35594",
+          "x": 0,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 15,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 15,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 15,
+          "boxed_frame_34": 1
+        },
+        {
+          "phase": "selector_valid_before_occlusion",
+          "monotonic_ns": 794805463938405,
+          "object": 431092848,
+          "vtable": "0xc35594",
+          "x": 40,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 0,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 0,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 0
+        },
+        {
+          "phase": "after_state_helpers_before_base_draw",
+          "monotonic_ns": 794805469018580,
+          "object": 431092848,
+          "vtable": "0xc35594",
+          "x": 40,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 0,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 0,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 1
+        },
+        {
+          "phase": "selector_valid_before_occlusion",
+          "monotonic_ns": 794805473191203,
+          "object": 431093432,
+          "vtable": "0xc35594",
+          "x": 80,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 45,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 45,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 0
+        },
+        {
+          "phase": "after_state_helpers_before_base_draw",
+          "monotonic_ns": 794805476929387,
+          "object": 431093432,
+          "vtable": "0xc35594",
+          "x": 80,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 45,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 45,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 45,
+          "boxed_frame_34": 1
+        },
+        {
+          "phase": "selector_valid_before_occlusion",
+          "monotonic_ns": 794805481550071,
+          "object": 431151832,
+          "vtable": "0xc35594",
+          "x": 40,
+          "y": 79,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 60,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 60,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 0
+        }
+      ],
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407526,
+          "sha256": "2fc424ed11863369cfe8f0353ba9571bdbe54e160bc759319dc2c2e89b5fdb61"
+        },
+        {
+          "path": "05-match.png",
+          "size": 628059,
+          "sha256": "802180f5783de5b820051d46b545bf55193811bfefee8129726f70c7298db94a"
+        },
+        {
+          "path": "06-one-bomb.png",
+          "size": 628208,
+          "sha256": "e149314f8ca6d2dd356d48ab54ea570dd00329fd597700929e33d0bd92a0e5fd"
+        },
+        {
+          "path": "07-native-flame-render.png",
+          "size": 631493,
+          "sha256": "564075177f8bf65d8ca6f01e818a89f3122cd473105b7189ba163c540780dd38"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "3b549042edcdd3b2531ebfdea74423af74fe8708088b5c556d3b7eb0b4e9fc63"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "b81f07b931dc89808db3323d63a6aae66abd9ddf3a8f70fa9bcbc0ddc21fdc94"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "ac00b458fe97ae120ff3b40e01d86f5fcc4d416a1d0d685bd663edd2a9c35fdd"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "6a3fff9b696454155b1a7c69781c4e2d5c900e7e317aa4783bc2775e37dd464f"
+        },
+        {
+          "path": "flame-render-observations.jsonl",
+          "size": 2692,
+          "sha256": "bfbd22ba6a69a5dd5cc9b21071f65f5388536d72153f58e25062ff07c6899d52"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 10161,
+          "sha256": "fb26472f2cbba7df8982b0f036f9fd77fd913bbccd59c1440bb099d19eb38921"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "d7462efc769a02d2fe3055a8e75cdab1afcb660c08fdd24dd4a8afe93cf8effb"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 2560,
+          "sha256": "9f287b0a0fb16bf06bcace6d980987a99fd7e970e3bf22040efebee48ecfbd0b"
+        },
+        {
+          "path": "odt-provenance.json",
+          "size": 289,
+          "sha256": "354024b7fe6ec86b45b52362007feabe61025ba30203876c85fb437e60b5d649"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 23134,
+          "sha256": "da7461c155b8c791e5815f398f515649ade4d2e000249ccbba57d3ab8255bcbe"
+        },
+        {
+          "path": "packets.log",
+          "size": 18103,
+          "sha256": "9b73aa20bdee70f788b200400b75322b5d71912489612122336862a1202246a5"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 27269,
+          "sha256": "5e07ad501302b8f7502e76117b7f080c7d757ced08caa3a508e9903fdb45a590"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "00142cfc983a128af902282161aa77b40a1efd914cbcbb6989b4397fc2cffef0"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 6687,
+          "sha256": "1aa25424ceb2b4009874709e112462c51184b531fe03bf80b02c7421d8ac07e7"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "2bc69ab20c33e14d7e5395197006a76f80af0f0b2f005d3702a8aee8780e7dee"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "82622687ed4e3a33d7c61a73ef4e445dd8c32e5c8ac1480afad40f2116d98b83"
+        },
+        {
+          "path": "server.log",
+          "size": 18103,
+          "sha256": "9b73aa20bdee70f788b200400b75322b5d71912489612122336862a1202246a5"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 665,
+          "sha256": "82675c8e92604456bcd307336a2b0c2e486cd80c1c2bfc45b80f0d5937b0cf3b"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "d7462efc769a02d2fe3055a8e75cdab1afcb660c08fdd24dd4a8afe93cf8effb"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15370,
+          "sha256": "397c8480d0c2ea29d5ab4bd9c56cb858e4e9ce1f7d51e1847be683e261983f7c"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    },
+    {
+      "run": "host-flame-render-148-up-r1",
+      "scope": "state selector mapping only, not physical timing/pixel output",
+      "hero_target": {
+        "kind": "serialize",
+        "monotonic_ns": 795166427140704,
+        "object": 449558552,
+        "vtable": "0xc664c4",
+        "x": 40,
+        "y": 79,
+        "counter_26e0": 0,
+        "subtype": 11,
+        "return": "0x5aef7c",
+        "backtrace": "#0  0x005af165 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x00702b95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00718d59 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x0071c00b in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x007057cb in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x008f2e68 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x008f6c7c in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+        "bubble": "0x10976338",
+        "bubble_vtable": "0xc2e21c",
+        "bubble_age": 0
+      },
+      "proxy_context": {
+        "arch": "i386",
+        "bytes": "6a50b8c396b600e813902a008bd98b83",
+        "monotonic_ns": 795108876803454
+      },
+      "observations": [
+        {
+          "phase": "selector_valid_before_occlusion",
+          "monotonic_ns": 795166443167029,
+          "object": 431092848,
+          "vtable": "0xc35594",
+          "x": 40,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 30,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 30,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 0
+        },
+        {
+          "phase": "after_state_helpers_before_base_draw",
+          "monotonic_ns": 795166446827452,
+          "object": 431092848,
+          "vtable": "0xc35594",
+          "x": 40,
+          "y": 39,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 30,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 30,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 30,
+          "boxed_frame_34": 1
+        },
+        {
+          "phase": "selector_valid_before_occlusion",
+          "monotonic_ns": 795166451390636,
+          "object": 431151832,
+          "vtable": "0xc35594",
+          "x": 40,
+          "y": 79,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 0,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 0,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 0
+        },
+        {
+          "phase": "after_state_helpers_before_base_draw",
+          "monotonic_ns": 795166454861649,
+          "object": 431151832,
+          "vtable": "0xc35594",
+          "x": 40,
+          "y": 79,
+          "segments": [
+            {
+              "index": 0,
+              "motion": 0,
+              "counter": 1,
+              "owner": 0,
+              "arg144": 1
+            }
+          ],
+          "resource_variant_240": 0,
+          "resource_ptr_ac": "0x0",
+          "selector_motion": 0,
+          "selector_counter": 1,
+          "selector_owner": 0,
+          "boxed_motion_28": 0,
+          "boxed_frame_34": 1
+        }
+      ],
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 628183,
+          "sha256": "6975bd2c84511467a977ffdd4d590284a8b61032687a49ba193485d0a56eb762"
+        },
+        {
+          "path": "06-bomb-cell1-1.png",
+          "size": 626665,
+          "sha256": "40e1ba9c67b114a93919fe03c7d311e525fd9f22b2a17eb7d24c1af0a7c88e43"
+        },
+        {
+          "path": "07-up-flame-selector.png",
+          "size": 635422,
+          "sha256": "4dd80ad13db4b5d7345da2e0f6ab56d4f1f94504067230614f88c7ffaa99ab6c"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "fb86214a9a4d88b7d78e550d264ab57abed6e7013d67c2e56a4b881e2c1ed96e"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "9a7a9b26e7209a000b7823e8cbe244c3a8e697ff0ac10eeeba79bd1c210b7daf"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "33078bf23d8d69c60d6a377c14da9e7f280e721777636f3ebdfb6e2ffb4a3d29"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "12d60fdce187f588769d1ceb06f51e6c6b763eda81d7ad1c8f96f2cb2155c02e"
+        },
+        {
+          "path": "flame-render-observations.jsonl",
+          "size": 1539,
+          "sha256": "9eb79242a3bfaf77142cb6d1367d723c61bc877f530797609e3ffcb51ed3bcd6"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11279,
+          "sha256": "52204c4bad2a87490298522c28f4737f60b3ee97093608a6d5acedfd2faea672"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "a6d84426bb6ba7fc2dc4cf3791ae7123c722d09fd1de57ddaf6fee1417365f3a"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 2560,
+          "sha256": "c9d133176ac2044adad69b4486f3019dd04bc12c08f74324ab09aa7eb3241441"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 21026,
+          "sha256": "e875f4b32dc78664e491bee9be720e5b804c931a47eddd62adcc589ddef9fc93"
+        },
+        {
+          "path": "packets.log",
+          "size": 16458,
+          "sha256": "4806df7531df0f97195856ede9f250ef15ec7b7102bb47ecf8493857379e8bf4"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "a8658cf26aa7f9cd208af11bc9a5d2ac1dad29bf3385d1b07c04295a21c89d5f"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 28447,
+          "sha256": "1359ccf87a1036454f3c0ddb1541c45b93abf6530f9bb65f5f2288141b65d9bd"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "5f5e795d833b1ce36b033f53ede622b861bf15d6156b82a6f4523d9da222fbab"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 6690,
+          "sha256": "c56434022c222206986e89cd5702e02f16f18129f65c5307f8abd7610fd05702"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "cd4d04e5694e3fd6e9d6874bdddc85e48ccff46f3d4c041134359db34c3ca866"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "06f6910501cd2ddce7d0cf1afc775354902de47f29e642a838ca1086dfc9651b"
+        },
+        {
+          "path": "server.log",
+          "size": 16458,
+          "sha256": "4806df7531df0f97195856ede9f250ef15ec7b7102bb47ecf8493857379e8bf4"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 820,
+          "sha256": "4d93479cdb9ea324c516da0c8504d9b461444330c081bf1462aeb4b86cf6420d"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "a6d84426bb6ba7fc2dc4cf3791ae7123c722d09fd1de57ddaf6fee1417365f3a"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15347,
+          "sha256": "f859d1028a012b1397bb7caf470aee009d6fd6ab42b2af7d452bac9119cab2cf"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    }
+  ],
+  "odt": {
+    "vn": {
+      "payload_sha256": "94643886a3d590384bf3108eeb42ee8c072d2062ac4d681a296efa7e87a18b16",
+      "member_index": 328,
+      "start": 708104,
+      "end": 721708,
+      "block_sha256": "70ff67a04810fd5401006faeb3d6c6851f297105963d4192d043e4f298d001ba"
+    },
+    "kr": {
+      "payload_sha256": "a68fd5ffcc815b24b5c5199e9910f10d14f1ac6f30aba4c237a23f4e279608dc",
+      "member_index": 584,
+      "start": 1199510,
+      "end": 1213114,
+      "block_sha256": "70ff67a04810fd5401006faeb3d6c6851f297105963d4192d043e4f298d001ba"
+    }
+  },
+  "odt_identical_sequences": true,
+  "code_cache": [
+    {
+      "private_path": "/home/admin/boom-team/tmp/vn-flame-segment-local.asm",
+      "sha256": "e07cc0fada5c3365e655394bbe14c90e8ad7564ac38439bf328ba3d3b58d2cab",
+      "size": 23910
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr2/.re-work/flame-render-148/draw-5AD00C.asm",
+      "sha256": "5dc3e82ec7e3ccaa099fdcdb3b2c66d8a630dd59c98110e575b85607ba58e2dc",
+      "size": 6430
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr2/.re-work/flame-render-148/leaf-58D517.asm",
+      "sha256": "9d012f034d052eca472dd578467052534ea8f6dd2be2faeae6287b0410ec7e92",
+      "size": 730
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr2/.re-work/flame-render-148/leaf-58D3E9.asm",
+      "sha256": "74c61ee155af6e7c1c326f53a052cafb2a0dd1a469aaffe09580a25e29bd18c4",
+      "size": 988
+    }
+  ],
+  "code_spans": {
+    "constructor": "5ACBD7..5ACC2C; same cached segment file; keyFlame/Flame to58D9BA, initializesvtableC35594/variant240=0",
+    "selector": "5ACC58..5ACCCC; lastsegment+CC>=0, +90/+CC to2outputs",
+    "draw": "5AD00C..5AD101; adjacent5AD104/5AD155 emitted but not analyzed",
+    "leaf58D517": "prefix27bytes endsC2 missingimm16; +34 helper413F32 then414543, no raw directstore",
+    "leaf58D3E9": "prefix43bytes endsC2 missingimm16; +28arg,+34/+40zero via413F32; over32bytebudget by11 recorded"
+  },
+  "observation_gates": {
+    "pre": "5AD042 after valid-selector checks, before occlusion",
+    "post": "5AD0F9 beforecall58DA94 afterstate/framehelpers",
+    "limit": "at most8stops pergate, disablesafter4pre/3postdistinctobjects; no195inactiveperframe",
+    "timing_claims": "none"
+  },
+  "uninterpreted_raw_field": "resource_ptr_ac was a provisional raw key; AC=0, pointer/asset semantics not established",
+  "limits": [
+    "Power1 only; no mapping range>=2 or Snow/RPG/Timebomb runtime.",
+    "Up has pre/post; Down preselector only (postgate disabled after3others).",
+    "Frame counter1 observations are not duration milliseconds; ODT rawduration1 unit unknown.",
+    "No claim on KR native code offsets/runtime, blend/full layer/pixel alignment or damage lifetime.",
+    "Pointers only identify same object within each run, never across reused addresses."
+  ],
+  "counter_interpretation": "selector_counter/segment+CC/boxed_frame_34 are observed native counter values, not I16 picture frame index or ODT first_frame; label match uses motion ordinal only"
+}

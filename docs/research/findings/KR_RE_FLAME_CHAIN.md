@@ -348,3 +348,16 @@ tương tác object/bom, chưa đọc callee).
 - Ngân sách: **7 native call** (1 `binary_overview` timeout + 1 asm `B3B390` lỗi `Session not found`,
   đều không retry), **4 thân mới** (`B3B370`, `B3B390`, `B70C10`, `B713D0`), 1 asm cùng thân `B3B370`
   (proof no-op). Không claim RULES mới.
+
+## Consumer state bình thường VN và member ODT chung (R-164/R-165,24/10)
+
+[Evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md) nối native vị trí
+tâm/L/U/R/D ở power1 với ordinal0/15/30/45/60 trên CGOFlameC35594, qua selector5ACC58/draw5AD00C.
+Boxedmotion+28 và counter+34 sau helper khớp ordinal/counter tại tâm/L/U/R, không khẳng định counter là chỉ số frame hình I16; riêngDown chỉ có preselector.
+Constructor trong cache5ACBD7 truyền keyFlame/Flame; variant+240=0 ở object quan sát.
+
+Key này là member **ODT**, không phải entry pack độc lập. Member76state normal, block13.604byte,
+toàn bộ frame-duration giống byte VN/KR00967; nhãn→entry và dữ liệu đã giải. Không gán0..75 thành
+enum mode/power toàn cục khi chỉ có5 ordinal được kiểm. Lửa+CC0..18/19 củaR156 khác hoàn toàn
+counter bubble200/+40 củaR159. Duration1 là rawunit, cadence/layer/blend/biến thể còn thiếu.
+Không đổi flame540ms hay khẳng định pixel đã vẽ từ một callsite trướcbaseDraw.

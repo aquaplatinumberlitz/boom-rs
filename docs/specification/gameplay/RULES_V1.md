@@ -832,3 +832,13 @@ kiểm cùngcontract; identity thay đổi có chủý. Không fallback ngầm v
 
 Bổ sung cơ chế tăng Bomb/từ chối tại sức chứa; không sửa khóa nhân vật R-117 khi chưa nối receiver/
 identity KR. Firefieldr18 1→2 củng cố R-025/R-111; Roller còn thiếu.
+
+## 28. Consumer state lửa VN và bảng dùng chung VN/KR (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-164 | Với bom power1 trong hai ca Ocean01 VN, CGOFlameC35594 chọn motion theo vị trí thực: tâm0, trái15, trên30, phải45, dưới60. Selector+90/+CC đi qua draw5AD00C; trước baseDraw58DA94, boxedmotion+28 khớp ordinal và giá trịcounter tại+34=1 khớp counter output ở tâm/L/U/R (không phải chỉ số ảnh I16/ODT first_frame); Down chỉ ghi preselector | 0/15/30/45/60 là ordinal state, không phải duration | vn_static + vn_runtime / confirmed (đúngcase) | [Evidence/61rawhash](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); ctor5ACBD7 truyền keyFlame/Flame→58D9BA, variant0 trong run; selector5ACC58, gates5AD042/5AD0F9. Không xác nhận mọi power/mode, pixel/layer hay cadence |
+| R-165 | Member Flame/Flame trong ObjectTable có76 state:75 state dùng Bomb/Fire00 và stateTimebomb dùng Bomb/TimebombFrame. Block13.604byte VN/KR00967 giống hệt, gồm toàn bộ cặp frame-duration; rawduration đều1 | 76 state; duration1 chưa rõ đơn vị | kr_static + vn_static / confirmed (dữ liệu) | [ODT bảng/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv); blockSHA70ff67a0…; VNmember328/KR584. R-164 xác nhận tiêu thụ một số ordinal trênVN, không nativeKR runtime/offsets hoặc1ms/tickRust |
+
+R-078/R-079 không bị đổi thành full mapping/timing confirmed: chỉ phạm vi R-164/R-165 nêu trên được bổ sung.
+Profile và luật damage giữ nguyên; không lấy group C/L/U/R/D hoặc rawduration1 làm lifetime vùng sát thương.
