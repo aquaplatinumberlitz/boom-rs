@@ -10,7 +10,9 @@ VN VBNB_116 fixture SHA `bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1
 base400000/i386; giới hạn patch như [provenance owner-grace](../vn-player-grace-2026-10-24/README.md).
 Server của các ca Ocean01 có SHA `fa65dc31bb8937e0a798c157bf5f4c8a95f99de4db8492402497973005ab5a45`
 chỉ cấp item553, xác nhận117→158 và111→152; khi bật BOMB_ECHO thì gửi151 theo lịch **emu_choice**.
-Server không mô phỏng stat/cap/va chạm/nhốt: hiệu ứng được thực hiện ở client VN.\nFactory01 dùng bản sao đổi tuple map đầu/index193; SHA từng server-used.py được ghi riêng trong\nmanifest, không gán SHA của server Ocean cho các run Factory.
+Server không mô phỏng stat/cap/va chạm/nhốt: hiệu ứng được thực hiện ở client VN.
+Factory01 dùng bản sao đổi tuple map đầu/index193; SHA từng server-used.py được ghi riêng trong
+manifest, không gán SHA của server Ocean cho các run Factory.
 
 Một runtime owner Codex, namespace mạng chỉloopback/PID riêng, privateprefix/game, WineGDBi386.
 Ocean01VNindex672/room19, heroC664C4; X/Y boxed+4C/+58 đọc nonmutating/checksum, one-shotgetter58D56D.
@@ -55,7 +57,15 @@ ObjectTable VN. Hành lang dữ liệu x14,y12→0 không có Static/Box; **clie
 mới xác nhận đường thử. Map index193 trong fx.idx, SHA trong manifest; cùng room19/heroC664C4.
 Getter xác minh spawn native(560,519); không dùng map đã sửa hay ép teleport.
 
-[controls.csv](controls.csv) nối chín pickup cuối (ba mỗi run) với KEY_PRESS Space trong\nsupervisor.log và cửa sổ không có111 trong packets.jsonl; thêm phép thử ô trống khác là đối chứng\nthứtư, không thay ba lần thử saupickup. Command cuối đã là stop, nên dùng action log lịch sử.\n\nPhân biệt hai loại xác nhận: S158 xác nhận nhặt item (C117), còn S152 xác nhận đặt bom (C111).\nCả9 pickup cuối (ba mỗi run) đều có S158 **trước** lúc bấmSpace; chỉ không có C111/S152 mới.\nControls.csv giữ riêng timestamp C117→S158→Space và cửa sổ không C111.\n\nBa lượt đều đặt quả đầu ở(14,12), rồi đi lên12 ô mới, mỗi ô có một Bombkind0. Đủ12 lần
+[controls.csv](controls.csv) nối chín pickup cuối (ba mỗi run) với KEY_PRESS Space trong
+supervisor.log và cửa sổ không có111 trong packets.jsonl; thêm phép thử ô trống khác là đối chứng
+thứtư, không thay ba lần thử saupickup. Command cuối đã là stop, nên dùng action log lịch sử.
+
+Phân biệt hai loại xác nhận: S158 xác nhận nhặt item (C117), còn S152 xác nhận đặt bom (C111).
+Cả9 pickup cuối (ba mỗi run) đều có S158 **trước** lúc bấmSpace; chỉ không có C111/S152 mới.
+Controls.csv giữ riêng timestamp C117→S158→Space và cửa sổ không C111.
+
+Ba lượt đều đặt quả đầu ở(14,12), rồi đi lên12 ô mới, mỗi ô có một Bombkind0. Đủ12 lần
 117→158 khác index, đủ các vị trí native; server xác nhận mọi111, không tự giới hạn số bom.
 
 | Lượt | Kết quả trước bất kỳ151 | Đối chứng cuối |
