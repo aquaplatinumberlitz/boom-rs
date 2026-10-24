@@ -41,7 +41,9 @@ Map cell `(13,0)` = tile1005/obj996 (floor); `(14,1)` = tile1005/obj996; `(12,0)
 - **Owner-only, một run:** owner rời ô bom được (Left) và **không vào lại** ô bom khi quay phải,
   trước 151; input Right có tác dụng (owner facing right). Không suy được TTL ms, grace toàn hệ
   thống, hay non-owner từ run này.
-- Chưa có `151`/`120`, nên không kết luận trap/damage sau nổ; fuse 60 là emu_choice.
+- Chưa có `151`/`120`, nên không kết luận trap/damage sau nổ; fuse 60 là emu_choice. Nếu để nổ
+  tại `(14,0)`, owner ở `(13,0)` nằm trong vùng kề; map row1 col13 là brick nên **first probe có
+  thể bị trapped sau nổ** nếu không đổi map/spawn. Đây là dự đoán từ map, không phải quan sát run này.
 - Cần Codex repeat: đứng chờ trên bom 5 s → out → return, cùng map/fixture; và non-owner đứng chồng
   ô lúc 152 nếu cần. Không dùng `0.45 s` làm TTL.
 - Position: chưa có probe gdb vị trí player đã xác minh; `tools/gdb/spawn.gdb` chỉ in spawn, không
