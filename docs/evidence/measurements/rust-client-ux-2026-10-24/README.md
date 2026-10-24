@@ -91,7 +91,7 @@ như blocker cũ; các giới hạn về GUI/hardware/profile vẫn phải ghi r
 đã review/mergePR264 và có cùng code/luật với integration4fa1588. Đây là lượt cần thiết vì gói28dad ở
 trên có trap4000/trapped trướcPR260; không giả bằng chứng gói cũ đã kiểm luật6350/17 hiện hành.
 
-[package-current-qa.json](package-current-qa.json) giữ archivebytes/SHA/log/fingerprint và27hashfile
+[Record lịch sử task265](https://github.com/aquaplatinumberlitz/boom-rs/blob/265432d8b5d24df26daea74df8d37855a292a3d8/docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json) giữ archivebytes/SHA/log/fingerprint và27hashfile
 được đối chiếu trên baarchive sau tải/mở. Mỗi OS có10ca smoke đúng kỳvọng từ chính archive trên runner
 của OS đó; local chỉ unpack/check/hash, không chạy macOS/Windows qua Linux rồi gọi là GUI.
 
@@ -127,4 +127,31 @@ Các ca rebindF10/F11 giữ shortcut ưu tiên gameplay; mở bằng `--fullscre
 Source vendor khớp package SHA trong lockfile cũ, trừ đúng hàm X11; MIT/Apache giữ nguyên.
 License collector đã sửa để dependency path ngoài workspace không bị bỏ qua:41test pass, report135crate
 có miniquad. Không suy đây là GUIWindows/macOS, mọi WM, minimumhardware hoặc nghiệm thu G5.
-Gói QA task265 vẫn là gói trước patch cửa sổ; chưa phát hành gói mới hoặc tag.
+Gói QA task265 giữ lịch sử trước patch cửa sổ; task273 bên dưới kiểm archive sau sửa, chưa tag/Release.
+
+
+## Archive sau sửa notice/fullscreen — task273 (2026-10-25)
+
+[Workflow40107097457](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40107097457),
+reviewed codehead95985fe941be5199568b012482c8eac88b33629f/versionqa-20261025-95985fe,
+đã success4/4jobs. [Record hiện hành](package-current-qa.json) ghi ba archive/check/27hashfile/10smokeOS,
+135crate và notice`@ 2019-2020 Fedor Logachev` của miniquad trong từng LICENSES. Gói trước sửa
+40105903687 build/smoke xanh nhưng thiếu notice này, giữ local để đối chiếu regression đỏ→xanh42test.
+Không đổi nguồn/vendor/license; collector nhận thêm marker@year và giữ nguyên dòng thật.
+
+| OS/arch | Byte archive | SHA-256 |
+|---|---:|---|
+| linux-x86_64 | 5230671 | `dd3f38908e601b5cf1e6bea75f9e33f09b746b8994d32516fd3992d83fa2cfa0` |
+| macos-aarch64 | 4616138 | `42c5fca2a32e363d8b1f4565751f20432aa8d082534c1637d00abf9b83e1582e` |
+| windows-x86_64 | 4367566 | `0c671c1b88e59ce4777e9e832d11e3087b5aebcec8632145a409896641588094` |
+
+Linux archive thực đã chạy KWin/X11/NVIDIA: normal600×560 và maximized1920×1006 đều khôi phục
+đúng state/kích thước sau2vòng fullscreen; rebindF10/F11 không đổi cửa sổ. Phép thử đầu dùng pulse
+ngắn không thấy FULLSCREENflag; raw giữ nguyên, nguyên nhân chưa chốt. Lượt có kiểm focus và
+gửi keydown150ms/keyup đạt4case; không xóa failure hoặc gọi nó là baseline bug đã chứng minh.
+Hashbinary/matrix/logs ở metadata; screenshots/privateoptions không đưaGit. Cảhai probe đã dọn đúng
+process riêng/khôi phục focus, không kill app dùng chung hoặc sửa options người dùng.
+
+Luật6350/17/540 vàL10N vẫn cùng byte/hash; không lấy fingerprintofflineunhealthy/content0 làm livehealth.
+Đây là QA/devreleasefalse, chưa GUIWindows/macOS/minimumHW/FPS/physicalaudio hoặc sign-offG2/G3/G5/G6.
+Không tự tăng feature% từ góiQA, không tag/Release. Codeheadđónggói được giữ riêng với commitmetadata cuối.

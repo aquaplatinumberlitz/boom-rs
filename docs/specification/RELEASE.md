@@ -107,7 +107,7 @@ Task[#265](https://github.com/aquaplatinumberlitz/boom-rs/issues/265) dựng đ�
 [40091603701](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40091603701),
 version`qa-20261024-641f99a`, từ reviewed head`641f99aa997813eca77ecd1d0ef554b3fd55c272`.
 Workflow đã **success4/4job**, tải/mở/check đủ baarchive, đối chiếu27hashfile với log và10smokecase/OS.
-Metadata [package-current-qa.json](../evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json)
+Metadata [lịch sử task265](https://github.com/aquaplatinumberlitz/boom-rs/blob/265432d8b5d24df26daea74df8d37855a292a3d8/docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json)
 ghi archive/SHA/fingerprint và profile thực trong gói: trap6350ms, trapped17px/s, flame540ms.
 Linux binary từ archive đã mở room2×1600×1200 trên Xvfb/llvmpipe, RGBA khớp ảnh room đã review;
 không phải GUIWindows/macOS hoặc minimumhardware. Không tag/Release, mọi giới hạn gate còn nguyên.
@@ -118,7 +118,7 @@ không phải GUIWindows/macOS hoặc minimumhardware. Không tag/Release, mọi
 và bản sửa miniquad EWMH xanh: cửa sổ bình thường trả600×560 sau hai vòng fullscreen; cửa sổ
 vốn maximized giữ state/kích thước cũ. RebindF10/F11 và startupfullscreen có đối chứng.
 Đây là sửa runtimeLinux; GUIWindows/macOS/WM khác/minimumhardware và sign-offG5 còn thiếu.
-Gói QA40091603701 chưa chứa patch này; trước phát hành cần đóng gói head đã được nghiệm thu.
+Gói QA40091603701 giữ lịch sử trước patch; gói QA40107097457 sau sửa được kiểm ở issue273 bên dưới.
 
 ### Kiểm notice của dependency path sau sửa fullscreen
 
@@ -129,6 +129,22 @@ notice riêng được giữ. Các archive đó giữ làm bằng chứng trư�
 Collector bổ sung dạng `@` theo sau bởi năm và giữ nguyên dòng nguồn; regression dùng file
 `vendor/miniquad/LICENSE-MIT` thật đã tái hiện đỏ trước sửa/xanh sau sửa. Không đổi source/vendor license,
 không coi smoke xanh là chứng minh đầy đủ nội dung LICENSES. Gói sau sửa cần kiểm lại hash/notice riêng.
+
+### Gói QA sau sửa notice/fullscreen — task273
+
+[Workflow40107097457](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40107097457)
+version`qa-20261025-95985fe`, reviewed codehead`95985fe941be5199568b012482c8eac88b33629f`,
+đã build/check/smoke ba OS thành công. Tải/mở/check đủ ba archive, đối chiếu27hashfile/10smokecaseOS;
+LICENSES của từng archive có135crate và notice miniquad thật trong phần bản quyền riêng. Luật/l10n
+byte-identical với source, trap6350/trapped17/flame540, vẫnreleasefalse. [Metadata hiện hành](../evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json)
+giữ head/archive/hash/notice và giới hạn; gói401059 trước sửa được giữ làm bằng chứng finding.
+
+Binary Linux lấy từ archive SHA`bc3a1aefd3abde0d4575ff4289e8a71f1fb7a434c9cde1a8a6a47412bcb8e65d`
+đã chạy KWin/X11: normal/maximized mỗi loại2vòng fullscreen khôi phục kích thước/state đúng;
+rebindF10/F11 không kích hoạt shortcut cửa sổ. Fixture pulse ngắn đầu không thấy fullscreenflag,
+giữ raw và chưa xác định nguyên nhân; phương pháp keydown150ms/keyup kiểm focus thật đã đạt.
+Không đổi product timeout/điều kiện hoặc lặp CI tới xanh. Không suy GUIWindows/macOS, minimumHW,
+physicalaudio hoặc gatepassed. V1-036/G2/G3/G5 vẫn chờ nghiệm thu tương ứng, không tag/Release.
 
 ### Blocker nghiệm thu hiện hành của G2/G3/G5/V1-036
 

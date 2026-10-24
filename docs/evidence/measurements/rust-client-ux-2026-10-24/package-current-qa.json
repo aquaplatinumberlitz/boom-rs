@@ -1,23 +1,23 @@
 {
-  "run_id": 40091603701,
-  "url": "https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40091603701",
-  "version": "qa-20261024-641f99a",
-  "head": "641f99aa997813eca77ecd1d0ef554b3fd55c272",
-  "baseline": "4fa158895d1753190986f2b48ef309c5a5aaa210",
-  "purpose": "QA archive smoke for current calibrated trap6350/trapped17/flame540; replaces old28dad only as current package verification, not historical evidence",
+  "run_id": 40107097457,
+  "url": "https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40107097457",
+  "version": "qa-20261025-95985fe",
+  "head": "95985fe941be5199568b012482c8eac88b33629f",
+  "baseline": "2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
+  "purpose": "QA archive after PR271 vendored miniquad fullscreen fix and license collector; current calibrated trap6350/trapped17/flame540 unchanged; previousQA40091603701 retained as history",
   "source": "design",
   "status": "implementation_verification",
-  "artifact_download_local": "local/package-qa-40091603701",
+  "artifact_download_local": "local/package-qa-40107097457",
   "verified_file_hashes": 27,
   "items": [
     {
       "platform": "linux-x86_64",
-      "archive": "boom-rs-qa-20261024-641f99a-linux-x86_64/boom-rs-qa-20261024-641f99a-linux-x86_64.tar.gz",
-      "bytes": 5231024,
-      "sha256": "7b0bfb7812f72af735d70ed968b107c25a845be8f6c2f5f07fd381c0641bee9e",
-      "unpacked_local": "local/package-qa-40091603701/unpacked/boom-rs-qa-20261024-641f99a-linux-x86_64/boom-rs-qa-20261024-641f99a-linux-x86_64",
-      "smoke_log": "boom-rs-qa-20261024-641f99a-linux-x86_64-smoke/smoke-log.txt",
-      "smoke_sha256": "ddf5d485ee5d114c281e9ced6ce92bbb57236837f2ee0bf370b7a7b62d033279",
+      "archive": "boom-rs-qa-20261025-95985fe-linux-x86_64/boom-rs-qa-20261025-95985fe-linux-x86_64.tar.gz",
+      "bytes": 5230671,
+      "sha256": "dd3f38908e601b5cf1e6bea75f9e33f09b746b8994d32516fd3992d83fa2cfa0",
+      "unpacked_local": "local/package-qa-40107097457/unpacked/boom-rs-qa-20261025-95985fe-linux-x86_64/boom-rs-qa-20261025-95985fe-linux-x86_64",
+      "smoke_log": "boom-rs-qa-20261025-95985fe-linux-x86_64-smoke/smoke-log.txt",
+      "smoke_sha256": "9aab0b594c601e2b2c8f26a74f71d3a3b7489f438ffe87956a6505c78256e9c2",
       "smoke_cases": 10,
       "file_hashes_verified": 9,
       "package_check": "passed",
@@ -40,16 +40,18 @@
         "flame_ms": 540
       },
       "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
-      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960",
+      "licenses_sha256": "d2d0706c24bfe5fd6b26ce4e1b06dec8f5da9d73348d334192a8e9f1cee17c3b",
+      "author_notice_verified": true
     },
     {
       "platform": "macos-aarch64",
-      "archive": "boom-rs-qa-20261024-641f99a-macos-aarch64/boom-rs-qa-20261024-641f99a-macos-aarch64.tar.gz",
-      "bytes": 4616823,
-      "sha256": "d587a42624df407f7df7e02033dc2ab690503f4aa4ab61694964396f65f40d8c",
-      "unpacked_local": "local/package-qa-40091603701/unpacked/boom-rs-qa-20261024-641f99a-macos-aarch64/boom-rs-qa-20261024-641f99a-macos-aarch64",
-      "smoke_log": "boom-rs-qa-20261024-641f99a-macos-aarch64-smoke/smoke-log.txt",
-      "smoke_sha256": "588a9b7d135ef51a183b67af0196659c4fcebd8b304f67cfca7141925455c852",
+      "archive": "boom-rs-qa-20261025-95985fe-macos-aarch64/boom-rs-qa-20261025-95985fe-macos-aarch64.tar.gz",
+      "bytes": 4616138,
+      "sha256": "42c5fca2a32e363d8b1f4565751f20432aa8d082534c1637d00abf9b83e1582e",
+      "unpacked_local": "local/package-qa-40107097457/unpacked/boom-rs-qa-20261025-95985fe-macos-aarch64/boom-rs-qa-20261025-95985fe-macos-aarch64",
+      "smoke_log": "boom-rs-qa-20261025-95985fe-macos-aarch64-smoke/smoke-log.txt",
+      "smoke_sha256": "9ae93df9c212fc7cbd081b86150adaedc2a1dce18cb7f13b41e4536599a98bfd",
       "smoke_cases": 10,
       "file_hashes_verified": 9,
       "package_check": "passed",
@@ -72,16 +74,18 @@
         "flame_ms": 540
       },
       "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
-      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960",
+      "licenses_sha256": "d2d0706c24bfe5fd6b26ce4e1b06dec8f5da9d73348d334192a8e9f1cee17c3b",
+      "author_notice_verified": true
     },
     {
       "platform": "windows-x86_64",
-      "archive": "boom-rs-qa-20261024-641f99a-windows-x86_64/boom-rs-qa-20261024-641f99a-windows-x86_64.zip",
-      "bytes": 4367734,
-      "sha256": "d2d93f049bfe7debca846e025e63cba3ace8cbc30c0ae05bf1f1a387be541554",
-      "unpacked_local": "local/package-qa-40091603701/unpacked/boom-rs-qa-20261024-641f99a-windows-x86_64/boom-rs-qa-20261024-641f99a-windows-x86_64",
-      "smoke_log": "boom-rs-qa-20261024-641f99a-windows-x86_64-smoke/smoke-log.txt",
-      "smoke_sha256": "db939e56533ea4c7491640df61361b515aacf62f8f69c4d77ca8138260d968b1",
+      "archive": "boom-rs-qa-20261025-95985fe-windows-x86_64/boom-rs-qa-20261025-95985fe-windows-x86_64.zip",
+      "bytes": 4367566,
+      "sha256": "0c671c1b88e59ce4777e9e832d11e3087b5aebcec8632145a409896641588094",
+      "unpacked_local": "local/package-qa-40107097457/unpacked/boom-rs-qa-20261025-95985fe-windows-x86_64/boom-rs-qa-20261025-95985fe-windows-x86_64",
+      "smoke_log": "boom-rs-qa-20261025-95985fe-windows-x86_64-smoke/smoke-log.txt",
+      "smoke_sha256": "b33300d71165b46191aef6d43881a995ad3e33df0a5917861710e3f4b899e2ff",
       "smoke_cases": 10,
       "file_hashes_verified": 9,
       "package_check": "passed",
@@ -104,9 +108,21 @@
         "flame_ms": 540
       },
       "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
-      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+      "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960",
+      "licenses_sha256": "987d29bab719196a45a24a27d30685f7865095bdc3b79e210fa3fff042c1957e",
+      "author_notice_verified": true
     }
   ],
+  "previous_qa_run": 40091603701,
+  "pre_fix_qa_run": 40105903687,
+  "vendored_dependency": {
+    "name": "miniquad",
+    "version": "0.4.11",
+    "integration_pr": 271,
+    "license_entries_in_each_archive": true,
+    "per_crate_author_notice_verified": "@ 2019-2020 Fedor Logachev <not.fl3@gmail.com>",
+    "crate_count": 135
+  },
   "limits": [
     "All three archive smoke logs executed on respective CI OS; local unpack/check/hash verification only onLinux",
     "offline health unhealthy/content0 is not live health",
@@ -114,20 +130,183 @@
     "No Windows/macOS GUI, minimum hardware or physical audio playback certification",
     "No tag/GitHubRelease published"
   ],
-  "linux_ui_probe": {
-    "backend": "Xvfb/Mesa llvmpipe",
-    "logical_room": "800x600 at integer2x",
-    "physical_size": [
-      1600,
-      1200
+  "issue": 273,
+  "linux_archive_gui": {
+    "source": "Actual Linux archive binary, KWin/X11 on NVIDIA RTX3060; not debug build or VM GUI",
+    "binary_sha256": "bc3a1aefd3abde0d4575ff4289e8a71f1fb7a434c9cde1a8a6a47412bcb8e65d",
+    "input_method": "Focused owned window; explicit keydown 150ms then keyup; fresh private options per case",
+    "cases": [
+      {
+        "args": [],
+        "initially_maximized": false,
+        "cycles": [
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 600,
+              "height": 560,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+            }
+          },
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 600,
+              "height": 560,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+            }
+          }
+        ],
+        "initial": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "last_fullscreen_attempt": {
+          "width": 1920,
+          "height": 1080,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      },
+      {
+        "args": [],
+        "initially_maximized": true,
+        "cycles": [
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 1920,
+              "height": 1006,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+            }
+          },
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 1920,
+              "height": 1006,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+            }
+          }
+        ],
+        "initial": {
+          "width": 1920,
+          "height": 1006,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+        },
+        "last_fullscreen_attempt": {
+          "width": 1920,
+          "height": 1080,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      },
+      {
+        "args": [
+          "--rebind",
+          "right=F11"
+        ],
+        "initially_maximized": false,
+        "cycles": [],
+        "initial": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "after_bound_key": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      },
+      {
+        "args": [
+          "--rebind",
+          "right=F10"
+        ],
+        "initially_maximized": false,
+        "cycles": [],
+        "initial": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "after_bound_key": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      }
     ],
-    "binary_from_archive": "boom-rs-qa-20261024-641f99a-linux-x86_64/boom-rs-qa-20261024-641f99a-linux-x86_64.tar.gz",
-    "binary_sha256": "196e9d86899eae2ef3f39a518b3f9631a0a9441b048e024b44d7c8e087d95405",
-    "snapshot_local": "local/package-qa-40091603701/linux-room-2x.png",
-    "snapshot_sha256": "f3ab7d31675ffb511842e8ae9c9eb86cad34214d742f193270192b09b230b98c",
-    "log_sha256": "8195e559887a9bab34faf6b0dee3bb47dfd9685e30342c1b6901fb74e7f5f70d",
-    "comparison_source_previous_private": "/home/admin/boom-rs-wt/v1-window-ux-253/local/qa-ux-253/ui-room-scale2-after.png",
-    "rgba_equal_previous_reviewed_linux_room": true,
-    "limits": "not physical GPU/minimum hardware/Windows orMacGUI/focus/audio revalidation"
+    "initial_fixture_failure": "First fixture used short xdotool key pulse and did not observe FULLSCREEN flag; retained separately, cause unproven. Controlled held-key method passes; no claim every short input pulse is reliable.",
+    "limits": [
+      "No Windows/macOS GUI certification",
+      "No minimum-hardware/FPS/latency/physical-audio measurement",
+      "No proof across every window manager"
+    ],
+    "raw_files": [
+      {
+        "path": "linux-kwin/matrix.json",
+        "bytes": 348,
+        "sha256": "d66d0e09ce86f74a26034f57b1397c29f80e77997de8191e4045d2a3b27d6cd4"
+      },
+      {
+        "path": "linux-kwin/client-0.log",
+        "bytes": 127,
+        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
+      },
+      {
+        "path": "linux-kwin-held-key/matrix.json",
+        "bytes": 3677,
+        "sha256": "5bb3451957eb4201ae7cba4f7170314369f96f71ff4a757a3601614428a4c3c8"
+      },
+      {
+        "path": "linux-kwin-held-key/client-0.log",
+        "bytes": 127,
+        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
+      },
+      {
+        "path": "linux-kwin-held-key/client-1.log",
+        "bytes": 127,
+        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
+      },
+      {
+        "path": "linux-kwin-held-key/client-2.log",
+        "bytes": 127,
+        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
+      },
+      {
+        "path": "linux-kwin-held-key/client-3.log",
+        "bytes": 127,
+        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
+      }
+    ]
+  },
+  "pre_fix_qa": {
+    "run_id": 40105903687,
+    "head": "2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
+    "archive_smoke": "passed all3OS",
+    "notice_check": "failed: per-crate miniquad author @2019-2020 omitted",
+    "artifacts": "local/package-qa-40105903687 retained",
+    "ci_success_is_not_notice_verification": true
   }
 }
