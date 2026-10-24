@@ -151,13 +151,34 @@ physicalaudio hoặc gatepassed. Tại lúc thu QA, V1-036/G2/G3/G5 chưa ký; q
 | Phần | Đã có bằng chứng | Còn chặn nghiệm thu / bước cụ thể | Fidelity giữ backlog |
 |---|---|---|---|
 | G2 movement/stats | Movement/hitbox/assist/time DESIGN có scenario; owner graceVN; trapped17px/s R-162 đã tích hợp | Review độc lập việc áp12khóa C00/C01candidate và profile phát hành; loader không cho `release=true` với candidate. Không chỉ bật cờ release hoặc đổi nhãn. Roller/level mới phải xét cùng đại lượng trước khi thay speed24DESIGN. | Chưa nối đủ Attr/native identity, hitbox/corner và đường cong tốc độ; không yêu cầu mọi mode later. |
-| G3 bomb/damage/items | Flame540ms R-158, trap6350ms R-160, created-tick boundary/replay; Bomb/Fire +1 và cap behavior có source | Sign-off profile/boundary/drop V1; gói đúng profile hiện tại đã kiểm ở task265; sign-off gate vẫn thiếu. R-168 capacity10 là actorVN riêng, chưa đủ đổi cap C00/C01KR. | Writer/clamp, non-owner/repeatdamage/animationtail và ItemAttr table role còn mở. |
+| G3 bomb/damage/items | Nghiệm thu cơ chế/boundary V1 theo [issue280](https://github.com/aquaplatinumberlitz/boom-rs/issues/280): fuse/chain/flame/trap/cap/drop/clock có nguồn/version và ca biên | Không còn thiếu cơ chế G3 theo SCOPE6 đã review. Việc chốt12giá trị nhân vật/profile phát hành vẫn thuộc G2; không relabel candidate hoặc lấy actorVN làm mọiKR. | Writer/clamp gốc, non-owner/repeatdamage/animationtail và vai trò ItemAttr còn mở; DESIGN đã chấp nhận không gọi là native confirmed. |
 | G5 UX/localization | Nghiệm thu functional V1 theo [issue278](https://github.com/aquaplatinumberlitz/boom-rs/issues/278): text/ảnh/font/golden; actual Linux scale/focus/rebind/fullscreen; BGM/SFX/volume/mute đường phát số; reconcile regression | Không còn blocker G5 trong tiêu chí SCOPE6/7.9 đã review. GUI Windows/macOS và minimum hardware chuyển đúng V1-036/G6; không coi smoke CLI là GUI hoặc virtual sink là physical DAC. | Native KR layout/name/voice count/loop, thiết bị âm thanh thật và WM khác chưa được xác nhận; giữ giới hạn, không đổi nhãn native. |
-| V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, G2/G3 sign-off và GUI platform validation; G5 nghiệm thu riêng, V1 vẫn36/37; gate hiện hành xem PROGRESS. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
+| V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, G2/profile sign-off và GUI platform validation; G3/G5 nghiệm thu riêng, V1 vẫn36/37; gate hiện hành xem PROGRESS. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
 
 Profile hiện vẫn `release=false`; ngoại lệ12khóaKRcandidate ở ADR0013 chưa được thay bằng quyết định
 phát hành mới. DESIGN đã được review ở từng PR không đồng nghĩa đã sign-off toàn gate. Không thêm
 file plan/tổng kết song song; tracking ở execution.json/PROGRESS, câu hỏi native ở QUESTIONS/rootissues.
+
+### Nghiệm thu cơ chế G3 — 2026-10-25
+
+Quyết định tại [issue280](https://github.com/aquaplatinumberlitz/boom-rs/issues/280), theo
+[SCOPE_V1 §6](../planning/SCOPE_V1.md). Đây là review cơ chế và ca biên theo lựa chọn luật có nguồn,
+không biến regression của implementation thành oracle native.
+
+| Tiêu chí | Claim/profile có nguồn | Nghiệm thu biên đã tích hợp |
+|---|---|---|
+| Fuse, ray, chain, không nhân đôi drop | R-115 fuse2500 DESIGN; R-033/R-109; profile hiện hành | [chain ba bom](../../fixtures/scenarios/explosion/chain_of_three.toml), [roll một lần](../../fixtures/scenarios/explosion/chain_rolls_once.toml), [gạch chặn](../../fixtures/scenarios/explosion/soft_block_stops_flame.toml) |
+| Lửa tính cả tick tạo | R-158 hiệu chuẩn540ms/17tick, không phải native literal | [TTL một tick](../../fixtures/scenarios/explosion/flame_ttl_one_tick0.toml), [hai tick](../../fixtures/scenarios/explosion/flame_ttl_two_ticks.toml), life-time và core current-profile tests |
+| Nhốt/chết và di chuyển chậm | R-160/R-162 hiệu chuẩn6350ms/191tick,17px/s | [timeout](../../fixtures/scenarios/life/trap_timeout.toml), [pause warmup](../../fixtures/scenarios/life/trap_timer_pauses_during_warmup.toml), [slow movement](../../fixtures/scenarios/movement/trapped_moves_slowly.toml); core test current profile còn nhốtT+189/chếtT+190 |
+| Drop: chance, trọng số, thời điểm hiện | R-112 chance350 DESIGN; số weight3650/2800/2000 đã trích, vai trò native R-052 unknown; áp làm trọng số V1 có chủ ý | [roll không ra](../../fixtures/scenarios/blocks/drop_roll_misses.toml); tests blocks kiểm hit/miss theo profile, trọng số, tỉ lệ trên mẫu lớn và cùng seed |
+| Lửa/item và pickup tại trần | R-109 DESIGN; item cũ cháy, item mới rơi còn; item tại cap vẫn mất | [old item/new drop](../../fixtures/scenarios/blocks/flame_burns_old_item_new_drop_lives.toml), [at cap](../../fixtures/scenarios/pickup/at_cap.toml), pickup clamp/no-stack tests |
+| Clock/warmup | R-113 warmup3000 DESIGN, không ăn vào thời hạn lượt | [freeze countdown](../../fixtures/scenarios/round/warmup_freezes_round.toml), [không đi/đặt bom](../../fixtures/scenarios/round/warmup_blocks_movement_and_bomb.toml) |
+
+Reviewer độc lập nghiệm thu các cơ chế và lựa chọn DESIGN ở đúng version đã tích hợp. **12 giá trị
+nhân vật vẫn candidate, profile vẫn release=false**: chọn số C00/C01/profile phát hành thuộc G2, chưa
+được ký bằng G3. Cap consume/clamp mechanics không phải xác nhận cap mọi KR; số đo VN chỉ dùng
+đúng actor/đại lượng. Không cần đóng toàn bộ sáu root RE để nghiệm thu cơ chế V1, nhưng cũng không
+đổi nhãn native/unknown để qua gate. G6/V1-036 còn platform/minimum hardware và quyết định profile.
 
 ### 3.1 Công cụ đóng gói (`tools/check_package.py`)
 

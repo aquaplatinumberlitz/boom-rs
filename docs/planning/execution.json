@@ -265,9 +265,9 @@
     {
       "id": "G3",
       "title": "Bomb/damage/items",
-      "status": "in_review",
+      "status": "passed",
       "owner": "RE/core",
-      "reviewer": "Codex (chưa sign-off gate)",
+      "reviewer": "DSH2 — nghiệm thu độc lập cơ chế/boundary G3 tại issue280 và PR exact-head; không ký G2 hoặc profile phát hành",
       "evidence": [
         "docs/specification/gameplay/RULES_V1.md",
         "data/rules/v1-dev.toml",
@@ -278,11 +278,15 @@
         "docs/evidence/measurements/vn-trap-timer-2026-10-24/README.md",
         "docs/evidence/measurements/vn-item-effects-2026-10-24/README.md",
         "git:f5ffb03e80ef28dce3fb946af60391d42b7edae9",
-        "git:4fa158895d1753190986f2b48ef309c5a5aaa210"
+        "git:4fa158895d1753190986f2b48ef309c5a5aaa210",
+        "docs/specification/RELEASE.md",
+        "fixtures/scenarios/pickup/at_cap.toml",
+        "fixtures/scenarios/blocks/flame_burns_old_item_new_drop_lives.toml",
+        "fixtures/scenarios/explosion/chain_rolls_once.toml"
       ],
-      "verification": "PR249R158flame540ms/17tick và PR258R160trap6350ms/191tick, PR260trapped17px/s đã review độc lập và12CI3OS xanh; createdtick/scenario/replay giữ nguồn/giới hạn. PR264R168 đo limit10 trước pool25 trong một actorVN, chưa sửa capKR. Clockwarmup đúngR113. Cần sign-off profile/boundary/drop, không đòi RE hếtmode hoặc tự nâng gate từ review luật.",
-      "integration_commit": "",
-      "blocker": "Profile phát hành vàsign-off boundary/dropV1 chưa chấp nhận; currentpackage sau sửa notice/fullscreen đã kiểm task273,không còn blocker gói dùng luật cũ. Không lấy capactorVN thànhmọiKR hoặc packettime thànhliteral native."
+      "verification": "Nghiệm thu cơ chế G3 theo SCOPE6: fuse2500/chain/ray/created-tick flame540(tròn17tick), trap6350(191tick)/slow17, warmup3000/clock, dropchance350/weight3650-2800-2000/flame-item/pickup-at-cap có lựa chọn claim/version và boundary scenarios/tests đã tích hợp. PR249/258/260 review độc lập+12CI3OS; currentpackage cùng6350/17/540. R112 là áp dụng trọng số V1 có chủ ý, không xác nhận vai trò native R052; R158/R160 là calibrationDESIGN, không literal native. Cơ chế cap consume/clamp được nghiệm thu; 12giá trị C00/C01 còncandidate doG2/profile quyết định, không nâng nhãn hoặc dùng actorVN thành capmọiKR. Reviewer G3 độc lập issue280/PR exacthead; không ký G2/G6/V1-036/release.",
+      "integration_commit": "d8f1ba9b7f9aed73a6676b74c3ab104b6ca55244",
+      "blocker": ""
     },
     {
       "id": "G4",
@@ -341,9 +345,9 @@
         "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
         "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
       ],
-      "verification": "36/37V1done; task273 QA40107097457 exactreviewedcode95985fe941be5199568b012482c8eac88b33629f success4/4jobs:3archive tải/mở/check,27filehash/10smokeOS/135crate+notice miniquad đủ, rules6350/17/540/L10N cùngbyte. PR274finalmetadatae066d4a independentDSH2APPROVE+12CI3OS. ActualLinuxarchiveKWinnormal/max2cycles+rebind4case; failedshortpulse preserved/causeunknown. OldQA400916 vàprefixed401059 giữhistory. G2/G3in_review; G5 nghiệm thu functional V1 ở issue278; G6blocked, chưasign-off036/minHW/GUIWinMac/physicalaudio/release.",
+      "verification": "36/37V1done; task273 QA40107097457 exactreviewedcode95985fe941be5199568b012482c8eac88b33629f success4/4jobs:3archive tải/mở/check,27filehash/10smokeOS/135crate+notice miniquad đủ, rules6350/17/540/L10N cùngbyte. PR274finalmetadatae066d4a independentDSH2APPROVE+12CI3OS. ActualLinuxarchiveKWinnormal/max2cycles+rebind4case; failedshortpulse preserved/causeunknown. OldQA400916 vàprefixed401059 giữhistory. G2in_review; G3/G5 nghiệm thu chức năng V1 ở issue280/278; G6blocked, chưasign-off036/minHW/GUIWinMac/physicalaudio/release.",
       "integration_commit": "",
-      "blocker": "V1-036/minimumhardwareCPU/RAM/GPU chưa đo; G2/G3 chưa sign-off/profile dev releasefalse,12KRcandidate; GUI đa OS/platform validation còn thiếu. Currentpackage/fingerprint đãđạt, khôngcòndùngoldpackageblocking."
+      "blocker": "V1-036/minimumhardwareCPU/RAM/GPU chưa đo; G2 chưa sign-off/profile dev releasefalse,12KRcandidate; GUI đa OS/platform validation còn thiếu. Currentpackage/fingerprint đãđạt, khôngcòndùngoldpackageblocking."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"
