@@ -171,6 +171,10 @@ Kênh blast **không nằm trong state** nên không có ở `check_invariants`:
 ### 5.2 Thứ tự trong một tick (pipeline FFA)
 
 `movement → bomb_place → explosion → blocks → pickup → life`, rồi `tick += 1`, rồi `Mode::outcome`.
+
+Movement: Alive dùng speedlevel; Trapped dùng `Rules::trapped_speed` từ khóa
+`player.trapped_speed_px_per_s` (R-161/R-162), Dead đứngyên. Trapped vẫn không đặtbom/pickup.
+Hai trục/hộp/bámgóc giữ policy V1; native chỉđã đo input ngang. Predictor dùng cùng system.
 Đầu lượt: lưới từ địa hình → hoán vị spawn theo seed → `on_round_start` từng system theo thứ tự trên.
 RNG được dùng đúng theo thứ tự này. Đổi thứ tự là đổi luật: chỉ integrator, kèm scenario và bless golden.
 

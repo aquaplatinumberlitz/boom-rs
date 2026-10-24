@@ -1,8 +1,7 @@
-# Ca biên: người bị nhốt không nhặt item. Trong V1 người bị nhốt đứng yên (R-036), luật nhặt
-# chỉ dành cho người còn sống `Alive` (R-059).
+# Ca biên: người bị nhốt đi chậm theoR-161/R-162 nhưng chỉAlive nhặt item (R-059).
 name = "Người bị nhốt đứng trên item thì không nhặt"
 features = ["V1-017"]
-claims = ["R-036", "R-059"]
+claims = ["R-059", "R-161", "R-162"]
 status = "active"
 ticks = 20
 map = [
@@ -33,12 +32,12 @@ tick = 1
 event = "item_picked"
 count = 0
 
-# Người bị nhốt đứng yên, vẫn ở ô (2,1) và không nhặt item.
+# Đi20tick×283mpx nhưng vẫnởô(2,1); item cònnguyên.
 [[expect]]
 tick = 20
 player = 0
 cell = [2, 1]
-pos_mpx = [100000, 60000]
+pos_mpx = [105660, 60000]
 life = "trapped"
 bombs = 1
 

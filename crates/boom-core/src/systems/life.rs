@@ -400,8 +400,8 @@ mod tests {
     }
 
     #[test]
-    fn moving_player_keeps_facing_and_does_not_move_when_trapped() {
-        // Trapped đứng yên (R-036): input không đổi vị trí.
+    fn trapped_player_moves_slowly_before_life_processing() {
+        // R-161/R-162: movement trước life; trapped đi chậm theo profile.
         let (w, mut s) = pair(rules());
         let before = (s.players[1].x, s.players[1].y);
         let mut events = Vec::new();
@@ -420,6 +420,9 @@ mod tests {
             &mut events,
         )
         .unwrap();
-        assert_eq!((s.players[1].x, s.players[1].y), before);
+        assert_eq!(
+            (s.players[1].x, s.players[1].y),
+            (Mpx(before.0.0 + w.rules().trapped_speed.0), before.1),
+        );
     }
 }

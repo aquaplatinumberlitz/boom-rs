@@ -66,7 +66,7 @@ claim design bị thay thế có ghi superseded. Chưa coi cơ chế mới đã 
 | R-033 | Lửa phủ ô đặt bom + tối đa `range` ô mỗi hướng; khối cứng/mép lưới chặn, khối mềm đầu tiên có lửa rồi dừng. Bom đến hạn hoặc bị lửa chạm nổ cùng tick, xử lý theo `id` tăng dần, mỗi bom một lần; nhiều lửa cùng ô giữ `until` lớn nhất, hòa chọn `source` id nhỏ | — | `design` (từ R-030) | Task #5, `systems/explosion.rs`; R-030; **superseded by R-109** (ADR 0012; lịch sử implementation) |
 | R-034 | V1 trước ADR 0012: "chạm" = hai người chơi cùng một ô lưới tại bước life; chỉ người `Alive` làm vỡ bong bóng, hai người `Trapped` chạm nhau không đổi trạng thái | — | `design` / design | SCOPE_V1 §4; issue #8 (cùng ô); `systems/life.rs`; **superseded by R-108** (ADR 0012; lịch sử implementation) |
 | R-035 | V1 trước ADR 0012: trong một tick, người `Alive` đứng trên lửa bị nhốt trước; chỉ người đã `Trapped` từ đầu bước life mới xét chết; nếu vừa hết `trap_ticks` vừa bị chạm thì `player_died.by` là người chạm; nhiều người `Alive` cùng ô thì chọn id nhỏ nhất | — | `design` / design | SCOPE_V1 §4; ARCHITECTURE §5.2; issue #8; **superseded by R-108** (ADR 0012; lịch sử implementation) |
-| R-036 | Người bị nhốt không di chuyển trong V1 (đứng tại chỗ tới khi chết) | — | `design` / design | SCOPE_V1 §4; R-029 (`web` / candidate) nói "đi rất chậm" nhưng chưa có px/s; quyết định cho V1-012 |
+| R-036 | Lựa chọn lịch sử: người bị nhốt đứngyên; **superseded by R-161/R-162** (VN runtime24/10) | — | `design` / design | SCOPE_V1 §4; R-029 (`web` / candidate) nói "đi rất chậm" nhưng chưa có px/s; quyết định cho V1-012 |
 
 Hai claim lịch sử `design` R-034/R-035 (nay superseded by R-108) chỉ định nghĩa cách engine V1 hiện thực hóa "chạm" và thứ tự trong
 tick; chưa có bằng chứng client KR/VN cho trường hợp biên. Khi có trace, thay bằng claim `confirmed`
@@ -101,7 +101,7 @@ hoặc mở câu hỏi ở [QUESTIONS](../../research/QUESTIONS.md).
 | R-056 | V1: người còn sống (`Alive`) có tâm trong ô có item trên nền thì nhặt; duyệt người chơi theo id tăng dần nên hai người cùng ô trong cùng tick chỉ người id nhỏ nhận; item mất khỏi nền sau khi nhặt và phát `item_picked` | — | `design` (từ R-054) | Task #7, `systems/pickup.rs`; R-054; SCOPE_V1 §4 |
 | R-057 | V1: ItemBomb +1 số bom, ItemFire +1 tầm nổ, ItemRoller +1 cấp tốc độ; lượng lấy từ profile (`item.*_delta`), kẹp theo trần chỉ số; bom đã đặt giữ tầm chụp lúc đặt | — | `design` (từ R-025, R-032, R-045) | Task #7, `systems/pickup.rs`; R-025; R-032; R-045 |
 | R-058 | V1: chỉ số đã ở trần thì không nhặt — item vẫn nằm trên nền, không áp hiệu ứng, không phát event; nhặt là atomic (item chỉ mất khi hiệu ứng áp được) | — | `design` | Task #7; R-054 (item mất sau khi server xác nhận); SCOPE_V1 §4; Q-007; **superseded by R-109** (ADR 0012; lịch sử implementation) |
-| R-059 | V1: người bị nhốt (`Trapped`) hoặc đã chết không nhặt item; người bị nhốt đứng yên nên cũng không tới ô item | — | `design` | Task #7; R-036 (đứng yên), R-028 |
+| R-059 | V1: người bị nhốt (`Trapped`) hoặc đã chết không nhặt item; slow movement theo R-161/R-162 không cho phép pickup; lý do đứngyên R-036 là lịch sử | — | `design` | Task #7; R-036 (đứng yên), R-028 |
 | R-067 | V1 giấu item khi bắt đầu lượt: duyệt khối mềm theo hàng rồi cột, mỗi khối rút một số phần nghìn so với `drop.brick_item_chance`; trúng thì chọn loại theo trọng số `Rules::items` (bảng trọng số cộng dồn, lấy mẫu không lệch bằng `Rng::below`) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-050, R-051, R-053; **superseded by R-106** (ADR 0012; lịch sử implementation) |
 | R-068 | V1: lửa **không** phá item đang nằm trên nền; item chỉ rời nền khi người chơi nhặt (R-054) | — | `design` / design | Issue #6, `systems/blocks.rs`; R-030, R-054; **superseded by R-109** (ADR 0012; lịch sử implementation) |
 
@@ -310,7 +310,7 @@ quyết định trên; bảng sai khác và issue triển khai nằm trong ADR 0
 | R-105 | Ánh xạ cân bằng design C00→baobao, C01→haidao (không phải identity KR) | C00 speed 6–10/bomb 1–6/range 1–7; C01 speed 5–9/bomb 1–8/range 2–7 | `oss` / design | BnB `server/characters.js:17–27`; #133 sau #117 |
 | R-106 | Roll khi vỡ gạch; V1 chỉ giữ ba loại, chuẩn hóa tương đối BnB bubble/potion/shoe | 350 permille; Bomb:Fire:Roller = 20:28:16 | `oss` / design | BnB `server/game.js:20,425–439`; bỏ loại ngoài scope, không giữ xác suất tuyệt đối 20/28/16% |
 | R-107 | Hộp va chạm và assist khi bị chặn; pass bom tới khi hộp rời hoàn toàn | half 13 px (26×26), assist ≤12 px | `oss` / design | BnB `server/game.js:31–32,150–153,173–275,392–399`; #130 |
-| R-108 | Trapped đứng yên; giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035, giữ đứng yên R-036 |
+| R-108 | Trapped đứngyên là lịch sử (thay bởi R-161/R-162); giảm timer cả tick vừa nhốt; timeout trước touch; touch khi cả hai độ lệch nhỏ hơn 28 px | 28 px (strict); 120 tick tính cả tick bị nhốt | `oss` / design | BnB `server/game.js:454–474,546–567,634–643`; #132; thay R-034/R-035, giữ đứng yên R-036 |
 | R-109 | Chain FIFO, gạch chỉ mất sau queue; lửa phá item cũ, TTL mới giảm ngay; cap vẫn nhặt; gameplay trước kết quả rồi timeout. Biên TTL: ttl 1 → 0 ⇒ vụ nổ bị xóa **trước** khi áp sát thương (không có ô lửa, không ai bị nhốt) nhưng gạch trong blast vẫn vỡ, vì BnB phá gạch lúc nổ | — | `oss` / design | BnB `server/game.js:401–451,573–652`; #131/#132; V1 duyệt id ổn định thay insertion Map, xem ADR 0012 |
 
 R-014/R-023/R-027/R-044/R-046 giữ `oss`/candidate như bằng chứng lịch sử; không phải claim lựa chọn.
@@ -368,6 +368,7 @@ chưa tách được theo từng khóa thì validator **fail closed** (báo lỗ
 | `player.speed_px_per_s_per_level` | R-114 | speed_px_per_s_per_level | px/s | `oss` | design | BnB 5c108e8 |
 | `bomb.fuse_ms` | R-115 | bomb_fuse | ms | `oss` | design | BnB 5c108e8 |
 | `bomb.flame_ms` | R-158 | bomb_flame | ms | `design` | design | V1 design |
+| `player.trapped_speed_px_per_s` | R-162 | trapped_speed | px/s | `design` | design | V1 design |
 | `player.trap_to_death_ms` | R-160 | trap_to_death_timer | ms | `design` | design | V1 design |
 | `player.collision_half_px` | R-116 | collision_box_half | px | `oss` | design | BnB 5c108e8 |
 | `player.corner_assist_px` | R-116 | corner_assist | px | `oss` | design | BnB 5c108e8 |
@@ -811,3 +812,14 @@ R-026 vẫn confirmed **khoảng packet** riêng; R-160 không dùng clock packe
 Fixture VN động được dùng theo quyết định chủ dự án/ADR0013; không đòi server gốc hoặc RE lại KR.
 Không nâng root147/G3 thành done chỉ vì claim này đã có. Increment writer, ý nghĩa reset, native clock
 unit, mode/character khác và animation-death phase còn trong Q-018.
+
+## 26. Di chuyển chậm khi bị nhốt — runtime VN (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-161 | Sau native sender11 và trước13, cùnghero C664C4 dịch chuyển theo phím ngang: r1Left35→26/Right26→35, r3Right40→61/Left61→40; bước1px so alivecontrol5px, idle không đổiXY | Slow movement quan sát; first/last fit16,318–17,007px/s trong4đoạn | `vn_runtime` / confirmed (đúngbuild/case) | [Evidence](../../evidence/measurements/vn-trapped-input-2026-10-24/README.md); VNfixtureSHA bc875…; X/Yboxed+4C/+58, getter58D56D, sender5AF165. Chỉphímngang; khôngliteralvelocity/cấp tốcđộ/collision/crosscharacter |
+| R-162 | `player.trapped_speed_px_per_s` chọn17px/s hiệu chuẩn R-161, thay đứngyên R-036/phần movement R-108. V1 dùng fixed slow speed không nhânlevel, cảhai trục; hộp/bámgóc giữ DESIGN hiệnhành | 17px/s DESIGN;30Hz566mpx/tick=16,98px/s | `design` / design | R-161; chưa nối mover/cấp native; trụcdọc/hộp bubble/char khác là DESIGN chưa đo. Dead đứngyên; trapped không đặtbom/nhặtitem giữ policy hiệnhành, không nâng no111 thành gateconfirmed |
+
+Thứtự movement trước life giữ nguyên: timeout/touch xét ở vịtrí sau movement của tick; đây vẫn
+là DESIGN R-108, không phải quan sát nativeorder. Profilefixture cũng thêm khóa explicit để
+kiểm cùngcontract; identity thay đổi có chủý. Không fallback ngầm về đứngyên khi thiếukey.

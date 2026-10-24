@@ -1045,7 +1045,7 @@ mod tests {
     }
 
     #[test]
-    fn bi_nhot_hay_chet_giu_nguyen_trong_du_doan() {
+    fn bi_nhot_di_cham_nguoi_chet_dung_yen_trong_du_doan() {
         for life in [boom_core::Life::Trapped { since: 3 }, boom_core::Life::Dead] {
             let mut predictor = Predictor::new(world(), 0).expect("predictor");
             let mut state = two_player_state(7);
@@ -1069,8 +1069,18 @@ mod tests {
             );
             assert_eq!(
                 (predicted.players[0].x, predicted.players[0].y),
-                (before.players[0].x, before.players[0].y),
-                "người chơi đã chết/bị nốt không được dịch chuyển khi dự đoán"
+                (
+                    boom_core::Mpx(
+                        before.players[0].x.0
+                            + if matches!(life, boom_core::Life::Trapped { .. }) {
+                                predictor.world.rules().trapped_speed.0
+                            } else {
+                                0
+                            }
+                    ),
+                    before.players[0].y,
+                ),
+                "trapped đi chậm theo cùng luật core; dead giữ vị trí"
             );
         }
     }

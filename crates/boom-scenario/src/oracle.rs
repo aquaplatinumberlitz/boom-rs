@@ -1258,7 +1258,8 @@ rule = "grid.tile_px"
         assert_eq!(measured.get("O-005"), Some(&"3650"));
         assert_eq!(measured.get("O-006"), Some(&"2800"));
         assert_eq!(measured.get("O-007"), Some(&"2000"));
-        assert_eq!(measured.get("O-011"), Some(&"0"));
+        // 17px/s DESIGN → 283mpx/tick ở60Hz; 60tick=16.98px, báo nguyênpx16.
+        assert_eq!(measured.get("O-011"), Some(&"16"));
         assert_eq!(measured.get("O-012"), Some(&"120"));
         assert_eq!(measured.get("O-013"), Some(&"6300"));
     }
@@ -1428,7 +1429,7 @@ tolerance = 5
 
 [oracle.check]
 kind = "scenario"
-scenario = "fixtures/scenarios/movement/trapped_stands_still.toml"
+scenario = "fixtures/scenarios/movement/trapped_moves_slowly.toml"
 measure = "player_speed"
 player = 0
 "#;

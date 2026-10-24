@@ -43,7 +43,7 @@ claim: nó chỉ cho biết engine có khớp nguồn gốc hay không.
 | O-008 | drop_item_weight_share_bomb (permille) | vn_static / confirmed (R-051, R-112) | 432 ± 40 | 418 | khớp | khối khai 4096 · engine vỡ 4096 khối → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
 | O-009 | drop_item_weight_share_fire (permille) | vn_static / confirmed (R-051, R-112) | 331 ± 40 | 335 | khớp | khối khai 4096 · engine vỡ 4096 khối → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
 | O-010 | drop_item_weight_share_roller (permille) | vn_static / confirmed (R-051, R-112) | 237 ± 40 | 246 | khớp | khối khai 4096 · engine vỡ 4096 khối → 1450 item rơi · seed 20261022 · profile data/rules/v1-dev.toml |
-| O-011 | trapped_player_speed (px/s) | web / candidate (R-029, R-036, R-108) | chưa có số | 0 | chưa có số (gap G-08) | kịch bản fixtures/scenarios/movement/trapped_stands_still.toml · profile skeleton-test · 60 tick ở 60 Hz |
+| O-011 | trapped_player_speed (px/s) | web / candidate (R-029) | chưa có số | 16 | chưa có số (gap G-08) | kịch bản fixtures/scenarios/movement/trapped_moves_slowly.toml · profile skeleton-test · 60 tick ở 60 Hz |
 | O-012 | player_speed (px/s) | vn_runtime / candidate (R-043, R-045, R-114) | 167 ± 5 | 120 | lệch (đã ghi nhận G-06) | kịch bản fixtures/scenarios/vn_engine_diff/speed_5px_per_30ms.toml · profile skeleton-test · 61 tick ở 60 Hz |
 | O-013 | trap_to_death (ms) | vn_runtime / confirmed (R-026, R-115) | 6359 ± 5 | 6300 | lệch (đã ghi nhận G-05) | kịch bản fixtures/scenarios/vn_engine_diff/trap_death_6359ms.toml · profile skeleton-test · 378 tick ở 60 Hz |
 
@@ -58,7 +58,7 @@ Nguồn gốc của các oracle dưới đây **chưa có giá trị** để so 
 nên engine chỉ ghi kết quả đo, không kết luận khớp hay lệch. Khoảng trống đã ghi ở
 SCOPE_V1 §10 và vẫn mở ở [QUESTIONS](QUESTIONS.md).
 
-- **G-08** — Người bị nhốt có di chuyển không. Oracle O-011: engine `0`.
+- **G-08** — Người bị nhốt có di chuyển không. Oracle O-011: engine `16`.
 
 ## Bằng chứng từng oracle
 
@@ -79,8 +79,8 @@ SCOPE_V1 §10 và vẫn mở ở [QUESTIONS](QUESTIONS.md).
   - Ghi chú: Tỷ trọng kỳ vọng tính từ bảng trọng số VN (3650:2800:2000); xác suất rơi gốc vẫn unknown (R-052, R-053).
 - **O-010** — Phân phối rơi item — Roller ≈ 237‰: feature V1-037, nguồn vn_static / confirmed, claim R-051, R-112. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).
   - Ghi chú: Tỷ trọng kỳ vọng tính từ bảng trọng số VN (3650:2800:2000); xác suất rơi gốc vẫn unknown (R-052, R-053).
-- **O-011** — Người bị nhốt có di chuyển không: feature V1-037, nguồn web / candidate, claim R-029, R-036, R-108. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).
-  - Ghi chú: R-029 là candidate web ("đi rất chậm") và chưa có px/s; engine V1 đứng yên theo R-036 (0 px/s). Khoảng trống G-08 chờ đo client gốc theo Q-009.
+- **O-011** — Người bị nhốt có di chuyển không: feature V1-037, nguồn web / candidate, claim R-029. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).
+  - Ghi chú: Giữ oracle web R-029 không có scalar để đối chiếu. Native VN R-161 đã xác nhận slow movement; R-162 chọn17px/s DESIGN. Engine đo displacement nguyênpx nên báo16px/s với profile60Hz283mpx/tick; không gọi đây là literalnative17 hoặc tự cho nativeoracle đạt.
 - **O-012** — Tốc độ người chơi theo quan sát VN: feature V1-037, nguồn vn_runtime / candidate, claim R-043, R-045, R-114. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md).
   - Ghi chú: R-043 là quan sát thô một run (checksum chưa xác thực) nên dung sai ±5 px/s; chênh lệch đo được hiện nằm ở G-06 và chờ đo client gốc theo Q-009.
 - **O-013** — Thời gian nhốt → chết theo khoảng packet VN: feature V1-037, nguồn vn_runtime / confirmed, claim R-026, R-115. Bằng chứng: [`docs/specification/gameplay/RULES_V1.md`](../specification/gameplay/RULES_V1.md), [`docs/evidence/measurements/vn-timing-2026-10-19/trap-packets.csv`](../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv).
