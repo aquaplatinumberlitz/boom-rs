@@ -1,0 +1,229 @@
+{
+  "issue": 270,
+  "baseline_commit": "c8375f29a6fb5f80bb6a4a5821347d4aef659019",
+  "quantity": "Rust client window lifecycle under KWin/X11; not native game physics",
+  "upstream": "miniquad0.4.11",
+  "environment": {
+    "wm": "KWin",
+    "backend": "X11",
+    "screen": [
+      1920,
+      1080
+    ],
+    "gpu": "NVIDIA RTX3060",
+    "scope": "Actual host window transition/rebind; not minimumhardware benchmark"
+  },
+  "baseline": {
+    "binary_sha256": "f16d62b8137c8fb5d5094ae6c6d4b4e95effad49094c16ab2e208c47be27e975",
+    "initial": [
+      "WINDOW=25165829\nX=660\nY=251\nWIDTH=600\nHEIGHT=560\nSCREEN=0",
+      "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+    ],
+    "fullscreen": [
+      "WINDOW=25165829\nX=0\nY=0\nWIDTH=1920\nHEIGHT=1080\nSCREEN=0",
+      "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+    ],
+    "exit": [
+      "WINDOW=25165829\nX=0\nY=28\nWIDTH=1920\nHEIGHT=1006\nSCREEN=0",
+      "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+    ],
+    "delayed_external_resize": [
+      "WINDOW=25165829\nX=0\nY=28\nWIDTH=1920\nHEIGHT=1006\nSCREEN=0",
+      "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+    ]
+  },
+  "patched": {
+    "binary_sha256": "5cbb6cdc54966706de90208c2083695a5f9e5f975ed3f824f90485626f8d6fd4",
+    "wm": "KWin/X11",
+    "cases": [
+      {
+        "args": [],
+        "initially_maximized": false,
+        "cycles": [
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 600,
+              "height": 560,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+            }
+          },
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 600,
+              "height": 560,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+            }
+          }
+        ],
+        "initial": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      },
+      {
+        "args": [],
+        "initially_maximized": true,
+        "cycles": [
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 1920,
+              "height": 1006,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+            }
+          },
+          {
+            "fullscreen": {
+              "width": 1920,
+              "height": 1080,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+            },
+            "restored": {
+              "width": 1920,
+              "height": 1006,
+              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+            }
+          }
+        ],
+        "initial": {
+          "width": 1920,
+          "height": 1006,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      },
+      {
+        "args": [
+          "--rebind",
+          "right=F11"
+        ],
+        "initially_maximized": false,
+        "cycles": [],
+        "initial": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "after_bound_key": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      },
+      {
+        "args": [
+          "--rebind",
+          "right=F10"
+        ],
+        "initially_maximized": false,
+        "cycles": [],
+        "initial": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "after_bound_key": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      }
+    ]
+  },
+  "startup_fullscreen": {
+    "binary_sha256": "5cbb6cdc54966706de90208c2083695a5f9e5f975ed3f824f90485626f8d6fd4",
+    "wm": "KWin/X11",
+    "cases": [
+      {
+        "args": [
+          "--fullscreen"
+        ],
+        "initially_maximized": false,
+        "cycles": [],
+        "initial": {
+          "width": 1920,
+          "height": 1080,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
+        },
+        "restored": {
+          "width": 600,
+          "height": 560,
+          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
+        },
+        "passed": true
+      }
+    ]
+  },
+  "verification": {
+    "package_tool_tests": 41,
+    "license_report_dependencies": 135,
+    "vendored_dependency_included": "miniquad 0.4.11",
+    "normal_cycles": 2,
+    "initially_maximized_cycles": 2,
+    "bound_key_cases": [
+      "F10",
+      "F11"
+    ],
+    "startup_fullscreen": true,
+    "g5_signoff": false,
+    "gui_windows_macos": false,
+    "other_window_managers": false,
+    "new_release_package": false
+  },
+  "raw_files": [
+    {
+      "local_path": "/home/admin/boom-team/tmp/g5-restore-current-baseline.json",
+      "size": 807,
+      "sha256": "75f733a8a8c121b50f0d5e1a1e866f8fbaeace3f3af28be2e944c07bd50cde2c"
+    },
+    {
+      "local_path": "/home/admin/boom-rs-wt/window-restore-270/local/window-restore-270/matrix.json",
+      "size": 3257,
+      "sha256": "5bf8f9e35655ae90d9a1925e62ee805fe2d76609924e2f8bad4e2bc25cea113c"
+    },
+    {
+      "local_path": "/home/admin/boom-rs-wt/window-restore-270/local/window-restore-270/startup-fullscreen.json",
+      "size": 565,
+      "sha256": "f60243708917686da1b3e91593b1f8a907503139809fa3ee2da4df272271801d"
+    },
+    {
+      "local_path": "/home/admin/boom-rs-wt/window-restore-270/local/window-restore-270/restored-0.png",
+      "size": 940,
+      "sha256": "05a5eb2db5677fab58a5ecf2c218ff217dc33719b87cf9f13f286d5a36ed439a"
+    },
+    {
+      "local_path": "/home/admin/boom-rs-wt/window-restore-270/local/window-restore-270/restored-1.png",
+      "size": 2533,
+      "sha256": "4c6e9499c328cca71418fc101272774e5e3296f83558d185909ce527d971bc30"
+    },
+    {
+      "local_path": "/home/admin/boom-team/tmp/g5-window-transition-matrix.py",
+      "size": 3017,
+      "sha256": "0e9e1fb5f3207e106fe0010babcb0798b4c40b210ee4aa9b06e2b5c200cfab1a"
+    },
+    {
+      "local_path": "/home/admin/boom-team/tmp/g5-window-startup-fullscreen.py",
+      "size": 2254,
+      "sha256": "dda0d9e8e174007c07305ce93d188455de8fe3df9701d75fcbffd35ea6e46dca"
+    }
+  ],
+  "verification_status": "passed"
+}

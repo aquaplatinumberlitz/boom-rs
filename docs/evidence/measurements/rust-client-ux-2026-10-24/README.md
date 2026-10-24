@@ -113,3 +113,18 @@ Hashbinary/ảnh/log nằm trong metadata; ảnh RGBA bằng snapshotroom trư�
 focus/audio/realGPU hoặc GUIWindows/macOS, không benchmark minimumhardware. Không có media vàoGit.
 G2/G3/G5 vẫn in_review/G6blocked/V1-036in_review; chỉ cập nhật evidence đúng profile, không ký gate
 thay người review, không gỡ candidate hoặc tự chọn license phát hành.
+
+
+## Khôi phục cửa sổ sau fullscreen — issue270
+
+Lỗi KWin ở bảng kiểm ban đầu đã có đối chứng mới trên source baseline `c8375f2`:
+cửa sổ600×560 vào fullscreen1920×1080, thoát còn maximized1920×1006; resize trễ cũng không sửa.
+Bản sửa miniquad0.4.11 dùng EWMH add/remove, giữ state của mapped window. Hai vòng vào/ra
+khôi phục600×560; đối chứng cửa sổ vốn maximized vẫn giữ maximized1920×1006, không xóa lựa chọn người dùng.
+Các ca rebindF10/F11 giữ shortcut ưu tiên gameplay; mở bằng `--fullscreen` rồi thoát trả600×560.
+[Metadata, SHA binary/raw và bốn ca](window-restore.json). Screenshot/raw giữ local, không đưa media vào repo.
+
+Source vendor khớp package SHA trong lockfile cũ, trừ đúng hàm X11; MIT/Apache giữ nguyên.
+License collector đã sửa để dependency path ngoài workspace không bị bỏ qua:41test pass, report135crate
+có miniquad. Không suy đây là GUIWindows/macOS, mọi WM, minimumhardware hoặc nghiệm thu G5.
+Gói QA task265 vẫn là gói trước patch cửa sổ; chưa phát hành gói mới hoặc tag.
