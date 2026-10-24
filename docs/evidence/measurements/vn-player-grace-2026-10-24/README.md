@@ -1,7 +1,9 @@
 # VN player grace — runtime owner-only, 2026-10-24
 
-Task [#240](https://github.com/aquaplatinumberlitz/boom-rs/issues/240), scope **VN runtime**. Đây là
-hai quan sát owner-only (run2/run3); **không** phải timer/grace toàn hệ thống và không dùng làm luật KR.
+Task [#240](https://github.com/aquaplatinumberlitz/boom-rs/issues/240), scope **VN runtime**. Build
+đo là VN `VBNB_116`; đây là hai quan sát owner-only (run2/run3). Theo AGENTS §4 và ADR 0002/0013, quan
+sát VN **confirmed** cùng đại lượng có thể dùng cho luật chung; lần này mới owner-only, patch manifest
+chưa rõ nên giữ **candidate**, không tự nâng confirmed. Chưa đo trực tiếp KR và không suy non-owner.
 Raw local (không commit): `.re-work/vn-grace-240/host-run-2/` và `host-run-3/`.
 
 ## Fixture / provenance
@@ -73,13 +75,13 @@ Map cell `(13,0)` = tile1005/obj996 (floor); `(14,1)` = tile1005/obj996; `(12,0)
 
 ## Host probe độc lập
 
-Supervisor dùng trong hai run: `/home/admin/boom-team/tmp/vn240-host.py` (read-only; không chép vào
-repo). Script tạo Xvfb `:141` + prefix/game copy riêng, fakeserver loopback với `BOMB_PLACE=1`,
-`BOMB_ECHO=60`, `ROUND_TIME=600`, chờ stage10/11/12/13, ghi `ready.json`, rồi đọc `command.json` để
-snap/hold key; cleanup terminate đúng PIDs con, không `pkill`/`wineserver -k`. Run3 command:
-`space → wait0.4 → snap06 → wait5 → snap07 → Left0.45 → wait0.2 → snap08 → Right0.45 → wait0.2 →
-snap09 → stop`. Đây là probe độc lập của Codex host; repo chỉ giữ mô tả, không game binary/pack/raw
-log.
+Supervisor: `/home/admin/boom-team/tmp/vn240-host.py` (read-only; không chép vào repo). Bản hiện tại
+là **bản đã chỉnh cho run3**, không mô tả chung cho run2. Cả hai dùng Xvfb `:141`, prefix/game copy
+riêng, fakeserver loopback `BOMB_PLACE=1`, `BOMB_ECHO=60` và cleanup terminate đúng PIDs con (không
+`pkill`/`wineserver -k`). `ROUND_TIME` thực tế khác nhau: **run2 = 120**, **run3 = 600**; supervisor
+file hiện chỉ còn bản run3. Run3 command: `space → wait0.4 → snap06 → wait5 → snap07 → Left0.45 →
+wait0.2 → snap08 → Right0.45 → wait0.2 → snap09 → stop`. Repo chỉ giữ mô tả, không game binary/pack/
+raw log.
 
 ## Raw / limitations
 
