@@ -31,6 +31,8 @@ pub struct UiOptions {
     pub snapshot: Option<PathBuf>,
     /// Màn cần chụp (nếu có): nhảy thẳng tới màn đó trước khi chụp.
     pub shot: Option<ShotScreen>,
+    pub scale: u32,
+    pub fullscreen: bool,
 }
 
 /// Nội dung bundle đã nạp cho chế độ demo UI.
@@ -78,12 +80,20 @@ pub async fn run_ui<B: UiBackend>(mut model: UiModel<B>, opts: UiOptions) {
     let content = load_content(opts.bundle.as_deref());
     warn_missing_ui_keys(&model, content.bundle.as_ref());
     let mut frame = 0u32;
+    let canvas = crate::window::UiCanvas::new();
+    let mut window = crate::window::WindowControls::new(
+        opts.scale,
+        opts.fullscreen,
+        [crate::ui::WIDTH, crate::ui::HEIGHT],
+    );
     loop {
+        window.update([crate::ui::WIDTH, crate::ui::HEIGHT], None, false);
         if handle_input(&mut model) {
             return;
         }
         model.tick();
         let layout = layout::layout(&model, content.bundle.as_ref(), content.scene.as_ref());
+        canvas.begin();
         draw::draw(
             &layout,
             &mut font,
@@ -91,6 +101,7 @@ pub async fn run_ui<B: UiBackend>(mut model: UiModel<B>, opts: UiOptions) {
             content.bundle.as_ref(),
             content.scene.as_ref(),
         );
+        canvas.present(window.scale);
         frame += 1;
         if let Some(path) = &opts.snapshot
             && frame >= 3

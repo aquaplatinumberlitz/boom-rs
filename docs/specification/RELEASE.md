@@ -277,9 +277,11 @@ Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (f
 
 - Cấu hình máy tối thiểu (CPU/RAM/GPU) — câu hỏi mở của V1-036, chưa có phép đo.
 - Kích thước gói và thời gian build trên máy người dùng (chỉ đo trên runner CI).
-- Hiệu năng render trên GPU thật; [ADR 0010](../decisions/0010-client-stack-choice.md) §4.5
-  ghi "chưa đo GPU thật", mọi phép đo trước đó chạy trên llvmpipe.
-- Input-held/focus và phát âm thanh trên soundcard thật (cũng chưa đo theo ADR 0010).
+- Hiệu năng render/cấu hình tối thiểu trên GPU thật: kiểm vận hành RTX3060 ngày24/10 đã có,
+  chưa benchmark FPS/latency hoặc đại diện minimum hardware.
+- UX đa OS, khôi phục kích thước sau fullscreen trên WM X11 và nghe qua soundcard thật.
+  [Hồ sơ UX24/10](../evidence/measurements/rust-client-ux-2026-10-24/README.md) có focus thật,
+  integer scale và capture BGM/SFX/volume/mute qua đường phát số; không thay nghiệm thu G5.
 
 ## 8. README chạy nhanh (đóng gói vào gói)
 
@@ -319,7 +321,10 @@ bin/boom-client --rules data/rules/v1-dev.toml --l10n data/l10n/vi-v1.toml --bun
 ```
 
 Bỏ `--bundle` để chạy chế độ offline với địa hình placeholder (không cần pack).
-Bấm `Esc` để thoát, `S` để đổi tỉ lệ 1×/2×.
+Bấm `Esc` để thoát, `F10` để đổi tỉ lệ 1×/2×, `F11` để đổi fullscreen/windowed.
+Dùng `--scale 1|2` và `--fullscreen|--windowed` để chọn lúc mở. Phím đã rebind cho gameplay
+được ưu tiên hơn shortcut; `S` đổi tỉ lệ trong offline khi chưa gán cho gameplay.
+Canvas luôn phóng nguyên; màn không đủ2× dùng1× có viền.
 
 ## 4. Chạy server
 
