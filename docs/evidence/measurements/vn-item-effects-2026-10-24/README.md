@@ -1,4 +1,4 @@
-# Hiệu ứng Bomb/Fire VN — đo offline có đối chứng (2026-10-24)
+# Hiệu ứng Bomb/Fire/Roller VN — đo offline có đối chứng (2026-10-24)
 
 Root [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149). Hai ca Bomb/Fire và ba lượt cap bổ sung
 bằng chứng cho R-025/R-111; không đổi rules/profile và không suy trần chỉ số KR từ một nhân vật VN.
@@ -176,3 +176,51 @@ hoặc coi boxfacet+4 (hero+514 theo phép cộng) đã được đo. Không đ�
 
 Root149 còn writer/clamp, Roller, ItemAttr/BomberAttr và C00/C01KR. Profile và các khóa nhân vật
 không đổi từ một actor VN chưa nối identity; R-163/R-167 được bổ sung, không xóa giới hạn cũ.
+
+
+## Roller và vận tốc thực — R-169
+
+Câu hỏi đã trả lời: **một Rollerkind2 có làm đổi vận tốc native của cùng actor trong ca kiểm không?**
+Câu hỏi cấp tốc độ/normalization và identity C00/C01KR vẫn chưa trả lời, không gộp vào kết luận đạt.
+Một capture mới `host-item-roller-149-r1`, cùng fixturebc875…/Factory01index193/room19;
+DSH1 là runtimeowner riêng trong namespaceuser/net/PID chỉloopback, privategame/prefix. Đã kết thúc
+EXIT0/dọn namespace trước phân tích; không đổi binary/pack/DB/memory hoặc gọi hàm trong inferior.
+
+Server chỉ cấp **một itemkind2** tại(14,6) vàACK117→158. BOMB_PLACE0/BOMB_ECHO0, khôngSpace;
+log có đúngmột pickup/ACK vàkhông111/151/120. Nativeactor448364544/vtableC664C4 giữ nguyên, X560;
+đi lên/xuống hànhlangx14 đã được kiểm từ ca Factory trước. Hai cặp Up/Down trước item, transitqua
+pickup, hai cặp sau vàidle. Không dùng thời gian giữ phím/packet làm vận tốc.
+
+[roller-speed.csv](roller-speed.csv) ghi9cửa sổ từ nativeXY cóchecksum/readbegin/end;
+[roller-speed.json](roller-speed.json) giữ35hash (25runtimefile/10static captures) và giới hạn.
+Mỗi cửa sổ trung tâm bỏhai mẫu **đổiY** ở mỗi đầu, dùng ΔY/Δbegin_ns; giữ riêng đầyđủfull/central
+windows vàtransit trongraw. Root tính lại cả9cửa sổ từ raw, không lấy kết quả do worker ghi làm oracle.
+
+| Phase | Up trung tâm, hai cửa sổ (px/s) | Down trung tâm, hai cửa sổ (px/s) | Mẫu dịch chuyển |
+|---|---:|---:|---|
+| Trướcpickup | 165.149;170.311 | 167.349;169.018 | 5px giữa các mẫu đổiY |
+| Sau117/158kind2 | 203.614;203.787 | 197.861;202.928 | Chủ yếu6px;hai bước12px vẫn giữ |
+
+Đây là tăng vận tốc cửa sổ hữu hạn trên **cùng actor**, không phải cấp5→6 hoặc hàm24px/s/level.
+Transitqua pickup có lẫn trước/sau được loại **khỏi phép so**, không xóa raw. Hai hướng/lượt lặp
+trong cùng mộtrun là đối chứng, không gọi là nhiều thử nghiệm nhân vật độc lập.
+
+### Sai số, probe không thành công và giới hạn
+
+Sampler nominal5ms, nhưng khoảng các mẫu đổiY còn có cadence native/hostjitter/quantization;
+gap lớn tới64.4ms trong các cửa sổ sạch vẫn giữ. Readspan ghi nhận toànrun tốiđa1.139ms,
+trong các cửa sổ trungtâm tốiđa0.468ms; đây không phải sai số tuyệt đối của vận tốc. Chưa có timestamp
+update native, không bịa confidencebound hoặc chuyển medianinterval thành cấp/tickserver.
+Sampler bỏ qua checksum/readfailXY mà không đếm tổng; số mẫu bị bỏ chưa biết, đã công khai trongmanifest.
+Idle khoảng29.2s bao gồm setup trước command, không coi đó là nhiều ca idle; các waitcontrols nằm tronglog.
+
+Đọc thử sáu box ở vùng đã có mỏneo facet: +514/+520/+52C/+538/+544 giữ nguyên; +550 lỗi read/checksum
+ở755/755mẫu, được ghi riêng, không bỏXY. Không từ đó kết luận mọi stat bất biến hoặc đặt tên +550 làspeed.
+Nativelevel/getter/writer vẫnunknown. Đọc tĩnh inputcontroller thựcC6630C+0C→5AE857→59C1BC và
+heroC664C4+DC/+218→592DE6/596DB7 chỉ nối state/dir/effect; helper chưa mở. Getter59A263 trảboxed
+controller+20B8 nhưng chưa có consumer tốcđộ. Không gán body cậpnhật21 của facet thànhmover hoặc
+lấy±4targetcorrection cũ làm normalization. Coverage/hashes giữ cả11byte/bodyoverrun, không đếmthunk là0body.
+
+R-169 xác nhận hiệu ứng tăng vận tốc trong caVN, **chưa nâng Roller+1level R-045 hoặc speed24DESIGN**,
+chưa đổi profile. Bước tiếp: cần source actualXY-delta arithmetic hoặc writer/consumer cấp trên đúng
+receiver rồi mới probe giá trị cấp; không đo lại mộtRoller chỉ để có số đẹp hơn.
