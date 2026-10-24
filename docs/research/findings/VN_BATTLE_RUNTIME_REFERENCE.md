@@ -196,3 +196,12 @@ nhánh override chưa đo. Writer/cap và ánh xạ KR vẫn mở, không suy to
 còn15 entry thỏa hai predicate0; không phải hết pool10. Không151/120;12pickup/10placement có ACK.
 5AEC77/+88 và5A0274/+84 đã định vị; writer/literalclamp và identityKR vẫn mở. Basefacet+4 đi qua
 patchstub.devirt→414543,22Bgetter và5Bstub đã giữprovenance; không đo basebox hoặc khẳng định vanillaequivalence.
+
+
+### Roller tăng vận tốc nhưng cấp chưa nối (R-169)
+
+[One-run/9windows/35hash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#roller-và-vận-tốc-thực--r-169):
+DSH1 đo hai cặpUp/Down trước165–170/sau198–204px/s trên cùngactor448364544/C664C4, đúngmột
+117/158kind2/khôngbom/nhốt. Observedsampleincrement5→6px không phải cấp5→6. Nativelevel vẫnunknown;
+không đổi24px/s/level hoặc suy C00/C01KR. Sampler/readjitter/gaps/+550failure/cachedstate-onlypaths
+được giữ trongevidence; không lặpWine khi chưa có consumer cấp mới.

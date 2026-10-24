@@ -1,0 +1,319 @@
+{
+  "schema": 1,
+  "issues": [
+    149,
+    146
+  ],
+  "claim": "R-169",
+  "baseline": "9f8376ed75059df9f08580fce2bbf0ce5caf2b50",
+  "source": "vn_runtime",
+  "status": "confirmed (scoped before/after movement change), native level unknown",
+  "fixture": {
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "build": "VN VBNB_116 patched offline fixture",
+    "architecture": "i386"
+  },
+  "raw_roots_private": {
+    "runtime": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-item-roller-149-r1",
+    "static": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed"
+  },
+  "runtime": {
+    "owner": "DSH1 only, user/net/PID namespace loopback/private game/prefix, endedEXIT0",
+    "map": "Factory01 index193, room19",
+    "actor": 448364544,
+    "vtable": "0xC664C4",
+    "item": "exactly one Roller kind2 at14,6 through117/158",
+    "excluded_packets": [
+      "111",
+      "151",
+      "120"
+    ],
+    "input": "idle, two Up/Down pairs before; transit acrosspickup excluded; two Up/Down pairs after; finalidle",
+    "valid_samples": 755,
+    "x_constant": 560,
+    "y_range": [
+      110,
+      519
+    ]
+  },
+  "measurement": {
+    "method": "Per MOVE_TO..MOVE_DONE, keep changed-Y rows, trim two changed-Y rows at each end, use first/last begin_ns; transit5 excluded from before/after; full windows in private CSV retained",
+    "before_up_px_s": [
+      165.149,
+      170.311
+    ],
+    "before_down_px_s": [
+      167.349,
+      169.018
+    ],
+    "after_up_px_s": [
+      203.614,
+      203.787
+    ],
+    "after_down_px_s": [
+      197.861,
+      202.928
+    ],
+    "observed_sample_changes": "before mostly5px; after mostly6px, two12px transitions retained, not level or server tick",
+    "nominal_sampler_ms": 5,
+    "max_recorded_read_span_ms": 1.139041,
+    "central_max_read_ms": 0.4677,
+    "observed_steady_window_max_gap_ms": 64.369,
+    "native_update_timestamps": "not instrumented; rates are finite-window averages, no invented exact confidence bound",
+    "dropped_invalid_xy_reads": "sampler skips checksum/read failures without a total counter; number of skipped reads unknown; long observed gaps retained",
+    "boxed_scalar_probe": "five offsets514/520/52C/538/544 unchanged;550 checksum/read failure on755/755; neither is proof of all stats unchanged or a speed-field identification"
+  },
+  "static": {
+    "source": "vn_static",
+    "body_ranges": [
+      {
+        "va": "0x5ae857",
+        "end_inclusive": "0x5ae922",
+        "bytes": 204
+      },
+      {
+        "va": "0x59c1bc",
+        "end_inclusive": "0x59c22d",
+        "bytes": 114
+      },
+      {
+        "va": "0x59a263",
+        "end_inclusive": "0x59a26d",
+        "bytes": 11
+      },
+      {
+        "va": "0x592de6",
+        "end_inclusive": "0x592e90",
+        "bytes": 171
+      },
+      {
+        "va": "0x596db7",
+        "end_inclusive": "0x597133",
+        "bytes": 893
+      }
+    ],
+    "result": "input/state/dir/effect paths not yet a proven speed-level consumer; no extra Wine after one run",
+    "budget": "first2body grant actually3 incl11Bthunk (one-body/11B overrun recorded); nextgrant2bodies1064B; no unrecorded-body claim",
+    "unread": "callees/mover outside listed functions; controller+20B8 boxed getter has no proven speed role"
+  },
+  "limits": [
+    "one actor/build/mode/run; no C00/C01KR mapping",
+    "one pickup with four before/four after windows is not multiple independent actor trials",
+    "measured px/s/sample increments do not prove native level+1 or24px/s/level",
+    "no change to Rust profile, collision, traps, grace or cap",
+    "idle29.2s includes setup, not repeated controlcase"
+  ],
+  "files": [
+    {
+      "root": "runtime",
+      "path": "00-initial.png",
+      "size": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "root": "runtime",
+      "path": "01-channels.png",
+      "size": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "root": "runtime",
+      "path": "02-lobby.png",
+      "size": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "root": "runtime",
+      "path": "03-create-dialog.png",
+      "size": 375207,
+      "sha256": "d45a3e5cf7f2ac389e352129c61c87dded83f0ae4804d7dc27966ea178764caa"
+    },
+    {
+      "root": "runtime",
+      "path": "04-room.png",
+      "size": 386039,
+      "sha256": "cef832a44403012c069ef9f138ca752cf4df4c41efae040b9df17ae3fd051b5d"
+    },
+    {
+      "root": "runtime",
+      "path": "05-match.png",
+      "size": 409500,
+      "sha256": "a5f85a295341b5062ae6fa73360d9daecbd25466d8f2065fb8c43069b7f39d72"
+    },
+    {
+      "root": "runtime",
+      "path": "06-roller-end.png",
+      "size": 405771,
+      "sha256": "3dbb208ed9d71e141df7e545c26364bfb79b6ffc8a616997a95a74e2b64d4ee7"
+    },
+    {
+      "root": "runtime",
+      "path": "ack.json",
+      "size": 42,
+      "sha256": "43950419eb6628b65501bed35bcd913ee9a8778f0c45da2a2d779bc334e10224"
+    },
+    {
+      "root": "runtime",
+      "path": "command.json",
+      "size": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "root": "runtime",
+      "path": "harness-used.py",
+      "size": 11946,
+      "sha256": "926849919750455f30affac8e2bdac0f056116aad6afdf56df75ce39fb4d90c9"
+    },
+    {
+      "root": "runtime",
+      "path": "hero-target.json",
+      "size": 147,
+      "sha256": "0ea112e994673e3f87d0afe610be14bcee21a1ff92a5d2c771b74c7f39961740"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.jsonl",
+      "size": 18396,
+      "sha256": "354d9ff622cfcd085a7c5765a636383f4461b1e33667271e7492a5500f4f9e91"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.log",
+      "size": 14386,
+      "sha256": "10f81f75439640c7915edf9b25fa18ad21ef0a273dc2b8c1b9a8648897598d28"
+    },
+    {
+      "root": "runtime",
+      "path": "pids.json",
+      "size": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "root": "runtime",
+      "path": "position-samples.jsonl",
+      "size": 213665,
+      "sha256": "4638e1c9d530e12b50ff9c6a917fc60523bf57b477726919f56066fc647c1c7a"
+    },
+    {
+      "root": "runtime",
+      "path": "probe-ready.json",
+      "size": 33,
+      "sha256": "4ce5e1cd727b61b9056040c52d8b207592b986941035bf8ecac59920b9cb513e"
+    },
+    {
+      "root": "runtime",
+      "path": "probe.gdb",
+      "size": 5088,
+      "sha256": "a57f4cff006119f7fcb29beab4d80f1553234ccc17028644bc2c91e30ef18657"
+    },
+    {
+      "root": "runtime",
+      "path": "probe.gdb.in",
+      "size": 5020,
+      "sha256": "1abf7273fd785e074ea218b7f1e838b1f0926e93aedc6eeb1e4165f9144dec26"
+    },
+    {
+      "root": "runtime",
+      "path": "proxy-context.json",
+      "size": 94,
+      "sha256": "0da2b5d8dc4d0aa19d59a49af93cfe6682d3c8d2fa6ec52b2f9cd7fc0aae4e55"
+    },
+    {
+      "root": "runtime",
+      "path": "ready.json",
+      "size": 58,
+      "sha256": "280a2742d6004c24e007881bcbf40e041c0f5a41511b1b01148e30e5325e2048"
+    },
+    {
+      "root": "runtime",
+      "path": "server-used.py",
+      "size": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "root": "runtime",
+      "path": "server.log",
+      "size": 14386,
+      "sha256": "10f81f75439640c7915edf9b25fa18ad21ef0a273dc2b8c1b9a8648897598d28"
+    },
+    {
+      "root": "runtime",
+      "path": "supervisor.log",
+      "size": 4587,
+      "sha256": "289804366f45b84ec8a0e3a920ff21b18a28a3b6a316c6429263d0dd530a388a"
+    },
+    {
+      "root": "runtime",
+      "path": "winedbg.log",
+      "size": 15277,
+      "sha256": "9c94b5ada49384bb162e6f85a4e039b6004fb3829cfc7df060358ff5e5846b8a"
+    },
+    {
+      "root": "runtime",
+      "path": "xvfb.log",
+      "size": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "root": "static",
+      "path": "5AE857-body.asm",
+      "size": 3479,
+      "sha256": "c1ff4accc0af18f0e3cd7d68832571d32842fc0dc9511348c03b065cd0f6efa1"
+    },
+    {
+      "root": "static",
+      "path": "5AE857-body.hex",
+      "size": 409,
+      "sha256": "e5958ea4a7f2f1efcdb87ca85b950cb15110f0df27c0d30634f2865eb98d04fc"
+    },
+    {
+      "root": "static",
+      "path": "59C1BC-body.asm",
+      "size": 2372,
+      "sha256": "1d7225f0f050037951af1ed833142d4f380e02942703ffd38388d871f3665d69"
+    },
+    {
+      "root": "static",
+      "path": "59C1BC-body.hex",
+      "size": 229,
+      "sha256": "e5353db65e8ca050b363844f853068bda63dd1589b8807ba4560cdbe5035b352"
+    },
+    {
+      "root": "static",
+      "path": "59A263-getter-thunk.asm",
+      "size": 233,
+      "sha256": "71dad01d3507d8b6df15dce4bfada789d68e27c65b341a3a1fe74da505bee86d"
+    },
+    {
+      "root": "static",
+      "path": "59A263-getter-thunk.hex",
+      "size": 23,
+      "sha256": "e965256cd1d63d72791f21931b6f5c5e8e8fc8eb711156f234caa28d48bd068b"
+    },
+    {
+      "root": "static",
+      "path": "592DE6-body.asm",
+      "size": 3996,
+      "sha256": "b5ad2b8d6ec6cd003c6720a747cb3d5bf549c4a88cd6153ee710d8778f049a3d"
+    },
+    {
+      "root": "static",
+      "path": "592DE6-body.hex",
+      "size": 343,
+      "sha256": "dbac5ecefa30d66be9ca5bb43f8e68b2bc8d24732ca7fd23c1e81ccf91345910"
+    },
+    {
+      "root": "static",
+      "path": "596DB7-body.asm",
+      "size": 15872,
+      "sha256": "8b79ef1a37481f2c7ee7abbcc183670833bc37a2d5ccaf00faf3697586960956"
+    },
+    {
+      "root": "static",
+      "path": "596DB7-body.hex",
+      "size": 1787,
+      "sha256": "f238d9c545907ed7fa1f31377de40fe4cff5d2858b09fb9d19f6a42af4deff5a"
+    }
+  ]
+}

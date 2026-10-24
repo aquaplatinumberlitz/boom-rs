@@ -881,6 +881,16 @@ trên engine khácreceiver. Không dùng1000/649/0x48 làm voicecount. R-207 gi�
 R-212 bổ sung nguồn count; chưa có phép nghe/runtime16voice và chưa nâng gateG5.
 
 
+## 32. Roller làm tăng vận tốc native trong cùng actor VN (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-169 | Một pickup117/158kind2 trên cùngactorVN/C664C4: hai cặpUp/Down trước/sau cho vận tốc cửa sổ trungtâm165.149–170.311 trước và197.861–203.787px/s sau; mẫu đổiY chủyếu5→6px. Không111/151/120, X560/actor448364544 giữ nguyên | px/s ước lượng theo nativeXY/monotonic window; khônglevel | vn_runtime / confirmed (hiệu ứng cùngactor/case) | [9windows/35hash/sai số](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#roller-và-vận-tốc-thực--r-169); fixturebc875…/Factory01index193/room19;755validrows. Cadence/level/normalization vàC00/C01KR unknown; +550probefailgiữrõ; không đổi speed24/Roller+1levelDESIGN |
+
+Tĩnh đã truy input/state/dir/effect nhưng chưa thấy getter cấp dùng choXY. R-045 giữcandidate;
+R-104/R-111phầnRoller và R-114speed normalization giữ lựa chọn hiện hành, không nâng nguồn chỉ vì
+mẫu dịch chuyển có5px/6px. Hoàn thành câu hỏi hiệu ứng trong ca không tự đóng root149/146.
+
 ## 33. Yêu cầu lặp BGM qua callback EOS KR (2026-10-24)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
