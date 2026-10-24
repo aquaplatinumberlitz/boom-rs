@@ -142,3 +142,24 @@ không ghi/reset. `1240B00` chỉ trả kết quả gọi `57A870` tại `+68+12
 gọi accessor `529C60` trên bảng `*(this+42)+792*a2+112`; nghĩa owner/local/team và consumer `this[172]`
 vẫn **candidate/unknown**, chưa thấy collision/grace. E3 chưa xác định function. Không mở các callsite
 còn lại; helper/callee chưa đọc unknown. Không đổi R-154/player grace.
+
+### #146 — player grace sau đặt bom (lượt 24/10)
+
+Bundle lọc `.re-work/evidence-player-grace-146-r1.json` (**7 record**; không commit). Subject/actual:
+`/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`; xref record ghi DB copy `rea-ida-GUJhP1`, batch
+record không có metadata DB riêng; base `0x400000`, SHA
+`cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`; không nói đây là clone khác.
+
+| Evidence | Hàm/site | Kết quả |
+|---|---|---|
+| `ev_0246c7eb…` | `xrefs B40D60` | **24 site**, không phải 24 caller function; chỉ 4 thân được đọc |
+| `ev_71c34736…` | `B40030` (`this`), `B40290` (`this-353`) | cùng điều kiện `B323D0/vf+100` lọc mã, `B40D60==0`, `vf+132==0`; nhãn valid/idle/type **candidate** |
+| `ev_10a00c3a…` | `B422F0`, `B42880` | `B422F0` query `E9F6D0(v6,v7)` với v6/v7 từ controller+28/+32; **chưa chứng minh ô đích**, `B9DB70` body chưa đọc; `B42880` action/state |
+| `ev_64d026e3…` | `xrefs B37DB0` | 6 data xref (vtable); không direct player caller |
+| `ev_1f14b5c5…` | `xrefs 11982F0` | chỉ `B37DB0` code + vtable data; sensor flag reader |
+| `ev_6249ce45…`, `ev_84379c67…` | `B99CF0`, `B994C0` | `0x1747328` là **entry slot 43** (base `0x174727C+0xAC`), không phải vtable base; chain `B994C0/B99CF0` chỉ xref, chưa full callchain/body |
+
+**Kết luận:** trong **4 thân đã đọc** không thấy owner/grace trực tiếp; đây là negative có giới hạn,
+callee/virtual chưa đọc không bị loại trừ. `B40D60/+1440` là field dir/input; `B37DB0/+152/+328` là
+predicate kiểu/sensor bomb, không owner; `B9A990` có owner-like transform nhưng chưa nối collision/
+grace. Player grace giữ **unknown**; không đề xuất đổi luật.

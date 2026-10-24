@@ -296,3 +296,30 @@ SHA `cf72da11…e63b`); E3 resolve subject boom-team, DB `rea-ida-GI3Raz`. Khôn
 Evidence: `ev_0216a581…` batch B3/B9; `ev_1e18205f…` batch B996/B9A3; `ev_fb3ed4dd…` xref B9A990;
 `ev_d9c085e8…` xref B9A3B0; `ev_868df24e…`/`ev_c23c3eb1…` E3 resolve. Bundle
 `.re-work/evidence-owner-player-sites-146.json`.
+
+### 9.6 Player grace sau đặt bom — lượt 24/10 (#146/Q017/G2)
+
+Hỏi: người **vừa đặt bom** có được đi ra/đi xuyên/quay vào không, theo owner/overlap/flag nào và mất
+khi nào. Baseline `6a2473f`; chỉ đọc thêm 4 thân mới + xref; không giải lại B3AE90/B9A990/B996B0/
+B9A3B0/1240B00/1241780/B37DB0/1310200/B44000/B77B10. Provenance: 7 record lọc
+`.re-work/evidence-player-grace-146-r1.json`; subject boom-team; các xref record ghi DB copy `rea-ida-GUJhP1`,
+hai batch record không có metadata DB riêng; cùng SHA `cf72da11…e63b`.
+
+| Hàm / site | Dùng gì | Kết luận cho grace |
+|---|---|---|
+| `B40030` (RVA `740030`) | `this`; `B323D0(this)`, virtual `+100` lọc mã, `B40D60(this)==0`, virtual `+132(this,-1)==0` | Không thấy owner/query ô trong thân; nhãn **valid/idle/type chỉ candidate** (chưa proof); không gọi 0 là idle |
+| `B40290` (`740290`) | receiver **`this-353`** (khác B40030); cùng cấu trúc `B323D0/vf+100` lọc mã, `B40D60==0`, `vf+132==0` | Cùng **candidate** valid/idle/type; không owner/grace |
+| `B422F0` (`7422F0`) | `B40D60==0`; `v6/v7` lấy từ controller `this+353` qua vtable `+28/+32`, rồi `E9F6D0(v6,v7)`; `B9DB70` chỉ gọi helper, **body chưa đọc** | Map query **chưa chứng minh là ô đích**; `B9DB70` result/ID và action context chỉ **candidate**; không owner/timer |
+| `B42880` (`742880`) | `B40D60==0`; sound/virtual `+384/+704`; `AE7710` | Nhánh action/state **candidate**; không owner/overlap/grace |
+| `B37DB0` (`737DB0`) | `+328` type ∈ {1,2} → 0; ngược lại `11982F0(bomb+144)` = sensor flag `+152` | **Không đọc owner/player/overlap trực tiếp**. Xref chỉ **6 data** (vtable slots); `MoveSimple` đã biết pet/AI, không nối player |
+| `B9A990` (`79A990`) | guard `B38370(this)!=-1`; so transform `1241780(B38370(this))` / `1241780(1240B00(0))`; ghi `this[172]` (byte `+0x2B0`) | Có **so owner-like** nhưng class/consumer chưa đọc. `0x1747328` là **entry slot 43**, không phải vtable base; chỉ `B9A3B0→B9A990` có call/body cache, chain `B994C0/B99CF0` **chưa confirmed** |
+
+- `B40D60` chỉ trả field `+0x5A0` (= `bomber+1440`), đã biết từ R-137 là field nhận **dir/input**,
+  không phải timer grace. Xref normalized là **24 site**, không phải 24 caller function; chỉ 4 thân
+  `B40030/B40290/B422F0/B42880` được đọc. Không nói cả 24 site không owner/overlap.
+- `B37DB0` là predicate **kiểu bom + sensor flag**; flag `+152` mặc định 1, setter runtime/consumer
+  người chơi vẫn chưa đọc. Đây là negative **có giới hạn** trong 4 thân đã đọc, không loại trừ callee/
+  virtual chưa đọc.
+- **Player grace = unknown**: chưa có bằng chứng owner-specific, overlap-specific hay timer; không
+  suy từ pet/AI, không đổi 40×40/corner/grace hay R-154. `+268` vẫn candidate owner; `+0x2B0` vẫn
+  unknown. Cạnh tiếp: đọc `B99CF0`/`B994C0` hoặc caller virtual `+156` của player — cần budget mới.
