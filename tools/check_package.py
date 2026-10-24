@@ -869,11 +869,12 @@ def cargo_metadata(cwd: Path | None = None) -> dict:
 
 
 def crates_from_metadata(metadata: dict) -> list[Crate]:
-    """Crate phụ thuộc (có `source`) từ `cargo metadata`, sắp xếp theo tên rồi phiên bản."""
+    """Crate ngoài workspace, kể cả dependency vendored/path, từ `cargo metadata`."""
     crates: list[Crate] = []
+    members = set(metadata.get("workspace_members", []))
     for package in metadata.get("packages", []):
-        if not package.get("source"):
-            continue  # crate của chính workspace
+        if package.get("id") in members:
+            continue  # Chỉ bỏ crate của workspace, không bỏ dependency path/vendored.
         manifest = Path(package["manifest_path"])
         crates.append(Crate(
             name=package["name"],
@@ -1956,6 +1957,21 @@ class PackageToolTests(unittest.TestCase):
             crates = crates_from_metadata(metadata)
             self.assertEqual(len(crates), 1)
             self.assertEqual(crates[0].key, "eps 1.2.3")
+            self.assertEqual(build_report(crates).problems, [])
+
+    def test_licenses_include_vendored_dependency_but_exclude_workspace(self):
+        with _TempDir() as root:
+            root = Path(root)
+            directory = _make_crate(root, "vendored", "1.0.0", {"LICENSE-MIT": MIT_TEXT})
+            crate = Crate("vendored", "1.0.0", "MIT", None, None, directory)
+            metadata = _metadata([(crate, directory)])
+            dependency = metadata["packages"][0]
+            dependency.update(id="path+vendored", source=None)
+            workspace = dict(dependency, id="path+boom", name="boom-client", license=None)
+            metadata["packages"].append(workspace)
+            metadata["workspace_members"] = ["path+boom"]
+            crates = crates_from_metadata(metadata)
+            self.assertEqual([crate.key for crate in crates], ["vendored 1.0.0"])
             self.assertEqual(build_report(crates).problems, [])
 
     # -- Nhận diện toàn văn license: đủ điều khoản, không tin tên file ------------------

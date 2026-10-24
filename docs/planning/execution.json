@@ -312,11 +312,12 @@
         "data/assets/ui-vi-v1.toml",
         "git:43739e2fa6abe09f28457f218648141113cd2fb4",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
-        "git:796284d422baf14f2c0ab0c27a78100bc335c2f1"
+        "git:796284d422baf14f2c0ab0c27a78100bc335c2f1",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/window-restore.json"
       ],
-      "verification": "V1-035 đã nghiệm thu; PR255/dsh2APPROVE exact28dad286+CI3OSxanh. UI800×600/1600×1200khớp RGBA nearest; NVIDIAfullscreen/focus có đối chứng movement, rebind S/F10/F11, capture BGM/SFX/volume/mute qua private virtual sink. Đây là kiểm Linux có giới hạn, chưa sign-off gateG5.",
+      "verification": "V1-035 đã nghiệm thu; PR255/dsh2APPROVE exact28dad286+CI3OSxanh. UI800×600/1600×1200khớp RGBA nearest; NVIDIAfullscreen/focus có đối chứng movement, rebind S/F10/F11, capture BGM/SFX/volume/mute qua private virtual sink. Đây là kiểm Linux có giới hạn, chưa sign-off gateG5. Issue270 sửa miniquadEWMH: KWin normal2cycles restores600×560, initiallymaximized2cycles preservesmaximized, rebindF10/F11/startupfullscreenpass; Linuxonly, khôngG5signoff.",
       "integration_commit": "",
-      "blocker": "Cần sign-off UX/presentation G5 với giới hạn đã ghi: WM X11 ra fullscreen không khôi phục đúng frame cũ; GUI/backend đa OS, phần cứng âm thanh/minimum hardware và playtest còn thiếu. Lỗi UI scale đã sửa, không còn dùng ảnh800×600 làm proof2×."
+      "blocker": "Cần sign-off UX/presentation G5: GUI/backend đa OS/WM khác, phần cứng âm thanh/minimum hardware và playtest còn thiếu. Lỗi khôi phục frame KWin/X11 đã có sửa/đối chứng issue270; không coi đây là GUI Windows/macOS hoặc gate passed."
     },
     {
       "id": "G6",

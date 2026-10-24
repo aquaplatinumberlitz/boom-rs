@@ -65,6 +65,18 @@ Dependency nền hiện có: `serde` (derive) và `toml` trong `boom-content` đ
 `fs4`, `serde_json`, `sha2`, `base64` (+ `tempfile` cho test) khai trong workspace cho `boom-server` (ADR 0011 §10).
 Thêm dependency mới ghi lý do trong commit; dependency nền ghi vào đây.
 
+`miniquad`0.4.11 (dependency của macroquad) dùng bản source ghim trong
+[`vendor/miniquad`](../../vendor/miniquad/Cargo.toml), qua `[patch.crates-io]`; version/API không đổi.
+Issue270 sửa duy nhất `set_fullscreen` của X11: gửi EWMH add/remove cho cùng atom, giữ mapped window
+và các state khác thay vì unmap/remap rồi thay toàn bộ property.
+[Provenance](../../vendor/miniquad/UPSTREAM.json) có SHA crate gốc, commit, hash từng file, license
+MIT/Apache và điều kiện bỏ patch khi upstream có sửa tương đương. Crate vendored nằm ngoài workspace;
+tool đóng gói vẫn đưa dependency path này vào LICENSES. Backend khác giữ nguyên source upstream.
+`.gitattributes` giữ byte vendor trên ba OS và bỏ cảnh báo whitespace chỉ trong tree upstream;
+source dự án vẫn kiểm bình thường.
+Chuẩn tham chiếu: [EWMH §5.7](https://specifications.freedesktop.org/wm/latest/ar01s05.html).
+
+
 ## 2. Mở rộng tính năng, mode và event
 
 Theo [ADR 0008](../decisions/0008-extensibility-model.md). Tóm tắt luồng một tick:

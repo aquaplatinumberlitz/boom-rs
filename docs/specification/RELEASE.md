@@ -112,13 +112,21 @@ ghi archive/SHA/fingerprint và profile thực trong gói: trap6350ms, trapped17
 Linux binary từ archive đã mở room2×1600×1200 trên Xvfb/llvmpipe, RGBA khớp ảnh room đã review;
 không phải GUIWindows/macOS hoặc minimumhardware. Không tag/Release, mọi giới hạn gate còn nguyên.
 
+### Sửa cửa sổ KWin/X11 — issue270
+
+[Metadata](../evidence/measurements/rust-client-ux-2026-10-24/window-restore.json) ghi baseline đỏ
+và bản sửa miniquad EWMH xanh: cửa sổ bình thường trả600×560 sau hai vòng fullscreen; cửa sổ
+vốn maximized giữ state/kích thước cũ. RebindF10/F11 và startupfullscreen có đối chứng.
+Đây là sửa runtimeLinux; GUIWindows/macOS/WM khác/minimumhardware và sign-offG5 còn thiếu.
+Gói QA40091603701 chưa chứa patch này; trước phát hành cần đóng gói head đã được nghiệm thu.
+
 ### Blocker nghiệm thu hiện hành của G2/G3/G5/V1-036
 
 | Phần | Đã có bằng chứng | Còn chặn nghiệm thu / bước cụ thể | Fidelity giữ backlog |
 |---|---|---|---|
 | G2 movement/stats | Movement/hitbox/assist/time DESIGN có scenario; owner graceVN; trapped17px/s R-162 đã tích hợp | Review độc lập việc áp12khóa C00/C01candidate và profile phát hành; loader không cho `release=true` với candidate. Không chỉ bật cờ release hoặc đổi nhãn. Roller/level mới phải xét cùng đại lượng trước khi thay speed24DESIGN. | Chưa nối đủ Attr/native identity, hitbox/corner và đường cong tốc độ; không yêu cầu mọi mode later. |
 | G3 bomb/damage/items | Flame540ms R-158, trap6350ms R-160, created-tick boundary/replay; Bomb/Fire +1 và cap behavior có source | Sign-off profile/boundary/drop V1; gói đúng profile hiện tại đã kiểm ở task265; sign-off gate vẫn thiếu. R-168 capacity10 là actorVN riêng, chưa đủ đổi cap C00/C01KR. | Writer/clamp, non-owner/repeatdamage/animationtail và ItemAttr table role còn mở. |
-| G5 UX/localization | V1-035approved; Linux integer scale/focus/rebind + capture BGM/SFX/volume/mute đã kiểm | GUI Windows/macOS, khôi phục window-frame sau fullscreen trên WM X11, kiểm thực hành trên thiết bị âm thanh/phần cứng và review giới hạn G5; các bằng chứng này không được thay bằng `--help` smoke. | Native KR layout/name/voice count/loop chưa đủ, tách khỏi việc font/chuỗi Việt đã duyệt. |
+| G5 UX/localization | V1-035approved; Linux integer scale/focus/rebind + capture BGM/SFX/volume/mute đã kiểm | GUI Windows/macOS, kiểm thực hành trên thiết bị âm thanh/phần cứng và review giới hạn G5; lỗi khôi phục frame trên KWin/X11 đã có sửa/đối chứng issue270; các bằng chứng này không được thay bằng `--help` smoke. | Native KR layout/name/voice count/loop chưa đủ, tách khỏi việc font/chuỗi Việt đã duyệt. |
 | V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, G2/G3/G5sign-off; giữ36/37 và2/6 tới khi đạt. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
 
 Profile hiện vẫn `release=false`; ngoại lệ12khóaKRcandidate ở ADR0013 chưa được thay bằng quyết định
@@ -313,7 +321,7 @@ Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (f
 - Thời gian build/mở gói trên máy người dùng (build mới đo trên runner CI); dung lượng archive QA đã ghi trong metadata.
 - Hiệu năng render/cấu hình tối thiểu trên GPU thật: kiểm vận hành RTX3060 ngày24/10 đã có,
   chưa benchmark FPS/latency hoặc đại diện minimum hardware.
-- UX đa OS, khôi phục kích thước sau fullscreen trên WM X11 và nghe qua soundcard thật.
+- UX đa OS/WM khác và nghe qua soundcard thật; khôi phục kích thước trên KWin/X11 đã kiểm ở issue270.
   [Hồ sơ UX24/10](../evidence/measurements/rust-client-ux-2026-10-24/README.md) có focus thật,
   integer scale và capture BGM/SFX/volume/mute qua đường phát số; không thay nghiệm thu G5.
 

@@ -1,5 +1,6 @@
 [workspace]
 resolver = "3"
+exclude = ["vendor/miniquad"]
 members = [
     "crates/boom-core",
     "crates/boom-content",
@@ -50,3 +51,7 @@ all = { level = "warn", priority = -1 }
 # Tràn số trong mô phỏng phải dừng ngay, không wrap âm thầm (ADR 0004).
 [profile.release]
 overflow-checks = true
+
+# Issue270: pin existing miniquad with a scoped X11/EWMH fix; see vendor/miniquad/UPSTREAM.json.
+[patch.crates-io]
+miniquad = { path = "vendor/miniquad" }
