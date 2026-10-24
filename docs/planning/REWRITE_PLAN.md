@@ -229,8 +229,9 @@ hoặc đo lại cửa sổ lửa đã có chỉ để giảm số issue.
 | Sau hai luồng trên / có cạnh rõ | #196 | Event→SFX/BGM, volume/dedup; count/loop/nhánh động | Kiểm thực thi mapping và policy V1 đã chọn. Số voice native chưa biết có thể tiếp tục theo Q-015; policy DESIGN cần review, không gọi là đã khớp native. |
 
 Chỉ dùng **hai session dsh hiện có**. Mỗi luồng làm tuần tự; Codex giữ RULES_V1, QUESTIONS,
-index, profile và ledger; worker trả evidence riêng, không sửa chung các file này. OpenCode chỉ dùng
-khi còn quota sẵn và có task riêng; không mua quota/đổi provider hoặc mở thêm session để né hạn mức.
+index, profile và ledger; worker trả evidence riêng, không sửa chung các file này. Không dùng OpenCode
+trong đợt này; chỉ mở lại khi chủ dự án cho phép mới. Không mua quota, đổi provider hoặc mở thêm session
+để né hạn mức.
 Một actor/base-function cache cùng SHA được chia sẻ giữa hai luồng; chỉ một owner phân tích thân mới.
 
 Mỗi lượt có một câu hỏi, baseline/build/SHA, owner file, reviewer và phép nghiệm thu:
