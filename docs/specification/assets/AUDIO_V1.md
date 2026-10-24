@@ -169,3 +169,13 @@ stem `fx`/bảng khóa VN và kiểm trên pack VN thật, ngoài phạm vi KR c
 - Chưa xác nhận 8 voice/priority bằng client gốc; R-083 là design, có thể đổi khi có trace.
 - Chưa xử lý biến thể `BombExplosion001…032`, tiếng bước/quay, vỡ gạch, item bị lửa phá; hiện để
   trống/im lặng và ghi Q-015.
+
+
+### Đối chiếu thêm yêu cầu lặp native — R-213
+
+R-213 đã nối đường BGM map→engine→callbackEOS: user_data5bật thì callback gọi lại
+`AIL_start_sample` trên cùng handle. [Nguồn/hash/giới hạn](../../evidence/measurements/kr-static-audio-2026-10-23/bgm-eos-loop.json)
+đối chiếu pointerKR với exportMss32.dll đi kèm, không phải phép nghe tracklặp hoặcruntimebinding.
+Dòng `bgm_loop` của manifest vẫn giữ `design` cho lựa chọn tổng thể V1 (mộtvoice/reconcile/mapping),
+không tự nâng mọi thuộc tính của R-083 hoặc đổi filedata/audio/code trong PRnguồn. Cơ chế callback
+native được xác nhận tách riêng; runtimeEOS/stop-control vàG5 vẫn có acceptance riêng.

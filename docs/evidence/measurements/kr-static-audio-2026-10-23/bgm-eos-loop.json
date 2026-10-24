@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "issue": 196,
+  "claim": "R-213",
+  "baseline": "9f8376ed75059df9f08580fce2bbf0ce5caf2b50",
+  "source": "kr_static",
+  "status": "confirmed (snapshot pointer/export matches and conditional callback start request); audible runtime looping unknown",
+  "binary": {
+    "path_private": "/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe",
+    "sha256": "cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b",
+    "base": "0x400000",
+    "build": "KR00967 unpacked copy"
+  },
+  "dependency": {
+    "dependency_path": "/home/admin/boomkr-full/Mss32.dll",
+    "dependency_sha256": "5cafd1f6910e6eddaacf6b33cc42ea93e2835e61dc9cb91c6f8aca79f6a02e9b",
+    "bytes": 381952,
+    "image_base": "0x21100000",
+    "source_target": "KR kr-full.exe cf72... pointer globals and shipped dependency Mss32.dll",
+    "export_directory_rva": "0x535d0",
+    "export_name_count": 332,
+    "pointer_export_matches": [
+      {
+        "slot_va": "0x16ea854",
+        "snapshot_pointer": "0x21115800",
+        "rva_if_preferred_base": "0x15800",
+        "export_names": [
+          "_AIL_sample_status@4"
+        ]
+      },
+      {
+        "slot_va": "0x16ea858",
+        "snapshot_pointer": "0x21115420",
+        "rva_if_preferred_base": "0x15420",
+        "export_names": [
+          "_AIL_set_sample_volume_pan@12"
+        ]
+      },
+      {
+        "slot_va": "0x16ea868",
+        "snapshot_pointer": "0x211149b0",
+        "rva_if_preferred_base": "0x149b0",
+        "export_names": [
+          "_AIL_start_sample@4"
+        ]
+      },
+      {
+        "slot_va": "0x16ea870",
+        "snapshot_pointer": "0x21114260",
+        "rva_if_preferred_base": "0x14260",
+        "export_names": [
+          "_AIL_init_sample@12"
+        ]
+      },
+      {
+        "slot_va": "0x16ea894",
+        "snapshot_pointer": "0x21116970",
+        "rva_if_preferred_base": "0x16970",
+        "export_names": [
+          "_AIL_sample_user_data@8"
+        ]
+      },
+      {
+        "slot_va": "0x16ea89c",
+        "snapshot_pointer": "0x211168f0",
+        "rva_if_preferred_base": "0x168f0",
+        "export_names": [
+          "_AIL_set_sample_user_data@12"
+        ]
+      },
+      {
+        "slot_va": "0x16ea8a0",
+        "snapshot_pointer": "0x21116750",
+        "rva_if_preferred_base": "0x16750",
+        "export_names": [
+          "_AIL_register_EOS_callback@8"
+        ]
+      }
+    ],
+    "coverage": "Exact export-RVA matches under dependency preferred base, no new DLL function body or runtime loader proof; all seven same-base matches support mapping, not audible playback"
+  },
+  "raw_roots_private": {
+    "static": "/home/admin/boom-rs-dsh/re-kr2/.re-work/audio196-bgm-loop",
+    "root_proof": "/home/admin/boom-team/tmp"
+  },
+  "path": {
+    "map": "cachedE71D70/R206 choosesMp3/%s includingVillage and callsD1D710",
+    "dispatcher": "D1D710→D1DA60 starts or queues; no assumedloopflag from a7 alone",
+    "engine": "D1DA60→14BF390→14BEB10, engine frommanager+68",
+    "loop_arm": "14BEB10@14BEBE3..EA sets sampleuserdata(index5,value1) on block+44 handle",
+    "callback_registration": "14BEC06 calls pointer16EA8A0 mapped_AIL_register_EOS_callback@8 withcallback14BEC60",
+    "repeat_branch": "14BEC6F reads_AIL_sample_user_data@8(handle,5);nonzero14BEC76 calls16EA868→_AIL_start_sample@4 SAMEhandle,thenreturns",
+    "other_branch": "flag5zero→clearuser2/3/4, optional14BF300hook, releaseobject; not completion-only forwholecallback"
+  },
+  "coverage": {
+    "bodies": [
+      {
+        "va": "0xd1d710",
+        "end_inclusive": "0xd1d78a",
+        "bytes": 123,
+        "capture_bytes": 124,
+        "padding_at": "0xD1D78B",
+        "padding_byte": "CC; retained in original derived capture, excluded from body"
+      },
+      {
+        "va": "0xd1da60",
+        "end_inclusive": "0xd1dc04",
+        "bytes": 421,
+        "capture_bytes": 422,
+        "padding_at": "0xD1DC05",
+        "padding_byte": "CC; retained in original derived capture, excluded from body"
+      },
+      {
+        "va": "0x14bf390",
+        "end_inclusive": "0x14bf4bd",
+        "bytes": 302
+      },
+      {
+        "va": "0x14beb10",
+        "end_inclusive": "0x14bec5c",
+        "bytes": 333
+      },
+      {
+        "va": "0x14bec60",
+        "end_inclusive": "0x14beccb",
+        "bytes": 108
+      }
+    ],
+    "new_Dll_bodies": 0,
+    "data_only": "DLLPEheaders/exporttable; seven snapshot function-pointer exactmatches at same preferredbase21100000",
+    "raw_padding": "Original derived D1D710/D1DA60 captures retain one trailing int3 each; body coverage123/421 excludes padding.14BEB10capture normalized333 withoutpadding;14BF390RETends14BF4BD,adjacentmethodsnotinterpreted."
+  },
+  "limits": [
+    "Static init/callback request, not an audible end-of-track measurement",
+    "Snapshot preferred-base export mapping, not proof of current runtime DLL loader bindings or relocation",
+    "Callbackuser5 may be changed/stopped on other paths not expanded",
+    "Do not infer D1DA60literal0 means no-loop; slot6 is user_data, typedvolume API separate",
+    "No Rustaudio budget/priority/mapping/profile changes or gateG5 sign-off",
+    "Original prototype completion-only/no-restart conclusion rejected from rawreview; only flag5zero branch is cleanup"
+  ],
+  "files": [
+    {
+      "root": "static",
+      "path": "D1D710-body.asm",
+      "size": 1997,
+      "sha256": "64ffa17dcdc059862e06e15abd9e634adbea9546f0a48c955cb3b10c114a82fc"
+    },
+    {
+      "root": "static",
+      "path": "D1D710-body.hex",
+      "size": 372,
+      "sha256": "b687091dd5d9d3545451be9fec89a2389d8b2c3048f356b647499cda2ecf4884"
+    },
+    {
+      "root": "static",
+      "path": "D1DA60-body.asm",
+      "size": 7280,
+      "sha256": "7b54957da7c466d508d7b1f6d95987d8023a26a46b24d6ff00122fb517a70c84"
+    },
+    {
+      "root": "static",
+      "path": "D1DA60-body.hex",
+      "size": 1266,
+      "sha256": "0505b4272baa9ec7a1a48ccce28edd11bb567d36e9ebc603a7643f932b266618"
+    },
+    {
+      "root": "static",
+      "path": "14BF390-body.asm",
+      "size": 5591,
+      "sha256": "c3c9bd4327834380a36d8d60e039e8b5e8eefc142959f3915db96bc1c81b87de"
+    },
+    {
+      "root": "static",
+      "path": "14BF390-body.hex",
+      "size": 906,
+      "sha256": "af43ac39e79a5ff64e607edfd840225b0e371367ca21abf4dd3e3c6033f7bf4c"
+    },
+    {
+      "root": "static",
+      "path": "14BEB10-body.asm",
+      "size": 6311,
+      "sha256": "fd2c9b1c872d0be2a0cf6e25e70438b07c823e888730917a215f0cc4e7614813"
+    },
+    {
+      "root": "static",
+      "path": "14BEB10-body.hex",
+      "size": 999,
+      "sha256": "04685b968d1d51f5b09052a79fae23d86a64df8695d59e06139d690d8635a3ae"
+    },
+    {
+      "root": "static",
+      "path": "14BEC60-body.asm",
+      "size": 2486,
+      "sha256": "3a6d771b8878d7a64c9a0a5208cffe1c5737dfc35c385a8f36686368ea35d6ca"
+    },
+    {
+      "root": "static",
+      "path": "14BEC60-body.hex",
+      "size": 324,
+      "sha256": "fb2325ed4c1171ee2e13badb6f08cf3a37f74cdd67b929bdcb0c5927c667403e"
+    },
+    {
+      "root": "root_proof",
+      "path": "kr196-mss-pointer-export-proof.json",
+      "size": 1927,
+      "sha256": "24ea02a37dd19dbc6ed09983c90971876e7a356c580750becfa317f68935e9cf"
+    }
+  ]
+}
