@@ -316,8 +316,12 @@ open/close/rebind.
   retn 10h` (size 0xD) — **stub rỗng**, không đọc/ghi state, không gọi gì.
 - `B3B390`: pseudocode rỗng (`;`); asm **chưa lấy được** vì worker session chết
   (`Session not found: rea-782a5303-…`, `retryable:false`) ⇒ giữ **candidate stub**, không khẳng định no-op.
-- Bảng thứ hai trỏ `B73120`/`B73290` (chưa đọc); **lớp/receiver chưa xác nhận** nên chưa kết luận
-  runtime dùng bảng nào. Trên bảng base, hai virtual này **không tạo effect/damage**.
+- Bảng thứ hai trỏ `B73120`/`B73290` (chưa đọc). RTTI đọc read-only từ PE cùng SHA
+  (`kr-bomb-rtti-20261024.json`, không qua REA): `0x174426C` = `.?AVCGOBomb@@` (COL `0x17EC8F4`,
+  TypeDesc `0x19B9874`); `0x174727C` = `.?AVCGOSnowBomb@@` (COL `0x17ED93C`, TypeDesc `0x19C55C0`).
+  Lookup/runtime receiver của **bom thường** vẫn chưa nối; **không** dùng nhánh SnowBomb để chốt
+  grace/lửa V1. Trên bảng base: `+200` (`B3B370`) asm xác nhận **không có hành động**; `+208`
+  (`B3B390`) **unknown/candidate** (asm lỗi worker, không suy no-op).
 
 ### 11.2. `B70C10` (flame segment push)
 
