@@ -170,9 +170,20 @@ Trụcdọc/hìnhhọc bubble/level/crosscharacter vàtouchorder còn #147; khô
 trướcnhặtBomb chỉđặt được1quả, sau117/158kind0 đặtthêmquả2, quả3bịtừchối trongkhi cảhai cònnguyên
 (không151). Firekind1 khôngtăngcapacity, nhưng111quảkế tiếp saupickup cótrườngr18 từ1→2.
 Parserfieldnamedpowervẫn1, khôngnhầmnóvớir18; mộtFirecasehelpertrôi vịtrí bịloại.
-BổsungR025/R111trongđúngcase, khôngđổi giátrịprofile/capKR/roller hoặc xácnhậnnativegetter.
+BổsungR025/R111trongđúngcase, khôngđổi giátrịprofile/capKR/roller; getter được nối riêng ở R-166 bên dưới.
 
 Factory01 bổ sung R-163: ba lượt12 pickup Bomb/ACK ở các ô khác nhau, bom chỉ tăng tới10;
 thử đặt ở ô trống khi đủ10 không111, sau151 đầu lại gửi111 trước151 thứhai.
 Trần hữu hiệu của fixture/actor chưa phân biệt stat cap/pool; không áp cho mọi nhân vật KR.
 210rawhash giữ cả Fire lỗi và đối chứng giải phóng chỗ chưa chạy do lịch emu45s/gate12s.
+
+
+### Getter tầm nối native receiver→111 (R-166)
+
+Ca bổ sung cùng fixture đã khóa virtual5B1F92/+7C trên facet hero+510/C663C4→5AE518:
+trước Fire trả1, sau117/158 trả2, khớp đúng111r18. Có2call/3returnrows, hàng duplicate không phải ca3.
+[50hash và CSV](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#receiver-thật-của-getter-tầm--r-166).
+Call5B1FB5 là directcall6EFD24 sau đổi receiver; vai trò đối tượng mới chưa xác nhận trong bundle,
+không dùng nó làm địa chỉ virtualgetter.
+Base578963 đọc boxfacet+1C (hero+52C theo số học), qua virtual+BC/414543; wrapper và5A021B có
+nhánh override chưa đo. Writer/cap và ánh xạ KR vẫn mở, không suy toàn bộ stat từ offset này.

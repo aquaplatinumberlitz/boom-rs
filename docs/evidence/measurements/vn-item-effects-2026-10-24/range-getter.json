@@ -1,0 +1,372 @@
+{
+  "schema": 1,
+  "issue": 149,
+  "baseline": "b792f25abccd5c6644f3cf12fb6a765f1804f1fa",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386"
+  },
+  "raw_roots_private": {
+    "runtime": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-item-range-receiver-149-r1",
+    "static": "/home/admin/boom-rs-dsh/re-kr2/.re-work/item149-receiver-prep"
+  },
+  "scope": "Actual virtual range getter receiver before/after one Fire; base boxed value with untraced overrides; no cap or KR identity claim; static allocation scan returns entry only when both boxed predicates are zero, no pool-size writer or literal10 established",
+  "observed_calls": 2,
+  "raw_return_rows": 3,
+  "distinct_return_values": [
+    1,
+    2
+  ],
+  "duplicate_policy": "Two return rows for second call share its receiver, target and value and lie before its single wire111; count one call, preserve both raw rows. Original probe has no independent call-id; do not treat duplicate row as third trial.",
+  "actual_receiver": {
+    "hero": 449159016,
+    "receiver": 449160312,
+    "edi": 449160540,
+    "receiver_minus_hero": "0x510",
+    "ecx_minus_edi": "-0xE4",
+    "vtable": "0xC663C4",
+    "slot": "0x7C",
+    "target": "0x5AE518",
+    "call_pc": "0x5B1F92",
+    "return_pc": "0x5B1F95"
+  },
+  "static": {
+    "caller_prefix": "0x5B1D7B..0x5B1FBA is a prefix, not full function",
+    "getter": "0x5AE518..0x5AE529 complete wrapper CFG: byte+0x2C14 nonzero returns1, else tail 0x5A021B",
+    "base_path": "0x5A021B..0x5A0273 complete89B; direct 0x578963..0x578978 complete22B reads boxed receiver+0x1C via cached 0x414543 after virtual+0xBC(arg1)",
+    "unknown_overrides": [
+      "0x5A021B conditional virtual+0x90",
+      "0x5A021B conditional helper0x4AD113(receiver+0x21E0)"
+    ],
+    "base_box_hero_offset": "0x52C is arithmetic from actual facet+0x510, not full alias/writer proof"
+  },
+  "files": [
+    {
+      "root": "runtime",
+      "path": "00-initial.png",
+      "size": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "root": "runtime",
+      "path": "01-channels.png",
+      "size": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "root": "runtime",
+      "path": "02-lobby.png",
+      "size": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "root": "runtime",
+      "path": "03-create-dialog.png",
+      "size": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "root": "runtime",
+      "path": "04-room.png",
+      "size": 407592,
+      "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+    },
+    {
+      "root": "runtime",
+      "path": "05-match.png",
+      "size": 630181,
+      "sha256": "40dd64d93d753ebd37ca4bef1c9e662fba786f3af6e37635c1fa8929f4d5db35"
+    },
+    {
+      "root": "runtime",
+      "path": "06-first-bomb.png",
+      "size": 629377,
+      "sha256": "3e2b38f33a7ca22ce0e278a31d6e0b7fc7b4aea09d63ab65ea27c649b2b69556"
+    },
+    {
+      "root": "runtime",
+      "path": "07-fire-picked.png",
+      "size": 630588,
+      "sha256": "86e51618f60a0b83a9c95941fdb64fa53f52ef17f3ad9e85bebcd7f67e087b95"
+    },
+    {
+      "root": "runtime",
+      "path": "08-second-range.png",
+      "size": 628262,
+      "sha256": "947e6682f30f1f2f6cf597899cd55fa4a4b74f3faa89426d2db4b03c62d0b7d7"
+    },
+    {
+      "root": "runtime",
+      "path": "ack.json",
+      "size": 42,
+      "sha256": "5253ef33749763289a56cfcabb91c5e51e71521f76d1222ba78a1b3b9a9469ee"
+    },
+    {
+      "root": "runtime",
+      "path": "command.json",
+      "size": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "root": "runtime",
+      "path": "death-event.json",
+      "size": 1122,
+      "sha256": "e7161e4aca918820acc6c048ebc705ba25acde362f5f8edf88afc394649e1489"
+    },
+    {
+      "root": "runtime",
+      "path": "explosion-entry.json",
+      "size": 33,
+      "sha256": "705fb97174ce6f5f3d56827a994902c1449da07738f20257ded5317e67585899"
+    },
+    {
+      "root": "runtime",
+      "path": "explosion-return.json",
+      "size": 33,
+      "sha256": "aa8868f2bd164a29fcef5ee3925709910710ad39c942151f6b647146efdec1de"
+    },
+    {
+      "root": "runtime",
+      "path": "harness-used.py",
+      "size": 11290,
+      "sha256": "10eed7ad562f48e93ee8b85e0a6fba35851f6c50ba1362490c2db120d05ea78b"
+    },
+    {
+      "root": "runtime",
+      "path": "hero-target.json",
+      "size": 1122,
+      "sha256": "adb9eb849fbefc1c8ee2d1457c0f78eda9b6e3b8171c7bbc110c42316db1dca3"
+    },
+    {
+      "root": "runtime",
+      "path": "native-events.jsonl",
+      "size": 2560,
+      "sha256": "50ca39cbb62e8cd468c0daa26f8b1db91832ca78ee10587b3b2956f35c33b1f9"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.jsonl",
+      "size": 25785,
+      "sha256": "895b134551dc3238c00cea21e003cfa60785b4b06b6253e53f24affffcaf6616"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.log",
+      "size": 20200,
+      "sha256": "958cc664c5911c4d470a69a477e07327564c22d9e0c95542deea936a9f6ed03b"
+    },
+    {
+      "root": "runtime",
+      "path": "pids.json",
+      "size": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "root": "runtime",
+      "path": "position-samples.jsonl",
+      "size": 30193,
+      "sha256": "3d85c6833dad5fc87c77981f7f4a6292db655d52e30d97b2ca3bc1fa4079f525"
+    },
+    {
+      "root": "runtime",
+      "path": "probe-ready.json",
+      "size": 33,
+      "sha256": "798b88cfc9d14f2bbfc3ba75fdfc6af942aa3a2b67d492085519efa4018da06b"
+    },
+    {
+      "root": "runtime",
+      "path": "probe.gdb",
+      "size": 6390,
+      "sha256": "8559aa7a59c44a3dcdee1e1d60ac4b5c95acb5fc5b84c96d593e629781f492fe"
+    },
+    {
+      "root": "runtime",
+      "path": "proxy-context.json",
+      "size": 94,
+      "sha256": "f9d144a0c9d6eefe3ec6290e212a516a7545f999aa665ee2ca7fcc204343b6ef"
+    },
+    {
+      "root": "runtime",
+      "path": "range-getter-events.jsonl",
+      "size": 1529,
+      "sha256": "7c06ed0cdfceb44dcf091dde2d654949ce5a1b09736ea4d72ac0e2d04c8abe48"
+    },
+    {
+      "root": "runtime",
+      "path": "ready.json",
+      "size": 58,
+      "sha256": "c9de86afb975d2fe740bc6d8dc32b079727413d9b2118b5b27049fc3cf1cd324"
+    },
+    {
+      "root": "runtime",
+      "path": "server.log",
+      "size": 20200,
+      "sha256": "958cc664c5911c4d470a69a477e07327564c22d9e0c95542deea936a9f6ed03b"
+    },
+    {
+      "root": "runtime",
+      "path": "supervisor.log",
+      "size": 1396,
+      "sha256": "89d5dee0328470866710ae58f3c2b208a71e418e739f902e7db14760b2896ccd"
+    },
+    {
+      "root": "runtime",
+      "path": "trap-event.json",
+      "size": 1122,
+      "sha256": "adb9eb849fbefc1c8ee2d1457c0f78eda9b6e3b8171c7bbc110c42316db1dca3"
+    },
+    {
+      "root": "runtime",
+      "path": "winedbg.log",
+      "size": 15351,
+      "sha256": "e0692861ca6d405ef4f6bc079cb18850501a5e498b76ac51107f94f5b668c19d"
+    },
+    {
+      "root": "runtime",
+      "path": "xvfb.log",
+      "size": 1468,
+      "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+    },
+    {
+      "root": "static",
+      "path": "caller-5B1D7B-5B1FBA.asm",
+      "size": 8628,
+      "sha256": "4f5e9c346241018a952227116add1baef579d4e902336ce3a77683917c504d98"
+    },
+    {
+      "root": "static",
+      "path": "callsite-5B1F92.hex",
+      "size": 33,
+      "sha256": "512514c590b1d17cc276b44d98c7e8a5944d8932e864181ab2bfee75c187ca04"
+    },
+    {
+      "root": "static",
+      "path": "getter-5AE518-fullcfg.asm",
+      "size": 281,
+      "sha256": "56fcad314d43b2e6e0d84fe1dc523121e9a70202226fc7dd50ae90e4bc0000db"
+    },
+    {
+      "root": "static",
+      "path": "getter-5AE518-fullcfg.hex",
+      "size": 54,
+      "sha256": "9cb494a7508e7f647aa181dce1bfdca3aaa49452e0ed50974a5d033186697204"
+    },
+    {
+      "root": "static",
+      "path": "getter-5A021B-full.asm",
+      "size": 1514,
+      "sha256": "bd3f69f0496d2af3a768fba22b4640294f8450667c7ea33ed692b3356410ffb2"
+    },
+    {
+      "root": "static",
+      "path": "getter-5A021B-full.hex",
+      "size": 267,
+      "sha256": "87c4a800e26c236b75311c8d233771156cf2127f4126d86e96e6885e4c88212c"
+    },
+    {
+      "root": "static",
+      "path": "getter-578963-full.asm",
+      "size": 405,
+      "sha256": "9108c42e65af0ad9b6f343184dfa10d638d6518234ec810739158ecc08e7ea95"
+    },
+    {
+      "root": "static",
+      "path": "getter-578963-full.hex",
+      "size": 66,
+      "sha256": "b19e1366ec42b4e13a8805b1b45afd0c12d22cc981f091590b8326e660ca9f60"
+    },
+    {
+      "root": "static",
+      "path": "allocation-59F493-full.asm",
+      "size": 2320,
+      "sha256": "ad056db3535b6d68c9ab5cad6106f56ce27a2902a71efa5682d56dfeaff575ec"
+    },
+    {
+      "root": "static",
+      "path": "allocation-59F493-full.hex",
+      "size": 390,
+      "sha256": "2a0518f3adeaf9033083a3a539f411ec166dc08e8f78964615a391cc7703eb67"
+    },
+    {
+      "root": "static",
+      "path": "base-579DC0-full.asm",
+      "size": 1620,
+      "sha256": "4c4cacc46b285292e122b66712fed7998b228937eaa54808659589f70082b6d3"
+    },
+    {
+      "root": "static",
+      "path": "base-579DC0-full.hex",
+      "size": 336,
+      "sha256": "d498b7eb4496cb61049434e8cfa5fc27bbf439e035d202797a7e81009f70fe10"
+    },
+    {
+      "root": "static",
+      "path": "base-578A16-full.asm",
+      "size": 6652,
+      "sha256": "0e5e07ff682174151ec77d013af080d5821d4306e9034e2e9d41ff892f4b8470"
+    },
+    {
+      "root": "static",
+      "path": "base-578A16-full.hex",
+      "size": 1191,
+      "sha256": "a3966874554b4450b54c4230f4243c3bbda5bc5ab5142e9e927d998e35df7a22"
+    },
+    {
+      "root": "static",
+      "path": "predicate-58D4DA.asm",
+      "size": 94,
+      "sha256": "b4aeaecd6e524524f4a62a681b84fb4f7e77326b7deb4a8357aef2ea44054520"
+    },
+    {
+      "root": "static",
+      "path": "predicate-58D4DA.hex",
+      "size": 24,
+      "sha256": "d1689d0f82a1b5a6d9091a05bdf86c965c0fb43f12f728be009ff5ffb0f1b7b5"
+    },
+    {
+      "root": "static",
+      "path": "predicate-59111A.asm",
+      "size": 94,
+      "sha256": "f717b25cf34d2f6f41381a8b9f1a1ed02f06d03a8ba9721808799a684f5d365e"
+    },
+    {
+      "root": "static",
+      "path": "predicate-59111A.hex",
+      "size": 33,
+      "sha256": "07c5c6a60be6f74194a0d2e0374b70bf6a08b1e8359e74f65e84ba1c0289f023"
+    },
+    {
+      "root": "static",
+      "path": "vtable-C663C4-48.txt",
+      "size": 76,
+      "sha256": "925d2cd518dbc2068670fc17a3d88434bb629a9a92ba2d3a1c2a9ad1974e5720"
+    }
+  ],
+  "allocation": {
+    "source": "vn_static",
+    "status": "confirmed (bounded functions and table, not runtime predicate values)",
+    "caller_prefix": "0x5B1EC5 virtual+0x48 on same facet as Range",
+    "vtable_slot": {
+      "va": "0xC6640C",
+      "file_offset": "0x86580C",
+      "bytes": "93f45900",
+      "target": "0x59F493"
+    },
+    "path": [
+      "0x59F493 same facet receiver -> 0x579DC0",
+      "0x579DC0 subtracts8 from facet -> container hero+0x508",
+      "0x578A16 scans [container+0x4C] with [container+0x50] count"
+    ],
+    "accept": "entry boxed+0x1C==0 via0x58D4DA AND entry boxed+0xE4==0 via0x59111A",
+    "return": "no accepted entry returns0; accepted entry fills output descriptor and returns selected entry pointer",
+    "reader": "both predicate functions tail to known boxed reader0x414543",
+    "unknown": [
+      "runtime list count/entry predicate values",
+      "count writer or stat clamp",
+      "whether effective ceiling10 is a fixed pool or stat maximum",
+      "KR counterpart/character identity"
+    ]
+  }
+}
