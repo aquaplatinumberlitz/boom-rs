@@ -17,7 +17,9 @@ cargo run -p boom-client -- --rebind up=W --rebind bomb=J
 cargo run -p boom-client -- --bundle /tmp/bundle-village00
 ```
 
-Mặc định: mũi tên di chuyển, `Space` đặt bom, `S` đổi 1×/2×, `Esc` thoát. `F2` giả lập mất focus
+Mặc định: mũi tên di chuyển, `Space` đặt bom, `F10` đổi 1×/2×, `F11` đổi fullscreen/windowed, `Esc` thoát.
+`S` vẫn đổi tỉ lệ trong nhánh offline nếu chưa gán cho gameplay; phím được rebind luôn thắng shortcut cửa sổ.
+`--fullscreen`/`--windowed` chọn mode đầu; UI và trận cùng dùng canvas nguyên pixel, màn không đủ2× dùng1× có viền. `F2` giả lập mất focus
 để kiểm nhánh nhả phím. Runtime dùng `InputAdapter` đăng ký subscriber event của macroquad
 (`key_down_event`/`key_up_event`/`WindowMinimized`) và đưa event theo **đúng thứ tự** vào tracker;
 không suy trạng thái phím từ ảnh chụp cuối frame.
