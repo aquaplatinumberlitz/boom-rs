@@ -227,3 +227,16 @@ không phải5A1035 giả định. Source5A0F75conditional/static vàR170getter 
 kết luận actualcase4; controllerfield+58khônglàherostate. Run đầuguardfailkhôngphysicsresult.
 Hai cặp là nativeamount/XY observation, khônglevel/FPS/pxs/normalization. Giữ profile hiện hành và
 truy nguồn/cadence từ đúngcaller cócache; không đo lại hai cặp này.
+
+### Plateau C64 sau 12 Roller (R-172)
+
+[CSV/manifest và giới hạn](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#plateau-c64-sau-12-roller--r-172):
+cùngactor449222352/C664C4, controllerhero+5F4/C6630C, C64 banđầu5; các return native158 cho
+6,7 rồi mười lần7. Có24entry/return của12kind2, cuốigetter595CB6→5A64E6 trảEAX7/C647.
+Đối chứng nativeXY cuối điDown46→193/Up193→53; khôngbom/nổ/nhốt. Đây là field/getter plateau7
+trong ca VN, không phải cap toàn KR, cấp tốc độ, px/s hoặc chứng minh clampwriter.
+
+Bootstrap actor được đọc ở các mốc handler, chưa chứng minh đó là ECXreceiver handler715E90.
+Capr1 bootstrap không đăngký/khôngdata; capr2 chỉ3movementpairs5/6/7 rồiobserverabort; capr3 đổiđiểmđọc
+sang ACKnative, giữ failedraw. Không đo lại plateau này; chỉ mở lại khi có build/actor/consumer khác hoặc
+cạnh writer/maxfield mới. Source/cadence/normalization/capKR vẫn cần bằng chứng riêng.
