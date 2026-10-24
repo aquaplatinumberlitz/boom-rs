@@ -842,3 +842,13 @@ identity KR. Firefieldr18 1→2 củng cố R-025/R-111; Roller còn thiếu.
 
 R-078/R-079 không bị đổi thành full mapping/timing confirmed: chỉ phạm vi R-164/R-165 nêu trên được bổ sung.
 Profile và luật damage giữ nguyên; không lấy group C/L/U/R/D hoặc rawduration1 làm lifetime vùng sát thương.
+
+
+## 29. Getter tầm thực sự dùng khi đặt bom VN (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-166 | Hai lần đặt bom cùng actorVN: virtualcall5B1F92/+0x7C nhận receiver=hero+0x510, vtableC663C4→5AE518; EAX1 trước Fire và2 sau117/158 khớp111r18 tương ứng. Wrapper gate+2C14 khác0 trả1, bằng0 tail5A021B; basegetter578963 đọc boxed receiver+1C qua414543 sau virtual+BC(arg1), nhưng5A021B còn override có điều kiện | Getter/wire scalar1→2, không phải cap | vn_runtime + vn_static / confirmed (đúng callsite, receiver, return/wire và cấu trúc getter) | [Evidence/CSV/39hash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#receiver-thật-của-getter-tầm--r-166); fixturebc875…;2call/3returnrows có duplicate. Gate semantics, writer/clamp, override runtime, Roller và C00/C01KR unknown. Boxhero+52C chỉ là số học;5B1FB5 là VMcachecall, không phải getter |
+
+Bổ sung R-025/R-111/R-163, không thay profile hoặc nâng các trường BomberAttrKR candidate thành
+confirmed. Runtime dùng giá trị getter cuối; chưa đo box nền hoặc chứng minh mọi nhánh override.

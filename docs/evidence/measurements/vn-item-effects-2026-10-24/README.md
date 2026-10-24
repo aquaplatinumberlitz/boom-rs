@@ -36,14 +36,15 @@ Không biến một lần nhặt/thử đặt bịtừchối thành giới hạn
 
 Parser `parse_bomb_record` đặt tên một field là **power**, nhưng fieldđó luôn1 trong caFire này.
 Không ghi `power1→2`: field thực đổi là **r18**, qua vf31 theo legacy
-`docs/vm_6EFD4A_inputs.md` §5/callsite5B1FB5 và `docs/oc_e-game.md` §5a-5d.
+`docs/vm_6EFD4A_inputs.md` §5; callsite native thực là5B1F92, còn5B1FB5 là lời gọi VMcache và `docs/oc_e-game.md` §5a-5d.
 152được server dựng từ chính record111 nên không phải bằng chứng độc lập thứhai về getter/stat.
 Việc hiểu vai trò tầm của r18 dùng trace/đối chiếu legacy đã có R-025; phép đo này ghi đúng scalar.
 
 ## Phạm vi và bước tiếp
 
 - Xác nhận hành vi Bomb1→2 và trườngr18sauFire trong đúngbuild/actor; bổ sungR-025/R-111.
-- Chưa tìm được nativegetter/writer tăngstat/kẹpmax, Rollerlevel, nghĩa f2..f7 hay12khóaC00/C01KR.
+- Đã nối getter tầm với111 trong ca bổ sung bên dưới; writer tăngstat/kẹpmax, Rollerlevel, nghĩa f2..f7
+  và12khóaC00/C01KR vẫn chưa nối.
   Bảng ItemAttr không tự chứng minh client/server chọn drop. Root149giữPARTIAL.
 - Cap cần nhiều lần nhặt đãxácnhận tại trần hoặc actualconsumer/getter; không suy cap từ lần3bịtừchối
   sau mộtBomb. Đườngđi/cellống lấy từ map+ObjectTable chỉlà data candidate trước khi clientchạy qua.
@@ -81,3 +82,33 @@ Không khẳng định chính xác chỉ một slot được giải phóng: chai
 R-163 xác nhận **trần hữu hiệu10 bom còn tồn tại trong đúng fixture/actor** và đặt lại thành công
 sau151. Chưa phân biệt stat cap/pool cấp phát, chưa tìm getter/writer hoặc nối C00/C01KR.
 Không nâng12khóa candidate target hoặc đổi profile từ kết quả riêng này.
+
+
+## Receiver thật của getter tầm — R-166
+
+Ca `host-item-range-receiver-149-r1` dùng cùng fixture/Ocean01, một Firekind1 tại(2,0).
+[range-getter.csv](range-getter.csv) nối **hai native call** với hai bản ghi111;
+[range-getter.json](range-getter.json) giữ39hash runtime/static, gồm các ảnh và raw chỉ có local.
+Bytegate PE/archi386 được kiểm trước khi gắn probe; thời gian debugger không dùng để đo fuse/latency.
+Server vẫn chỉ xác nhận pickup/đặt/nổ theo lịch8s emu, không tự tính stat.
+
+Tại5B1F92, `call [eax+0x7C]` nhận ECX=EDI−0xE4. Runtime khóa được trên cùng hero449159016:
+ECX449160312=hero+0x510, EDI449160540=hero+0x5F4, vtableC663C4, target5AE518.
+Trước Fire trả EAX1 rồi111r18=1; sau117→158 trả EAX2 rồi111r18=2. Parserpower vẫn1.
+Sau đặt quả thứhai, phần nổ/nhốt trong raw nằm ngoài phép so getter.
+
+Probe ghi **2 call/3 return rows**: hai return rows của lần thứhai có cùng receiver/target/value và
+nằm trước cùng111. CSV giữ số hàng trả về nhưng chỉ tính một lần gọi; không coi đây là ba lần lặp.
+Callsite5B1FB5 trước đây trích theo legacy **không phải virtualgetter**: đó là directcall6EFD24 sau
+khi ECX đã nạp lại CGameMsgCache. Phân biệt facet+0x510 với vtable chính của heroC664C4.
+
+Đọc tĩnh cùng SHA: wrapper5AE518 có gate byte receiver+0x2C14, khác0 trả hằng1, bằng0 tail5A021B.
+Thân5A021B đầy đủ gọi578963 lấy giá trị nền rồi có các override có điều kiện qua virtual+0x90 và
+4AD113. Hàm578963 gọi virtual+0xBC(arg1), sau đó đọc **boxed receiver+0x1C** qua reader414543
+đã biết. Với delta receiver thực, vị trí box là hero+0x52C theo phép cộng; chưa chứng minh writer hoặc
+runtime nội dung box. Không gọi đây là DWORDstat trực tiếp hoặc giá trị cuối luôn lấy nguyên từ box.
+
+R-166 xác nhận getter thực sự tiêu thụ khi tạo111 và scalar1→2 trong đúng ca, không xác nhận toàn bộ
+ngữ nghĩa gate/override, statmax, Roller hay ánh xạ C00/C01KR. Trần hữu hiệu10 của R-163 giữ phạm vi
+cũ. Bước tiếp là allocation virtual+0x48 trên **cùng facet** và writer/clamp của box, tránh lặp nhầm
+VMcallsite hoặc bảy KRlookupcaller đã cache.
