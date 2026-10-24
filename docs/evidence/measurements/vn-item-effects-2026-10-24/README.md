@@ -55,14 +55,14 @@ ObjectTable VN. Hành lang dữ liệu x14,y12→0 không có Static/Box; **clie
 mới xác nhận đường thử. Map index193 trong fx.idx, SHA trong manifest; cùng room19/heroC664C4.
 Getter xác minh spawn native(560,519); không dùng map đã sửa hay ép teleport.
 
-[controls.csv](controls.csv) nối chín pickup cuối (ba mỗi run) với KEY_PRESS Space trong\nsupervisor.log và cửa sổ không có111 trong packets.jsonl; thêm phép thử ô trống khác là đối chứng\nthứtư, không thay ba lần thử saupickup. Command cuối đã là stop, nên dùng action log lịch sử.\n\nBa lượt đều đặt quả đầu ở(14,12), rồi đi lên12 ô mới, mỗi ô có một Bombkind0. Đủ12 lần
+[controls.csv](controls.csv) nối chín pickup cuối (ba mỗi run) với KEY_PRESS Space trong\nsupervisor.log và cửa sổ không có111 trong packets.jsonl; thêm phép thử ô trống khác là đối chứng\nthứtư, không thay ba lần thử saupickup. Command cuối đã là stop, nên dùng action log lịch sử.\n\nPhân biệt hai loại xác nhận: S158 xác nhận nhặt item (C117), còn S152 xác nhận đặt bom (C111).\nCả9 pickup cuối (ba mỗi run) đều có S158 **trước** lúc bấmSpace; chỉ không có C111/S152 mới.\nControls.csv giữ riêng timestamp C117→S158→Space và cửa sổ không C111.\n\nBa lượt đều đặt quả đầu ở(14,12), rồi đi lên12 ô mới, mỗi ô có một Bombkind0. Đủ12 lần
 117→158 khác index, đủ các vị trí native; server xác nhận mọi111, không tự giới hạn số bom.
 
 | Lượt | Kết quả trước bất kỳ151 | Đối chứng cuối |
 |---|---|---|
-| cap-r1 (BOMB_ECHO0) | 10 quả tại y12..3, sau đó ba ACK mới ởy2/1/0 và Space không có111 | Ô trống khác nativeX510/cell12,0, Space vẫn không111; không151/120 |
-| cap-r2 (BOMB_ECHO45) | Lặp lại10 quả và12 pickup, ba lần ở trần không111 | Gate12s hết trước lịch emu45s; plateau vẫn hợp lệ nhưng **chưa thực hiện** phép giải phóng chỗ |
-| cap-r3 (BOMB_ECHO25) | Cùng plateau10 và ba pickup dư không111; ô trống nativeX515/cell13,0 vẫn không111 | 151id1 lúc18:23:44.526,111serial200/id11 lúc18:23:45.010, **trước**151id2 lúc18:23:45.616; không120 |
+| cap-r1 (BOMB_ECHO0) | Sau9 pickup đầu có10 quả tại y12..3;3 pickup còn lại (index9/10/11, trong tổng12) đều được xác nhận S158; mỗi lần bấmSpace không C111 | Ô trống khác nativeX510/cell12,0, Space vẫn không111; không151/120 |
+| cap-r2 (BOMB_ECHO45) | Lặp lại10 quả và12 pickup có S158; Space sau3 pickup cuối không C111 | Gate12s hết trước lịch emu45s; plateau vẫn hợp lệ nhưng **chưa thực hiện** phép giải phóng chỗ |
+| cap-r3 (BOMB_ECHO25) | Cùng plateau10;3 pickup cuối trong tổng12 vẫn có S158, mỗi lần bấmSpace không C111; ô trống nativeX515/cell13,0 vẫn không111 | 151id1 lúc18:23:44.526,111serial200/id11 lúc18:23:45.010, **trước**151id2 lúc18:23:45.616; không120 |
 
 R3 sửa lịch emu để đối chứng nằm trong gate, không tăng timeout hoặc lấy25s làm fuse native.
 Các151 sau đó vẫn giữ trong log; đối chứng chỉ xét111id11 giữa151 đầu và thứhai.
