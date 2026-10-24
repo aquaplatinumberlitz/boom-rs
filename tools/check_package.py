@@ -277,8 +277,11 @@ LICENSE_NOTICE_CLAUSES: dict[str, tuple[str, ...]] = {
     ),
 }
 
-#: Dòng bắt đầu bằng dấu bản quyền (`Copyright`, `(c)`, `©`).
-COPYRIGHT_MARKER_RE = re.compile(r"^\s*(?:\(c\)|©|copyright\b)", re.IGNORECASE)
+#: Dòng bản quyền; miniquad dùng `@ 2019-2020 Tác giả` thay cho ký hiệu ©.
+COPYRIGHT_MARKER_RE = re.compile(
+    r"^\s*(?:\(c\)|©|copyright\b|@(?=\s+(?:1\d{3}|20\d{2})\b))",
+    re.IGNORECASE,
+)
 
 #: Năm trong dòng bản quyền (`2019`, `1993,2004`, `2016--2023`).
 COPYRIGHT_YEAR_RE = re.compile(r"\b(?:1\d{3}|20\d{2})\b")
@@ -992,7 +995,7 @@ def render_licenses(report: Report) -> str:
     out.append("Gói phát hành này gồm binary của boom-rs và các crate phụ thuộc ở PHẦN 2.")
     out.append("Tệp do `python3 tools/check_package.py licenses` sinh lúc build: đọc")
     out.append("`cargo metadata` cho đồ thị phụ thuộc và đọc nguyên văn các file")
-    out.append("LICENSE*/COPYING*/NOTICE* trong nguồn crate của cargo registry.")
+    out.append("LICENSE*/COPYING*/NOTICE* trong nguồn crate (registry hoặc dependency path).")
     out.append("")
     out.append(f"Crate phụ thuộc: {len(report.crates)} · license SPDX dùng trong gói: "
                f"{len(report.texts)}")
@@ -1044,7 +1047,7 @@ def render_licenses(report: Report) -> str:
     out.append("PHẦN 3 — BẢN QUYỀN TỪNG CRATE")
     out.append(RULE)
     out.append("")
-    out.append("File license crate đó kèm trong nguồn registry, và dòng bản quyền trích từ đó.")
+    out.append("File license kèm trong nguồn crate (registry hoặc dependency path), và dòng bản quyền trích từ đó.")
     out.append("")
     for crate in report.crates:
         out.append(f"  {crate.key}")
@@ -2157,6 +2160,19 @@ class PackageToolTests(unittest.TestCase):
         self.assertEqual(copyright_lines(APACHE_TEXT), [])
         lines = copyright_lines(APACHE_TEXT + "\n(c) You must retain, in the Source form.\n")
         self.assertEqual(lines, [])
+
+    def test_vendored_miniquad_keeps_at_year_author_notice(self):
+        """Thông báo tác giả thực của miniquad phải còn trong LICENSES của gói."""
+        directory = ROOT / "vendor" / "miniquad"
+        notice = "@ 2019-2020 Fedor Logachev <not.fl3@gmail.com>"
+        self.assertIn(notice, (directory / "LICENSE-MIT").read_text(encoding="utf-8"))
+        report = build_report([Crate("miniquad", "0.4.11", "MIT OR Apache-2.0",
+                                     None, None, directory)])
+        self.assertEqual(report.problems, [])
+        text = render_licenses(report)
+        copyrights = text.split("PHẦN 3 — BẢN QUYỀN TỪNG CRATE", 1)[1]
+        self.assertIn("bản quyền: " + notice, copyrights)
+        self.assertIn("Permission is hereby granted", text)
 
     def test_licenses_keep_copyright_without_year(self):
         """Regression review #128: windows-link/windows-sys giữ dòng bản quyền không năm."""

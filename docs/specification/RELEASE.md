@@ -120,6 +120,16 @@ vốn maximized giữ state/kích thước cũ. RebindF10/F11 và startupfullscr
 Đây là sửa runtimeLinux; GUIWindows/macOS/WM khác/minimumhardware và sign-offG5 còn thiếu.
 Gói QA40091603701 chưa chứa patch này; trước phát hành cần đóng gói head đã được nghiệm thu.
 
+### Kiểm notice của dependency path sau sửa fullscreen
+
+QA workflow40105903687 tại head2977b0e build/smoke ba OS thành công, nhưng kiểm nội dung độc lập
+ở issue273 phát hiện LICENSES bỏ dòng tác giả `@ 2019-2020 Fedor Logachev` của miniquad.
+Collector trước đó chỉ nhận `Copyright`/`(c)`/`©`; có tên crate và toàn văn MIT chung chưa chứng minh
+notice riêng được giữ. Các archive đó giữ làm bằng chứng trước sửa, chưa đạt acceptance notice273.
+Collector bổ sung dạng `@` theo sau bởi năm và giữ nguyên dòng nguồn; regression dùng file
+`vendor/miniquad/LICENSE-MIT` thật đã tái hiện đỏ trước sửa/xanh sau sửa. Không đổi source/vendor license,
+không coi smoke xanh là chứng minh đầy đủ nội dung LICENSES. Gói sau sửa cần kiểm lại hash/notice riêng.
+
 ### Blocker nghiệm thu hiện hành của G2/G3/G5/V1-036
 
 | Phần | Đã có bằng chứng | Còn chặn nghiệm thu / bước cụ thể | Fidelity giữ backlog |
