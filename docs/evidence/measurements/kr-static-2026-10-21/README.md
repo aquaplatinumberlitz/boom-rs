@@ -142,3 +142,22 @@ không ghi/reset. `1240B00` chỉ trả kết quả gọi `57A870` tại `+68+12
 gọi accessor `529C60` trên bảng `*(this+42)+792*a2+112`; nghĩa owner/local/team và consumer `this[172]`
 vẫn **candidate/unknown**, chưa thấy collision/grace. E3 chưa xác định function. Không mở các callsite
 còn lại; helper/callee chưa đọc unknown. Không đổi R-154/player grace.
+
+### #146 — player grace sau đặt bom (lượt 24/10)
+
+Bundle lọc `.re-work/evidence-player-grace-146-r1.json` (**7 record**; không commit). Subject/actual:
+`/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`, DB copy `rea-ida-GUJhP1`, base `0x400000`, SHA
+`cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`; không nói đây là clone khác.
+
+| Evidence | Hàm/site | Kết quả |
+|---|---|---|
+| `ev_0246c7eb…` | `xrefs B40D60` | 24 caller; predicates/readers, không có owner/overlap |
+| `ev_71c34736…` | `B40030`, `B40290` | type/valid/idle + `B40D60==0`; không grace |
+| `ev_10a00c3a…` | `B422F0`, `B42880` | `B422F0` query `E9F6D0` object ô đích; `B42880` action/state; không owner |
+| `ev_64d026e3…` | `xrefs B37DB0` | 6 data xref (vtable); không direct player caller |
+| `ev_1f14b5c5…` | `xrefs 11982F0` | chỉ `B37DB0` code + vtable data; sensor flag reader |
+| `ev_6249ce45…`, `ev_84379c67…` | `B99CF0`, `B994C0` | `B9A990` chain tới vtable `0x1747328`; consumer `+0x2B0` chưa đọc |
+
+**Kết luận:** không có **player grace confirmed**; `B40D60/+1440` là field dir/input, predicate chỉ
+valid/idle; `B37DB0/+152/+328` là predicate kiểu/sensor bomb, không owner; `B9A990` có owner-like
+transform nhưng chưa nối collision/grace. Player grace giữ **unknown**; không đề xuất đổi luật.

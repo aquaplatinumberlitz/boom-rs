@@ -296,3 +296,27 @@ SHA `cf72da11…e63b`); E3 resolve subject boom-team, DB `rea-ida-GI3Raz`. Khôn
 Evidence: `ev_0216a581…` batch B3/B9; `ev_1e18205f…` batch B996/B9A3; `ev_fb3ed4dd…` xref B9A990;
 `ev_d9c085e8…` xref B9A3B0; `ev_868df24e…`/`ev_c23c3eb1…` E3 resolve. Bundle
 `.re-work/evidence-owner-player-sites-146.json`.
+
+### 9.6 Player grace sau đặt bom — lượt 24/10 (#146/Q017/G2)
+
+Hỏi: người **vừa đặt bom** có được đi ra/đi xuyên/quay vào không, theo owner/overlap/flag nào và mất
+khi nào. Baseline `6a2473f`; chỉ đọc thêm 4 thân mới + xref; không giải lại B3AE90/B9A990/B996B0/
+B9A3B0/1240B00/1241780/B37DB0/1310200/B44000/B77B10. Provenance: 7 record lọc
+`.re-work/evidence-player-grace-146-r1.json`; subject boom-team, DB copy `rea-ida-GUJhP1`, cùng SHA
+`cf72da11…e63b`.
+
+| Hàm / site | Dùng gì | Kết luận cho grace |
+|---|---|---|
+| `B40030` (RVA `740030`), `B40290` (`740290`) | `B323D0` + virtual `+100` (type) + `B40D60` (`bomber+1440`) == 0 + virtual `+132` | Chỉ **valid/idle/state**; không đọc owner, không query ô/bom, không setter vị trí/grace |
+| `B422F0` (`7422F0`) | `B40D60==0`; `E9F6D0(x,y)` lấy object ở ô đích; `B9DB70` lấy id; không so owner | Có **map query** nhưng chỉ chọn object/id cho action; chưa thấy so player/overlap hoặc timer |
+| `B42880` (`742880`) | `B40D60==0`; sound/virtual `+384/+704`; `AE7710` | Không owner/overlap/grace; nhánh action/state |
+| `B37DB0` (`737DB0`) | `+328` type ∈ {1,2} → 0; ngược lại `11982F0(bomb+144)` = sensor flag `+152` | **Không đọc owner/player/overlap**. Xref chỉ **6 data** (vtable slots), không có caller trực tiếp; `MoveSimple` đã biết là pet/AI |
+| `B9A990` (`79A990`) | guard `B38370(this)!=-1`; so transform `1241780(B38370(this))` / `1241780(1240B00(0))`; ghi `this[172]` (byte `+0x2B0`) | Có **so owner-like** nhưng class/consumer chưa đọc; vtable chuỗi `B994C0→B99CF0→B9A3B0` (`0x1747328`) chưa nối collision/grace |
+
+- `B40D60` chỉ trả field `+0x5A0` (= `bomber+1440`), đã biết từ R-137 là field nhận **dir/input**, không
+  phải timer grace. Các predicate dùng nó như điều kiện valid; không truyền vào setter vị trí.
+- `B37DB0` là predicate **kiểu bom + sensor flag**, không phải “owner được đi xuyên”; flag `+152`
+  mặc định 1, setter runtime/consumer người chơi vẫn chưa đọc.
+- **Player grace = unknown**: chưa có bằng chứng owner-specific, overlap-specific hay timer; không
+  suy từ pet/AI, không đổi 40×40/corner/grace hay R-154. `+268` vẫn candidate owner; `+0x2B0` vẫn
+  unknown. Cạnh tiếp: đọc `B99CF0`/`B994C0` hoặc caller virtual `+156` của player — cần budget mới.
