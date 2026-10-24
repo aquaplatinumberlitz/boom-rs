@@ -161,7 +161,7 @@ Ngưỡng chính xác gắn fixture/nguồn hoặc quyết định DESIGN; khôn
 
 ## Rà bằng chứng gate V1 (2026-10-23) — audit lịch sử, không phải hàng đợi hiện hành
 
-> **Trạng thái hiện hành sau PR271 (24/10):** V1-035 đã nghiệm thu, V1-036 `in_review`,
+> **Ghi chú lịch sử tại PR271 (24/10):** V1-035 đã nghiệm thu, V1-036 `in_review`,
 > **36/37** feature và **2/6** gate. PR213 đã merge; bảng 125khóa/57unknown/15review/9image-pending
 > bên dưới là số tại baseline audit23/10, không phải yêu cầu duyệt lại hiện tại.
 > V1 hiện có126khóa được nghiệm thu ở PR241; các sửa/review/QA sau audit xem
