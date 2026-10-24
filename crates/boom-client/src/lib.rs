@@ -33,6 +33,7 @@ mod render;
 mod scene;
 mod text;
 mod ui;
+mod window;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -47,9 +48,7 @@ use boom_core::{
     Cell, CharacterStats, Dir, Life, Phase, Player, PlayerInput, PlayerSetup, Rules,
     SimulationEvent, SimulationState, Stat, World, mode_by_id,
 };
-use macroquad::material::{
-    Material, MaterialParams, gl_use_default_material, gl_use_material, load_material,
-};
+use macroquad::material::{Material, MaterialParams, load_material};
 use macroquad::miniquad::{PipelineParams, ShaderSource};
 use macroquad::prelude::*;
 
@@ -166,9 +165,10 @@ pub fn main() {
         let conf = macroquad::miniquad::conf::Conf {
             // l10n:allow-technical: tiêu đề cửa sổ, không phải chữ trong màn hình.
             window_title: "boom-rs client — UI demo".to_owned(),
-            window_width: i32::try_from(ui::WIDTH).unwrap_or(800),
-            window_height: i32::try_from(ui::HEIGHT).unwrap_or(600),
-            window_resizable: false,
+            window_width: i32::try_from(ui::WIDTH * opts.scale).unwrap_or(800),
+            window_height: i32::try_from(ui::HEIGHT * opts.scale).unwrap_or(600),
+            fullscreen: opts.fullscreen,
+            window_resizable: true,
             high_dpi: false,
             sample_count: 1,
             ..Default::default()
@@ -181,6 +181,8 @@ pub fn main() {
                     bundle: opts.bundle.clone(),
                     snapshot: opts.snapshot.clone(),
                     shot: opts.ui_shot,
+                    scale: opts.scale,
+                    fullscreen: opts.fullscreen,
                 },
             ),
         );
@@ -300,16 +302,17 @@ pub fn main() {
         }
         let conf = macroquad::miniquad::conf::Conf {
             window_title: "boom-rs".to_owned(),
-            window_width: ui::WIDTH as i32,
-            window_height: ui::HEIGHT as i32,
-            window_resizable: false,
+            window_width: (ui::WIDTH * opts.scale) as i32,
+            window_height: (ui::HEIGHT * opts.scale) as i32,
+            fullscreen: opts.fullscreen,
+            window_resizable: true,
             high_dpi: false,
             sample_count: 1,
             ..Default::default()
         };
         macroquad::Window::from_config(
             conf,
-            run_network_ui(game, model, opts.scale, opts.debug_hud),
+            run_network_ui(game, model, opts.scale, opts.fullscreen, opts.debug_hud),
         );
         return;
     }
@@ -487,7 +490,8 @@ fn window_conf(game: &Game, opts: &Options) -> macroquad::miniquad::conf::Conf {
         window_title: title,
         window_width: (game.logic_size[0] * opts.scale) as i32,
         window_height: (game.logic_size[1] * opts.scale) as i32,
-        window_resizable: false,
+        fullscreen: opts.fullscreen,
+        window_resizable: true,
         high_dpi: false,
         sample_count: 1,
         ..Default::default()
@@ -1251,6 +1255,7 @@ async fn run_network_ui(
     mut game: Game,
     mut model: ui::UiModel<net::ui_backend::NetBackend<boom_net::TcpTransport>>,
     scale: u32,
+    fullscreen: bool,
     debug_hud: bool,
 ) {
     let mut font = ui::draw::bundled_font();
@@ -1273,22 +1278,26 @@ async fn run_network_ui(
     let mut last = get_time();
     let mut accumulator = 0.0;
     let mut was_match = false;
+    let mut window = window::WindowControls::new(scale, fullscreen, [ui::WIDTH, ui::HEIGHT]);
+    let ui_canvas = window::UiCanvas::new();
     loop {
         model.tick();
         let playing = model.screen() == boom_content::bundle::UiScreen::Match;
         if playing != was_match {
             game.input.apply(InputEvent::FocusLost);
             accumulator = 0.0;
-            let size = if playing {
-                [game.logic_size[0] * scale, game.logic_size[1] * scale]
-            } else {
-                [ui::WIDTH, ui::HEIGHT]
-            };
-            macroquad::miniquad::window::set_window_size(size[0], size[1]);
             was_match = playing;
         }
         macroquad::input::utils::repeat_all_miniquad_input(&mut adapter, subscriber);
         adapter.drain_into(&mut game.input);
+        let logical = if playing {
+            game.logic_size
+        } else {
+            [ui::WIDTH, ui::HEIGHT]
+        };
+        if window.update(logical, Some(*game.input.binds()), false) {
+            game.input.apply(InputEvent::FocusLost);
+        }
         let now = get_time();
         if playing {
             if is_key_pressed(KeyCode::Escape) {
@@ -1315,7 +1324,7 @@ async fn run_network_ui(
                 atlas.as_ref(),
                 &target,
                 &material,
-                scale,
+                window.scale,
                 SceneHud {
                     player: Some((title, status)),
                     font: Some(&mut font),
@@ -1331,6 +1340,7 @@ async fn run_network_ui(
                 return;
             }
             let layout = ui::layout::layout(&model, game.bundle.as_ref(), game.scene.as_ref());
+            ui_canvas.begin();
             ui::draw::draw(
                 &layout,
                 &mut font,
@@ -1338,6 +1348,7 @@ async fn run_network_ui(
                 game.bundle.as_ref(),
                 game.scene.as_ref(),
             );
+            ui_canvas.present(window.scale);
         }
         last = now;
         next_frame().await;
@@ -1348,7 +1359,7 @@ async fn run(mut game: Game, opts: Options) {
     let target = render_target(game.logic_size[0], game.logic_size[1]);
     target.texture.set_filter(FilterMode::Nearest);
     let copy_material = load_copy_material();
-    let mut scale = opts.scale;
+    let mut window = window::WindowControls::new(opts.scale, opts.fullscreen, game.logic_size);
 
     // Trang atlas chỉ nạp được khi đã có cửa sổ (texture cần GL context).
     let atlas = match (game.bundle_dir.as_deref(), game.scene.as_ref()) {
@@ -1442,6 +1453,10 @@ async fn run(mut game: Game, opts: Options) {
         // Lấy event theo đúng thứ tự macroquad đã nhận từ backend (key-down/up, WindowMinimized).
         macroquad::input::utils::repeat_all_miniquad_input(&mut input_adapter, input_subscriber);
         input_adapter.drain_into(&mut game.input);
+        if window.update(game.logic_size, Some(*game.input.binds()), true) {
+            game.input.apply(InputEvent::FocusLost);
+        }
+        let scale = window.scale;
         let now = get_time();
         // Đồng hồ render dùng cho alpha nội suy của nhánh mạng: client đặt tay được
         // nên luồng mạng chạy được trong test headless (không cửa sổ).
@@ -1456,13 +1471,6 @@ async fn run(mut game: Game, opts: Options) {
         if opts.snapshot.is_none() {
             if is_key_pressed(KeyCode::Escape) {
                 macroquad::miniquad::window::quit();
-            }
-            if is_key_pressed(KeyCode::S) {
-                scale = if scale == 1 { 2 } else { 1 };
-                macroquad::miniquad::window::set_window_size(
-                    game.logic_size[0] * scale,
-                    game.logic_size[1] * scale,
-                );
             }
             // Phím debug để kiểm nhánh focus-loss ngay cả khi cửa sổ không mất focus thật.
             if is_key_pressed(KeyCode::F2) {
@@ -1575,24 +1583,7 @@ fn draw_scene(
         draw_debug_hud(game, scale);
     }
 
-    set_default_camera();
-    clear_background(Color::new(0.01, 0.01, 0.02, 1.0));
-    gl_use_material(copy_material);
-    draw_texture_ex(
-        &target.texture,
-        0.0,
-        0.0,
-        WHITE,
-        DrawTextureParams {
-            dest_size: Some(vec2(
-                (game.logic_size[0] * scale) as f32,
-                (game.logic_size[1] * scale) as f32,
-            )),
-            flip_y: true,
-            ..Default::default()
-        },
-    );
-    gl_use_default_material();
+    window::present_target(target, copy_material, game.logic_size, scale);
 }
 
 /// Lớp chữ vẽ trên scene của màn trận.
@@ -1768,6 +1759,7 @@ fn placeholder_terrain() -> Terrain {
 #[derive(Clone, Debug)]
 struct Options {
     scale: u32,
+    fullscreen: bool,
     snapshot: Option<PathBuf>,
     ticks: u32,
     seed: u64,
@@ -1821,6 +1813,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             scale: 2,
+            fullscreen: false,
             snapshot: None,
             ticks: DEFAULT_TICKS,
             seed: DEFAULT_SEED,
@@ -1866,6 +1859,8 @@ impl Options {
         let mut args = args;
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--fullscreen" => opts.fullscreen = true,
+                "--windowed" => opts.fullscreen = false,
                 "--scale" => {
                     opts.scale = args
                         .next()
@@ -1971,7 +1966,7 @@ impl Options {
                 }
                 "-h" | "--help" => {
                     println!(
-                        "dùng: boom-client [--scale 1|2] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
+                        "dùng: boom-client [--scale 1|2] [--fullscreen|--windowed] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
                          \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--demo-death] [--death-frame N] [--death-hold] [--ui-demo] [--ui-shot SCREEN]\n\
                          \t  [--connect ĐỊA_CHỈ_SERVER] [--user TÊN] [--password MẬT_KHẨU] [--register]\n\
@@ -2174,6 +2169,24 @@ mod tests {
         let opts = Options::parse_from(["--debug-hud".to_owned()].into_iter())
             .expect("cờ --debug-hud hợp lệ");
         assert!(opts.debug_hud, "--debug-hud phải bật HUD chẩn đoán");
+    }
+
+    #[test]
+    fn fullscreen_cli_respects_the_last_explicit_mode() {
+        let opts = Options::parse_from(
+            ["--fullscreen", "--windowed"]
+                .into_iter()
+                .map(str::to_owned),
+        )
+        .unwrap();
+        assert!(!opts.fullscreen);
+        let opts = Options::parse_from(
+            ["--windowed", "--fullscreen"]
+                .into_iter()
+                .map(str::to_owned),
+        )
+        .unwrap();
+        assert!(opts.fullscreen);
     }
 
     #[test]
