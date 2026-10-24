@@ -216,3 +216,14 @@ C664C4, controllerhero+5F4/C6630C; native158handler715E90 đãreturn71B717 trư�
 Source producer→local amount→virtual+128 đã nối; consumer5A0F75 chưa đọc. Timinginstrumented bị loại;
 R-169 là capture vận tốc riêng. Không đổi speed24/profile/KRidentity. Bootstrapactor vànativeeventphase
 đã thay setup interrupt lỗi; giữ sáu diagnostic thấtbại, không lấy chúng làm phép đo hoặc lặp lại.
+
+
+### Amount→XY tại lời gọi thực (R-171)
+
+[4rows/44hash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#amount-và-xy-tại-virtual-movement-thực--r-171):
+actualvirtual24459D902→59DA6F/return59D908 trên samehero449162552/C664C4 nhận5→0 và
+Y519→514 trước item;6→0 vàY284→278 sau native158, X560. Actualoutercallerreturn131E9DF,
+không phải5A1035 giả định. Source5A0F75conditional/static vàR170getter là bằng chứng riêng, không
+kết luận actualcase4; controllerfield+58khônglàherostate. Run đầuguardfailkhôngphysicsresult.
+Hai cặp là nativeamount/XY observation, khônglevel/FPS/pxs/normalization. Giữ profile hiện hành và
+truy nguồn/cadence từ đúngcaller cócache; không đo lại hai cặp này.

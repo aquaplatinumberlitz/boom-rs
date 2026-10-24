@@ -910,3 +910,14 @@ quyết định V1 riêng. Không lấy literal0 trong wrapper làm no-loop ho�
 Bổ sung R-169 bằng getter thực, không đo lại vận tốc và không đổi các khóa profile. Giá trị EAX được
 chụp sau return trước local store; field bằng nhau không chứng minh cùng nhánh. R-045/R-114 còn giới hạn
 về level/đơn vị; không tự nâng source chỉ vì return và bước pixel có cùng số.
+
+
+## 35. Amount và bước XY trên movement call VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-171 | CùngactorVN/C664C4: actualvirtual+244call59D902→59DA6F/return59D908 nhậnamount5→0 vàY519→514 trước Roller; sau native158 nhận6→0 vàY284→278, X560 giữnguyên. Haiouterreturn131E9DF, target/frame/thread/XYchecksum hợp lệ | Native argument5/6 và bướcY−5/−6pixel tronghai cặpđọc; timingexcluded | vn_runtime / confirmed (hai lời gọi trongđúng actor/ca) | [4rows/44hash/guardfail/actualcaller](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#amount-và-xy-tại-virtual-movement-thực--r-171); fixturebc875…/Factory01/room19, one117/158kind2/no111151120. Không suy level/FPS/px/s/collision/max/KRidentity hoặc nốiR170producerkhác capture; cache5A0F75conditional không làactualcallerđãđo |
+
+Hai EAX5/6 là giá trị quan sát, chưa gán nghĩa toànhàm. R-170 getter vàR-169velocity là các capture khác;
+không ghép đồnghồ để tạo công thức cấp tốc độ. Phần arg→XY trong hai lời gọi này đã có kếtquả, còn
+sourceproducer/cadence/writer/normalization là câu hỏi tiếp, không đổi profile từ dữ liệu chưa cùng đại lượng.

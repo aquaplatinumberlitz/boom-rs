@@ -1,0 +1,5 @@
+phase,kind,hero,hero_vtable,call_or_return_pc,actual_target,outer_return,amount_before,amount_after,eax,x,y,monotonic_ns,timing_excluded
+1,entry,449162552,0xc664c4,0x59d902,0x59da6f,0x131e9df,5,,,560,519,815656218680096,True
+1,return,449162552,0xc664c4,0x59d908,0x59da6f,0x131e9df,,0,5,560,514,815656221286008,True
+2,entry,449162552,0xc664c4,0x59d902,0x59da6f,0x131e9df,6,,,560,284,815660561225360,True
+2,return,449162552,0xc664c4,0x59d908,0x59da6f,0x131e9df,,0,6,560,278,815660564451933,True

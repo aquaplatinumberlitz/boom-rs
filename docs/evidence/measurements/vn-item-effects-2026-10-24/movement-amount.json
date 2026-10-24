@@ -1,0 +1,371 @@
+{
+  "schema": 1,
+  "claim": "R-171",
+  "issues": [
+    146,
+    149
+  ],
+  "baseline": "2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
+  "source": "vn_runtime",
+  "status": "confirmed (two native movement call/return pairs only)",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386",
+    "patch_scope": "Same disclosed IAT/devirt/offline fixture as R170; user-authorized scoped VN runtime, vanilla equivalence not established"
+  },
+  "raw_roots_private": {
+    "runtime": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-movement-amount-146-r2-caller-observe",
+    "failed_first_case": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-movement-amount-146-r1",
+    "static_cache": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/amount-consumer-146"
+  },
+  "runtime": {
+    "owner": "Codex only; private user/net/PID/mount namespace, loopback, private/tmp/displayfd; stop2 supervisorDONE and exec99379EXIT0",
+    "map": "Factory01 index193, room19",
+    "actor": 449162552,
+    "hero_vtable": "0xC664C4",
+    "controller": 449164076,
+    "controller_vtable": "0xC6630C",
+    "call_pc": "0x59D902",
+    "actual_virtual244_target": "0x59DA6F",
+    "return_pc": "0x59D908",
+    "outer_return_observed": "0x131E9DF",
+    "packets": {
+      "C117": 1,
+      "S158": 1,
+      "C111": 0,
+      "S151": 0,
+      "C120": 0
+    },
+    "pickup_kind": 2,
+    "native158return": {
+      "return_pc": "0x71b717",
+      "monotonic_ns": 815660557626827,
+      "pre_capture_count": 2
+    },
+    "phases": [
+      {
+        "phase": 1,
+        "amount_before": 5,
+        "amount_after": 0,
+        "eax_after": 5,
+        "x_before_after": [
+          560,
+          560
+        ],
+        "y_before_after": [
+          519,
+          514
+        ],
+        "delta_y": -5
+      },
+      {
+        "phase": 2,
+        "amount_before": 6,
+        "amount_after": 0,
+        "eax_after": 6,
+        "x_before_after": [
+          560,
+          560
+        ],
+        "y_before_after": [
+          284,
+          278
+        ],
+        "delta_y": -6
+      }
+    ]
+  },
+  "observer": {
+    "method": "Self-disabling virtual244 call/return pair per phase; PRE armed at actual hero bootstrap, POST at exactly one native158 return backed by kind2 packet log; same actor/type/stack-pointer/target/thread/checksum guards",
+    "timing_excluded": true,
+    "quantity_units": "native XY pixels and scalar argument, not level, px/s, FPS or server ticks",
+    "limits": [
+      "Two vertical call/return pairs in one actor/build/mode/run; no other directions/collision/hitbox/max mapping",
+      "Actual caller131E9DF differs from assumed5A1035; no actual5A0F75 case4 claim or R170 producer-to-consumer cross-run identity",
+      "EAX5/6 reported as observed values, not a proven function-wide return semantic",
+      "Saved box headers lack payload bytes for independent post-run decoding; live decoder checks cookies/checksum",
+      "Internal writer/order beyond scoped call/return is not instrumented",
+      "R170 is separate getter capture; R169 separate velocity capture; no unit conversion by combining their clocks"
+    ]
+  },
+  "failed_case": {
+    "run": "host-movement-amount-146-r1",
+    "reason": "Hard-coded outer caller5A1035 did not match; stopped before entry record",
+    "result": "zero usable consumer pairs; excluded from physics evidence",
+    "changed_method": "Record actual caller with strong actor/target/ptr/XY guards instead of assuming case4; one diagnostic run only"
+  },
+  "static_context": {
+    "conditional": "5A0F75 prefix uses amount pointer in cases4..7, but controller+58=7 fromR170 is not hero.v58 state; actualR2 path not assigned to case4",
+    "coverage": "Prior cache5A0F75prefix768B+596058full25B+59D894prefix172B =965B/3units (one over declared2-body grant); static data slot/table reads separate; no new body during export",
+    "actual_target_slot": "C66708 6fda5900 ->59DA6F; runtime verifies target again",
+    "unknown": "Source producer path through actualcaller131E9DF and level/normalization/clamp remain open"
+  },
+  "files": [
+    {
+      "root": "runtime",
+      "path": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "root": "runtime",
+      "path": "01-channels.png",
+      "bytes": 609807,
+      "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+    },
+    {
+      "root": "runtime",
+      "path": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "root": "runtime",
+      "path": "03-create-dialog.png",
+      "bytes": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "root": "runtime",
+      "path": "04-room.png",
+      "bytes": 385945,
+      "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+    },
+    {
+      "root": "runtime",
+      "path": "05-match.png",
+      "bytes": 409539,
+      "sha256": "bf645cc85cb189f4ffe3370d1c6355a36bd0c599deba0c49a0df69491ca8cac5"
+    },
+    {
+      "root": "runtime",
+      "path": "06-caller-observe.png",
+      "bytes": 405010,
+      "sha256": "137b9613863dfd71dd326ef56ca5ba80a03d293fdde98aac7ef0c5dfa8440b40"
+    },
+    {
+      "root": "runtime",
+      "path": "ack.json",
+      "bytes": 42,
+      "sha256": "d8c6ce5ae8485b2cd7073f15b9cad861e1c030719c4895174eff755118b1008b"
+    },
+    {
+      "root": "runtime",
+      "path": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "root": "runtime",
+      "path": "consumer-captures.jsonl",
+      "bytes": 2308,
+      "sha256": "77e20913d069fa252e6dfcd10c1edf1820e04fe0ab8352060cfcbc5f1ca4f704"
+    },
+    {
+      "root": "runtime",
+      "path": "harness-used.py",
+      "bytes": 14174,
+      "sha256": "aa83646c047051697cf777a5d8dc1f94bc22399f297fce01b20d71788231637b"
+    },
+    {
+      "root": "runtime",
+      "path": "hero-target.json",
+      "bytes": 180,
+      "sha256": "5482ad6f2ef753f161dfe5bd42a6caef4dd6f8cb31419b15f7d6634a5a7b2acd"
+    },
+    {
+      "root": "runtime",
+      "path": "item158-native-entry.json",
+      "bytes": 81,
+      "sha256": "2d79604109c1b6f96cb2dc3fd4b0884abc1dafac76d710470698db8058ee913c"
+    },
+    {
+      "root": "runtime",
+      "path": "item158-native-return.json",
+      "bytes": 82,
+      "sha256": "352f5108605c79665bdaae059eb0ab12279bf204b576d51c8c64e1fc47f06477"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.jsonl",
+      "bytes": 20630,
+      "sha256": "4be87875e3f978f20ddccde4416cd7bf1d0c448af47d0868bc561df86782e855"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.log",
+      "bytes": 16125,
+      "sha256": "1cf29ba281073409abd385f53675899e9f6a377befbd38eeb03c91bad52b0829"
+    },
+    {
+      "root": "runtime",
+      "path": "pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "root": "runtime",
+      "path": "position-samples.jsonl",
+      "bytes": 258096,
+      "sha256": "0a88a01ded5eae92d2ff8690a883de5bb61e8c63605e4c6ed9a9e92866501f36"
+    },
+    {
+      "root": "runtime",
+      "path": "probe-ready.json",
+      "bytes": 206,
+      "sha256": "656ffbbe532b4f208cc9023cdde4b6a8cc887ebafee63fb9a1d2cb636f4fc704"
+    },
+    {
+      "root": "runtime",
+      "path": "probe-template-used.gdb",
+      "bytes": 9722,
+      "sha256": "321d8de91c6b7444a98e2737c4b3bd8897b403e7e3fe0adabee054c856bf00f7"
+    },
+    {
+      "root": "runtime",
+      "path": "probe.gdb",
+      "bytes": 9722,
+      "sha256": "321d8de91c6b7444a98e2737c4b3bd8897b403e7e3fe0adabee054c856bf00f7"
+    },
+    {
+      "root": "runtime",
+      "path": "ready.json",
+      "bytes": 74,
+      "sha256": "285892d0e94faa836d854d164752bc16809134247e5c495d75c256efcf4232d7"
+    },
+    {
+      "root": "runtime",
+      "path": "server-used.py",
+      "bytes": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "root": "runtime",
+      "path": "server.log",
+      "bytes": 16125,
+      "sha256": "1cf29ba281073409abd385f53675899e9f6a377befbd38eeb03c91bad52b0829"
+    },
+    {
+      "root": "runtime",
+      "path": "supervisor.log",
+      "bytes": 2741,
+      "sha256": "be66d3b7d571adbf1d8f2e769977a26b5d5da03ac2c4d67116c1f9b0c53da0f6"
+    },
+    {
+      "root": "runtime",
+      "path": "winedbg.log",
+      "bytes": 15446,
+      "sha256": "2ca717c47593b4c1e0c4f0bf3892a4d94d2f7f7b314cf6bc54dc8d8997a92453"
+    },
+    {
+      "root": "runtime",
+      "path": "xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "root": "failed_first_case",
+      "path": "supervisor.log",
+      "bytes": 2738,
+      "sha256": "10715a05032015413330d48cbe2bbf80e5f6b6fcaf084d0e9c3854ce5c39d025"
+    },
+    {
+      "root": "failed_first_case",
+      "path": "winedbg.log",
+      "bytes": 15717,
+      "sha256": "01b4c36c0b81ab92591c4817ee56c4ee0c93f287190f7b302108e1bebcc53e70"
+    },
+    {
+      "root": "failed_first_case",
+      "path": "consumer-captures.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "root": "failed_first_case",
+      "path": "consumer-error.json",
+      "bytes": 72,
+      "sha256": "20832402b030a8e932e0d9c25e269ebbcdf95d7a51ba8e31290c875aa4958a0b"
+    },
+    {
+      "root": "failed_first_case",
+      "path": "harness-used.py",
+      "bytes": 14159,
+      "sha256": "372374344d95465270e6fb1c93bb0a464f762ec48fd3e0ac28593ac477d3c79b"
+    },
+    {
+      "root": "failed_first_case",
+      "path": "probe-template-used.gdb",
+      "bytes": 9819,
+      "sha256": "0d574a78702d6ee6d1bb2d863e1f27fdf4b2f4daea46ef7dd5ccc9089964ec76"
+    },
+    {
+      "root": "failed_first_case",
+      "path": "server-used.py",
+      "bytes": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "root": "static_cache",
+      "path": "596058-body.bin",
+      "bytes": 25,
+      "sha256": "d758119027f6728f5e34d77b1ca8aa360b282c3e9cdd13776898986f520f890f"
+    },
+    {
+      "root": "static_cache",
+      "path": "59D894-prefix172.bin",
+      "bytes": 172,
+      "sha256": "18f08000a6c5b4504a3b98815a2abacb9fec516372f2e82768094290f34da271"
+    },
+    {
+      "root": "static_cache",
+      "path": "5A0F75-prefix768.bin",
+      "bytes": 768,
+      "sha256": "3f1a1850404e91b3744950b976a14fa8f6fdce72c9ccb0d604fd5493b68a09fe"
+    },
+    {
+      "root": "static_cache",
+      "path": "switch_bytes.bin",
+      "bytes": 57,
+      "sha256": "45ec3fb762395dfce146cf9ddeb31298a211bdfeb6c7918245b307f7303195ab"
+    },
+    {
+      "root": "static_cache",
+      "path": "switch_dwords.bin",
+      "bytes": 228,
+      "sha256": "ef7a361c482de4ac76a3905a34581f8251347fa7813bd3e687d7367ad7643cee"
+    },
+    {
+      "root": "static_cache",
+      "path": "vtable_C66518.bin",
+      "bytes": 4,
+      "sha256": "9d54e537f787fa005b335331e1b49d18a23fcaa3e403b30f65819c2dd62850d4"
+    },
+    {
+      "root": "static_cache",
+      "path": "vtable_C6651C_plus58.bin",
+      "bytes": 4,
+      "sha256": "03383958c3520bc8982a07b328abbc837b7acaa4337a387fdbd489b01ed74213"
+    },
+    {
+      "root": "static_cache",
+      "path": "vtable_C665EC.bin",
+      "bytes": 4,
+      "sha256": "c688cf6b210de08e819fbcb1ad0ae5f259a0f68bec087fc8924045842b537334"
+    },
+    {
+      "root": "static_cache",
+      "path": "vtable_C665F0.bin",
+      "bytes": 4,
+      "sha256": "92d7301d8eca192b888588272dbbf9d5207f7c895860cd8ef6f9a89c9bfb2e47"
+    },
+    {
+      "root": "static_cache",
+      "path": "vtable_C66708_plus244.bin",
+      "bytes": 4,
+      "sha256": "ee568cf86fce2d6e5a0c588d33216076b6db5da8eb05453a9ee9dfb3c29e469d"
+    }
+  ]
+}
