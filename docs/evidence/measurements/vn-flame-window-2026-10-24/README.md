@@ -60,6 +60,32 @@ random guards, **`CBombOwner__vf33` 0x5788C9 EXPERIMENT plain skip**); không c�
   **chưa loại trừ one-shot xử lý trễ**; chưa có TTL/one-shot vs window conclusive.
 - Không suy fire 500 ms/2500 ms.
 
+## Refinement module-return (2026-10-24, thất bại — không claim receipt)
+
+- Gate byte trước attach: namespace riêng `host-flame-module-return`; đọc `/proc/<pid>/mem` tại `0x7324c0`
+  phải khớp đúng 16 byte file `6a50b8c396b600e813902a008bd98b83`; 0 hoặc >1 match thì dừng.
+  `module-selection.json`: **đúng 1 match**, actual PE **pid 86**,
+  `Z:\home\admin\boom-rs-dsh\re-kr\.re-work\vn-grace-240\game\ca_fixed_patched.exe`,
+  `matched: true`; PE base `0x400000`, DLL flags `0x8000` (no ASLR).
+- GDB lần mới **hit entry** `0x7324c0`: `explosion-entry.json` `monotonic_ns=767680172516908`,
+  `return=0x6e9aee`. Sau đó GDB dừng **SIGSEGV tại `0x7324c0`**, inferior `process 86` detached;
+  **không có** `explosion-return.json`; supervisor `ERROR RuntimeError('no client explosion return')`.
+- Không phân biệt được ngoại lệ Wine bình thường vs debugger interference/crash; **không claim**
+  crash do GDB, không claim receipt/return. Không gửi Left sau hook; không đếm case 5 trap hay damage nào.
+- GDB log có architecture mismatch: target `i386:x64-32` nhưng GDB chọn `i386:x86-64`, DLL i386
+  “not compatible” — context debugger chưa đúng Wine32/WOW64.
+- Bước tiếp: debugger đúng context Wine32/WOW64 (`winedbg --gdb` hoặc xác minh signal forwarding);
+  không claim đã fix; không chạy runtime này tiếp.
+
+Raw SHA-256 (sau closed):
+
+| File | SHA-256 |
+|---|---|
+| module-selection.json | `8f301f70ed9568c4ed0e0313547ebab0a15ed763a0062eefa8f59d051644da17` |
+| explosion-entry.json | `737e6f5bb762cc92c7e04fb3961d6a55b124df6df99fb846bd821e8f97faf648` |
+| gdb.log | `fe28a13fbb680e550b327258550fe0938300894bed88bbcfef5ca3358ceb8414` |
+| supervisor.log | `2391358ce78c97ec3f6d03b087e27a6ec8c6b05bcd82905e358a0c0f96ee0a08` |
+
 ## Probe GDB (thất bại, không claim handler)
 `host-flame-handler-return/gdb.log`: breakpoint `0x7324c0` →
 `Cannot insert breakpoint -14. Cannot access memory at address 0x7324c0`;
