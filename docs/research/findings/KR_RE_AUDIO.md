@@ -52,7 +52,8 @@ switch id-7:
     default: LABEL_38
 ```
 
-Manager là singleton `0x19D8A88` (`sub_54EAF0` trả con trỏ). `Play` = `0x14BF4D0` (§5).
+Dispatcher dùng singleton `0x19D8A88` (`sub_54EAF0` trả con trỏ). `Play` = `0x14BF4D0` nhận
+engine `[manager+0x68]`, không phải chính singleton; cạnh receiver/count được bổ sung ở §11.
 
 Id liên quan V1 (từ bảng):
 
@@ -133,21 +134,21 @@ Ghi chú: `0xB42D60` còn gọi `sub_D1CD10` với id `444` (`Ntc_Help2`) khi `[
 
 ## 5. Voice / chồng tiếng (R-207)
 
-`0x14BF4D0(manager, id, a3, a4)`:
+`0x14BF4D0(engine, id, a3, a4)` (engine=`[manager+0x68]`, §11):
 
 ```
-nếu id == -1 hoặc manager+8/+24/+36 == 0: return 0
+nếu id == -1 hoặc engine+8/+24/+36 == 0: return 0
 nếu a3 != 0:
-    quét manager+16[0..manager+12-1]; nếu voice cùng id → return handle (KHÔNG phát thêm)
+    quét engine+16[voice slots, count=engine+12]; nếu voice cùng id → return handle (KHÔNG phát thêm)
 tìm voice có state == 2 (rảnh)
 nếu không có: return 0                     // bỏ, không đuổi voice cũ
-nếu có: nạp file .ogg, volume = v27 * *(float*)(manager+48) / const, gắn callback, play
+nếu có: nạp file .ogg, volume = v27 * *(float*)(engine+48) / const, gắn callback, play
 ```
 
-Hệ quả: **pool cố định** (mảng `manager+16`, count `manager+12`), **dedup theo id khi `a3 != 0`**,
+Hệ quả: **pool cố định** (block con trỏ `engine+16`, count `engine+12`), **dedup theo id khi `a3 != 0`**,
 **không ưu tiên/không eviction**. Cửa sổ dedup thấy trong `0xD1CD10`: 200 ms cho cặp 7/8; 90 ms cho
-nhóm id `337..342`. Số voice của pool (hằng khởi tạo) **chưa định vị** — không claim "8 voice" của V1
-là của KR.
+nhóm id `337..342`. R-212/§11 đã nối khởi tạo tới vòng tối đa16voice, lưu số handle tạo thành công. Runtime count
+chưa đo; không claim8voice DESIGN của V1 là sốnative hoặc luôn có16voice trên mọi máy.
 
 ## 6. Bounded negative cho brick-break và `BombExplosion001` (R-208)
 
@@ -182,14 +183,14 @@ theo id) — đề xuất giữ design V1 nhưng ghi khác biệt ở R-207/§5.
 - Bảng id→entry đọc từ **bản dump đã init**; 649 entry là số entry parse được, có thể còn id trống.
 - Chưa đọc record map trong data pack để chứng minh map Village trỏ tới tên `Village` (R-081 phủ phần
   entry/hash).
-- Số voice của pool và hằng volume chưa định vị; chưa thấy loop flag của BGM.
+- Khởi tạo pool tối đa16voice đã nối ở R-212; runtime count/hằng volume chưa kiểm đầy đủ, loop flag BGM chưa thấy.
 - "Không thấy consumer" cho 471/brick-break là **bounded negative** chỉ cho direct call + literal push
   trong 649 entry + 597 site `0xD1CD10`; virtual `vf+148`, id động, wrapper và script theo tên chưa bị loại trừ.
 
 ## 9. Bước tiếp
 
 1. Đọc record map (pack) để nối map Village → tên BGM; xác nhận map BGM cho từng map V1.
-2. Tìm hằng khởi tạo pool voice + volume mặc định (`manager+12/16/48`) để chốt số voice KR.
+2. Khởi tạo/count đã nối ở §11; runtime count/volume và BGMloop còn thiếu, không đọc lại D1C330/ctor để tìm writer cũ.
 3. Kiểm tra script/pack có gọi `PlayWaveEffect("BombExplosion001")` không (đường theo tên).
 4. Nếu muốn đổi AUDIO_V1: mở task riêng theo ADR 0013, sửa cả `data/assets/audio-v1.toml` + bảng
    AUDIO_V1 + test, không gộp vào PR RE này.
@@ -238,7 +239,7 @@ sub_D1C330(this);                                     // cuối thân
 - Chưa kiểm lại ánh xạ `dword_19D8A88` (singleton) ↔ `manager` mà `0x14BF4D0` nhận; không dùng offset
   của ctor để suy count.
 
-### 10.3. Kết luận / blocker
+### 10.3. Kết luận / blocker tại lượt PR231 (R-212 cập nhật ở §11)
 
 - **Số voice vẫn `unknown`**: nguồn literal/param/config **chưa thấy**; ctor chỉ zero-init + gọi
   helper, không gán `manager+12`/`+16`. **Không** lấy 8 design V1, 649 entry, hay dung lượng container.
@@ -246,3 +247,28 @@ sub_D1C330(this);                                     // cuối thân
   dùng ⇒ dừng đúng hạn; không mở provider khác.
 - Bước tiếp: kiểm xem `sub_D1C330` có store `[manager+0Ch]`/`+10h` và nguồn giá trị **không** — chỉ
   kết luận sau khi thấy store + dataflow; nếu vào VM/Themida thì ghi entry và dừng.
+
+
+## 11. Count trên đúng receiver của Play — R-212 (2026-10-24)
+
+Câu hỏi con #196 đã trả lời: **nguồn count/pointer của engine thực sự nhận14BF4D0**.
+[Manifest7hash/PEanchors](../../evidence/measurements/kr-static-audio-2026-10-23/pool-count.json)
+reuse ctor REA cùng SHA và hai thân mới+callsite PE đọc chỉđịnh; không mở provider/worker/runtime mới.
+
+Mấu chốt là tách singleton dispatcher khỏi engine. CtorD1C0A0 đã cache gọi14BE290(1,1), lưu kết quả
+vào `this[26]`=manager+0x68. TạiD1D12A..D1D142, dispatcher nạp ECX từ `[manager+0x68]` rồi gọi
+14BF4D0. Vì vậy poolcount+0x0C/pointer+0x10 thuộc **engine**, không phải managerCSoundManRenew.
+D1C330 đọc đầy đủ1428byte chỉ khởi tạo/đăng ký dữ liệu; không directstore hai offset đó trong thân,
+không suy toàn callgraph hoặc lấy652registration records thành649validsound entries.
+
+14BE290 là ctor/helper trênECXexistingobject, không phải factory tự cấp cảmanager. Hai đối số1,1
+được lưuengine+0x24/+0x28. Helper zero count+0x0C vàpointer+0x10, cấp block0x48byte: handle driver
+ởblock+0, các voice ởblock+4+4i, handle riêng+0x44. Loop từ14BE3F0 tạo handle, dừng khi handle0;
+14BE414 tăngEDI,14BE415 soEDI16,14BE418 lặp khi nhỏhơn;14BE423 lưuEDI tạiengine+0x0C.
+Đó là **số voice tạo thành công, tối đa16**, không phải48voice,652sound hay1000ms/count.
+Thân463byte gồmRET8 tại14BE45C..45E; adjacent14BE460 không được đọc làm bằng chứng.
+
+Nguồn/staticdataflow confirmed; số thực tạo trên máy chạy chưa đo, lỗi device/handle có thể làm ít
+hơn hoặc0. Voice8/priority/eviction củaV1 giữ DESIGN R-083 khácnative; PR này không đổiaudioengine.
+Câu hỏi tiếp có căn cứ là runtime enginecount/volume, BGMloop hoặc brick-breakconsumer; không tiếp
+quét bảng597soundcalls hayD1C330 đã giải.

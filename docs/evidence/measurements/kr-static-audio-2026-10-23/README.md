@@ -91,9 +91,9 @@ Nổ 7: `count(7,200ms) > 0` → stop 7+8, play 8; ngược lại `count(8,200ms
 
 ## Voice
 
-`0x14BF4D0`: mảng `manager+16`, count `manager+12`; `a3 != 0` + cùng id → trả handle cũ (không phát
-thêm); tìm voice `state == 2` (rảnh); không có → `return 0` (bỏ). Volume: `v27 * *(float*)(manager+48) / const`.
-Số voice của pool (hằng khởi tạo) chưa định vị — không claim "8".
+`0x14BF4D0`: block `engine+16`, count `engine+12` (engine=`[manager+0x68]`, R-212); `a3 != 0` + cùng id → trả handle cũ (không phát
+thêm); tìm voice `state == 2` (rảnh); không có → `return 0` (bỏ). Volume: `v27 * *(float*)(engine+48) / const`.
+LượtR-212 bên dưới đã nối khởi tạo tốiđa16voice thành công; runtime count chưa đo, không claim8DESIGN lànative.
 
 ## Giới hạn
 
@@ -132,6 +132,26 @@ singleton), `ev_378e543a82862ca886ff0e6cea85020fbc271e9870dc40ff0716786857af0650
 `ev_425ff98895aa5399da7536de5fd65f2ac448bf367d17f04420247665f5599d65` (xref `D1C0A0`),
 `ev_d48e48f7c10dae036d6151f87ec1dac236434f0e75bb0661f246d1a32b4f814a` (thân `D1C0A0`).
 
-**Kết luận lượt**: ctor `CSoundManRenew` đã đọc nhưng **không gán** `manager+12`/`+16`; nguồn số voice
+**Kết luận lịch sử lượt PR231** (cạnh count mới đã giải ở R-212 bên dưới): ctor `CSoundManRenew` đã đọc nhưng **không gán** `manager+12`/`+16`; nguồn số voice
 (literal/param/config) **chưa thấy** ⇒ vẫn `unknown`. `read_bytes` không hỗ trợ (`capability_unavailable`),
 1 lần, không retry. Bước tiếp: kiểm `sub_D1C330` xem có store `[manager+0Ch]`/`+10h` và nguồn giá trị không.
+
+
+## Receiver/count đã giải — R-212 (2026-10-24)
+
+[pool-count.json](pool-count.json) ghi7hash raw giữlocal,5PEanchor ranges vàctor REA cache
+`ev_d48e48f7…`. Binary KR00967 SHA/base như trên. REA session cũ stale nên reusecache vàđọcPEcopy
+chỉđịnh; không mở IDAworker/DB hay chạy client. Hai thân mới D1C3301428B,14BE290463B; prefixdispatcher
+D1D100..D1D15788B, adjacentdataD1D158..15F từng emitted nhưng không được diễn giải.
+
+| Cạnh | Locator | Kết luận |
+|---|---|---|
+| Singleton→engine | cachedD1C0A0:this[26]; D1D12A..D1D142 | Play14BF4D0 nhận `[manager+0x68]` |
+| Zero/countpointer |14BE2D8/14BE2DF;14BE385 | engine+0C/+10 được zero, pointer nhận block0x48byte |
+| Voice loop |14BE3F0..14BE418 | tốiđa16iteration thành công; handle0 dừng |
+| Writer count |14BE423 | engine+0C=EDI số handle tạo thành công |
+
+Block+0 làdriver, voicehandles+4+4i(i0..15), handle riêng+44; sốbyte block không phải sốvoice.
+Chỉ static initialization được xác nhận, không runtime16guaranteed. TìmcounttrênCSoundManRenew+12
+là sai receiver; negativector/D1C330 cũ giữ ý nghĩa phạm vi, đã có cạnh engine đúng nên không giao lại.
+Rustpolicy8voice R-083 chưa đổi trongPR nguồn này, loop/volume/brickbreak còn Q-015.

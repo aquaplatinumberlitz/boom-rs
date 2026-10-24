@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "issue": 196,
+  "claim": "R-212",
+  "baseline": "4fa158895d1753190986f2b48ef309c5a5aaa210",
+  "source": "kr_static",
+  "status": "confirmed (bounded initialization and receiver dataflow); runtime count unknown",
+  "binary": {
+    "sha256": "cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b",
+    "size": 26074624,
+    "base": "0x400000",
+    "build": "KR00967 unpacked copy"
+  },
+  "tools": "Reuse prior REA evidence for ctor; targeted read-only PE disassembly for two new functions and dispatcher callsite; stale REA provider not reopened",
+  "raw_roots_private": {
+    "new_static": "/home/admin/boom-rs-dsh/re-kr2/.re-work/audio196-init-count",
+    "prior_bundle": "/home/admin/boom-team/tmp"
+  },
+  "prior_ctor_evidence": "ev_d48e48f7c10dae036d6151f87ec1dac236434f0e75bb0661f246d1a32b4f814a",
+  "coverage": {
+    "new_full_bodies": [
+      {
+        "va": "0xD1C330",
+        "end_inclusive": "0xD1C8C3",
+        "bytes": 1428
+      },
+      {
+        "va": "0x14BE290",
+        "end_inclusive": "0x14BE45E",
+        "bytes": 463
+      }
+    ],
+    "cached_caller_prefix": "D1D100..D1D157 only; adjacent D1D158 data originally emitted not interpreted",
+    "no_runtime": true
+  },
+  "receiver": {
+    "manager": "singleton CSoundManRenew",
+    "member": "manager+0x68",
+    "ctor_assignment": "cachedD1C0A0:14BE290(1,1) result storedthis[26]",
+    "dispatcher": "D1D12A..D1D142 ECXfrommanager+0x68 before14BF4D0",
+    "pool_count": "engine+0x0C, not manager+0x0C",
+    "pool_block": "[engine+0x10] points to0x48 block; driver at+0, voice handles+4+4i fori0..15, extra handle+0x44"
+  },
+  "initialization": {
+    "zero_count": "14BE2D8 writes0 atengine+0C",
+    "block_store": "14BE385 pointer atengine+10",
+    "loop": "14BE3F0..14BE418; zeroEDI, createhandle, breakonnull, incrementEDI, compare0x10, loopwhileless",
+    "count_writer": "14BE423 storesEDI successfuliterations atengine+0C",
+    "maximum_iterations": 16,
+    "actual_runtime_count": "unknown; null handles/earlier devicefailure can leave fewer/zero",
+    "args": "1,1 storedengine+24/+28, not voicecount",
+    "d1c330": "no directcount/pointerstore+0C/+10 in full1428B body; not global/callee absence"
+  },
+  "anchors": [
+    {
+      "va": "0xd1d12a",
+      "rva": "0x91d12a",
+      "file_offset": "0xb62f2a",
+      "size": 29,
+      "sha256": "ede929e8c525b13066a472614a1a56e6d4854453b3ee006375cbdc2b45ad8b77"
+    },
+    {
+      "va": "0x14be2d8",
+      "rva": "0x10be2d8",
+      "file_offset": "0x13040d8",
+      "size": 14,
+      "sha256": "3ba50f7cb26ff31c0ac23162fa0cbc5b39096735f76dab4d957298242e1a9439"
+    },
+    {
+      "va": "0x14be385",
+      "rva": "0x10be385",
+      "file_offset": "0x1304185",
+      "size": 3,
+      "sha256": "f130bb7e3794712a29c5eebd64d22fc70e9de6f242fe35be2590c275a44c2225"
+    },
+    {
+      "va": "0x14be3f0",
+      "rva": "0x10be3f0",
+      "file_offset": "0x13041f0",
+      "size": 42,
+      "sha256": "9d49408f9d55264720a057ae0ab0e8128d784aa8883ca802841464249836cf9a"
+    },
+    {
+      "va": "0x14be41a",
+      "rva": "0x10be41a",
+      "file_offset": "0x130421a",
+      "size": 19,
+      "sha256": "3a8b9f942623e41794b35d8c7be3442b5f9e62cd640b028096991f7ea81f1abf"
+    }
+  ],
+  "limits": [
+    "static maximum16 initialization; not runtime16guaranteed",
+    "not649SFX/117BGM or+60=1000;0x48allocation bytes not48voices",
+    "importedAPInames not newly recovered",
+    "Rust8voice/priorityeviction remains existing DESIGN; no engine policy change in this evidencePR"
+  ],
+  "files": [
+    {
+      "root": "new_static",
+      "path": "D1C330-body.asm",
+      "size": 20763,
+      "sha256": "85566e9e24e643ffc156cbdbdfd7ca231ebcca95384f541837499978c438020f"
+    },
+    {
+      "root": "new_static",
+      "path": "D1C330-body.hex",
+      "size": 4284,
+      "sha256": "81eb6c4528af365b8249e8c854ef2806aafc4aa993b0afb579502ffc4ebbef1d"
+    },
+    {
+      "root": "new_static",
+      "path": "D1CD10-play-callsite-source.asm",
+      "size": 1746,
+      "sha256": "0c4f646eb9b87bf49c15463705c8d30c059de1c7584045ee7dd6769d1a27e68d"
+    },
+    {
+      "root": "new_static",
+      "path": "D1CD10-play-callsite-source.hex",
+      "size": 264,
+      "sha256": "3f218420411b635335e982dfbdf82fd798f788b6b626318bf731d583554d6395"
+    },
+    {
+      "root": "new_static",
+      "path": "14BE290-body.asm",
+      "size": 7522,
+      "sha256": "fdad9de018d876fd7d91dc9ee7add1f1079127bcf0ce79dec896409597a22720"
+    },
+    {
+      "root": "new_static",
+      "path": "14BE290-body.hex",
+      "size": 1389,
+      "sha256": "fb852714f7e8fcc9b900fe1d3b89d0f0f5875356315042ca64574310267dbbd9"
+    },
+    {
+      "root": "prior_bundle",
+      "path": "pr196-pool-live-evidence.json",
+      "size": 23592,
+      "sha256": "15c34896035657f7fb3ae4358629b3c7ec2b3c6314d5ba23287cf2277811faf8"
+    }
+  ]
+}
