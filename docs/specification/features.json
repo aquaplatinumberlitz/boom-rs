@@ -1554,7 +1554,7 @@
       "tracking": {
         "assignee": "integrator/QA",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-24",
+        "updated_at": "2026-10-25",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -1564,19 +1564,20 @@
           "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9",
           "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json",
           "git:796284d422baf14f2c0ab0c27a78100bc335c2f1",
-          "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json"
+          "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
+          "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
         ],
         "verification": {
           "status": "passed",
-          "command": "releaseworkflow40091603701 + unpack/check3archives +27SHAfilematches + Linuxroom2×snapshot fromarchive",
-          "result": "QA/dev reviewedhead641f99a dựng3OS/smoke10caOS,3archivechecks/27hash khớp; currentrulestrap6350/trapped17/flame540 byte-identical. LinuxarchiveUI1600×1200 RGBAkhớp previousreviewedroom onllvmpipe. Không GUIWinMac/minHW/profile release; old28dadmetadataretainedhistorical."
+          "command": "releaseworkflow40107097457 + unpack/check3archives +27filehash +3authornotices +actualLinuxarchiveKWin4case",
+          "result": "QA/devreviewedcode95985fe dựng3OS/10smokeOS,3archivecheck/27hash/135crate+miniquadnotice đúng; rules6350/17/540 vàL10N cùngbyte. ActualLinuxarchiveKWinnormal/max2cycles/rebind4caseheldkeygreen; firstshortpulsefailure giữcauseunknown. KhôngGUIWinMac/minHW/physicalaudio/gatesignoff. PR274merged0886f81 afterindepfinale066APPROVE/12CI3OS."
         },
         "review": {
           "status": "pending",
-          "result": "Code264/capacityreviewindepdsh1+12CIpassed; task265gói/audit đang independentreview, khôngphải feature/gatesignoff."
+          "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off."
         },
         "blocker": "Cần nghiệm thu V1-036 và cấu hình máy tối thiểu; QA dùng profile dev release=false, G2/G3/G5 chưa passed.",
-        "next_action": "Sign-off G2/G3/G5/profile và đo/chốt minimumhardware; GUIđaOS/WMframe/audiohardwarelimits theoRELEASE. Current3OSQA/fingerprints đãcó40091603701; chỉ dựng lại khi code/rules thay đổi có lý do, không chạy lại networkmatrix hay duyệt V1-035."
+        "next_action": "Sign-off G2/G3/G5/profile và đo/chốt minimumhardware; GUIđaOS/WMframe/audiohardwarelimits theoRELEASE. Current3OSQA/fingerprints đãcó40107097457; chỉ dựng lại khi code/rules thay đổi có lý do, không chạy lại networkmatrix hay duyệt V1-035."
       }
     },
     {

@@ -2,7 +2,7 @@
   "schema": 1,
   "baseline": "KR-00967-V1-scope-1",
   "plan": "docs/planning/REWRITE_PLAN.md",
-  "updated_at": "2026-10-24",
+  "updated_at": "2026-10-25",
   "readiness_phases": [
     "P0",
     "P1",
@@ -251,9 +251,13 @@
         "docs/evidence/measurements/vn-player-grace-2026-10-24/README.md",
         "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d",
         "docs/evidence/measurements/vn-trapped-input-2026-10-24/README.md",
-        "git:d8f1ba9b7f9aed73a6676b74c3ab104b6ca55244"
+        "git:d8f1ba9b7f9aed73a6676b74c3ab104b6ca55244",
+        "docs/evidence/measurements/vn-item-effects-2026-10-24/movement-producer.json",
+        "docs/evidence/measurements/vn-item-effects-2026-10-24/movement-amount.json",
+        "git:2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
+        "git:fd5b46c41914bd95b2a2efec7b5856b553436dcb"
       ],
-      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành.",
+      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành. PR272/R170 actualgetter5→6 vàPR275/R171 actualv244amount5/6→Ydelta−5/−6 đãreviewđộc lập/12CI3OS; chỉ hai ca native, khônglevel/FPS/normalization/profilechange. Chuẩn bị câu hỏi plateauRoller có đối chứng, chưa sign-offG2.",
       "integration_commit": "",
       "blocker": "Cần review độc lập quyết định profile phát hành/12khóaC00/C01candidate; loader từ chối candidate khi release=true. Không đổi nhãn bằng chứng để vượt gate. Nativefidelity khác có thể backlog theo SCOPE10.5, không cần đóng hết146/149."
     },
@@ -277,7 +281,7 @@
       ],
       "verification": "PR249R158flame540ms/17tick và PR258R160trap6350ms/191tick, PR260trapped17px/s đã review độc lập và12CI3OS xanh; createdtick/scenario/replay giữ nguồn/giới hạn. PR264R168 đo limit10 trước pool25 trong một actorVN, chưa sửa capKR. Clockwarmup đúngR113. Cần sign-off profile/boundary/drop, không đòi RE hếtmode hoặc tự nâng gate từ review luật.",
       "integration_commit": "",
-      "blocker": "Profile phát hành vàsign-off boundary/dropV1 chưa chấp nhận; currentpackage đã kiểm task265,không còn blocker gói dùng luật cũ. Không lấy capactorVN thànhmọiKR hoặc packettime thànhliteral native."
+      "blocker": "Profile phát hành vàsign-off boundary/dropV1 chưa chấp nhận; currentpackage sau sửa notice/fullscreen đã kiểm task273,không còn blocker gói dùng luật cũ. Không lấy capactorVN thànhmọiKR hoặc packettime thànhliteral native."
     },
     {
       "id": "G4",
@@ -313,9 +317,11 @@
         "git:43739e2fa6abe09f28457f218648141113cd2fb4",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
         "git:796284d422baf14f2c0ab0c27a78100bc335c2f1",
-        "docs/evidence/measurements/rust-client-ux-2026-10-24/window-restore.json"
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/window-restore.json",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
+        "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
       ],
-      "verification": "V1-035 đã nghiệm thu; PR255/dsh2APPROVE exact28dad286+CI3OSxanh. UI800×600/1600×1200khớp RGBA nearest; NVIDIAfullscreen/focus có đối chứng movement, rebind S/F10/F11, capture BGM/SFX/volume/mute qua private virtual sink. Đây là kiểm Linux có giới hạn, chưa sign-off gateG5. Issue270 sửa miniquadEWMH: KWin normal2cycles restores600×560, initiallymaximized2cycles preservesmaximized, rebindF10/F11/startupfullscreenpass; Linuxonly, khôngG5signoff.",
+      "verification": "V1-035 đã nghiệm thu; PR255/dsh2APPROVE exact28dad286+CI3OSxanh. UI800×600/1600×1200khớp RGBA nearest; NVIDIAfullscreen/focus có đối chứng movement, rebind S/F10/F11, capture BGM/SFX/volume/mute qua private virtual sink. Đây là kiểm Linux có giới hạn, chưa sign-off gateG5. Issue270 sửa miniquadEWMH: KWin normal2cycles restores600×560, initiallymaximized2cycles preservesmaximized, rebindF10/F11/startupfullscreenpass; Linuxonly, khôngG5signoff. Task273/PR274 actualLinuxarchive cùngKWin4case normal/max2cycles/rebind đã kiểm; pulse ngắn failedfixture giữ causeunknown, held-keymethodgreen; khôngGUIWinMac/minHW/G5signoff.",
       "integration_commit": "",
       "blocker": "Cần sign-off UX/presentation G5: GUI/backend đa OS/WM khác, phần cứng âm thanh/minimum hardware và playtest còn thiếu. Lỗi khôi phục frame KWin/X11 đã có sửa/đối chứng issue270; không coi đây là GUI Windows/macOS hoặc gate passed."
     },
@@ -330,9 +336,10 @@
         "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json",
-        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json"
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
+        "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
       ],
-      "verification": "36/37V1done; task265 QA40091603701 exacthead641f99aa997813eca77ecd1d0ef554b3fd55c272 success4/4jobs: cả3archive tải/mở/check,27hashfile khớp,10smokecase/OS, rules6350/17/540 đồng nhất. Linux archive room2×1600×1200 RGBAkhớp ảnh đãreview trênllvmpipe; khôngGUIWinMac/minHW/livehealth. Old28dadpackage làhistorical. G2/G3/G5 vẫnin_review/G6blocked; chưa sign-off036 hoặc release.",
+      "verification": "36/37V1done; task273 QA40107097457 exactreviewedcode95985fe941be5199568b012482c8eac88b33629f success4/4jobs:3archive tải/mở/check,27filehash/10smokeOS/135crate+notice miniquad đủ, rules6350/17/540/L10N cùngbyte. PR274finalmetadatae066d4a independentDSH2APPROVE+12CI3OS. ActualLinuxarchiveKWinnormal/max2cycles+rebind4case; failedshortpulse preserved/causeunknown. OldQA400916 vàprefixed401059 giữhistory. G2/G3/G5in_review/G6blocked, chưasign-off036/minHW/GUIWinMac/physicalaudio/release.",
       "integration_commit": "",
       "blocker": "V1-036/minimumhardwareCPU/RAM/GPU chưa đo; G2/G3/G5 chưa sign-off/profile dev releasefalse,12KRcandidate; GUIđaOS/G5 cònthiếu. Currentpackage/fingerprint đãđạt, khôngcòndùngoldpackageblocking."
     }
