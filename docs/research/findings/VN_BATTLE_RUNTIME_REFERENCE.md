@@ -202,6 +202,17 @@ patchstub.devirt→414543,22Bgetter và5Bstub đã giữprovenance; không đo b
 
 [One-run/9windows/35hash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#roller-và-vận-tốc-thực--r-169):
 DSH1 đo hai cặpUp/Down trước165–170/sau198–204px/s trên cùngactor448364544/C664C4, đúngmột
-117/158kind2/khôngbom/nhốt. Observedsampleincrement5→6px không phải cấp5→6. Nativelevel vẫnunknown;
-không đổi24px/s/level hoặc suy C00/C01KR. Sampler/readjitter/gaps/+550failure/cachedstate-onlypaths
+117/158kind2/khôngbom/nhốt. Observedsampleincrement5→6px không phải cấp5→6. Nativelevel vẫnunknown; R-170 dướiđây bổsungactualgetterreturn5→6.
+Không đổi24px/s/level hoặc suy C00/C01KR. Sampler/readjitter/gaps/+550failure/cachedstate-onlypaths
 được giữ trongevidence; không lặpWine khi chưa có consumer cấp mới.
+
+
+### Getter movement đã đo cùng actor trước/sau Roller (R-170)
+
+[4native returns/52rawhash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#giá-trị-getter-đưa-vào-movement-trướcsau-roller--r-170):
+controller59EC93→595CCE và hero595CB6→5A64E6 đều trả5 trước/6 sau đúngmột Roller. Cùngactor449413520/
+C664C4, controllerhero+5F4/C6630C; native158handler715E90 đãreturn71B717 trướcPOST. Boxcontroller+64
+đổi5→6, nhưng branch chọn/writer/clamp chưa chứng minh. Không xem số này là cấp chỉ vì bằng sampledelta.
+Source producer→local amount→virtual+128 đã nối; consumer5A0F75 chưa đọc. Timinginstrumented bị loại;
+R-169 là capture vận tốc riêng. Không đổi speed24/profile/KRidentity. Bootstrapactor vànativeeventphase
+đã thay setup interrupt lỗi; giữ sáu diagnostic thấtbại, không lấy chúng làm phép đo hoặc lặp lại.

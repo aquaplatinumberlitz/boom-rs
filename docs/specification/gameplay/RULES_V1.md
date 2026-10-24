@@ -899,3 +899,14 @@ mẫu dịch chuyển có5px/6px. Hoàn thành câu hỏi hiệu ứng trong ca 
 
 Chỉ phần yêu cầu lặp có consumer mới được bổ sung; mộtBGMvoice/mapping/priority/reconcile vẫn giữ
 quyết định V1 riêng. Không lấy literal0 trong wrapper làm no-loop hoặc một nhánhcleanup làm cảcallback.
+
+
+## 34. Getter movement VN trước/sau Roller (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-170 | Cùng actorVN/C664C4 và controllerhero+5F4/C6630C: getter59EC93 trả tại595CCE và hero595CB6 trả tại5A64E6 đều5 trước,6 sau đúngmột Roller117/158; native158 return71B717 nằm giữa hai phase. Protectedcontroller+64 đổi5→6; các box+58/+2F8/+304/+20FC giữ nguyên | Native return scalar5→6 đưa vào local movement amount; không xác nhận level hoặc đơn vị thời gian | vn_runtime + vn_static / confirmed (đúng receiver, return, field và ca đã đo) | [4rows/52hash/staticPE/source/limits](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#giá-trị-getter-đưa-vào-movement-trướcsau-roller--r-170); fixturebc875…/Factory01index193/room19; actor449413520. Timingexcluded; branch+64/writer/clamp, normalization/max/KRidentity unknown. Consumervirtual+128→5A0F75 chưa đọc; không nâng5→6 thành level hoặc24px/s/level |
+
+Bổ sung R-169 bằng getter thực, không đo lại vận tốc và không đổi các khóa profile. Giá trị EAX được
+chụp sau return trước local store; field bằng nhau không chứng minh cùng nhánh. R-045/R-114 còn giới hạn
+về level/đơn vị; không tự nâng source chỉ vì return và bước pixel có cùng số.
