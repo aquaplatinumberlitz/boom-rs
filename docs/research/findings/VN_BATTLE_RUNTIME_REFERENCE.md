@@ -187,3 +187,12 @@ Call5B1FB5 là directcall6EFD24 sau đổi receiver; vai trò đối tượng m�
 không dùng nó làm địa chỉ virtualgetter.
 Base578963 đọc boxfacet+1C (hero+52C theo số học), qua virtual+BC/414543; wrapper và5A021B có
 nhánh override chưa đo. Writer/cap và ánh xạ KR vẫn mở, không suy toàn bộ stat từ offset này.
+
+
+### Sức chứa10 được kiểm trước pool25 (R-168)
+
+[Ca Factory bổ sung/14mẫu/35hash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#so-sức-chứa-trước-cấp-phát--r-168)
+đo so5B1E58 trên cùng facet: usage/limit0/1→9/10 rồi10/10 dù tiếp tụcpickup và thử ô khác. Pool25,
+còn15 entry thỏa hai predicate0; không phải hết pool10. Không151/120;12pickup/10placement có ACK.
+5AEC77/+88 và5A0274/+84 đã định vị; writer/literalclamp và identityKR vẫn mở. Basefacet+4 đi qua
+patchstub.devirt→414543,22Bgetter và5Bstub đã giữprovenance; không đo basebox hoặc khẳng định vanillaequivalence.

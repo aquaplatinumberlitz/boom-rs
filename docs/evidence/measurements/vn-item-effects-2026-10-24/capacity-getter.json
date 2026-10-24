@@ -1,0 +1,296 @@
+{
+  "schema": 1,
+  "issue": 149,
+  "baseline": "15d60a709411cd33e7ca91ff5d4c47fff74128c9",
+  "claim": "R-168",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386"
+  },
+  "run": "host-item-capacity-compare-149-r1",
+  "raw_roots_private": {
+    "runtime": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-item-capacity-compare-149-r1",
+    "static": "/home/admin/boom-rs-dsh/re-kr2/.re-work/item149-receiver-prep",
+    "patch_tail": "/home/admin/boom-team/tmp/vn149-cap-tail-proof"
+  },
+  "scope": "One Factory01 room19 actor C664C4; capacity comparison limit saturates10 while pool count25 and15 entries still satisfy allocator predicates; no global/native literal10 or KR identity claim",
+  "setup": {
+    "map": "Factory01",
+    "map_index": 193,
+    "room_type": 19,
+    "floor_items": "Bombkind0 at x14,y11..0",
+    "pickup_ack": "117->158",
+    "placement_ack": "111->152",
+    "bomb_echo": 0,
+    "runtime_owner": "Codex only; private NET/PID namespace loopback-only/private game+prefix"
+  },
+  "observations": {
+    "comparison_samples": 14,
+    "pickup117_and158": 12,
+    "placement111_and152": 10,
+    "packet151": 0,
+    "packet120": 0,
+    "current_limit_before": "0/1",
+    "after_9_pickups": "9/10",
+    "last_four_attempts": "10/10; three remaining pickups and other empty cell",
+    "pool_count_each": 25,
+    "free_by_two_zero_predicates_at_limit": 15,
+    "last_actual_xy": [
+      505,
+      39
+    ],
+    "last_requested_x": 510
+  },
+  "static": {
+    "compare": "5B1E58 cmp[EBP-18],EAX;5B1E5B jge5B1FF7 bypasses allocation5B1EC5",
+    "slots": [
+      {
+        "offset": "0x88",
+        "va": "0xc6644c",
+        "bytes": "77ec5a00",
+        "target": "0x5aec77"
+      },
+      {
+        "offset": "0x84",
+        "va": "0xc66448",
+        "bytes": "74025a00",
+        "target": "0x5a0274"
+      }
+    ],
+    "usage_getter": "5AEC77 full50B; adds6EFC31 result and facetvirtual78 result; internal component meanings/cadence not fully traced",
+    "limit_getter": "5A0274 full107B; base5788B8 plus conditional virtual8C/helper4AD0D1 overrides",
+    "base_getter": "5788B8 full22B;virtualC8(1) then facet+4 passed to reconstructed tail16B62F0",
+    "base_box_hero_offset": "hero+0x514 arithmetic; its runtime content/writer not measured",
+    "tail": {
+      "section": ".devirt",
+      "va": "0x16B62F0",
+      "size": 5,
+      "operation": "jmp414543",
+      "patch_site": "0x5788C9",
+      "patch_source": "legacy tools/devirt.py:341-348 EXPERIMENT plain skip",
+      "vanilla_equivalence": "not established; disclosed fixture scope, no literal capacity constant in this stub"
+    }
+  },
+  "limits": [
+    "one actor/build/mode/run; not all characters/KR profiles",
+    "threshold branch condition true from captured operands and static JGE; branch target PC not separately hooked",
+    "no base-box runtime reading, maximum writer/clamp literal or native server policy recovered",
+    "no timing claim from debugger stops",
+    "pool25 does not establish global pool size across modes",
+    "no151 test does not re-measure slot release; R163 earlier release control retained"
+  ],
+  "files": [
+    {
+      "root": "runtime",
+      "path": "00-initial.png",
+      "size": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "root": "runtime",
+      "path": "01-channels.png",
+      "size": 609807,
+      "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+    },
+    {
+      "root": "runtime",
+      "path": "02-lobby.png",
+      "size": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "root": "runtime",
+      "path": "03-create-dialog.png",
+      "size": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "root": "runtime",
+      "path": "04-room.png",
+      "size": 386039,
+      "sha256": "cef832a44403012c069ef9f138ca752cf4df4c41efae040b9df17ae3fd051b5d"
+    },
+    {
+      "root": "runtime",
+      "path": "05-match.png",
+      "size": 440005,
+      "sha256": "4e34bf49c39c81eabd6db80a2e866852c7187395f5a7badd7667bec96f2a54e9"
+    },
+    {
+      "root": "runtime",
+      "path": "06-capacity-limit.png",
+      "size": 423579,
+      "sha256": "b990dfddf6a80ea2b5603a40f280b2af4052a8958100a535f205f492e9f5ed65"
+    },
+    {
+      "root": "runtime",
+      "path": "07-other-cell.png",
+      "size": 424381,
+      "sha256": "f2b2a5b76e762d5970318a27e83acf9cc284376ef9d6208567e01140afc7bff6"
+    },
+    {
+      "root": "runtime",
+      "path": "ack.json",
+      "size": 42,
+      "sha256": "b3cf5ec68d16ae597754f457d29d7fc35eeaae1dbc5cd044775a443af2c06d04"
+    },
+    {
+      "root": "runtime",
+      "path": "capacity-events.jsonl",
+      "size": 22341,
+      "sha256": "cdc96e04b31e091bb444fdf6faa64b2494c552dde7eb246f41463050ee80ee28"
+    },
+    {
+      "root": "runtime",
+      "path": "command.json",
+      "size": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "root": "runtime",
+      "path": "harness-used.py",
+      "size": 11597,
+      "sha256": "42c181ffff732d9b45b850297f1c10ca539da7e0c85c0f92a5beee724b886134"
+    },
+    {
+      "root": "runtime",
+      "path": "hero-target.json",
+      "size": 147,
+      "sha256": "3504f2608a0068e2a2d1718d7abe64cc80b6da24e598fe98cda78cac544a2d59"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.jsonl",
+      "size": 32208,
+      "sha256": "27d61ab3806904e6f8a164345b284f2d95a4b3f0d0b305548692a9137809c8b5"
+    },
+    {
+      "root": "runtime",
+      "path": "packets.log",
+      "size": 25531,
+      "sha256": "97a313824d647f3e4dda3b39e96fb48e8cf8125142d48643a057776b7a2758e0"
+    },
+    {
+      "root": "runtime",
+      "path": "pids.json",
+      "size": 101,
+      "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+    },
+    {
+      "root": "runtime",
+      "path": "position-samples.jsonl",
+      "size": 12115,
+      "sha256": "01290872a190619afcdbb5a49bb93591c3101bec4328d5c372f75ce52e1aa538"
+    },
+    {
+      "root": "runtime",
+      "path": "probe-ready.json",
+      "size": 33,
+      "sha256": "d6bf6197f322a579d0f1ebc6399cc8b20f8e627b397f8ebf7036c85e08d3d639"
+    },
+    {
+      "root": "runtime",
+      "path": "probe.gdb",
+      "size": 6329,
+      "sha256": "692cc533df86cc52337aa6ff01162df5ba5545772761db473947f2904f419500"
+    },
+    {
+      "root": "runtime",
+      "path": "proxy-context.json",
+      "size": 94,
+      "sha256": "d6bed56e6ce89b13e0f6a17d20c91baa7ffcdd434d88b5c1ab3ebc6b4fd21bcc"
+    },
+    {
+      "root": "runtime",
+      "path": "ready.json",
+      "size": 58,
+      "sha256": "95a78e83fbfb75d5f2c8bd728afb9c122dad72a2d6f75ec81de3f27cff30057b"
+    },
+    {
+      "root": "runtime",
+      "path": "server-used.py",
+      "size": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "root": "runtime",
+      "path": "server.log",
+      "size": 25531,
+      "sha256": "97a313824d647f3e4dda3b39e96fb48e8cf8125142d48643a057776b7a2758e0"
+    },
+    {
+      "root": "runtime",
+      "path": "supervisor.log",
+      "size": 5316,
+      "sha256": "ad3ce0341a3580368587d8081686c51e421cbd9e1b539bb89a07442f9ce5eb48"
+    },
+    {
+      "root": "runtime",
+      "path": "winedbg.log",
+      "size": 15214,
+      "sha256": "74f0c587c39ee1af15bcb91daa9f7422e76585933f9115cd551e837aa657e877"
+    },
+    {
+      "root": "runtime",
+      "path": "xvfb.log",
+      "size": 1468,
+      "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+    },
+    {
+      "root": "static",
+      "path": "cap-5AEC77.asm",
+      "size": 1006,
+      "sha256": "f3dbac2a1e0e954fcc33be652d487e94a1eb06d0f558078830f74106c5ca17c1"
+    },
+    {
+      "root": "static",
+      "path": "cap-5AEC77.hex",
+      "size": 150,
+      "sha256": "897d8cc0ad36df6d6da794868b8bf37183cd0e12117204db379f0d718732c4b1"
+    },
+    {
+      "root": "static",
+      "path": "count-5A0274.asm",
+      "size": 1787,
+      "sha256": "2ae4d4bec79183fddd27831015da89112097cce412acab0f21cdbb974ff6c68f"
+    },
+    {
+      "root": "static",
+      "path": "count-5A0274.hex",
+      "size": 321,
+      "sha256": "c81c9a2030943b7917be46f2082c6457501662412e2b059718bf5b3285fc0587"
+    },
+    {
+      "root": "static",
+      "path": "count-base-5788B8.asm",
+      "size": 405,
+      "sha256": "61a0108f77c89ab159e135cccc3f4acccef602ff4e0d7606f0f5be092d777c9a"
+    },
+    {
+      "root": "static",
+      "path": "count-base-5788B8.hex",
+      "size": 66,
+      "sha256": "99324c692758bc2ae0b83844521add822b0e73b229f483d0f212ac824916902f"
+    },
+    {
+      "root": "static",
+      "path": "caller-5B1D7B-5B1FBA.asm",
+      "size": 8628,
+      "sha256": "4f5e9c346241018a952227116add1baef579d4e902336ce3a77683917c504d98"
+    },
+    {
+      "root": "patch_tail",
+      "path": "tail-16B62F0.hex",
+      "size": 15,
+      "sha256": "90d624acfbddb29a0bf0e7b882253a2ca3656adce9507f91b4af843275dd2571"
+    },
+    {
+      "root": "patch_tail",
+      "path": "tail-16B62F0-provenance.json",
+      "size": 819,
+      "sha256": "7e331c1d6c144f69c4bd91edafde63ce3a872f7bc30393deed509b0f05a96234"
+    }
+  ]
+}

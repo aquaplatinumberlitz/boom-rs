@@ -80,7 +80,8 @@ Các151 sau đó vẫn giữ trong log; đối chứng chỉ xét111id11 giữa1
 Không khẳng định chính xác chỉ một slot được giải phóng: chain nội bộ chưa instrument trong ca này.
 
 R-163 xác nhận **trần hữu hiệu10 bom còn tồn tại trong đúng fixture/actor** và đặt lại thành công
-sau151. Chưa phân biệt stat cap/pool cấp phát, chưa tìm getter/writer hoặc nối C00/C01KR.
+sau151. Ba ca này chưa phân biệt stat cap/pool cấp phát; R-168 bên dưới bổ sung phép so sức chứa riêng.
+Writer/clamp và ánh xạ C00/C01KR vẫn chưa nối.
 Không nâng12khóa candidate target hoặc đổi profile từ kết quả riêng này.
 
 
@@ -125,8 +126,53 @@ entry+0x1C vàentry+0xE4 cùng0. Hai getter8/11byte58D4DA/59111A tail tới read
 Nếu không có phần tử đạt điều kiện, hàm trả0. Nếu có, hàm điền descriptor và trả pointer phần tử
 đã chọn qua579DC0/59F493. Toàn thân397byte578A16 đã đọc, không lấy prefix96byte làm toàn hàm.
 
-Kết quả giải được **cơ chế từ chối khi không tìm được phần tử**, chưa giải nguồn số lượng phần tử
-hoặc giới hạn stat. Trong những thân đã đọc không thấy literal10 hoặc writer count+50. Không gọi
+Kết quả giải được **cơ chế từ chối khi không tìm được phần tử**, chưa giải writer số lượng phần tử
+hoặc giới hạn stat. R-168 bên dưới bổ sung phép đo phân biệt giới hạn getter với số phần tử pool. Trong những thân đã đọc không thấy literal10 hoặc writer count+50. Không gọi
 hai boxedfield là cờ active/id khi chưa có consumer; số10 vẫn chỉ là R-163 runtime. Cạnh tiếp cần đo
 count/predicate trong cùng actor trước/sau pickup hoặc tìm writer có địa chỉ cụ thể; không quét lại
 bảy KRlookupcaller và không đọc các hàm cleanup chỉ để tăng số body.
+
+
+## So sức chứa trước cấp phát — R-168
+
+Ca mới `host-item-capacity-compare-149-r1` giữ Factory01 thật/index193, room19, cùng loại actor
+vtableC664C4. Chỉ một runtime owner trong namespace mạng/PID riêng; fake cấp12 Bombkind0 ở x14/y11..0,
+xác nhận117→158 và111→152, **không gửi151 hoặc ép nhốt**. Không sửa stat/memory trong client.
+[capacity-getter.csv](capacity-getter.csv) ghi14 lần so; [capacity-getter.json](capacity-getter.json)
+giữ35hash raw/static/patch. Ngay trước lần đặt tại ô khác cuối cùng, XY thực là(505,39), không ghi
+nhầm target510 là vị trí đã tới.
+
+Tại5B1E58, trước allocator5B1EC5, source so kết quả virtual+88 với virtual+84 trên **cùng facet**
+hero+510/C663C4. +88→5AEC77, +84→5A0274. Nếu giá trị thứnhất≥thứhai, `jge5B1FF7` bỏ qua allocator.
+Probe đọc register/stack ngay trướccmp, không gọi hàm trong inferior, không biến thời gian dừng debugger
+thành phép đo timing. Không gắn thêm breakpoint ở đích nhảy; điều kiện nhánh được suy trực tiếp từ
+operand đã chụp và lệnhJGE, đối chiếu kết quả có/không111.
+
+| Mốc | Giá trị +88 / +84 | List count | Phần tử thỏa cảhai predicate0 | Kết quả |
+|---|---:|---:|---:|---|
+| Trước quảđầu | 0 / 1 | 25 | 25 | Có111/152 |
+| Sau1..8 pickup | 1/2 đến8/9 | 25 | 24 đến17 | Mỗi lần có111/152 |
+| Saupickup9 | 9 / 10 | 25 | 16 | Cóquả10 |
+| Saupickup10/11/12 | 10 / 10 | 25 | 15 | Mỗi lần có158 trướcSpace nhưng không111 |
+| Ô trống khác cuối | 10 / 10 | 25 | 15 | Không111; không151/120 trong run |
+
+Cả14 mẫu đọc đủ25 entries, không lỗi checksum/read; mọi entry+E4 bằng0, số entry+1C khác0 khớp
+operand+88 trong ca. Tổng12 pickup/ACK và10 placement/ACK. Như vậy **đã tách được lý do plateau10**:
+giá trị giới hạn của getter dừng10 và phép so phía trước từ chối đặt, dù list vẫn có15 phần tử đạt
+điều kiện allocator. Không phải hết pool10. Chưa thấy writer/literal clamp10, chưa khẳng định max10
+cho mọi nhân vật/mode; đây là phép đo cuối getter trong đúng ca.
+
+### Giới hạn patch của base getter
+
+5A0274 gọi base5788B8 nhưng có các override có điều kiện; không suy giá trị box nền luôn bằng kết quả
+cuối. Thân5788B8 **22byte** gọi virtual+C8(1), truyềnfacet+4 tới tail16B62F0. Địa chỉ này **nằm trong
+section.devirt có file backing**, không phải thiếu memory/ngoài PE. Đúng5byte tại đó là JMP414543;
+source legacy `tools/devirt.py:341–348` ghi patchsite5788C9 là `EXPERIMENT: plain skip`.
+
+Đã đối chiếu byte/source và giữ hash/provenance trong manifest; stub này không tự đặt hằng10.
+Tương đương toàn bộ với vanilla chưa được chứng minh. Theo quyết định dùng runtime VN của chủ dự án,
+kết quả vẫn dùng được trong phạm vi fixture đã công khai patch; không nâng thành literal native/server
+hoặc coi boxfacet+4 (hero+514 theo phép cộng) đã được đo. Không đọc lại VM hay thay patch để đạt số mong muốn.
+
+Root149 còn writer/clamp, Roller, ItemAttr/BomberAttr và C00/C01KR. Profile và các khóa nhân vật
+không đổi từ một actor VN chưa nối identity; R-163/R-167 được bổ sung, không xóa giới hạn cũ.

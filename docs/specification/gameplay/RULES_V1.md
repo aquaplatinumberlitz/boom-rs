@@ -828,7 +828,7 @@ kiểm cùngcontract; identity thay đổi có chủý. Không fallback ngầm v
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
-| R-163 | Ba lượt Factory01, cùng room19/heroC664C4: một bom và12 pickup Bombkind0 qua117/158 cho phép tối đa10 bom còn tồn tại; ba pickup cuối (index9/10/11 trong tổng12) vẫn có S158, nhưng Space sau từng lần không C111; thêm thử ô trống khác cũng không C111. Lượt cuối sau151 đầu lại có111 trước151 thứhai | Trần hữu hiệu10 trong fixture/actor đã đo | vn_runtime / confirmed (đúngbuild/case) | [Evidence/210rawhash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md); VNfixturebc875…/mapFactory01index193; chưa tách stat cap/pool allocation, không phải C00/C01KR/getter/writer hay cap mọi nhân vật. Lịch nổ0/45/25s là emu_choice, không fuse gốc |
+| R-163 | Ba lượt Factory01, cùng room19/heroC664C4: một bom và12 pickup Bombkind0 qua117/158 cho phép tối đa10 bom còn tồn tại; ba pickup cuối (index9/10/11 trong tổng12) vẫn có S158, nhưng Space sau từng lần không C111; thêm thử ô trống khác cũng không C111. Lượt cuối sau151 đầu lại có111 trước151 thứhai | Trần hữu hiệu10 trong fixture/actor đã đo | vn_runtime / confirmed (đúngbuild/case) | [Evidence/210rawhash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md); VNfixturebc875…/mapFactory01index193; ba ca này chưa tách stat cap/pool allocation (R-168 bổ sung phía dưới), không phải C00/C01KR/writer hay cap mọi nhân vật. Lịch nổ0/45/25s là emu_choice, không fuse gốc |
 
 Bổ sung cơ chế tăng Bomb/từ chối tại sức chứa; không sửa khóa nhân vật R-117 khi chưa nối receiver/
 identity KR. Firefieldr18 1→2 củng cố R-025/R-111; Roller còn thiếu.
@@ -857,3 +857,14 @@ confirmed. Runtime dùng giá trị getter cuối; chưa đo box nền hoặc ch
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-167 | Nhánh chọn bom cùng facet: virtual5B1EC5/+48→59F493→579DC0, rồi container=facet−8=hero+508→578A16. Duyệt list+4C/count+50; chỉ chọn entry có boxed+1C==0 vàboxed+E4==0; hết list trả0, chọn được thì điền descriptor/trả pointer | Điều kiện chọn phần tử; không có cap số học đã chứng minh | vn_static / confirmed (cạnh hàm, offset, nhánh và kết quả trả về) | [Evidence/hash và giới hạn](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#nhánh-chọn-phần-tử-bom--r-167); predicate58D4DA/59111A→414543. Chưa đo runtime count/predicate, writer count, nghĩa field hoặc KR. Không đồng nhất count với trần stat10 |
+
+
+## 30. Giới hạn sức chứa và số phần tử pool VN (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-168 | Cùng actorVN/Factory01, probe so trước cấp phát5B1E58: virtual+88/+84 cho0/1 rồi1/2…9/10 sau9pickup; ba pickup còn lại và một ôtrống khác đều10/10, không111. List luôn25 phần tử; tại giới hạn còn15 entry có cảhai predicate0. Điều kiệnJGE bỏ qua allocator5B1EC5 dù pool chưa hết | Getter limit dừng10 trong ca; pool25, còn15 phần tử đạt điều kiện chọn | vn_runtime + vn_static / confirmed (fixture/actor/path đã đo) | [14mẫu/35hash/patchscope](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#so-sức-chứa-trước-cấp-phát--r-168); vtableC663C4 +88→5AEC77, +84→5A0274.12pickup117/158,10placement111/152,không151/120. Không phải cap mọi nhân vật/KR hoặc native literal/clampwriter10 |
+
+Thay phần chưa phân biệt plateau của R-163 bằng phép so getter và list thực trong đúng ca. Base5788B8
+truyềnfacet+4 qua stub.devirt16B62F0→414543 (patch5788C9); không đo box nền hoặc các override5A0274.
+Giới hạn patchedfixture giữ rõ ở evidence; các khóa KR candidate/profile không đổi khi identity chưa nối.
