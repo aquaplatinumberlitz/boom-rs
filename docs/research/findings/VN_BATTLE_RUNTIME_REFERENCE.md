@@ -19,6 +19,33 @@ Tra lại bằng `git -C /home/admin/boom-re show <commit>:<path>`.
 | VN-B05 | Loại phòng14/16/22/32/33 vào trận thường;17 có UI RPG và gửi120/21 khi trúng bom | `e0f9a49`: `docs/roomtype17_rpg.png`, `docs/roomtype32.png`, `tools/roomtype_loop.sh` | Chạy một người Village01; semantics mất HP của21 chưa chắc, server RPG chưa làm |
 | VN-B06 | C→S88 đầu khi vào phòng là lựa chọn tự gửi; không được ghi đè map host | `0e71e8a`: thay đổi server và docs | Bài học lifecycle, không bắt giao thức mới sao chép opcode cũ |
 
+## Grace của owner sau đặt bom — candidate runtime 2026-10-24
+
+Đây là **candidate**, chưa phải claim canonical VN-Bxx; đề nghị Codex xét claim riêng sau review.
+Nguồn: hai run host private (#240) tại `.re-work/vn-grace-240/host-run-{2,3}/`, raw local; evidence
+công khai [`docs/evidence/measurements/vn-player-grace-2026-10-24/README.md`](../../evidence/measurements/vn-player-grace-2026-10-24/README.md) (PR #242).
+
+| Case | Fixture / quan sát | Kết quả owner-only |
+|---|---|---|
+| run2 | VN `VBNB_116`, `ca_fixed_patched.exe` SHA `bc875ba5…b1`, `Village01` SHA `1ca7e03e…1b28`, spawn `(14,0)`; fakeserver gửi 152/151 theo timer, **không tự mô phỏng collision/damage**; fuse60 emu_choice | Space→152 tại `(14,0)`; owner rời Left sang `(13,0)`, Right 0.45 s vẫn ở `(13,0)` face right; run2 stop trước nổ, không 151 |
+| run3 | cùng fixture; đứng yên trên bomb **5 s** sau 152 rồi mới Left/Right | 5 s không làm mất quyền rời bomb; Left→`(13,0)`, Right vẫn `(13,0)`; S151 10:42:07.367 → client C→S120/11 10:42:07.389 (trap confirmed) → 120/13 10:42:13.751 (death); server không ép trap; S151 gửi ids0..7 nhưng chỉ 1 bom được đặt |
+
+- Đây là **owner-only**, hai run; không suy TTL ms, không suy grace toàn hệ thống/all non-owner.
+  Không claim timer ≤/>5 s: chưa đo thời điểm nhận 152/tick.
+- Fixture rebuild có **devirt gameplay reconstruction** (bomb msg-cache `0x6EFD4A`, CBombOwner
+  `0x5788C9` experiment, random guards), không chỉ offline/localhost. Đã đối chiếu 25 patch +10 IP
+  +15 devirt sites; không manifest nên semantic equivalence chưa chứng minh → giữ candidate đặc biệt,
+  không nâng claim.
+- Bomb cell `(14,0)` từ packet 111; screen chỉ approximate (owner visual bounds x≈760→719, y center
+  ≈62, feet≈78; không phải native coords). Không dùng hold 0.45 s/5 s làm timer; `monotonic_ns`
+  trong supervisor chỉ là command clock, không phải fuse.
+- Map VN `Village01` W15×H13; `(13,0)` tile1005/obj996 floor; col12 tree, row1col13 brick. Không suy
+  spawn `(13,1)` của KR.
+- Run3 có trap/death sau 151, nhưng owner đã rời bomb trước đó; không phải bằng chứng timing grace.
+- Gap: non-owner đứng chồng ô lúc 152 chưa đo. Không dùng getter KR `0xB335C0/0xB335E0` cho VN khi
+  chưa xác minh; `tools/gdb/spawn.gdb` chỉ in spawn, không phải player; chấp nhận screen approx +
+  packet cell `(14,0)`.
+
 ## Đưa vào công việc hiện hành
 
 - **V1-020 / Q-006:** luật chạm địch làm vỡ bong bóng được chốt từ VN-B01; không RE lại chỉ vì khác region.
