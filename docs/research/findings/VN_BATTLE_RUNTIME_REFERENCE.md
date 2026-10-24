@@ -163,3 +163,16 @@ Left/Right; idle không đổiXY. R1alive±5px/bước, trapped±1px/bước; R3
 vàr2failed/excluded. **17px/s là calibrationDESIGN R-162**, khôngliteralnative; thay đứngyênR-036.
 Space sau11 không có111 mới chưa tách gate/cap/cell; không gọi là confirmedbombgate.
 Trụcdọc/hìnhhọc bubble/level/crosscharacter vàtouchorder còn #147; không đóng root từ kếtquả này.
+
+## Nhặt Bomb/Fire — đối chứng bổ sung24/10 (#149)
+
+[Metadata/92rawhash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md): trênOcean01VN,
+trướcnhặtBomb chỉđặt được1quả, sau117/158kind0 đặtthêmquả2, quả3bịtừchối trongkhi cảhai cònnguyên
+(không151). Firekind1 khôngtăngcapacity, nhưng111quảkế tiếp saupickup cótrườngr18 từ1→2.
+Parserfieldnamedpowervẫn1, khôngnhầmnóvớir18; mộtFirecasehelpertrôi vịtrí bịloại.
+BổsungR025/R111trongđúngcase, khôngđổi giátrịprofile/capKR/roller hoặc xácnhậnnativegetter.
+
+Factory01 bổ sung R-163: ba lượt12 pickup Bomb/ACK ở các ô khác nhau, bom chỉ tăng tới10;
+thử đặt ở ô trống khi đủ10 không111, sau151 đầu lại gửi111 trước151 thứhai.
+Trần hữu hiệu của fixture/actor chưa phân biệt stat cap/pool; không áp cho mọi nhân vật KR.
+210rawhash giữ cả Fire lỗi và đối chứng giải phóng chỗ chưa chạy do lịch emu45s/gate12s.
