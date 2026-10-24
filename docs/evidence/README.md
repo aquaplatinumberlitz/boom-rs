@@ -21,6 +21,7 @@
 | [measurements/kr-static-audio-2026-10-23/README.md](measurements/kr-static-audio-2026-10-23/README.md) | Consumer âm thanh KR: bảng 649 entry `0x19E40D8` (id→`Wave/*`), dispatcher `0xD1CD10`, biến thể `rand()` (18/21/43/47/64/78/128/175), nổ 7/8/343, nhốt 77/37/444, chết 42, item 68/69/174, BGM `0xE71D70` (Village id 48), pool voice `0x14BF4D0`; claim R-203…R-208; `evidence_id`, bảng VA/RVA, giới hạn |
 | [measurements/vn-flame-window-2026-10-24/README.md](measurements/vn-flame-window-2026-10-24/README.md) | VN runtime FLAME phần **partial**: 4 case candidate (`late-050/300`, `visible-early`, `late-700`), bảng delay host-marker→`120` report (không TTL/one-shot/window); GDB handler fail, fixture devirt candidate |
 | [measurements/rust-client-ux-2026-10-24/README.md](measurements/rust-client-ux-2026-10-24/README.md) | Kiểm Rust DESIGN: UI nearest1×/2×, NVIDIA/fullscreen, focus thật, rebind, BGM/SFX/volume/mute; giới hạn WM restore/đa OS/phần cứng, không oracle VN/KR |
+| [measurements/vn-trap-timer-2026-10-24/README.md](measurements/vn-trap-timer-2026-10-24/README.md) | Native VN receiver/bubble counter200, ba baseline6332–6355ms, early resets giữ nguyên; calibration6350ms/191tickRust là DESIGN, raw hashes/negative/limits |
 | [DOCS_MIGRATION.json](DOCS_MIGRATION.json) | Bản đồ đường dẫn cũ→mới, không phải bằng chứng luật chơi |
 
 Không commit client/pack/binary/database hoặc cache ảnh lớn vào repo chỉ để tạo evidence.

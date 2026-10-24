@@ -1,0 +1,83 @@
+{
+  "initial": {
+    "kind": "serialize",
+    "monotonic_ns": 785660555006341,
+    "object": 449176176,
+    "vtable": "0xc664c4",
+    "x": 40,
+    "y": 39,
+    "counter_26e0": 0,
+    "subtype": 11,
+    "return": "0x5aef7c",
+    "bubble": "0x10976338",
+    "bubble_vtable": "0xc2e21c",
+    "bubble_age": 0
+  },
+  "threshold": {
+    "kind": "threshold_branch",
+    "monotonic_ns": 785666898790928,
+    "object": 449176176,
+    "vtable": "0xc664c4",
+    "x": 40,
+    "y": 39,
+    "counter_26e0": 0,
+    "stage": "0x10c4ff90",
+    "stage_56b4": 16,
+    "stage_56c0": 200,
+    "pc": "0x716fe1",
+    "bubble": "0x10976338",
+    "bubble_vtable": "0xc2e21c",
+    "bubble_age": 200
+  },
+  "stage13": {
+    "kind": "stage13_call",
+    "monotonic_ns": 785666904305483,
+    "object": 449176176,
+    "vtable": "0xc664c4",
+    "x": 40,
+    "y": 39,
+    "counter_26e0": 0,
+    "slot1c0": "0x5af165",
+    "stage_edi": "0x10c4ff90",
+    "stage_56b4": 16,
+    "stage_56c0": 200,
+    "controller_vtable": "0xc6630c",
+    "controller_slot40": "0x5960b4",
+    "controller_member378": "0x10976338",
+    "counter_vtable": "0xc2e21c",
+    "counter_slot88": "0x57450f"
+  },
+  "samples_through_threshold": 212,
+  "sample_age_range": [
+    0,
+    200
+  ],
+  "drops_retained": [
+    {
+      "index": 3,
+      "before": 3,
+      "after": 0,
+      "begin_ns": 785660654712341
+    },
+    {
+      "index": 7,
+      "before": 3,
+      "after": 0,
+      "begin_ns": 785660769242705
+    },
+    {
+      "index": 11,
+      "before": 3,
+      "after": 0,
+      "begin_ns": 785660893691638
+    }
+  ],
+  "monotonic": false,
+  "missing_ages": [],
+  "sample_start_end_ns": [
+    785660570144865,
+    785666898291828
+  ],
+  "post_death_excluded": 13,
+  "entry11_to_threshold_ms": 6343.784587
+}
