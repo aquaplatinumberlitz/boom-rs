@@ -1,4 +1,4 @@
-# Đo tĩnh KR 00967 — item/cap (2026-10-21, cập nhật 2026-10-22)
+# Đo tĩnh KR 00967 — item/cap (2026-10-21, cập nhật 2026-10-24)
 
 Metadata cho lượt điều tra [#149](https://github.com/aquaplatinumberlitz/boom-rs/issues/149) / Q-020.
 **Chưa tạo claim `kr_static` có consumer**: chưa định vị consumer của hiệu ứng Bomb/Fire/Roller,
@@ -115,7 +115,7 @@ REA MCP `provider_id: ida` trên bản sao `kr-full.exe` SHA-256 `cf72da11…e63
 |---|---|---|
 | Loader `CItemResourceMan` | `0x01196A70` (RVA `0x00D96A70`, `.priv`) | native 197 dòng; caller `0x123292B` |
 | Item table | `+244048` (`0x3B950`) | stride `0xC0`=192, count `+244036`; row `+8`, tên `+20`, **id `+84`**, 8 dword `+96..+180` |
-| Lookup item | `0x01197900` | tìm row theo `+84`; xref 7 hàm, **chỉ 4 thân đã đọc** (`E84CD0`/`6B3FA0`/`B978B0`/`B98250`); 3 thân + bắc cầu helper/virtual unknown |
+| Lookup item | `0x01197900` | tìm row theo `+84`; xref7hàm, **bảy thân đã đọc** qua hai lượt (bốn model/UI và ba caller R-153 bên dưới); effects bắc cầu helper/virtual còn unknown |
 | Group table | `+28` (`0x1C`) | stride `0xF4`=244, count `+16`; `+148`=số slot |
 | Bảng 0x8000 | `+436048` (`0x6A750`) | fill `0xFF`; ghi group index theo `[offset,offset+count)`, cap `0x7FFF`, **không chia tổng** |
 | Reader bảng 0x8000 | — | **chưa thấy trong phạm vi quét literal** `+0x6A750`: 2 hit, cả hai loader (write); alias/base điều chỉnh/address computed/helper/indirect/VM chưa loại trừ |
