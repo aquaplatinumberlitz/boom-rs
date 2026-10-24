@@ -138,3 +138,29 @@ call context `B391E0` cũng lấy từ evidence dsh1, không decompile lại.
 producer. Damage event-time hay cửa sổ vẫn `unknown`; callee khác của `E9C520`/consumer 27 chưa nối.
 Không dùng `500`/`2500` ms/animation `B711C0` làm luật damage. Ngân sách: 2 call batch, **3 thân mới**
 (`B3A790`, `B3A3B0`, `B39AF0`) + **1 đọc lại** (`B393D0`); vtable đọc bytes file.
+
+## Lượt 2026-10-24 (phiên 2) — virtual `+200/+208` và flame `B70C10`/`B713D0`
+
+Build KR `00967`, SHA-256 `cf72da112308d9f1ca256df8089594c5f787875310933073bf6bd5ba6f70e63b`,
+base `0x00400000`, `RVA = VA − 0x400000`. Binding REA dùng chung; provenance thực:
+`/home/admin/boom-team/tmp/re-kr/ida/kr-full.exe`, IDB
+`/home/admin/.cache/rea/seeded-workspaces/rea-ida-GUJhP1/kr-full.exe.i64`. Không open/close/rebind.
+
+| Vai trò | VA | RVA | Quan sát |
+|---|---|---|---|
+| vtable base `0x174426C` slot 50 | `0x00B3B370` | `0x0073B370` | stub: `push/mov/push/mov/mov esp/pop/retn 10h`, size 0xD; không state/call |
+| vtable base slot 52 | `0x00B3B390` | `0x0073B390` | pseudocode rỗng — candidate stub (chưa đọc asm) |
+| vtable thứ hai `0x174727C` slot 50/52 | `0x00B73120`/`0x00B73290` | `0x00773120`/`0x00773290` | entry khác (chưa đọc); lớp/receiver chưa xác nhận |
+| Flame segment push | `0x00B70C10` | `0x00770C10` | nếu `[141]>=15` dịch mảng; thêm 8 giá trị vào `[36/51/66/81/96/97/126/142]`, tăng `[141]` (max 15); không player/damage |
+| Flame per-frame | `0x00B713D0` | `0x007713D0` | `B70E30`+`1220830`; chọn `Flame_FlameRpgM/C` theo `v13>=0xC`, gọi vtable `+20`, lưu `[144]`; nếu map `[143]`: ô `pos/40`, `E9F9B0` object tại ô, nhánh `B323D0`/`B72400` → vtable `+104`, `B33200`, `B32570`; **chưa thấy** player alive→trapped/dead |
+
+`evidence_id`: `ev_e5610318af66d01ca2c56e2160fd1e1f2bf17b5e8f7110e2699fdd9e616c4d05`
+(batch `B3B370`+`B3B390`), `ev_5cd97df793d999f91b1c4a07ababe1fd6ab0e0d0699339357c4f4d5456b69cb4`
+(asm `B3B370`), `ev_b0d9f3c1b54e7aa166cf607d7809bf31032fdd29f7563a4c6ca7db87b694b3f2`
+(`B70C10`), `ev_36183f4d24629469da8234fd88332e78092b11aaa0b7321dac6200b8826d7abe`
+(`B713D0`).
+
+**Kết luận**: base virtual `+200/+208` là no-op; `B70C10` chỉ thêm segment; `B713D0` là animation
+per-frame + nhánh object-at-cell **candidate**. Damage một lần hay cửa sổ vẫn `unknown`; chưa có
+giá trị/đơn vị/start/end; không lấy lifetime animation `B711C0` làm TTL sát thương. Ngân sách:
+6 native call (1 timeout `binary_overview`, không retry), 4 thân mới + 1 asm cùng thân.
