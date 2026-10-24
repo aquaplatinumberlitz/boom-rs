@@ -287,18 +287,20 @@
     {
       "id": "G5",
       "title": "UX/localization",
-      "status": "blocked",
+      "status": "in_review",
       "owner": "client/QA",
-      "reviewer": "Codex (chưa sign-off gate)",
+      "reviewer": "dsh2 nghiệm thu V1-035; chưa sign-off gate G5",
       "evidence": [
         "docs/specification/localization/UI_STRINGS_V1.md",
         "tools/l10n_review_v1.py",
         "docs/specification/assets/AUDIO_V1.md",
-        "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7"
+        "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7",
+        "data/assets/ui-vi-v1.toml",
+        "git:43739e2fa6abe09f28457f218648141113cd2fb4"
       ],
-      "verification": "V1-035 chờ người duyệt text/ảnh thực dùng V1, bổ sung unknown và kiểm presentation/focus/glyph/wrap; cue trapped PR213 đã tích hợp.",
+      "verification": "V1-035 được dsh2 nghiệm thu độc lập (issue237 comment6378320356);126/126text và6spriteđãduyệt đã tíchhợpPR241,CI/smoke3OSxanh. Font/layout1×/2×,5màn800×600 vàsidebarregression đã kiểm; chưa có đủ runtime UX gate.",
       "integration_commit": "",
-      "blocker": "V1-035 chờ người duyệt text/ảnh thực dùng V1, bổ sung unknown và kiểm presentation/focus/glyph/wrap; cue trapped PR213 đã tích hợp."
+      "blocker": "Cần sign-off runtime focus/nhả phím, scale/window/fullscreen, input/volume và playtest/SFX; ảnh UI-demo chạy --scale2 vẫn800×600 nên không dùng làm proof GPU2×."
     },
     {
       "id": "G6",
@@ -310,9 +312,9 @@
         "docs/planning/PROGRESS.md",
         "git:303ab49a07c2fb1310c53dca50e3ba2d10eabab9"
       ],
-      "verification": "V1-027/G4 đã sign-off ở issue #226 sau PR #230 và ma trận kiểm lại. V1-035/V1-036 chưa done, G2/G3/G5 chưa passed; còn gói cuối trên ba OS và nghiệm thu release.",
+      "verification": "V1-027/G4 đã sign-off; V1-035 đã nghiệm thu và tích hợpPR241. V1-036 còn smoke gói cuối ba OS; G2/G3/G5 chưa passed.",
       "integration_commit": "",
-      "blocker": "V1-035/V1-036 chưa được nghiệm thu; G2/G3/G5 chưa passed; còn smoke gói cuối trên ba OS và sign-off."
+      "blocker": "V1-036 chưa nghiệm thu; G2/G3/G5 chưa passed; còn smoke gói cuối ba OS và sign-off release."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"

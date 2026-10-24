@@ -1495,7 +1495,7 @@
       "release": "V1",
       "origin": "design_scope",
       "evidence_status": "asset_signal",
-      "implementation": "blocked",
+      "implementation": "done",
       "owner": "client",
       "depends_on": [
         "V1-032"
@@ -1504,12 +1504,12 @@
       "acceptance": "Mọi chuỗi đường đi V1 có dấu/placeholder/wrap đúng; không dùng 23 pending review làm text đã chốt.",
       "open_questions": "Ảnh có chữ phải có quyết định review trước dùng; font Unicode dùng golden riêng.",
       "tracking": {
-        "assignee": "opencode-2 (tool); chủ dự án/người duyệt nội dung",
-        "reviewer": "Claude/Codex",
+        "assignee": "Codex (nội dung/code); chủ dự án (duyệt ảnh)",
+        "reviewer": "dsh2 (độc lập)",
         "updated_at": "2026-10-24",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
-        "integration_commit": "",
+        "integration_commit": "43739e2fa6abe09f28457f218648141113cd2fb4",
         "evidence": [
           "data/l10n/vi-v1.toml",
           "crates/boom-content/src/l10n.rs",
@@ -1517,19 +1517,22 @@
           "git:82033ce560ab4649cdd57a3d228dd1a0669129a8",
           "tools/l10n_review_v1.py",
           "docs/specification/localization/UI_STRINGS_V1.md",
-          "git:6ad3e062f096d902e0109ac76c764ec7f6b24b43"
+          "git:6ad3e062f096d902e0109ac76c764ec7f6b24b43",
+          "data/assets/ui-vi-v1.toml",
+          "crates/boom-content/src/ui_localization.rs",
+          "git:43739e2fa6abe09f28457f218648141113cd2fb4"
         ],
         "verification": {
           "status": "passed",
-          "command": "cargo xtask ci + CI GitHub ba OS",
-          "result": "Code l10n PR #98/#188 và tool PR #209 đã merge; CI ba OS xanh ở các PR. Tool liệt kê 125 khóa (44 ready text, 15 review, 9 image-pending, 57 unknown); chưa phải approval nội dung."
+          "command": "cargo xtask ci; CI/smoke ba OS PR241; dựng bundle VN/PNG thật; render 5 màn; NFC/placeholder/glyph/wrap + sidebar regression",
+          "result": "126/126 khóa có text; 23 review legacy giữ nguyên. 8 quyết định ảnh của chủ dự án, 6 sprite dùng đúng nguồn/hash; Draw pixel/fullframe khớp PNG216x71. Bundle0unknown; sidebar red/green và renderer sau sửa đã kiểm. Source boom-re308dc28, catalogSHA c054a113…; CI tất cả12job xanh."
         },
         "review": {
-          "status": "pending",
-          "result": "Phần code đã được review trong các PR dẫn ở evidence; nghiệm thu feature cuối còn chờ nội dung V1 được người duyệt chấp nhận."
+          "status": "approved",
+          "result": "dsh2 APPROVE exacthead f1fc8085c15d1923fad3e379def5b7574e4116e9 tại PR241 comment6378272242; ACCEPT V1-035 độc lập tại issue237 comment6378320356. User duyệt ảnh và giao Codex chốt review/unknown. G5 không được tự sign-off cùng feature."
         },
-        "blocker": "Chờ người duyệt text/ảnh thực dùng trong luồng V1; không dùng pending review làm nội dung đã chốt.",
-        "next_action": "Dùng tools/l10n_review_v1.py xuất local/l10n-review-v1.html; bổ sung key unknown, duyệt nghĩa/placeholder và quyết định ảnh hoặc fallback cho đúng V1; export lại theo UI_STRINGS_V1 §6, kiểm glyph/wrap/clip. Không yêu cầu duyệt toàn kho ảnh ngoài V1."
+        "blocker": "",
+        "next_action": "Đã nghiệm thu V1-035. Theo dõi G5/runtime UX riêng; tên gốc C00/C01 tiếp tục RE #150, hiện dùng nhãn DESIGN theo scope."
       }
     },
     {
@@ -1569,8 +1572,8 @@
           "status": "pending",
           "result": "Phần code đã được review trong các PR dẫn ở evidence; nghiệm thu feature cuối còn chờ nội dung V1 được người duyệt chấp nhận."
         },
-        "blocker": "V1-035 chưa duyệt text/ảnh dùng trong luồng; còn smoke gói cuối ba OS sau khi chốt nội dung. V1-027 đã nghiệm thu sau PR230 và ma trận kiểm lại.",
-        "next_action": "Chờ V1-035 được nghiệm thu; sau đó build/smoke gói cuối Windows/Linux/macOS. Giữ dependency V1-027 đã done."
+        "blocker": "Nội dung V1-035 đã nghiệm thu; còn build/smoke gói cuối Windows/Linux/macOS với bộ chuỗi và bundle Việt hóa đã duyệt.",
+        "next_action": "Build/smoke gói cuối ba OS sau integration43739e2; bundle Việt hóa dùng ui-vi-v1.toml và nguồn media local đúng hash. V1-027/V1-035 đã done; không coi CI build thay nghiệm thu gói cuối."
       }
     },
     {
