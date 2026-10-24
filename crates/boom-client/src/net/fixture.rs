@@ -15,7 +15,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::net::{IpAddr, Ipv4Addr};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -1505,6 +1505,145 @@ impl RoomClient {
     }
 }
 
+/// Quan sát thứ tự Welcome/Auth cho regression fixture (chỉ test).
+///
+/// `delayed_index` bị giữ **trước handshake** để mô phỏng một client bị chậm; test có thể thấy
+/// client khác đã gửi Auth khi chưa đủ Welcome hay chưa. Không sleep, không đổi API production.
+#[cfg(test)]
+pub(crate) struct HandshakeProbe {
+    count: usize,
+    delayed_index: usize,
+    welcomes: std::sync::atomic::AtomicUsize,
+    auths: std::sync::atomic::AtomicUsize,
+    auth_before_all: std::sync::atomic::AtomicBool,
+    fail_before_welcome: Option<usize>,
+    delayed_released: Mutex<bool>,
+    delayed_cv: Condvar,
+}
+
+#[cfg(test)]
+impl HandshakeProbe {
+    pub(crate) fn new(count: usize, delayed_index: usize) -> Arc<Self> {
+        assert!(count > 0);
+        assert!(delayed_index < count);
+        Arc::new(Self {
+            count,
+            delayed_index,
+            welcomes: std::sync::atomic::AtomicUsize::new(0),
+            auths: std::sync::atomic::AtomicUsize::new(0),
+            auth_before_all: std::sync::atomic::AtomicBool::new(false),
+            fail_before_welcome: None,
+            delayed_released: Mutex::new(false),
+            delayed_cv: Condvar::new(),
+        })
+    }
+
+    /// Test-only failure injection: một client panic trước khi gửi Welcome.
+    pub(crate) fn with_panic_before_welcome(
+        count: usize,
+        delayed_index: usize,
+        fail_index: usize,
+    ) -> Arc<Self> {
+        let mut probe = Self::new(count, delayed_index);
+        // Chưa clone trước thời điểm này; gán failure trước khi đưa probe cho thread.
+        Arc::get_mut(&mut probe)
+            .expect("probe chưa chia sẻ")
+            .fail_before_welcome = Some(fail_index);
+        probe
+    }
+
+    fn should_fail_before_welcome(&self, index: usize) -> bool {
+        self.fail_before_welcome == Some(index)
+    }
+
+    fn is_delayed(&self, index: usize) -> bool {
+        index == self.delayed_index
+    }
+
+    fn wait_delayed(&self) {
+        let mut released = self.delayed_released.lock().expect("probe delayed");
+        while !*released {
+            released = self.delayed_cv.wait(released).expect("probe wait");
+        }
+    }
+
+    fn release_delayed(&self) {
+        *self.delayed_released.lock().expect("probe release") = true;
+        self.delayed_cv.notify_all();
+    }
+
+    fn note_welcome(&self) {
+        self.welcomes
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    fn note_auth(&self) {
+        self.auths.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if self.welcomes.load(std::sync::atomic::Ordering::SeqCst) < self.count {
+            self.auth_before_all
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        // Probe có thể đang giữ một client chậm; release để test luôn join được.
+        self.release_delayed();
+    }
+
+    pub(crate) fn auth_count(&self) -> usize {
+        self.auths.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub(crate) fn auth_before_all(&self) -> bool {
+        self.auth_before_all
+            .load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    fn welcomes(&self) -> usize {
+        self.welcomes.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// Một vòng poll server + giao mạng cho setup handshake/auth.
+fn poll_room_handshake(
+    server: &mut Server,
+    nets: &[(Arc<ScheduledNet>, Arc<ScheduledNet>)],
+    now_ms: u64,
+) -> Result<(), String> {
+    for (out_net, in_net) in nets {
+        out_net.advance_to(now_ms);
+        in_net.advance_to(now_ms);
+    }
+    server
+        .poll(now_ms, Duration::from_millis(1))
+        .map(|_| ())
+        .map_err(|error| format!("server poll lúc setup phòng: {error}"))
+}
+
+type RoomClientThread = thread::JoinHandle<Result<NetClient<ScheduledTransport>, String>>;
+
+/// Hủy setup: đóng release gate để thread đang chờ Auth nhận Err, release probe chờ, poll/join
+/// các thread còn sống. Không phát Auth trong cleanup.
+fn abort_room_setup(
+    server: &mut Server,
+    nets: &[(Arc<ScheduledNet>, Arc<ScheduledNet>)],
+    handles: &mut [Option<RoomClientThread>],
+    release_senders: &mut Vec<mpsc::Sender<()>>,
+    probe: Option<&HandshakeProbe>,
+    now_ms: u64,
+) {
+    release_senders.clear();
+    if let Some(probe) = probe {
+        probe.release_delayed();
+    }
+    while handles.iter().flatten().any(|handle| !handle.is_finished()) {
+        if poll_room_handshake(server, nets, now_ms).is_err() {
+            break;
+        }
+        thread::yield_now();
+    }
+    for handle in handles.iter_mut().filter_map(Option::take) {
+        let _ = handle.join();
+    }
+}
+
 /// Fixture phòng end-to-end: server thật (`boom_server::Server`) + N client qua mạng có lịch
 /// giao theo đồng hồ ảo.
 ///
@@ -1535,6 +1674,28 @@ impl RoomHarness {
         out_faults: ScheduledFaults,
         in_faults: ScheduledFaults,
         seed: u64,
+    ) -> Self {
+        Self::new_inner(count, out_faults, in_faults, seed, None)
+    }
+
+    /// Constructor test-only: delay một client để regression phasing có điều khiển, không sleep.
+    #[cfg(test)]
+    pub(crate) fn new_with_probe(
+        count: usize,
+        out_faults: ScheduledFaults,
+        in_faults: ScheduledFaults,
+        seed: u64,
+        probe: Arc<HandshakeProbe>,
+    ) -> Self {
+        Self::new_inner(count, out_faults, in_faults, seed, Some(probe))
+    }
+
+    fn new_inner(
+        count: usize,
+        out_faults: ScheduledFaults,
+        in_faults: ScheduledFaults,
+        seed: u64,
+        probe: Option<Arc<HandshakeProbe>>,
     ) -> Self {
         let profile = RulesProfile::from_toml(RULES).expect("profile rules");
         let rules = Rules::from_profile(&profile).expect("rules");
@@ -1594,9 +1755,11 @@ impl RoomHarness {
         server.set_auth_deadline_ms(u64::MAX);
         let hello = hello_for_profile(&profile, &rules, [0; 32], "boom-client-test");
         let mut nets: Vec<(Arc<ScheduledNet>, Arc<ScheduledNet>)> = Vec::new();
-        let mut handles = Vec::new();
+        let mut handles: Vec<Option<RoomClientThread>> = Vec::new();
         let mut identities = Vec::new();
         let mut writers = Vec::new();
+        let mut release_senders = Vec::new();
+        let (welcome_tx, welcome_rx) = mpsc::channel::<Result<usize, String>>();
         for index in 0..count {
             // Định danh **kết nối** trong phiên: server dùng làm khoá session, **không** phải
             // slot trận (ADR 0009 Addendum B §B.2).
@@ -1628,35 +1791,156 @@ impl RoomHarness {
             let client_hello = hello.clone();
             let credentials =
                 Credentials::register(format!("room-{index}"), ACCOUNT_PASSWORD.to_owned());
-            handles.push(thread::spawn(move || {
-                let mut net = NetClient::with_room_retry_interval(
-                    ClientSession::new(client_reader, client_writer),
-                    client_rules,
-                    mode_by_id("battle_ffa").expect("mode"),
-                    // Gửi lại lệnh phòng **mỗi** vòng bơm: mạng ảo chạy theo đồng hồ ảo nên nhịp
-                    // gửi lại không được phụ thuộc thời gian thật (nếu không, test chậm máy sẽ đỏ).
-                    Duration::ZERO,
-                );
-                net.handshake(&client_hello).expect("handshake");
-                net.authenticate(&credentials).expect("auth");
-                net
-            }));
+            let (release_tx, release_rx) = mpsc::channel::<()>();
+            release_senders.push(release_tx);
+            let welcome_tx = welcome_tx.clone();
+            let probe = probe.clone();
+            let delayed = probe.as_ref().is_some_and(|probe| probe.is_delayed(index));
+            handles.push(Some(thread::spawn(
+                move || -> Result<NetClient<ScheduledTransport>, String> {
+                    let mut net = NetClient::with_room_retry_interval(
+                        ClientSession::new(client_reader, client_writer),
+                        client_rules,
+                        mode_by_id("battle_ffa").expect("mode"),
+                        // Gửi lại lệnh phòng **mỗi** vòng bơm: mạng ảo chạy theo đồng hồ ảo nên nhịp
+                        // gửi lại không được phụ thuộc thời gian thật (nếu không, test chậm máy sẽ đỏ).
+                        Duration::ZERO,
+                    );
+                    if let Some(probe) = &probe
+                        && probe.should_fail_before_welcome(index)
+                    {
+                        panic!("client {index} panic trước Welcome (controlled)");
+                    }
+                    if delayed && let Some(probe) = &probe {
+                        probe.wait_delayed();
+                    }
+                    if let Err(error) = net.handshake(&client_hello) {
+                        let message = format!("handshake client {index}: {error}");
+                        let _ = welcome_tx.send(Err(message.clone()));
+                        return Err(message);
+                    }
+                    if let Some(probe) = &probe {
+                        probe.note_welcome();
+                    }
+                    if welcome_tx.send(Ok(index)).is_err() {
+                        return Err(format!("main đã đóng kênh Welcome của client {index}"));
+                    }
+                    // Hai pha: mọi Welcome xong mới phát Auth. Auth được release lần lượt bởi main,
+                    // nên bốn Argon2/SQLite thật không cộng dồn vào một cửa sổ timeout của client.
+                    if release_rx.recv().is_err() {
+                        return Err(format!("main không release Auth cho client {index}"));
+                    }
+                    if let Some(probe) = &probe {
+                        probe.note_auth();
+                    }
+                    net.authenticate(&credentials)
+                        .map_err(|error| format!("auth client {index}: {error}"))?;
+                    Ok(net)
+                },
+            )));
             identities.push(connection);
         }
+        drop(welcome_tx);
+
         // Handshake giữ clock tại 0; số lượt poll phụ thuộc scheduler không đổi origin.
         let now_ms = 0u64;
-        while handles.iter().any(|handle| !handle.is_finished()) {
-            for (out_net, in_net) in &nets {
-                out_net.advance_to(now_ms);
-                in_net.advance_to(now_ms);
+        let mut welcomed = vec![false; count];
+        let mut failure = None;
+        while welcomed.iter().any(|done| !done) && failure.is_none() {
+            loop {
+                match welcome_rx.try_recv() {
+                    Ok(Ok(index)) => welcomed[index] = true,
+                    Ok(Err(error)) => {
+                        failure = Some(error);
+                        break;
+                    }
+                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        failure = Some("kênh Welcome đóng trước khi đủ client".to_owned());
+                        break;
+                    }
+                }
             }
-            let _ = server
-                .poll(now_ms, Duration::from_millis(1))
-                .expect("server poll lúc handshake");
+            if failure.is_some() || welcomed.iter().all(|done| *done) {
+                break;
+            }
+            if let Some((index, _)) = handles.iter().enumerate().find(|(index, handle)| {
+                !welcomed[*index] && handle.as_ref().is_some_and(thread::JoinHandle::is_finished)
+            }) {
+                failure = Some(format!(
+                    "client thread {index} kết thúc trước khi gửi Welcome"
+                ));
+                break;
+            }
+            if let Some(probe) = &probe
+                && probe.welcomes() >= count.saturating_sub(1)
+            {
+                probe.release_delayed();
+            }
+            if let Err(error) = poll_room_handshake(&mut server, &nets, now_ms) {
+                failure = Some(error);
+                break;
+            }
+            thread::yield_now();
         }
+        if let Some(probe) = &probe {
+            probe.release_delayed();
+        }
+
+        if let Some(error) = failure {
+            abort_room_setup(
+                &mut server,
+                &nets,
+                &mut handles,
+                &mut release_senders,
+                probe.as_deref(),
+                now_ms,
+            );
+            panic!("setup handshake phòng thất bại: {error}");
+        }
+
+        let mut authenticated: Vec<Option<NetClient<ScheduledTransport>>> =
+            (0..count).map(|_| None).collect();
+        // Serial Auth: một client được release, chờ thread/AuthOk xong rồi mới client kế.
+        // Argon2/SQLite thật vẫn dùng timeout production của từng client, không cộng dồn.
+        for index in 0..count {
+            if release_senders[index].send(()).is_err() {
+                failure = Some(format!("không release được client {index}"));
+                break;
+            }
+            let handle = handles[index].take().expect("client handle còn sống");
+            while !handle.is_finished() {
+                if let Err(error) = poll_room_handshake(&mut server, &nets, now_ms) {
+                    failure = Some(error);
+                    break;
+                }
+                thread::yield_now();
+            }
+            match handle.join() {
+                Ok(Ok(net)) => authenticated[index] = Some(net),
+                Ok(Err(error)) => failure = Some(error),
+                Err(_) => failure = Some(format!("client thread {index} panic")),
+            }
+            if failure.is_some() {
+                break;
+            }
+        }
+
+        if let Some(error) = failure {
+            abort_room_setup(
+                &mut server,
+                &nets,
+                &mut handles,
+                &mut release_senders,
+                probe.as_deref(),
+                now_ms,
+            );
+            panic!("setup phòng thất bại: {error}");
+        }
+
         let mut clients = Vec::new();
-        for (index, handle) in handles.into_iter().enumerate() {
-            let net = handle.join().expect("join luồng client");
+        for (index, net) in authenticated.into_iter().enumerate() {
+            let net = net.expect("client đã xác thực");
             let connection = identities[index];
             let (out_net, in_net) = nets[index].clone();
             // Định danh người chơi trong phòng/round = `AuthOk.account_id`: server bind mọi
@@ -1686,7 +1970,6 @@ impl RoomHarness {
             _db_dir: db_dir,
         }
     }
-
     /// Số client trong fixture.
     pub fn client_count(&self) -> usize {
         self.clients.len()
