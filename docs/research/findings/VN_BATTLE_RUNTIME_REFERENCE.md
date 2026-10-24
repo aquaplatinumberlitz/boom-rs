@@ -19,6 +19,26 @@ Tra lại bằng `git -C /home/admin/boom-re show <commit>:<path>`.
 | VN-B05 | Loại phòng14/16/22/32/33 vào trận thường;17 có UI RPG và gửi120/21 khi trúng bom | `e0f9a49`: `docs/roomtype17_rpg.png`, `docs/roomtype32.png`, `tools/roomtype_loop.sh` | Chạy một người Village01; semantics mất HP của21 chưa chắc, server RPG chưa làm |
 | VN-B06 | C→S88 đầu khi vào phòng là lựa chọn tự gửi; không được ghi đè map host | `0e71e8a`: thay đổi server và docs | Bài học lifecycle, không bắt giao thức mới sao chép opcode cũ |
 
+## Grace của owner sau đặt bom — candidate runtime 2026-10-24
+
+Đây là **candidate**, chưa phải claim canonical VN-Bxx; đề nghị Codex xét claim riêng sau review.
+Nguồn: hai run host private (#240) tại `.re-work/vn-grace-240/host-run-{2,3}/`, raw local; evidence
+công khai `docs/measurements/vn-player-grace-2026-10-24/README.md` (PR #242 khi mở).
+
+| Case | Fixture / quan sát | Kết quả owner-only |
+|---|---|---|
+| run2 | VN `VBNB_116`, `ca_fixed_patched.exe` SHA `bc875ba5…b1`, `Village01` SHA `1ca7e03e…1b28`, spawn `(14,0)`; fakeserver ack 111→152, fuse60 emu_choice | Space→152 tại `(14,0)`; owner rời Left sang `(13,0)`, Right 0.45 s vẫn ở `(13,0)` face right; không 151 trước stop |
+| run3 | cùng fixture; đứng yên trên bomb **5 s** sau 152 rồi mới Left/Right | 5 s không làm mất quyền rời bomb; Left→`(13,0)`, Right vẫn `(13,0)`; sau ~60 s S151 rồi client tự C→S120/11 (trap) và 120/13 (death), server không ép trap |
+
+- Đây là **owner-only**, hai run; không suy TTL ms, không suy grace toàn hệ thống/all non-owner.
+- Bomb cell `(14,0)` từ packet 111; screen render ~50 px/cell (native 40), owner center ~(760,62)→
+  (719,62); actual screen approx. Không dùng hold 0.45 s/5 s làm timer.
+- Map VN `Village01` W15×H13; `(13,0)` tile1005/obj996 floor; col12 tree, row1col13 brick. Không suy
+  spawn `(13,1)` của KR.
+- Run3 có trap/death sau 151, nhưng owner đã rời bomb trước đó; không phải bằng chứng timing grace.
+- Gap: non-owner đứng chồng ô lúc 152 chưa đo; position getter `0xB335C0/0xB335E0` chưa xác minh
+  trên player; `tools/gdb/spawn.gdb` chỉ in spawn, không phải player.
+
 ## Đưa vào công việc hiện hành
 
 - **V1-020 / Q-006:** luật chạm địch làm vỡ bong bóng được chốt từ VN-B01; không RE lại chỉ vì khác region.
