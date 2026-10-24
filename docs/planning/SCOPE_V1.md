@@ -283,3 +283,20 @@ native hoặc phép đổi19update VN thành19tick Rust. Fuse/trap, chain, phá 
 Metadata và scalar đối chứng ở [evidence VN](../evidence/measurements/vn-flame-window-2026-10-24/README.md).
 Giới hạn animation clip/hướng vẽ lửa trong G-02 vẫn còn; không lấy field lifetime để tuyên bố đã khớp
 mọi đuôi hiệu ứng native. Gate/feature progress vẫn theo execution.json/features.json.
+
+
+### 10.5 Chốt V1 và tiếp tục fidelity — quyết định 2026-10-24
+
+Thực hiện theo [REWRITE_PLAN](REWRITE_PLAN.md), mục điều phối sáu issue RE; nguồn câu hỏi còn mở là
+[QUESTIONS](../research/QUESTIONS.md). Native confirmed dùng cho đúng đại lượng/ngữ cảnh theo ADR 0013.
+Phần chưa biết có thể được giải bằng phép đo hoặc lựa chọn DESIGN có nguồn, ca nghiệm thu và reviewer;
+không đổi candidate/unknown thành confirmed. Ngoại lệ chỉ số C00/C01 hiện hành phải được review rõ ở G2.
+
+G2/G3/G5 có thể nghiệm thu phần V1 khi source/profile/acceptance đã được chấp nhận và thực thi đã kiểm;
+phần fidelity còn thiếu giữ link Q/issue, owner và điều kiện làm tiếp. Một issue RE còn mở không tự là
+blocker phát hành; một DESIGN chưa được nghiệm thu cũng không được vượt gate. Giữ nguyên 37 feature,
+6 gate và requirement G6; không bật profile release hoặc đánh dấu done chỉ vì CI xanh.
+
+UI Việt hóa V1-035 đã được nghiệm thu; G5 còn kiểm runtime focus/input/scale/cửa sổ/âm lượng/SFX.
+V1-036 cần kiểm gói cuối trên Windows/Linux/macOS với version/fingerprints; gói QA không phải tuyên bố
+release/fidelity. Native KR layout, số voice và các nhánh trình diễn chưa xác nhận vẫn là backlog fidelity.
