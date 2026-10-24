@@ -205,3 +205,14 @@ cùng SHA, chưa thấy stat/cap **trực tiếp**; effects callee/virtual chưa
 chưa resolve receiver/target. [Evidence/ranges/SHA và giới hạn budget](../../evidence/measurements/kr-static-item-2026-10-21/README.md#checkpoint-helper1191d20--2026-10-24-149).
 Reuse cache này; không quay lại bước “1191D20 chưa đọc” hoặc phủ định toàn callgraph.
 Không đổi R-153, không tạo claim consumer hoặc giá trị luật mới.
+
+## Đối chứng VN mới — chưa thay consumer KR (#149,24/10)
+
+[Phép đo có control](../../evidence/measurements/vn-item-effects-2026-10-24/README.md) khóa Bombcapacity1→2
+vàFirefieldr18 1→2 trênVNfixture/heroC664C4;92rawhash, lỗiFire1giữ/loại. Đây làVNconfirmedđược dùng
+cho luậtchung theoADR0002/0013; không đòiRElạiKR. Tuyvậy nó chưa nối field/writer/kẹpmax hoặc nghĩa
+f2..f7củaC00/C01KR. Khôngthay12khóa candidateKR bằng sốVNnàychỉvìcùngloạiitem; root149giữPARTIAL.
+
+R-163 khóa trần hữu hiệu10 trên một actor VN qua ba lượt Factory01, gồm pickup dư và đặt lại sau151.
+[Metadata](../../evidence/measurements/vn-item-effects-2026-10-24/README.md) có210rawhash;
+chưa tách stat/pool và receiver KR nên chưa nâng nghĩa f2..f7 hoặc12khóa R-117.

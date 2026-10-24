@@ -1,0 +1,2502 @@
+{
+  "schema": 1,
+  "issue": 149,
+  "root_issue": 149,
+  "baseline": "f5ffb03e80ef28dce3fb946af60391d42b7edae9",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386",
+    "path_private": ".re-work/vn-grace-240/game/ca_fixed_patched.exe"
+  },
+  "shared_server": {
+    "path": "/home/admin/boom-team/tmp/vn240-flame-server.py",
+    "sha256": "fa65dc31bb8937e0a798c157bf5f4c8a95f99de4db8492402497973005ab5a45",
+    "role": "Ocean01 cases base server only; Factory01 cases use server-used.py with per-case SHA"
+  },
+  "source_harness": {
+    "policy": "harness-used.py copied into each private raw case; hashes below"
+  },
+  "raw_root_private": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240",
+  "scope": "Bomb/Fire controlled effects plus Factory01 effective capacity ceiling10; native field/global character stats remain unknown",
+  "cases": [
+    {
+      "case": "Bomb kind0",
+      "run": "host-item-bomb-149-r1",
+      "status": "positive",
+      "env": {
+        "FLOOR_ITEMS": "2,0,0",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1,
+        "BOMB_ECHO": 0,
+        "ITEMS": ""
+      },
+      "raw_private": ".re-work/vn-grace-240/host-item-bomb-149-r1",
+      "harness": {
+        "path": "harness-used.py",
+        "size": 11103,
+        "sha256": "23afa34715a947e9b62b1fc061b582e0b76dd2a1236241d1eef8f9ca1464b403"
+      },
+      "observations": {
+        "baseline_111": {
+          "target_x": 0,
+          "actual_x": 0,
+          "serial": 0,
+          "r18": 1,
+          "id": 1
+        },
+        "control_before_pickup": {
+          "target_x": 40,
+          "actual_x": 45,
+          "result": "no 111"
+        },
+        "pickup_117_158": {
+          "kind": 0,
+          "index": 0,
+          "at_x": 80
+        },
+        "second_111": {
+          "target_x": 80,
+          "actual_x": 80,
+          "x": 2,
+          "serial": 20,
+          "r18": 1,
+          "id": 2
+        },
+        "third_attempt": {
+          "target_x": 40,
+          "actual_x": 40,
+          "result": "no 111"
+        },
+        "first_151": null,
+        "conclusion": "capacity 1→2 observed; third rejected; not cap max."
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 630770,
+          "sha256": "15038a4a35004a5040dc15343d441265383fa2d2fb6b69f34061bd0a437fc046"
+        },
+        {
+          "path": "06-alive-at-zero.png",
+          "size": 630154,
+          "sha256": "2736aa6093ebfd89b4846f582bc89a1a0c91e213484cd25822f5e35035cd89b0"
+        },
+        {
+          "path": "07-first-bomb.png",
+          "size": 630178,
+          "sha256": "2f0ea034eeb771d1c6e0732e72935e61e640dd913c7c2cd436ca498d9bde8d23"
+        },
+        {
+          "path": "08-capacity-before-pickup.png",
+          "size": 630270,
+          "sha256": "1e9c7d2fb5c638eac021d42e8098551715671e0416791679863e9602d0a3495d"
+        },
+        {
+          "path": "09-item-picked.png",
+          "size": 630202,
+          "sha256": "a3eb2ab848bba04bbac45645e5a003aa6fa9222778f42b55df4f9e824c451368"
+        },
+        {
+          "path": "10-second-bomb.png",
+          "size": 627896,
+          "sha256": "c3fa83ade538b019f55f54adaacfcbd65adeab340ea513e43d79efd27c27751a"
+        },
+        {
+          "path": "11-capacity-after-pickup-third-attempt.png",
+          "size": 628148,
+          "sha256": "d46b36807aa1d0eea1874d2806b08dfe02f1f11c48df9b71b0d706886b1a915e"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "0865d4eaf19675d66919b34fbd06cf138df351da329ee44dde473cfd298be100"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "0f6c4ff78c19bcb32aae21fbec11f02d6b53f9e297605a2e9d6f143e16bdbab3"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11103,
+          "sha256": "23afa34715a947e9b62b1fc061b582e0b76dd2a1236241d1eef8f9ca1464b403"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 144,
+          "sha256": "7edee60aaf30c26fee849787df55c6715bbd2eed1f58f87f812e4a46c8f5669e"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 23863,
+          "sha256": "a04c1231eee038ddb2346753f499a244cda832b52a41dc0f57e48102ffaac676"
+        },
+        {
+          "path": "packets.log",
+          "size": 18733,
+          "sha256": "79302948ca0c9102d86485e79288f75ff7f690f23ff162835b19f19920b71ab3"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 3741,
+          "sha256": "8fc99cc7070f1d2b49773c1f55a6b5658d282ef1e45890867aeca390e08e710e"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "350a136dab2c2fcacaea72ba8e5fd9cc6fc0d654e14cf8d1f3ea9f7a2afce9cd"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5084,
+          "sha256": "c9ed99bfe6ea82269a186c5b16c1dd009a6dda931aee56682d767ebec18ee062"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "31302ad92187f69b48da761d258b5885d67d49524283b772e1cd13c970f0c794"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "b692a965e5b794ccd4bebeac0907fbc1d801d661228cd7178d30c14ec3ac51d0"
+        },
+        {
+          "path": "server.log",
+          "size": 18733,
+          "sha256": "79302948ca0c9102d86485e79288f75ff7f690f23ff162835b19f19920b71ab3"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1992,
+          "sha256": "4754a9e81f0dabc1336819f1dcd44d2ae27867d07b78215be4dd0a8b164c8024"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15340,
+          "sha256": "5e1bc3d7fec35df657ac194fd7a88aafa4e7ffd1ea4e1008845a3c2ecc8322c1"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    },
+    {
+      "case": "Fire kind1",
+      "run": "host-item-fire-149-r2",
+      "status": "positive",
+      "env": {
+        "FLOOR_ITEMS": "2,0,1",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1,
+        "BOMB_ECHO": 8,
+        "ITEMS": ""
+      },
+      "raw_private": ".re-work/vn-grace-240/host-item-fire-149-r2",
+      "harness": {
+        "path": "harness-used.py",
+        "size": 11282,
+        "sha256": "b9d46ef0228381abaea66ec804f7be3056174855a8f23d2a67428a0ed83ad46d"
+      },
+      "observations": {
+        "baseline_111": {
+          "target_x": 0,
+          "actual_x": 0,
+          "serial": 0,
+          "r18": 1,
+          "id": 1
+        },
+        "control_before_pickup": {
+          "target_x": 40,
+          "actual_x": 45,
+          "result": "no 111"
+        },
+        "pickup_117_158": {
+          "kind": 1,
+          "index": 0,
+          "at_x": 80
+        },
+        "second_attempt_before_first151": {
+          "target_x": 80,
+          "result": "no second 111; capacity unchanged"
+        },
+        "first_151": {
+          "time": "18:01:07.248447",
+          "id": 1
+        },
+        "second_111": {
+          "target_x": 80,
+          "actual_x": 80,
+          "x": 2,
+          "serial": 20,
+          "r18": 2,
+          "id": 2
+        },
+        "parser_power_field": "1 BOTH records; DO NOT report 1→2",
+        "snapshot152_r18": "first1 second2 (source record/serializer)",
+        "second_151": {
+          "time": "18:01:16.093812",
+          "id": 2,
+          "note": "trap own bomb lower; not part of comparison"
+        },
+        "conclusion": "second 111 r18=2 after kind1 pickup; scope item-effect observation only."
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 610452,
+          "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 630080,
+          "sha256": "da559dcb775111f7c1ae6acbaaf44deea9cb29c97060a65299e6677790cda878"
+        },
+        {
+          "path": "06-first-bomb.png",
+          "size": 629377,
+          "sha256": "3e2b38f33a7ca22ce0e278a31d6e0b7fc7b4aea09d63ab65ea27c649b2b69556"
+        },
+        {
+          "path": "07-capacity-before-fire.png",
+          "size": 629483,
+          "sha256": "1244391d2bc4dcd722cd26ef7f3429616c5aabb1b0d69a2255489437e2c44353"
+        },
+        {
+          "path": "08-fire-picked.png",
+          "size": 630471,
+          "sha256": "e07c08abab970dcf9cfb42386d125d47049795e2f494b9b9094a60a1cd095df5"
+        },
+        {
+          "path": "09-capacity-after-fire.png",
+          "size": 630240,
+          "sha256": "77a1a3a9cacd8ce3a4f2e1ce1f693277717f4bcd0f9f242970f5858d1d910080"
+        },
+        {
+          "path": "10-power-after-fire.png",
+          "size": 628224,
+          "sha256": "3cb6108e6dc245ddea47bb0ff8f7f77e56550e389ec90a743c69aee1d8eca3ef"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "7735452b5ff7f2e076f4ba4b49a7c6218384ad660e94ef51293654f50b90293e"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "06710372019872e87319deba710ba1d089acd7be0eca2295d989ac36295ad65e"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "94da47d858abe7716b21275e6ddddccaf8a32bc811f0f262639c78f8b28de93c"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "499b6032527740fdb945a9a0418a0ed498b4e2ebc0989076b77942791e52c544"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11282,
+          "sha256": "b9d46ef0228381abaea66ec804f7be3056174855a8f23d2a67428a0ed83ad46d"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "515566ce40b38686210da8f27e17500e77ffed07087f1d2fe70303070ccba6a1"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 2560,
+          "sha256": "4a9605f7a67b6a8d817384f0985d5296cf0d308f910d6ea707cef3293852aaa1"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 22927,
+          "sha256": "ed549cc3f022d7fd776a18e0e0f8b2fe77d0d84208d1d32c8535b3a2e1f56e2e"
+        },
+        {
+          "path": "packets.log",
+          "size": 17967,
+          "sha256": "fdeccd99a601612701d2d74015d41cfcf86c093ed69f148cbf3ab7d2ce00186f"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 30316,
+          "sha256": "95c272acf3452f6f60b4f41f96a11d6281c92fa21ed94e482558815085caeeec"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "8f7d9494b8f79efc9acf1bee6fb1486bc3a1e2eba403bbd515cab74d5e101613"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5084,
+          "sha256": "a3fc80876557b8976fbfdf813f476acafcf63fcb96f2f1ab2ee5891ac49f623f"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "81f0d8ff64338b9a7fab3a367a7868dff53f6d59e3a8f41367eb79bf62775a98"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "ac59d41e78257bc6c9e9cb9bde8bf1ec93add14c74bd05f28a3602e378f896f1"
+        },
+        {
+          "path": "server.log",
+          "size": 17967,
+          "sha256": "fdeccd99a601612701d2d74015d41cfcf86c093ed69f148cbf3ab7d2ce00186f"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1687,
+          "sha256": "46fc2e8491123088ec3840793ae8510b55b1e5683d27cf1705e1ceab1ab5b3ca"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "515566ce40b38686210da8f27e17500e77ffed07087f1d2fe70303070ccba6a1"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15479,
+          "sha256": "8b4d624ba6b3724a57a30705217cef7043d10c9414ff2e94a959c7cb91d2a46f"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    },
+    {
+      "case": "Fire kind1 failed control",
+      "run": "host-item-fire-149-r1",
+      "status": "failed-control",
+      "env": {
+        "FLOOR_ITEMS": "2,0,1",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1,
+        "BOMB_ECHO": 8,
+        "ITEMS": ""
+      },
+      "raw_private": ".re-work/vn-grace-240/host-item-fire-149-r1",
+      "harness": {
+        "path": "harness-used.py",
+        "size": 11103,
+        "sha256": "673fd9eb145f15e6afee12aa00badb754f5016b7f9bf54606307bb43e0acea96"
+      },
+      "observations": {
+        "baseline_111": {
+          "target_x": 0,
+          "actual_x": 0,
+          "serial": 0,
+          "r18": 1,
+          "id": 1
+        },
+        "pickup_117_158": {
+          "kind": 1,
+          "index": 0
+        },
+        "helper_bug": "MOVE_TO_X target80 origin80 selected Left; delayed keys drifted x80→40 before first151",
+        "observed": "no second111/r18 after pickup; trap at x40 after routine",
+        "first_151": {
+          "time": "17:58:21.076895"
+        },
+        "conclusion": "FAILED control; retained/excluded; not proof Fire changes existing bomb/range."
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407526,
+          "sha256": "2fc424ed11863369cfe8f0353ba9571bdbe54e160bc759319dc2c2e89b5fdb61"
+        },
+        {
+          "path": "05-match.png",
+          "size": 629683,
+          "sha256": "96cd38e96b03f9655705ef609d8d3981c8be87dfe7a68b6b1996c50b4f47cbe5"
+        },
+        {
+          "path": "06-first-bomb.png",
+          "size": 629297,
+          "sha256": "2dbbd4235e02f8892963f5ef53460ed860ea508d718de7e41061ad709ff82847"
+        },
+        {
+          "path": "07-capacity-before-fire.png",
+          "size": 629276,
+          "sha256": "6e8001224572919ce5df24d8ee11dc90daa557994b9bf946e08de3c50c5f2790"
+        },
+        {
+          "path": "08-fire-picked.png",
+          "size": 629276,
+          "sha256": "6e8001224572919ce5df24d8ee11dc90daa557994b9bf946e08de3c50c5f2790"
+        },
+        {
+          "path": "09-capacity-after-fire.png",
+          "size": 628466,
+          "sha256": "52390660d19970ccb9669a8dc9a8547079991fc5d2befd185fd836b9ee231548"
+        },
+        {
+          "path": "10-power-after-fire.png",
+          "size": 628612,
+          "sha256": "c3eb092e817074a6376cf7b1091017b89423d4e061e8eae0b8931651f270a25f"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "1e413633f84b495cc938dffdfa06595fe9c8c4dd47b6d638575470f5495ae553"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "6c3a0678e161a1cb6e2f1d248526f27bf41a30581388c1d15fbea5d0ec67d4eb"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "79fac8c1da8c5ca8ab398ea0f784ce8bf44f43af9015f238ddf72901c6dd8e9b"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "0ddf1e17881aebb9b89b88e61041d97b21e6692ab86578f0bd8c03f9fbf39902"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11103,
+          "sha256": "673fd9eb145f15e6afee12aa00badb754f5016b7f9bf54606307bb43e0acea96"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "6dd5afb7aab45c2664ae36d04fe84eca632e3eb29e4b8f21cc5633537ab1b7f2"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 2560,
+          "sha256": "377d91034896d399f58f9cc259b31cc2ad362abfa5fec38cafeb3389cfa71a3e"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 21937,
+          "sha256": "a025d6e3b8fa010e06419327ea5c0db744378a720cc80d168e43c4be2e9427cc"
+        },
+        {
+          "path": "packets.log",
+          "size": 17233,
+          "sha256": "bc08840eae3ec1bf0f1bf93f57ab8c006f50b1547265dd9186805a02b5488a0b"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 17703,
+          "sha256": "f9f2d7c8689809367a46311e427354031d87bad45b2186eaff64a88233e67094"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "4ccd86f979046fd9e0383946a3f5b18c695345eaae34ee821b2df74d493e75b2"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5084,
+          "sha256": "9567ecd9a3f13280317af313884dc72752f041786e5f7ad023ae4fa37fdbf712"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "d984bf98acdb275b87acb8b4d5a7310e308aeff9b33021241eacf2bd972d7437"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "0dc60b9c3bc83938bd43e51e737d9511f139bfd655687201e9239d024d141970"
+        },
+        {
+          "path": "server.log",
+          "size": 17233,
+          "sha256": "bc08840eae3ec1bf0f1bf93f57ab8c006f50b1547265dd9186805a02b5488a0b"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1686,
+          "sha256": "73057e4037fb55948b2a9ccb63765c3ba7cc4093dbd8d6e1c932dd886e11d242"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "6dd5afb7aab45c2664ae36d04fe84eca632e3eb29e4b8f21cc5633537ab1b7f2"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15301,
+          "sha256": "d089002406aa943c867a8c388b2edf3a0f8f6dfc7c705fc49f6804cb0110d2f0"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    },
+    {
+      "case": "Factory capacity repeat1",
+      "run": "host-item-cap-factory-149-r1",
+      "status": "positive",
+      "env": {
+        "BOMB_ECHO": 0,
+        "FLOOR_ITEMS": "14,11,0;14,10,0;14,9,0;14,8,0;14,7,0;14,6,0;14,5,0;14,4,0;14,3,0;14,2,0;14,1,0;14,0,0",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1
+      },
+      "map": {
+        "name": "Factory01",
+        "native_index": 193,
+        "map_sha256": "64f27c39f6728dc3a0d404af27afd7d7867088d2adc5701366a7b1b9dc6af405"
+      },
+      "hero": {
+        "object": 449139944,
+        "vtable": "0xc664c4",
+        "x": 560,
+        "y": 519,
+        "native_getter_result": 560,
+        "getter": "0x58d56d",
+        "monotonic_ns": 793411883547716
+      },
+      "observations": {
+        "pickups": [
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 11,
+            "b": 14,
+            "index": 0,
+            "kind": 0,
+            "time": 4099,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793515162108505
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 10,
+            "b": 14,
+            "index": 1,
+            "kind": 0,
+            "time": 4140,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793516308951604
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 9,
+            "b": 14,
+            "index": 2,
+            "kind": 0,
+            "time": 4180,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793517647634667
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 8,
+            "b": 14,
+            "index": 3,
+            "kind": 0,
+            "time": 4220,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793518763974728
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 7,
+            "b": 14,
+            "index": 4,
+            "kind": 0,
+            "time": 4259,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793519858072149
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 6,
+            "b": 14,
+            "index": 5,
+            "kind": 0,
+            "time": 4300,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793521153943333
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 5,
+            "b": 14,
+            "index": 6,
+            "kind": 0,
+            "time": 4340,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793522499879403
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 4,
+            "b": 14,
+            "index": 7,
+            "kind": 0,
+            "time": 4381,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793523607677026
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 3,
+            "b": 14,
+            "index": 8,
+            "kind": 0,
+            "time": 4421,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793524909988236
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 2,
+            "b": 14,
+            "index": 9,
+            "kind": 0,
+            "time": 4461,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793525977881234
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 1,
+            "b": 14,
+            "index": 10,
+            "kind": 0,
+            "time": 4501,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793527294760747
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 0,
+            "b": 14,
+            "index": 11,
+            "kind": 0,
+            "time": 4543,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793528376569587
+          }
+        ],
+        "ack158_count": 12,
+        "bombs": [
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 0,
+            "y": 12,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793514275546992,
+            "assigned_id": 1
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 20,
+            "y": 11,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793515633110622,
+            "assigned_id": 2
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 40,
+            "y": 10,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793516995415996,
+            "assigned_id": 3
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 60,
+            "y": 9,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793518129637903,
+            "assigned_id": 4
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 80,
+            "y": 8,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793519406843261,
+            "assigned_id": 5
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 100,
+            "y": 7,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793520503881694,
+            "assigned_id": 6
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 120,
+            "y": 6,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793521590011858,
+            "assigned_id": 7
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 140,
+            "y": 5,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793522946548797,
+            "assigned_id": 8
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 160,
+            "y": 4,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793524049997177,
+            "assigned_id": 9
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 180,
+            "y": 3,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793525334691031,
+            "assigned_id": 10
+          }
+        ],
+        "explosions151": [],
+        "events120_count": 0,
+        "effective_ceiling_before_any151": 10,
+        "position_x_range": [
+          510,
+          560
+        ],
+        "position_y_range": [
+          39,
+          519
+        ],
+        "free_slot_control": "not requested",
+        "interpretation_limit": "effective concurrent ceiling in fixture/actor; stat maximum vs pool allocation not distinguished; not C00/C01 KR",
+        "after_plateau_input_controls": [
+          {
+            "item_index": 9,
+            "cell": [
+              14,
+              2
+            ],
+            "pickup_ns": 793525977881234,
+            "space_ns": 793526428461562,
+            "next_boundary_ns": 793527294760747,
+            "111_in_window": 0,
+            "ack158_ns": 793525978057884
+          },
+          {
+            "item_index": 10,
+            "cell": [
+              14,
+              1
+            ],
+            "pickup_ns": 793527294760747,
+            "space_ns": 793527644844324,
+            "next_boundary_ns": 793528376569587,
+            "111_in_window": 0,
+            "ack158_ns": 793527294921217
+          },
+          {
+            "item_index": 11,
+            "cell": [
+              14,
+              0
+            ],
+            "pickup_ns": 793528376569587,
+            "space_ns": 793528862401047,
+            "next_boundary_ns": 793567781677898,
+            "111_in_window": 0,
+            "ack158_ns": 793528376771817
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609807,
+          "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375251,
+          "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+        },
+        {
+          "path": "04-room.png",
+          "size": 385945,
+          "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+        },
+        {
+          "path": "05-match.png",
+          "size": 440978,
+          "sha256": "363d482a7f2fb2bb6e8035c19f841b332a05cac31a8ddbd3e4ea09f72b4a9314"
+        },
+        {
+          "path": "06-spawn-proof.png",
+          "size": 440169,
+          "sha256": "64319e7499987e8415c707948400af1e1f2a411a21e127ad59df8b2651e64d80"
+        },
+        {
+          "path": "07-baseline-bomb.png",
+          "size": 441614,
+          "sha256": "52ebed47019380812c383c2825408573d0f2f83ae97a0d294c15e662f05f17c2"
+        },
+        {
+          "path": "20-plateau-extra-clear-cell.png",
+          "size": 424817,
+          "sha256": "bc8e0785b1861ac6a06cc49fbdda552774f9ba61bd015a4a921c3b63b8c81e45"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "68df771d23c338473dae1ae762c05b1b876a18bfc766862491726691073e2537"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "0f6c4ff78c19bcb32aae21fbec11f02d6b53f9e297605a2e9d6f143e16bdbab3"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11583,
+          "sha256": "24ff406db58eeae41cfd56eb358390098617599bf06f2455f08ecd3c80fb51fc"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 147,
+          "sha256": "9cba399f42e333c3acefbca5a212f2aab9af6d32af382c0abccd34320269d469"
+        },
+        {
+          "path": "map-path-used.json",
+          "size": 40333,
+          "sha256": "f0f81cc56dfbf8f35c41c46735a33e4362c4d661548f5f2e16d479c8e0d49c24"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 42687,
+          "sha256": "1416307afb2e524a38d70ce280a8db300ff9c83e8de0ea9c481f6462f0ea8a22"
+        },
+        {
+          "path": "packets.log",
+          "size": 33796,
+          "sha256": "0d465819f35e463dc589251f2ef8bbab6b77dd5b07a6f3c6fa669e80072c1ae8"
+        },
+        {
+          "path": "pickup-00-at14-11.png",
+          "size": 442648,
+          "sha256": "4feb91d8a62eb0186c4b44e56c398572a7a11f264f1748c292fec0cb70647c05"
+        },
+        {
+          "path": "pickup-01-at14-10.png",
+          "size": 442625,
+          "sha256": "01c3a99b7372af3947b6b6415cbf6c1d166b9945d46aa98a2940d8e647481931"
+        },
+        {
+          "path": "pickup-02-at14-9.png",
+          "size": 442929,
+          "sha256": "b9441f14b0e0b9f0fae36292dee9dc819a050ab729962dff0e1d82a5ae9ae23d"
+        },
+        {
+          "path": "pickup-03-at14-8.png",
+          "size": 435987,
+          "sha256": "edb78715d59604e7e1367ffa5b2c6d164529369d70949690b6c6e0542afe85fa"
+        },
+        {
+          "path": "pickup-04-at14-7.png",
+          "size": 434232,
+          "sha256": "4949e1d09621f6613afb57e6a5aea32eb393ef19befe27506aa2da37eaf66e4c"
+        },
+        {
+          "path": "pickup-05-at14-6.png",
+          "size": 434591,
+          "sha256": "65741be32d886f0cfdbd2a6342417268b54c3752f7985244e9bd1be6917a4d5b"
+        },
+        {
+          "path": "pickup-06-at14-5.png",
+          "size": 433562,
+          "sha256": "4072c1eb7d364d44b867959904d73428819593d1e0df31e4a5d5e36e701debc9"
+        },
+        {
+          "path": "pickup-07-at14-4.png",
+          "size": 431877,
+          "sha256": "02230d0f7ca2ee75c67ca99cf28c3ad05699fa39770ddb1dc475526480715698"
+        },
+        {
+          "path": "pickup-08-at14-3.png",
+          "size": 430743,
+          "sha256": "b0adf960fb344c36df672f025421816d4c750e33059bca6439dc612ad171dfbb"
+        },
+        {
+          "path": "pickup-09-at14-2.png",
+          "size": 429658,
+          "sha256": "114166b9a4fdf385b22355fb8a5eb385875f68e39101b7ed1c57b4a709c92d80"
+        },
+        {
+          "path": "pickup-10-at14-1.png",
+          "size": 426374,
+          "sha256": "ff4d116c2246c1997aaf641c5262afeade2644d04d9efb9f6a07ff51988d279e"
+        },
+        {
+          "path": "pickup-11-at14-0.png",
+          "size": 423634,
+          "sha256": "8edc202224d5fa9e70f1d4d08d425a9d8dbcb1d7d0a48b6b5a2275948d58d98d"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 11641,
+          "sha256": "72b3d815f7242480f8a14e8c758ce6a8bdbf13e575f0476b437be5e3b7e43c13"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "7949a5fdd2e761350e71fb84e0b1cde310fff0cc3022d70fdf85ad3d3bdc5aa9"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5093,
+          "sha256": "380b99dd6c2f3c8543acaeb20d4db3ba0fe50e4866a77bd71c62173a44087774"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "308131980c61d6a08f9b36cc8a1fc4b34d77186c6f4716fb3d4b5baa829e1959"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "59b8565b8876793b9ec784f88a177508912aedca0eb7780df5fd34ab079398ce"
+        },
+        {
+          "path": "server-used.py",
+          "size": 45522,
+          "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+        },
+        {
+          "path": "server.log",
+          "size": 33796,
+          "sha256": "0d465819f35e463dc589251f2ef8bbab6b77dd5b07a6f3c6fa669e80072c1ae8"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 6972,
+          "sha256": "ee724ee8596bacf41ab3763f61ddc55f6cae4166b969fe9906850d070e5d388a"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15447,
+          "sha256": "a6752d2a1d762cdfa6740580b95c267559daffe22574a4e0060dca96b97483bb"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ],
+      "server_used": {
+        "path": "server-used.py",
+        "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2",
+        "scope": "Factory01 first tuple/index193, based on shared Ocean server; no stat/cap simulation"
+      }
+    },
+    {
+      "case": "Factory capacity repeat2",
+      "run": "host-item-cap-factory-149-r2",
+      "status": "plateau_positive_free_control_timeout",
+      "env": {
+        "BOMB_ECHO": 45,
+        "FLOOR_ITEMS": "14,11,0;14,10,0;14,9,0;14,8,0;14,7,0;14,6,0;14,5,0;14,4,0;14,3,0;14,2,0;14,1,0;14,0,0",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1
+      },
+      "map": {
+        "name": "Factory01",
+        "native_index": 193,
+        "map_sha256": "64f27c39f6728dc3a0d404af27afd7d7867088d2adc5701366a7b1b9dc6af405"
+      },
+      "hero": {
+        "object": 449285240,
+        "vtable": "0xc664c4",
+        "x": 560,
+        "y": 519,
+        "native_getter_result": 560,
+        "getter": "0x58d56d",
+        "monotonic_ns": 793672911010014
+      },
+      "observations": {
+        "pickups": [
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 11,
+            "b": 14,
+            "index": 0,
+            "kind": 0,
+            "time": 1190,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793688038201729
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 10,
+            "b": 14,
+            "index": 1,
+            "kind": 0,
+            "time": 1230,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793689389136173
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 9,
+            "b": 14,
+            "index": 2,
+            "kind": 0,
+            "time": 1269,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793690518591776
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 8,
+            "b": 14,
+            "index": 3,
+            "kind": 0,
+            "time": 1310,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793691700318057
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 7,
+            "b": 14,
+            "index": 4,
+            "kind": 0,
+            "time": 1351,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793693002336806
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 6,
+            "b": 14,
+            "index": 5,
+            "kind": 0,
+            "time": 1392,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793694272969387
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 5,
+            "b": 14,
+            "index": 6,
+            "kind": 0,
+            "time": 1433,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793695355486108
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 4,
+            "b": 14,
+            "index": 7,
+            "kind": 0,
+            "time": 1473,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793696670801700
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 3,
+            "b": 14,
+            "index": 8,
+            "kind": 0,
+            "time": 1514,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793697777794963
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 2,
+            "b": 14,
+            "index": 9,
+            "kind": 0,
+            "time": 1554,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793699095503057
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 1,
+            "b": 14,
+            "index": 10,
+            "kind": 0,
+            "time": 1595,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793700178022297
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 0,
+            "b": 14,
+            "index": 11,
+            "kind": 0,
+            "time": 1635,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793701459060588
+          }
+        ],
+        "ack158_count": 12,
+        "bombs": [
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 0,
+            "y": 12,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793687386778839,
+            "assigned_id": 1
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 20,
+            "y": 11,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793688694196033,
+            "assigned_id": 2
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 40,
+            "y": 10,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793689860520400,
+            "assigned_id": 3
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 60,
+            "y": 9,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793691003682765,
+            "assigned_id": 4
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 80,
+            "y": 8,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793692367582051,
+            "assigned_id": 5
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 100,
+            "y": 7,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793693428548952,
+            "assigned_id": 6
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 120,
+            "y": 6,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793694698245863,
+            "assigned_id": 7
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 140,
+            "y": 5,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793696026380856,
+            "assigned_id": 8
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 160,
+            "y": 4,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793697116977874,
+            "assigned_id": 9
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 180,
+            "y": 3,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793698454538926,
+            "assigned_id": 10
+          }
+        ],
+        "explosions151": [],
+        "events120_count": 0,
+        "effective_ceiling_before_any151": 10,
+        "position_x_range": [
+          515,
+          560
+        ],
+        "position_y_range": [
+          39,
+          519
+        ],
+        "free_slot_control": "NOT RUN: observer12s gate expired before emu45s explosion; plateau trace remains valid",
+        "interpretation_limit": "effective concurrent ceiling in fixture/actor; stat maximum vs pool allocation not distinguished; not C00/C01 KR",
+        "after_plateau_input_controls": [
+          {
+            "item_index": 9,
+            "cell": [
+              14,
+              2
+            ],
+            "pickup_ns": 793699095503057,
+            "space_ns": 793699461046108,
+            "next_boundary_ns": 793700178022297,
+            "111_in_window": 0,
+            "ack158_ns": 793699095666187
+          },
+          {
+            "item_index": 10,
+            "cell": [
+              14,
+              1
+            ],
+            "pickup_ns": 793700178022297,
+            "space_ns": 793700679555802,
+            "next_boundary_ns": 793701459060588,
+            "111_in_window": 0,
+            "ack158_ns": 793700178249638
+          },
+          {
+            "item_index": 11,
+            "cell": [
+              14,
+              0
+            ],
+            "pickup_ns": 793701459060588,
+            "space_ns": 793701873647124,
+            "next_boundary_ns": 793702895399679,
+            "111_in_window": 0,
+            "ack158_ns": 793701459251538
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375207,
+          "sha256": "d45a3e5cf7f2ac389e352129c61c87dded83f0ae4804d7dc27966ea178764caa"
+        },
+        {
+          "path": "04-room.png",
+          "size": 385945,
+          "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+        },
+        {
+          "path": "05-match.png",
+          "size": 440367,
+          "sha256": "7866dda9ee07dd4d76d571493db362289c001949a517a0ccebca8577b582000c"
+        },
+        {
+          "path": "06-spawn-proof.png",
+          "size": 441544,
+          "sha256": "a8db8e935abd620df81b40bcdae49a37df95140dbff55c9b7a24ef5794495aa9"
+        },
+        {
+          "path": "20-plateau-extra-clear-cell.png",
+          "size": 423897,
+          "sha256": "99f591610d35a20df9028fbbcd207c1334613c2f2481219c621155d2d370a3a9"
+        },
+        {
+          "path": "command.json",
+          "size": 1535,
+          "sha256": "5791ba11a703755d051abb8f5ef81524d07d52a14eb507c4ac27b11842e605e1"
+        },
+        {
+          "path": "error.txt",
+          "size": 42,
+          "sha256": "2fe687a7158c59f3392af231c2af7e8d214ad6f9ade3527e15148b07c874dc27"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11584,
+          "sha256": "42e1d7e324092d4e7bcc6937b7f8fa9a1a3177528ee0fad4b7ed52c2f03a80a9"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 147,
+          "sha256": "f69aeba56a0d43901881996ac43006af93895346e42b94fe72b4f1bd647928d0"
+        },
+        {
+          "path": "map-path-used.json",
+          "size": 40333,
+          "sha256": "f0f81cc56dfbf8f35c41c46735a33e4362c4d661548f5f2e16d479c8e0d49c24"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 31669,
+          "sha256": "f68a697839e56d462e00fdde6d8eca31b53288b7153b9298b962fa61f6d17502"
+        },
+        {
+          "path": "packets.log",
+          "size": 25086,
+          "sha256": "b3fbffd8a9f578b7fa540584b5dd4d917f49ae2fa504deca5c4fee54fd724826"
+        },
+        {
+          "path": "pickup-00-at14-11.png",
+          "size": 443330,
+          "sha256": "aa6e294489b4722fe789c3f020df3ed9829a57312db1ca12d8239a67e4c32421"
+        },
+        {
+          "path": "pickup-01-at14-10.png",
+          "size": 443970,
+          "sha256": "efb55380297ec5069ff8e658deeddf5146dbf6ce449e5473463b39c8360b4ec5"
+        },
+        {
+          "path": "pickup-02-at14-9.png",
+          "size": 441736,
+          "sha256": "be9b5c06df2191593eb51c47494498c5daa62684ec6a9e6812a509f80264144f"
+        },
+        {
+          "path": "pickup-03-at14-8.png",
+          "size": 436052,
+          "sha256": "da373b98f5bd90741edd336a3765039fb92b56c05fabd6232ab349e69d474930"
+        },
+        {
+          "path": "pickup-04-at14-7.png",
+          "size": 434636,
+          "sha256": "85742fe082fda144b5bf79259f04fba5c5cb8840a862fcc0515207ff162edf86"
+        },
+        {
+          "path": "pickup-05-at14-6.png",
+          "size": 434249,
+          "sha256": "fa60a73ede11392e1d9a74cb916da54f8ab1b79a9da134ff3f9ac81bbe3c9147"
+        },
+        {
+          "path": "pickup-06-at14-5.png",
+          "size": 433243,
+          "sha256": "444b693b04d63d78810ef89808798d870c57ff6fdee49a7f54266e8736a4a3c4"
+        },
+        {
+          "path": "pickup-07-at14-4.png",
+          "size": 431919,
+          "sha256": "eaf8a81563b114453105adf4451f151d57bf1d1f99987acac1db1a8062e77743"
+        },
+        {
+          "path": "pickup-08-at14-3.png",
+          "size": 431131,
+          "sha256": "713788e0211d693cf734d6a8a028b7b99b2672228ab4dba813b829305e6563fe"
+        },
+        {
+          "path": "pickup-09-at14-2.png",
+          "size": 429025,
+          "sha256": "905b0536bab8f5a0685d4a7ab165e63f5e9c62fe35894bc4b75a5977171521e1"
+        },
+        {
+          "path": "pickup-10-at14-1.png",
+          "size": 425804,
+          "sha256": "fd502b3817e4b2c30d72eb779392ff861c281323d76afd698dd8c6766d64693e"
+        },
+        {
+          "path": "pickup-11-at14-0.png",
+          "size": 424115,
+          "sha256": "2cbdf86b342795d059f279ec8fe6f271d7711d8b5af06dd1c00134c8c27528f2"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "a8658cf26aa7f9cd208af11bc9a5d2ac1dad29bf3385d1b07c04295a21c89d5f"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 12235,
+          "sha256": "dbfa398445d7c3da9e479e231bd5b3bd8f45e809a87948b85f771ea8e05dbcaa"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "ab19c286add3672053a23b4afd711c67d4c010f3c07fda0b4f33ac70068c2bff"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5093,
+          "sha256": "dc983124ff849ed8f9850a271b1ced2cb8c65a221c3c42e802c23cfcc85e0766"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "2743ec997051f011d4c97fb11abde00dc2a851e593b84df27019f438eb5ad5af"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "b1ee3c8e0037a815262240d62e6dde38c6e7ebf5d3c7710496550e52806e95fb"
+        },
+        {
+          "path": "server-used.py",
+          "size": 45522,
+          "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+        },
+        {
+          "path": "server.log",
+          "size": 25086,
+          "sha256": "b3fbffd8a9f578b7fa540584b5dd4d917f49ae2fa504deca5c4fee54fd724826"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 6924,
+          "sha256": "fde25ea8a31208384bb39b57dbb578540259e12a3e1434e05b6b2b88652c6526"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15586,
+          "sha256": "1914ef6db33234b25d19b0db8222bb1c8d1cb8ea81944a2d035535c0201f4867"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ],
+      "server_used": {
+        "path": "server-used.py",
+        "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2",
+        "scope": "Factory01 first tuple/index193, based on shared Ocean server; no stat/cap simulation"
+      }
+    },
+    {
+      "case": "Factory capacity repeat3",
+      "run": "host-item-cap-factory-149-r3",
+      "status": "positive",
+      "env": {
+        "BOMB_ECHO": 25,
+        "FLOOR_ITEMS": "14,11,0;14,10,0;14,9,0;14,8,0;14,7,0;14,6,0;14,5,0;14,4,0;14,3,0;14,2,0;14,1,0;14,0,0",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1
+      },
+      "map": {
+        "name": "Factory01",
+        "native_index": 193,
+        "map_sha256": "64f27c39f6728dc3a0d404af27afd7d7867088d2adc5701366a7b1b9dc6af405"
+      },
+      "hero": {
+        "object": 449282808,
+        "vtable": "0xc664c4",
+        "x": 560,
+        "y": 519,
+        "native_getter_result": 560,
+        "getter": "0x58d56d",
+        "monotonic_ns": 793831043046940
+      },
+      "observations": {
+        "pickups": [
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 11,
+            "b": 14,
+            "index": 0,
+            "kind": 0,
+            "time": 1177,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793846187815481
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 10,
+            "b": 14,
+            "index": 1,
+            "kind": 0,
+            "time": 1217,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793847340755855
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 9,
+            "b": 14,
+            "index": 2,
+            "kind": 0,
+            "time": 1256,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793848529825933
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 8,
+            "b": 14,
+            "index": 3,
+            "kind": 0,
+            "time": 1295,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793849677175052
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 7,
+            "b": 14,
+            "index": 4,
+            "kind": 0,
+            "time": 1336,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793850998169859
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 6,
+            "b": 14,
+            "index": 5,
+            "kind": 0,
+            "time": 1377,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793852286842346
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 5,
+            "b": 14,
+            "index": 6,
+            "kind": 0,
+            "time": 1418,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793853368370666
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 4,
+            "b": 14,
+            "index": 7,
+            "kind": 0,
+            "time": 1459,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793854692714386
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 3,
+            "b": 14,
+            "index": 8,
+            "kind": 0,
+            "time": 1499,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793855809650818
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 2,
+            "b": 14,
+            "index": 9,
+            "kind": 0,
+            "time": 1539,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793857102132989
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 1,
+            "b": 14,
+            "index": 10,
+            "kind": 0,
+            "time": 1580,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793858210022333
+          },
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 0,
+            "b": 14,
+            "index": 11,
+            "kind": 0,
+            "time": 1620,
+            "key": 10000,
+            "flag": 0,
+            "monotonic_ns": 793859588898592
+          }
+        ],
+        "ack158_count": 12,
+        "bombs": [
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 0,
+            "y": 12,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793845549858853,
+            "assigned_id": 1
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 20,
+            "y": 11,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793846643717194,
+            "assigned_id": 2
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 40,
+            "y": 10,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793848052739280,
+            "assigned_id": 3
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 60,
+            "y": 9,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793849228478706,
+            "assigned_id": 4
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 80,
+            "y": 8,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793850325772640,
+            "assigned_id": 5
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 100,
+            "y": 7,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793851431449131,
+            "assigned_id": 6
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 120,
+            "y": 6,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793852712455872,
+            "assigned_id": 7
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 140,
+            "y": 5,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793854032386588,
+            "assigned_id": 8
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 160,
+            "y": 4,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793855128111461,
+            "assigned_id": 9
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 180,
+            "y": 3,
+            "x": 14,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793856466798403,
+            "assigned_id": 10
+          },
+          {
+            "key": 10000,
+            "ctx": 0,
+            "slot": 0,
+            "serial": 200,
+            "y": 0,
+            "x": 13,
+            "power": 1,
+            "r34": 0,
+            "r38": 0,
+            "r3c": 0,
+            "r18": 1,
+            "r1c": 1,
+            "flag": 0,
+            "monotonic_ns": 793871038724765,
+            "assigned_id": 11
+          }
+        ],
+        "explosions151": [
+          {
+            "monotonic_ns": 793870554794057,
+            "id": 1
+          },
+          {
+            "monotonic_ns": 793871645107905,
+            "id": 2
+          },
+          {
+            "monotonic_ns": 793873054201141,
+            "id": 3
+          },
+          {
+            "monotonic_ns": 793874230259697,
+            "id": 4
+          },
+          {
+            "monotonic_ns": 793875327520181,
+            "id": 5
+          },
+          {
+            "monotonic_ns": 793876432212632,
+            "id": 6
+          },
+          {
+            "monotonic_ns": 793877714207313,
+            "id": 7
+          }
+        ],
+        "events120_count": 0,
+        "effective_ceiling_before_any151": 10,
+        "position_x_range": [
+          515,
+          560
+        ],
+        "position_y_range": [
+          39,
+          519
+        ],
+        "free_slot_control": "111 serial200/id11 after first151/id1 and before second151/id2",
+        "interpretation_limit": "effective concurrent ceiling in fixture/actor; stat maximum vs pool allocation not distinguished; not C00/C01 KR",
+        "after_plateau_input_controls": [
+          {
+            "item_index": 9,
+            "cell": [
+              14,
+              2
+            ],
+            "pickup_ns": 793857102132989,
+            "space_ns": 793857488964699,
+            "next_boundary_ns": 793858210022333,
+            "111_in_window": 0,
+            "ack158_ns": 793857102284249
+          },
+          {
+            "item_index": 10,
+            "cell": [
+              14,
+              1
+            ],
+            "pickup_ns": 793858210022333,
+            "space_ns": 793858714252910,
+            "next_boundary_ns": 793859588898592,
+            "111_in_window": 0,
+            "ack158_ns": 793858210213513
+          },
+          {
+            "item_index": 11,
+            "cell": [
+              14,
+              0
+            ],
+            "pickup_ns": 793859588898592,
+            "space_ns": 793859927993839,
+            "next_boundary_ns": 793860926298364,
+            "111_in_window": 0,
+            "ack158_ns": 793859589102492
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 610452,
+          "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 385945,
+          "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+        },
+        {
+          "path": "05-match.png",
+          "size": 440367,
+          "sha256": "7866dda9ee07dd4d76d571493db362289c001949a517a0ccebca8577b582000c"
+        },
+        {
+          "path": "06-spawn-proof.png",
+          "size": 441544,
+          "sha256": "a8db8e935abd620df81b40bcdae49a37df95140dbff55c9b7a24ef5794495aa9"
+        },
+        {
+          "path": "20-plateau-extra-clear-cell.png",
+          "size": 423772,
+          "sha256": "7de353df615c84a38058b0fc7472043f548e561565ae71417339172830194266"
+        },
+        {
+          "path": "21-free-one-slot-positive.png",
+          "size": 407455,
+          "sha256": "1a46f491281ae84b7ab63d61e350407f6c872433c7d89829b384faeedd11ca99"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "d1fe2f6b8dcd5d42c4fc8faaf14a9bb0ae0437526e989cdf2ac26f848754b2d7"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "87840dbddf5702258ccca73d81b491ebe26310f9926d2ec98a37fdcfa066320c"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "c850b259c59f7b8d03acd17302c1cd13909de695e2ad7455fb7b6f5244743241"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11584,
+          "sha256": "46f7d4a03ba1195488c45f54860e55654da18af054b660f57ae6dd7e456581ba"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 147,
+          "sha256": "1d463c98a39837e848d6dbcb8047cf6d6bbcbf474a49283ca30c38c496ff0f9f"
+        },
+        {
+          "path": "map-path-used.json",
+          "size": 40333,
+          "sha256": "f0f81cc56dfbf8f35c41c46735a33e4362c4d661548f5f2e16d479c8e0d49c24"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 34866,
+          "sha256": "da05080c365a70bb95def19e6295210a75782dde2e18df9b71e6529dbeca8abc"
+        },
+        {
+          "path": "packets.log",
+          "size": 27598,
+          "sha256": "47e64ba9034476b3e93020bc040ab41b4995eec050b4bb8415be40dd0150002f"
+        },
+        {
+          "path": "pickup-00-at14-11.png",
+          "size": 443173,
+          "sha256": "b3184d09e1077131f794b418187a6f212bff62fbc82818ae9d49974084256835"
+        },
+        {
+          "path": "pickup-01-at14-10.png",
+          "size": 443514,
+          "sha256": "2b0ce276c98754a284a67f1170f52bb96280ed2b69a980c80bb6ada536170263"
+        },
+        {
+          "path": "pickup-02-at14-9.png",
+          "size": 442086,
+          "sha256": "22935f9b3b3bf071468cb27614552de51940b987010c0dcff6a62ed641ad0cba"
+        },
+        {
+          "path": "pickup-03-at14-8.png",
+          "size": 435418,
+          "sha256": "0319d084892cbf515bf1d81bac051593c3a3171e7456039f3f5125ef7d6b30a8"
+        },
+        {
+          "path": "pickup-04-at14-7.png",
+          "size": 435315,
+          "sha256": "4e44066864f43497830255b0211615b0347eba15ecad75414ba9ede9c89d484e"
+        },
+        {
+          "path": "pickup-05-at14-6.png",
+          "size": 434833,
+          "sha256": "a614ede3fa0a2e81dac7195a099a2bc170cbf392828fbdb08180960b5c3844b1"
+        },
+        {
+          "path": "pickup-06-at14-5.png",
+          "size": 432489,
+          "sha256": "9bc27671c86d7b98673a75579017ea3aa26ce8f94c4f4da9a3ffd2338e444908"
+        },
+        {
+          "path": "pickup-07-at14-4.png",
+          "size": 432097,
+          "sha256": "cd78ce384135b00f3614d17cf403148bc9b2b95335fdb5ae3ed534d7087e03b0"
+        },
+        {
+          "path": "pickup-08-at14-3.png",
+          "size": 430636,
+          "sha256": "996d83111e4ca98b42cf8c8dd1c81a806e4d463faf81ff1ea4b5c71d35a3f9d6"
+        },
+        {
+          "path": "pickup-09-at14-2.png",
+          "size": 429328,
+          "sha256": "4efce6b477aae765d330727218bdb9c9ea037d3ba1c402d85565eb578b2acc90"
+        },
+        {
+          "path": "pickup-10-at14-1.png",
+          "size": 426393,
+          "sha256": "89bdf690a8957e9f74f7328abf0ad03011602467ad9cf4ee678afa0ad77c49d2"
+        },
+        {
+          "path": "pickup-11-at14-0.png",
+          "size": 423821,
+          "sha256": "69c85697537c5fea4ab7e4506eb59516a3371e0e2fa1390cfcac57ff4b7ad67b"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 12354,
+          "sha256": "45d529648015a5b67523b8ca92534967a5fb637e464ef7e7da3881671ea93949"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "7a970e048805a7dbc17a0023dfd5c39b589fedcaa00de08fa05b02a67d53e032"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5093,
+          "sha256": "698b13216896d3e824f9facb8531e63924903724e8a5f800afdc47f42943d7eb"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "f90aee686ada5ef60c8241d09201c354c1b1608d8ce2bfc038cd78ba78c6b9e0"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "62f4b5b777e23dc970dae60c297fa7eb16a3c8d5cb93878c15881cfad5537f7d"
+        },
+        {
+          "path": "server-used.py",
+          "size": 45522,
+          "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+        },
+        {
+          "path": "server.log",
+          "size": 27598,
+          "sha256": "47e64ba9034476b3e93020bc040ab41b4995eec050b4bb8415be40dd0150002f"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 7084,
+          "sha256": "2932f89bc15149bd934a0a91620952ea92dd7ab9465d3bf77746882fcbc477f2"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15169,
+          "sha256": "552baaffb9bf14a08e352bd7b26b80015b99790dccdf23dabf95e33713ee4995"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ],
+      "server_used": {
+        "path": "server-used.py",
+        "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2",
+        "scope": "Factory01 first tuple/index193, based on shared Ocean server; no stat/cap simulation"
+      }
+    }
+  ],
+  "parser_field_warning": "parser field named power is 1 in BOTH Fire records; do not report power 1→2. Use observed r18/vf31 range and S152 source record; legacy docs/source only.",
+  "limitations": [
+    "No native getter/writer or C00/C01 KR identity mapped; effective ceiling10 does not distinguish stat max vs pool allocation.",
+    "Ocean Bomb1->2 and Fire r18 1->2 are controlled per-run observations; no Roller/speed-level claim.",
+    "Factory r2 plateau trace valid; free-slot control was not executed due12s wait vs45s emu schedule, retained with error.",
+    "New R-163 records effective ceiling scoped to fixture; existing profile/character stats/R032 unchanged; root149 remains partial.",
+    "All media/binary/decompile content stays private; only metadata hashes and decoded scalar observations published."
+  ],
+  "cap_probe_prep": {
+    "resolved_map_path": "Root parsed actual VN Factory01.map and ObjectTable using source layouts legacy_map.rs/closure.rs; native traversal x14y12→0 then clear top cell confirmed",
+    "result": "effective ceiling10 over12kind0 ACKs in3runs; r3 placement resumes after first151; stat/pool distinction unknown"
+  },
+  "file_policy": "210 raw files, including media, are SHA-256/size metadata only; six runs: two Ocean effects + excluded Fire1 + three Factory plateaus (r2 free-slot subtest not executed). No raw content is published."
+}

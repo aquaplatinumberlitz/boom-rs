@@ -54,7 +54,7 @@ claim design bị thay thế có ghi superseded. Chưa coi cơ chế mới đã 
 | R-022 | Server giả lập dùng fuse 2,5 s | 2 500 ms | `emu_choice` / candidate | `BOMB_FUSE` trong `boom-re/server` |
 | R-023 | Remake dùng fuse 2,5 s, lửa 0,5 s | 2 500 / 500 ms | `oss` / candidate | OSS §2 |
 | R-024 | Bom bị ném/đá nổ sau 3 s | 3 000 ms | `web` / candidate | `boomkr-re/docs/game-spec-web.md` §2 |
-| R-025 | Tầm nổ khởi đầu 1; mỗi ItemFire +1 tầm; mỗi ItemBomb +1 số bom đặt cùng lúc | — | `vn_runtime` / confirmed | oc_e §5a-5d (hiệu ứng bị động) |
+| R-025 | Tầm nổ khởi đầu 1; mỗi ItemFire +1 tầm; mỗi ItemBomb +1 số bom đặt cùng lúc | — | `vn_runtime` / confirmed | oc_e §5a-5d (hiệu ứng bị động); [control VN24/10](../../evidence/measurements/vn-item-effects-2026-10-24/README.md): Bomb1→2/no3, Fire r18 1→2, chưa maxcap/nativewriter |
 | R-026 | Bị nước trúng → bị nhốt; khoảng packet `120/11 → 120/13` là **6,359 s** (ba lần: 6,355/6,364/6,358; biên độ 9 ms) | 6 359 ms ± 5 ms (biên độ) | `vn_runtime` / confirmed | [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv), [trap-packets.txt](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.txt); run3 chỉ còn log worker, run4/5 còn raw `server.log`; đây là khoảng packet gồm xử lý/gửi, chưa phải timer nội bộ; `210 tick`/literal 6300 chưa chứng minh, Q-006; lựa chọn hiện hành xem §11 (ADR 0013) |
 | R-076 | V1 chọn `player.trap_to_death_ms = 6300` từ khoảng packet đo được; `210 tick` chỉ là giả thuyết, không phải hằng số đã đọc | 6 300 ms | `design` / design | R-026; Q-006; [trap-packets.csv](../../evidence/measurements/vn-timing-2026-10-19/trap-packets.csv); `data/rules/v1-dev.toml`; **superseded by R-103** (ADR 0012; lịch sử implementation) |
 | R-027 | Remake: nhốt 4 s rồi chết | 4 000 ms | `oss` / candidate | OSS §2; khác đại lượng R-026 (packet); lựa chọn timer hiện hành R-115 |
@@ -823,3 +823,12 @@ unit, mode/character khác và animation-death phase còn trong Q-018.
 Thứtự movement trước life giữ nguyên: timeout/touch xét ở vịtrí sau movement của tick; đây vẫn
 là DESIGN R-108, không phải quan sát nativeorder. Profilefixture cũng thêm khóa explicit để
 kiểm cùngcontract; identity thay đổi có chủý. Không fallback ngầm về đứngyên khi thiếukey.
+
+## 27. Trần bom hữu hiệu trong fixture VN (2026-10-24)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-163 | Ba lượt Factory01, cùng room19/heroC664C4: một bom và12 pickup Bombkind0 qua117/158 cho phép tối đa10 bom còn tồn tại; ba pickup cuối (index9/10/11 trong tổng12) vẫn có S158, nhưng Space sau từng lần không C111; thêm thử ô trống khác cũng không C111. Lượt cuối sau151 đầu lại có111 trước151 thứhai | Trần hữu hiệu10 trong fixture/actor đã đo | vn_runtime / confirmed (đúngbuild/case) | [Evidence/210rawhash](../../evidence/measurements/vn-item-effects-2026-10-24/README.md); VNfixturebc875…/mapFactory01index193; chưa tách stat cap/pool allocation, không phải C00/C01KR/getter/writer hay cap mọi nhân vật. Lịch nổ0/45/25s là emu_choice, không fuse gốc |
+
+Bổ sung cơ chế tăng Bomb/từ chối tại sức chứa; không sửa khóa nhân vật R-117 khi chưa nối receiver/
+identity KR. Firefieldr18 1→2 củng cố R-025/R-111; Roller còn thiếu.
