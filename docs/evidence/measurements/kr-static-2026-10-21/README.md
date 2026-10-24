@@ -152,13 +152,14 @@ record không có metadata DB riêng; base `0x400000`, SHA
 
 | Evidence | Hàm/site | Kết quả |
 |---|---|---|
-| `ev_0246c7eb…` | `xrefs B40D60` | 24 caller; predicates/readers, không có owner/overlap |
-| `ev_71c34736…` | `B40030`, `B40290` | type/valid/idle + `B40D60==0`; không grace |
-| `ev_10a00c3a…` | `B422F0`, `B42880` | `B422F0` query `E9F6D0` object ô đích; `B42880` action/state; không owner |
+| `ev_0246c7eb…` | `xrefs B40D60` | **24 site**, không phải 24 caller function; chỉ 4 thân được đọc |
+| `ev_71c34736…` | `B40030` (`this`), `B40290` (`this-353`) | cùng điều kiện `B323D0/vf+100` lọc mã, `B40D60==0`, `vf+132==0`; nhãn valid/idle/type **candidate** |
+| `ev_10a00c3a…` | `B422F0`, `B42880` | `B422F0` query `E9F6D0(v6,v7)` với v6/v7 từ controller+28/+32; **chưa chứng minh ô đích**, `B9DB70` body chưa đọc; `B42880` action/state |
 | `ev_64d026e3…` | `xrefs B37DB0` | 6 data xref (vtable); không direct player caller |
 | `ev_1f14b5c5…` | `xrefs 11982F0` | chỉ `B37DB0` code + vtable data; sensor flag reader |
-| `ev_6249ce45…`, `ev_84379c67…` | `B99CF0`, `B994C0` | `B9A990` chain tới vtable `0x1747328`; consumer `+0x2B0` chưa đọc |
+| `ev_6249ce45…`, `ev_84379c67…` | `B99CF0`, `B994C0` | `0x1747328` là **entry slot 43** (base `0x174727C+0xAC`), không phải vtable base; chain `B994C0/B99CF0` chỉ xref, chưa full callchain/body |
 
-**Kết luận:** không có **player grace confirmed**; `B40D60/+1440` là field dir/input, predicate chỉ
-valid/idle; `B37DB0/+152/+328` là predicate kiểu/sensor bomb, không owner; `B9A990` có owner-like
-transform nhưng chưa nối collision/grace. Player grace giữ **unknown**; không đề xuất đổi luật.
+**Kết luận:** trong **4 thân đã đọc** không thấy owner/grace trực tiếp; đây là negative có giới hạn,
+callee/virtual chưa đọc không bị loại trừ. `B40D60/+1440` là field dir/input; `B37DB0/+152/+328` là
+predicate kiểu/sensor bomb, không owner; `B9A990` có owner-like transform nhưng chưa nối collision/
+grace. Player grace giữ **unknown**; không đề xuất đổi luật.
