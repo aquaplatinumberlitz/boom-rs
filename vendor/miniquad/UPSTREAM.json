@@ -91,5 +91,6 @@
       "changes": "Use same fullscreen atom with action ADD/REMOVE, source=normal application; only send ClientMessage and flush, preserve mapped window state."
     }
   },
-  "remove_patch_when": "Upstream release provides equivalent fullscreen transition behavior and passes controlled KWin regression/rebind/3OS checks."
+  "remove_patch_when": "Upstream release provides equivalent fullscreen transition behavior and passes controlled KWin regression/rebind/3OS checks.",
+  "repository_byte_policy": ".gitattributes uses -text -whitespace only for this third-party tree, preserving exact upstream bytes/licenses across OS; project-owned source keeps whitespace checks."
 }

@@ -72,6 +72,8 @@ và các state khác thay vì unmap/remap rồi thay toàn bộ property.
 [Provenance](../../vendor/miniquad/UPSTREAM.json) có SHA crate gốc, commit, hash từng file, license
 MIT/Apache và điều kiện bỏ patch khi upstream có sửa tương đương. Crate vendored nằm ngoài workspace;
 tool đóng gói vẫn đưa dependency path này vào LICENSES. Backend khác giữ nguyên source upstream.
+`.gitattributes` giữ byte vendor trên ba OS và bỏ cảnh báo whitespace chỉ trong tree upstream;
+source dự án vẫn kiểm bình thường.
 Chuẩn tham chiếu: [EWMH §5.7](https://specifications.freedesktop.org/wm/latest/ar01s05.html).
 
 
