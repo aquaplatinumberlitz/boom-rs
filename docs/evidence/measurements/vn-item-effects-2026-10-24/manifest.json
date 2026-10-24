@@ -1,0 +1,660 @@
+{
+  "schema": 1,
+  "issue": 149,
+  "root_issue": 149,
+  "baseline": "f5ffb03e80ef28dce3fb946af60391d42b7edae9",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386",
+    "path_private": ".re-work/vn-grace-240/game/ca_fixed_patched.exe"
+  },
+  "shared_server": {
+    "path": "/home/admin/boom-team/tmp/vn240-flame-server.py",
+    "sha256": "fa65dc31bb8937e0a798c157bf5f4c8a95f99de4db8492402497973005ab5a45",
+    "role": "private fake server; FLOOR_ITEMS/ITEM_ACK/BOMB_ECHO"
+  },
+  "source_harness": {
+    "policy": "harness-used.py copied into each private raw case; hashes below"
+  },
+  "raw_root_private": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240",
+  "scope": "2 positive cases (Bomb kind0, Fire kind1 Fire2) + failed Fire1 control; protocol/raw hashes only; no media/decompile/full raw; no cap max, no R032 rule/profile change.",
+  "cases": [
+    {
+      "case": "Bomb kind0",
+      "run": "host-item-bomb-149-r1",
+      "status": "positive",
+      "env": {
+        "FLOOR_ITEMS": "2,0,0",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1,
+        "BOMB_ECHO": 0,
+        "ITEMS": ""
+      },
+      "raw_private": ".re-work/vn-grace-240/host-item-bomb-149-r1",
+      "harness": {
+        "path": "harness-used.py",
+        "size": 11103,
+        "sha256": "23afa34715a947e9b62b1fc061b582e0b76dd2a1236241d1eef8f9ca1464b403"
+      },
+      "observations": {
+        "baseline_111": {
+          "target_x": 0,
+          "actual_x": 0,
+          "serial": 0,
+          "r18": 1,
+          "id": 1
+        },
+        "control_before_pickup": {
+          "target_x": 40,
+          "actual_x": 45,
+          "result": "no 111"
+        },
+        "pickup_117_158": {
+          "kind": 0,
+          "index": 0,
+          "at_x": 80
+        },
+        "second_111": {
+          "target_x": 80,
+          "actual_x": 80,
+          "x": 2,
+          "serial": 20,
+          "r18": 1,
+          "id": 2
+        },
+        "third_attempt": {
+          "target_x": 40,
+          "actual_x": 40,
+          "result": "no 111"
+        },
+        "first_151": null,
+        "conclusion": "capacity 1→2 observed; third rejected; not cap max."
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 630770,
+          "sha256": "15038a4a35004a5040dc15343d441265383fa2d2fb6b69f34061bd0a437fc046"
+        },
+        {
+          "path": "06-alive-at-zero.png",
+          "size": 630154,
+          "sha256": "2736aa6093ebfd89b4846f582bc89a1a0c91e213484cd25822f5e35035cd89b0"
+        },
+        {
+          "path": "07-first-bomb.png",
+          "size": 630178,
+          "sha256": "2f0ea034eeb771d1c6e0732e72935e61e640dd913c7c2cd436ca498d9bde8d23"
+        },
+        {
+          "path": "08-capacity-before-pickup.png",
+          "size": 630270,
+          "sha256": "1e9c7d2fb5c638eac021d42e8098551715671e0416791679863e9602d0a3495d"
+        },
+        {
+          "path": "09-item-picked.png",
+          "size": 630202,
+          "sha256": "a3eb2ab848bba04bbac45645e5a003aa6fa9222778f42b55df4f9e824c451368"
+        },
+        {
+          "path": "10-second-bomb.png",
+          "size": 627896,
+          "sha256": "c3fa83ade538b019f55f54adaacfcbd65adeab340ea513e43d79efd27c27751a"
+        },
+        {
+          "path": "11-capacity-after-pickup-third-attempt.png",
+          "size": 628148,
+          "sha256": "d46b36807aa1d0eea1874d2806b08dfe02f1f11c48df9b71b0d706886b1a915e"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "0865d4eaf19675d66919b34fbd06cf138df351da329ee44dde473cfd298be100"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "0f6c4ff78c19bcb32aae21fbec11f02d6b53f9e297605a2e9d6f143e16bdbab3"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11103,
+          "sha256": "23afa34715a947e9b62b1fc061b582e0b76dd2a1236241d1eef8f9ca1464b403"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 144,
+          "sha256": "7edee60aaf30c26fee849787df55c6715bbd2eed1f58f87f812e4a46c8f5669e"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 23863,
+          "sha256": "a04c1231eee038ddb2346753f499a244cda832b52a41dc0f57e48102ffaac676"
+        },
+        {
+          "path": "packets.log",
+          "size": 18733,
+          "sha256": "79302948ca0c9102d86485e79288f75ff7f690f23ff162835b19f19920b71ab3"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 3741,
+          "sha256": "8fc99cc7070f1d2b49773c1f55a6b5658d282ef1e45890867aeca390e08e710e"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "350a136dab2c2fcacaea72ba8e5fd9cc6fc0d654e14cf8d1f3ea9f7a2afce9cd"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5084,
+          "sha256": "c9ed99bfe6ea82269a186c5b16c1dd009a6dda931aee56682d767ebec18ee062"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "31302ad92187f69b48da761d258b5885d67d49524283b772e1cd13c970f0c794"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "b692a965e5b794ccd4bebeac0907fbc1d801d661228cd7178d30c14ec3ac51d0"
+        },
+        {
+          "path": "server.log",
+          "size": 18733,
+          "sha256": "79302948ca0c9102d86485e79288f75ff7f690f23ff162835b19f19920b71ab3"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1992,
+          "sha256": "4754a9e81f0dabc1336819f1dcd44d2ae27867d07b78215be4dd0a8b164c8024"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15340,
+          "sha256": "5e1bc3d7fec35df657ac194fd7a88aafa4e7ffd1ea4e1008845a3c2ecc8322c1"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    },
+    {
+      "case": "Fire kind1",
+      "run": "host-item-fire-149-r2",
+      "status": "positive",
+      "env": {
+        "FLOOR_ITEMS": "2,0,1",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1,
+        "BOMB_ECHO": 8,
+        "ITEMS": ""
+      },
+      "raw_private": ".re-work/vn-grace-240/host-item-fire-149-r2",
+      "harness": {
+        "path": "harness-used.py",
+        "size": 11282,
+        "sha256": "b9d46ef0228381abaea66ec804f7be3056174855a8f23d2a67428a0ed83ad46d"
+      },
+      "observations": {
+        "baseline_111": {
+          "target_x": 0,
+          "actual_x": 0,
+          "serial": 0,
+          "r18": 1,
+          "id": 1
+        },
+        "control_before_pickup": {
+          "target_x": 40,
+          "actual_x": 45,
+          "result": "no 111"
+        },
+        "pickup_117_158": {
+          "kind": 1,
+          "index": 0,
+          "at_x": 80
+        },
+        "second_attempt_before_first151": {
+          "target_x": 80,
+          "result": "no second 111; capacity unchanged"
+        },
+        "first_151": {
+          "time": "18:01:07.248447",
+          "id": 1
+        },
+        "second_111": {
+          "target_x": 80,
+          "actual_x": 80,
+          "x": 2,
+          "serial": 20,
+          "r18": 2,
+          "id": 2
+        },
+        "parser_power_field": "1 BOTH records; DO NOT report 1→2",
+        "snapshot152_r18": "first1 second2 (source record/serializer)",
+        "second_151": {
+          "time": "18:01:16.093812",
+          "id": 2,
+          "note": "trap own bomb lower; not part of comparison"
+        },
+        "conclusion": "second 111 r18=2 after kind1 pickup; scope item-effect observation only."
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 610452,
+          "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407592,
+          "sha256": "fa5b57ff30f1366ad90a6be9563c3c68eec9fd3c9678e21a8164953dc63d5010"
+        },
+        {
+          "path": "05-match.png",
+          "size": 630080,
+          "sha256": "da559dcb775111f7c1ae6acbaaf44deea9cb29c97060a65299e6677790cda878"
+        },
+        {
+          "path": "06-first-bomb.png",
+          "size": 629377,
+          "sha256": "3e2b38f33a7ca22ce0e278a31d6e0b7fc7b4aea09d63ab65ea27c649b2b69556"
+        },
+        {
+          "path": "07-capacity-before-fire.png",
+          "size": 629483,
+          "sha256": "1244391d2bc4dcd722cd26ef7f3429616c5aabb1b0d69a2255489437e2c44353"
+        },
+        {
+          "path": "08-fire-picked.png",
+          "size": 630471,
+          "sha256": "e07c08abab970dcf9cfb42386d125d47049795e2f494b9b9094a60a1cd095df5"
+        },
+        {
+          "path": "09-capacity-after-fire.png",
+          "size": 630240,
+          "sha256": "77a1a3a9cacd8ce3a4f2e1ce1f693277717f4bcd0f9f242970f5858d1d910080"
+        },
+        {
+          "path": "10-power-after-fire.png",
+          "size": 628224,
+          "sha256": "3cb6108e6dc245ddea47bb0ff8f7f77e56550e389ec90a743c69aee1d8eca3ef"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "7735452b5ff7f2e076f4ba4b49a7c6218384ad660e94ef51293654f50b90293e"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "06710372019872e87319deba710ba1d089acd7be0eca2295d989ac36295ad65e"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "94da47d858abe7716b21275e6ddddccaf8a32bc811f0f262639c78f8b28de93c"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "499b6032527740fdb945a9a0418a0ed498b4e2ebc0989076b77942791e52c544"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11282,
+          "sha256": "b9d46ef0228381abaea66ec804f7be3056174855a8f23d2a67428a0ed83ad46d"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "515566ce40b38686210da8f27e17500e77ffed07087f1d2fe70303070ccba6a1"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 2560,
+          "sha256": "4a9605f7a67b6a8d817384f0985d5296cf0d308f910d6ea707cef3293852aaa1"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 22927,
+          "sha256": "ed549cc3f022d7fd776a18e0e0f8b2fe77d0d84208d1d32c8535b3a2e1f56e2e"
+        },
+        {
+          "path": "packets.log",
+          "size": 17967,
+          "sha256": "fdeccd99a601612701d2d74015d41cfcf86c093ed69f148cbf3ab7d2ce00186f"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 30316,
+          "sha256": "95c272acf3452f6f60b4f41f96a11d6281c92fa21ed94e482558815085caeeec"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "8f7d9494b8f79efc9acf1bee6fb1486bc3a1e2eba403bbd515cab74d5e101613"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5084,
+          "sha256": "a3fc80876557b8976fbfdf813f476acafcf63fcb96f2f1ab2ee5891ac49f623f"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "81f0d8ff64338b9a7fab3a367a7868dff53f6d59e3a8f41367eb79bf62775a98"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "ac59d41e78257bc6c9e9cb9bde8bf1ec93add14c74bd05f28a3602e378f896f1"
+        },
+        {
+          "path": "server.log",
+          "size": 17967,
+          "sha256": "fdeccd99a601612701d2d74015d41cfcf86c093ed69f148cbf3ab7d2ce00186f"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1687,
+          "sha256": "46fc2e8491123088ec3840793ae8510b55b1e5683d27cf1705e1ceab1ab5b3ca"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "515566ce40b38686210da8f27e17500e77ffed07087f1d2fe70303070ccba6a1"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15479,
+          "sha256": "8b4d624ba6b3724a57a30705217cef7043d10c9414ff2e94a959c7cb91d2a46f"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    },
+    {
+      "case": "Fire kind1 failed control",
+      "run": "host-item-fire-149-r1",
+      "status": "failed-control",
+      "env": {
+        "FLOOR_ITEMS": "2,0,1",
+        "ITEM_ACK": 1,
+        "BOMB_PLACE": 1,
+        "BOMB_ECHO": 8,
+        "ITEMS": ""
+      },
+      "raw_private": ".re-work/vn-grace-240/host-item-fire-149-r1",
+      "harness": {
+        "path": "harness-used.py",
+        "size": 11103,
+        "sha256": "673fd9eb145f15e6afee12aa00badb754f5016b7f9bf54606307bb43e0acea96"
+      },
+      "observations": {
+        "baseline_111": {
+          "target_x": 0,
+          "actual_x": 0,
+          "serial": 0,
+          "r18": 1,
+          "id": 1
+        },
+        "pickup_117_158": {
+          "kind": 1,
+          "index": 0
+        },
+        "helper_bug": "MOVE_TO_X target80 origin80 selected Left; delayed keys drifted x80→40 before first151",
+        "observed": "no second111/r18 after pickup; trap at x40 after routine",
+        "first_151": {
+          "time": "17:58:21.076895"
+        },
+        "conclusion": "FAILED control; retained/excluded; not proof Fire changes existing bomb/range."
+      },
+      "files": [
+        {
+          "path": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "path": "01-channels.png",
+          "size": 609815,
+          "sha256": "ea4bbc982abbc63a176b9b3569ba9a3371a6532a4028a494e4be16ad7203bf53"
+        },
+        {
+          "path": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "path": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "path": "04-room.png",
+          "size": 407526,
+          "sha256": "2fc424ed11863369cfe8f0353ba9571bdbe54e160bc759319dc2c2e89b5fdb61"
+        },
+        {
+          "path": "05-match.png",
+          "size": 629683,
+          "sha256": "96cd38e96b03f9655705ef609d8d3981c8be87dfe7a68b6b1996c50b4f47cbe5"
+        },
+        {
+          "path": "06-first-bomb.png",
+          "size": 629297,
+          "sha256": "2dbbd4235e02f8892963f5ef53460ed860ea508d718de7e41061ad709ff82847"
+        },
+        {
+          "path": "07-capacity-before-fire.png",
+          "size": 629276,
+          "sha256": "6e8001224572919ce5df24d8ee11dc90daa557994b9bf946e08de3c50c5f2790"
+        },
+        {
+          "path": "08-fire-picked.png",
+          "size": 629276,
+          "sha256": "6e8001224572919ce5df24d8ee11dc90daa557994b9bf946e08de3c50c5f2790"
+        },
+        {
+          "path": "09-capacity-after-fire.png",
+          "size": 628466,
+          "sha256": "52390660d19970ccb9669a8dc9a8547079991fc5d2befd185fd836b9ee231548"
+        },
+        {
+          "path": "10-power-after-fire.png",
+          "size": 628612,
+          "sha256": "c3eb092e817074a6376cf7b1091017b89423d4e061e8eae0b8931651f270a25f"
+        },
+        {
+          "path": "ack.json",
+          "size": 42,
+          "sha256": "1e413633f84b495cc938dffdfa06595fe9c8c4dd47b6d638575470f5495ae553"
+        },
+        {
+          "path": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "path": "death-event.json",
+          "size": 1122,
+          "sha256": "6c3a0678e161a1cb6e2f1d248526f27bf41a30581388c1d15fbea5d0ec67d4eb"
+        },
+        {
+          "path": "explosion-entry.json",
+          "size": 33,
+          "sha256": "79fac8c1da8c5ca8ab398ea0f784ce8bf44f43af9015f238ddf72901c6dd8e9b"
+        },
+        {
+          "path": "explosion-return.json",
+          "size": 33,
+          "sha256": "0ddf1e17881aebb9b89b88e61041d97b21e6692ab86578f0bd8c03f9fbf39902"
+        },
+        {
+          "path": "harness-used.py",
+          "size": 11103,
+          "sha256": "673fd9eb145f15e6afee12aa00badb754f5016b7f9bf54606307bb43e0acea96"
+        },
+        {
+          "path": "hero-target.json",
+          "size": 1122,
+          "sha256": "6dd5afb7aab45c2664ae36d04fe84eca632e3eb29e4b8f21cc5633537ab1b7f2"
+        },
+        {
+          "path": "native-events.jsonl",
+          "size": 2560,
+          "sha256": "377d91034896d399f58f9cc259b31cc2ad362abfa5fec38cafeb3389cfa71a3e"
+        },
+        {
+          "path": "packets.jsonl",
+          "size": 21937,
+          "sha256": "a025d6e3b8fa010e06419327ea5c0db744378a720cc80d168e43c4be2e9427cc"
+        },
+        {
+          "path": "packets.log",
+          "size": 17233,
+          "sha256": "bc08840eae3ec1bf0f1bf93f57ab8c006f50b1547265dd9186805a02b5488a0b"
+        },
+        {
+          "path": "pids.json",
+          "size": 101,
+          "sha256": "41c908074de60e5900a001dd2b1bb3da57a2498d8b4feec37e698b30232caaea"
+        },
+        {
+          "path": "position-samples.jsonl",
+          "size": 17703,
+          "sha256": "f9f2d7c8689809367a46311e427354031d87bad45b2186eaff64a88233e67094"
+        },
+        {
+          "path": "probe-ready.json",
+          "size": 33,
+          "sha256": "4ccd86f979046fd9e0383946a3f5b18c695345eaae34ee821b2df74d493e75b2"
+        },
+        {
+          "path": "probe.gdb",
+          "size": 5084,
+          "sha256": "9567ecd9a3f13280317af313884dc72752f041786e5f7ad023ae4fa37fdbf712"
+        },
+        {
+          "path": "proxy-context.json",
+          "size": 94,
+          "sha256": "d984bf98acdb275b87acb8b4d5a7310e308aeff9b33021241eacf2bd972d7437"
+        },
+        {
+          "path": "ready.json",
+          "size": 58,
+          "sha256": "0dc60b9c3bc83938bd43e51e737d9511f139bfd655687201e9239d024d141970"
+        },
+        {
+          "path": "server.log",
+          "size": 17233,
+          "sha256": "bc08840eae3ec1bf0f1bf93f57ab8c006f50b1547265dd9186805a02b5488a0b"
+        },
+        {
+          "path": "supervisor.log",
+          "size": 1686,
+          "sha256": "73057e4037fb55948b2a9ccb63765c3ba7cc4093dbd8d6e1c932dd886e11d242"
+        },
+        {
+          "path": "trap-event.json",
+          "size": 1122,
+          "sha256": "6dd5afb7aab45c2664ae36d04fe84eca632e3eb29e4b8f21cc5633537ab1b7f2"
+        },
+        {
+          "path": "winedbg.log",
+          "size": 15301,
+          "sha256": "d089002406aa943c867a8c388b2edf3a0f8f6dfc7c705fc49f6804cb0110d2f0"
+        },
+        {
+          "path": "xvfb.log",
+          "size": 1468,
+          "sha256": "2ab90621c4904027edbc2a436137498a1e14bbe505e95313236d9f08848cb690"
+        }
+      ]
+    }
+  ],
+  "parser_field_warning": "parser field named power is 1 in BOTH Fire records; do not report power 1→2. Use observed r18/vf31 range and S152 source record; legacy docs/source only.",
+  "limitations": [
+    "No native getter/setter identified for capacity/range; r18 is per-111 observed, not a global native literal.",
+    "Bomb cap max unknown; only one Bomb pickup + third rejection.",
+    "Fire r1 failed helper control; excluded; Fire r2 is one positive; no Roller/level/C00/C01 claim.",
+    "No R032/RULES/profile change; root #147 remains partial; no full raw/media published."
+  ],
+  "cap_probe_prep": {
+    "status": "blocked; no authentic collision/empty-floor path extracted in this metadata pass",
+    "tools_checked": [
+      "/home/admin/boom-re/tools/idf.py (pack idx/idd reader, not collision map parser)",
+      "/home/admin/boom-re/assets/fx/Map/Ocean01.map (extracted map data; no Python collision decoder run)",
+      "repo boom-assets map decoder/tests (Rust; not compiled/executed)"
+    ],
+    "required": "at least 10 distinct pickup cells with an escape path and no solid/object collision; then N kind0 pickups, S=live111; no111=>capacity=S; no preset cap.",
+    "fallback": "one nonmutating runtime hook at known call site 0x5B1FB5 to read actual receiver/getpower/cap candidate; do not analyze until root budget.",
+    "do_not": "do not extrapolate cap from Bomb r1 or assume 17/roller/native max."
+  },
+  "file_policy": "All raw files (including PNG) are metadata-only SHA-256/size entries; no raw content/media is published. 3 cases: 2 positive + 1 failed Fire1 control."
+}

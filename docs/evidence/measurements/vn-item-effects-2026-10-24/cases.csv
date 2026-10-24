@@ -1,0 +1,4 @@
+case,run,status,FLOOR_ITEMS,ITEM_ACK,BOMB_ECHO,baseline_111,control,pickup,second_111,third/after,conclusion
+Bomb kind0,host-item-bomb-149-r1,positive,"2,0,0",1,0,x0 r18=1 serial0 id1,target40 actual45 (samples/supervisor) no111,117/158 kind0 index0 x80,x2 serial20 r18=1 id2,third target40 no111; no151,capacity1->2 observed; not cap max
+Fire kind1,host-item-fire-149-r2,positive,"2,0,1",1,8,x0 r18=1 serial0 id1,target40 actual45 (samples x45; supervisor DONE45) no111,117/158 kind1 index0 x80,before151 no111; after151 x2 serial20 r18=2 id2,second151 trap own bomb; no comparison,r18 observed1->2; parser power field1 BOTH; item-effect only
+Fire kind1 failed,host-item-fire-149-r1,failed-control,"2,0,1",1,8,x0 r18=1 serial0 id1,helper target80 origin80 Left drift,117/158 kind1 index0,no second111/r18,first151 during drift; trap x40,excluded; no Fire range/bomb proof
