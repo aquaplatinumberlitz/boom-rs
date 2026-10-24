@@ -117,7 +117,7 @@ không phải GUIWindows/macOS hoặc minimumhardware. Không tag/Release, mọi
 [Metadata](../evidence/measurements/rust-client-ux-2026-10-24/window-restore.json) ghi baseline đỏ
 và bản sửa miniquad EWMH xanh: cửa sổ bình thường trả600×560 sau hai vòng fullscreen; cửa sổ
 vốn maximized giữ state/kích thước cũ. RebindF10/F11 và startupfullscreen có đối chứng.
-Đây là sửa runtimeLinux; GUIWindows/macOS/WM khác/minimumhardware và sign-offG5 còn thiếu.
+Tại lúc kiểm sửa runtimeLinux, GUIWindows/macOS/WM khác/minimumhardware và sign-offG5 còn thiếu; quyết định G5 về sau ở issue278.
 Gói QA40091603701 giữ lịch sử trước patch; gói QA40107097457 sau sửa được kiểm ở issue273 bên dưới.
 
 ### Kiểm notice của dependency path sau sửa fullscreen
@@ -144,7 +144,7 @@ Binary Linux lấy từ archive SHA`bc3a1aefd3abde0d4575ff4289e8a71f1fb7a434c9cd
 rebindF10/F11 không kích hoạt shortcut cửa sổ. Fixture pulse ngắn đầu không thấy fullscreenflag,
 giữ raw và chưa xác định nguyên nhân; phương pháp keydown150ms/keyup kiểm focus thật đã đạt.
 Không đổi product timeout/điều kiện hoặc lặp CI tới xanh. Không suy GUIWindows/macOS, minimumHW,
-physicalaudio hoặc gatepassed. V1-036/G2/G3/G5 vẫn chờ nghiệm thu tương ứng, không tag/Release.
+physicalaudio hoặc gatepassed. Tại lúc thu QA, V1-036/G2/G3/G5 chưa ký; quyết định G5 về sau ở issue278, không tag/Release.
 
 ### Blocker nghiệm thu hiện hành của G2/G3/G5/V1-036
 
@@ -152,8 +152,8 @@ physicalaudio hoặc gatepassed. V1-036/G2/G3/G5 vẫn chờ nghiệm thu tươn
 |---|---|---|---|
 | G2 movement/stats | Movement/hitbox/assist/time DESIGN có scenario; owner graceVN; trapped17px/s R-162 đã tích hợp | Review độc lập việc áp12khóa C00/C01candidate và profile phát hành; loader không cho `release=true` với candidate. Không chỉ bật cờ release hoặc đổi nhãn. Roller/level mới phải xét cùng đại lượng trước khi thay speed24DESIGN. | Chưa nối đủ Attr/native identity, hitbox/corner và đường cong tốc độ; không yêu cầu mọi mode later. |
 | G3 bomb/damage/items | Flame540ms R-158, trap6350ms R-160, created-tick boundary/replay; Bomb/Fire +1 và cap behavior có source | Sign-off profile/boundary/drop V1; gói đúng profile hiện tại đã kiểm ở task265; sign-off gate vẫn thiếu. R-168 capacity10 là actorVN riêng, chưa đủ đổi cap C00/C01KR. | Writer/clamp, non-owner/repeatdamage/animationtail và ItemAttr table role còn mở. |
-| G5 UX/localization | V1-035approved; Linux integer scale/focus/rebind + capture BGM/SFX/volume/mute đã kiểm | GUI Windows/macOS, kiểm thực hành trên thiết bị âm thanh/phần cứng và review giới hạn G5; lỗi khôi phục frame trên KWin/X11 đã có sửa/đối chứng issue270; các bằng chứng này không được thay bằng `--help` smoke. | Native KR layout/name/voice count/loop chưa đủ, tách khỏi việc font/chuỗi Việt đã duyệt. |
-| V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, G2/G3/G5sign-off; giữ36/37 và2/6 tới khi đạt. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
+| G5 UX/localization | Nghiệm thu functional V1 theo [issue278](https://github.com/aquaplatinumberlitz/boom-rs/issues/278): text/ảnh/font/golden; actual Linux scale/focus/rebind/fullscreen; BGM/SFX/volume/mute đường phát số; reconcile regression | Không còn blocker G5 trong tiêu chí SCOPE6/7.9 đã review. GUI Windows/macOS và minimum hardware chuyển đúng V1-036/G6; không coi smoke CLI là GUI hoặc virtual sink là physical DAC. | Native KR layout/name/voice count/loop, thiết bị âm thanh thật và WM khác chưa được xác nhận; giữ giới hạn, không đổi nhãn native. |
+| V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, G2/G3 sign-off và GUI platform validation; G5 nghiệm thu riêng, V1 vẫn36/37; gate hiện hành xem PROGRESS. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
 
 Profile hiện vẫn `release=false`; ngoại lệ12khóaKRcandidate ở ADR0013 chưa được thay bằng quyết định
 phát hành mới. DESIGN đã được review ở từng PR không đồng nghĩa đã sign-off toàn gate. Không thêm
@@ -349,7 +349,7 @@ Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (f
   chưa benchmark FPS/latency hoặc đại diện minimum hardware.
 - UX đa OS/WM khác và nghe qua soundcard thật; khôi phục kích thước trên KWin/X11 đã kiểm ở issue270.
   [Hồ sơ UX24/10](../evidence/measurements/rust-client-ux-2026-10-24/README.md) có focus thật,
-  integer scale và capture BGM/SFX/volume/mute qua đường phát số; không thay nghiệm thu G5.
+  integer scale và capture BGM/SFX/volume/mute qua đường phát số; không thay kiểm GUI/hardware còn lại của V1-036/G6; quyết định G5 functional có ở issue278.
 
 ## 8. README chạy nhanh (đóng gói vào gói)
 

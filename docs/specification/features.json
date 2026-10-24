@@ -1574,10 +1574,10 @@
         },
         "review": {
           "status": "pending",
-          "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off."
+          "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; tại PR274, toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off. G5 được nghiệm thu riêng theo issue278; không nghiệm thu thay V1-036/G6."
         },
-        "blocker": "Cần nghiệm thu V1-036 và cấu hình máy tối thiểu; QA dùng profile dev release=false, G2/G3/G5 chưa passed.",
-        "next_action": "Sign-off G2/G3/G5/profile và đo/chốt minimumhardware; GUIđaOS/WMframe/audiohardwarelimits theoRELEASE. Current3OSQA/fingerprints đãcó40107097457; chỉ dựng lại khi code/rules thay đổi có lý do, không chạy lại networkmatrix hay duyệt V1-035."
+        "blocker": "Cần nghiệm thu V1-036 và cấu hình máy tối thiểu; QA dùng profile dev release=false, G2/G3 chưa passed; G5 nghiệm thu functional V1 theo issue278.",
+        "next_action": "Sign-off G2/G3/profile và đo/chốt minimumhardware; GUIđaOS/WMframe/audiohardwarelimits theoRELEASE. Current3OSQA/fingerprints đãcó40107097457; chỉ dựng lại khi code/rules thay đổi có lý do, không chạy lại networkmatrix hay duyệt V1-035."
       }
     },
     {
