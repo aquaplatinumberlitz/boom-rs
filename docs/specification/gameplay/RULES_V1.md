@@ -1083,3 +1083,14 @@ Coefficient24 cũ làm engine chậm khoảng28% so với ca;33 còn lệch mean
 trap6350, halfbox13/assist12, server30Hz,12charvalues và releasefalse giữ nguyên. Actual movement
 regression chạy30tick: profilecũ24 đỏ96000≠132000mpx ởpoint4; profile33 xanh4..8 và trapped16980mpx
 độc lập point. Scenario/replay dùng profile riêng không được bless chỉ để che đổi tốc độ.
+
+## 47. Caller player của predicate R179 — R-214
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-214 | Predicate R179 nằm trong **player mover `59DA6F`**, không phải nhánh `CMovable`/pet: R171 đã thấy call player virtual+244 `59D902→59DA6F`; trong cùng thân hàm, `59DD49` nạp tile qua `7293B4`, rồi `59DD5E` gọi `5C1027→5C0E98`. Đây là caller-chain static của player, không phải suy từ tên hay từ pet | Caller chain `59DA6F→59DD49→7293B4`, `59DD5E→5C1027→5C0E98`; RVA `19DA6F`, `19DD49`, `19DD5E`, `3293B4`, `1C1027`, `1C0E98` | `vn_static` + `vn_runtime` / confirmed (static caller chain; receiver player anchored bởi R171 actual call) | Fixturebc875…/base400000; cached `59DA60..59E210` SHA `04a198a7…`, clips7293B4/5C1027/5C0E98; [R171](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#amount-và-xy-tại-virtual-movement-thực--r-171), R176/R179. Không runtime branch witness mới, không chứng minh map-block/hurtbox/max34/toàn bộ59DA6F, không dùng CMovable/pet. REA IDB adapter không trả evidence_id trong lượt này; locator cache/VA là nguồn static đã đối chiếu, không tạo ID giả |
+
+R-214 chỉ nối caller R179 vào player mover đã có R171/R176/R179; không đổi giá trị
+`player.collision_half_px`/`corner_assist_px`, rules, profile, source precedence hoặc gate. G2 vẫn
+được nghiệm thu bằng DESIGN/VN có giới hạn; #146 vẫn OPEN PARTIAL, chưa có runtime branch/property/
+hurtbox/max34/all-map. Fixture/namespace/read-only giữ nguyên; không runtime/PR khác.
