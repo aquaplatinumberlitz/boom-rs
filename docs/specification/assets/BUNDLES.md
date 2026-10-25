@@ -544,6 +544,17 @@ Quy ước (ô rộng `T` px, `T` = `grid.tile_px` trong profile rules, claim R-
 3. **Vùng ảnh thật** của frame (rect nguồn `f4`–`f7`) đặt trong canvas: *canh giữa
    ngang*, *canh đáy*.
 
+**Actor (nhân vật) — khác quy ước tile (#305, 2026-10-26):** nhân vật đặt theo **toạ độ thật**
+của core, không làm tròn về ô. Neo `(ax, ay)` = `(x_px − T/2, y_px + T/2 − 1)` (tâm hộp → mép
+trái ô và chân `hàng·T + T − 1` khi đứng đúng ô, cùng mốc R-210/R-009). Mỗi frame đặt
+**góc trên-trái vùng ảnh = neo − (`f0`, `f1`)** (`offset_x/offset_y`; R-209 xác nhận `f0/f1` là
+trường đăng ký theo frame). Vẽ **hai lớp** `…static` rồi `…adjust` của cùng clip. Z-order của mọi
+đối tượng theo **y chân** (px), cùng chân thì cột rồi thứ tự trong ô. Căn cứ: ghép lớp C00 theo
+công thức này khớp ảnh client gốc VN (`battle_village01`: nhân vật đứng giữa ô, đầu nhô lên ô
+trên); quy tắc canvas của tile làm nhân vật lệch xuống, chỉ vẽ lớp `static` (34×32) và bị vật
+cản hàng dưới che gần hết. Vẫn là `design` (chưa trace consumer vẽ native); tile/object giữ quy
+ước dưới.
+
 Vì sao trục Y theo canvas chứ không theo `pivot_y`: ở Village00, `pivot_y` của vật cản
 không trùng đáy canvas (`FxTile/Tile00/Fountain00` lệch 31 px, `BoxOrange`/`BoxRed` lệch
 2 px), nên neo theo `pivot_y` sẽ đặt vùng ảnh lệch khỏi mặt đất (vòi nước ~30 px dưới
