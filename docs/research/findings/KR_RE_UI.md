@@ -49,19 +49,36 @@ V1-032/033/035. Phạm vi hẹp: một consumer hitbox (danh sách phòng) + m�
 - Không thấy consumer native framebuffer/`GetClientRect`/`SetScale` trong phạm vi này.
 - Ảnh JPEG 800×600 của login/Prepare đã bị loại trong UI_STRINGS; không dùng làm bằng chứng.
 
+### Ghi chú cache 2026-10-25 (không claim mới)
+
+Dùng lại đúng cached record `ev_640c445056119a02b7ced620e05f7a42c6717a9171003f96ffd5eb1205d9ae3e`
+(R152, `batch_decompile`, PE `cf72…`; không mở body/provider mới). Trong hai full cached body
+`5519A0`/`554C90`, cả hai là consumer index/scroll độc lập; **không** thấy lời gọi `549180` hoặc
+tham chiếu trực tiếp bảng rect `dword_19D8A58` trong chính hai body này.
+
+Điều này **không** chứng minh vắng call gián tiếp/toàn bộ callgraph và không phủ nhận việc dùng
+chung rect ở chỗ khác. Owner của keyboard focus vẫn **UNPROVEN**; không đổi tên `5519A0`/`554C90`
+thành hàm focus/set keyboard chỉ vì chúng dùng index/scroll. Số đo 6 rect R152 tại `19D8A58` vẫn
+giữ nguyên proof static ban đầu; cache hiện chỉ có locator, không biến các số đã đo thành
+“unknown numbers”.
+
 ## 12.5 C00/C01 → tên
 
-- `UI_STRINGS_V1` ghi `room.character_c00` và `room.character_c01` là **`unknown`**, chưa có
-  locator catalog/asset. Không tự đặt tên, không dịch; giữ blocker cho V1-035.
-- Không thấy bảng tên hiển thị C00/C01 trong phạm vi code này; chỉ có key resource `Character/C00`.
+- **Lịch sử R-152:** `room.character_c00`/`c01` chưa có locator catalog/asset native; không thấy
+  bảng tên hiển thị C00/C01 trong phạm vi code này, chỉ có key resource `Character/C00`. Tên gốc
+  native vẫn **unknown**.
+- **Hiện hành 2026-10-25:** V1-035 đã done (PR241/246; 126 text/6 sprite đã duyệt). UI hiện dùng
+  nhãn DESIGN “Nhân vật 1/2” gắn C00/C01; đây không phải tên native confirmed và không phải blocker
+  V1-035. Tên gốc C00/C01 tiếp tục là native UI fidelity unknown tại #150.
 
 ## 12.6 Evidence
 
-Bundle `.re-work/evidence-r152-ui-150.json` (17 record, không commit).
+Bundle `.re-work/evidence-r152-ui-150.json` (17 record, không commit), R152 provenance ngày
+2026-10-23; ghi chú current-context 2026-10-25 dùng lại đúng record, không tạo bằng chứng mới.
 
 | `evidence_id` | Operation | Dùng cho |
 |---|---|---|
-| `ev_640c445056119a02b7ced620e05f7a42c6717a9171003f96ffd5eb1205d9ae3e` | `batch_decompile` `549180`/`5519A0`/`554C90` | hit test 6 ô, công thức |
+| `ev_640c445056119a02b7ced620e05f7a42c6717a9171003f96ffd5eb1205d9ae3e` | `batch_decompile` `549180`/`5519A0`/`554C90` | hit test 6 ô; cache note: 5519A0/554C90 index/scroll, không thấy 549180/rect table trong hai body |
 | `ev_60c239272475d48bf80556f25de048d0dc2348053e3bf04308726ccc4708ea98` | `batch_decompile` `1504A5C`/`54BDC0`/`54BC00` | input point, list |
 | `ev_3493b642211afe6fefd4d301c899b7d3ce9b2163f886bc7dc9a0554e94619933` | `procedure_pseudo_code` `6F47C0` | PrepareStage layout/Ready |
 | `ev_75acb00830251be9f2a5723d025b61b34141006722b898c812d01c4622fa599d` | `batch_decompile` `54BEF0`/`6F8790`/… | 4-int placement, key join |
@@ -73,5 +90,9 @@ Bundle `.re-work/evidence-r152-ui-150.json` (17 record, không commit).
 
 - `kr_static` confirmed: hit test 6 ô room list + bảng toạ độ + công thức inclusive/exclusive.
 - `candidate`: Ready placement/key (`512,494` + `PRE_Bt_Ready`) và 4-int interpretation.
-- **Blocker có phạm vi**: native framebuffer/scale, focus path, các màn login/result, C00/C01→tên.
-  Không đổi profile/presentation; không đóng #150.
+- **Native UI fidelity còn unknown:** framebuffer/scale, keyboard focus owner/path, các màn
+  login/result, C00/C01→tên native. Không claim `549180` là focus path hoặc KR native focus đã xác nhận.
+- **Trạng thái hiện hành:** G5 functional passed PR279; V1-035 done PR241/246. Đây là acceptance
+  functional/DESIGN độc lập, **không** xác nhận native KR focus/framebuffer/scale và **không** thay
+  GUI Windows/macOS/V1-036. Không đổi profile/presentation hay tự nâng gate; phạm vi fidelity #150
+  vẫn **PARTIAL**.
