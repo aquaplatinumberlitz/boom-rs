@@ -152,11 +152,13 @@
         "git:eff7f94c258e154c60a7c36a60ceaefdf7f5deba",
         "git:82033ce560ab4649cdd57a3d228dd1a0669129a8",
         "git:6ad3e062f096d902e0109ac76c764ec7f6b24b43",
-        "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7"
+        "git:2b86a87fb4f4244ba35c7ac173bd2a7d099ddeb7",
+        "git:0407546acaeb2df43bb3ee0b9eaf7a82b4f6909f",
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json"
       ],
-      "verification": "Đối chiếu nguồn đã tích hợp ngày 2026-10-23; không cấp nghiệm thu mới.",
+      "verification": "Theo nghiệm thu G5 độc lập PR279: actual functional UX Linux/text/font/audio digital có evidence; không ký pha hoặc GUI đa OS/hardware. Dependency pha vẫn giữ.",
       "blocker": "",
-      "next_action": "V1-035 đã nghiệm thu và tích hợp PR241; còn sign-off runtime UX/presentation thuộc G5 (focus/nhả phím, scale/window/fullscreen, input/volume, playtest/SFX). Không giao lại duyệt text/ảnh đã hoàn thành."
+      "next_action": "V1-035/126text/6sprites đã nghiệm thu PR241; G5 functional UX đã nghiệm thu PR279/0407546. Không giao lại font/text/ảnh/focus/window/volume trên Linux đã kiểm. Còn review pha theo dependency P4; GUI Windows/macOS/platform/minimum hardware và fidelity presentation giữ ở V1-036/G6, không tự nâng P6done từ G5."
     },
     {
       "id": "P7",
@@ -198,11 +200,13 @@
         "git:43739e2fa6abe09f28457f218648141113cd2fb4",
         "git:b69ca8b9de2f15aac6cf3d58edeb024736c3db2d",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
-        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json"
+        "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json",
+        "git:0407546acaeb2df43bb3ee0b9eaf7a82b4f6909f",
+        "git:1af523ef5a75a83c70e19fb7a666ac3b11d22f6d"
       ],
-      "verification": "Đã đối chiếu registry sau PR241/243:36/37 V1 done. PR249 bổ sung phép đo VN và hiệu chuẩn lửa đã được review/CI; không cấp nghiệm thu pha/gate mới.",
+      "verification": "Registry hiện36/37; G1/G3/G4/G5passed4/6 theo nghiệm thu độc lập PR279/281, không ký G2/G6 hoặc phaP8. Package QA current vẫn đúng code/rules đã review.",
       "blocker": "",
-      "next_action": "36/37V1done, G1/G4passed. PR255 sửa UXscale/fullscreen có kiểm Linux; QApackage3OS đã smoke và kiểm archive/hash. Còn V1-036 nghiệm thu/minimum hardware, G2/G3profile release và G5UX; chưa phát hành."
+      "next_action": "36/37V1done, G1/G3/G4/G5passed4/6. G3 cơ chế/boundary PR281 và G5 functional UX PR279 đã nghiệm thu riêng. Còn G2/12candidate/char identity và quyết định profile; G6/V1-036 minimum hardware, GUI platform và toàn bộ nghiệm thu cuối. CurrentQA3OS/hash đã có; không dựng lại nếu code/rules không đổi, không đòi đóng sáu issueRE."
     },
     {
       "id": "P9",
@@ -256,9 +260,11 @@
         "docs/evidence/measurements/vn-item-effects-2026-10-24/movement-amount.json",
         "git:2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
         "git:fd5b46c41914bd95b2a2efec7b5856b553436dcb",
-        "docs/evidence/measurements/vn-item-effects-2026-10-24/roller-cap.json"
+        "docs/evidence/measurements/vn-item-effects-2026-10-24/roller-cap.json",
+        "docs/evidence/measurements/vn-item-effects-2026-10-24/roller-writer.json",
+        "git:e40eb7aff2eed5a16c251ee72967acbc9715f0f2"
       ],
-      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành. PR272/R170 actualgetter5→6 vàPR275/R171 actualv244amount5/6→Ydelta−5/−6 đãreviewđộc lập/12CI3OS; chỉ hai ca native, khônglevel/FPS/normalization/profilechange. R172 bổ sung C64 plateau7 qua12Roller/nativegettercuối7/nativeXYcontrol trong mộtactorVN; không nâng C00/C01candidate/level/globalKRcap, không sign-offG2.",
+      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành. PR272/R170 actualgetter5→6 vàPR275/R171 actualv244amount5/6→Ydelta−5/−6 đãreviewđộc lập/12CI3OS; chỉ hai ca native, khônglevel/FPS/normalization/profilechange. R172 bổ sung C64 plateau7 qua12Roller/nativegettercuối7/nativeXYcontrol trong mộtactorVN; không nâng C00/C01candidate/level/globalKRcap, không sign-offG2. PR282/R173 đã review độc lập+12CI3OS: actualselector3/receiverhero+5FC nối C64old+1/kẹp theo maxfieldcontroller+58; fullpayload re-decode. ChỉfieldconsumerVN, numericmaxactor/level/f2f3/KRidentity vẫnunknown, khônggỡ12candidate hoặc kýG2.",
       "integration_commit": "",
       "blocker": "Cần review độc lập quyết định profile phát hành/12khóaC00/C01candidate; loader từ chối candidate khi release=true. Không đổi nhãn bằng chứng để vượt gate. Nativefidelity khác có thể backlog theo SCOPE10.5, không cần đóng hết146/149."
     },
