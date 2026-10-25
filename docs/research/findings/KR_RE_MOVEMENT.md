@@ -343,3 +343,15 @@ R-177 đã bổ sung [negative offset control](../../evidence/measurements/vn-pl
 trên actor khác449280160: lệch30 có sửa ngang/Down, lệch35 đứng lại, alignedDown vẫn hoạt động.
 Native coordinate response trong ca là confirmed; chưa chốt max34 hoặc consumer corner/hurtbox.
 Giữ profile13/12DESIGN, unknown của KR và các ngữ cảnh chưa đo; không cần đo lại hai offset này.
+
+## Nhánh tile passable của player VN — R-179
+
+[Code path/case/RTTI](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#predicate-ô-passable-của-player--r-179)
+bổ sung consumer VN cho player59DA6F, độc lập với PET/AI KR. Caller59DD50 lấy object qua7293B4,
+guard/cast `CGOTileFixed→CGOTilePassable`, rồi59DD5E gọi5C1027/5C0E98. Bốn dir0..3 trả byte
+`[[tile+AC]+4+dir]`; return0 đặt flag chặn. Row101stride/tableB328 và guard-zero/epilogue đã đọc.
+
+Đây là static branch confirmed, chưa là runtime activation trong Factory01. Không đổi R119/R122
+PET thành player; không chốt hurtbox hay maxassist34. Phần còn thiếu cụ thể là producer/property
+values, nhánh actor.vAC tại59DE86/59DEA1 và cách geometry/corner quyết định kết quả. Các helper
+rect adjustment/intersection không thay cho map/block predicate; không đọc lại chúng.

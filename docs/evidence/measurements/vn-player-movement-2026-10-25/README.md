@@ -97,3 +97,32 @@ ngoài debugger không lấy được snapshot; được giữ local riêng và 
 
 Bước tiếp cho #146 là consumer gây phản ứng khác nhau hoặc một ca có ngưỡng/đơn vị cần phân biệt,
 không lặp hai offset để tìm lại kết quả. Những nhánh geometry khác vẫn giữ unknown rõ ràng.
+
+## Predicate ô passable của player — R-179
+
+Câu hỏi đã chốt bằng code VN: nhánh trong actual player mover59DA6F lấy object theo tọa độ ô,
+lọc/cast `CGOTileFixed→CGOTilePassable`, rồi đọc byte cho hướng để đặt cờ chặn. Đây là **một nhánh
+restriction của tile passable**, không phải toàn bộ collision hoặc hurtbox. Anchor player/vtable
+đã có R-176; lượt này chỉ đọc bản sao PE SHA `bc875ba5…`, không chạy lại client/góc30–35.
+
+Nguồn chuẩn có [metadata/hash](cell-passability.json) và [bốn case](cell-passability.csv):
+
+1. `59DD50→7293B4`: context từ `actor+2694→6E206E`; đọc
+   `DWORD[context+B328+(row*101+column)*4]`. Các guard và helper kiểm tra được ghi chính xác
+   trong metadata; không gán nghĩa cho thân callee chưa đọc. Call729402 nhận RTTI label
+   `CGOTileFixed/CGOTilePassable`; EAX của cast được giữ tới ret8. Nhánh guard-fail72940C trả0.
+2. `59DD5E→5C1027→5C0E98`: bốn dir0/1/2/3 trả unsigned byte
+   `BYTE[DWORD[tile+AC]+4+dir]`; dir khác trả0. Không tự đặt tên hướng trong claim này.
+3. Return0 đặt `[EBP-34]=1`; caller đi nhánh kẹp rectangle biên và callback actor.vFC. Return
+   nonzero chỉ bỏ qua restriction này. Nhánh virtual actor+AC và các kiểm tra geometry khác còn riêng.
+
+Bundle có **10 instruction units, 1.372B requested, 189B retained cộng dồn/179B code duy nhất**;
+4B epilogue predicate và6B epilogue lookup bị đếm lặp giữa clips, đã ghi rõ. Tổng32 hash của clips,
+cache caller và data RTTI được root đóng băng ngoài repo. Case logic và epilogue phủ control flow
+cục bộ của hai hàm cùng một thunk; callee/transitive semantics không được gọi là đã đọc hết.
+Lượt triage A21800 trước đó có code lân cận objdump trả thừa, đã giữ/sửa ledger riêng; không dùng
+phần đó làm proof cho R-179 hoặc giấu thành một thân. Không publish rawasm/pack/binary.
+
+Kết luận `vn_static / confirmed` cho dataflow/byte predicate này; **chưa quan sát runtime** rằng
+nhánh tile passable đã chạy trong hai ca R-176/R-177. Chưa chốt giá trị property, producer, native
+hurtbox, ngưỡng corner tối đa, mọi mode hoặc C00/C01. Profile,12candidate,G2 và tiến độ giữ nguyên.

@@ -1,0 +1,372 @@
+{
+  "claim": "R-179",
+  "question": "Player mover tests which passable-tile direction byte before its blocked branch?",
+  "fixture": {
+    "build": "VN VBNB_116 offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "image_base": "0x400000",
+    "patch_scope": "IAT/devirt/offline reconstruction; source trusted under ADR0002/0013; vanilla equivalence unproven"
+  },
+  "source_status": "vn_static / confirmed for this code path; runtime branch activation not observed",
+  "runtime_anchor": {
+    "claim": "R-176",
+    "public_metadata": "docs/evidence/measurements/vn-player-movement-2026-10-25/player-movement.json",
+    "actor_vtable": "0xC664C4",
+    "slot_244_target": "0x59DA6F",
+    "note": "reuse existing native player/mover anchor, no new client run or clock/actor join"
+  },
+  "caller": {
+    "cell_lookup": "0x59DD50",
+    "direction_call": "0x59DD5E",
+    "zero_result_branch": "0x59DD63..0x59DD67",
+    "blocked_flag": "[EBP-0x34]=1",
+    "boundary_branch": "0x59DDCF..0x59DE2A",
+    "scope": "one passable-tile restriction branch; other object/geometry branches remain"
+  },
+  "context": {
+    "producer": "actor+0x2694 -> call0x6E206E -> [EBP-0x3C]",
+    "lookup": "0x7293B4",
+    "object_pointer_expression": "DWORD[context+0xB328+(row*101+column)*4]",
+    "guards": [
+      "call0x726BBD nonzero",
+      "object nonnull",
+      "call0x58D4DA nonzero",
+      "call0x5BEDDF equals3"
+    ],
+    "guard_callee_semantics": "not recovered by this bundle",
+    "cast_call": "0x729402 -> 0x9DF38D",
+    "cast_type_labels": {
+      "source": "CGOTileFixed",
+      "target": "CGOTilePassable"
+    },
+    "cast_result": "EAX is preserved to ret8 at0x729411",
+    "guard_zero": "0x72940C XOR EAX,EAX -> ret8",
+    "type_data": [
+      {
+        "type_descriptor": "0xe241a0",
+        "name_address": "0xe241a8",
+        "read_bytes": 48,
+        "sha256": "2313dca29188ab3134706486e6af35d3514d8e7c5ef4dcf2d9e84f8a8f0f2f3d",
+        "name": ".?AVCGOTileFixed@@"
+      },
+      {
+        "type_descriptor": "0xe304b4",
+        "name_address": "0xe304bc",
+        "read_bytes": 48,
+        "sha256": "31fbea5291bf74ed2d4b0ce1b5ecd653f7e264e3010c7d5beab351357b9cbf78",
+        "name": ".?AVCGOTilePassable@@"
+      }
+    ]
+  },
+  "predicate": {
+    "thunk": "0x5C1027 -> 0x5C0E98",
+    "dir_arg": "[EBP+8]",
+    "field_expression": "BYTE[DWORD[tile+0xAC]+4+dir]",
+    "valid_dirs": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "return": "MOVZX byte to EAX; invalid direction returns0",
+    "zero_meaning_in_caller": "sets blocked flag; nonzero avoids this particular restriction",
+    "directions_named": false
+  },
+  "blocks": [
+    {
+      "start": "0x7293b4",
+      "requested_window": 384,
+      "retained_decoded_bytes": 88,
+      "end_exclusive": "0x72940c",
+      "terminal": "jmp",
+      "clip_sha256": "4c4ba85764eadd479db8dbfaee01cdb92827bd7bf458b67b6e359e044010376f"
+    },
+    {
+      "start": "0x5c1027",
+      "requested_window": 384,
+      "retained_decoded_bytes": 9,
+      "end_exclusive": "0x5c1030",
+      "terminal": "jmp",
+      "clip_sha256": "88893a0f56476f9d828b342f77dbec5853bb02acb8e36cc675bfa072f5261026"
+    },
+    {
+      "start": "0x5c0e98",
+      "requested_window": 384,
+      "retained_decoded_bytes": 24,
+      "end_exclusive": "0x5c0eb0",
+      "terminal": "jmp",
+      "clip_sha256": "81bfcd40f3d5b1f94af51faa8fad30e0d7b0339281b36434c92e5a5b2cf1f94f"
+    },
+    {
+      "start": "0x72940e",
+      "requested_window": 128,
+      "retained_decoded_bytes": 6,
+      "end_exclusive": "0x729414",
+      "terminal": "ret",
+      "clip_sha256": "ec6e20bb792b33cafb8fcbdfe675397498437f89d9266e5e3a50b356b7ba3cdf"
+    },
+    {
+      "start": "0x5c0eb0",
+      "requested_window": 16,
+      "retained_decoded_bytes": 12,
+      "end_exclusive": "0x5c0ebc",
+      "terminal": "jmp",
+      "clip_sha256": "377a8de81f47f10310273c23b7ddc003a12dcd88eb7014811d130969377a3d76"
+    },
+    {
+      "start": "0x5c0ebc",
+      "requested_window": 16,
+      "retained_decoded_bytes": 12,
+      "end_exclusive": "0x5c0ec8",
+      "terminal": "jmp",
+      "clip_sha256": "531ccda7e18d9770a73f76d9729060622521cf30d99639df30ed30560425d9b0"
+    },
+    {
+      "start": "0x5c0ec8",
+      "requested_window": 16,
+      "retained_decoded_bytes": 12,
+      "end_exclusive": "0x5c0ed4",
+      "terminal": "jmp",
+      "clip_sha256": "09b071be9976e0adb09f5f51aa0c9227921c9b5d04d16413c2aa3662b940b1a1"
+    },
+    {
+      "start": "0x5c0ed4",
+      "requested_window": 16,
+      "retained_decoded_bytes": 14,
+      "end_exclusive": "0x5c0ee2",
+      "terminal": "ret",
+      "clip_sha256": "2cd0a3c1278815be1a000d52e89c0aa213f38fa1175686096ba96d447e0dee80"
+    },
+    {
+      "start": "0x5c0ede",
+      "requested_window": 16,
+      "retained_decoded_bytes": 4,
+      "end_exclusive": "0x5c0ee2",
+      "terminal": "ret",
+      "clip_sha256": "ef84f5effcf183677484c02bb15707c1cd6cab1962d0118eb77cb1547b884ca8"
+    },
+    {
+      "start": "0x72940c",
+      "requested_window": 12,
+      "retained_decoded_bytes": 8,
+      "end_exclusive": "0x729414",
+      "terminal": "ret",
+      "clip_sha256": "c2998484764a6ce152bec9e7bf94e5b68835330eafa3e65a5a2bad709c8bbdb7"
+    }
+  ],
+  "coverage": {
+    "proof_instruction_units": 10,
+    "requested_sum": 1372,
+    "retained_sum": 189,
+    "unique_instruction_bytes": 179,
+    "overlaps": "common predicate epilogue4B + lookup epilogue6B occur in two clips",
+    "reconstructed_entries": [
+      "7293B4 complete local control flow, callees opaque",
+      "5C1027 complete thunk",
+      "5C0E98 all four cases and common return"
+    ]
+  },
+  "default_private_root": "/home/admin/boom-team/tmp/player-cell-r179-source",
+  "source_files": [
+    {
+      "private_path": "cell7293B4.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell7293B4.json",
+      "bytes": 616,
+      "sha256": "1fd43903d194906bf79fc8cf6a31c0b6eef4b8c4c88eb3cb66046c608951e58b"
+    },
+    {
+      "private_path": "cell7293B4.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell7293B4.bin",
+      "bytes": 88,
+      "sha256": "4c4ba85764eadd479db8dbfaee01cdb92827bd7bf458b67b6e359e044010376f"
+    },
+    {
+      "private_path": "cell7293B4.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell7293B4.asm",
+      "bytes": 1001,
+      "sha256": "33eb913561e5582f3f10e511ffef8083c988e790de88fc8bcc3f64fb230acd48"
+    },
+    {
+      "private_path": "cell5C1027.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell5C1027.json",
+      "bytes": 615,
+      "sha256": "a0dcc2b2c33182060e1d54c56692bde3b53bd9997b9cd02ebb9a8e80aa13ea40"
+    },
+    {
+      "private_path": "cell5C1027.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell5C1027.bin",
+      "bytes": 9,
+      "sha256": "88893a0f56476f9d828b342f77dbec5853bb02acb8e36cc675bfa072f5261026"
+    },
+    {
+      "private_path": "cell5C1027.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell5C1027.asm",
+      "bytes": 105,
+      "sha256": "15494edc900f5d4798c4929db79b340123fe5fd781163cd60f0bc645bd91f6bc"
+    },
+    {
+      "private_path": "dir5C0E98.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/dir5C0E98.json",
+      "bytes": 616,
+      "sha256": "3fac1f27bd4c73cb09532c63e57c00ad3a35b9806d7631b9b677caf2e9d0bf62"
+    },
+    {
+      "private_path": "dir5C0E98.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/dir5C0E98.bin",
+      "bytes": 24,
+      "sha256": "81bfcd40f3d5b1f94af51faa8fad30e0d7b0339281b36434c92e5a5b2cf1f94f"
+    },
+    {
+      "private_path": "dir5C0E98.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/dir5C0E98.asm",
+      "bytes": 351,
+      "sha256": "e2768f0655867147c7ff4491be60326af0394727c42e23f2fa8b29292e85cfc1"
+    },
+    {
+      "private_path": "cell72940E.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell72940E.json",
+      "bytes": 615,
+      "sha256": "ea78a146bf1a42d8d6ae469ffb51982974bbcb066b201bbf7aec0c2abce7fbed"
+    },
+    {
+      "private_path": "cell72940E.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell72940E.bin",
+      "bytes": 6,
+      "sha256": "ec6e20bb792b33cafb8fcbdfe675397498437f89d9266e5e3a50b356b7ba3cdf"
+    },
+    {
+      "private_path": "cell72940E.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-collision-consumer/cell72940E.asm",
+      "bytes": 86,
+      "sha256": "b336cddbf140bd05e76c4fbcd1ba112e54a220fe03d3dd57d18cc57b622804a1"
+    },
+    {
+      "private_path": "5C0EB0.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EB0.json",
+      "bytes": 584,
+      "sha256": "21e9cd664aafaf59cf46cfc4f6cfd79ddd91724cea5e907444f1d0a37bafad71"
+    },
+    {
+      "private_path": "5C0EB0.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EB0.bin",
+      "bytes": 12,
+      "sha256": "377a8de81f47f10310273c23b7ddc003a12dcd88eb7014811d130969377a3d76"
+    },
+    {
+      "private_path": "5C0EB0.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EB0.asm",
+      "bytes": 132,
+      "sha256": "adc0123a24d7ee178167c6a8aa18ec0ea84aaafe061d05e4139b0f2939840231"
+    },
+    {
+      "private_path": "5C0EBC.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EBC.json",
+      "bytes": 584,
+      "sha256": "215e3a709fe93f4066c194d1e6997ba2857e71e92987a31eae90bbf20bed6288"
+    },
+    {
+      "private_path": "5C0EBC.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EBC.bin",
+      "bytes": 12,
+      "sha256": "531ccda7e18d9770a73f76d9729060622521cf30d99639df30ed30560425d9b0"
+    },
+    {
+      "private_path": "5C0EBC.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EBC.asm",
+      "bytes": 132,
+      "sha256": "3f7a46cd4d889fd13b26cc5f212a6bf158715b58649971789d4a317b5d58df6e"
+    },
+    {
+      "private_path": "5C0EC8.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EC8.json",
+      "bytes": 584,
+      "sha256": "b3e18b0365e7758fc573c54cce4c2fba9b3eb8dbabfc1cc8a92d0b39d1bdb747"
+    },
+    {
+      "private_path": "5C0EC8.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EC8.bin",
+      "bytes": 12,
+      "sha256": "09b071be9976e0adb09f5f51aa0c9227921c9b5d04d16413c2aa3662b940b1a1"
+    },
+    {
+      "private_path": "5C0EC8.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EC8.asm",
+      "bytes": 132,
+      "sha256": "44f7864f3811353e34214c424c378eb89dfebb6354b4f62bf914892a988fcef2"
+    },
+    {
+      "private_path": "5C0ED4.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0ED4.json",
+      "bytes": 584,
+      "sha256": "738d6692b04d9707b74fad92f424a187789a9f1dfed98eef2285afb754cf82ba"
+    },
+    {
+      "private_path": "5C0ED4.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0ED4.bin",
+      "bytes": 14,
+      "sha256": "2cd0a3c1278815be1a000d52e89c0aa213f38fa1175686096ba96d447e0dee80"
+    },
+    {
+      "private_path": "5C0ED4.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0ED4.asm",
+      "bytes": 148,
+      "sha256": "aa2435658dc0e6a7a98e6bfc01febafcc3c3b972d9a6fb1a84dcf1563c75f4a3"
+    },
+    {
+      "private_path": "5C0EDE.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EDE.json",
+      "bytes": 583,
+      "sha256": "e98f97c6814d90dd11bcd0b13996a21e394d73a958cdefda5415c26ef4c8f17f"
+    },
+    {
+      "private_path": "5C0EDE.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EDE.bin",
+      "bytes": 4,
+      "sha256": "ef84f5effcf183677484c02bb15707c1cd6cab1962d0118eb77cb1547b884ca8"
+    },
+    {
+      "private_path": "5C0EDE.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/5C0EDE.asm",
+      "bytes": 44,
+      "sha256": "5e004bf61001614d6293934fb8cb4e9b7731ac9292c26c0986874c67db086313"
+    },
+    {
+      "private_path": "72940C.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/72940C.json",
+      "bytes": 583,
+      "sha256": "aaeabf58be136ab51e712fdc5a47f392bb0826d121fcce2efd4a3d0b77b4b8c2"
+    },
+    {
+      "private_path": "72940C.bin",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/72940C.bin",
+      "bytes": 8,
+      "sha256": "c2998484764a6ce152bec9e7bf94e5b68835330eafa3e65a5a2bad709c8bbdb7"
+    },
+    {
+      "private_path": "72940C.asm",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/movement146-passable-cases/72940C.asm",
+      "bytes": 114,
+      "sha256": "0c7dcb644dc6923ea3809a9e62f474e2875ac91772cd3c7ff3366f0f5fc1f44d"
+    },
+    {
+      "private_path": "writer-callsite-bytes.json",
+      "original_private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/writer-callsite-bytes.json",
+      "bytes": 5706,
+      "sha256": "d01e240db2a9e5b5a59f91e9f08d30e565b0b50fddebe3f5e8db21ab995c8779"
+    },
+    {
+      "private_path": "cell-cast-rtti-data.json",
+      "original_private_path": "/home/admin/boom-team/tmp/vn146-cell-cast-rtti-data.json",
+      "bytes": 695,
+      "sha256": "4006e4bdfd48976d9e468e22f2d05a17e57dd4d4b03269217627a94dad59a67b"
+    }
+  ],
+  "limits": [
+    "static code path, not observation that this tile restriction executed in R176/R177",
+    "CGOTilePassable restriction is not all map collision, hitbox, damage hurtbox or exact corner maximum",
+    "dir numbers are not renamed Left/Up/Right/Down here",
+    "tile property producer/values and actor virtual+0xAC geometry remain unknown",
+    "no profile/candidate/gate/feature state change",
+    "earlier A21800 helper-search collateral was retained and corrected in private ledger; it is not a source for this claim"
+  ]
+}
