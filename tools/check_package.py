@@ -1907,6 +1907,16 @@ class PackageToolTests(unittest.TestCase):
             self.assertIn("font", joined)
             self.assertIn("boom-server", joined)
 
+    def test_check_rejects_missing_map_profile(self):
+        """Thiếu bảng phân loại ô map ⇒ `boom-server serve` từ gói không khởi động (#305)."""
+        with _TempDir() as root:
+            package = self._valid_package(Path(root))
+            (package / "data" / "maps" / "village00-kr.toml").unlink()
+            joined = " | ".join(check_package(package))
+            self.assertIn("data/maps/village00-kr.toml", joined)
+            # Thư mục map rỗng cũng bị bắt.
+            self.assertIn("data/maps/", joined)
+
     def test_licenses_have_full_text_and_copyright(self):
         with _TempDir() as root:
             root = Path(root)
@@ -2213,6 +2223,8 @@ class PackageToolTests(unittest.TestCase):
             for name in REQUIRED_BINARIES:
                 self.assertTrue((out / "bin" / name).is_file(), name)
             self.assertTrue((out / "data" / "rules" / "v1-dev.toml").is_file())
+            # Bảng phân loại ô map server nạp mặc định phải có trong gói (#305).
+            self.assertTrue((out / "data" / "maps" / "village00-kr.toml").is_file())
             self.assertTrue((out / "data" / "l10n" / "vi-v1.toml").is_file())
             self.assertTrue((out / "assets" / "fonts" / "OFL.txt").is_file())
             readme = (out / "README.md").read_text(encoding="utf-8")
