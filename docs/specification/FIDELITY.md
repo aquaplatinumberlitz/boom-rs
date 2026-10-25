@@ -12,7 +12,9 @@ rồi đo/quay VN, rồi `design` có ghi nợ. Ảnh/video **chỉ lưu local**
   - chạy server giả lập `/home/admin/boom-team/tmp/vn149-factory-server.py`;
   - dùng prefix/game bản sao `/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/{prefix,game}`;
   - đăng nhập bằng xdotool, chờ CALog `dne:10…13` và S->C 191;
-  - quay `ffmpeg x11grab` 60 fps ffv1, ghi mốc thao tác vào `actions.jsonl`.
+  - quay `ffmpeg x11grab` ffv1, ghi mốc thao tác vào `actions.jsonl`. Stream khai 60 fps nhưng thực tế
+    lấy mẫu khoảng **30 fps** (capture 26/10: 890 frame / 29,98 s); tính sai số theo PTS thực tế
+    (`ffprobe -show_entries frame=best_effort_timestamp_time`), không theo fps khai báo.
 - Không dùng `boom-re/tools/duo_vn.sh` / `match_play_vn.sh`: hai script này pkill Xvfb/wine dùng chung.
 - Mỗi lần chỉ chạy một bản, vì dùng chung prefix.
 - Biến server hay dùng: `BOMB_PLACE=1 BOMB_ECHO=<s>` (bom nổ sau s giây), `FLOOR_ITEMS`,

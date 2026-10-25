@@ -56,7 +56,7 @@ UI/UX và chuyển cảnh.
 
 - Chỉ RE: chính xác nhất, nhưng consumer animation đã kẹt nhiều ngày (Q-003). Không chọn làm
   đường duy nhất.
-- Chỉ quay video: nhanh, nhưng sai số khoảng ±33 ms ở 30 fps và không thấy logic ẩn. Chỉ dùng làm
+- Chỉ quay video: nhanh, nhưng sai số khoảng ±33 ms (capture thực tế ~30 fps dù khai 60) và không thấy logic ẩn. Chỉ dùng làm
   tầng 2.
 - Giữ cách cũ (mapping + design tự đặt): đã gây #320. Loại.
 
