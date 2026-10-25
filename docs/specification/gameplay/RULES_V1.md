@@ -1106,3 +1106,14 @@ R-214 chỉ nối caller R179 vào player mover đã có R171/R176/R179; không 
 `player.collision_half_px`/`corner_assist_px`, rules, profile, source precedence hoặc gate. G2 vẫn
 được nghiệm thu bằng DESIGN/VN có giới hạn; #146 vẫn OPEN PARTIAL, chưa có runtime branch/property/
 hurtbox/max34/all-map. Fixture/namespace/read-only giữ nguyên; không runtime/PR khác.
+
+## 50. Định vị VN cho counter animation — blocker (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-216 | **Chưa định vị được consumer/counter animation tương đương trên fixture VN**; không dùng VA KR cho VN. Các accessor `CDataI16Alpha` (vtable C79714) chỉ là candidate frame-record API; chưa chứng minh chúng là `BA3530`/`B33170`/`sub_636620` hay counter update | Không có giá trị ms/tick; không đổi profile | `vn_static` / **unknown** (candidate locator only) | Fixture `bc875…`; candidate `CDataI16Alpha` accessors `0x8D50DF/0x8D50F3/0x8D510B/0x8D5123/0x8D5136/0x8D514A` (record base/+0/+4/+8, stride0x30), vtable C79714; `CGameObjectTemplate` vtable C378D4/methods `5C…`; `Animation` constructor `412A1F` is not a counter. KR evidence `ev_ec5…`/`ev_719…` belongs to `kr-full.exe`, not this VN fixture. REA IDB VN returned unreadable; no counter/consumer confidence |
+
+Không có PR/thay đổi profile từ R-216: `presentation.frame_duration_ms` giữ100ms DESIGN và
+`anim::character_loop_frame` giữ nguyên. Đây là **blocker phạm vi VN locator**: cần root/IDA names
+hoặc pattern body xác nhận trước khi đặt breakpoint; không chạy counter observation bằng địa chỉ KR.
+Không suy ms từ30Hz/screenshot. R-215 vẫn chỉ static mechanism; #311 runtime chưa có số.
