@@ -311,3 +311,11 @@ R1 lỗi channel vàR2 guard đọc count32 thay vì native100 không có endpoi
 excluded. R3 sửa observer, không native memory/gameplay, đủ7stop/39rawfiles; mọi process riêng
 đã đóng. Cùng actor current4 có Up/DownXY estimates136,799/134,336px/s sau hook tắt, không nativelevel
 hoặc FPS. Chưa suy C00/C01 KR identity chỉ từ số; bước tiếp là binding render/row có sourcepoint.
+
+## Consumer tile passable trên đường player — R-179
+
+Lượt25/10 chỉ đọc PE VN cùng SHA `bc875ba5…`; không mở client hoặc lấy thêm timing. Từ anchor
+playerR176, source59DA6F gọi7293B4 để lấy/cast tile passable theo ô rồi5C0E98 đọc byte hướng.
+Return0 đặt flag chặn trong caller; [metadata32hash/case](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#predicate-ô-passable-của-player--r-179).
+Code path confirmed không có nghĩa đã quan sát branch chạy; property/nativehurtbox/maxcorner/mọi
+mode vẫn unknown. Các đo R176/R177 giữ nguyên, không dùng kết quả PET hoặc hold hữu hạn để lấp chỗ thiếu.

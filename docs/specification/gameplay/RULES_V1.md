@@ -1009,3 +1009,13 @@ Control trước có roombyte1 nhưng field S5010→key0/output `[5,7,1,10,1,7]`
 Nativecurrent4 có hai cửa sổ XY sau hooks tắt, ước lượng136,799/134,336px/s với giả định nhạy ghi ở
 evidence; không dùng scalar4 làm speedlevel/FPS hoặc thay speed24DESIGN. Input S501 có native
 setter argument và generator provenance, không log framehex để tuyên bố wireCRC. Profile/gate giữ nguyên.
+
+## 43. Nhánh tile passable theo hướng trong player mover VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-179 | Player mover59DA6F có nhánh lấy object theo ô qua7293B4, guard/cast CGOTileFixed→CGOTilePassable rồi5C1027→5C0E98 đọc byte theo dir. Return0 đặt cờ chặn và đi nhánh kẹp rectangle | `BYTE[DWORD[tile+AC]+4+dir]` với dir0..3; invaliddir trả0 | vn_static / confirmed (code path) | [Caller/RTTI/case/hash](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#predicate-ô-passable-của-player--r-179); fixturebc875…, anchor playerR176. Chưa có runtime branch witness/property producer; không phải toàn bộ map collision/hurtbox/max34 |
+
+Object lookup dùng `context+B328+(row*101+column)*4`, sau các guard ghi ở metadata; return là
+cast result hoặc0. Byte nonzero chỉ bỏ qua restriction này, không bảo đảm được đi qua mọi vật cản.
+Giữ native property values, actor.vAC geometry, nghĩa tên bốn hướng và profile hiện hành chưa đổi.
