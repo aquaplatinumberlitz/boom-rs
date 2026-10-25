@@ -1,29 +1,43 @@
 {
-  "run_id": 40107097457,
-  "url": "https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40107097457",
-  "version": "qa-20261025-95985fe",
-  "head": "95985fe941be5199568b012482c8eac88b33629f",
-  "baseline": "2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
-  "purpose": "QA archive after PR271 vendored miniquad fullscreen fix and license collector; current calibrated trap6350/trapped17/flame540 unchanged; previousQA40091603701 retained as history",
-  "source": "design",
-  "status": "implementation_verification",
-  "artifact_download_local": "local/package-qa-40107097457",
-  "verified_file_hashes": 27,
+  "run_id": "40193995532",
+  "head": "c488510c15ca61a6463276e6fc615eb090f345f6",
+  "version": "qa-20261025-c488510",
+  "url": "https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40193995532",
+  "workflow_conclusion": "failure",
+  "job_observations": [
+    {
+      "name": "check",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "package (macos-latest, macos, aarch64, tar.gz)",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "name": "package (ubuntu-latest, linux, x86_64, tar.gz)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "package (windows-latest, windows, x86_64, zip)",
+      "status": "completed",
+      "conclusion": "failure"
+    }
+  ],
   "items": [
     {
       "platform": "linux-x86_64",
-      "archive": "boom-rs-qa-20261025-95985fe-linux-x86_64/boom-rs-qa-20261025-95985fe-linux-x86_64.tar.gz",
-      "bytes": 5230671,
-      "sha256": "dd3f38908e601b5cf1e6bea75f9e33f09b746b8994d32516fd3992d83fa2cfa0",
-      "unpacked_local": "local/package-qa-40107097457/unpacked/boom-rs-qa-20261025-95985fe-linux-x86_64/boom-rs-qa-20261025-95985fe-linux-x86_64",
-      "smoke_log": "boom-rs-qa-20261025-95985fe-linux-x86_64-smoke/smoke-log.txt",
-      "smoke_sha256": "9aab0b594c601e2b2c8f26a74f71d3a3b7489f438ffe87956a6505c78256e9c2",
+      "archive": "artifacts/boom-rs-qa-20261025-c488510-linux-x86_64/boom-rs-qa-20261025-c488510-linux-x86_64.tar.gz",
+      "archive_sha256": "cb72b7baaa7dfb8e666045690b522718580f8b1c7393a29b5f72ee298256a9e2",
+      "bytes": 5231156,
+      "smoke_sha256": "2ef40b0b1356604283d0f10cafa38251fbfc4715038a5451bd4a3de7c5521604",
+      "verified_file_hashes": 9,
       "smoke_cases": 10,
-      "file_hashes_verified": 9,
-      "package_check": "passed",
       "fingerprint": {
         "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-        "package_rules_hash": "0x322a09ca1c8453f7",
+        "package_rules_hash": "0x179d781b1290b22f",
         "package_rules_profile": "kr00967-v1-dev",
         "protocol_limits_version": 1,
         "rules_hash": 0,
@@ -34,30 +48,114 @@
         "status": "unhealthy",
         "wire_schema": 1
       },
-      "profile_values": {
-        "trap_to_death_ms": 6350,
-        "trapped_speed_px_per_s": 17,
-        "flame_ms": 540
-      },
-      "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
+      "rules_sha256": "a4628a9a55c8b47750ce7b417ca47af10eb4504f84d240473542a54852308fc7",
       "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960",
-      "licenses_sha256": "d2d0706c24bfe5fd6b26ce4e1b06dec8f5da9d73348d334192a8e9f1cee17c3b",
-      "author_notice_verified": true
+      "gui": {
+        "schema": 1,
+        "os": "Linux",
+        "machine": "x86_64",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "package": "/home/runner/work/boom-rs/boom-rs/dist/smoke/boom-rs-qa-20261025-c488510-linux-x86_64",
+        "source_head": "c488510c15ca61a6463276e6fc615eb090f345f6",
+        "workflow_run_id": "40193995532",
+        "version": "qa-20261025-c488510",
+        "scope": "Native UI window/framebuffer only; not focus/minHW/FPS/DAC/G6",
+        "screenshots_retained_or_uploaded": false,
+        "files": {
+          "bin/boom-client": "bd641248c421dd10fb7dae1e930f6ef4f3fe5b86401dd3b83b5d2bc3e919b624",
+          "data/rules/v1-dev.toml": "a4628a9a55c8b47750ce7b417ca47af10eb4504f84d240473542a54852308fc7",
+          "data/l10n/vi-v1.toml": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+        },
+        "captures": [
+          {
+            "scale": 1,
+            "args": [
+              "/home/runner/work/boom-rs/boom-rs/dist/smoke/boom-rs-qa-20261025-c488510-linux-x86_64/bin/boom-client",
+              "--ui-demo",
+              "--ui-shot",
+              "login",
+              "--windowed",
+              "--scale",
+              "1",
+              "--snapshot",
+              "/tmp/boom-gui-probe-fzi8zqcc/ui.png"
+            ],
+            "expected_size": [
+              800,
+              600
+            ],
+            "status": "PASS",
+            "cause": null,
+            "exit_code": 0,
+            "stdout": "ảnh chụp màn UI: /tmp/boom-gui-probe-fzi8zqcc/ui.png\n",
+            "stderr": "ALSA lib confmisc.c:855:(parse_card) cannot find card '0'\nALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory\nALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings\nALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory\nALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name\nALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory\nALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory\nALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default\nALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM pipewire\n\nthread '<unnamed>' (5617) panicked at /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quad-snd-0.2.8/src/alsa_snd.rs:30:9:\nCan't open PCM device.\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "image": {
+              "width": 800,
+              "height": 600,
+              "bytes": 22445,
+              "rgb_nonuniform": true,
+              "sha256": "a1ab1e3a9a7814b7dab3defad6f6916dc790cc9de3ea1595e3292a3ee4612e3a"
+            },
+            "observation": "FRAMEBUFFER_CAPTURE_VALID",
+            "elapsed_seconds": 3.7131889599999965
+          },
+          {
+            "scale": 2,
+            "args": [
+              "/home/runner/work/boom-rs/boom-rs/dist/smoke/boom-rs-qa-20261025-c488510-linux-x86_64/bin/boom-client",
+              "--ui-demo",
+              "--ui-shot",
+              "login",
+              "--windowed",
+              "--scale",
+              "2",
+              "--snapshot",
+              "/tmp/boom-gui-probe-zd8ps3tz/ui.png"
+            ],
+            "expected_size": [
+              1600,
+              1200
+            ],
+            "status": "PASS",
+            "cause": null,
+            "exit_code": 0,
+            "stdout": "ảnh chụp màn UI: /tmp/boom-gui-probe-zd8ps3tz/ui.png\n",
+            "stderr": "ALSA lib confmisc.c:855:(parse_card) cannot find card '0'\nALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory\nALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings\nALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory\nALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name\nALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory\nALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory\nALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default\nALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM pipewire\n\nthread '<unnamed>' (5630) panicked at /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quad-snd-0.2.8/src/alsa_snd.rs:30:9:\nCan't open PCM device.\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "image": {
+              "width": 1600,
+              "height": 1200,
+              "bytes": 53856,
+              "rgb_nonuniform": true,
+              "sha256": "6f3ff9430345f5807d5fe6742feb60d7041dc3b59793cce549c9488149690e80"
+            },
+            "observation": "FRAMEBUFFER_CAPTURE_VALID",
+            "elapsed_seconds": 2.863089761000026
+          }
+        ],
+        "status": "PASS"
+      },
+      "unpacked_private": "/home/admin/boom-rs-wt/package-native-gui-probe/local/package-qa-40193995532/unpacked/boom-rs-qa-20261025-c488510-linux-x86_64/boom-rs-qa-20261025-c488510-linux-x86_64",
+      "profile_values": {
+        "alive_coefficient_design": 33,
+        "trapped_speed_design": 17,
+        "trap_ms_design": 6350,
+        "flame_ms_design": 540,
+        "logical_stats_source": "vn_runtime/confirmed R182",
+        "roller_delta_source": "vn_runtime/confirmed R185",
+        "release": false
+      }
     },
     {
       "platform": "macos-aarch64",
-      "archive": "boom-rs-qa-20261025-95985fe-macos-aarch64/boom-rs-qa-20261025-95985fe-macos-aarch64.tar.gz",
-      "bytes": 4616138,
-      "sha256": "42c5fca2a32e363d8b1f4565751f20432aa8d082534c1637d00abf9b83e1582e",
-      "unpacked_local": "local/package-qa-40107097457/unpacked/boom-rs-qa-20261025-95985fe-macos-aarch64/boom-rs-qa-20261025-95985fe-macos-aarch64",
-      "smoke_log": "boom-rs-qa-20261025-95985fe-macos-aarch64-smoke/smoke-log.txt",
-      "smoke_sha256": "9ae93df9c212fc7cbd081b86150adaedc2a1dce18cb7f13b41e4536599a98bfd",
+      "archive": "artifacts/boom-rs-qa-20261025-c488510-macos-aarch64/boom-rs-qa-20261025-c488510-macos-aarch64.tar.gz",
+      "archive_sha256": "1cf0868c678837c00bff9f2cc177ac280f34aefd4c00423dcf6da36f241d590e",
+      "bytes": 4617077,
+      "smoke_sha256": "874ebf230938cfdfb14f9fbec1dfcca1028de992275b2e2d67b3edd968f81fc3",
+      "verified_file_hashes": 9,
       "smoke_cases": 10,
-      "file_hashes_verified": 9,
-      "package_check": "passed",
       "fingerprint": {
         "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-        "package_rules_hash": "0x322a09ca1c8453f7",
+        "package_rules_hash": "0x179d781b1290b22f",
         "package_rules_profile": "kr00967-v1-dev",
         "protocol_limits_version": 1,
         "rules_hash": 0,
@@ -68,30 +166,100 @@
         "status": "unhealthy",
         "wire_schema": 1
       },
-      "profile_values": {
-        "trap_to_death_ms": 6350,
-        "trapped_speed_px_per_s": 17,
-        "flame_ms": 540
-      },
-      "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
+      "rules_sha256": "a4628a9a55c8b47750ce7b417ca47af10eb4504f84d240473542a54852308fc7",
       "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960",
-      "licenses_sha256": "d2d0706c24bfe5fd6b26ce4e1b06dec8f5da9d73348d334192a8e9f1cee17c3b",
-      "author_notice_verified": true
+      "gui": {
+        "schema": 1,
+        "os": "Darwin",
+        "machine": "arm64",
+        "platform": "macOS-26.6.2-arm64-arm-64bit",
+        "package": "/Users/runner/work/boom-rs/boom-rs/dist/smoke/boom-rs-qa-20261025-c488510-macos-aarch64",
+        "source_head": "c488510c15ca61a6463276e6fc615eb090f345f6",
+        "workflow_run_id": "40193995532",
+        "version": "qa-20261025-c488510",
+        "scope": "Native UI window/framebuffer only; not focus/minHW/FPS/DAC/G6",
+        "screenshots_retained_or_uploaded": false,
+        "files": {
+          "bin/boom-client": "409d68a2e7d76e302384045c5a879048457ded37c676a00363917b52e704742d",
+          "data/rules/v1-dev.toml": "a4628a9a55c8b47750ce7b417ca47af10eb4504f84d240473542a54852308fc7",
+          "data/l10n/vi-v1.toml": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+        },
+        "captures": [
+          {
+            "scale": 1,
+            "args": [
+              "/Users/runner/work/boom-rs/boom-rs/dist/smoke/boom-rs-qa-20261025-c488510-macos-aarch64/bin/boom-client",
+              "--ui-demo",
+              "--ui-shot",
+              "login",
+              "--windowed",
+              "--scale",
+              "1",
+              "--snapshot",
+              "/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/boom-gui-probe-42rt5pc7/ui.png"
+            ],
+            "expected_size": [
+              800,
+              600
+            ],
+            "status": "FAIL",
+            "cause": "unclassified",
+            "exit_code": 101,
+            "stdout": "",
+            "stderr": "\nthread 'main' (17178) panicked at vendor/miniquad/src/native/macos.rs:1039:5:\nassertion failed: !glpixelformat_obj.is_null()\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "observation": "PROCESS_EXIT_NONZERO",
+            "elapsed_seconds": 0.33330479200000696
+          },
+          {
+            "scale": 2,
+            "args": [
+              "/Users/runner/work/boom-rs/boom-rs/dist/smoke/boom-rs-qa-20261025-c488510-macos-aarch64/bin/boom-client",
+              "--ui-demo",
+              "--ui-shot",
+              "login",
+              "--windowed",
+              "--scale",
+              "2",
+              "--snapshot",
+              "/var/folders/n6/hn37q6pj7sj_9dmqqc2113800000gn/T/boom-gui-probe-s8menn6n/ui.png"
+            ],
+            "expected_size": [
+              1600,
+              1200
+            ],
+            "status": "FAIL",
+            "cause": "unclassified",
+            "exit_code": 101,
+            "stdout": "",
+            "stderr": "\nthread 'main' (17214) panicked at vendor/miniquad/src/native/macos.rs:1039:5:\nassertion failed: !glpixelformat_obj.is_null()\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "observation": "PROCESS_EXIT_NONZERO",
+            "elapsed_seconds": 0.08654654200000778
+          }
+        ],
+        "status": "FAIL"
+      },
+      "unpacked_private": "/home/admin/boom-rs-wt/package-native-gui-probe/local/package-qa-40193995532/unpacked/boom-rs-qa-20261025-c488510-macos-aarch64/boom-rs-qa-20261025-c488510-macos-aarch64",
+      "profile_values": {
+        "alive_coefficient_design": 33,
+        "trapped_speed_design": 17,
+        "trap_ms_design": 6350,
+        "flame_ms_design": 540,
+        "logical_stats_source": "vn_runtime/confirmed R182",
+        "roller_delta_source": "vn_runtime/confirmed R185",
+        "release": false
+      }
     },
     {
       "platform": "windows-x86_64",
-      "archive": "boom-rs-qa-20261025-95985fe-windows-x86_64/boom-rs-qa-20261025-95985fe-windows-x86_64.zip",
-      "bytes": 4367566,
-      "sha256": "0c671c1b88e59ce4777e9e832d11e3087b5aebcec8632145a409896641588094",
-      "unpacked_local": "local/package-qa-40107097457/unpacked/boom-rs-qa-20261025-95985fe-windows-x86_64/boom-rs-qa-20261025-95985fe-windows-x86_64",
-      "smoke_log": "boom-rs-qa-20261025-95985fe-windows-x86_64-smoke/smoke-log.txt",
-      "smoke_sha256": "b33300d71165b46191aef6d43881a995ad3e33df0a5917861710e3f4b899e2ff",
+      "archive": "artifacts/boom-rs-qa-20261025-c488510-windows-x86_64/boom-rs-qa-20261025-c488510-windows-x86_64.zip",
+      "archive_sha256": "29b6f680a5ed81d7d2c3955d4478efaa3f29523432f3bb710b96801fb13e1865",
+      "bytes": 4368226,
+      "smoke_sha256": "c84d57714d0fdc9c79d7cfda910eea13a1f16f134de06e32ad51c4637f9203c3",
+      "verified_file_hashes": 9,
       "smoke_cases": 10,
-      "file_hashes_verified": 9,
-      "package_check": "passed",
       "fingerprint": {
         "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-        "package_rules_hash": "0x322a09ca1c8453f7",
+        "package_rules_hash": "0x179d781b1290b22f",
         "package_rules_profile": "kr00967-v1-dev",
         "protocol_limits_version": 1,
         "rules_hash": 0,
@@ -102,211 +270,117 @@
         "status": "unhealthy",
         "wire_schema": 1
       },
-      "profile_values": {
-        "trap_to_death_ms": 6350,
-        "trapped_speed_px_per_s": 17,
-        "flame_ms": 540
-      },
-      "rules_file_sha256": "83700b3a87fec16efaf539922e18e2f13157b55702349c88e8e04f7bc555b323",
+      "rules_sha256": "a4628a9a55c8b47750ce7b417ca47af10eb4504f84d240473542a54852308fc7",
       "l10n_sha256": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960",
-      "licenses_sha256": "987d29bab719196a45a24a27d30685f7865095bdc3b79e210fa3fff042c1957e",
-      "author_notice_verified": true
+      "gui": {
+        "schema": 1,
+        "os": "Windows",
+        "machine": "AMD64",
+        "platform": "Windows-2025Server-10.0.26100-SP0",
+        "package": "D:\\a\\boom-rs\\boom-rs\\dist\\smoke\\boom-rs-qa-20261025-c488510-windows-x86_64",
+        "source_head": "c488510c15ca61a6463276e6fc615eb090f345f6",
+        "workflow_run_id": "40193995532",
+        "version": "qa-20261025-c488510",
+        "scope": "Native UI window/framebuffer only; not focus/minHW/FPS/DAC/G6",
+        "screenshots_retained_or_uploaded": false,
+        "files": {
+          "bin/boom-client.exe": "1db8eab68098c5a4ece43fe7c4b44bd1df39f23aad982c9f110414b27cd2aea7",
+          "data/rules/v1-dev.toml": "a4628a9a55c8b47750ce7b417ca47af10eb4504f84d240473542a54852308fc7",
+          "data/l10n/vi-v1.toml": "fb914d12c9c85f6996a3b31df08cf1cb47fba45b46a0aa6659b728e809593960"
+        },
+        "captures": [
+          {
+            "scale": 1,
+            "args": [
+              "D:\\a\\boom-rs\\boom-rs\\dist\\smoke\\boom-rs-qa-20261025-c488510-windows-x86_64\\bin\\boom-client.exe",
+              "--ui-demo",
+              "--ui-shot",
+              "login",
+              "--windowed",
+              "--scale",
+              "1",
+              "--snapshot",
+              "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\boom-gui-probe-aoffa_vh\\ui.png"
+            ],
+            "expected_size": [
+              800,
+              600
+            ],
+            "status": "FAIL",
+            "cause": "unclassified",
+            "exit_code": 101,
+            "stdout": "",
+            "stderr": "\nthread 'main' (8240) panicked at vendor\\miniquad\\src\\native\\windows\\wgl.rs:279:9:\nWGL_ARB_pixel_format is required\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "observation": "PROCESS_EXIT_NONZERO",
+            "elapsed_seconds": 0.1560000000000059
+          },
+          {
+            "scale": 2,
+            "args": [
+              "D:\\a\\boom-rs\\boom-rs\\dist\\smoke\\boom-rs-qa-20261025-c488510-windows-x86_64\\bin\\boom-client.exe",
+              "--ui-demo",
+              "--ui-shot",
+              "login",
+              "--windowed",
+              "--scale",
+              "2",
+              "--snapshot",
+              "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\boom-gui-probe-oddcl4km\\ui.png"
+            ],
+            "expected_size": [
+              1600,
+              1200
+            ],
+            "status": "FAIL",
+            "cause": "unclassified",
+            "exit_code": 101,
+            "stdout": "",
+            "stderr": "\nthread 'main' (1724) panicked at vendor\\miniquad\\src\\native\\windows\\wgl.rs:279:9:\nWGL_ARB_pixel_format is required\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "observation": "PROCESS_EXIT_NONZERO",
+            "elapsed_seconds": 0.07800000000003138
+          }
+        ],
+        "status": "FAIL"
+      },
+      "unpacked_private": "/home/admin/boom-rs-wt/package-native-gui-probe/local/package-qa-40193995532/unpacked/boom-rs-qa-20261025-c488510-windows-x86_64/boom-rs-qa-20261025-c488510-windows-x86_64",
+      "profile_values": {
+        "alive_coefficient_design": 33,
+        "trapped_speed_design": 17,
+        "trap_ms_design": 6350,
+        "flame_ms_design": 540,
+        "logical_stats_source": "vn_runtime/confirmed R182",
+        "roller_delta_source": "vn_runtime/confirmed R185",
+        "release": false
+      }
     }
   ],
-  "previous_qa_run": 40091603701,
-  "pre_fix_qa_run": 40105903687,
-  "vendored_dependency": {
-    "name": "miniquad",
-    "version": "0.4.11",
-    "integration_pr": 271,
-    "license_entries_in_each_archive": true,
-    "per_crate_author_notice_verified": "@ 2019-2020 Fedor Logachev <not.fl3@gmail.com>",
-    "crate_count": 135
-  },
   "limits": [
-    "All three archive smoke logs executed on respective CI OS; local unpack/check/hash verification only onLinux",
-    "offline health unhealthy/content0 is not live health",
-    "release=false/candidate stats remain; not release or fidelity acceptance",
-    "No Windows/macOS GUI, minimum hardware or physical audio playback certification",
-    "No tag/GitHubRelease published"
+    "native GUI framebuffer only; not focus/fullscreen/minHW/FPS/DAC/G6",
+    "no tag or Release publication; releasefalse",
+    "Linux GUI uses Xvfbsoftware; hosted Mac/Windows context observations scopedrunner",
+    "Mac26.6.2 both capture exits101: NSOpenGLPixelFormat null; cause of runner capability not established",
+    "Windows both capture exits101: WGL_ARB_pixel_format required; not full product/environment attribution",
+    "Linux valid framebuffers despite ALSA background audio-thread panic; not physicalaudio acceptance",
+    "Metal source followup not yet packaged; this run is oldOpenGL baseline; no retry of unchanged run"
   ],
-  "issue": 273,
-  "linux_archive_gui": {
-    "source": "Actual Linux archive binary, KWin/X11 on NVIDIA RTX3060; not debug build or VM GUI",
-    "binary_sha256": "bc3a1aefd3abde0d4575ff4289e8a71f1fb7a434c9cde1a8a6a47412bcb8e65d",
-    "input_method": "Focused owned window; explicit keydown 150ms then keyup; fresh private options per case",
-    "cases": [
-      {
-        "args": [],
-        "initially_maximized": false,
-        "cycles": [
-          {
-            "fullscreen": {
-              "width": 1920,
-              "height": 1080,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
-            },
-            "restored": {
-              "width": 600,
-              "height": 560,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
-            }
-          },
-          {
-            "fullscreen": {
-              "width": 1920,
-              "height": 1080,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
-            },
-            "restored": {
-              "width": 600,
-              "height": 560,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
-            }
-          }
-        ],
-        "initial": {
-          "width": 600,
-          "height": 560,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
-        },
-        "last_fullscreen_attempt": {
-          "width": 1920,
-          "height": 1080,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
-        },
-        "passed": true
-      },
-      {
-        "args": [],
-        "initially_maximized": true,
-        "cycles": [
-          {
-            "fullscreen": {
-              "width": 1920,
-              "height": 1080,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
-            },
-            "restored": {
-              "width": 1920,
-              "height": 1006,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
-            }
-          },
-          {
-            "fullscreen": {
-              "width": 1920,
-              "height": 1080,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
-            },
-            "restored": {
-              "width": 1920,
-              "height": 1006,
-              "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
-            }
-          }
-        ],
-        "initial": {
-          "width": 1920,
-          "height": 1006,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FOCUSED"
-        },
-        "last_fullscreen_attempt": {
-          "width": 1920,
-          "height": 1080,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_MAXIMIZED_VERT, _NET_WM_STATE_MAXIMIZED_HORZ, _NET_WM_STATE_FULLSCREEN, _NET_WM_STATE_FOCUSED"
-        },
-        "passed": true
-      },
-      {
-        "args": [
-          "--rebind",
-          "right=F11"
-        ],
-        "initially_maximized": false,
-        "cycles": [],
-        "initial": {
-          "width": 600,
-          "height": 560,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
-        },
-        "after_bound_key": {
-          "width": 600,
-          "height": 560,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
-        },
-        "passed": true
-      },
-      {
-        "args": [
-          "--rebind",
-          "right=F10"
-        ],
-        "initially_maximized": false,
-        "cycles": [],
-        "initial": {
-          "width": 600,
-          "height": 560,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
-        },
-        "after_bound_key": {
-          "width": 600,
-          "height": 560,
-          "state": "_NET_WM_STATE(ATOM) = _NET_WM_STATE_FOCUSED"
-        },
-        "passed": true
-      }
-    ],
-    "initial_fixture_failure": "First fixture used short xdotool key pulse and did not observe FULLSCREEN flag; retained separately, cause unproven. Controlled held-key method passes; no claim every short input pulse is reliable.",
-    "limits": [
-      "No Windows/macOS GUI certification",
-      "No minimum-hardware/FPS/latency/physical-audio measurement",
-      "No proof across every window manager"
-    ],
-    "raw_files": [
-      {
-        "path": "linux-kwin/matrix.json",
-        "bytes": 348,
-        "sha256": "d66d0e09ce86f74a26034f57b1397c29f80e77997de8191e4045d2a3b27d6cd4"
-      },
-      {
-        "path": "linux-kwin/client-0.log",
-        "bytes": 127,
-        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
-      },
-      {
-        "path": "linux-kwin-held-key/matrix.json",
-        "bytes": 3677,
-        "sha256": "5bb3451957eb4201ae7cba4f7170314369f96f71ff4a757a3601614428a4c3c8"
-      },
-      {
-        "path": "linux-kwin-held-key/client-0.log",
-        "bytes": 127,
-        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
-      },
-      {
-        "path": "linux-kwin-held-key/client-1.log",
-        "bytes": 127,
-        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
-      },
-      {
-        "path": "linux-kwin-held-key/client-2.log",
-        "bytes": 127,
-        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
-      },
-      {
-        "path": "linux-kwin-held-key/client-3.log",
-        "bytes": 127,
-        "sha256": "e8905f20624b70ad65ead267bde477eeb104fd909b1181db8b8db0ac6e8396c2"
-      }
-    ]
+  "package_verification_status": "PASS",
+  "gui_verification_status": "INCOMPLETE_OR_FAILED",
+  "source": "design",
+  "status": "implementation_verification",
+  "purpose": "QA of current R182/R184 profile33 from reviewed sourcec488; actual native GUI observations preserved, not all-platform GUI acceptance",
+  "baseline": "32f848a684ee66e5b33e6e2de71517412d1a82c2",
+  "artifact_download_private_root": "/home/admin/boom-rs-wt/package-native-gui-probe",
+  "artifact_download_local": "local/package-qa-40193995532",
+  "previous_qa_run": 40107097457,
+  "previous_qa_record": "https://github.com/aquaplatinumberlitz/boom-rs/blob/32f848a684ee66e5b33e6e2de71517412d1a82c2/docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
+  "verified_file_hashes": 27,
+  "smoke_cases_total": 30,
+  "license_verification": "135 crates and miniquad Fedor2019-2020 per-crate authornotice in all3archives",
+  "backend_followup": "Issue300 Apple backend preparation preserved/deferred by owner; no source fix merged or MetalGUIclaim",
+  "recompute_provenance": {
+    "private_verifier": "/home/admin/boom-team/tmp/verify-native-gui-package-298.py",
+    "sha256": "1efbc82e10ec3a8dea6d770346efaece68412f2c82e8d39528fd6c934485eb78",
+    "private_result_sha256": "1ca9aeaae326519d8a0912d8bd0df66105bf4a2748d583a61a932562db6025ec"
   },
-  "pre_fix_qa": {
-    "run_id": 40105903687,
-    "head": "2977b0e0f9cf7d9ae2ab521bb32273660877f91e",
-    "archive_smoke": "passed all3OS",
-    "notice_check": "failed: per-crate miniquad author @2019-2020 omitted",
-    "artifacts": "local/package-qa-40105903687 retained",
-    "ci_success_is_not_notice_verification": true
-  }
+  "current_execution_priority": "Linux first by direct owner instruction2026-10-25; Windows/macOS GUI/backend deferred, not blockers for Linux iteration"
 }
