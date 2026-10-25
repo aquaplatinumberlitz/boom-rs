@@ -248,6 +248,57 @@ mod tests {
     }
 
     #[test]
+    fn dev_profile_matches_calibrated_alive_speed_without_scaling_trapped() {
+        // Native measured points4..8 select DESIGN33 px/s/point, not a native FPS claim.
+        let profile =
+            RulesProfile::from_toml(include_str!("../../../../data/rules/v1-dev.toml")).unwrap();
+        let table = crate::rules::CharacterStatsTable::from_profile(&profile).unwrap();
+        for (point, expected_px) in [(4, 132), (5, 165), (6, 198), (7, 231), (8, 264)] {
+            let rules = Rules::from_profile(&profile).unwrap();
+            let warmup = rules.warmup_ticks;
+            let terrain = Terrain::from_ascii(&[
+                "####################",
+                "#0.................#",
+                "####################",
+            ])
+            .unwrap();
+            let w = World::new(terrain, rules, mode_by_id("battle_ffa").unwrap()).unwrap();
+            let mut s = SimulationState::new_round(
+                &w,
+                &[PlayerSetup {
+                    id: 0,
+                    stats: CharacterStats {
+                        speed: Stat::new(point, table.c01.speed.max),
+                        ..table.c01
+                    },
+                }],
+                1,
+            )
+            .unwrap();
+            run(&w, &mut s, Dir::None, warmup + 1);
+            let start_x = s.players[0].x;
+            let start_y = s.players[0].y;
+            run(&w, &mut s, Dir::Right, 30);
+            assert_eq!(
+                s.players[0].x.0 - start_x.0,
+                expected_px * 1000,
+                "point {point}"
+            );
+            assert_eq!(s.players[0].y, start_y);
+
+            // Slow bubble motion is a separate calibration, independent of this point.
+            s.players[0].life = Life::Trapped { since: s.tick };
+            let trapped_x = s.players[0].x;
+            run(&w, &mut s, Dir::Left, 30);
+            assert_eq!(
+                trapped_x.0 - s.players[0].x.0,
+                16_980,
+                "trapped point {point}"
+            );
+        }
+    }
+
+    #[test]
     fn hitbox_stops_at_the_edge_of_the_wall() {
         // Tường cột 4 bắt đầu ở x = 160 px; hộp nửa 13 px nên người chơi dừng ở x = 146 px
         // (mép hộp chạm đúng mép ô), không phải ở tâm ô (140 px) như mô hình điểm tâm.

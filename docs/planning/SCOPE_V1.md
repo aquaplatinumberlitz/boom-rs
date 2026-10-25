@@ -215,7 +215,7 @@ Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành--
 | D-05 | Ảnh UI có chữ | Ảnh nút/hộp thoại có chữ nằm trong ảnh (KR: chữ Hàn ở nút/dialog, chữ Latin ở art kết quả; bản VN: nút/dialog đọc được chữ Việt, art kết quả **chưa đọc rõ**) | Sáu sprite được duyệt nạp từ VN/PNG theo manifest; phần tử chưa duyệt hoặc `excluded` dùng text catalog | R-092 (`kr_static`+`vn_static` / confirmed), R-093 (`design` / design) ([RULES_V1 §12](../specification/gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1)); [BUNDLES §3.3](../specification/assets/BUNDLES.md#33-phần-tử-ui); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
 | D-06 | Mô hình phòng và cách xếp kết quả | 16 slot trạng thái, đội, kết quả theo hạng mỗi slot và cột bắt/cứu/EXP/tiền | FFA 2–4 người, một kết quả mỗi lượt, hòa khi hết giờ | R-062, R-065 ([RULES_V1 §7](../specification/gameplay/RULES_V1.md#7-vòng-đời-trận-và-phòng-legacy-vn)); [VN_ENGINE_DIFF](../research/findings/VN_ENGINE_DIFF.md) |
 | D-07 | Số map chơi được | 1.151 map trong pack KR, nhiều mode | Một map cố định `Village00` | R-002, R-070, R-071 ([RULES_V1 §1](../specification/gameplay/RULES_V1.md#1-lưới-và-map)); SCOPE_V1 §1 |
-| D-08 | Chỉ số nhân vật logic (movement/capacity/Fire) | KR R040/R041 confirmed số; VN R180/181 nối namedrow/reader/field/base-max. NativeKRconsumer vẫn chưa xác nhận | R182 chọn12logicalstatpoint `vn_runtime/confirmed`, số C00=5,7,1,10,1,7/C01=4,8,2,7,1,9; `level` là nhãn scalar, conversion24px/s/point vẫn DESIGN; releasefalse | R180/R181/R182; R042/R117 candidate là lịch sử; [ADR0013](../decisions/0013-rule-source-precedence.md); [RULES§45](../specification/gameplay/RULES_V1.md#45-lựa-chọn-logical-statpoint-c00c01-cho-profile-v1--r-182) |
+| D-08 | Chỉ số nhân vật logic (movement/capacity/Fire) | KR R040/R041 confirmed số; VN R180/181 nối namedrow/reader/field/base-max. NativeKRconsumer vẫn chưa xác nhận | R182 chọn12logicalstatpoint `vn_runtime/confirmed`, số C00=5,7,1,10,1,7/C01=4,8,2,7,1,9; `level` là nhãn scalar, conversion33px/s/point R184 vẫn DESIGN; releasefalse | R180/R181/R182; R042/R117 candidate là lịch sử; [ADR0013](../decisions/0013-rule-source-precedence.md); [RULES§45](../specification/gameplay/RULES_V1.md#45-lựa-chọn-logical-statpoint-c00c01-cho-profile-v1--r-182) |
 
 ### 10.2 Khoảng trống fidelity — chờ đo
 
@@ -226,7 +226,7 @@ Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành--
 | G-03 | Chuỗi chết | Clip chết kết thúc bằng ảnh rỗng 0×0 (dữ liệu `confirmed`) | Sổ trình diễn (R-089): chuỗi chết phát **trọn clip**, xong nhân vật giữ **khung cuối có ảnh**; nếu clip không có khung nào có ảnh thì **không vẽ**. Ở chế độ mạng chưa nối event server vào sổ (#114) nên chưa có chuỗi chết để phát | R-077, R-086, R-089 ([RULES_V1 §8.1](../specification/gameplay/RULES_V1.md#81-quyết-định-trình-diễn-của-client-v1-r-085r-089)); [BUNDLES §7.2](../specification/assets/BUNDLES.md#72-sổ-trình-diễn-v1) | Q-003 |
 | G-04 | Fuse bom | Chưa biết (`unknown`); emulator tự đặt 2,5 s | 2,5 s (`oss` / design — BnB) | R-021, R-022, R-115 ([RULES_V1 §3](../specification/gameplay/RULES_V1.md#3-bom-lửa-nhốt-chết); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-006 |
 | G-05 | Nhốt → chết | Native bubble threshold200; serialize11→13 đo6332–6355ms, HELP còn+5,2s; sampler córeset sớm, chưa có literalms | **6350ms** calibrationDESIGN R-160→191tick30Hz/chếtT+190 (~6333ms); thay fallback4s, không đổi200counter native thànhtickRust | R-159/R-160 ([RULES_V1 §25](../specification/gameplay/RULES_V1.md#25-nhốt--hết-hạn-vn-và-hiệu-chuẩn-v1-2026-10-24)); [evidence](../evidence/measurements/vn-trap-timer-2026-10-24/README.md) | Q-006/Q-018 |
-| G-06 | Tốc độ nhân vật | Quan sát thô 5→6 px/tick ở 30 ms, checksum chưa xác thực (`candidate`) | **24 px/s mỗi cấp** (`oss` / design — BnB); **không** phải 33 px/s cũ của R-075 (claim đã superseded) | R-043, R-045, R-075 (superseded), R-114 ([RULES_V1 §4](../specification/gameplay/RULES_V1.md#4-nhân-vật-và-tốc-độ); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-005 |
+| G-06 | Tốc độ nhân vật | R183 đo native cùngactorC01 point4..8: mean133,70/166,08/200,70/233,23/267,05px/s, normalized~33,36; không nativeFPS/hằng33 | **33px/s/point DESIGN R184**, thay24R114; point1..3/mode/actor khác ngoại suy. R07533 cũ vẫn superseded | R183/R184; [curve/window/hash/sai số](../evidence/measurements/vn-player-movement-2026-10-25/README.md#curve-tốc-độ-cùng-actor--r-183r-184r-185); ADR0013 | Q-005 |
 | G-07 | Nhịp tick | 30 ms/bước đo được ở **client** (`vn_runtime` / confirmed) — **không** xác nhận tick server | **30 Hz** (`oss` / design — BnB); 33 Hz cũ của R-074 đã superseded | R-013, R-074 (superseded), R-113 ([RULES_V1 §2](../specification/gameplay/RULES_V1.md#2-trận-và-thời-gian); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-004 |
 | G-08 | Người bị nhốt có di chuyển không | VNruntime R-161: hai capture cùngactor đi chậm theo phímngang, idle đứngyên; chưa có literalvelocity | **17px/s calibration DESIGN R-162**, độc lập speedlevel; hộp/bámgóc/trụcdọc dùngpolicy V1 chưa đo native | R-161/R-162; [evidence](../evidence/measurements/vn-trapped-input-2026-10-24/README.md) | Q-005/Q-018 |
 | G-09 | Xác suất gạch có item | Chưa biết (`unknown`); OSS dùng 0,35 (`candidate`) | **35%** (350 permille; `oss` / design — BnB) | R-053, R-067 (superseded), R-112 ([RULES_V1 §5](../specification/gameplay/RULES_V1.md#5-item-rơi-và-nhặt); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)) | Q-007 |
@@ -244,18 +244,19 @@ Sổ trên ghi **giá trị đang dùng**. Nguồn của từng giá trị sau A
 sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
 
 - **Đã về gốc KR/VN** (khôi phục nguồn `confirmed` cùng đại lượng): thời hạn vòng **120 s** và
-  cỡ ô **40 px** (R-110), **Bomb/Fire +1** (R-111), trọng số rơi **3650:2800:2000** (R-112 —
+  cỡ ô **40 px** (R-110), **Bomb/Fire +1** (R-111), **Roller+1logicalpoint** (R185), trọng số rơi **3650:2800:2000** (R-112 —
   *số* bảng VN `confirmed`, vai trò bảng vẫn `unknown` R-052, nên áp làm trọng số ba item V1 là
   quyết định áp dụng chứ không phải xác suất drop gốc), chỉ số C00/C01 theo logicalrow/consumer VN
   (R182 confirmed logicalstatpoint, số khớpKR; thay ngoại lệcandidate R117 lịch sử, xemD-08). Theo ADR 0012/trước ADR 0013 các giá trị này
   đã bị BnB đè (ví dụ vòng 120→180 s); nay về lại giá trị gốc, **bằng chứng gốc không bị hạ nhãn**.
 - **Vẫn theo BnB** (`oss` / `design`) vì chưa có nguồn `confirmed` cùng đại lượng: nhịp tick
   **30 Hz** (R-113 — R-013 chỉ đo bước *client*, không xác nhận tick server), warmup **3 s**
-  (R-113), tốc độ **24 px/s mỗi cấp** (R-114 — R-043 còn `candidate`), fuse
+  (R-113), fuse
   **2500ms** (R-115), hộp va chạm
-  **26×26 px** / assist **12 px** / khoảng chạm **28 px** (R-116), Roller **+1 cấp** (R-111),
+  **26×26 px** / assist **12 px** / khoảng chạm **28 px** (R-116),
   xác suất gạch có item **35%** (R-112 — R-053 `unknown`).
-- **`design` riêng** (BnB **không** cung cấp cùng đại lượng, nên **không** phải lựa chọn từ BnB):
+- **`design` riêng**, gồm hiệu chuẩn có nguồn VN thay fallback BnB: speed **33px/s/point**
+  (R184 theo observedcurveR183), trapped17/flame540/trap6350 theo các calibration riêng;
   nhịp clip **100 ms** (R-118 — R-079 `unknown`; ADR 0013 giữ `design` riêng vì BnB không có nhịp
   clip KR).
 
@@ -317,8 +318,9 @@ cho12logicalstatpoint `vn_runtime/confirmed`, cùng12số target cũ; R042KRcand
 không còn chặn sourceidentity vì avatar hoặc nativeFPS chưa đo. `level` là familylabel scalar,
 không px/s. Capacitypoint đếm bom, Firepoint ánh xạ ô ray theo contract V1; không suy pixel damage.
 
-Giữ R11424px/s/point,13px halfbox/12px assist,30Hz và time model theo DESIGN đã có. Point4engine96px/s
-khác nativecaptureR178~134–137px/s; đây là gap được ghi rõ, không runtimefidelity passed. R176/R177/R179
+R183 đã đo sameactorlogicalpoint4..8; R184 chọn33px/s/point thay24, point4engine132px/s so với
+native133,70px/s. Đây là DESIGN calibration, không nativeconstant/FPS hoặc fullruntimefidelity.
+Halfbox13/assist12,30Hz và time model giữ DESIGN đã có. R176/R177/R179
 là trace player/response/codepath, không xác nhận halfbox13 hoặc maxcorner12 của native.
 Bằng chứng trace+DESIGN này có thể nghiệm thu G2 theo§6/10.5 mà không chờ sáu REroot; chỉ reviewer độc lập
 mới signoff. Phần release vẫn `false`/V1-036/G6 và platform/minimumHW theo nghiệm thu riêng.

@@ -37,13 +37,11 @@ TOOL = ROOT / "tools" / "rules_precedence.py"
 # Dòng claim gộp R-111 và dòng "Bảng lựa chọn theo khóa" của cùng claim: một khóa
 # được nâng lên `kr_static` / confirmed còn khóa anh em giữ tầng cũ.
 CLAIM_R111_ROW = (
-    "| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN; "
-    "`item.roller_speed_delta` giữ BnB | +1 bomb; +1 cell; +1 level | "
-    "Bomb/Fire `vn_runtime` / confirmed; Roller `oss` / design |")
+    "| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN | "
+    "+1 bomb; +1 cell | `vn_runtime` / confirmed |")
 CLAIM_R111_ROW_UPGRADED = (
-    "| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN; "
-    "`item.roller_speed_delta` giữ BnB | +1 bomb; +1 cell; +1 level | "
-    "Bomb/Fire `kr_static` + `vn_runtime` / confirmed; Roller `oss` / design |")
+    "| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN | "
+    "+1 bomb; +1 cell | `kr_static` + `vn_runtime` / confirmed |")
 PER_KEY_BOMB_CAPACITY = (
     "| `item.bomb_capacity_delta` | R-111 | item_bomb_capacity_delta | bomb | "
     "`vn_runtime` | confirmed | VN VBNB_116 |")
@@ -194,6 +192,18 @@ class PrecedenceTests(unittest.TestCase):
             "claims": ["R-041", "R-042", "R-117"],
         }})
         self.assertTrue(any("characters.c01_speed" in e for e in errors), errors)
+
+    def test_old_oss_speed_fallback_is_rejected_after_native_calibration(self):
+        errors = self.errors({"player.speed_px_per_s_per_level": {
+            "value": 24, "source": "oss", "status": "design", "claims": ["R-114"],
+        }})
+        self.assertTrue(any("player.speed_px_per_s_per_level" in e for e in errors), errors)
+
+    def test_observed_curve_is_not_a_native_literal_coefficient(self):
+        errors = self.errors({"player.speed_px_per_s_per_level": {
+            "value": 33, "source": "vn_runtime", "status": "confirmed", "claims": ["R-183"],
+        }})
+        self.assertTrue(any("player.speed_px_per_s_per_level" in e for e in errors), errors)
 
     def test_logical_stat_evidence_cannot_confirm_physical_speed_conversion(self):
         errors = self.errors({"player.speed_px_per_s_per_level": {
@@ -405,7 +415,7 @@ class MergedClaimPerKeyTests(unittest.TestCase):
         self.assertEqual(chosen.status, "design")
         self.assertEqual(chosen.unit, "px")
         self.assertEqual(self.index.selection("item.fire_range_delta").source, "vn_runtime")
-        self.assertEqual(self.index.selection("item.roller_speed_delta").source, "oss")
+        self.assertEqual(self.index.selection("item.roller_speed_delta").source, "vn_runtime")
 
 
 if __name__ == "__main__":

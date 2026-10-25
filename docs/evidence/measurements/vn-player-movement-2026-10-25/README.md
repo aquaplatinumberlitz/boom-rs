@@ -126,3 +126,64 @@ phần đó làm proof cho R-179 hoặc giấu thành một thân. Không publis
 Kết luận `vn_static / confirmed` cho dataflow/byte predicate này; **chưa quan sát runtime** rằng
 nhánh tile passable đã chạy trong hai ca R-176/R-177. Chưa chốt giá trị property, producer, native
 hurtbox, ngưỡng corner tối đa, mọi mode hoặc C00/C01. Profile,12candidate,G2 và tiến độ giữ nguyên.
+
+## Curve tốc độ cùng actor — R-183/R-184/R-185
+
+Câu hỏi #296/#146/#149: logicalpoint đã nối source có tương ứng tốc độ thực nào ở4..8,
+và coefficient24 V1 có còn phù hợp? [Metadata/mọi hash](speed-curve.json),
+[12window native](speed-curve.csv). Không thêm staticbody; reuse R170/171/173/180/182,
+ưu tiên RE để xác định actor/field/consumer, đo trực tiếp VN khi chưa có clock cùng đại lượng.
+
+Run chính `host-c01-speed-curve-146-r2-tail-control`, actor449284224/C664C4/controllerC6630C,
+key1/C01/base4/max8, Factory01map193/room19, fixturebc875… như đầu tài liệu. Bốn native
+715E90entry→71B717return theo đúng actor/thread cho4→5→6→7→8; mỗi phase có motionDown/Up,
+baseline4 lặp thêm một cặp. Có4C117/4S158kind2 và0C111/C120/S151. ActualpickupY239/204/156/127;
+không dùng target điều khiển hoặc lịch server làm tọa độ đo. Server giả chỉ tạo item/ACK,
+ROUND_TIME600EMU không phải velocityclock; không ghi field game/gọi inferior.
+
+| Logicalpoint | Window | Mean OLS native px/s | Mean/point | Engine33 px/s |
+|---|---|---|---|---|
+| 4 | 4 | 133,698888 | 33,424722 | 132 |
+| 5 | 2 | 166,077857 | 33,215571 | 165 |
+| 6 | 2 | 200,698866 | 33,449811 | 198 |
+| 7 | 2 | 233,232185 | 33,318884 | 231 |
+| 8 | 2 | 267,052717 | 33,381590 | 264 |
+
+Reader ngoài process giải header12/payload10/cookie/checksum của X/Y/base/current/max;900row,
+0invalid được giữ, không gọi accessor có tái mã hóa. Sampler bỏ snapshot scalar hoàn toàn không đổi,
+không suy cadence từ khoảng row.9stop có begin/end clock,3hook; không window nào chồng breakpoint.
+Cả sourceprobe4ec0f1f3…/harnessebc5cf07…/serveref688ad5… được băm trong40rawfile; raw chỉ local
+clone1 `.re-work/vn-grace-240/`. Protected payload transient không bị xóa; ca này không rowinvalid.
+
+**Clock/window:** HOST CLOCK_MONOTONIC begin/end mỗi memoryread, dùng midpoint để fit nativeXY;
+không clock nội bộ client/packet/keydown. Trong từng MOVE_TO/MOVE_DONE scope lấy first/last
+nativeYchange rồi trim150ms mỗi đầu; giữ bracket trọn window, >=1s, actor/type/point đúng.
+Thuật toán được chọn sau R1 rồi áp không đổi cho R2; không giả preregistration. Dòng ngoài window
+vẫn trong raw, không gán tất cả là acceleration. OLS=abs(sum((t−mean_t)(Y−mean_Y))/sum((t−mean_t)^2));
+CSV giữ first-last và Theil để đối chiếu. Trung bình các window theo point, rồi normalizedmean/point;
+không lấy medianpoint4 cho cột ghi mean. Root tái tính khớp DSH2 dưới1e−6 và DSH1 kiểm manifest.
+
+**Sai số/giới hạn:** full difference fit begin/end bracket khoảng0,001–0,078px/s, chỉ phản ánh thời gian
+đọc. MaxobservedΔY21 có thể alias nhiều update, không native tick. Sensitivity mô hình bảo thủ
+±(2×21/windowspan + full read-bracket difference) khoảng31–39px/s, không95%CI hoặc độ chính xác
+của hệ số. Các endpointbands riêng dùng maxstep từng window cũng giữ ởJSON, không lẫn với global21.
+Đường gần tuyến tính trong ca hỗ trợ hiệu chuẩn; không chứng minh33 khác34 hoặc native hằng33/FPS.
+
+**R1 giữ riêng:** `host-c01-speed-curve-146-r1`, actor449268984,34rawfile, valid1235row/0invalid,
+point4/5 có window nhưng fullcurve thiếu. Controller đọc toàn log chậm, overshoot và lastACK2 bịACK3
+ghi đè làm waittimeout dù appendlog cóACK2.7stop/exit2, không9stop/ackcomplete; không gọi đó là game
+không đạt point6/7. Không gộp actor/tính trung bình với R2. R2 thay selector boundedtail/scalar-dedup,
+settle trướcorigin, ACKappendlookup và targets điều khiển; probe/typedfield/guards không đổi.
+Offline controlbenchmark giữ riêng, không số tốc độ native. Thay đổi phương pháp có mock/independent
+preflight, không rerun mù. Mọi34hashR1 và40hashR2 trongJSON, kể cả lỗi/overshoot.
+
+**Kết luận:** R183confirmed chỉ scopedrates; R184DESIGN33 chọn nguyên gần normalizedcentral33,358116,
+thay24 (chậm khoảng28% trong ca), engine4..8 lệchmean−0,65…−1,34%. Point1..3/actor/mode khác là
+ngoại suy DESIGN. R185 xác nhận+1logicalpoint từ bốn nativeACK cùng source R173; không+1px/s/cap
+mọi mode. Không thay trapped17/hurtbox13/assist12/30Hz hoặc claimnativeFPS. Hai run đã dừng,
+R2stop2/exit0/ownednamespacegone/runtimeownerfalse. G2 cần reviewer chấp nhận calibration mới;
+G6/gói mới/minimumHW/releasefalse/V1-036 riêng, không lấy packageQA cũ làm proof profile33.
+
+Kiểm local: fullcargoxtaskciPASS,37sourceprecedencetests và actualdevmovement regressionPASS.
+OracleO012 vẫn in engine120 từ **profile fixture riêng lịch sử**, không phải devprofile33; không sửa
+fixture/golden để hết cảnh báo đãghi nhận. GóiQA95985fe cũng là profile trước hiệu chuẩn này.

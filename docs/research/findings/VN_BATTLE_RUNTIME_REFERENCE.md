@@ -334,3 +334,14 @@ capacitycurrent+514/max+584 và Firecurrent+52C/max+59C tăng1 rồi kẹp theo 
 Cached445516 xác nhận phép cộng, R175 xác nhận nguồn base/max/reset; không cần đo lại plateau.
 Đây là staticactivationpath, không hai native activation mới; nativeFPS/pxs/engineunit và profile
 candidate được review riêng. Không source/gate/releaseflag nào tự đổi từ dãy số này.
+
+### Sameactor C01 speedcurve và calibration — R183/R184/R185
+
+[Method/12window/40rawhash/R1 riêng](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#curve-tốc-độ-cùng-actor--r-183r-184r-185)
+đã kết hợp source R173/R180/R182 với900nativeXYrows cùngactor449284224/C664C4. Fourkind2ACK
+đưa4→5→6→7→8; nativeMeanOLS133,70/166,08/200,70/233,23/267,05px/s. Clock là HOSTmemoryread
+bracket, windows không chồng9debugstop, không gọi là nativeclock/FPS. R1 actor khác fullcurve thiếu
+vì controller/lastACKtimeout, validpoint4/5 và34hash giữ riêng. R2stop2/exit0/cleanup hoàn tất.
+R184 chọn33DESIGN từ normalized~33,36 thay24; R185+1logicalpointVNconfirmed, không+1px/s/
+capmọimode. Sai sốmodel bảo thủ±31–39px/s khác tinyreadband; không distinguish33/34/nativeconstant.
+Profile12statvalues/trapped17/hurtbox/assist/time model/releasefalse giữ nguyên, G2 cần acceptance mới.

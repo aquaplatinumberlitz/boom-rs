@@ -335,10 +335,10 @@ Biên TTL giảm ngay lúc tạo của R-109 được thay riêng bởi R-158 (�
 | ID | Khóa / lựa chọn hiện hành | Giá trị | Nguồn / trạng thái | Locator và giới hạn |
 |---|---|---|---|---|
 | R-110 | `grid.tile_px`; `round.duration_ms` khôi phục cùng đại lượng | 40 px; 120000 ms | `vn_static` + `vn_runtime` / confirmed | R-001 (`0x735DA9`); R-010 (`ctx+490518`); ADR 0013 chọn tầng 2; không có KR confirmed cùng khóa |
-| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN; `item.roller_speed_delta` giữ BnB | +1 bomb; +1 cell; +1 level | Bomb/Fire `vn_runtime` / confirmed; Roller `oss` / design | R-025; Roller R-045 còn candidate nên chọn R-104/BnB `server/game.js:21,579–581` tại SHA §10; ADR 0013 |
+| R-111 | `item.bomb_capacity_delta`, `item.fire_range_delta` dùng VN | +1 bomb; +1 cell | `vn_runtime` / confirmed | R-025; ADR0013. Phần Roller BnB lịch sử được R-185 thay riêng; không supersede Bomb/Fire |
 | R-112 | `drop.weight_bomb/fire/roller` trả số bảng VN; `drop.brick_item_chance` giữ BnB | 3650:2800:2000; 350 permille | Trọng số `vn_static` / confirmed (số bảng); chance `oss` / design | R-051 `sub_89F3DE`; R-052 vai trò bảng vẫn unknown. Dùng bảng làm trọng số ba item V1 là quyết định áp dụng, không xác nhận xác suất drop gốc. Chance R-053 unknown → R-106/BnB `server/game.js:20,425–439` SHA §10 |
 | R-113 | `sim.ticks_per_second`; `round.warmup_ms` giữ BnB | 30 Hz; 3000 ms | `oss` / design | R-100/BnB `server/game.js:12–19,616–646` SHA §10. R-013 đo bước client, không xác nhận tick server; R-060 xác nhận pha GO nhưng không xác nhận 3 s |
-| R-114 | `player.speed_px_per_s_per_level` giữ BnB | 24 px/s/level | `oss` / design | R-102/BnB `server/characters.js:15`; R-043 checksum chưa xác thực; speed level không phải px/s |
+| R-114 | Lịch sử `player.speed_px_per_s_per_level` theo BnB | 24 px/s/level | `oss` / design | R-102/BnB; **superseded by R-184** từ curve native có đối chứng R-183. Không nâng R-043 hoặc R-075 lịch sử |
 | R-115 | `bomb.fuse_ms` giữ BnB; lựa chọn flame500ms/trap4000ms là lịch sử, hiện dùng R-158/R-160 | 2500ms (flame hiện540ms; trap hiện6350ms) | `oss` / design | R-103/BnB `server/game.js:14–17` SHA §10; R-021 unknown, R-022 emu candidate; R-026 là khoảng packet, không phải timer nội bộ; R-079 timing trình diễn không phải TTL damage |
 | R-116 | `player.collision_half_px`, `player.corner_assist_px`, `player.trap_touch_distance_px` giữ BnB | 13/12/28 px | `oss` / design | R-107/R-108/BnB `server/game.js:31–32,546–567` SHA §10; chưa có KR/VN confirmed cùng đại lượng; R-028 không xác nhận khoảng cách |
 | R-117 | **Lịch sử; superseded by R-182 cho profile hiện hành.** Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
@@ -358,14 +358,14 @@ chưa tách được theo từng khóa thì validator **fail closed** (báo lỗ
 | `round.duration_ms` | R-110 | round_duration | ms | `vn_runtime` | confirmed | VN VBNB_116 |
 | `item.bomb_capacity_delta` | R-111 | item_bomb_capacity_delta | bomb | `vn_runtime` | confirmed | VN VBNB_116 |
 | `item.fire_range_delta` | R-111 | item_fire_range_delta | cell | `vn_runtime` | confirmed | VN VBNB_116 |
-| `item.roller_speed_delta` | R-111 | item_roller_speed_delta | level | `oss` | design | BnB 5c108e8 |
+| `item.roller_speed_delta` | R-185 | item_roller_speed_delta | level | `vn_runtime` | confirmed | VN VBNB_116 |
 | `drop.weight_bomb` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
 | `drop.weight_fire` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
 | `drop.weight_roller` | R-112 | drop_item_weight | weight | `vn_static` | confirmed | VN VBNB_116 |
 | `drop.brick_item_chance` | R-112 | drop_brick_item_chance | permille | `oss` | design | BnB 5c108e8 |
 | `sim.ticks_per_second` | R-113 | server_tick_rate | Hz | `oss` | design | BnB 5c108e8 |
 | `round.warmup_ms` | R-113 | round_warmup | ms | `oss` | design | BnB 5c108e8 |
-| `player.speed_px_per_s_per_level` | R-114 | speed_px_per_s_per_level | px/s | `oss` | design | BnB 5c108e8 |
+| `player.speed_px_per_s_per_level` | R-184 | speed_px_per_s_per_level | px/s | `design` | design | V1 design; calibration VN R-183 |
 | `bomb.fuse_ms` | R-115 | bomb_fuse | ms | `oss` | design | BnB 5c108e8 |
 | `bomb.flame_ms` | R-158 | bomb_flame | ms | `design` | design | V1 design |
 | `player.trapped_speed_px_per_s` | R-162 | trapped_speed | px/s | `design` | design | V1 design |
@@ -1046,8 +1046,9 @@ R042 là nativeKRconfirmed. Chỉ thay metadata nguồn/claim, không đổi12s�
 
 Đại lượng engine được khai báo tường minh:
 - Movementpoint là scalar base/current/max, đã có native amount5/6 và loadedcounterpart clamp.
-  Engine dùng `speed.value` nhân **R11424px/s/point DESIGN**, chia server30Hz DESIGN. Đây là mapping
-  vật lý giữ có chủ ý; ví dụ point4 cho96px/s engine, khác số đo sameactor R178~134–137px/s.
+  Engine dùng `speed.value` nhân **R18433px/s/point DESIGN**, chia server30Hz DESIGN. R183 đo
+  cùngactor point4..8; ví dụ point4 engine132px/s so với native khoảng133,70px/s. Lựa chọn24 của
+  R114 trước hiệu chuẩn là lịch sử, không phải vận tốc hiện hành.
   Không suy nativeFPS/linearcurve hoặc gán30Hzserver thành nhịp client.
 - Capacitypoint được engine dùng làm số bom còn tồn tại tối đa; native R168 có actualactivecount
   so với capacitygetter. Giá trị khởi tạo/max đến R175/180/181; không gọi pool25 là statmax.
@@ -1056,6 +1057,29 @@ R042 là nativeKRconfirmed. Chỉ thay metadata nguồn/claim, không đổi12s�
   thành confirmed. Kích thước tile40px là khóa riêng R110, không đơn vị của field scalar.
 
 Việc dùng logicalstatpoint cùng nhãn `level` là contract schema hiện hành, không chứng minh native
-có enum tên level. Source scalar và DESIGN ánh xạ được tách, không nâng hệ số24/shape13/assist12.
+có enum tên level. Source scalar và DESIGN ánh xạ được tách, không nâng hệ số33/shape13/assist12 thành nativeconfirmed.
 `release=false` giữ nguyên; loader vẫn chặn candidate nếu bật release. Profile đủ nguồn logical
 không tự là nghiệm thu G2/G6/V1-036; cần reviewer độc lập tiêu chí G2, gói/version/hash và phần G6.
+
+## 46. Curve tốc độ cùng actor và hiệu chuẩn V1 — R-183/R-184/R-185
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-183 | Cùng actor C01/key1/base4/max8, đo nativeXY ngoài process ở movementpoint4..8; bốn native Roller ACK đưa4→5→6→7→8 | Mean OLS133,698888 /166,077857 /200,698866 /233,232185 /267,052717 px/s; normalized33,2156–33,4498 px/s/point trong ca | `vn_runtime` / confirmed (quan sát rate cùngactor trong ca) | [12window/40rawhash, R1 riêng và phương pháp](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#curve-tốc-độ-cùng-actor--r-183r-184r-185). Fixturebc875…, actor449284224/C664C4, Factory01/room19. HOST CLOCK_MONOTONIC bracket đọc nativeXY, không nativeclock/FPS, literal coefficient hoặc mọi mode/character |
+| R-184 | `player.speed_px_per_s_per_level` chọn hiệu chuẩn DESIGN theo R183, thay fallback24 của R114 | 33 px/s/point; engine132/165/198/231/264px/s ở4..8; server30Hz→1100mpx/tick/point | `design` / design | Trung tâm normalized33,358116; chọn nguyên gần nhất33. Không chứng minh native chứa33 hoặc phân biệt33/34 theo thống kê; point1..3/actor/mode khác là ngoại suy V1. Không khôi phục confidence R075/R043 |
+| R-185 | `item.roller_speed_delta`: một Roller tăng một logical movementpoint, bị kẹp bởi max loaded | +1 logical point; R2 bốn ACK4→5→6→7→8, số profile1 không đổi | `vn_runtime` / confirmed | R173 actualselector3/increment/clamp, R182 logicalunit và R183 bốn actual native715E90→71B717 pair. Thay riêng fallback Roller của R111; không cap mọi mode/+1pxs/ItemAttrgroup |
+
+R183 có900rawrow/0invalid,9observerstop/3hook;12windowUp/Down không chồng stop. Phương pháp lấy
+first/last nativeYchange trong scope điều khiển, trim150ms mỗi đầu, bracket đọc nằm trọn bên trong;
+được chọn sau R1 rồi áp không đổi cho R2. Không lấy keyhold/server/packet timestamp làm vận tốc.
+OLS theo midpoint bracket; giữ first-last/Theil, read-bracket variation và mọi sampled delta kể cả21.
+Sensitivity mô hình bảo thủ khoảng±31–39px/s dùng2×maxΔY21/span cộng full read-bracket difference;
+đây không95%CI/nativeupdate. Riêng full read-bracket OLS difference khoảng0,001–0,078px/s.
+R1 actor khác, fullcurve incomplete do controller/lastACK, giữ34rawhash và validpoint4/5 riêng,
+không gộp actor hoặc bỏ lỗi để thành phép đo hoàn chỉnh. Không client mới để tìm lượt xanh.
+
+Coefficient24 cũ làm engine chậm khoảng28% so với ca;33 còn lệch mean khoảng−0,65…−1,34%.
+Đây là calibration có chủ ý, không nâng literal33 thànhconfirmed. Trapped17, fuse2500, flame540,
+trap6350, halfbox13/assist12, server30Hz,12charvalues và releasefalse giữ nguyên. Actual movement
+regression chạy30tick: profilecũ24 đỏ96000≠132000mpx ởpoint4; profile33 xanh4..8 và trapped16980mpx
+độc lập point. Scenario/replay dùng profile riêng không được bless chỉ để che đổi tốc độ.
