@@ -93,3 +93,16 @@ cuối animation/mode khác, mở lại hiệu chuẩn. Fuse/flame/speed/cap/tou
 [Evidence/range/hash/reset/overhead](../evidence/measurements/vn-trap-timer-2026-10-24/README.md).
 Quyết định dựa quyền dùng đo động VN của chủ dự án; cần reviewer độc lập exacthead trước merge,
 không nâng gate/phát hành hoặc nhãn native literal từ một giá trị calibration.
+
+## Bổ sung2026-10-25 — logical Attr identity và đại lượng
+
+R180 đã nối tên hàng logic Character/C00/C01/f0 với cùng manager và actual native fieldreader VN;
+R181 cùng R173/R175 nối base/max/current và tăng/kẹp. Phần chưa nối identity trong mô tả ngoại lệ
+ở trên là baseline lịch sử; không đòi avatar/tên hiển thị để xác nhận logicalrow đã có native source.
+Đây cũng không tự xác nhận nativeKRconsumer hoặc cách đổi scalar thành px/s.
+
+Giữ12khóa R117 `kr_static/candidate` và `release=false` trong lượt evidence này. Lượt review tiếp
+phải tách **số**, **vai trò field/base/max**, **đại lượng/đơn vị engine**; xác nhận scalar không làm
+quy đổi R11424px/s/level thành nativeconfirmed. VNconfirmed được dùng trực tiếp theo ADR0002;
+không đặt yêu cầu đo lại KR chỉ vì region. G2 có thể chấp nhận trace và DESIGN đã nghiệm thu theo
+SCOPE; không chờ toàn bộ ItemAttr/6root, không gán candidate→confirmed để vượt gate.

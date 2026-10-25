@@ -1,0 +1,907 @@
+{
+  "claims": [
+    "R-180",
+    "R-181"
+  ],
+  "fixture_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+  "build": "VN VBNB_116 offline IAT/devirt reconstruction",
+  "image_base": "0x400000",
+  "runtime": {
+    "status": "PASS",
+    "run": "host-attr-file-consumer-149-r1",
+    "fixture_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "rows": [
+      {
+        "name": "Character/C00",
+        "f0": 0,
+        "manager": "0x10596c50",
+        "rowbase": "0x10596c50",
+        "values": [
+          5,
+          7,
+          1,
+          10,
+          1,
+          7
+        ]
+      },
+      {
+        "name": "Character/C01",
+        "f0": 1,
+        "manager": "0x10596c50",
+        "rowbase": "0x10596dec",
+        "values": [
+          4,
+          8,
+          2,
+          7,
+          1,
+          9
+        ]
+      }
+    ],
+    "consumer_actor": 393578184,
+    "selected_row": 1,
+    "logical_row_name": "Character/C01",
+    "manager_alias": true,
+    "out6": [
+      4,
+      8,
+      2,
+      7,
+      1,
+      9
+    ],
+    "native_reader_calls": [
+      {
+        "field_offset": "0x1d4",
+        "field_address": "0x10596fc0",
+        "native_return": "0x97166d",
+        "native_eax": 4,
+        "caller_call_va": "0x971668",
+        "call_bytes_sha256": "3810aa22bc015bd8ff37ea08b2a7a417b97d9c19d43a0d6c98e8755ca196a507",
+        "opcode": "0xe8",
+        "direct_target": "0x414543",
+        "direct_reader_call": true,
+        "read_code_bytes": 5
+      },
+      {
+        "field_offset": "0x1e0",
+        "field_address": "0x10596fcc",
+        "native_return": "0x9716a7",
+        "native_eax": 8,
+        "caller_call_va": "0x9716a2",
+        "call_bytes_sha256": "47b00b958acc185c4841166827348871a97003f4405e6c7c8e6da569cd046df0",
+        "opcode": "0xe8",
+        "direct_target": "0x414543",
+        "direct_reader_call": true,
+        "read_code_bytes": 5
+      },
+      {
+        "field_offset": "0x1ec",
+        "field_address": "0x10596fd8",
+        "native_return": "0x9716e1",
+        "native_eax": 2,
+        "caller_call_va": "0x9716dc",
+        "call_bytes_sha256": "5e471b5710179170655dba5d47bf38d0ed09eccbbd44fcfbb4d43962e23e166c",
+        "opcode": "0xe8",
+        "direct_target": "0x414543",
+        "direct_reader_call": true,
+        "read_code_bytes": 5
+      },
+      {
+        "field_offset": "0x1f8",
+        "field_address": "0x10596fe4",
+        "native_return": "0x97171b",
+        "native_eax": 7,
+        "caller_call_va": "0x971716",
+        "call_bytes_sha256": "d668aaac960c649e67fcf925dbb5986b597218e4882378b9e3316da9e2021205",
+        "opcode": "0xe8",
+        "direct_target": "0x414543",
+        "direct_reader_call": true,
+        "read_code_bytes": 5
+      },
+      {
+        "field_offset": "0x204",
+        "field_address": "0x10596ff0",
+        "native_return": "0x971755",
+        "native_eax": 1,
+        "caller_call_va": "0x971750",
+        "call_bytes_sha256": "25fa06984f41a50cd104411958d66a2ab8715853fbe16deef60ebeb99cf422f3",
+        "opcode": "0xe8",
+        "direct_target": "0x414543",
+        "direct_reader_call": true,
+        "read_code_bytes": 5
+      },
+      {
+        "field_offset": "0x210",
+        "field_address": "0x10596ffc",
+        "native_return": "0x97178f",
+        "native_eax": 9,
+        "caller_call_va": "0x97178a",
+        "call_bytes_sha256": "551c7fa2b3915db50afa52236a992c7febc61880cd6ab6b1e801d4e68d62319b",
+        "opcode": "0xe8",
+        "direct_target": "0x414543",
+        "direct_reader_call": true,
+        "read_code_bytes": 5
+      }
+    ],
+    "new_direct_call_code_read_bytes": 30,
+    "stops": 27,
+    "reader_stops": 15,
+    "reader_unmatched": 9,
+    "hook_count": 11,
+    "forbidden": {
+      "111": 0,
+      "117": 0,
+      "120": 0,
+      "151": 0,
+      "158": 0
+    },
+    "source_hashes": {
+      "probe-template-used.gdb": "50c67ffb1f43070b23109e8dc6d857f27eb2944ade52aa770b45f5d8aec1812a",
+      "harness-used.py": "aff26bd9b40fb70b402d5577ce744b67bbaf2a389339f1492c070b3d8dcf7e16",
+      "server-used.py": "ef688ad5588bed2390231728d3ab7e722c3af619e90501bf030eb84cb3a1158b"
+    },
+    "cleanup": {
+      "wrapper_exit": 0,
+      "unshare_pid": 3329827,
+      "unshare_proc_absent": true,
+      "owner_active": false,
+      "inventory_snapshot_phase": "pre_terminal_disable",
+      "inventory_is_disabled_state_proof": false,
+      "source_disables_after_snapshot": true,
+      "raw_inventory_unchanged": true
+    },
+    "scope": "logical named Attr row/f0 -> same typed manager/row -> actual six field reads/EAX/out6. Not avatar/KR consumer/native speed time/effective caps."
+  },
+  "caption_negative": {
+    "status": "PASS",
+    "run": "host-key-render-native-149-r1",
+    "actor": 448865232,
+    "key": 1,
+    "observed_string": "tester",
+    "resource_identity": "unknown; candidate sourcepoint rejected as C00/C01 asset bridge",
+    "actual_stops": 4,
+    "forbidden_opcodes": {
+      "111": 0,
+      "117": 0,
+      "120": 0,
+      "151": 0,
+      "158": 0
+    },
+    "runtime_owner_active": false,
+    "scope": "actual string argument and path/ABI only, no identity/physics/time claim"
+  },
+  "source_reference": {
+    "source": "/home/admin/boom-re/assets/fx/Attr/BomberAttr.bin",
+    "sha256": "a44ba347b6f734f0579b040512f0d1aa7e96acdb4269c2ed8187e3b827909446",
+    "rows": [
+      {
+        "file_offset": 0,
+        "end_exclusive": 61,
+        "name": "Character/C00",
+        "f": [
+          0,
+          0,
+          5,
+          7,
+          1,
+          10,
+          1,
+          7,
+          10,
+          100,
+          9
+        ],
+        "record_sha256": "8a002a6af62e2173e0a5f7b8c297fcb3d7beedaf6194a5824c1e328931489c00"
+      },
+      {
+        "file_offset": 61,
+        "end_exclusive": 122,
+        "name": "Character/C01",
+        "f": [
+          1,
+          0,
+          4,
+          8,
+          2,
+          7,
+          1,
+          9,
+          10,
+          100,
+          9
+        ],
+        "record_sha256": "6766a74e5512a76ddadbb591ea78a6131663dab694fe834f1ecb25734b210f92"
+      }
+    ],
+    "scope": "exported source two-record reference; native loader observation must independently establish runtime linkage; not full pack/runtime byte identity"
+  },
+  "raw_manifest": [
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/01-channels.png",
+      "bytes": 609807,
+      "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/04-room.png",
+      "bytes": 388340,
+      "sha256": "d1e2748420b7096175ebf6df5ffce6d9fdd60fe3992ee0cd702b6aae34fa5e2f"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/05-match.png",
+      "bytes": 406274,
+      "sha256": "6d285200ea039a9b1c663551d61090ced3713b6615bdb62e0f3e7573b5628052"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/attr-consumer-entry.json",
+      "bytes": 1342,
+      "sha256": "4c1970019da5d3e70007d4a0a9a02c10694b208a399f65bc75b2d5b2e5613515"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/attr-consumer-events.jsonl",
+      "bytes": 8426,
+      "sha256": "77222bebf26de96fda319b9fe4f2be11beafc14b7443eaa76d5b0804c80f9a89"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/attr-consumer-observed.json",
+      "bytes": 698,
+      "sha256": "ef52513b31b7734aae8264f0ff3ecec6b149e476cd3aebabd55f1b88821063dc"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/attr-input-last.json",
+      "bytes": 344,
+      "sha256": "5df7c9b8b09a74d0335c2a6e142bced7ac9743f324524f10d5acf6261b45b895"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/attr-row-0.json",
+      "bytes": 1348,
+      "sha256": "dbd8f6f29e6ced03bdaf317f88fef143b75e82d42182bed26f2900281c7677a0"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/attr-row-1.json",
+      "bytes": 1345,
+      "sha256": "cf10bdcb2fd6c6127d1ad762840819c41ec2b5fe0bd013f56e466c0eb455ab29"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/command.json",
+      "bytes": 24,
+      "sha256": "4ed046e0d6f036662dbdad129b8530ed21f8e138c13f11eed6d18efc416c8f65"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/harness-used.py",
+      "bytes": 17480,
+      "sha256": "aff26bd9b40fb70b402d5577ce744b67bbaf2a389339f1492c070b3d8dcf7e16"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/hero-target.json",
+      "bytes": 250,
+      "sha256": "69485fc73d531dae9a95e551904cc4d390c4e228273a3b7bbcd21292e776f482"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "122323709e156b6cf6e08a69794b162b89a58dc8d3445c35841741672d7e5bcb"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/packets.jsonl",
+      "bytes": 26053,
+      "sha256": "8eca3f1822f3e666d3c3cc25d2589d52407a1b662c833b80932149e4f5c3cf33"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/packets.log",
+      "bytes": 20421,
+      "sha256": "3b3993a8ed3209f38cd9ff4c4e3a809ffbb27367a70f4fcf68dd82aa1dfd523b"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/position-samples.jsonl",
+      "bytes": 399358,
+      "sha256": "14d40b0b02601a750d3cd4b7a0af5dfb8d5024c54094370b6ddc73ed60ce3bcb"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/probe-ready.json",
+      "bytes": 207,
+      "sha256": "4ffc1b69d6f174cf23d281ce63a5fd1ceafb01645d95b0675731c4633d021447"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/probe-template-used.gdb",
+      "bytes": 20012,
+      "sha256": "50c67ffb1f43070b23109e8dc6d857f27eb2944ade52aa770b45f5d8aec1812a"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/probe.gdb",
+      "bytes": 20012,
+      "sha256": "50c67ffb1f43070b23109e8dc6d857f27eb2944ade52aa770b45f5d8aec1812a"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/ready.json",
+      "bytes": 216,
+      "sha256": "df2fcf7cf3817ad08b3ac1e3d15ae9f54960d03ef67bb808c75c4750cb538a03"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/registered-hooks-final.json",
+      "bytes": 812,
+      "sha256": "1837cf7d4ed1d805e95779a2f0f339d782e5ae42d4e349f8fe94ed5119935277"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/registered-hooks.json",
+      "bytes": 423,
+      "sha256": "835dcc237e9d3b678437cd944b8fbfe8d115f315d4bd269bc96fe403ca9cf520"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/server-used.py",
+      "bytes": 46148,
+      "sha256": "ef688ad5588bed2390231728d3ab7e722c3af619e90501bf030eb84cb3a1158b"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/server.log",
+      "bytes": 20421,
+      "sha256": "3b3993a8ed3209f38cd9ff4c4e3a809ffbb27367a70f4fcf68dd82aa1dfd523b"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/sources.json",
+      "bytes": 708,
+      "sha256": "f1440744d0b0ec35606091c9b27b373af6ff04b48ada5dc39c2ec4a786e704be"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/start.json",
+      "bytes": 1586,
+      "sha256": "ed55a43c1cf50556c01c8186b4d7d740a1dc10c81d3bd9b3c5b5a4610c4440d7"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/supervisor.log",
+      "bytes": 259,
+      "sha256": "9e96a54974be63ddde158b324aaa5bbcf102b22b438f4af2363f058fdd0b93a7"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/winedbg.log",
+      "bytes": 15227,
+      "sha256": "a7790d943a391c7aa7c2ec2e7e8e238cf81dbfa95630564bf6a6a73d638c7e63"
+    },
+    {
+      "run": "host-attr-file-consumer-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-attr-file-consumer-149-r1/xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/04-room.png",
+      "bytes": 388273,
+      "sha256": "8ac161456b970178ac0c99843eb618cc46469590438edc002c0c7e7f74bbc5f8"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/05-match.png",
+      "bytes": 406220,
+      "sha256": "0d42e370637036ec14cc0e92ee15d63a51ba6eb7c40809fa2017ac89c77252b6"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/command.json",
+      "bytes": 24,
+      "sha256": "4ed046e0d6f036662dbdad129b8530ed21f8e138c13f11eed6d18efc416c8f65"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/harness-used.py",
+      "bytes": 17370,
+      "sha256": "58aed910e86bc6849c575bbd382454e48ef8355039a73ee3c3886024a6075ec2"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/hero-target.json",
+      "bytes": 250,
+      "sha256": "92ac00488c999be0b9bfb4ed9f7257b488a3256f37fe8228f14ba7d6756ceebe"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "e16132847c7cffbf43b98245e8378f2f7ee40be43c4796f64463df617cf917d6"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/key-render-entry.json",
+      "bytes": 307,
+      "sha256": "27d47f0ea88ba3d45e7f216105ed36bf75d89c4e6d763181f7f233e24e114eed"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/key-render-events.jsonl",
+      "bytes": 1612,
+      "sha256": "28391674086583289b53217ad200640038e28d39811e64bf4f5ef8621e8048a0"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/key-render-observed.json",
+      "bytes": 547,
+      "sha256": "7fe3aed506cc61bdab4ac3fb61edc48285b1966170487f42af13fd835cc286f9"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/key-render-resource.json",
+      "bytes": 617,
+      "sha256": "c60005f83163a3ee71a8c9ff998995d14cbb20d64e51ce230ed8d52abb94a412"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/packets.jsonl",
+      "bytes": 22516,
+      "sha256": "b6f159d61c9594a0b00e39d8bb2d394767b6b236bc824f2b36ec99280427e712"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/packets.log",
+      "bytes": 17645,
+      "sha256": "aefd903451b56538531bdf30749b0ee35343be6abc128431abc3dc191a7c4db7"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/position-samples.jsonl",
+      "bytes": 219854,
+      "sha256": "2e4c1f71b36d9ec336a761b037368e3c54d0f051153f2e49304de88b5116d750"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/probe-ready.json",
+      "bytes": 116,
+      "sha256": "b4755fe232be69e540d0352c0137dd644cf1cf5ebe7f1c61a910415aa0de0e4b"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/probe-template-used.gdb",
+      "bytes": 11587,
+      "sha256": "af278397e8ba3ba1dbf55d5488b79625e42ec633991e74c08cfb7657b8e1719d"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/probe.gdb",
+      "bytes": 11587,
+      "sha256": "af278397e8ba3ba1dbf55d5488b79625e42ec633991e74c08cfb7657b8e1719d"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/ready.json",
+      "bytes": 185,
+      "sha256": "bc8760c3eb4bdd0d7990080b8ed3a6068c4952cb3461357d82734da1dbe2d82f"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/registered-hooks.json",
+      "bytes": 407,
+      "sha256": "ced609b0ee251a6a78e855832dd5dfb4979a5b92c31bdf343674e2483d6bd8ef"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/server-used.py",
+      "bytes": 46148,
+      "sha256": "ef688ad5588bed2390231728d3ab7e722c3af619e90501bf030eb84cb3a1158b"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/server.log",
+      "bytes": 17645,
+      "sha256": "aefd903451b56538531bdf30749b0ee35343be6abc128431abc3dc191a7c4db7"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/sources.json",
+      "bytes": 691,
+      "sha256": "476a554baa84c07310ab4b55a1953a9cfce1c61f66998443f1e824b866a26067"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/start.json",
+      "bytes": 1567,
+      "sha256": "3305f89b264dfe835404bb0a95aef1a6ec37aad0f6499cfc0a7adebf93e93c4c"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/supervisor.log",
+      "bytes": 259,
+      "sha256": "685cdec49228aca008c735fef7fffdbe9711690235e832d3e62955bf29efa602"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/winedbg.log",
+      "bytes": 15504,
+      "sha256": "717a91d542db7e0f4f5a52e563141d2995c6976a085131bdfdf1c1f66aade65e"
+    },
+    {
+      "run": "host-key-render-native-149-r1",
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-key-render-native-149-r1/xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    }
+  ],
+  "static_blocks": [
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x9712db",
+      "requested_window": 512,
+      "read_candidate_bytes": 512,
+      "retained_decoded_bytes": 23,
+      "end_exclusive": "0x9712f2",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "1c74b33a0192c614bdaaaf03a7b70bb3710d9b018f7591299f30651a30656d16",
+      "private_files": [
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/reader9712DB.asm",
+          "bytes": 258,
+          "sha256": "88878f45a403993c0360d1a974aa96f1f4b8eb4e012d7744121062c1e330b7e1"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/reader9712DB.bin",
+          "bytes": 23,
+          "sha256": "1c74b33a0192c614bdaaaf03a7b70bb3710d9b018f7591299f30651a30656d16"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/reader9712DB.json",
+          "bytes": 616,
+          "sha256": "2fe118ebf840658a316c011a8a977cc1f51ab07eb7360e9b683cbdeba96f013b"
+        }
+      ]
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x9712f2",
+      "requested_window": 512,
+      "read_candidate_bytes": 512,
+      "retained_decoded_bytes": 143,
+      "end_exclusive": "0x971381",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "5b5cfdf16955148b2805549553d44aec81291cc49b2eb870e264139b561dcf63",
+      "private_files": [
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/success9712F2.asm",
+          "bytes": 1469,
+          "sha256": "7ee042dd52272e3e4931b6b8aae9f4641c879840c3471df40aae3d52148e4662"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/success9712F2.bin",
+          "bytes": 143,
+          "sha256": "5b5cfdf16955148b2805549553d44aec81291cc49b2eb870e264139b561dcf63"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/success9712F2.json",
+          "bytes": 617,
+          "sha256": "6e5096f4fa73a0e705d5333a98cf71a625391974b53df84c4ebd61f6b343e701"
+        }
+      ]
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x971383",
+      "requested_window": 512,
+      "read_candidate_bytes": 512,
+      "retained_decoded_bytes": 443,
+      "end_exclusive": "0x97153e",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "84342bc85fe32d207019754c7beca77eaa1b608d91319f2e8f0c165d47e15d3a",
+      "private_files": [
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/success971383.asm",
+          "bytes": 4536,
+          "sha256": "654d93401a3bb9a1483b83b7f502d3dc0aabb495e69b8e6c57f5134a0217e52b"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/success971383.bin",
+          "bytes": 443,
+          "sha256": "84342bc85fe32d207019754c7beca77eaa1b608d91319f2e8f0c165d47e15d3a"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/reader-after-9712db/success971383.json",
+          "bytes": 617,
+          "sha256": "1a1c4f435b8edf56f8511c08c7646fd0a78058dab83108e05cb11569756138ef"
+        }
+      ]
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x594edb",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 14,
+      "end_exclusive": "0x594ee9",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "520e355f499616c9291aa9afdb4af609b0d48520d50ec329922797da1006c430",
+      "private_files": [
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/v4-594EDB.asm",
+          "bytes": 133,
+          "sha256": "0dd46a2214abe5b888b744bfb467d96c65b1073373fef0199b9cac7670b9b9ae"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/v4-594EDB.bin",
+          "bytes": 14,
+          "sha256": "520e355f499616c9291aa9afdb4af609b0d48520d50ec329922797da1006c430"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/v4-594EDB.json",
+          "bytes": 616,
+          "sha256": "b592eb32e420bbb7a3d917af8c11b884cd06f66d3a63ef00891e1529f898ee8a"
+        }
+      ]
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x594ee9",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 14,
+      "end_exclusive": "0x594ef7",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "bb8eab39b9e7d26c80ab194e4cfaa380149d20edabb1ae78cad93436fddf7fce",
+      "private_files": [
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/v8-594EE9.asm",
+          "bytes": 133,
+          "sha256": "2bc892ba13445c9da562b665bedb12a373dd2dbed93a743af28e76d083dd557a"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/v8-594EE9.bin",
+          "bytes": 14,
+          "sha256": "bb8eab39b9e7d26c80ab194e4cfaa380149d20edabb1ae78cad93436fddf7fce"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/v8-594EE9.json",
+          "bytes": 616,
+          "sha256": "bdeaa58a03c8bc282ed9a44ef90b30f10fa37e3a532419561b882fd183d7ed7a"
+        }
+      ]
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x578842",
+      "requested_window": 384,
+      "read_candidate_bytes": 384,
+      "retained_decoded_bytes": 59,
+      "end_exclusive": "0x57887d",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "88b13ef739b479d6f919df5b8dd76a4b4d079789c59e52df779b1f04f25c21c1",
+      "private_files": [
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/facet510/vA4-578842.asm",
+          "bytes": 691,
+          "sha256": "633c95ad2dce312e58ea65e848c6e88fb8117b1374c2df3fb85f0a2a6fe9ba58"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/facet510/vA4-578842.bin",
+          "bytes": 59,
+          "sha256": "88b13ef739b479d6f919df5b8dd76a4b4d079789c59e52df779b1f04f25c21c1"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/facet510/vA4-578842.json",
+          "bytes": 616,
+          "sha256": "ec7c3700d1cb4e20eeab80839e01a4c71d0efa083866df5fa8b3a3b0348b5483"
+        }
+      ]
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x5788e1",
+      "requested_window": 384,
+      "read_candidate_bytes": 384,
+      "retained_decoded_bytes": 65,
+      "end_exclusive": "0x578922",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "abd286d71da19e1aa3b43f60465e9a6d8d6de3a6fcf59ad01dc66656de206157",
+      "private_files": [
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/facet510/vA0-5788E1.asm",
+          "bytes": 712,
+          "sha256": "a42dee56d7672072da7e8bfc3bcf9dc84ca637d7e4e95cd4b680b095d05292b5"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/facet510/vA0-5788E1.bin",
+          "bytes": 65,
+          "sha256": "abd286d71da19e1aa3b43f60465e9a6d8d6de3a6fcf59ad01dc66656de206157"
+        },
+        {
+          "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/facet510/vA0-5788E1.json",
+          "bytes": 616,
+          "sha256": "2f6993a73dd9d7997af32a1efe5b5b9bd7861facf34eb1b61d2ab285d0706e64"
+        }
+      ]
+    }
+  ],
+  "static_requested_bytes": 2560,
+  "static_retained_bytes": 761,
+  "reused_child": {
+    "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_445516_44552f.bin",
+    "bytes": 25,
+    "sha256": "0758be9807c66a024cd54e34b7f09a2eb3285a08baa1041e00d1206cad1be4af"
+  },
+  "data_reads_bytes": 24,
+  "direct_call_instruction_bytes": 30,
+  "supporting_cache_manifest": [
+    {
+      "private_path": "/home/admin/boom-team/tmp/vn149-attr-first-two-source-records.json",
+      "bytes": 987,
+      "sha256": "5c2699aa41962e34348c06235521e0faef3c395246d3a6c476f5aea30b142ac3"
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/vn149-other-stat-selector-slots.json",
+      "bytes": 1114,
+      "sha256": "60c621c83b931f18ea3f94ce934eabee3b2f30bf10d8ff349c4c592eb3b23133"
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/vn149-facet510-stat-slots.json",
+      "bytes": 740,
+      "sha256": "b7717cc40964db70bad98df87afa978089dac0f8b1e62a55e168ab5e466ad7bb"
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/other-stat-effect-thunks/facet510/checkpoint-final.md",
+      "bytes": 2251,
+      "sha256": "2bb1d0b4f479f3667277be43e45e41c0edca5d053f97c979c4f1639b709bf743"
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/body_445516_44552f.asm",
+      "bytes": 675,
+      "sha256": "80f2cf81aa75f42dd94f8c22ce6b7d2120466a4325ee2dc1400847061362b918"
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_445516_44552f.bin",
+      "bytes": 25,
+      "sha256": "0758be9807c66a024cd54e34b7f09a2eb3285a08baa1041e00d1206cad1be4af"
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/attr-file-consumer-root-verification.json",
+      "bytes": 9122,
+      "sha256": "2f1d3f8d6996d93c2c9fc001a2793ed8315f5b7031bca7299746dfe36d63c8fa"
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/key-render-negative-root-verification.json",
+      "bytes": 4978,
+      "sha256": "b86fb5c8d016f6e154cfa2ce841311029e03868c742eb617f8153d5275ab98c3"
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/attr-observer-independent/native-review.md",
+      "bytes": 2063,
+      "sha256": "4db222703e189b473eb9d367be8f2c9f598bfa8ef5e6286fad18215d481bfb16"
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/bomberattr-source-xref/ledger.json",
+      "bytes": 1331,
+      "sha256": "bb8135793d51dff436a0ac4050ee4ead5f5e6bb41a0def04a8078e6c225846d8"
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/vn149-manager-rtti-data.json",
+      "bytes": 925,
+      "sha256": "1979b5d0c3d14c69fb8ecef1a59ada01960b941338c4d855dd4e43bc1c18db07"
+    }
+  ],
+  "stat_effects": [
+    {
+      "selector": 1,
+      "receiver": "hero+0x5fc/C66284 -> hero+0x510/C663C4",
+      "method": "0x578842",
+      "current_hero_offset": "0x514",
+      "max_hero_offset": "0x584",
+      "effect": "min(old+1,max)",
+      "role": "capacity"
+    },
+    {
+      "selector": 2,
+      "receiver": "hero+0x5fc/C66284 -> hero+0x510/C663C4",
+      "method": "0x5788e1",
+      "current_hero_offset": "0x52c",
+      "max_hero_offset": "0x59c",
+      "effect": "min(old+1,max)",
+      "role": "Fire"
+    }
+  ],
+  "limits": [
+    "Logical Attr labels/f0 and same manager native row consumption confirmed; avatar/display name/native KR consumer unobserved.",
+    "Selector1/2 virtual binding is typed static source, not a newly observed native activation.",
+    "Signed normal range only; INT_MAX overflow behavior not characterized.",
+    "No native FPS/px-per-second law, all modes, numeric global cap or new pickup plateau claim.",
+    "registered-hooks-final.json is pre-terminal-disable snapshot; immutable enabled flags do not certify disabled native inventory. Cleanup: source terminal disable, independent observer mocks, owned namespace exit.",
+    "No profile values/source/status, gate or release flag changed."
+  ]
+}

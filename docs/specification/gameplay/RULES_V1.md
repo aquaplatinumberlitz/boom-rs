@@ -1019,3 +1019,16 @@ setter argument và generator provenance, không log framehex để tuyên bố 
 Object lookup dùng `context+B328+(row*101+column)*4`, sau các guard ghi ở metadata; return là
 cast result hoặc0. Byte nonzero chỉ bỏ qua restriction này, không bảo đảm được đi qua mọi vật cản.
 Giữ native property values, actor.vAC geometry, nghĩa tên bốn hướng và profile hiện hành chưa đổi.
+
+## 44. Logical Attr row và trần loaded của Bomb/Fire VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-180 | Reader971383/post971517 nạp inputname/f0 Character/C00=0, Character/C01=1 vào cùng manager10596C50/C83AEC, rowstride19C. Consumer595FD8 dùng globalE60844 alias chính manager, key1; sáu actual414543return từ rowC01+1D4/1E0/1EC/1F8/204/210 lần lượt4/8/2/7/1/9, out6 giống tại597477 | Logical row/f0 và native scalar; C00stored5/7/1/10/1/7, C01stored4/8/2/7/1/9 | vn_static + vn_runtime / confirmed (named rows, pointeralias và actual reader chain) | [18CSV/63rawhash/source/cleanup](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#tên-hàng-attr-tới-sáu-reader-native--r-180); fixturebc875…, actor393578184. Không avatar/tên hiển thị/nativeKRconsumer/FPS. Inventoryfinal là pre-disable snapshot, không proof enabled=false; wrapperexit/namespacecleanup kiểm riêng. Captioncandidate ca khác chỉ ra tester, nhánh đó dừng |
+| R-181 | Selector1/2 của dispatcher89C202 trên kiểu receiverC66284→594EDB/594EE9 rebase hero+5FC−EC→facet510/C663C4 vA4/vA0→578842/5788E1. Mỗi method dùng445516 tăng current1 rồi kẹp theo max loaded; R175 nối max này tới output3/5 | Capacity hero+514/max+584; Fire hero+52C/max+59C; current=min(old+1,max) trong miền signed32 bình thường | vn_static / confirmed (typed source và semantics method) | [Source/slot/fieldrole](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#tăng-và-kẹp-capacityfire-theo-trần-đã-nạp--r-181);7block/761retained,25Bchildreuse. Selector1/2 chưa là runtimeactivation mới, overflow/override/globalKRcap/ItemAttrgroup unknown. Counterpart capacity/Fire của R175 đã có max-consumer; không gọi cap mọi mode |
+
+R180 giải logical Attr name/key bằng native source, không chỉ matching số R040/R041. R181 bổ sung
+max-role còn candidate trong R175; capture cũ giữ scope riêng. Không tự nâng R042/R117 hoặc12khóa
+profile: quan hệ statpoint, đại lượng engine và quy đổi thời gian cần review tường minh theo ADR0013.
+G2 không đòi avatar cho logicalrow đã xác nhận; nativeKRconsumer/ItemAttrdrop và toàn bộ146/149 còn
+fidelity riêng. Profile/releaseflag/gate không đổi trong hai claim này.

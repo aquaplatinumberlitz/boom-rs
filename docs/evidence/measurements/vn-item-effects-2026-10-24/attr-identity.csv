@@ -1,0 +1,19 @@
+kind,logical_name,f0,rowbase,field_offset,return_va,value,note
+stored_row,Character/C00,0,0x10596c50,0x1d4,,5,input/post-store checksum match
+stored_row,Character/C00,0,0x10596c50,0x1e0,,7,input/post-store checksum match
+stored_row,Character/C00,0,0x10596c50,0x1ec,,1,input/post-store checksum match
+stored_row,Character/C00,0,0x10596c50,0x1f8,,10,input/post-store checksum match
+stored_row,Character/C00,0,0x10596c50,0x204,,1,input/post-store checksum match
+stored_row,Character/C00,0,0x10596c50,0x210,,7,input/post-store checksum match
+stored_row,Character/C01,1,0x10596dec,0x1d4,,4,input/post-store checksum match
+stored_row,Character/C01,1,0x10596dec,0x1e0,,8,input/post-store checksum match
+stored_row,Character/C01,1,0x10596dec,0x1ec,,2,input/post-store checksum match
+stored_row,Character/C01,1,0x10596dec,0x1f8,,7,input/post-store checksum match
+stored_row,Character/C01,1,0x10596dec,0x204,,1,input/post-store checksum match
+stored_row,Character/C01,1,0x10596dec,0x210,,9,input/post-store checksum match
+native_reader_return,Character/C01,1,0x10596dec,0x1d4,0x97166d,4,same manager; actual EAX and saved field checksum
+native_reader_return,Character/C01,1,0x10596dec,0x1e0,0x9716a7,8,same manager; actual EAX and saved field checksum
+native_reader_return,Character/C01,1,0x10596dec,0x1ec,0x9716e1,2,same manager; actual EAX and saved field checksum
+native_reader_return,Character/C01,1,0x10596dec,0x1f8,0x97171b,7,same manager; actual EAX and saved field checksum
+native_reader_return,Character/C01,1,0x10596dec,0x204,0x971755,1,same manager; actual EAX and saved field checksum
+native_reader_return,Character/C01,1,0x10596dec,0x210,0x97178f,9,same manager; actual EAX and saved field checksum

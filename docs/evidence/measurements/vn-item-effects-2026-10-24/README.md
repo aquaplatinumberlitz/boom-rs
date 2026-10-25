@@ -613,3 +613,87 @@ frame/thread và count/table stability. S191/only-lo/namespace riêng; không111
 không item/bom hoặc statforcing. Toàn bộ process riêng đã đóng sạch. Câu hỏi key→stat ở ca đã có
 câu trả lời; bước tiếp là key→render/row identity có cạnh mới hoặc cap thực của character khác,
 không đọc lại setter/getter/context chỉ để tìm lại cùng source.
+
+## Tên hàng Attr tới sáu reader native — R-180
+
+[Các hàng/return CSV](attr-identity.csv), [source, payload tóm tắt và manifest](attr-identity.json).
+Câu hỏi đã giải: **key0/1 có trỏ đúng hàng logic Character/C00/C01 và đúng sáu field client đọc hay không?**
+Không dùng dãy số trùng nhau làm bằng chứng identity. Hai quan sát native khác nhau được giữ riêng:
+
+- Ca `host-key-render-native-149-r1`: actor448865232/key1, descriptorC20934; đường5A4AA9/v38
+  đưa chuỗi `tester` tới5B293F, actualreturn5A4B98/RET8. Đây là chuỗi nickname/context trong ca,
+  không phải đường chứng minh assetCharacter/C01. Dừng hướng caption/special-case này; 30hash giữ lại.
+- Ca `host-attr-file-consumer-149-r1`: 33rawfile, properWinei386, Factory01/room19, cùng server
+  R178 pin3838/fieldS501=1; không item/bom/input di chuyển. Quan sát reader971383 và post-store971517
+  nối inputname/f0 tới row thực; 595FD8/597477 nối cùng manager tới sixoutput. Không sửa memory game.
+
+### Chuỗi nguồn và native receiver
+
+Filename `Attr/BomberAttr` tạiC83AD0 được push tại9712CE. Reader success971383 lấy inputname/f0,
+rowbase=`EBX+f0*0x19C`, lưu tên tạirow+90 và sáu field protected tại
+`1D4/1E0/1EC/1F8/204/210`. Post-store kiểm checksum/cookie và so từng field với input.
+Bản xuất VN `BomberAttr.bin` SHAa44ba347… chỉ là reference hai record, không tuyên bố toàn pack trong
+runtime giống byte với bản xuất; native input/post-store là bằng chứng nối hàng.
+
+| Logical row | f0 | Manager / rowbase | f2…f7 native đã lưu |
+|---|---:|---|---|
+| Character/C00 | 0 | 10596C50 / 10596C50 | 5,7,1,10,1,7 |
+| Character/C01 | 1 | 10596C50 / 10596DEC | 4,8,2,7,1,9 |
+
+ManagerEBX có vptrC83AEC; globalE60844 tại consumer bằng **chính pointer manager này**, không chỉ
+cùng type hoặc cùng giá trị. Consumer actor393578184/C664C4, key1, selectedrow/nameC01 còn sống tại
+entry. Sáu actual CALL414543 và returnEAX lần lượt:
+
+| Field trong C01 row | Native return | EAX |
+|---|---|---:|
+| +1D4 | 97166D | 4 |
+| +1E0 | 9716A7 | 8 |
+| +1EC | 9716E1 | 2 |
+| +1F8 | 97171B | 7 |
+| +204 | 971755 | 1 |
+| +210 | 97178F | 9 |
+
+Mỗi return kiểm cùng thread/stack/return address/fieldpointer, EAX bằng giải mã field đã lưu;
+ECX lúc return là0x37, **caller-saved**, không được dùng thay fieldpointer. out6 tại597477 là
+`[4,8,2,7,1,9]`, ESPentry+12. Có27actualstop,15readerentry gồm9unmatched và6matching,
+6native reader-return;11hook gồm5fixed+6temporary. S191 và post-returnXY có thật, không111/117/120/151/158.
+
+### Chất lượng và phạm vi
+
+Root kiểm lại63rawSHA của hai ca, 18CSVrow, box checksum/cookie, pointeralias, sáu directcall5byte,
+sourcehash và namespaceexit. DSH1 kiểm độc lập37case mock trên chính observerbody và rawdata.
+`registered-hooks-final.json` được ghi **trước** `mark_terminal`: đây là snapshot trước disable,
+không phải bằng chứng các enabledflag đã false. Giữ nguyên file/SHA; cleanup dựa source-order,
+mock kiểm object disabled và wrapperEXIT0/namespace đã kết thúc, không viết lại metadata lịch sử.
+
+Confirmed trong VN: **logical Attr name/f0→typed manager→row→six native returns/out6**.
+Chưa quan sát avatar/tên hiển thị hoặc native consumer KR; không dùng avatar làm điều kiện bổ sung
+cho logicalrow đã chứng minh. Native unit/time/override mọi mode và profile12khóa là câu hỏi riêng.
+R178 không còn thiếu logicalrowbinding; nhận định identity chưa nối trong các mục lịch sử phía trên
+được bổ sung bởi R180, không xóa giới hạn riêng của từng capture.
+
+## Tăng và kẹp capacity/Fire theo trần đã nạp — R-181
+
+Câu hỏi source: counterpart output3/5 trong R175 có thật là max khi tăng stat không?
+Từ switch89C202 đã cache: selector1→v4, selector2→v8 trên kiểu receiverC66284. Hai thunk
+594EDB/594EE9 rebase−EC: hero+5FC→hero+510, rồi tail vA4/vA0. Facet510 cùng class đã có runtime
+vptrC663C4 ở R166; data slotA4/A0 trỏ578842/5788E1. **Binding selector1/2 này là static**,
+không gọi nó là hai activation runtime mới.
+
+| Stat | Method | Current/max theo hero | Source effect |
+|---|---|---|---|
+| Capacity | 578842 | +514 / +584 | current=min(old+1,max) |
+| Fire | 5788E1 | +52C / +59C | current=min(old+1,max) |
+
+Cả hai gọi cached445516 đọc old, cộng1, store; sau đó đọc current/max và store max nếu current lớn hơn.
+Công thức áp trong miền signed32 bình thường; không khẳng định overflow INT_MAX. Return1.
+R175 đã nối f4/f5 tới facet+68/+74 và f6/f7 tới+80/+8C; reset copy base→current+4/+1C.
+Do đó counterpart+74/+8C là **trần loaded của stat trong hai method**, không còn chỉ là counterpart
+kẹp lúc khởi tạo. R173 chứng minh độc lập kiểu tăng/kẹp movementcurrent/max; không gộp actor/capture.
+
+Manifest ghi7instructionblock với2.560byte requested/761retained (parser và bốn block effect),
+child44551625byte **reuse**,24byte slotdata và30byte directcall kiểm riêng; không gọi7block là7hàm đầy đủ.
+Raw/code dài/binary/media giữ private. Không đo lại plateau, không suy globalcap10, các override getter,
+nguồn ItemAttr/dropgroup/KR consumer, cấp tốc độ→px/s, hay chọn12profilekeys từ một nhãn mơ hồ.
+**Không đổi profile, source/status12khóa, releaseflag hoặc gate trong bổ sung này.** Bước tiếp G2 là
+review cùng đại lượng và DESIGN quy đổi V1 từ row/statpoint đã có; không quay lại chuỗi nickname/loader.
