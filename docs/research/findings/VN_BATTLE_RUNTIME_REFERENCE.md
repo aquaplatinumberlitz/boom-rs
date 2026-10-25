@@ -240,3 +240,16 @@ Bootstrap actor được đọc ở các mốc handler, chưa chứng minh đó 
 Capr1 bootstrap không đăngký/khôngdata; capr2 chỉ3movementpairs5/6/7 rồiobserverabort; capr3 đổiđiểmđọc
 sang ACKnative, giữ failedraw. Không đo lại plateau này; chỉ mở lại khi có build/actor/consumer khác hoặc
 cạnh writer/maxfield mới. Source/cadence/normalization/capKR vẫn cần bằng chứng riêng.
+
+### Receiver và phép tăng/kẹp C64 (R-173)
+
+[Payload/CSV/provenance](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#receiver-và-phép-tăngkẹp-c64--r-173):
+sau mộtkind2, actualdispatch89C202 cóselectorARG2=3, indexARG1=2, ARG3=hero+5FC/C66284.
+C64 native5 trước/6 sau89CDCB. PEslot+14→599499 và nhánhselector3 nối tới method tăng/kẹp:
+receiver+5C=controller+64, child445516 đọcold/cộng1/ghi cùngbox, rồikẹp theo receiver+50=controller+58.
+COLoffset5FC và typeCGOZzolmanBomber khớp receiver, không đo trực tiếp target599499 bằng breakpoint.
+
+Watchdiscovery và dispatch là hai capture/actor khác nhau; bốn transientcipherunknown giữ riêng.
+Các payloadcomplete có thể giải mã lại5/6. Maxfield chưa có số trong actor mới; R172plateau7 không
+thay việc đo nó. Không suy level/C00C01KR/F2F3 hoặc px/s; bước tiếp là init/current/maxfield consumer,
+không lặp getter/plateau hoặc đọc toàn bộ switch item.

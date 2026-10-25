@@ -1,0 +1,955 @@
+{
+  "question": "actual Roller selector3/stat method typed receiver writes C64 = min(old+1,maxfield)?",
+  "scope": "one selected VN actor in dispatch-r1; C64 field only; no level/KR C00C01/f2f3/speed normalization",
+  "conclusion": {
+    "confirmed": [
+      "selector ARG2=3; ARG1 index=2; ARG3 receiver=hero+0x5FC; receiverVT C66284; typed CGOZzolmanBomber",
+      "C64 lvalue receiver+0x5C = hero+0x658 = controller+0x64",
+      "max field receiver+0x50 = controller+0x58 (location semantic; numeric value not observed)",
+      "child445516 reads old C64, lea old+1, stores via413F32; call return44552A matches HW backtrace",
+      "method599499 increments old C64 through445516, then clamps updated C64 if it exceeds maxfield; normal integer-range scope, not overflow semantics"
+    ],
+    "unknown": [
+      "numeric max field value",
+      "whether selected method event writes in other actors",
+      "full writer causality across different actors/captures"
+    ]
+  },
+  "runs": {
+    "writer-r1": {
+      "actor": 449290536,
+      "events": [
+        {
+          "kind": "native_entry",
+          "c64": {
+            "value": 5,
+            "state": "ok",
+            "box": 449292160,
+            "payload": 449304704,
+            "header12": "63c7c71a9c70c71a80d8c71a",
+            "payload10": "0233904a07639c00f47f"
+          },
+          "pc": null,
+          "backtrace_pcs": [],
+          "watch_hits": null
+        },
+        {
+          "kind": "write_observation",
+          "c64": {
+            "value": null,
+            "state": "unknown",
+            "box": null,
+            "payload": "0x1ac7d880",
+            "header12": "63c7c71a9c70c71a80d8c71a",
+            "payload10": "db33904add639c00659a"
+          },
+          "pc": "0x413fda",
+          "backtrace_pcs": [
+            "0x00413fda",
+            "0x0044552a",
+            "0x0089cdcb",
+            "0x0089d164",
+            "0x006e7d28",
+            "0x005a5f6c",
+            "0x007160c0",
+            "0x0071b717"
+          ],
+          "watch_hits": 1
+        },
+        {
+          "kind": "write_observation",
+          "c64": {
+            "value": null,
+            "state": "unknown",
+            "box": null,
+            "payload": "0x1ac7d880",
+            "header12": "63c7c71a9c70c71a80d8c71a",
+            "payload10": "dbe2904add639c00eed3"
+          },
+          "pc": "0x413fda",
+          "backtrace_pcs": [
+            "0x00413fda",
+            "0x0044552a",
+            "0x0089cdcb",
+            "0x0089d164",
+            "0x006e7d28",
+            "0x005a5f6c",
+            "0x007160c0",
+            "0x0071b717"
+          ],
+          "watch_hits": 2
+        },
+        {
+          "kind": "write_observation",
+          "c64": {
+            "value": null,
+            "state": "unknown",
+            "box": null,
+            "payload": "0x1ac7d880",
+            "header12": "63c7c71a9c70c71a80d8c71a",
+            "payload10": "dbe2ee4add639c00f49f"
+          },
+          "pc": "0x413fda",
+          "backtrace_pcs": [
+            "0x00413fda",
+            "0x0044552a",
+            "0x0089cdcb",
+            "0x0089d164",
+            "0x006e7d28",
+            "0x005a5f6c",
+            "0x007160c0",
+            "0x0071b717"
+          ],
+          "watch_hits": 3
+        },
+        {
+          "kind": "write_observation",
+          "c64": {
+            "value": null,
+            "state": "unknown",
+            "box": null,
+            "payload": "0x1ac7d880",
+            "header12": "63c7c71a9c70c71a80d8c71a",
+            "payload10": "dbe2ee06dd639c00aaff"
+          },
+          "pc": "0x413fda",
+          "backtrace_pcs": [
+            "0x00413fda",
+            "0x0044552a",
+            "0x0089cdcb",
+            "0x0089d164",
+            "0x006e7d28",
+            "0x005a5f6c",
+            "0x007160c0",
+            "0x0071b717"
+          ],
+          "watch_hits": 4
+        },
+        {
+          "kind": "native_return",
+          "c64": {
+            "value": 6,
+            "state": "ok",
+            "box": 449292160,
+            "payload": 449304704,
+            "header12": "63c7c71a9c70c71a80d8c71a",
+            "payload10": "dbe2ee06dd639c007dfd"
+          },
+          "pc": null,
+          "backtrace_pcs": [],
+          "watch_hits": null
+        }
+      ],
+      "manifest": [
+        {
+          "name": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "name": "01-channels.png",
+          "size": 610452,
+          "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+        },
+        {
+          "name": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "name": "03-create-dialog.png",
+          "size": 375251,
+          "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+        },
+        {
+          "name": "04-room.png",
+          "size": 385945,
+          "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+        },
+        {
+          "name": "05-match.png",
+          "size": 408480,
+          "sha256": "67c410683d6a33d1a710e3751d5b11ff272b5aa40e4e409193a050946f0dfbef"
+        },
+        {
+          "name": "06-after-one-roller-watch.png",
+          "size": 411315,
+          "sha256": "e687f8b36c1f89274d4cee6906e1d6a28f62477e8377d849758df2953f395acc"
+        },
+        {
+          "name": "ack.json",
+          "size": 42,
+          "sha256": "add7c2f21e45f43a13df127282db4a18d4d0b3fa143409fa5219f10ec3428284"
+        },
+        {
+          "name": "c64-writer-events.jsonl",
+          "size": 7805,
+          "sha256": "a7f90c6f0b4e3c1a2f8f58133aaec84eb6e674f663c232f87f876fdb486b280a"
+        },
+        {
+          "name": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "name": "harness-used.py",
+          "size": 16564,
+          "sha256": "92148c0ff94de08eda3e84bab4294c8c8c2aff04f5a867c103be441af7ff78d3"
+        },
+        {
+          "name": "hero-target.json",
+          "size": 714,
+          "sha256": "089e622fc75155ea6f47d092b254a3695b0d4c9ff88a6119ba70742959c2d880"
+        },
+        {
+          "name": "isolation.json",
+          "size": 680,
+          "sha256": "0ee491262c8139fa5be28a0efa8f0d9afd9a6910e4acecd878a48e6bbea3fae4"
+        },
+        {
+          "name": "native-entry.json",
+          "size": 1152,
+          "sha256": "efa7fc9dbce4f77b5630c3ae4e4fb1d5be70af024117b3957cf7a0d2351ec6e6"
+        },
+        {
+          "name": "native-return.json",
+          "size": 1235,
+          "sha256": "1ab2db8bd9bec8a0a33d8a0a0c7516fa27f164d680f72e23ce8593826db16dde"
+        },
+        {
+          "name": "packets.jsonl",
+          "size": 21499,
+          "sha256": "8d0b5cc881752eb0ac8c2189d834f341b892cff6a29eb4b1f6b43f214a77e48d"
+        },
+        {
+          "name": "packets.log",
+          "size": 16828,
+          "sha256": "ffef6462e060f59ff59c530cc3c8675fd4dfa492f48791cd8c3a1e656a640e08"
+        },
+        {
+          "name": "pids.json",
+          "size": 99,
+          "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+        },
+        {
+          "name": "position-samples.jsonl",
+          "size": 282434,
+          "sha256": "7e0ccf9f496969d053a17fe370ffabddca96c43e55ca4e2ae8f96717fd9f788a"
+        },
+        {
+          "name": "probe-ready.json",
+          "size": 174,
+          "sha256": "e4a977c112f4c81f719085453daf86f0bdda4c4e984aba0ac56aaaecdf628ecc"
+        },
+        {
+          "name": "probe-template-used.gdb",
+          "size": 13185,
+          "sha256": "9324fe4154e3f7caa36c4eaecbddedd7f2c782317108d717dcac3a99108b39a4"
+        },
+        {
+          "name": "probe.gdb",
+          "size": 13185,
+          "sha256": "9324fe4154e3f7caa36c4eaecbddedd7f2c782317108d717dcac3a99108b39a4"
+        },
+        {
+          "name": "ready.json",
+          "size": 74,
+          "sha256": "4799c7b9dfe239a1fbf57b2737b3104e441f05fd514a969e2efe119d19d05bd3"
+        },
+        {
+          "name": "registered-hooks.json",
+          "size": 154,
+          "sha256": "c1472b73f5e660c86cb80e863a849b26b0fdcc4c9aaf9ba78f984c0410439953"
+        },
+        {
+          "name": "server-used.py",
+          "size": 45522,
+          "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+        },
+        {
+          "name": "server.log",
+          "size": 16828,
+          "sha256": "ffef6462e060f59ff59c530cc3c8675fd4dfa492f48791cd8c3a1e656a640e08"
+        },
+        {
+          "name": "sources.json",
+          "size": 424,
+          "sha256": "9fbd184124aa2864667f940917d6966400500c2f8d9a42ae792bb22f418199a3"
+        },
+        {
+          "name": "start.json",
+          "size": 1290,
+          "sha256": "178916a14f07d04a545937be7c6eaae2f55e4519538d57efdb6289d602b8853f"
+        },
+        {
+          "name": "supervisor.log",
+          "size": 528,
+          "sha256": "71c2956c2db8997aa7b4721842d63d760a5c5f540de7a5319c2ce25ab79ac6ea"
+        },
+        {
+          "name": "watch-registration.json",
+          "size": 230,
+          "sha256": "0a0b50361db973bf02bf4224c9d666160b9c00991138960a77a103a60cde2f56"
+        },
+        {
+          "name": "winedbg.log",
+          "size": 15415,
+          "sha256": "a264809b19fd35d125f7e6bb636477a90198fb02b3b8c14e2c27281dd9bc9e47"
+        },
+        {
+          "name": "xvfb.log",
+          "size": 1485,
+          "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+        }
+      ],
+      "note": "4 HW transients unknown; not 4 writers"
+    },
+    "dispatch-r1": {
+      "actor": 449155584,
+      "events": [
+        {
+          "kind": "native_entry",
+          "c64": {
+            "value": 5,
+            "state": "ok",
+            "box": 449157208,
+            "payload": 449169528,
+            "header12": "b58cc51a419bc51a78c8c51a",
+            "payload10": "2c7f287a29b54100f55f"
+          },
+          "arg1_index": null,
+          "selector_arg2": null,
+          "arg3_receiver": null,
+          "arg3_hero_offset": null,
+          "arg3_vtable": null,
+          "branch_va": null
+        },
+        {
+          "kind": "dispatch_entry",
+          "c64": {
+            "value": 5,
+            "state": "ok",
+            "box": 449157208,
+            "payload": 449169528,
+            "header12": "b58cc51a419bc51a78c8c51a",
+            "payload10": "2c7f287a29b54100f55f"
+          },
+          "arg1_index": 2,
+          "selector_arg2": 3,
+          "arg3_receiver": 449157116,
+          "arg3_hero_offset": 1532,
+          "arg3_vtable": "0xc66284",
+          "branch_va": "0x89c2d8"
+        },
+        {
+          "kind": "dispatch_return",
+          "c64": {
+            "value": 6,
+            "state": "ok",
+            "box": 449157208,
+            "payload": 449169528,
+            "header12": "b58cc51a419bc51a78c8c51a",
+            "payload10": "1d62ee061bb541007cfd"
+          },
+          "arg1_index": null,
+          "selector_arg2": null,
+          "arg3_receiver": null,
+          "arg3_hero_offset": null,
+          "arg3_vtable": null,
+          "branch_va": null
+        },
+        {
+          "kind": "native_return",
+          "c64": {
+            "value": 6,
+            "state": "ok",
+            "box": 449157208,
+            "payload": 449169528,
+            "header12": "b58cc51a419bc51a78c8c51a",
+            "payload10": "1d62ee061bb541007cfd"
+          },
+          "arg1_index": null,
+          "selector_arg2": null,
+          "arg3_receiver": null,
+          "arg3_hero_offset": null,
+          "arg3_vtable": null,
+          "branch_va": null
+        }
+      ],
+      "manifest": [
+        {
+          "name": "00-initial.png",
+          "size": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "name": "01-channels.png",
+          "size": 610452,
+          "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+        },
+        {
+          "name": "02-lobby.png",
+          "size": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "name": "03-create-dialog.png",
+          "size": 375232,
+          "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+        },
+        {
+          "name": "04-room.png",
+          "size": 386015,
+          "sha256": "4b7ac4c0d9c8075c2e0c392d98ef55fefb213367a1d72c46cb85c442c935c02b"
+        },
+        {
+          "name": "05-match.png",
+          "size": 408432,
+          "sha256": "2e227240c8eddae310f4c811efc1414bf12d28e47159fe364f37d74258ef2c2c"
+        },
+        {
+          "name": "06-after-dispatch.png",
+          "size": 411269,
+          "sha256": "d242d3b0daadf800cfc4d4c560d826200560b3ad30501912bb80a06123f799fd"
+        },
+        {
+          "name": "ack.json",
+          "size": 42,
+          "sha256": "5de9c3b763a90aaa87bca3a8b5d5be366e0728d48a3bdad4b7542bd0fcd8947a"
+        },
+        {
+          "name": "command.json",
+          "size": 23,
+          "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+        },
+        {
+          "name": "dispatch-entry.json",
+          "size": 1240,
+          "sha256": "198ca6db46e27451a0008cbe9fca385a221e0ec3485fbe121b4ed0ed125af9b4"
+        },
+        {
+          "name": "dispatch-events.jsonl",
+          "size": 4145,
+          "sha256": "3172a9afe787e92594479f29fd994bc9c69dcad5bdb45311e7ba884186177d9f"
+        },
+        {
+          "name": "dispatch-return.json",
+          "size": 911,
+          "sha256": "381cf292e8f8a7b16edeee81076b0d32721f0227a5e459a1d55c0958bd4555d2"
+        },
+        {
+          "name": "harness-used.py",
+          "size": 16568,
+          "sha256": "01965dbda125c1b80e80f586909b9dc7619a782fa21368200a8337516b35acaa"
+        },
+        {
+          "name": "hero-target.json",
+          "size": 714,
+          "sha256": "02c6e4b6fc5f57944950e26fc2f5564362854a2e759231ce11857f51b2c9a308"
+        },
+        {
+          "name": "isolation.json",
+          "size": 680,
+          "sha256": "1a8cf7975eba725eabead1368945849417a7f4868addfba57320ce2d425dd54b"
+        },
+        {
+          "name": "native-entry.json",
+          "size": 912,
+          "sha256": "59a2939b48731d420f5be7afd8f8db33c3c517550c06fc416dd2d15dc402d748"
+        },
+        {
+          "name": "native-return.json",
+          "size": 1078,
+          "sha256": "4d51bd7708cab1aa639d7dc50d25923c87b4af8b2ee7692ba95be7c1cb0bd5c8"
+        },
+        {
+          "name": "packets.jsonl",
+          "size": 25772,
+          "sha256": "d01ed403b7a9555a040082a3a71db8631c29fc58e786efe1f5eeb62a7ddcd208"
+        },
+        {
+          "name": "packets.log",
+          "size": 20207,
+          "sha256": "bcb969d0a666a44cf396e13bed7079d6afacc522deeb7025c73f2e7b9e462a96"
+        },
+        {
+          "name": "pids.json",
+          "size": 99,
+          "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+        },
+        {
+          "name": "position-samples.jsonl",
+          "size": 472610,
+          "sha256": "820b5e549992455601e1eec794eb78a5e494705681b090c5b6f9b61c7d0d86a1"
+        },
+        {
+          "name": "probe-ready.json",
+          "size": 200,
+          "sha256": "74fbc464d463ff42cc7569bd95a3e117a407e377de150f406cb287f048874d71"
+        },
+        {
+          "name": "probe-template-used.gdb",
+          "size": 14725,
+          "sha256": "dbf02bcebf1567b28c962218e1c39d729f6138a2728f31500c8dcc9406282e40"
+        },
+        {
+          "name": "probe.gdb",
+          "size": 14725,
+          "sha256": "dbf02bcebf1567b28c962218e1c39d729f6138a2728f31500c8dcc9406282e40"
+        },
+        {
+          "name": "ready.json",
+          "size": 74,
+          "sha256": "53a3ff283bf9fd35e0dee9f3d2f841b51134bad73fdbefb283d13d61d9860904"
+        },
+        {
+          "name": "registered-hooks.json",
+          "size": 224,
+          "sha256": "0dc5d7c1d3d87bf701e0e598a99033b4f5e2c623db961e2675189f14171d43c8"
+        },
+        {
+          "name": "server-used.py",
+          "size": 45522,
+          "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+        },
+        {
+          "name": "server.log",
+          "size": 20207,
+          "sha256": "bcb969d0a666a44cf396e13bed7079d6afacc522deeb7025c73f2e7b9e462a96"
+        },
+        {
+          "name": "sources.json",
+          "size": 432,
+          "sha256": "6e8f5c6df47ddf947ac48d067bf542663ceb81442b2394c720029e7cbb007fb6"
+        },
+        {
+          "name": "start.json",
+          "size": 1298,
+          "sha256": "29052da73f34c7ba271ccbe358e3020cda16a2e84bb68c5a895b7455a74c5b40"
+        },
+        {
+          "name": "supervisor.log",
+          "size": 504,
+          "sha256": "089bf820e1d69a7be1c9b0c466624a7272e4a7c0735eca1fe1215f4139633d5a"
+        },
+        {
+          "name": "winedbg.log",
+          "size": 15352,
+          "sha256": "c11ca4c03d5e42b6954ef83edc0773c3dfe6487f968d522caaf1119211b1891c"
+        },
+        {
+          "name": "xvfb.log",
+          "size": 1485,
+          "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+        }
+      ],
+      "packets": {
+        "c117": 1,
+        "s158": 1,
+        "picks": [
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 11,
+            "b": 14,
+            "index": 0,
+            "kind": 2,
+            "time": 2604,
+            "key": 10000,
+            "flag": 0
+          }
+        ],
+        "forbidden": []
+      }
+    }
+  },
+  "root_verification": {
+    "path": "/tmp/native-writer-root-verification.json",
+    "status": "PASS_root_reported",
+    "values": "5/6 plus 4 unknown",
+    "thread_scope": "per-run; writer312 vs dispatch316"
+  },
+  "native_ack": {
+    "writer-r1": {
+      "packets": {
+        "c117": 1,
+        "s158": 1,
+        "picks": [
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 11,
+            "b": 14,
+            "index": 0,
+            "kind": 2,
+            "time": 2549,
+            "key": 10000,
+            "flag": 0
+          }
+        ],
+        "forbidden": []
+      },
+      "owner_active": false,
+      "clean": "supervisor DONE"
+    },
+    "dispatch-r1": {
+      "packets": {
+        "c117": 1,
+        "s158": 1,
+        "picks": [
+          {
+            "ctx": 0,
+            "slot": 0,
+            "a": 11,
+            "b": 14,
+            "index": 0,
+            "kind": 2,
+            "time": 2604,
+            "key": 10000,
+            "flag": 0
+          }
+        ],
+        "forbidden": []
+      },
+      "owner_active": false,
+      "clean": "supervisor DONE"
+    }
+  },
+  "static": {
+    "vtable": "0xc66284",
+    "slot_offset": "0x14",
+    "slot_bytes": "99945900",
+    "target": "0x599499",
+    "COL": "0xcca690",
+    "type_name": ".?AVCGOZzolmanBomber@@",
+    "function_ranges": {
+      "body599499": "599499..5994D8",
+      "body445516": "445516..44552F"
+    },
+    "manifest": [
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/body_445516_44552f.asm",
+        "size": 675,
+        "sha256": "80f2cf81aa75f42dd94f8c22ce6b7d2120466a4325ee2dc1400847061362b918"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/body_599499_5994d8.asm",
+        "size": 1356,
+        "sha256": "65dd7ac1c62dee51ec9711549a4c1938199b7c889d1e012e59982a5f9efb1f0a"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/body_6e7c1a_6e7d76.asm",
+        "size": 6066,
+        "sha256": "ea32e020730c7eda52f9f7e77125ed8144e3359ab357f651f7199ce09ebe0ef7"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/body_6e7c1a_6e7d79.asm",
+        "size": 6110,
+        "sha256": "9f587d106eb1faef101df0c1cafbb17fb6f43f60e0e7fc7976a67af93d656228"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/body_89d093_89d1b3.asm",
+        "size": 5555,
+        "sha256": "8b733d55285609ec30d1c106bf8081752cb69445139811b5b3e6777ca6cc25c3"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/body_89d093_89d1b6.asm",
+        "size": 5599,
+        "sha256": "f1bb0935276ffb81d5fae77306b396bb148cd418aafe882a426eae48cf54529c"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/callsite_5a5f60_5a5f6c.asm",
+        "size": 292,
+        "sha256": "56f4b70235c33767a8ad526e7e2389787a9b290367dfe206d7d4b6776a2e5fad"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/callsite_7160b4_7160c0.asm",
+        "size": 405,
+        "sha256": "96b36f8c1d3c3a60ae1f4061881c1828c1d6fb7f7196be38f706a846e34a8e05"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/prefix_89c202_89c402.asm",
+        "size": 9206,
+        "sha256": "c353846aa88e392c998cf627f6a22d7413cac23c78a64a7384f3bfbd185ae690"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/asm/prefix_89cac8_89cec8.asm",
+        "size": 14218,
+        "sha256": "c4b44b2d67009540163d7a14cb20ca3da8fca7c24fc1d0e391b95886a33f433b"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_445516_44552f.bin",
+        "size": 25,
+        "sha256": "0758be9807c66a024cd54e34b7f09a2eb3285a08baa1041e00d1206cad1be4af"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_445516_44552f.hex",
+        "size": 51,
+        "sha256": "ce0467d27753000dd028da947e3d8555fcf0dcba73fd70b6cfa7f199e9de01a8"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_599499_5994d8.bin",
+        "size": 63,
+        "sha256": "0891fbf3626f95c3cc6f7e560f9a359102084c3a74403fb4a27c4114ab42f2c1"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_599499_5994d8.hex",
+        "size": 127,
+        "sha256": "e70a42e81f2adb8c916c308ec2791faa05422d7b920128b0b4a3895bb90314b7"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_6e7c1a_6e7d76.bin",
+        "size": 348,
+        "sha256": "b39cf40546eb73264540dfe4b438508832c592120ef5596a9a15a363a7ae1869"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_6e7c1a_6e7d76.hex",
+        "size": 697,
+        "sha256": "5b06af58bed81c7a2b1d31d25210e3866085902fe3140b6621af0f2343aadbcc"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_6e7c1a_6e7d79.bin",
+        "size": 351,
+        "sha256": "8158de5ba8df74474296cb84610fc14d4529f3057ce63d9b4c32b7647d6675ee"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_6e7c1a_6e7d79.hex",
+        "size": 703,
+        "sha256": "07b7083f7e0bd851ea7c77dc54a54507bfaba7be9679aac8e8802d30aaf52bee"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_89d093_89d1b3.bin",
+        "size": 288,
+        "sha256": "1134dee8190f372ce0f6d8c49ef78cd351e638a563cf35385e820dbba9d3e37c"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_89d093_89d1b3.hex",
+        "size": 577,
+        "sha256": "923122c5cdaf423a1010f8d7f98d71046e7d0c3e8c3fe85fdbfcb528a9c493d4"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_89d093_89d1b6.bin",
+        "size": 291,
+        "sha256": "c7747d7f59ae6756d770bb9b027ea0f48aba14da9d27fb513b9d8de9ce5693e8"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/body_89d093_89d1b6.hex",
+        "size": 583,
+        "sha256": "f25cb3904d7381c43d01f4aec84ec48b13f1bd9aa353bc0f27bbbabede9a66bc"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/callsite_5a5f60_5a5f6c.bin",
+        "size": 12,
+        "sha256": "a1349c40b46e98f6c555706cdf8fe159b9b5e88e522b19365371a12781742000"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/callsite_5a5f60_5a5f6c.hex",
+        "size": 25,
+        "sha256": "f12b7c7426dd6918fb7b3dafa14f6b2b4a9093595785095e5847a1f6b0664eb0"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/callsite_7160b4_7160c0.bin",
+        "size": 12,
+        "sha256": "266f74d28a678093651ddf1f41e2a28dbb084af4122cf51b987d7f87aa23bd8d"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/callsite_7160b4_7160c0.hex",
+        "size": 25,
+        "sha256": "49902ac822805b9b1856146119bdc3fc91806937fc47e898b3e2b7b2916166c8"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/prefix_89c202_89c402.bin",
+        "size": 512,
+        "sha256": "3a85899f11d5c2dc0b2df92a7f243caf4de7ff8c9de429ba226d8708c8bf83aa"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/prefix_89c202_89c402.hex",
+        "size": 1025,
+        "sha256": "4391886a2061c01ef397ede785a0736afe86108f4d9db4f819627166ec404730"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/prefix_89cac8_89cec8.bin",
+        "size": 1024,
+        "sha256": "a9b17df329a7ff5432a936d81ae67e6f9a895ba14ca0af415129f534f50f87bf"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/bytes/prefix_89cac8_89cec8.hex",
+        "size": 2049,
+        "sha256": "b965fea7fdd335d6d1a3ba255d79a119df10ade1a53ac901fd0fc1d256d77ce0"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/checkpoint.md",
+        "size": 2959,
+        "sha256": "2275b6cc512fefc5094e80bf834c94841cbcc37bd0c0552ec37ea04cfac5c2b8"
+      },
+      {
+        "path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c64-writer-static/ledger.json",
+        "size": 6291,
+        "sha256": "4439c44a786955ef28932b8b3cccd5a3b98a9f6a240770a7f2b52b1e7e92a98f"
+      },
+      {
+        "path": "/home/admin/boom-team/tmp/c64-dispatch-root-vtable.json",
+        "size": 519,
+        "sha256": "922c5d91ee4d2761ae09a800efed9d046b917f1fc259cc40c1ee4155a55b7f90"
+      },
+      {
+        "path": "/home/admin/boom-team/tmp/r173-599499-original-prefix384-tool.txt",
+        "size": 6873,
+        "sha256": "ed686849b330d18d305bff0092be0542e02e38105fffeb326f639a398eebe3cf"
+      },
+      {
+        "path": "/home/admin/boom-team/tmp/r173-445516-original-prefix384-tool.txt",
+        "size": 7309,
+        "sha256": "0b91b3ef6769ac1a08c4397b62c23ffb8b05bf57289393d485730f220f842f69"
+      },
+      {
+        "path": "/home/admin/boom-team/tmp/r173-static-window-coverage.json",
+        "size": 1638,
+        "sha256": "a1b31afe3dd990f10de1c31d41fd14791ed60f5493a66f3939a43d026d459d88"
+      }
+    ],
+    "old_wrong_ret_cuts": {
+      "6e7c1a_6e7d76_sha256": "b39cf40546eb73264540dfe4b438508832c592120ef5596a9a15a363a7ae1869",
+      "89d093_89d1b3_sha256": "1134dee8190f372ce0f6d8c49ef78cd351e638a563cf35385e820dbba9d3e37c"
+    },
+    "vtable_proof": {
+      "fixture_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "vtable": "0xc66284",
+      "slot_offset": "0x14",
+      "slot_bytes": "99945900",
+      "target": "0x599499",
+      "COL": "0xcca690",
+      "status": "data lookup; source branch virtual call +0x14 conditional on actual selector3 is cached; runtime target itself not breakpointed",
+      "COL_fields": [
+        "0x0",
+        "0x5fc",
+        "0x0",
+        "0xe42f5c",
+        "0xcca5b4"
+      ],
+      "type_name": ".?AVCGOZzolmanBomber@@",
+      "type_descriptor": "0xe42f5c"
+    },
+    "coverage_note": "Two final target functions have88B semantic review. Initial tool windows requested768B, printed767B and adjacent entries beyond the two-unit target budget; stopped and retained. 7/9RET sites are not asserted to be verified function counts. Raw exposure and semantic review are explicitly separate.",
+    "capture_coverage": {
+      "schema": 1,
+      "windows": [
+        {
+          "start": "0x599499",
+          "requested_bytes": 384,
+          "decoded_printed_bytes": 383,
+          "end_exclusive_last_decoded_instruction": "0x599618",
+          "ret_sites": [
+            "5994d7",
+            "599525",
+            "59954b",
+            "59958f",
+            "5995cc",
+            "5995f3",
+            "599612"
+          ],
+          "ret_site_count_not_verified_function_count": 7,
+          "semantic_target_bytes": 63,
+          "full_tool_capture_private": "/home/admin/boom-team/tmp/r173-599499-original-prefix384-tool.txt",
+          "capture_sha256": "ed686849b330d18d305bff0092be0542e02e38105fffeb326f639a398eebe3cf"
+        },
+        {
+          "start": "0x445516",
+          "requested_bytes": 384,
+          "decoded_printed_bytes": 384,
+          "end_exclusive_last_decoded_instruction": "0x445696",
+          "ret_sites": [
+            "44552e",
+            "44553b",
+            "445551",
+            "445598",
+            "44560d",
+            "445652",
+            "445660",
+            "445677",
+            "44567a"
+          ],
+          "ret_site_count_not_verified_function_count": 9,
+          "semantic_target_bytes": 25,
+          "full_tool_capture_private": "/home/admin/boom-team/tmp/r173-445516-original-prefix384-tool.txt",
+          "capture_sha256": "0b91b3ef6769ac1a08c4397b62c23ffb8b05bf57289393d485730f220f842f69"
+        }
+      ],
+      "requested_total_bytes": 768,
+      "decoded_printed_total_bytes": 767,
+      "semantic_target_total_bytes": 88,
+      "limits": "RET-site counts are not verified function counts; adjacent instructions printed, not all analyzed. More than two entry/body units were exposed despite two-target semantic budget; stopped, no retrospective deletion or new analysis."
+    },
+    "historical_worker_ledger_limit": "Earlier worker checkpoint shortened the first capture hash and mixed767decoded bytes with768requested bytes; original captures and independently recomputed coverage above correct those labels without deleting history."
+  },
+  "coverage": {
+    "semantic_targets": [
+      {
+        "unit": "599499",
+        "bytes": 63
+      },
+      {
+        "unit": "445516",
+        "bytes": 25
+      }
+    ],
+    "semantic_bytes": 88,
+    "raw_tool_windows": [
+      {
+        "unit": "599499",
+        "requested": 384,
+        "printed_decoded_bytes": 383,
+        "range": "599499..599617",
+        "complete_entries_visible": 7,
+        "partial_entry": true,
+        "root_tooltext_sha256": "d686849b330d18d305bff0092be0542e02e38105fffeb326f639a398eebe3cf"
+      },
+      {
+        "unit": "445516",
+        "requested": 384,
+        "collateral_printed": true,
+        "full_tooltext_retained_private": false,
+        "semantic_target_bytes": 25
+      }
+    ],
+    "collateral_unit_count_over_two": true,
+    "raw_windows_within_byte_grant": true,
+    "no_adjacent_semantic_analysis": true
+  },
+  "limits": [
+    "no timing/level/KR C00C01/f2f3/speed norm",
+    "max numeric value unknown",
+    "writer-r1 and dispatch-r1 different actors/captures; clocks not joined",
+    "no public image/asm bytes"
+  ],
+  "source": "vn_runtime + vn_static",
+  "schema": 1,
+  "claim": "R-173",
+  "issues": [
+    149,
+    146
+  ],
+  "baseline": "1af523ef5a75a83c70e19fb7a666ac3b11d22f6d",
+  "status": "confirmed (selected actor C64 increment/clamp dataflow; not KR character identity or level)",
+  "fixture": {
+    "build": "VN VBNB_116 patched offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "base": "0x400000",
+    "architecture": "i386",
+    "map": "Factory01, index193, room19",
+    "patch_scope": "Same disclosed IAT/devirt/offline fixture as R170-R172; owner authorizes scoped VN runtime; original vanilla equivalence not established"
+  },
+  "private_clone_root": "/home/admin/boom-rs-dsh/re-kr",
+  "raw_runs_private": {
+    "writer-r1": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-c64-writer-149-r1",
+    "dispatch-r1": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/host-c64-dispatch-149-r1"
+  },
+  "runtime_policy": "Codex sole runtime owner; isolated user/net/PID/mount namespaces with loopback only, tmpfs /tmp, own Xvfb displayfd, copied game/prefix; both runs stopped with command2 and supervisor/namespace exited; no shared kill/server/DB edit.",
+  "verification": {
+    "independent_recompute": "verify-c64-writer-native.py checks actual header/payload cookies and checksums; both run endpoint values5/6 valid, all4 hardware transients remain unknown; native selected thread/frame/type/alias arithmetic PASS",
+    "runtime_breakpoint_target_limit": "89C202 entry/return captured; 599499 target is static vtable binding plus selected branch, not directly breakpointed in this capture",
+    "cipher_payloads_complete": true,
+    "no_clock_join_between_runs": true
+  },
+  "manifest_policy": "Public contains only numeric evidence/paths/sizes/digests. Raw logs, PE bytes, media and long assembly remain private."
+}
