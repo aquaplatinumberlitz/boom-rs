@@ -1,6 +1,6 @@
 # Rules profile phát triển cho V1 (KR 00967, Battle FFA, Village00).
 # Mỗi giá trị trỏ claim trong docs/specification/gameplay/RULES_V1.md; nhãn theo AGENTS §4.
-# release = false: còn giá trị candidate/design chưa review, không dùng cho bản phát hành.
+# release = false: profile phát triển; chưa nghiệm thu G6/gói phát hành, không tự bật khi nguồn stat đã rõ.
 schema = 1
 profile_id = "kr00967-v1-dev"
 release = false
@@ -126,95 +126,95 @@ status = "confirmed"
 claims = ["R-051", "R-112"]
 note = "ADR 0013/R-112: số bảng confirmed; vai trò bảng drop còn unknown R-052, áp làm trọng số V1 có chủ ý"
 
-# Chỉ số nhân vật C00/C01: `BomberAttr` của pack KR 00967 (RULES_V1 R-040/R-041, `confirmed`).
-# Nghĩa trường theo R-042 (`candidate`): f2–f3 = cấp tốc độ, f4–f5 = số bom, f6–f7 = tầm nổ.
-# Vì nghĩa trường còn `candidate`, **giá trị dùng** cũng là `candidate` (AGENTS §4): dãy số đã
-# đối chiếu (R-040/R-041) nhưng chưa có bằng chứng rằng f2–f7 mang đúng nghĩa speed/bombs/range.
-# Mỗi giá trị là một khóa riêng để mỗi giá trị trỏ claim (AGENTS §3) và để `rules_hash`
-# đổi khi chỉ số đổi (định danh profile là hash của toàn bộ rule).
+# R-182: 12 statpoint logic từ logical Attr rows VN, source/consumer R-173/R-175/R-178/R-180/R-181.
+# `level` là nhãn họ scalar của CharacterSpec/Stat: movementpoint, capacitycount, Firepoint.
+# Không phải px/s, Hz hoặc kích thước hurtbox. Đổi speedpoint→24px/s vẫn DESIGN R-114 riêng;
+# engine dùng capacitypoint làm số bom, Firepoint làm số ô ray theo contract V1/R-057/R-111.
+# R-040/R-041 giữ numeric KR; R-042/R-117 candidate là lịch sử trước khi nối consumer VN.
+# Chỉ thay source/status/claims có bằng chứng, không đổi 12 số hoặc release=false.
 [characters.c00_speed]
 value = 5
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c00_speed_max]
 value = 7
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c00_bombs]
 value = 1
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c00_bombs_max]
 value = 10
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c00_range]
 value = 1
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c00_range_max]
 value = 7
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-040", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c01_speed]
 value = 4
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c01_speed_max]
 value = 8
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c01_bombs]
 value = 2
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c01_bombs_max]
 value = 7
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c01_range]
 value = 1
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 [characters.c01_range_max]
 value = 9
 unit = "level"
-source = "kr_static"
-status = "candidate"
-claims = ["R-041", "R-042", "R-117"]
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-182", "R-180", "R-175"]
 
 # Thời lượng một frame animation của client (presentation, không phải luật chơi).
 # R-079: pack client gốc không mang trường thời gian, nên V1 **chọn** nhịp riêng

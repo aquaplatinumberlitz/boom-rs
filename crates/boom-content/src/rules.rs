@@ -721,6 +721,51 @@ claims = ["R-041"]
     }
 
     #[test]
+    fn native_logical_stats_preserve_values_and_release_candidate_guard() {
+        let text = include_str!("../../../data/rules/v1-dev.toml");
+        let p = RulesProfile::from_toml(text).unwrap();
+        assert!(!p.release); // Source acceptance is not release authorization.
+        let t = p.character_table().unwrap();
+        assert_eq!(
+            [
+                t.c00.speed_value,
+                t.c00.speed_max,
+                t.c00.bombs_value,
+                t.c00.bombs_max,
+                t.c00.range_value,
+                t.c00.range_max
+            ],
+            [5, 7, 1, 10, 1, 7]
+        );
+        assert_eq!(
+            [
+                t.c01.speed_value,
+                t.c01.speed_max,
+                t.c01.bombs_value,
+                t.c01.bombs_max,
+                t.c01.range_value,
+                t.c01.range_max
+            ],
+            [4, 8, 2, 7, 1, 9]
+        );
+        // Test only loader eligibility in memory; never write release=true to the profile.
+        let eligible = text.replace("release = false", "release = true");
+        assert!(RulesProfile::from_toml(&eligible).is_ok());
+        let poisoned = eligible.replace(
+            "[characters.c01_speed]\nvalue = 4\nunit = \"level\"\nsource = \"vn_runtime\"\nstatus = \"confirmed\"",
+            "[characters.c01_speed]\nvalue = 4\nunit = \"level\"\nsource = \"vn_runtime\"\nstatus = \"candidate\"",
+        );
+        assert_ne!(poisoned, eligible);
+        assert_eq!(
+            RulesProfile::from_toml(&poisoned),
+            Err(ProfileError::NotReleasable(
+                "characters.c01_speed".into(),
+                Status::Candidate
+            ))
+        );
+    }
+
+    #[test]
     fn repo_profiles_carry_character_tables() {
         for text in [
             include_str!("../../../data/rules/v1-dev.toml"),
