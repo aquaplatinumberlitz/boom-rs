@@ -430,8 +430,9 @@ pub fn presentation_plan(
     let tile_px = scene.tile_px;
     let frames = frame_counts(bundle);
     let mut missing: Vec<String> = Vec::new();
-    // (hàng, cột, thứ tự trong ô, lệnh vẽ)
-    let mut items: Vec<(u16, u16, u8, PlanItem)> = Vec::new();
+    // (y chân theo px, cột, thứ tự cùng chân, lệnh vẽ) — đối tượng theo ô có chân ở
+    // `hàng·T + T − 1` (R-210), nhân vật có chân theo toạ độ thật (#305).
+    let mut items: Vec<(i32, u16, u8, PlanItem)> = Vec::new();
 
     for item in &scene.objects {
         // Gạch đã phá (ô chuyển sang nền) thì không vẽ nữa, còn vật cản cứng thì luôn vẽ.
@@ -441,7 +442,12 @@ pub fn presentation_plan(
         if !object_visible(item.kind, current) {
             continue;
         }
-        items.push((item.row, item.column, ORDER_OBJECT, PlanItem::Object(*item)));
+        items.push((
+            row_foot(item.row, tile_px),
+            item.column,
+            ORDER_OBJECT,
+            PlanItem::Object(*item),
+        ));
     }
 
     for flame in &state.flames {
@@ -460,7 +466,7 @@ pub fn presentation_plan(
             tile_px,
             &mut missing,
         ) {
-            items.push((row, column, ORDER_FLAME, item));
+            items.push((row_foot(row, tile_px), column, ORDER_FLAME, item));
         }
     }
 
@@ -480,7 +486,7 @@ pub fn presentation_plan(
             tile_px,
             &mut missing,
         ) {
-            items.push((row, column, ORDER_BOMB, item));
+            items.push((row_foot(row, tile_px), column, ORDER_BOMB, item));
         }
     }
 
@@ -524,10 +530,19 @@ pub fn presentation_plan(
                 (clip, frame)
             }
         };
-        if let Some(item) =
-            clip_plan_item(bundle, &clip_id, frame, column, row, tile_px, &mut missing)
-        {
-            items.push((row, column, ORDER_CHARACTER, item));
+        // Nhân vật vẽ theo toạ độ thật (không làm tròn về ô) và đủ hai lớp `static` +
+        // `adjust`, mỗi lớp neo bằng offset của frame (#305).
+        let (anchor_x, anchor_y) = actor_anchor(player.x.0, player.y.0, tile_px);
+        for item in actor_plan_items(
+            bundle,
+            &clip_id,
+            frame,
+            (column, row),
+            (anchor_x, anchor_y),
+            tile_px,
+            &mut missing,
+        ) {
+            items.push((anchor_y, column, ORDER_CHARACTER, item));
         }
     }
 
@@ -559,13 +574,14 @@ pub fn presentation_plan(
                 tile_px,
                 &mut missing,
             ) {
-                items.push((row, column, ORDER_FLAME, item));
+                items.push((row_foot(row, tile_px), column, ORDER_FLAME, item));
             }
         }
     }
 
-    // Z-order: hàng lớn hơn vẽ sau (gần người xem hơn), cùng hàng thì cột lớn hơn
-    // vẽ sau, cùng ô thì theo thứ tự trong ô.
+    // Z-order: chân thấp hơn (y lớn hơn) vẽ sau — gần người xem hơn; cùng chân thì cột lớn
+    // hơn vẽ sau, rồi theo thứ tự trong ô. Nhân vật đi giữa hai hàng được che đúng theo y
+    // chân thật thay vì theo ô làm tròn (#305).
     items.sort_by_key(|(row, column, order, _)| (*row, *column, *order));
 
     Plan {
@@ -605,6 +621,81 @@ fn clip_plan_item(
         frame: index,
         item,
     })
+}
+
+/// Y chân (px) của đối tượng theo ô: `hàng·T + T − 1` (R-210).
+fn row_foot(row: u16, tile_px: u32) -> i32 {
+    let tile = i32::try_from(tile_px).unwrap_or(i32::MAX);
+    i32::from(row).saturating_mul(tile).saturating_add(tile - 1)
+}
+
+/// Neo vẽ của nhân vật từ toạ độ core (mpx, tâm hộp): `x` = mép trái ô, `y` = chân
+/// (`hàng·T + T − 1` khi đứng đúng ô) — cùng mốc với tile/object R-210 và R-009, nhưng giữ
+/// phần lẻ pixel để nhân vật trượt mượt.
+#[must_use]
+pub fn actor_anchor(x_mpx: i32, y_mpx: i32, tile_px: u32) -> (i32, i32) {
+    let tile = i32::try_from(tile_px).unwrap_or(i32::MAX);
+    let x = x_mpx.div_euclid(boom_core::Mpx::PER_PX);
+    let y = y_mpx.div_euclid(boom_core::Mpx::PER_PX);
+    (x - tile / 2, y + tile / 2 - 1)
+}
+
+/// Đặt frame của actor: góc trên-trái vùng ảnh = neo − offset của frame (`f0`, `f1`; R-209).
+///
+/// Đối chiếu ảnh client gốc VN (`battle_village01`): lớp `static` + `adjust` của C00 đặt
+/// theo công thức này đứng giữa ô, đầu nhô lên ô trên; quy tắc "đáy canvas = mép dưới ô"
+/// của tile (BUNDLES §7) làm nhân vật lệch xuống và bị vật cản hàng dưới che (#305).
+#[must_use]
+pub fn actor_placement(frame: &Frame, anchor_x: i32, anchor_y: i32) -> PixelRect {
+    PixelRect {
+        x: anchor_x - frame.offset_x,
+        y: anchor_y - frame.offset_y,
+        width: u32::try_from((frame.x1 - frame.x0).max(0)).unwrap_or(0),
+        height: u32::try_from((frame.y1 - frame.y0).max(0)).unwrap_or(0),
+    }
+}
+
+/// Lệnh vẽ của nhân vật: lớp `static` của clip rồi lớp `adjust` cùng tên (nếu bundle có),
+/// mỗi lớp đặt theo [`actor_placement`]. Thiếu clip `static` thì ô màu thay thế như
+/// [`clip_plan_item`]; frame không có ảnh thì không vẽ lớp đó.
+fn actor_plan_items(
+    bundle: &Bundle,
+    clip_id: &str,
+    frame: Option<usize>,
+    (column, row): (u16, u16),
+    (anchor_x, anchor_y): (i32, i32),
+    tile_px: u32,
+    missing: &mut Vec<String>,
+) -> Vec<PlanItem> {
+    let Some(clip) = bundle.clips.iter().find(|clip| clip.id == clip_id) else {
+        note_missing(clip_id, missing);
+        return vec![PlanItem::Fallback {
+            clip: clip_id.to_owned(),
+            rect: fallback_rect(column, row, tile_px),
+        }];
+    };
+    let Some(index) = frame else {
+        return Vec::new();
+    };
+    let adjust_id = clip_id
+        .strip_suffix(".static")
+        .map(|base| format!("{base}.adjust"));
+    let adjust = adjust_id
+        .as_deref()
+        .and_then(|id| bundle.clips.iter().find(|clip| clip.id == id));
+    std::iter::once(clip)
+        .chain(adjust)
+        .filter_map(|layer| {
+            let layer_index = index.min(layer.frames.len().checked_sub(1)?);
+            let mut item = clip_frame_item(bundle, layer, layer_index, column, row, tile_px)?;
+            item.dest = actor_placement(&layer.frames[layer_index], anchor_x, anchor_y);
+            Some(PlanItem::Sprite {
+                clip: layer.id.clone(),
+                frame: layer_index,
+                item,
+            })
+        })
+        .collect()
 }
 
 /// Ghi lại clip thiếu (không trùng lặp) để client cảnh báo.
@@ -1340,6 +1431,80 @@ mod tests {
 
     /// Nghiệm thu V1-031 (không GPU): state core → clip/frame đúng cho đi, đứng,
     /// chết, bom và lửa.
+    #[test]
+    fn actor_anchor_keeps_sub_tile_pixels() {
+        // Tâm ô (1, 1) ở 60 px ⇒ neo = mép trái ô và chân `hàng·40 + 39` (R-210/R-009).
+        assert_eq!(actor_anchor(60_000, 60_000, 40), (40, 79));
+        // Lệch nửa ô: neo trượt theo pixel, không làm tròn về ô (#305).
+        assert_eq!(actor_anchor(80_000, 60_500, 40), (60, 79));
+        assert_eq!(actor_anchor(61_999, 60_000, 40), (41, 79));
+    }
+
+    #[test]
+    fn actor_placement_anchors_the_frame_by_its_offset() {
+        let mut frame = ground_frame();
+        frame.offset_x = 6;
+        frame.offset_y = 60;
+        frame.x0 = 0;
+        frame.y0 = 0;
+        frame.x1 = 52;
+        frame.y1 = 55;
+        assert_eq!(
+            actor_placement(&frame, 40, 79),
+            PixelRect {
+                x: 34,
+                y: 19,
+                width: 52,
+                height: 55
+            }
+        );
+    }
+
+    #[test]
+    fn character_moves_by_pixels_draws_both_layers_and_sorts_by_foot() {
+        let mut bundle = clip_bundle();
+        // Lớp adjust của clip đứng: cùng frame, khác ID — client phải vẽ cả hai (#305).
+        let mut adjust = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == "c00.idle.blink.static")
+            .expect("clip đứng")
+            .clone();
+        adjust.id = "c00.idle.blink.adjust".to_owned();
+        bundle.clips.push(adjust);
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        let sprites = |state: &SimulationState| {
+            presentation_plan(
+                &bundle,
+                &scene,
+                state,
+                &world,
+                &clock_at(state.tick),
+                &BTreeMap::new(),
+                &empty_journal(),
+            )
+            .items
+            .into_iter()
+            .filter_map(|item| match item {
+                PlanItem::Sprite { clip, item, .. } if clip.starts_with("c00.") => {
+                    Some((clip, item.dest))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+        };
+        let before = sprites(&state);
+        let layers: Vec<&str> = before.iter().map(|(clip, _)| clip.as_str()).collect();
+        assert_eq!(layers, ["c00.idle.blink.static", "c00.idle.blink.adjust"]);
+        // Dịch 7 px (chưa sang ô khác): ảnh dịch đúng 7 px.
+        state.players[0].x = boom_core::Mpx(state.players[0].x.0 + 7_000);
+        let after = sprites(&state);
+        assert_eq!(after[0].1.x - before[0].1.x, 7);
+        assert_eq!(after[0].1.y, before[0].1.y);
+    }
+
     #[test]
     fn plan_picks_the_clip_of_the_core_state() {
         let bundle = clip_bundle();
