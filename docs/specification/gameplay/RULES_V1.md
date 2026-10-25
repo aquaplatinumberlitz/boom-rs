@@ -1129,6 +1129,28 @@ số lần update trên cửa sổ thời gian; không suy từ screenshot/30Hz 
 R-164/R-165 vẫn chỉ xác nhận flame state/raw duration; R-141 vẫn xác nhận flame display = frame
 counter. Không đổi profile, G2/G6, release, feature count hoặc #149.
 
+## 50. Định vị VN cho counter animation — blocker (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-216 | **Chưa định vị được consumer/counter animation tương đương trên fixture VN**; không dùng VA KR cho VN. Các accessor `CDataI16Alpha` (vtable C79714) chỉ là candidate frame-record API; chưa chứng minh chúng là `BA3530`/`B33170`/`sub_636620` hay counter update | Không có giá trị ms/tick; không đổi profile | `vn_static` / **unknown** (candidate locator only) | Fixture `bc875…`; candidate `CDataI16Alpha` accessors `0x8D50DF/0x8D50F3/0x8D510B/0x8D5123/0x8D5136/0x8D514A` (record base/+0/+4/+8, stride0x30), vtable C79714; `CGameObjectTemplate` vtable C378D4/methods `5C…`; `Animation` constructor `412A1F` is not a counter. KR evidence `ev_ec5…`/`ev_719…` belongs to `kr-full.exe`, not this VN fixture. REA IDB VN returned unreadable; no counter/consumer confidence |
+
+Không có PR/thay đổi profile từ R-216: `presentation.frame_duration_ms` giữ100ms DESIGN và
+`anim::character_loop_frame` giữ nguyên. Đây là **blocker phạm vi VN locator**: cần root/IDA names
+hoặc pattern body xác nhận trước khi đặt breakpoint; không chạy counter observation bằng địa chỉ KR.
+Không suy ms từ30Hz/screenshot. R-215 vẫn chỉ static mechanism; #311 runtime chưa có số.
+
+## 51. Nhịp idle/blink C00 trên video VN — R-217 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-217 | C00 đứng yên trên bản sao VN đổi trạng thái idle/blink theo chu kỳ khoảng **1,52 s** (hai khoảng nền 1,517/1,533 s); trong cửa sổ active, khoảng đổi hình median **83 ms** (16–117 ms). Đây là **quan sát video**, không phải frame duration native: capture thực tế 431 frame/11,983 s, PTS median33 ms (≈35,9 fps), không phải60 fps | Chu kỳ idle/blink≈1,52 s; active change median83 ms, sampling ±33 ms; không có ms/frame native | `vn_runtime` / **partial** (visual change, không locator) | Raw local `/home/admin/boom-rs-dsh/re-kr/.re-work/anim311-video-r2/capture.mkv` (không commit), `actions.jsonl`, `analysis.json`; C00 đứng5 s rồi đi3 s. Walk không tách được frame khỏi dịch chuyển vị trí; fire không đặt. Không dùng PTS60/30Hz giả; không có native counter/ODT mapping |
+
+R-217 không đủ để đổi `presentation.frame_duration_ms`: giá trị hiện100 ms nằm trong sai số/quan sát
+83±33 ms; **đề xuất giữ100 ms** và không đổi `anim::character_loop_frame` chỉ từ video này. Nếu cần
+per-clip walk/blink, phải đo với anchor sprite tách vị trí hoặc locator native; không suy walk từ video
+dịch chuyển. Không đổi profile/G2/G6/release; #311 runtime vẫn partial.
+
 ## 50. Walk C00: pose và bước dịch trên video VN — R-218 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |

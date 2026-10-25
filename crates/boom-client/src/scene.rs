@@ -344,15 +344,19 @@ impl Scene {
 /// Vật cản trước, rồi lửa (hiệu ứng trên nền), rồi bom (vật thể đứng trên nền), rồi
 /// nhân vật (đứng trên bom khi mới đặt). BUNDLES §7.
 const ORDER_OBJECT: u8 = 0;
+/// Thứ tự vẽ: item nằm trên nền (dưới lửa/bom/nhân vật cùng chân).
+const ORDER_ITEM: u8 = 1;
 /// Thứ tự vẽ: lửa.
 ///
 /// Hiệu ứng nổ dùng **cùng** bậc này: nó được đẩy **sau** lửa nên vẽ đè lên lửa ở
 /// cùng ô (BUNDLES §7.1, R-088).
-const ORDER_FLAME: u8 = 1;
+const ORDER_FLAME: u8 = 2;
 /// Thứ tự vẽ: bom.
-const ORDER_BOMB: u8 = 2;
+const ORDER_BOMB: u8 = 3;
 /// Thứ tự vẽ: nhân vật.
-const ORDER_CHARACTER: u8 = 3;
+const ORDER_CHARACTER: u8 = 4;
+/// Thứ tự vẽ: bong bóng phủ lên người bị nhốt.
+const ORDER_BUBBLE: u8 = 5;
 
 /// Một lệnh vẽ của kế hoạch trình diễn.
 #[derive(Clone, Debug, PartialEq)]
@@ -450,6 +454,24 @@ pub fn presentation_plan(
         ));
     }
 
+    // Item trên nền (#305: trước đây không được vẽ — người chơi không thấy item rơi ra).
+    for floor in &state.items {
+        let Some(clip_id) = anim::item_clip(floor.kind.0) else {
+            continue;
+        };
+        let (column, row) = cell_u16(floor.cell.x, floor.cell.y);
+        let frame = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == clip_id)
+            .map(|clip| anim::bomb_frame(clock, clip.frames.len()));
+        if let Some(item) =
+            clip_plan_item(bundle, clip_id, frame, column, row, tile_px, &mut missing)
+        {
+            items.push((row_foot(row, tile_px), column, ORDER_ITEM, item));
+        }
+    }
+
     for flame in &state.flames {
         let (column, row) = cell_u16(flame.cell.x, flame.cell.y);
         let frame = bundle
@@ -544,6 +566,31 @@ pub fn presentation_plan(
         ) {
             items.push((anchor_y, column, ORDER_CHARACTER, item));
         }
+        // Bong bóng phủ lên người bị nhốt: phát lớn dần một lần từ lúc bị nhốt rồi lặp phần
+        // còn lại; neo theo nhân vật (#305).
+        if let Life::Trapped { since } = player.life
+            && let Some(bubble) = bundle
+                .clips
+                .iter()
+                .find(|clip| clip.id == anim::TRAPPED_BUBBLE_CLIP)
+        {
+            let index = anim::bubble_frame(clock, since, bubble.frames.len());
+            if let Some(index) = index
+                && let Some(mut item) = clip_frame_item(bundle, bubble, index, column, row, tile_px)
+            {
+                item.dest = actor_placement(&bubble.frames[index], anchor_x, anchor_y);
+                items.push((
+                    anchor_y,
+                    column,
+                    ORDER_BUBBLE,
+                    PlanItem::Sprite {
+                        clip: bubble.id.clone(),
+                        frame: index,
+                        item,
+                    },
+                ));
+            }
+        }
     }
 
     // Hiệu ứng nổ: phát tại ô bom khi core báo nổ (`bomb_exploded`), trong khoảng
@@ -616,11 +663,25 @@ fn clip_plan_item(
     let index = frame?;
     // Frame không có ảnh (ảnh rỗng 0×0) thì không có gì để vẽ, nhưng clip vẫn có
     // mặt nên không coi là thiếu.
-    clip_frame_item(bundle, clip, index, column, row, tile_px).map(|item| PlanItem::Sprite {
-        clip: clip_id.to_owned(),
-        frame: index,
-        item,
-    })
+    // Hiệu ứng/item theo ô (bom, lửa, nổ, item) đặt theo offset frame tại neo ô (R-209/R-210),
+    // không theo quy tắc canvas của tile — bản rà dsh1 #305: nổ lệch tới 33 px.
+    let tile = i32::try_from(tile_px).unwrap_or(i32::MAX);
+    let anchor = (
+        i32::from(column).saturating_mul(tile),
+        row_foot(row, tile_px),
+    );
+    clip_frame_item(bundle, clip, index, column, row, tile_px)
+        .map(|mut item| {
+            if let Some(frame) = clip.frames.get(index) {
+                item.dest = actor_placement(frame, anchor.0, anchor.1);
+            }
+            item
+        })
+        .map(|item| PlanItem::Sprite {
+            clip: clip_id.to_owned(),
+            frame: index,
+            item,
+        })
 }
 
 /// Y chân (px) của đối tượng theo ô: `hàng·T + T − 1` (R-210).
@@ -1431,6 +1492,63 @@ mod tests {
 
     /// Nghiệm thu V1-031 (không GPU): state core → clip/frame đúng cho đi, đứng,
     /// chết, bom và lửa.
+    #[test]
+    fn floor_items_and_trapped_bubble_are_drawn() {
+        let mut bundle = clip_bundle();
+        // Bong bóng: mượn một clip có ảnh, đổi ID (test không cần ảnh thật).
+        let mut bubble = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == "c00.idle.blink.static")
+            .expect("clip đứng")
+            .clone();
+        bubble.id = anim::TRAPPED_BUBBLE_CLIP.to_owned();
+        bundle.clips.push(bubble);
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        state.items.push(boom_core::FloorItem {
+            id: EntityId(9),
+            kind: boom_core::ItemKind(1),
+            cell: boom_core::Cell::new(1, 0),
+        });
+        state.players[0].life = Life::Trapped { since: state.tick };
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &clock_at(state.tick),
+            &BTreeMap::new(),
+            &empty_journal(),
+        );
+        let clips: Vec<&str> = plan
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                PlanItem::Sprite { clip, .. } | PlanItem::Fallback { clip, .. } => {
+                    Some(clip.as_str())
+                }
+                PlanItem::Object(_) => None,
+            })
+            .collect();
+        // Item trên nền có lệnh vẽ (bundle test thiếu clip ⇒ ô màu thay thế, vẫn hiện).
+        assert!(
+            clips.contains(&"item.fire"),
+            "item trên nền phải được vẽ: {clips:?}"
+        );
+        // Người bị nhốt có bong bóng, vẽ sau nhân vật.
+        let character = clips.iter().position(|clip| clip.starts_with("c00."));
+        let bubble = clips
+            .iter()
+            .position(|clip| *clip == anim::TRAPPED_BUBBLE_CLIP);
+        assert!(
+            bubble.is_some(),
+            "người bị nhốt phải có bong bóng: {clips:?}"
+        );
+        assert!(character < bubble);
+    }
+
     #[test]
     fn actor_anchor_keeps_sub_tile_pixels() {
         // Tâm ô (1, 1) ở 60 px ⇒ neo = mép trái ô và chân `hàng·40 + 39` (R-210/R-009).
