@@ -63,6 +63,20 @@ pub const BOMB_CLIP: &str = "bomb.fuse";
 /// Clip ID của lửa trên ô.
 pub const FLAME_CLIP: &str = "flame.main";
 
+/// Clip ID của bong bóng phủ lên người bị nhốt (#305: trước đây không được vẽ).
+pub const TRAPPED_BUBBLE_CLIP: &str = "trapped.bubble";
+
+/// Clip ID của item trên nền theo chỉ số `Rules::items` (V1: 0 Bomb, 1 Fire, 2 Roller).
+#[must_use]
+pub fn item_clip(kind: u16) -> Option<&'static str> {
+    match kind {
+        0 => Some("item.bomb"),
+        1 => Some("item.fire"),
+        2 => Some("item.roller"),
+        _ => None,
+    }
+}
+
 /// Clip ID của hiệu ứng nổ bom.
 ///
 /// Pack KR 00967 chỉ có **một** clip nổ (`FxDesktop/Bomb/BombExplosion001`, R-084):
