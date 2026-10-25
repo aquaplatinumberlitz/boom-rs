@@ -230,3 +230,19 @@ S103/S106 đổi byte0→1 thật trong hai ca, nhưng key đầu quan sát vẫ
 hai character giống nhau. Fallback97163C/971676 đọc box theo numeric key, chưa là bằng chứng
 tên lớp manager/nguồn row. Bước tiếp: caller cấp arg3 cho5AED95→5A517F→597432; giữ các nhánh
 KR helper/VM đã dừng, không quét lại7caller hoặc lấy thứ tự số làm mapping.
+
+## Key tới ba cặp field có đối chứng native — R-178 (25/10)
+
+[Field S501→context→getter→initializer](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#field-bắt-đầu-trận-tới-key-và-sáu-output--r-178)
+đã có native writer/receiver alias: slot0field+60 ghi1, descriptor CBomberExternalContextFC dùng
+virtual+34 đọc theo slot, key1 được chuyển vào sáu getter. Output là `[4,8,2,7,1,9]`; R-175 đã nối
+role movement/capacity/Fire qua destination và consumer, không suy chỉ từ thứ tự số.
+
+Trước đó S501 của emulator luôn gửi0 ở field này, dù S103/S106 chọn1, nên first-init key0 không
+phân biệt được identity. Lượt mới đổi đúng một field S501, giữ mode/map/spawn; sửa bootstrap
+endpoint/giới hạn đọc observer được tách và giữ cả hai lượt hỏng. Setter plain DWORD, không phải
+memorypatch hoặc wireu8 tự là fieldwidth1byte. Max-side counterparts khởi tạo chưa là cap sau pickup.
+
+Cơ chế tra và áp ba cặp VN trong ca đã được giải; tên/asset C00/C01 KR và quan hệ với các cột row
+KR vẫn là bridge riêng. Hai dãy số trùng candidate KR không đủ tự nâng12khóa hoặc G2passed.
+Bước tiếp là render/row identity trên key đã resolve, không lặp7caller1191D20/plateau hoặc field+60.

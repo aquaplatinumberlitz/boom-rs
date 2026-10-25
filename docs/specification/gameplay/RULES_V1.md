@@ -998,3 +998,14 @@ overshoot từ requested550/540 tới actual540/535, không loại mẫu để �
 
 R-176 vàR-177 là hai actor khác nhau, không nối đồnghồ/identity. Giữ mọi overshoot giữa requested
 và actual; current5 là scalar theo field đã nối, chưa chứng minh speed level KR. Profile không đổi.
+
+## 42. Field S501 tới key tra chỉ số trên context VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-178 | S501 per-slot byte thứ hai được zero-extend rồi8E76A3 ghi DWORD vào contexttable+slot244+60. Native slot0 ghiFFFFFFFF→1; descriptor C20934/CBomberExternalContextFC có pointer+4 alias đúngcontext, virtual+34→4B82C2/8E76CF đọc field này. Arg3 qua call6EB89D/7BC250→5AED95 và key597471 đều1; output6 `[4,8,2,7,1,9]`, reset4/8/4 và capacity2/7/2, Fire1/9/1 | Key và ba cặp scalar khởi tạo trong ca, không level/FPS hoặc identity KR | vn_runtime + vn_static / confirmed (nativefield, alias và dataflow) | [Payload/contrasts/source/failures](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#field-bắt-đầu-trận-tới-key-và-sáu-output--r-178); fixturebc875…/Factory01/room19/actor395728984,7stop. Counterpart cap sau pickup/C00C01 asset binding chưa đo; không auto nâng12candidate |
+
+Control trước có roombyte1 nhưng field S5010→key0/output `[5,7,1,10,1,7]`; actor khác giữ riêng.
+Nativecurrent4 có hai cửa sổ XY sau hooks tắt, ước lượng136,799/134,336px/s với giả định nhạy ghi ở
+evidence; không dùng scalar4 làm speedlevel/FPS hoặc thay speed24DESIGN. Input S501 có native
+setter argument và generator provenance, không log framehex để tuyên bố wireCRC. Profile/gate giữ nguyên.

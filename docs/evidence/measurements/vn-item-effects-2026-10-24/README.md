@@ -537,3 +537,79 @@ Hai namespace riêng đã đóng exit0; mỗi ca có S191 và nativeXY hợp l�
 không item/bom. Toàn bộ timing debugger bị loại khỏi kết luận. Chỉ công bố metadata/payload nhỏ,
 không game/media/asm dài. Bước tiếp là caller đưa đối số key vào5AED95→5A517F→597432;
 không lặp hai lựa chọn hoặc phép đo plateau để tìm lại cùng kết quả. Profile và G2/G6 chưa đổi.
+
+## Field bắt đầu trận tới key và sáu output — R-178
+
+[12 mốc của hai ca](match-key.csv), [payload, dataflow và manifest](match-key.json).
+Sử dụng cùng fixture VN `bc875…`, Factory01/room19; byte chọn ở S103/S106 giữ1. Ca đối chứng cũ
+có key0 và output `[5,7,1,10,1,7]`. Lượt mới chỉ đổi **byte thứ hai của block mỗi slot trong S501**
+từ0 sang1 cho câu hỏi gameplay; endpoint channel được pin3838 để sửa lỗi bootstrap riêng, giữ
+cùng localhost/mode/map/spawn. Source và cấu hình được fingerprint; server không ép sáu chỉ số.
+
+### Chuỗi ghi và đọc được quan sát
+
+| Điểm | Native quan sát / dataflow | Phạm vi |
+|---|---|---|
+| Parser S501 | Hai decode byte liên tiếp: slot tại6C4E10, giá trị tại6C4E32; `MOVZX EAX,AL`, push value/slot, call8E76A3 tại6C4E42 | Getter decode có tăng cursor1byte và bounds; không suy type từ tên `pos` trong comment emu cũ |
+| Setter entry8E76A3 | Return6C4E47, slot0/value1, context272107560/count100/table277730572; field+60 trước=`FFFFFFFF` | Native plain DWORD, không phải box hoặc ghi u8 |
+| Setter return6C4E47 | Cùng context/count/table/thread; field=`01000000`/DWORD1 | Có payload/raw và kiểm field bằng value truyền vào |
+| Typed context→key | Descriptor arg0 có VT C20934, pointer+4 bằng **chính context272107560**. Slot+34 trỏ4B82C2→8E76CF, đọc rowstride244/field60 theo slot0 | Class RTTI `CBomberExternalContextFC` là binding kiểu; không tự là tên nhân vật |
+| Call khởi tạo | Actual actorVT C664C4+8C→7BC250 chỉ tail-jump5AED95; native return6EB8A3, arg3=1, key tại597471=1 | Native cùng actor395728984/thread; backtrace return6EC22A giữ riêng, không thay return thật |
+| Output và reset | `[4,8,2,7,1,9]` trước/sau vùng modifier; final movementbase/max/current4/8/4, capacitybase/counterpart/current2/7/2, Firebase/counterpart/current1/9/1 | Output role qua R-175; marker+A4 không chạm; counterpart chưa là cap sau pickup được đo trong ca này |
+
+Native storage là **DWORD**: setter8E76C7 có opcode`89540860`, ghi EDX; wire u8 đã zero-extend
+trước khi gọi. Không dùng so sánh u8 để bỏ qua ba byte còn lại của field. Getter8E76F0 cũng đọc
+DWORD; fallback khi slot không hợp lệ là−1, không phải0. Ca mới đo trực tiếp field1 và key1,
+không cần suy từ fallback hay nhãn decompile.
+
+Nguồn key trước đây đã nối: virtual+34 trên descriptor trả vào local `[EBP−54]` của producer,
+local được push làm arg3 tại6EB89D. Source target6EB788 được tìm từ call6EC225; receiver thật/EDX
+được bổ sung bằng register capture, không chỉ dựa vào matching PEslot. Wrapper7BC250 không ép key0.
+Vì vậy hai ca đổi byte **trong phòng** của R-175 vẫn first-init key0 không được dùng để kết luận
+lựa chọn bị bỏ qua: harness cũ còn gửi0 ở field S501 đi vào context này.
+
+### Đối chiếu output, không gộp identity
+
+| Ca / actor | Byte S103/S106 | Field S501 trong generator | Key native | Sáu output native |
+|---|---|---|---|---|
+| `host-key-producer-type-149-r1`,449280160 | 1 | 0 | 0 | `[5,7,1,10,1,7]` |
+| `host-match-slot-key-149-r3-count100`,395728984 | 1 | 1; setter native được chụp | 1 | `[4,8,2,7,1,9]` |
+
+Hai actor khác nhau, không ghép pointer/clock. Key0/1→output và các destination đã có consumer;
+đây chưa tự chứng minh asset/name C00/C01 KR hoặc sáu cột BomberAttr KR liền nhau. Dãy số trùng
+R-040/R-041 không thay bằng chứng identity; 12 khóa candidate và profile giữ nguyên.
+Autostart S501 của server không log frame hex: proof input là generator/hash/cấu hình và native
+setter argument, **không tuyên bố đã kiểm CRC frame S501**. S103/S106 của các ca trước có proof riêng.
+
+### Đại lượng liên quan cùng actor: cửa sổ XY khi current4
+
+Sau khi cả7 stop khởi tạo kết thúc và toàn bộ hook tắt, protocol cửa sổ Up/Down được ghi **trước
+khi gửi lệnh**. Trong cùng lối x14, nativeXY current4 có hai ước lượng từ60% giữa của span chuyển
+động: **136,799 px/s Up /134,336 px/s Down**. Thời lượng lấy giữa timestamp đọc XY ở hai đầu,
+không lấy thời gian keydown/packet; không suy client FPS, server tick hoặc speed level KR.
+
+JSON giữ hai endpoint đọc, reader span, khoảng lớn nhất giữa các mẫu thay đổi và phân tích nhạy
+với±8px/hai bước4 cùng sai số thời gian bằng observed change-gap+reader-span. Đây là giả định
+nhạy của ước lượng, không phải khoảng tin cậy thống kê hay bound scheduler tuyệt đối. Dữ liệu là
+một điểm vận tốc thực ứng với scalar4, bổ sung các ca scalar5/6 của R-169; chưa chọn công thức
+normalization mới cho engine hoặc ghép clock giữa những capture khác nhau.
+
+### Lượt hỏng và kiểm lại
+
+| Run được giữ riêng | Kết quả | Cách sử dụng |
+|---|---|---|
+| `host-match-slot-key-149-r1` | FailedToConnSvr trước stage11/S501; không native setter/key | Setup failure, loại khỏi kết luận gameplay |
+| `host-match-slot-key-149-r2-channel-pin` | Đã vào trận; observer đặt count≤32 trong khi native count100, dừng trước lưu setter pair/key | Instrumentation failure; không gọi S501/giá trị1 là lỗi gameplay |
+| `host-match-slot-key-149-r3-count100` | Chỉ sửa giới hạn đọc observer≤256, vẫn một field slot0; setter/key/final/S191/XY đầy đủ | Ca hợp lệ; không thay native count, không ghi bộ nhớ game |
+
+R3 có39 file raw,7 stop/8hook, exit0; control0 có42 file raw. Manifest chính123 raw/static hash,
+hai run hỏng thêm45 hash ở mục excluded riêng;14 instruction block giữ603/1.439byte window,
+không gọi là14 full function. Có RTTI/data hash và source budgets riêng. Hai run hỏng được lưu nguyên,
+không rename thành ca thành công hoặc retry mù. Probe guard đã qua mock cả count100/256 hợp lệ,
+257/0 lỗi và các ca actor/thread/table/value khác; mock không tự chứng minh giá trị native.
+
+Đã giải mã lại các box/current/XY, đối chiếu raw field plain DWORD, source hashes, pointer alias,
+frame/thread và count/table stability. S191/only-lo/namespace riêng; không111/117/120/151/158,
+không item/bom hoặc statforcing. Toàn bộ process riêng đã đóng sạch. Câu hỏi key→stat ở ca đã có
+câu trả lời; bước tiếp là key→render/row identity có cạnh mới hoặc cap thực của character khác,
+không đọc lại setter/getter/context chỉ để tìm lại cùng source.
