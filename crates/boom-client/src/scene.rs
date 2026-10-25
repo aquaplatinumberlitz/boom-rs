@@ -574,11 +574,7 @@ pub fn presentation_plan(
                 .iter()
                 .find(|clip| clip.id == anim::TRAPPED_BUBBLE_CLIP)
         {
-            let count = bubble.frames.len();
-            let index = clock.once_frame(since, count).or_else(|| {
-                (count > BUBBLE_GROW_FRAMES)
-                    .then(|| BUBBLE_GROW_FRAMES + clock.looping_frame(count - BUBBLE_GROW_FRAMES))
-            });
+            let index = anim::bubble_frame(clock, since, bubble.frames.len());
             if let Some(index) = index
                 && let Some(mut item) = clip_frame_item(bundle, bubble, index, column, row, tile_px)
             {
@@ -687,9 +683,6 @@ fn clip_plan_item(
             item,
         })
 }
-
-/// Số frame "lớn dần" đầu clip bong bóng; sau đó lặp phần còn lại.
-const BUBBLE_GROW_FRAMES: usize = 3;
 
 /// Y chân (px) của đối tượng theo ô: `hàng·T + T − 1` (R-210).
 fn row_foot(row: u16, tile_px: u32) -> i32 {

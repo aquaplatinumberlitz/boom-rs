@@ -66,6 +66,26 @@ pub const FLAME_CLIP: &str = "flame.main";
 /// Clip ID của bong bóng phủ lên người bị nhốt (#305: trước đây không được vẽ).
 pub const TRAPPED_BUBBLE_CLIP: &str = "trapped.bubble";
 
+/// Số frame "lớn dần" đầu clip bong bóng: phát một lần từ lúc bị nhốt, sau đó lặp phần còn lại.
+pub const BUBBLE_GROW_FRAMES: usize = 3;
+
+/// Frame của bong bóng người bị nhốt tại `clock`, bị nhốt từ tick `since`.
+///
+/// Phát `min(count, 3)` frame đầu **một lần**, rồi lặp các frame còn lại; clip không dư frame
+/// để lặp thì giữ frame cuối — bong bóng không biến mất khi người chơi vẫn bị nhốt (#305).
+#[must_use]
+pub fn bubble_frame(clock: &PresentationClock, since: u32, count: usize) -> Option<usize> {
+    if count == 0 {
+        return None;
+    }
+    let grow = count.min(BUBBLE_GROW_FRAMES);
+    clock.once_frame(since, grow).or(Some(if count > grow {
+        grow + clock.looping_frame(count - grow)
+    } else {
+        count - 1
+    }))
+}
+
 /// Clip ID của item trên nền theo chỉ số `Rules::items` (V1: 0 Bomb, 1 Fire, 2 Roller).
 #[must_use]
 pub fn item_clip(kind: u16) -> Option<&'static str> {
@@ -632,6 +652,49 @@ mod tests {
     /// Đồng hồ trình diễn tại `tick`.
     fn clock_at(tick: u32) -> PresentationClock {
         PresentationClock::new(CLOCK, tick)
+    }
+
+    #[test]
+    fn bubble_grows_once_then_loops_the_rest() {
+        let frame_ticks = |n: u32| -> u32 {
+            // Tick đầu tiên mà đồng hồ đã qua `n` frame kể từ tick 0.
+            (0..10_000)
+                .find(|&tick| clock_at(tick).once_frame(0, n as usize).is_none())
+                .expect("đồng hồ tiến")
+        };
+        // 9 frame: 0,1,2 lớn dần một lần.
+        assert_eq!(bubble_frame(&clock_at(0), 0, 9), Some(0));
+        let after_grow = frame_ticks(3);
+        let frame = bubble_frame(&clock_at(after_grow), 0, 9).expect("có frame");
+        assert!(
+            (3..9).contains(&frame),
+            "sau lớn dần phải lặp 3..8, được {frame}"
+        );
+        for tick in after_grow..after_grow + 500 {
+            let frame = bubble_frame(&clock_at(tick), 0, 9).expect("có frame");
+            assert!((3..9).contains(&frame), "tick {tick}: frame {frame}");
+        }
+    }
+
+    #[test]
+    fn short_or_empty_bubble_never_disappears_while_trapped() {
+        assert_eq!(bubble_frame(&clock_at(0), 0, 0), None);
+        for count in 1..=3 {
+            for tick in [0_u32, 50, 500, 5_000] {
+                let frame = bubble_frame(&clock_at(tick), 0, count).expect("vẫn có bong bóng");
+                assert!(frame < count, "count {count} tick {tick}: frame {frame}");
+            }
+            // Sau khi lớn dần xong thì giữ frame cuối.
+            assert_eq!(bubble_frame(&clock_at(5_000), 0, count), Some(count - 1));
+        }
+    }
+
+    #[test]
+    fn only_the_three_v1_items_have_clips() {
+        assert_eq!(item_clip(0), Some("item.bomb"));
+        assert_eq!(item_clip(1), Some("item.fire"));
+        assert_eq!(item_clip(2), Some("item.roller"));
+        assert_eq!(item_clip(3), None);
     }
 
     #[test]
