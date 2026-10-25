@@ -359,3 +359,12 @@ R1 startup scoped: object0x109CEAE8/C77D70, Open89F436 EAX1, literal Attr/ItemAt
 không lateBoot/Boot, EXIT2 không rerun. Không persistence/whole parse/row meaning/field/group/drop;
 R153 244/192 và caller89D113 `+0xBC` vẫn là cạnh riêng. Legacy items.md chỉ là parser/locator.
 No profile/G2/G6/release change; no new runtime.
+
+### Bảng244 ↔ group ItemAttr và caller 89D113 — R-188/R-189
+
+[Crosswalk/limit](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md#r-188r-189-bảng-244-và-caller-89d113)
+cho thấy VN CItemResourceMan bảng2 stride244/count+10/base+1C có cùng stride và field row+94 với
+group244 KR R-153 (count+16/base+28/group+148), nhưng offset count/base lệch0xC: chỉ là candidate
+crosswalk, chưa identity. Caller89D113 đọc row+0xBC, nonzero→vtable+18, zero→89CAC8; không có
+`item.*`/cap/group reader, không +1 arithmetic. V1 giữ item.* hiện hành; consumer thực nếu có phải
+PR profile/gate riêng. Không weight/drop/pack identity.

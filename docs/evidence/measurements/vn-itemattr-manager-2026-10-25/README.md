@@ -45,3 +45,17 @@ Các block chỉ là instruction prefix; không kết luận function boundary, 
 Nghĩa hai row, quan hệ bảng244 với R-153 group244 và caller89D113 `+0xBC`; field role, ItemAttr
 group/weight/drop, native pack identity, lateBoot/persistence. Legacy items.md chỉ là parser/locator;
 không dùng tuyên bố weight/drop làm runtime confirmed.
+
+## R-188/R-189 — bảng 244 và caller 89D113
+
+| Quan sát | VN CItemResourceMan | KR R-153 (group) | Kết luận |
+|---|---|---|---|
+| stride | 0xF4=244 (89F5A1) | 0xF4=244 | cùng stride, chưa đủ identity |
+| count | `[this+0x10]` | `+16` | lệch0xC |
+| base | inline `this+0x1C` | `+28` | lệch0xC |
+| slot field | row `+0x94` ghi cùng `+0xA0/+0xAC` | group `+148`=0x94 slot | trùng offset field, chỉ candidate |
+| caller field | `89D113` đọc `manager+idx*0xF4+0xBC`, nonzero→`vtable+0x18`, zero→89CAC8 | chưa có consumer tương ứng | role unknown; không `item.*` |
+
+Không có `item.*`/cap/group reader trong các block/cache đã đọc. `+0xBC` không phải phép +1; không
+dùng crosswalk để đổi profile hay gọi ItemAttr group confirmed. Bảng0x8000/weight từ R153 chỉ là
+parser/locator, weight≠drop%; caller89D113 chưa nối drop/placement. Không binary/asset/raw log.
