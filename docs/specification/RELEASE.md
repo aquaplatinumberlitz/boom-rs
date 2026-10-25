@@ -492,3 +492,16 @@ cũng chưa chứng minh exactnearest pixels. Các proofLinuxKWin/realfocus và 
 vẫn giữ riêng. Fullscreen/focus đaOS cần ca kiểm riêng khi đã biết nativecontext hoạt động. Không
 coi smoke `--help`, simulationFocusLost hoặc CI xanh là cửa sổ GUI thật. GóiQA95985fe trướcR182/R184
 là lịch sử; finalpackage phải dùng stablehead và rules33 cùngversion/hash mới.
+
+### 10.1 Kết quả package33 và ưu tiên Linux hiện hành
+
+[QA40193995532](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40193995532) đã kiểm
+3archive/27filehash/30CLIcases và profile33/17/6350/540; Linux cửa sổ800×600/1600×1200 có
+PNGnonuniform hợp lệ. macOSpixel-formatnull và WindowsWGL_ARB_pixel_format FAIL giữ riêng,
+workflowFAIL không bị giấu. [Metadata/exits/giớihạn](../evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json).
+
+Theo chủ dự án25/10, **ưu tiên Linux, Windows/macOS đểsau**. Không rerun haiOS hoặc sửaApple
+backend làm điều kiện tiếp tụcLinux; task300 được giữ deferred với patch chưamerge. Đối vớiLinux,
+chạy/package/runtime và minimumhardware/performance cần đo riêng; Xvfbsoftware/capturePNG không
+là GPUminimum/FPS/physicalaudio. ALSAbackgroundthreadpanic trong runner cũng giữmetadata, không
+gọi audioPASS. G6/phát hànhfull/V1-036 theo acceptance riêng, không claim37/37 từ ưu tiênLinux.

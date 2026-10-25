@@ -167,7 +167,7 @@ Reviewer độc lập kiểm các nguồn đã tích hợp; trạng thái chuẩ
 |---|---|---|
 | Chữ, ảnh, font, glyph/wrap/placeholder/golden của luồng V1 | PR241/V1-035; [UI_STRINGS_V1](../../../specification/localization/UI_STRINGS_V1.md); 126 khóa, 6 sprite đã duyệt | Functional V1; không dùng 23 legacy review làm text chốt |
 | Scale/input/focus/rebind | Hồ sơ đầu trang: RGBA1×/2×; NVIDIA focus có movement positive control và nhả phím; S/F10/F11 rebind | GUI Linux đã kiểm; regression/golden ba OS không chứng minh GUI Win/mac |
-| Fullscreen/khôi phục frame | [window-restore.json](window-restore.json), [actual archive QA](package-current-qa.json), PR271/274 | KWin normal/maximized hai vòng và rebind; giữ lỗi fixture pulse ngắn chưa rõ nguyên nhân |
+| Fullscreen/khôi phục frame | [window-restore.json](window-restore.json), [actual archive QA task273](https://github.com/aquaplatinumberlitz/boom-rs/blob/32f848a684ee66e5b33e6e2de71517412d1a82c2/docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json), PR271/274 | KWin normal/maximized hai vòng và rebind; giữ lỗi fixture pulse ngắn chưa rõ nguyên nhân |
 | Audio/volume/mute, không phát trùng khi reconcile | Capture BGM/SFX qua sink riêng ở trên; V1-034; [AUDIO_V1](../../../specification/assets/AUDIO_V1.md), regression identity/reconcile | Đường phát số và policy V1 đã review; không phải phép nghe physical DAC hoặc xác nhận mọi audio KR |
 
 Các mục này đủ cho nghiệm thu **functional G5 của V1**, có reviewer độc lập và PR exact-head approval.
@@ -175,3 +175,36 @@ GUI Windows/macOS, backend/DPI/WM khác, minimum hardware và kiểm platform to
 V1-036/G6 hoặc giới hạn fidelity được giữ rõ; không gọi smoke CLI là kiểm GUI. Không tuyên bố
 physical DAC, mọi cue qua mọi mode hoặc native layout/voice count đã đo. Không đổi SCOPE, số37feature,
 nhãn candidate hoặc nâng G2/G3/G6 theo quyết định này. V1 vẫn36/37; chưa tag/Release.
+
+## Gói profile33 và GUI hosted runner — task298
+
+[QA40193995532](https://github.com/aquaplatinumberlitz/boom-rs/actions/runs/40193995532), exactreviewed
+sourcec488510c15ca61a6463276e6fc615eb090f345f6/versionqa-20261025-c488510, đã dựng/mở/check
+baarchive,27hash và10CLI smokecase/OS;135crate/Fedor miniquadnotice đủ. Rules/L10N byteidentical
+với source: R182logicalstatsVNconfirmed, R18433DESIGN, trapped17/trap6350/flame540/Roller1VNconfirmed,
+releasefalse. [Metadata/fingerprints/exits/stderr/hash](package-current-qa.json).
+
+| Runner/capture | Actual observation | Kết luận được dùng |
+|---|---|---|
+| Linux Xvfb/Mesa software,1x/2x | exit0, PNGCRC/stream/filter/RGBnonuniform hợp lệ800×600/1600×1200 | Cửa sổ/framebuffer của đúngbinary chạy trên runner này; khôngGPUminimum/focus/audio |
+| macOS26.6.2 arm64,1x/2x | exit101, assert `!glpixelformat_obj.is_null()` tại miniquadmacos1039 | Không tạo được acceleratedOpenGLpixel format trong ca; giữFAIL, không kết luận mọiMac khôngchạy |
+| Windows runner,1x/2x | exit101, `WGL_ARB_pixel_format is required` tại miniquadwgl279 | Context hiện tại không cung cấp yêu cầuWGL; giữFAIL/causeunclassified, không tự hạ requirement hoặc đổi paidrunner |
+
+Workflow **failure** vì haiGUIjob, trong khi archive/CLI/matchingrules đãkiểmPASS riêng; không gọi
+4/4jobgreen hoặc GUI3OSpassed. Linuxstderr còn ALSAbackgroundthreadpanic không mở PCM nhưng
+captureexit0/nonuniform; giữ nguyên, không dùng làm proofaudio. Không ảnh đượcupload; tempPNG
+xóa saucapture, metadata giữSHA/dimensions/stderr. Không retry samehead để tìm lượt xanh.
+
+Source followup issue300 phát hiện app Apple chọn MSLcopyshader nhưng WindowConf để mặc địnhOpenGL.
+Chủ dự án25/10 chỉ đạo tập trungLinux, Windows/macOS đểsau: sourcefixApple được giữ chưa merge,
+không chạy thêmMetalQA hoặc lấy lỗi haiOS làm blocker luồngLinux. Các số đo c488 này không kiểmMetal.
+Gói95985fe với KWin4case giữ [record bất biến](https://github.com/aquaplatinumberlitz/boom-rs/blob/32f848a684ee66e5b33e6e2de71517412d1a82c2/docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json),
+không gán KWin/focus/physicalGPU choXvfb mới. G1–G5passed5/6,36/37features; G6/V1-036/minHW/
+platformvalidation/releaseflag giữpending, khôngtag/Release.
+
+### Ưu tiên Linux theo chỉ đạo chủ dự án25/10
+
+Gói Linux hiện có profile33 và fingerprint đúngsourcec488, CLI10cases/cửa sổ1x2x đãđo. Việc tiếp
+trênLinux là phiên/chạy thật, CPU/RAM/GPU/hiệunăng và nghiệm thu góiLinux theo dữ liệu đo; không
+đợi sửa backendWindows/macOS. Kết quả3OS/hạnchế được giữ, không gán LinuxPASS thành toànG6 hoặc
+37/37. Targetcatalog/baseline37V1 và yêu cầuCI trướcmerge chưa đổi; phần platform còn lại làm sau.

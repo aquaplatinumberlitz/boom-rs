@@ -324,3 +324,15 @@ Halfbox13/assist12,30Hz và time model giữ DESIGN đã có. R176/R177/R179
 là trace player/response/codepath, không xác nhận halfbox13 hoặc maxcorner12 của native.
 Bằng chứng trace+DESIGN này có thể nghiệm thu G2 theo§6/10.5 mà không chờ sáu REroot; chỉ reviewer độc lập
 mới signoff. Phần release vẫn `false`/V1-036/G6 và platform/minimumHW theo nghiệm thu riêng.
+
+### 10.8 Ưu tiên thực thi Linux — chỉ đạo chủ dự án2026-10-25
+
+Hiện tại tập trung làm và nghiệm thu từng phần trên **Linux**; Windows/macOS được đểsau.
+LuồngLinux dùng gói/profile hiện hành và phép đo CPU/RAM/GPU/runtime có điều kiện rõ, không phải
+chờ sửa backend hoặc có GUIpass của haiOS kia mới tiếp tục. Raw lỗi Windows/macOS vẫn giữ cùng
+source/version; đây là ưu tiên thực thi, không nâng Linuxcapture thành bằng chứng cho nền tảng khác.
+
+Baseline/catalog37V1 chưa đổi revision, G6/V1-036 chưa được ký toànphần từ chỉ đạo này. Khi xét
+phát hành đầyđủ theo target3OS hoặc thay phạmvi phát hành cần ghi quyết định/acceptance riêng; không
+đóng sáuREroot để làm đẹp số. CI/approval/safeMerge vẫn theo AGENTS. Linuxmilestone có thể được
+review/bàn giao riêng khi ghi rõ giới hạn platform và minimumhardware **hiện chưa đo**; không tự bật releaseflag.

@@ -1570,15 +1570,15 @@
         ],
         "verification": {
           "status": "passed",
-          "command": "releaseworkflow40107097457 + unpack/check3archives +27filehash +3authornotices +actualLinuxarchiveKWin4case",
-          "result": "QA/devreviewedcode95985fe dựng3OS/10smokeOS,3archivecheck/27hash/135crate+miniquadnotice đúng; rules6350/17/540 vàL10N cùngbyte. ActualLinuxarchiveKWinnormal/max2cycles/rebind4caseheldkeygreen; firstshortpulsefailure giữcauseunknown. KhôngGUIWinMac/minHW/physicalaudio/gatesignoff. PR274merged0886f81 afterindepfinale066APPROVE/12CI3OS."
+          "command": "QA40193995532 exactc488 + unpack/check3archives +27filehash +30CLIcases +LinuxnativeGUI1x2x",
+          "result": "Đã kiểm boundedpackageCLI/rules33/17/6350/540/R182VNlogicalstats/R185Roller/135crateFedor; LinuxXvfbsoftwarePNG800600/16001200nonuniformPASS. GUIWinMacFAILcảhai giữraw, workflowfailurekhônggiấu; LinuxALSAbackgroundaudio-threadpanic khôngaudioPASS. KhôngminHW/FPS/focus/fullplatform/G6 acceptance. Theoowner25/10 ưu tiênLinux, WinMacđểsau; oldQA95985fe/KWinrecord giữgitlinkbấtbiến."
         },
         "review": {
           "status": "pending",
-          "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; tại PR274, toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off. G5 được nghiệm thu riêng theo issue278; không nghiệm thu thay V1-036/G6. Cơ chế G3 được nghiệm thu riêng theo issue280, không ký profile/G2 hoặc toàn V1-036. G2 được nghiệm thu riêng tạiissue294/comment6396657957 sauR182/PR293; G6/036 vẫnpending, không tự bật release."
+          "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; tại PR274, toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off. G5 được nghiệm thu riêng theo issue278; không nghiệm thu thay V1-036/G6. Cơ chế G3 được nghiệm thu riêng theo issue280, không ký profile/G2 hoặc toàn V1-036. G2 được nghiệm thu riêng tạiissue294/comment6396657957 sauR182/PR293; G6/036 vẫnpending, không tự bật release. Chỉđạo25/10 Linuxfirst: task298 tíchhợpactualpackage33/GUIobservations; LinuxmilestonekhôngđợibackendWinMac, nhưng không tự nghiệmthuV1-036full/G6."
         },
-        "blocker": "Cần nghiệm thu V1-036/minimumhardware/platformvalidation/GUIđaOS và gói cuốiđúngrulesidentity R182; profiledevreleasefalse. G1/G2/G3/G4/G5 đãnghiệmthu5/6, khôngcònblocker12candidate/identity.",
-        "next_action": "Đo/chốtminimumhardware và platformvalidation theoRELEASE; finalprofile/packagephải version/fingerprintđúngR182/newstablehead, QA40107097457 chỉcho95985fe lịch sử. KhônglặpG2/oldsource/cap/corner/networkmatrix/V1-035."
+        "blocker": "Linuxmilestone: cần đo/nghiệmthu CPU/RAM/GPU/performance/runtime và góiLinuxhiệnhành; Windows/macOS được deferredtheochủdựán25/10, không chặn iterationLinux. V1-036full/G6/releaseflag chưa nghiệmthu.",
+        "next_action": "Ưu tiên kiểm góiLinux33/phiênthật và minimumhardware/performance với dữliệuđo; reuse QA40193995532 Linuxcapture1x2x/CLIpackageproof, không repeatQA3OS/WindowsMacbackend lúc này. Giữ nền tảng khác backlog và acceptancefull riêng; không đòi đóng6REroot."
       }
     },
     {
