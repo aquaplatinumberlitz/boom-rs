@@ -1091,10 +1091,17 @@ regression chạy30tick: profilecũ24 đỏ96000≠132000mpx ởpoint4; profile3
 | R-186 | Trong `CItemResourceMan` (RTTI `.?AVCItemResourceMan@@`, vtable C77D70) có hai bảng: bảng1 count `[this+0x3B94C]`, base inline `this+0x3B9AC`, stride192; bảng2 count `[this+0x10]`, base inline `this+0x1C+idx*0xF4`, stride244 | Hai table descriptor; stride192/244 byte; row/group semantics chưa gán | `vn_static` / confirmed (cấu trúc prefix) | Block 89F436/89F536/89F5A1, metadata/hash và terminal trong [evidence](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md). Prefix-only, `complete_function=false`; không whole parser/function boundary. Nghĩa row, quan hệ R153 group244, caller89D113 `+0xBC`, field/ItemAttr group/drop vẫn unknown |
 | R-187 | Startup loader object `CItemResourceMan` tại `0x109CEAE8`/C77D70 mở literal `Attr/ItemAttr`; tại Open89F436 `E60934` bằng đúng object/vtable và actual EAX1 | Object/C77D70; literal C77D7C; `E60934=0x109CEAE8`; EAX1 | `vn_runtime` / confirmed (startup scoped) | R1 `host-item-manager-alias-149-r1` probe9afec/harnessd178/serveref688; [metadata](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md). S191 thiếu, không lateBoot/Boot, EXIT2 không rerun. Chỉ startup loader/global alias; không persistence/whole parse/field/group/drop |
 
+| R-188 | Bảng2 stride244 của `CItemResourceMan` (count `[this+0x10]`, base inline `this+0x1C`) có cấu trúc tương ứng bảng group ItemAttr KR R-153 (stride244, count `+16`, base `+28`, field `+0x94` slot); VN row ghi `+0x94/+0xA0/+0xAC`, nhưng offset count/base lệch `0xC` | stride244; VN count+10/base+1C/row+94; KR count+16/base+28/group+148 | `vn_static` / candidate (tương ứng cấu trúc, chưa identity) | [Crosswalk/limit](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md#r-188r-189-bảng-244-và-caller-89d113). Không kết luận cùng class/table; không `item.*`, weight/drop/cap |
+| R-189 | Caller `89D093/89D113` đọc row `manager+idx*0xF4+0xBC`; giá trị nonzero được truyền vào `receiver.vtable+0x18`, zero đi `89CAC8` theo tọa độ. Không có phép cộng/ghi `item.*` hay cap trong prefix đã đọc | row+BC; dispatch vtable+18 / fallback 89CAC8 | `vn_static` / unknown (role field) | Block89F5A1/89D093/89CAC8; `+0xBC` role chưa gán ItemAttr group/effect/cap; không +1 arithmetic, không đổi profile V1. Không đọc body mới/helper |
+
 Hai bảng nằm cùng typed manager nhưng **không** đủ để gọi bảng192 là item hay bảng244 là group/ItemAttr.
 R153 (192/244 native KR) và caller89D113 `manager+idx*0xF4+0xBC` giữ là cạnh riêng; `+0xBC` role
 unknown, không phải +1 arithmetic. Legacy `items.md`/export chỉ là parser/locator, không xác nhận
 weight/drop/pack identity. Không đổi profile, G2, G6, release hoặc 146/149 khác.
+
+R188 chỉ là **crosswalk có giới hạn** giữa bảng244 VN và group244 KR R-153; chênh offset count/base `0xC` và thiếu consumer item
+nên **không khóa `item.*`** và không chứng minh cùng một bảng. R189 cho thấy `+0xBC` là giá trị dispatch/opaque, không phải
+delta/cap item. V1 giữ `item.*` hiện hành; nếu một consumer thực xuất hiện, cần PR profile riêng. Không đổi gate/G2/G3/release.
 
 ## 48. Caller player của predicate R179 — R-214
 
@@ -1106,6 +1113,21 @@ R-214 chỉ nối caller R179 vào player mover đã có R171/R176/R179; không 
 `player.collision_half_px`/`corner_assist_px`, rules, profile, source precedence hoặc gate. G2 vẫn
 được nghiệm thu bằng DESIGN/VN có giới hạn; #146 vẫn OPEN PARTIAL, chưa có runtime branch/property/
 hurtbox/max34/all-map. Fixture/namespace/read-only giữ nguyên; không runtime/PR khác.
+
+## 49. Nhịp frame nhân vật/lửa: counter cập nhật, chưa có ms (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-215 | Consumer animation dùng **counter cập nhật** so với duration per-record, không thấy đổi frame bằng `dt`/ms: `BA3530` so `B33170()` với `[record+4]`; `B33170`/`B331E0` chỉ delegate `sub_636620(this+64/+52)`. Flame dùng nhánh riêng `B711C0`, tăng counter mỗi update và xoá theo `GetAnimCount` (`BA3FF0`). ODT duration là ngưỡng counter; flame raw duration đều1. Loop/hold nằm trong các nhánh trả của `BA3530` (giữ/tiến/quay đầu) | Counter/threshold raw; **không** chứng minh ms, tick hay tần số update; flame raw duration1 | `kr_static` / confirmed (consumer/threshold shape) — **unknown** unit/cadence/runtime state | `BA3530`/RVA`7A3530`, `BA40F0`/`7A40F0`, `BA4160`/`7A4160`, `B711C0`/`7711C0`, `B33170`/`733170`, `B331E0`/`7331E0`, `sub_636620`/`236620`, `BA3FF0`/`7A3FF0`; evidence `ev_ec5aea3b…`, `ev_719cc83b…`, `ev_7ff15ec0…`. R-141/R-151/R-164/R-165. Không đọc body `sub_636620`; không chứng minh nhịp update, state walk/idle/blink, loop/hold runtime hoặc mọi nhân vật/mode |
+
+R-215 chỉ chốt **cơ chế consumer dùng counter/ODT threshold**, không chốt giá trị frame duration
+tính bằng ms. `presentation.frame_duration_ms` hiện100ms (R-118) và `anim::character_loop_frame`
+không đổi bởi claim này; chưa có bằng chứng để thay33/100 hay bất kỳ số nào. Đề xuất kế tiếp nếu cần
+nhịp thật: một runtime counter observation trên `B33170`/`B331E0`/`B711C0` trong cùng actor, ghi
+số lần update trên cửa sổ thời gian; không suy từ screenshot/30Hz server.
+
+R-164/R-165 vẫn chỉ xác nhận flame state/raw duration; R-141 vẫn xác nhận flame display = frame
+counter. Không đổi profile, G2/G6, release, feature count hoặc #149.
 
 ## 50. Định vị VN cho counter animation — blocker (2026-10-26)
 

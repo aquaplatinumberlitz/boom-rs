@@ -1554,7 +1554,7 @@
       "tracking": {
         "assignee": "integrator/QA",
         "reviewer": "Claude/Codex",
-        "updated_at": "2026-10-25",
+        "updated_at": "2026-10-26",
         "accepted_baseline": "KR-00967-V1-scope-1",
         "accepted_spec": "contracts-r4",
         "integration_commit": "",
@@ -1566,7 +1566,9 @@
           "git:796284d422baf14f2c0ab0c27a78100bc335c2f1",
           "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
           "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816",
-          "git:af5184d84de37ee5898f825ca8c834fcc3612a82"
+          "git:af5184d84de37ee5898f825ca8c834fcc3612a82",
+          "docs/evidence/measurements/linux-qa-2026-10-26/README.md",
+          "git:9085a0c8ce385674b260f86207f52554a9caeb93"
         ],
         "verification": {
           "status": "passed",
@@ -1577,8 +1579,8 @@
           "status": "pending",
           "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; tại PR274, toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off. G5 được nghiệm thu riêng theo issue278; không nghiệm thu thay V1-036/G6. Cơ chế G3 được nghiệm thu riêng theo issue280, không ký profile/G2 hoặc toàn V1-036. G2 được nghiệm thu riêng tạiissue294/comment6396657957 sauR182/PR293; G6/036 vẫnpending, không tự bật release. Chỉđạo25/10 Linuxfirst: task298 tíchhợpactualpackage33/GUIobservations; LinuxmilestonekhôngđợibackendWinMac, nhưng không tự nghiệmthuV1-036full/G6."
         },
-        "blocker": "Cần acceptance Linuxruntime/góihiệnhành đúngphạmvi; cấu hình làmgọn theoowner25/10, minimum/FPS chưađo khôngchặniterationLinux. Windows/macOSdeferred, V1-036full/G6/releaseflag vẫn chưa ký.",
-        "next_action": "Giữ cấu hìnhgọn: Linuxlibs/API/máythamchiếu và giớihạn, không campaignbenchmarkCPU/RAM/GPU; tiếp tục146/149/Linuxstability. ReuseQA40193995532Linuxpackage/CLI/framebufferproof; khôngrerunWinMac/6networkmatrix hoặc gán minHW/FPSđãđo."
+        "blocker": "Linux đã nghiệm thu 26/10 trên máy thật (gói 9085a0c). Windows/macOS hoãn theo owner25/10 (#300); V1-036 toàn phần/G6/releaseflag chưa ký.",
+        "next_action": "Linux: xong (evidence linux-qa-2026-10-26, #305/#306/#308). Còn: Windows/macOS khi owner mở lại (#300); minimum HW/FPS chưa đo, không chặn Linux."
       }
     },
     {
