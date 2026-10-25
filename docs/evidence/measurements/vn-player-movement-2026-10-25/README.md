@@ -66,3 +66,34 @@ Khởi tạo cùng actor là5/7/5; key0 và caller6EB8A3 chỉ là context, khô
 Bước tiếp là negative offset control cạnh ca thành công hoặc consumer90019A/rectangle có điểm
 quan sát cụ thể, không mở lại PET/AI/full scan. #146 vẫn PARTIAL: hurtbox, ngưỡng assist, speed
 level→time model, diagonal và non-owner chưa đủ. Profile, gate và registry không đổi.
+
+## Đối chứng lệch30 và35 trên cùng actor — R-177
+
+[9 endpoint native](corner-boundary.csv), [trajectory, payload và42hash](corner-boundary.json).
+Run riêng `host-key-producer-type-149-r1`, actor449280160/C664C4, cùng fixture/map/room như trên.
+Base/max/current của **chính actor này** là5/7/5. Không ghép pointer hoặc clock với actor R-176.
+Toàn bộ hook khởi tạo đã tắt trước điều khiển; không movement breakpoint trong lượt này.
+
+| Ca | Requested X | Actual trước Down, Y39 | Native trong cửa sổ chỉDown | Kết quả trong ca |
+|---|---|---|---|---|
+| Lệch30 | 535 | 530 | X530→535→540→545→550→555→560, sau đó Y139 | Có sửa ngang và đi xuống |
+| Lệch35 | 530 | 525 | Giữ(525,39) | Không di chuyển |
+| Aligned positive | — | 560 | Down→(560,164), Up→(560,39) | Cùng actor vẫn di chuyển được |
+
+Giữ overshoot requested535/530→actual530/525. Trước mỗi lệnh Down có XY ổn định; bộ kiểm dùng
+các mẫu trong100ms trước SNAP tới Down, hai mẫu hợp lệ mỗi ca. Riêng khoảng hẹp SNAP→Down của
+ca âm chỉ có một mẫu; không xóa khác biệt này hoặc dùng số mẫu làm ngưỡng. Trong cả hai cửa sổ
+Down không có Right keydown; các lệnh Up/Right reset và positive aligned được giữ trong raw.
+
+**Confirmed**: phản ứng native ở offset30 khác35 trong đúng actor/current5/ca này. Cách hiểu
+đó là corner assistance vẫn `candidate` khi chưa trace đầy đủ consumer hoặc native direction flag.
+Chưa xác nhận ngưỡng chính xác34, tất cả offset giữa30–35, mọi hướng/tốc độ/mode, hurtbox hoặc
+hitbox40×40. Không đổi assist12/radius13 hay công thức tốc độ của profile.
+
+Run đóng stop4/exit0,4.387XYrows/42filehash,6hook/5stop trước movement; S191, only-lo và các
+đối chứng đã kiểm độc lập. Không111/117/120/151/158. Timing host/packet/debugger không được dùng
+để suy velocity/latency hoặc thời điểm native nhận phím. Attempt đọc field context qua helper
+ngoài debugger không lấy được snapshot; được giữ local riêng và không dùng làm proof cho ca này.
+
+Bước tiếp cho #146 là consumer gây phản ứng khác nhau hoặc một ca có ngưỡng/đơn vị cần phân biệt,
+không lặp hai offset để tìm lại kết quả. Những nhánh geometry khác vẫn giữ unknown rõ ràng.

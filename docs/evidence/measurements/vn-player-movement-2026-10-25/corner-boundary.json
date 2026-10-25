@@ -1,0 +1,638 @@
+{
+  "claim": "R-177",
+  "question": "Down response at native horizontal offsets30 and35 with same-actor aligned positive control",
+  "default_private_root": "/home/admin/boom-rs-dsh/re-kr",
+  "fixture": {
+    "build": "VN VBNB_116 offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "image_base": "0x400000",
+    "map": "Factory01",
+    "room_type": 19,
+    "patch_scope": "IAT/devirt/offline reconstruction; vanilla equivalence unproven; trusted VN per owner/ADR0002/0013"
+  },
+  "run": "host-key-producer-type-149-r1",
+  "actor": 449280160,
+  "actor_vtable": "0xc664c4",
+  "base_max_current": [
+    5,
+    7,
+    5
+  ],
+  "same_actor_initializer_final": {
+    "kind": "final",
+    "actor": 449280160,
+    "source_ebp": 1233080,
+    "parent_ebp": 1233112,
+    "base": {
+      "state": "ok",
+      "value": 5,
+      "payload": 449294200,
+      "header12": "5556c71ab590c71a78afc71a",
+      "payload10": "256f083a2055b500f4f7"
+    },
+    "max": {
+      "state": "ok",
+      "value": 7,
+      "payload": 449294232,
+      "header12": "57bec71ac942c71a98afc71a",
+      "payload10": "cac1ac82cd57c900b5fe"
+    },
+    "current": {
+      "state": "ok",
+      "value": 5,
+      "payload": 449294264,
+      "header12": "b795c71ab472c71ab8afc71a",
+      "payload10": "e2f3104ae7b7b400f5ff"
+    },
+    "facet510_fields": {
+      "0x68": {
+        "state": "ok",
+        "value": 1,
+        "payload": 449293728,
+        "header12": "62a5c71afe40c71aa0adc71a",
+        "payload10": "c6b7985ac762fe00f577"
+      },
+      "0x74": {
+        "state": "ok",
+        "value": 10,
+        "payload": 449293760,
+        "header12": "3199c71a303ec71ac0adc71a",
+        "payload10": "8936965683313000dc77"
+      },
+      "0x4": {
+        "state": "ok",
+        "value": 1,
+        "payload": 449293536,
+        "header12": "f3bcc71a5f80c71ae0acc71a",
+        "payload10": "cfc7b89acef35f00f5ff"
+      },
+      "0x80": {
+        "state": "ok",
+        "value": 1,
+        "payload": 449293816,
+        "header12": "6584c71a7e6cc71af8adc71a",
+        "payload10": "287b206a29657e00f4ff"
+      },
+      "0x8c": {
+        "state": "ok",
+        "value": 7,
+        "payload": 449293848,
+        "header12": "1e7bc71a5ca4c71a18aec71a",
+        "payload10": "2e812c82291e5c00b55e"
+      },
+      "0x1c": {
+        "state": "ok",
+        "value": 1,
+        "payload": 449293600,
+        "header12": "9846c71afe6dc71a20adc71a",
+        "payload10": "dee7f81adf98fe00f5ff"
+      },
+      "0x10": {
+        "state": "ok",
+        "value": 1,
+        "payload": 449293568,
+        "header12": "3694c71a9c8cc71a00adc71a",
+        "payload10": "a777185aa6369c00f4f7",
+        "role": "opaque_boxed"
+      }
+    },
+    "key": 0,
+    "a4_entered": false,
+    "out6_before": [
+      5,
+      7,
+      1,
+      10,
+      1,
+      7
+    ],
+    "out6_after": [
+      5,
+      7,
+      1,
+      10,
+      1,
+      7
+    ],
+    "thread": [
+      42000,
+      328,
+      0
+    ],
+    "trap_count": 5
+  },
+  "controls": {
+    "06-top-baseline": [
+      560,
+      39
+    ],
+    "07-offset-first-before": [
+      530,
+      39
+    ],
+    "08-offset-first-after": [
+      560,
+      139
+    ],
+    "09-offset-first-reset": [
+      560,
+      39
+    ],
+    "10-offset-second-before": [
+      525,
+      39
+    ],
+    "11-offset-second-after": [
+      525,
+      39
+    ],
+    "12-offset-second-reset": [
+      560,
+      39
+    ],
+    "13-aligned-positive": [
+      560,
+      164
+    ],
+    "14-final-top": [
+      560,
+      39
+    ]
+  },
+  "corner_cases": [
+    {
+      "actual_start": [
+        530,
+        39
+      ],
+      "actual_end": [
+        560,
+        139
+      ],
+      "offset_from_560": 30,
+      "horizontal_correction_observed": true,
+      "pre_stable_samples": 2,
+      "window_samples": 27,
+      "trajectory": [
+        {
+          "xy": [
+            535,
+            39
+          ],
+          "begin_ns": 866132320112008,
+          "end_ns": 866132320251628
+        },
+        {
+          "xy": [
+            540,
+            39
+          ],
+          "begin_ns": 866132346400452,
+          "end_ns": 866132346522502
+        },
+        {
+          "xy": [
+            545,
+            39
+          ],
+          "begin_ns": 866132378388941,
+          "end_ns": 866132378494241
+        },
+        {
+          "xy": [
+            550,
+            39
+          ],
+          "begin_ns": 866132404643494,
+          "end_ns": 866132404771785
+        },
+        {
+          "xy": [
+            555,
+            39
+          ],
+          "begin_ns": 866132430785948,
+          "end_ns": 866132430890768
+        },
+        {
+          "xy": [
+            560,
+            39
+          ],
+          "begin_ns": 866132457039512,
+          "end_ns": 866132457143142
+        },
+        {
+          "xy": [
+            560,
+            44
+          ],
+          "begin_ns": 866132488282480,
+          "end_ns": 866132488425630
+        },
+        {
+          "xy": [
+            560,
+            49
+          ],
+          "begin_ns": 866132515036824,
+          "end_ns": 866132515242345
+        },
+        {
+          "xy": [
+            560,
+            54
+          ],
+          "begin_ns": 866132541300138,
+          "end_ns": 866132541402278
+        },
+        {
+          "xy": [
+            560,
+            59
+          ],
+          "begin_ns": 866132590470253,
+          "end_ns": 866132590541113
+        },
+        {
+          "xy": [
+            560,
+            64
+          ],
+          "begin_ns": 866132616597916,
+          "end_ns": 866132616713727
+        },
+        {
+          "xy": [
+            560,
+            69
+          ],
+          "begin_ns": 866132642884850,
+          "end_ns": 866132643046200
+        },
+        {
+          "xy": [
+            560,
+            74
+          ],
+          "begin_ns": 866132669070724,
+          "end_ns": 866132669174894
+        },
+        {
+          "xy": [
+            560,
+            79
+          ],
+          "begin_ns": 866132700673273,
+          "end_ns": 866132701288573
+        },
+        {
+          "xy": [
+            560,
+            84
+          ],
+          "begin_ns": 866132727881697,
+          "end_ns": 866132727993467
+        },
+        {
+          "xy": [
+            560,
+            89
+          ],
+          "begin_ns": 866132754284651,
+          "end_ns": 866132754420131
+        },
+        {
+          "xy": [
+            560,
+            94
+          ],
+          "begin_ns": 866132780782165,
+          "end_ns": 866132780912855
+        },
+        {
+          "xy": [
+            560,
+            99
+          ],
+          "begin_ns": 866132833452823,
+          "end_ns": 866132833565573
+        },
+        {
+          "xy": [
+            560,
+            104
+          ],
+          "begin_ns": 866132859581967,
+          "end_ns": 866132859656817
+        },
+        {
+          "xy": [
+            560,
+            109
+          ],
+          "begin_ns": 866132886854621,
+          "end_ns": 866132886932371
+        },
+        {
+          "xy": [
+            560,
+            114
+          ],
+          "begin_ns": 866132913688386,
+          "end_ns": 866132913803256
+        },
+        {
+          "xy": [
+            560,
+            119
+          ],
+          "begin_ns": 866132945643655,
+          "end_ns": 866132945775775
+        },
+        {
+          "xy": [
+            560,
+            124
+          ],
+          "begin_ns": 866132972505959,
+          "end_ns": 866132972632839
+        },
+        {
+          "xy": [
+            560,
+            129
+          ],
+          "begin_ns": 866132999390323,
+          "end_ns": 866132999500523
+        },
+        {
+          "xy": [
+            560,
+            134
+          ],
+          "begin_ns": 866133022695924,
+          "end_ns": 866133022855464
+        },
+        {
+          "xy": [
+            560,
+            139
+          ],
+          "begin_ns": 866133049013158,
+          "end_ns": 866133049144428
+        }
+      ]
+    },
+    {
+      "actual_start": [
+        525,
+        39
+      ],
+      "actual_end": [
+        525,
+        39
+      ],
+      "offset_from_560": 35,
+      "horizontal_correction_observed": false,
+      "pre_stable_samples": 2,
+      "window_samples": 9,
+      "trajectory": [
+        {
+          "xy": [
+            525,
+            39
+          ],
+          "begin_ns": 866212092800541,
+          "end_ns": 866212092923441
+        }
+      ]
+    }
+  ],
+  "native_xy_rows": 4387,
+  "source_scope": "six-hook type/initializer observer finished before movement; no movement breakpoint in this capture",
+  "exit_code": 0,
+  "raw_files": [
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/04-room.png",
+      "bytes": 388340,
+      "sha256": "d1e2748420b7096175ebf6df5ffce6d9fdd60fe3992ee0cd702b6aae34fa5e2f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/05-match.png",
+      "bytes": 405924,
+      "sha256": "a561812b64738d6f7939dbfa79ab268e6daf10989448040f09113fdf40bf9231"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/06-top-baseline.png",
+      "bytes": 405402,
+      "sha256": "549fa6b50c886fe426505385725f0cdfe34189a1c10b9ef0b19d8c22781e8da8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/07-offset-first-before.png",
+      "bytes": 405734,
+      "sha256": "92c0a5079ce8b3c2c1e2814bccdacbb58add0e4985caa861bd92f22cb2214434"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/08-offset-first-after.png",
+      "bytes": 405723,
+      "sha256": "f9a1ae867f6d1868e2b3ac8439267242e6c6bf46ed8756fcfe4e717da74e7899"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/09-offset-first-reset.png",
+      "bytes": 405588,
+      "sha256": "966ec3705f65653a4431dacf84d5cae7a4734dfcd42148c69fdbd759ba22c5a7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/10-offset-second-before.png",
+      "bytes": 406073,
+      "sha256": "b3ad9eb392680d50a57986f251f62f4640047145fcc5bba026b2f0ea476c5bf9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/11-offset-second-after.png",
+      "bytes": 406843,
+      "sha256": "f71a37d21defafbee262fb4080f4fb63b27f98dc072a4e23f68a924fc42d4c15"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/12-offset-second-reset.png",
+      "bytes": 405384,
+      "sha256": "f2264c2cb2690dc579779e5c22bc775efeff6aee8275425c3fbd9331401cc2da"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/13-aligned-positive.png",
+      "bytes": 405537,
+      "sha256": "f45886adf5417dd19734d2ac217d47747b4e884519b3cef5bf03135bd7a3b890"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/14-final-top.png",
+      "bytes": 405298,
+      "sha256": "32ec1f21b16aba85ffbe865a8d2e8580374a51e9c9817468ad465a7682838248"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/ack.json",
+      "bytes": 42,
+      "sha256": "e25722f1c4cbda4e84919a7334b61890268e36c7b28b6f132c11e2b333722c40"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/after-a0.json",
+      "bytes": 701,
+      "sha256": "b1d9711da61debb32ab8cc3ea3fc4f61f56f1e10554b45ba82b1c4a6ba86409a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/char-entry.json",
+      "bytes": 916,
+      "sha256": "ce52b8e806e416b03bda1e83a8bddf35e9ac0964f28046a5e362943b1bfad6e3"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/char-key-events.jsonl",
+      "bytes": 5795,
+      "sha256": "245a91572714712853bbd9adabe5e3917c2592f2f0e23407d35077c4a1eb5f0e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/command.json",
+      "bytes": 23,
+      "sha256": "c270fee2335d2fc38a1050612fab793b02f3b388df77eb50f303c3973b33dde1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/harness-used.py",
+      "bytes": 17011,
+      "sha256": "177efcf19b5dcbed28da4994ed9e20242a912db50cbbc16af31d9159182ffb67"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/hero-target.json",
+      "bytes": 578,
+      "sha256": "bae3ded69b21f6e867709641a863ae42e9eb0d0435708fc9acb57ac808f95342"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "2928a55249c7a7724d5a312b5d03adf1ff4521175a03d72b3e1a537bb1ffb534"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/join.json",
+      "bytes": 731,
+      "sha256": "7e581ebb9b705c9998b0247e82215e09ae555cc8f31b1efa6c10e06e67a659e7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/key-final.json",
+      "bytes": 1636,
+      "sha256": "29f6b923c67dbd78b6872402947a2bc9ca7509621cbe55e29fd539e92c6c9e45"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/packets.jsonl",
+      "bytes": 40869,
+      "sha256": "98f109d6c3be69ceaf947c2e766ed36a5debb69ca9d12524ba424d1b8f6fdbbe"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/packets.log",
+      "bytes": 32070,
+      "sha256": "a2230e08f36851ddce560a2ac3564e342c4b41a1a071b3deca49c20b55a30ec9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/position-samples.jsonl",
+      "bytes": 908868,
+      "sha256": "8f3a61150231b9f4553dd4fafb91f5a8f4dd2e73dec24892a0d84288f801672c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/probe-ready.json",
+      "bytes": 164,
+      "sha256": "6b973c728bb805b8dd61f5b7ac782df2f487e68ab44daa6a7cc06abab045069b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/probe-template-used.gdb",
+      "bytes": 15874,
+      "sha256": "16433574cb4dada1797fb3c88a76432c450b6f1a5736d53f93cffbb8f0b5d340"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/probe.gdb",
+      "bytes": 15874,
+      "sha256": "16433574cb4dada1797fb3c88a76432c450b6f1a5736d53f93cffbb8f0b5d340"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/ready.json",
+      "bytes": 130,
+      "sha256": "f2250ba9749cd1eac77db1b91933ef0842d193e55866684df08bd8aeb960492e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/registered-hooks.json",
+      "bytes": 455,
+      "sha256": "5a05748974ef6bef3bab7290f5ffe4d3f7ef70b706412bebfb464912c661a882"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/server-used.py",
+      "bytes": 45711,
+      "sha256": "f37ddc5d4ede02d62fd90896b43d834be14cd7364d5e6ff616c98c0c5bc8a1eb"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/server.log",
+      "bytes": 32070,
+      "sha256": "a2230e08f36851ddce560a2ac3564e342c4b41a1a071b3deca49c20b55a30ec9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/sources.json",
+      "bytes": 623,
+      "sha256": "c9be0a3d738ef1fe100d0631b60c2475cc8e1631f98128df6eb57c35b720e2a8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/start.json",
+      "bytes": 1495,
+      "sha256": "ad65a766cd4fd8fd2e396aaeaf0cc1d06b793d7476243258c4017fd11e8c70f2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/supervisor.log",
+      "bytes": 3019,
+      "sha256": "a366fb1d6219e292d14925e2d3d8838b4febde998e8a1722e79213a35dcf3081"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/upstream-entry.json",
+      "bytes": 1806,
+      "sha256": "da69ca76825a53701f8a534db879f48f2530ad4abb06395aed797e5b1fb31806"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/winedbg.log",
+      "bytes": 15528,
+      "sha256": "65cc8d82a9e974b93a8c495299d11e04b628bf93fbaa40edcf91990a5d10ced1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/xvfb.log",
+      "bytes": 1017,
+      "sha256": "ee505b9f1e27f19d6c0918b0e947e5aa58e672c66fd5ce6a910e08160860cb01"
+    }
+  ],
+  "limits": [
+    "no direct field/count snapshot obtained; do not invent live table values from failed external read",
+    "typed virtual target and static dataflow are not direct target entry/return breakpoint observations",
+    "same actor current5; observed offset30 corrects while35blocked, not literal native global threshold34 or all-speed policy",
+    "no native direction flag, hurtbox, exact collision algorithm, native velocity or latency claim",
+    "requested535/530 overshot to actual530/525; actual coordinates used",
+    "candidate corner-assistance interpretation; confirmed statement is native coordinate response in this bounded case",
+    "pre-Down stability uses all samples in 100ms-before-SNAP through Down interval; do not confuse with narrower SNAP-to-Down sample count",
+    "requested X535/530 overshot to530/525; neither target value is substituted for actual position",
+    "no game-memory field snapshot from external namespace helper; failed attempt retained privately and excluded from this proof"
+  ]
+}
