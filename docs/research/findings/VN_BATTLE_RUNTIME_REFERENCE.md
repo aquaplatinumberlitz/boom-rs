@@ -319,3 +319,18 @@ playerR176, source59DA6F gọi7293B4 để lấy/cast tile passable theo ô rồ
 Return0 đặt flag chặn trong caller; [metadata32hash/case](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#predicate-ô-passable-của-player--r-179).
 Code path confirmed không có nghĩa đã quan sát branch chạy; property/nativehurtbox/maxcorner/mọi
 mode vẫn unknown. Các đo R176/R177 giữ nguyên, không dùng kết quả PET hoặc hold hữu hạn để lấp chỗ thiếu.
+
+### Logical Attr row và source tăng/kẹp — R-180/R-181
+
+[Native row/reader và metadata](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#tên-hàng-attr-tới-sáu-reader-native--r-180)
+đã nối Character/C00 f0=0, C01 f0=1 tới cùng typedmanager10596C50/C83AEC. Trong ca key1,
+actualglobalE60844 alias manager; sáu protectedfield reader/EAX và out6 là4/8/2/7/1/9.
+Logicalrowidentity đã có source, không chờ avatar/tên hiển thị hoặc chỉ dựa số trùng KR. Nhánh
+caption5A4AA9 ở ca khác trả tester, dừng làm cầu asset. 27stop/11hook,63rawSHA hai ca giữ riêng;
+inventoryfinal ghi trước disable, cleanup chứng minh bằng source/mocks/wrapperexit, không sửa raw.
+
+Source cùng class của R181 còn nối selector1/2→facet510 hai method578842/5788E1:
+capacitycurrent+514/max+584 và Firecurrent+52C/max+59C tăng1 rồi kẹp theo loadedmax.
+Cached445516 xác nhận phép cộng, R175 xác nhận nguồn base/max/reset; không cần đo lại plateau.
+Đây là staticactivationpath, không hai native activation mới; nativeFPS/pxs/engineunit và profile
+candidate được review riêng. Không source/gate/releaseflag nào tự đổi từ dãy số này.

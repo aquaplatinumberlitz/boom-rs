@@ -246,3 +246,7 @@ memorypatch hoặc wireu8 tự là fieldwidth1byte. Max-side counterparts khởi
 Cơ chế tra và áp ba cặp VN trong ca đã được giải; tên/asset C00/C01 KR và quan hệ với các cột row
 KR vẫn là bridge riêng. Hai dãy số trùng candidate KR không đủ tự nâng12khóa hoặc G2passed.
 Bước tiếp là render/row identity trên key đã resolve, không lặp7caller1191D20/plateau hoặc field+60.
+
+## Bổ sung consumer VN25/10 — R180/R181
+
+[Named row và max-consumer](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#tên-hàng-attr-tới-sáu-reader-native--r-180) nối logical C00/C01/f0, typedmanager và actualreader; capacity/Fire counterpart có source tăng/kẹp max. Đây là nguồn VN được dùng theo ADR0002/0013, không chỉ so số với KR. NativeKRconsumer/ItemAttrgroup và quy đổi statpoint sang px/s vẫn riêng; không tự nâng12profilekeys hoặc gate.
