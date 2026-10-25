@@ -185,6 +185,7 @@ fn ci() -> bool {
             "rules_precedence",
             python().arg("tools/rules_precedence.py"),
         )
+        && run("test_gui_probe", python().args(["tools/test_gui_probe.py"]))
         && run(
             "test_rules_precedence",
             python().args(["tools/test_rules_precedence.py"]),

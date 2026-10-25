@@ -150,10 +150,10 @@ physicalaudio hoặc gatepassed. Tại lúc thu QA, V1-036/G2/G3/G5 chưa ký; q
 
 | Phần | Đã có bằng chứng | Còn chặn nghiệm thu / bước cụ thể | Fidelity giữ backlog |
 |---|---|---|---|
-| G2 movement/stats | Movement/hitbox/assist/time DESIGN có scenario; ownergrace/trapped17; R180/R181 namedrow/consumer và R182 logicalsource12khóa | Chờ nghiệm thu độc lập source logicalstatpoint + DESIGNconversion24/hitbox13/assist12; profile vẫn releasefalse, source selection không tự ký gate. Loader vẫn reject candidate nếu có. | Nativehurtbox/maxcorner/đường cong vật lý, override mọi mode/KRconsumer còn fidelity; không cần toàn bộ6root. |
+| G2 movement/stats | Movement/hitbox/assist/time DESIGN có scenario; ownergrace/trapped17; R180/R181 namedrow/consumer và R182 logicalsource12khóa | G2 đã nghiệm thu issue294/296; PR297 chọn DESIGN33 theo nativecurveR183, giữ hitbox13/assist12 và30HzDESIGN. Profile vẫn releasefalse; G2 không nghiệm thu G6/platform/minHW. Loader vẫn reject candidate nếu có. | Nativehurtbox/maxcorner/curve ngoài actor/points4..8, override mọi mode/KRconsumer còn fidelity; không cần toàn bộ6root. |
 | G3 bomb/damage/items | Nghiệm thu cơ chế/boundary V1 theo [issue280](https://github.com/aquaplatinumberlitz/boom-rs/issues/280): fuse/chain/flame/trap/cap/drop/clock có nguồn/version và ca biên | Không còn thiếu cơ chế G3 theo SCOPE6 đã review. Việc chốt12giá trị nhân vật/profile phát hành vẫn thuộc G2; không relabel candidate hoặc lấy actorVN làm mọiKR. | Writer/clamp gốc, non-owner/repeatdamage/animationtail và vai trò ItemAttr còn mở; DESIGN đã chấp nhận không gọi là native confirmed. |
 | G5 UX/localization | Nghiệm thu functional V1 theo [issue278](https://github.com/aquaplatinumberlitz/boom-rs/issues/278): text/ảnh/font/golden; actual Linux scale/focus/rebind/fullscreen; BGM/SFX/volume/mute đường phát số; reconcile regression | Không còn blocker G5 trong tiêu chí SCOPE6/7.9 đã review. GUI Windows/macOS và minimum hardware chuyển đúng V1-036/G6; không coi smoke CLI là GUI hoặc virtual sink là physical DAC. | Native KR layout/name/voice count/loop, thiết bị âm thanh thật và WM khác chưa được xác nhận; giữ giới hạn, không đổi nhãn native. |
-| V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, G2/profile sign-off và GUI platform validation; G3/G5 nghiệm thu riêng, V1 vẫn36/37; gate hiện hành xem PROGRESS. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
+| V1-036/G6 | Archive QA ba OS trước đây đã kiểm; source/luật mới có CI/review | Gói QA mới/fingerprints đã kiểm; còn minimum hardware CPU/RAM/GPU có phép đo và quyết định, GUI platform validation và acceptance profile phát hành; G3/G5 nghiệm thu riêng, V1 vẫn36/37; gate hiện hành xem PROGRESS. | Chỉ số fidelity hoặc sáu issueRE mở không tự là blocker, cũng không tự là nghiệm thu phát hành. |
 
 Profile hiện vẫn `release=false`; ngoại lệ12khóaKRcandidate ở ADR0013 chưa được thay bằng quyết định
 phát hành mới. DESIGN đã được review ở từng PR không đồng nghĩa đã sign-off toàn gate. Không thêm
@@ -174,9 +174,9 @@ không biến regression của implementation thành oracle native.
 | Lửa/item và pickup tại trần | R-109 DESIGN; item cũ cháy, item mới rơi còn; item tại cap vẫn mất | [old item/new drop](../../fixtures/scenarios/blocks/flame_burns_old_item_new_drop_lives.toml), [at cap](../../fixtures/scenarios/pickup/at_cap.toml), pickup clamp/no-stack tests |
 | Clock/warmup | R-113 warmup3000 DESIGN, không ăn vào thời hạn lượt | [freeze countdown](../../fixtures/scenarios/round/warmup_freezes_round.toml), [không đi/đặt bom](../../fixtures/scenarios/round/warmup_blocks_movement_and_bomb.toml) |
 
-Reviewer độc lập nghiệm thu các cơ chế và lựa chọn DESIGN ở đúng version đã tích hợp. **12 giá trị
-nhân vật vẫn candidate, profile vẫn release=false**: chọn số C00/C01/profile phát hành thuộc G2, chưa
-được ký bằng G3. Cap consume/clamp mechanics không phải xác nhận cap mọi KR; số đo VN chỉ dùng
+Reviewer độc lập nghiệm thu các cơ chế và lựa chọn DESIGN ở đúng version đã tích hợp. **12 giá trị nhân vật hiện là logicalsource VNconfirmed R182; profile vẫn releasefalse**.
+G2 đã nghiệm thu logicalsource và calibration33R184 riêng; G3 không thay nguồn đó thành nativeKR
+hoặc nghiệm thu profile phát hành. Cap consume/clamp mechanics không phải xác nhận cap mọi KR; số đo VN chỉ dùng
 đúng actor/đại lượng. Không cần đóng toàn bộ sáu root RE để nghiệm thu cơ chế V1, nhưng cũng không
 đổi nhãn native/unknown để qua gate. G6/V1-036 còn platform/minimum hardware và quyết định profile.
 
@@ -459,8 +459,9 @@ bin/boom-server --help    # danh sách lệnh
   `LICENSES`.
 - `assets/fonts/` là font OFL do client nhúng sẵn; kèm trong gói để phân phối font hợp lệ
   và để người dùng dùng lại cho giao diện riêng.
-- Profile rules trong gói là `kr00967-v1-dev` (`release = false`): còn giá trị
-  `candidate`/`design` chưa review, nên **chưa** đủ điều kiện gate G6
+- Profile rules hiện là `kr00967-v1-dev` (`release = false`): logicalstats R182 dùng nguồn
+  VNconfirmed, tốc độ33px/s/point R184 là DESIGN hiệu chuẩn đã review. G1–G5 đã nghiệm thu;
+  minimumhardware/platformvalidation/gói cuối/V1-036 vẫn **chưa** đủ điều kiện gate G6
   ([SCOPE_V1](../planning/SCOPE_V1.md) §6).
 - Bố cục gói và bước đóng gói là **design** của dự án; định dạng bundle là
   [design](assets/BUNDLES.md) chưa được chốt hoàn toàn (ARCHITECTURE §8).
@@ -468,3 +469,26 @@ bin/boom-server --help    # danh sách lệnh
   pack/bundle/asset game, nên ca "thiếu bundle" chỉ chứng minh đường báo lỗi chứ không
   chứng minh client đọc được bundle hợp lệ. Chạy client thật với bundle cần pack KR của
   người dùng (không commit vào repo) — nằm ngoài phạm vi V1-036 phần 3.
+
+## 10. Probe cửa sổ native trên runner — task298
+
+Workflow `release.yml` có input tùy chọn `native_gui=true` (mặc địnhfalse). Chỉ dispatch sau source
+được exact-head review/CI theo AGENTS; không push tag/Release. Dùng **binary trong archive đã mở**,
+không build thêm bản thử. `tools/gui_probe.py` chạy UI demo không bundle/pack/media ở1x/2x, tối đa
+25s mỗi launch, không retry. Sourcehead/version cùng SHA binary/rules/l10n, exit/stderr, PNGsize/SHA
+vào `*-gui` JSON artifact; ảnh chỉ ở temp và xóa, không upload ảnh/gameasset. SchemaPNG/CRC/image
+stream/size và nonuniformRGB sau giải filter phải hợp lệ, exit0; process lỗi/timeout/khácsize giữFAIL với nguyên nhân chưa phân loại.
+Không biến failcontext thành productregression hoặc giả định runner không hỗ trợ trước khi đo.
+
+Linux dùng Xvfb1920×1440 và Mesa software cho cửa sổ X11; không phải minimumGPU/realdisplay.
+Windows thử nativeWGL backend hiện có (miniquad thử3.1 rồi2.1, cần context extensions);
+macOS dùng backend hiện hành/WindowServer; capability hosted runner được quan sát, không mặc định.
+Tool không provisiondriver/DLL hoặc thay đổi hostfocus/audio/security. JobGUI lỗi vẫn giữ archive và
+smokelog đã upload trước đó; JSON được upload cảkhi lỗi, workflow có thể FAIL dù packageCLI tốt.
+Chỉ kết quả cả2capture PASS mới chứng minh framebuffer kích thước yêu cầu trên đúng runner.
+
+Đây không OSfocus/keyrelease/fullscreen/physicalaudio/FPS/minimumHW hoặc toànG6; framebuffer2x
+cũng chưa chứng minh exactnearest pixels. Các proofLinuxKWin/realfocus và những hạn chế đãreview
+vẫn giữ riêng. Fullscreen/focus đaOS cần ca kiểm riêng khi đã biết nativecontext hoạt động. Không
+coi smoke `--help`, simulationFocusLost hoặc CI xanh là cửa sổ GUI thật. GóiQA95985fe trướcR182/R184
+là lịch sử; finalpackage phải dùng stablehead và rules33 cùngversion/hash mới.
