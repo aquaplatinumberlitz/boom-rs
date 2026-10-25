@@ -1162,3 +1162,11 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 `anim::character_loop_frame`. Bước6,24 px/frame video cho thấy client gốc cập nhật vị trí theo bước
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
+
+## 53. Chuỗi bị nhốt bong bóng C00 trên video VN — R-219 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-219 | Trên video VN, C00 bị lửa chạm vào bong bóng theo một chuỗi **một lần lớn dần rồi giữ**: bong bóng bắt đầu khoảng9,0 s video, lớn đầy trong ~0,5 s; sau đó nhân vật ở tư thế Faint **không thấy lặp/bob**, bong bóng **không thấy nhấp nháy/lặp** trong ≥5,5 s quan sát. Bong bóng nằm **trên** nhân vật (viền/tint phủ qua sprite); Faint static+adjust ở dưới. Không có pha tách “nhấp nháy sắp vỡ” trước khi chết trong cửa sổ video; snapshot cũ cho thấy bong bóng biến mất khi chết, nhưng khung pop không được quay | Bubble growth ~0,5 s; hold ≥5,5 s; Faint pose đứng yên; bubble trên character; trap-to-death R-162=6350 ms | `vn_runtime` / **partial** (visual video, không locator) | Raw local `/home/admin/boom-team/shots/320/trap-bubble-320.mkv` (không commit), `trap_crop_montage.png`, `observation.json`; capture 485 frame/14,967 s, PTS median33 ms (~32,4 fps). Entries: `FxDesktop/Bomb/Bubble00` 9 frame, `Character/C00-FaintLayerStatic/Adjust` 3, `C00-DieLayerStatic/Adjust`14 trong local bundle; `data/bundle/village00/bundle.toml` không có trong worktree, đối chiếu bundle local. Death/pop không nằm trong video; old `host-trap-native-147-r3` có dead snapshot sau8,2 s |
+
+R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (character trapped clip lặp; bubble grow3 rồi lặp phần còn lại): đề xuất code (không sửa trong PR này) giữ **một frame Faint** và **một trạng thái bubble đã lớn** đến death, không loop character/bubble trong thời gian bị nhốt. Không đổi profile/G2/G6/release; chưa có đủ khung pop/death để chốt toàn chuỗi.
