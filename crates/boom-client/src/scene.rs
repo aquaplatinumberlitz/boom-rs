@@ -83,6 +83,8 @@ pub struct DrawItem {
     /// Loại ô **ban đầu** theo bảng phân loại ô: vật cản phá được (`Breakable`) biến
     /// mất khi ô chuyển sang nền, còn vật cản cứng (`Solid`) thì luôn còn.
     pub kind: CellKind,
+    /// Độ đục khi vẽ (255 = đục hẳn); bong bóng nhốt vẽ trong mờ (#320).
+    pub alpha: u8,
 }
 
 /// Thông tin một trang atlas (file và kích thước) để nạp texture.
@@ -519,31 +521,31 @@ pub fn presentation_plan(
         let subject = anim::Subject::Player(player.id);
         // Hiệu ứng đang phát trong sổ trình diễn (chết/nhốt/mở đầu lượt) được ưu tiên
         // hơn clip theo state: chuỗi chết phát trọn clip rồi mới giữ khung cuối (R-089).
+        let mut death_frame = None;
         let (clip_id, frame) = match journal.active_for(subject, clock, &frames) {
             Some(active) => {
+                if active.kind == anim::PresentationKind::Death {
+                    death_frame = Some(active.frame);
+                }
                 let clip = anim::presentation_clip(active.kind, subject).unwrap_or_else(|| {
-                    anim::character_clip(
-                        anim::character_of(player.id),
-                        player.life,
-                        player.facing,
-                        moving,
-                    )
+                    anim::character_clip(anim::character_of(player.id), player.life, player.facing)
                 });
                 (clip, Some(active.frame))
             }
             None => {
-                let clip = anim::character_clip(
-                    anim::character_of(player.id),
-                    player.life,
-                    player.facing,
-                    moving,
-                );
+                let clip =
+                    anim::character_clip(anim::character_of(player.id), player.life, player.facing);
                 let frame = match player.life {
                     // Nhân vật **chết**: giữ khung cuối **có ảnh** của clip chết. Khung
                     // cuối của clip chết trỏ ảnh rỗng 0×0 (dữ liệu thật của client gốc)
                     // nên nhân vật chết **không được vẽ** thành ô màu (R-089, BUNDLES §7.1).
                     Life::Dead => last_visible_frame(bundle, &clip),
-                    // Còn sống (đi/đứng) hoặc bị nhốt: frame lặp theo tick mô phỏng.
+                    // Đứng yên: giữ frame cuối của clip đi theo hướng cuối (R-198, #320).
+                    Life::Alive if !moving => {
+                        let count = clip_frame_count(bundle, &clip);
+                        count.checked_sub(1)
+                    }
+                    // Đang đi hoặc bị nhốt: frame lặp theo tick mô phỏng.
                     _ => {
                         let count = clip_frame_count(bundle, &clip);
                         (count > 0).then(|| anim::character_loop_frame(clock, count))
@@ -566,30 +568,40 @@ pub fn presentation_plan(
         ) {
             items.push((anchor_y, column, ORDER_CHARACTER, item));
         }
-        // Bong bóng phủ lên người bị nhốt: phát lớn dần một lần từ lúc bị nhốt rồi lặp phần
-        // còn lại; neo theo nhân vật (#305).
-        if let Life::Trapped { since } = player.life
-            && let Some(bubble) = bundle
-                .clips
-                .iter()
-                .find(|clip| clip.id == anim::TRAPPED_BUBBLE_CLIP)
-        {
-            let index = anim::bubble_frame(clock, since, bubble.frames.len());
-            if let Some(index) = index
-                && let Some(mut item) = clip_frame_item(bundle, bubble, index, column, row, tile_px)
-            {
-                item.dest = actor_placement(&bubble.frames[index], anchor_x, anchor_y);
-                items.push((
-                    anchor_y,
-                    column,
-                    ORDER_BUBBLE,
-                    PlanItem::Sprite {
-                        clip: bubble.id.clone(),
-                        frame: index,
-                        item,
-                    },
-                ));
+        // Bong bóng phủ lên người bị nhốt: lớn dần một lần, giữ bóng tròn trong mờ, đục hẳn
+        // trước khi vỡ; khi chết thì phủ chuỗi vỡ lên ba frame đầu của chuỗi chết (#320).
+        let bubble = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == anim::TRAPPED_BUBBLE_CLIP);
+        let look = match (player.life, bubble) {
+            (Life::Trapped { since }, Some(bubble)) => {
+                anim::bubble_look(clock, since, world.rules().trap_ticks, bubble.frames.len())
             }
+            (Life::Dead, Some(bubble)) => death_frame
+                .and_then(|frame| anim::bubble_pop_frame(frame, bubble.frames.len()))
+                .map(|frame| anim::BubbleLook {
+                    frame,
+                    alpha: u8::MAX,
+                }),
+            _ => None,
+        };
+        if let (Some(look), Some(bubble)) = (look, bubble)
+            && let Some(mut item) =
+                clip_frame_item(bundle, bubble, look.frame, column, row, tile_px)
+        {
+            item.dest = actor_placement(&bubble.frames[look.frame], anchor_x, anchor_y);
+            item.alpha = look.alpha;
+            items.push((
+                anchor_y,
+                column,
+                ORDER_BUBBLE,
+                PlanItem::Sprite {
+                    clip: bubble.id.clone(),
+                    frame: look.frame,
+                    item,
+                },
+            ));
         }
     }
 
@@ -802,6 +814,7 @@ pub fn clip_frame_item(
         row: cell_y,
         column: cell_x,
         kind: CellKind::Floor,
+        alpha: u8::MAX,
     })
 }
 
@@ -940,6 +953,7 @@ fn draw_item(
         row: cell_y,
         column: cell_x,
         kind: CellKind::Floor,
+        alpha: u8::MAX,
     })
 }
 
@@ -1585,10 +1599,10 @@ mod tests {
         let mut adjust = bundle
             .clips
             .iter()
-            .find(|clip| clip.id == "c00.idle.blink.static")
+            .find(|clip| clip.id == "c00.walk.down.static")
             .expect("clip đứng")
             .clone();
-        adjust.id = "c00.idle.blink.adjust".to_owned();
+        adjust.id = "c00.walk.down.adjust".to_owned();
         bundle.clips.push(adjust);
         let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
         let world = test_world();
@@ -1615,7 +1629,7 @@ mod tests {
         };
         let before = sprites(&state);
         let layers: Vec<&str> = before.iter().map(|(clip, _)| clip.as_str()).collect();
-        assert_eq!(layers, ["c00.idle.blink.static", "c00.idle.blink.adjust"]);
+        assert_eq!(layers, ["c00.walk.down.static", "c00.walk.down.adjust"]);
         // Dịch 7 px (chưa sang ô khác): ảnh dịch đúng 7 px.
         state.players[0].x = boom_core::Mpx(state.players[0].x.0 + 7_000);
         let after = sprites(&state);
@@ -1655,7 +1669,7 @@ mod tests {
             .expect("nhân vật phải có lệnh vẽ");
         assert_eq!(character.0, "c00.walk.down.static");
 
-        // Đứng yên (vị trí không đổi) → clip đứng.
+        // Đứng yên (vị trí không đổi) → clip đi theo hướng cuối, giữ frame cuối (R-198, #320).
         let plan = presentation_plan(
             &bundle,
             &scene,
@@ -1671,7 +1685,11 @@ mod tests {
             .map(clip_of)
             .find(|(clip, _)| clip.starts_with("c00."))
             .expect("nhân vật phải có lệnh vẽ");
-        assert_eq!(character.0, "c00.idle.blink.static");
+        let walk_frames = clip_frame_count(&bundle, "c00.walk.down.static");
+        assert_eq!(
+            character,
+            ("c00.walk.down.static".to_owned(), walk_frames - 1)
+        );
 
         // Bom đang chờ và lửa trên ô: mỗi ô một clip riêng.
         state.bombs.push(Bomb {
