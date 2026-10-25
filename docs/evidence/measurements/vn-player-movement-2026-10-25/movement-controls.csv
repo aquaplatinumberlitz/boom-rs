@@ -1,0 +1,14 @@
+snapshot,native_x,native_y
+06-up-1,560,39
+07-top-repeat,560,39
+08-right,560,39
+09-left-control,420,39
+10-right-return,560,39
+11-down-control,560,174
+12-top-return,560,39
+13-offset-a-before,540,39
+14-offset-a-after,560,109
+15-offset-a-reset,560,39
+16-offset-b-before,535,39
+17-offset-b-after,560,104
+18-offset-b-reset,560,39

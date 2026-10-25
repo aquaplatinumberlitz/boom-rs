@@ -26,6 +26,7 @@
 | [measurements/rust-client-ux-2026-10-24/README.md](measurements/rust-client-ux-2026-10-24/README.md) | Kiểm Rust DESIGN: UI nearest1×/2×, NVIDIA/fullscreen, focus thật, rebind, BGM/SFX/volume/mute; giới hạn WM restore/đa OS/phần cứng, không oracle VN/KR |
 | [measurements/vn-trap-timer-2026-10-24/README.md](measurements/vn-trap-timer-2026-10-24/README.md) | Native VN receiver/bubble counter200, ba baseline6332–6355ms, early resets giữ nguyên; calibration6350ms/191tickRust là DESIGN, raw hashes/negative/limits |
 | [DOCS_MIGRATION.json](DOCS_MIGRATION.json) | Bản đồ đường dẫn cũ→mới, không phải bằng chứng luật chơi |
+| [measurements/vn-player-movement-2026-10-25/README.md](measurements/vn-player-movement-2026-10-25/README.md) | R-176: native argument `[X,Y−39,40,40]` trên mover player, hai trajectory rẽ có đối chứng; corner assistance candidate, không suy hurtbox/ngưỡng;60hash/13endpoint |
 
 Không commit client/pack/binary/database hoặc cache ảnh lớn vào repo chỉ để tạo evidence.
 Trace/capture mới phải có build/hash, điều kiện đầu, cấu hình server giả lập và giới hạn phép đo.

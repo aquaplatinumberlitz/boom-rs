@@ -1,0 +1,893 @@
+{
+  "claim": "R-176",
+  "question": "actual argument data on player mover and two corner-input response controls",
+  "default_private_root": "/home/admin/boom-rs-dsh/re-kr",
+  "fixture": {
+    "build": "VN VBNB_116 offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "image_base": "0x400000",
+    "map": "Factory01",
+    "room_type": 19,
+    "patch_scope": "IAT/devirt/offline reconstruction; vanilla equivalence unproven; trusted source per owner/ADR0002/0013"
+  },
+  "run": "host-char-key-upstream-149-r1",
+  "actor": 449278600,
+  "actor_vtable": "0xc664c4",
+  "local_slot604": 0,
+  "movement_observation": {
+    "kind": "movement_rect",
+    "actor": 449278600,
+    "pc": "0x59dad9",
+    "thread": [
+      42000,
+      316,
+      0
+    ],
+    "movement_ebp": 1233088,
+    "raw16_ebp_minus_90": "30020000e00100002800000028000000",
+    "dwords_signed": [
+      560,
+      480,
+      40,
+      40
+    ],
+    "actor_x": {
+      "state": "ok",
+      "value": 560,
+      "payload": 488009944,
+      "header12": "ebabc71a0194c71ad870161d",
+      "payload10": "025ce4f232eb0100b4ff"
+    },
+    "actor_y": {
+      "state": "ok",
+      "value": 519,
+      "payload": 488424440,
+      "header12": "37adc71a287bc71af8c31c1d",
+      "payload10": "ff236e06f83728007c5f"
+    },
+    "ebx": 1,
+    "ebx_deref": null,
+    "edi": 1233160,
+    "edi_deref": "0x5",
+    "return_address": "0x59d908",
+    "trap_count": 6,
+    "frame_note": "movement frame; not initializer frame"
+  },
+  "controls": [
+    {
+      "snapshot": "06-up-1",
+      "native_xy": [
+        560,
+        39
+      ],
+      "snapshot_begin_ns": 864591931635572
+    },
+    {
+      "snapshot": "07-top-repeat",
+      "native_xy": [
+        560,
+        39
+      ],
+      "snapshot_begin_ns": 864665581331857
+    },
+    {
+      "snapshot": "08-right",
+      "native_xy": [
+        560,
+        39
+      ],
+      "snapshot_begin_ns": 864667152359161
+    },
+    {
+      "snapshot": "09-left-control",
+      "native_xy": [
+        420,
+        39
+      ],
+      "snapshot_begin_ns": 864668308691158
+    },
+    {
+      "snapshot": "10-right-return",
+      "native_xy": [
+        560,
+        39
+      ],
+      "snapshot_begin_ns": 864669867213840
+    },
+    {
+      "snapshot": "11-down-control",
+      "native_xy": [
+        560,
+        174
+      ],
+      "snapshot_begin_ns": 864671029181563
+    },
+    {
+      "snapshot": "12-top-return",
+      "native_xy": [
+        560,
+        39
+      ],
+      "snapshot_begin_ns": 864672889941469
+    },
+    {
+      "snapshot": "13-offset-a-before",
+      "native_xy": [
+        540,
+        39
+      ],
+      "snapshot_begin_ns": 864800447594285
+    },
+    {
+      "snapshot": "14-offset-a-after",
+      "native_xy": [
+        560,
+        109
+      ],
+      "snapshot_begin_ns": 864801332858177
+    },
+    {
+      "snapshot": "15-offset-a-reset",
+      "native_xy": [
+        560,
+        39
+      ],
+      "snapshot_begin_ns": 864803537933725
+    },
+    {
+      "snapshot": "16-offset-b-before",
+      "native_xy": [
+        535,
+        39
+      ],
+      "snapshot_begin_ns": 864804349265480
+    },
+    {
+      "snapshot": "17-offset-b-after",
+      "native_xy": [
+        560,
+        104
+      ],
+      "snapshot_begin_ns": 864805203806974
+    },
+    {
+      "snapshot": "18-offset-b-reset",
+      "native_xy": [
+        560,
+        39
+      ],
+      "snapshot_begin_ns": 864807391645176
+    }
+  ],
+  "corner_controls": [
+    {
+      "case": "a",
+      "actual_start_xy": [
+        540,
+        39
+      ],
+      "actual_horizontal_offset_from_560": 20,
+      "actual_end_xy": [
+        560,
+        109
+      ],
+      "pre_down_stable_sample_count": 2,
+      "pre_down_stable_observed_span_ms": 104.726595,
+      "trajectory": [
+        {
+          "begin_ns": 864800633282413,
+          "end_ns": 864800633393473,
+          "native_xy": [
+            540,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864800638577878,
+          "end_ns": 864800638681838,
+          "native_xy": [
+            545,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864800664952122,
+          "end_ns": 864800665070272,
+          "native_xy": [
+            550,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864800696894611,
+          "end_ns": 864800696988871,
+          "native_xy": [
+            555,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864800728267529,
+          "end_ns": 864800728415109,
+          "native_xy": [
+            560,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864800759790918,
+          "end_ns": 864800759937528,
+          "native_xy": [
+            560,
+            44
+          ]
+        },
+        {
+          "begin_ns": 864800796686051,
+          "end_ns": 864800796809991,
+          "native_xy": [
+            560,
+            49
+          ]
+        },
+        {
+          "begin_ns": 864800823162715,
+          "end_ns": 864800823307475,
+          "native_xy": [
+            560,
+            54
+          ]
+        },
+        {
+          "begin_ns": 864800855514004,
+          "end_ns": 864800855659725,
+          "native_xy": [
+            560,
+            59
+          ]
+        },
+        {
+          "begin_ns": 864800881884978,
+          "end_ns": 864800882014548,
+          "native_xy": [
+            560,
+            64
+          ]
+        },
+        {
+          "begin_ns": 864800913096467,
+          "end_ns": 864800913226917,
+          "native_xy": [
+            560,
+            69
+          ]
+        },
+        {
+          "begin_ns": 864800944966266,
+          "end_ns": 864800945062506,
+          "native_xy": [
+            560,
+            74
+          ]
+        },
+        {
+          "begin_ns": 864800976708184,
+          "end_ns": 864800976839774,
+          "native_xy": [
+            560,
+            79
+          ]
+        },
+        {
+          "begin_ns": 864801003932969,
+          "end_ns": 864801004107499,
+          "native_xy": [
+            560,
+            84
+          ]
+        },
+        {
+          "begin_ns": 864801036747929,
+          "end_ns": 864801036889669,
+          "native_xy": [
+            560,
+            89
+          ]
+        },
+        {
+          "begin_ns": 864801069537808,
+          "end_ns": 864801069699809,
+          "native_xy": [
+            560,
+            99
+          ]
+        },
+        {
+          "begin_ns": 864801101137827,
+          "end_ns": 864801101259197,
+          "native_xy": [
+            560,
+            104
+          ]
+        },
+        {
+          "begin_ns": 864801133075546,
+          "end_ns": 864801133188716,
+          "native_xy": [
+            560,
+            109
+          ]
+        }
+      ],
+      "control": "only Down hold in this command window; no Right keydown",
+      "requested_target_is_not_actual_coordinate": true
+    },
+    {
+      "case": "b",
+      "actual_start_xy": [
+        535,
+        39
+      ],
+      "actual_horizontal_offset_from_560": 25,
+      "actual_end_xy": [
+        560,
+        104
+      ],
+      "pre_down_stable_sample_count": 2,
+      "pre_down_stable_observed_span_ms": 100.326171,
+      "trajectory": [
+        {
+          "begin_ns": 864804497317664,
+          "end_ns": 864804497493454,
+          "native_xy": [
+            540,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864804525299399,
+          "end_ns": 864804525413019,
+          "native_xy": [
+            545,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864804552929244,
+          "end_ns": 864804553031334,
+          "native_xy": [
+            550,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864804584238143,
+          "end_ns": 864804584330023,
+          "native_xy": [
+            555,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864804615716941,
+          "end_ns": 864804615805881,
+          "native_xy": [
+            560,
+            39
+          ]
+        },
+        {
+          "begin_ns": 864804641686365,
+          "end_ns": 864804641763735,
+          "native_xy": [
+            560,
+            44
+          ]
+        },
+        {
+          "begin_ns": 864804673180793,
+          "end_ns": 864804673309223,
+          "native_xy": [
+            560,
+            49
+          ]
+        },
+        {
+          "begin_ns": 864804701263379,
+          "end_ns": 864804701382969,
+          "native_xy": [
+            560,
+            54
+          ]
+        },
+        {
+          "begin_ns": 864804732426447,
+          "end_ns": 864804732533667,
+          "native_xy": [
+            560,
+            59
+          ]
+        },
+        {
+          "begin_ns": 864804758402360,
+          "end_ns": 864804758520251,
+          "native_xy": [
+            560,
+            64
+          ]
+        },
+        {
+          "begin_ns": 864804816219723,
+          "end_ns": 864804816347833,
+          "native_xy": [
+            560,
+            69
+          ]
+        },
+        {
+          "begin_ns": 864804847402571,
+          "end_ns": 864804847504141,
+          "native_xy": [
+            560,
+            74
+          ]
+        },
+        {
+          "begin_ns": 864804880348341,
+          "end_ns": 864804880430371,
+          "native_xy": [
+            560,
+            79
+          ]
+        },
+        {
+          "begin_ns": 864804906487595,
+          "end_ns": 864804906616215,
+          "native_xy": [
+            560,
+            84
+          ]
+        },
+        {
+          "begin_ns": 864804933342919,
+          "end_ns": 864804933466189,
+          "native_xy": [
+            560,
+            89
+          ]
+        },
+        {
+          "begin_ns": 864804964545027,
+          "end_ns": 864804964655667,
+          "native_xy": [
+            560,
+            94
+          ]
+        },
+        {
+          "begin_ns": 864804990575311,
+          "end_ns": 864804990699291,
+          "native_xy": [
+            560,
+            99
+          ]
+        },
+        {
+          "begin_ns": 864805017783395,
+          "end_ns": 864805017912486,
+          "native_xy": [
+            560,
+            104
+          ]
+        }
+      ],
+      "control": "only Down hold in this command window; no Right keydown",
+      "requested_target_is_not_actual_coordinate": true
+    }
+  ],
+  "native_xy_row_count": 2952,
+  "xy_reader_span_ms_max": 1.648922,
+  "initializer_context": {
+    "actual_return": "0x6eb8a3",
+    "key": 0,
+    "out6": [
+      5,
+      7,
+      1,
+      10,
+      1,
+      7
+    ],
+    "scope": "context from same actor, not KR identity or character-choice mapping"
+  },
+  "static_blocks": [
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x59da6f",
+      "requested_window": 384,
+      "read_candidate_bytes": 384,
+      "retained_decoded_bytes": 79,
+      "end_exclusive": "0x59dabe",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "6783d8428db0fac8866ebe605ec4c91a54ce61e1c8f91811f723ad10e0b9eb8a"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x59dabe",
+      "requested_window": 256,
+      "read_candidate_bytes": 256,
+      "retained_decoded_bytes": 254,
+      "end_exclusive": "0x59dbbc",
+      "terminal": null,
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "860be5ddee0af9efa42d572da69b7b1c3cffef8f7e14790910db1e28edbee005"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x594b68",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 126,
+      "end_exclusive": "0x594be6",
+      "terminal": null,
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "584ec040ce7a6a49921b7a5cd508dd0079ce50e41325b730e2968e186f174e80"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x594be6",
+      "requested_window": 96,
+      "read_candidate_bytes": 96,
+      "retained_decoded_bytes": 64,
+      "end_exclusive": "0x594c26",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "bc39bad26de7d9ccd138472273f6eea403349d3e2263843e29940217af37c53d"
+    }
+  ],
+  "static_requested_bytes": 864,
+  "static_retained_bytes": 523,
+  "raw_and_static_files": [
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/01-channels.png",
+      "bytes": 608329,
+      "sha256": "d0a82499311c9bb27a2c806cdf0a991a4fbedc6c085046ec9f1984195a7228b6"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/04-room.png",
+      "bytes": 388340,
+      "sha256": "d1e2748420b7096175ebf6df5ffce6d9fdd60fe3992ee0cd702b6aae34fa5e2f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/05-match.png",
+      "bytes": 406202,
+      "sha256": "14da73d2503761106a2568da5b75bf4ed5112a748129d446678ede580437172d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/06-up-1.png",
+      "bytes": 405329,
+      "sha256": "6b1bbe44e36c47472f7d65e5084078a1abaf49c5ebffd3b8cd0c47f2f09ce75b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/07-top-repeat.png",
+      "bytes": 405567,
+      "sha256": "88f7575cb4a3eb38b3e932f5dc4653419befd3bca16485ba11ee66386bf7c2af"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/08-right.png",
+      "bytes": 406108,
+      "sha256": "82139d9b72672e4079439b056608fc0fdc8ba719d34411e32f82b6782e8ab75c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/09-left-control.png",
+      "bytes": 406068,
+      "sha256": "0b39b9e4bc857b18fa3eb0af31d39783fd8593dbaf4561b2710813f5e29b6b33"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/10-right-return.png",
+      "bytes": 405680,
+      "sha256": "ddde685b7be5669f08a8d71b9bfc5044507176d27c2a1b1424bbe3473e5bb181"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/11-down-control.png",
+      "bytes": 405815,
+      "sha256": "aac52080c30358f43468d7dc86c454b17b49a598470ba4881524a7435b12e6fe"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/12-top-return.png",
+      "bytes": 405362,
+      "sha256": "06ab6c226ac9892f5ffd438e9e39426f484ba7d08c60548b1feeb82974d3a22f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/13-offset-a-before.png",
+      "bytes": 406126,
+      "sha256": "c2bbca3c847d9eb921a3e7c0a03fdb8f1b6371ee04bd4b9df01debd364505ba8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/14-offset-a-after.png",
+      "bytes": 406222,
+      "sha256": "336de3ca526ebc10e8261530a66261719ee99af96a25021a30e8bf781ecc69d4"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/15-offset-a-reset.png",
+      "bytes": 405901,
+      "sha256": "5b49a2f6fb240264e4da8c56984ed97e83f6aada0b87a6533c517f9fe4310a16"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/16-offset-b-before.png",
+      "bytes": 405293,
+      "sha256": "7f5ec6bf9a03b92473258d03841dbe33db7700f030658e3bdfa30f3fb33bf6cb"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/17-offset-b-after.png",
+      "bytes": 405869,
+      "sha256": "f777eb76fe2a94cf68d0394a958dce8fc2aedf9766dd18da880004cf2da600e7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/18-offset-b-reset.png",
+      "bytes": 405617,
+      "sha256": "4e1c2b30280ef7a39dfacc3ebc3c03862741d8bfc37c07afe2e6c1452a46aabf"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/ack.json",
+      "bytes": 42,
+      "sha256": "fe7f02cb2c7633afad2425180ea0c54aa2a2a3a03b636c06e3142ca76d385461"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/after-a0.json",
+      "bytes": 701,
+      "sha256": "77bb6855c8186f2936fb86121f3e2105a4b5b6a1b21d7552bd22d385147af92f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/char-entry.json",
+      "bytes": 916,
+      "sha256": "4db2df37564c2a5c1d1ebe7c4530ec445ea58f6c2ae48268339c7faa447e092a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/char-key-events.jsonl",
+      "bytes": 5322,
+      "sha256": "4653b740bc15ef1db935e781b977cd9bf933893ceab4656a8c07d44dffc14c08"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/command.json",
+      "bytes": 23,
+      "sha256": "c270fee2335d2fc38a1050612fab793b02f3b388df77eb50f303c3973b33dde1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/harness-used.py",
+      "bytes": 17011,
+      "sha256": "72b10ad329475f4da330cf03d3ba50a63c7189fcc7cb553ec43f2b2294509abe"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/hero-target.json",
+      "bytes": 578,
+      "sha256": "63117a8a8c3a48e761a907d04f81241f25e7cd95683a57f591a79e1688389173"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "8dbfaf2e7b2a43c7171aed11f74d146f5bbd8ec1859c2ec1ddfbbf7bbe68ed58"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/join.json",
+      "bytes": 731,
+      "sha256": "cdde9cbaadae3cfe9dfc60ba303c9be70c88e00c4cfdce2ae5a504da05819198"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/key-final.json",
+      "bytes": 1636,
+      "sha256": "60ad123c3f536a095d9eeb7971db238eabc1d62480f82eb63f06e8aeea3a76d1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/movement-rect-events.jsonl",
+      "bytes": 660,
+      "sha256": "cc5ca79a0be1fc8513b23faff43f1e7e2ba47f16395a684d4985dd229dfec68e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/movement-rect.json",
+      "bytes": 659,
+      "sha256": "88830b0f2d0d7c2bec9ceeeadf4772e2298c1448b2f1eb852d977ff157f181f1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/packets.jsonl",
+      "bytes": 31636,
+      "sha256": "43a3ade56a142a39b0e023cbccb515fea2ffa05c5f5352208d1e619a0b12e8ea"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/packets.log",
+      "bytes": 24816,
+      "sha256": "e39713cd8105cd1b141e37816aba16bad612c2e042f02e7f965edcbd29f8afe5"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/position-samples.jsonl",
+      "bytes": 611698,
+      "sha256": "695d757ed5d9731f95dc494f5f10c6779271f0e6d5254952db62913de1f091ee"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/probe-ready.json",
+      "bytes": 164,
+      "sha256": "fffa247af0cdd05501d8195942c96e803ebcae4d8bd4244b9bd2d92c17a3e867"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/probe-template-used.gdb",
+      "bytes": 16225,
+      "sha256": "001fbb54dd328f662105f387052f94a4e4792d16315e7ee19a6b9ec3e8dddb68"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/probe.gdb",
+      "bytes": 16225,
+      "sha256": "001fbb54dd328f662105f387052f94a4e4792d16315e7ee19a6b9ec3e8dddb68"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/ready.json",
+      "bytes": 130,
+      "sha256": "2f35c1dd6b954144c8f4419117124803c57dd5aa5ae8b9b47d39c15de8e42da4"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/registered-hooks.json",
+      "bytes": 522,
+      "sha256": "b5cc87036f561c6b533ca8482f90bffdaf9735c8d9350c9ecbecc5c8aac55342"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/server-used.py",
+      "bytes": 45711,
+      "sha256": "f37ddc5d4ede02d62fd90896b43d834be14cd7364d5e6ff616c98c0c5bc8a1eb"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/server.log",
+      "bytes": 24816,
+      "sha256": "e39713cd8105cd1b141e37816aba16bad612c2e042f02e7f965edcbd29f8afe5"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/sources.json",
+      "bytes": 628,
+      "sha256": "32993562a78b02feb2d86454dc1578bb0a5de3702367467840ec93f5d06179e0"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/start.json",
+      "bytes": 1500,
+      "sha256": "5ec2f4da7ae2ffa823d003e5725212bd32cc43979d60e875440595a9a44d144f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/supervisor.log",
+      "bytes": 3658,
+      "sha256": "8d7679aeadf20ced2bf844d786e2f2201b8ec1b66be67c11b845a35eed74dabd"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/upstream-entry.json",
+      "bytes": 1333,
+      "sha256": "8f58e6e44146c3cb1987f3de7458969849681cbacd42f03fb49cb8ca9f546cc8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/winedbg.log",
+      "bytes": 15491,
+      "sha256": "b14488cee9123f4afdbbd431c25c1ff962810211fb94f1ddca2112e4758954ce"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-upstream-149-r1/xvfb.log",
+      "bytes": 2421,
+      "sha256": "da6a93173b04d2a009eca12bfd8a2eba6a7dffd7e3d4aed8dd63c8329b86c0ca"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr",
+      "private_path": ".re-work/movement146-collision-source/clip59DA6F.json",
+      "bytes": 586,
+      "sha256": "5c53ce78161c3639d3802fdffd77fe2ac7f427e8346291fe8f2e47085a281636"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr",
+      "private_path": ".re-work/movement146-collision-source/clip59DA6F.asm",
+      "bytes": 888,
+      "sha256": "8f6e97f86bc57b53a91f088bc2688af67575a285d72c2c406f29d4395a70e2cb"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr",
+      "private_path": ".re-work/movement146-collision-source/clip59DA6F.bin",
+      "bytes": 79,
+      "sha256": "6783d8428db0fac8866ebe605ec4c91a54ce61e1c8f91811f723ad10e0b9eb8a"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr",
+      "private_path": ".re-work/movement146-collision-source/clip59DABE.json",
+      "bytes": 586,
+      "sha256": "2f601fd89aa9c753d96fdf65be1e4a602d0196dd2a38bf4ace6101cfd91ad792"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr",
+      "private_path": ".re-work/movement146-collision-source/clip59DABE.asm",
+      "bytes": 2843,
+      "sha256": "3559b879239751ef31618b1d1c4a47c86a597873ba19673712d524ebfb0a3426"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr",
+      "private_path": ".re-work/movement146-collision-source/clip59DABE.bin",
+      "bytes": 254,
+      "sha256": "860be5ddee0af9efa42d572da69b7b1c3cffef8f7e14790910db1e28edbee005"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn146-rect-source594b68.json",
+      "bytes": 616,
+      "sha256": "079fa9eabb80f0e85175d68e020f6a4e0272a5f7b5c08785b151bfe564182798"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn146-rect-source594b68.asm",
+      "bytes": 1564,
+      "sha256": "915474e5468bfa09e0aea4d163c8b437590aeaf49b5659a7d4969fe27439b2c6"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn146-rect-source594b68.bin",
+      "bytes": 126,
+      "sha256": "584ec040ce7a6a49921b7a5cd508dd0079ce50e41325b730e2968e186f174e80"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn146-rect-source594be6.json",
+      "bytes": 614,
+      "sha256": "fd8d8f8785ffa7cff97d5a82f59da30edc6394a0a3a01eca91c287548ec93280"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn146-rect-source594be6.asm",
+      "bytes": 638,
+      "sha256": "fc7607aa164fc73817133ee00583b7565fd8c669423510b9abe38a450decef0b"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn146-rect-source594be6.bin",
+      "bytes": 64,
+      "sha256": "bc39bad26de7d9ccd138472273f6eea403349d3e2263843e29940217af37c53d"
+    }
+  ],
+  "exit_code": 0,
+  "forbidden_packet_opcodes_absent": [
+    111,
+    117,
+    120,
+    151,
+    158
+  ],
+  "timing_excluded": true,
+  "limits": [
+    "first initialization window only; actual direct return differs from unwind backtrace and is preserved separately",
+    "four values are movement argument data, not proven damage hurtbox or complete narrow-phase collider",
+    "two successful corner controls establish behavior at actual offsets20/25, not maximum threshold",
+    "requested X targets550/540 overshot to540/535; actual positions used",
+    "all debugger/input/packet timing excluded from native velocity/latency/threshold-time claims",
+    "no KR identity, speed level, source row or profile change",
+    "candidate interpretation: four mover argument scalars describe a rectangle; downstream narrow-phase/damage consumer not established",
+    "candidate interpretation: observed horizontal correction during Down is corner assistance; maximum threshold and exact native direction flag not observed",
+    "repeat Up/Right stops and opposite-direction controls scope only this map/actor/context; no universal collision dimensions"
+  ]
+}
