@@ -341,7 +341,7 @@ Biên TTL giảm ngay lúc tạo của R-109 được thay riêng bởi R-158 (�
 | R-114 | `player.speed_px_per_s_per_level` giữ BnB | 24 px/s/level | `oss` / design | R-102/BnB `server/characters.js:15`; R-043 checksum chưa xác thực; speed level không phải px/s |
 | R-115 | `bomb.fuse_ms` giữ BnB; lựa chọn flame500ms/trap4000ms là lịch sử, hiện dùng R-158/R-160 | 2500ms (flame hiện540ms; trap hiện6350ms) | `oss` / design | R-103/BnB `server/game.js:14–17` SHA §10; R-021 unknown, R-022 emu candidate; R-026 là khoảng packet, không phải timer nội bộ; R-079 timing trình diễn không phải TTL damage |
 | R-116 | `player.collision_half_px`, `player.corner_assist_px`, `player.trap_touch_distance_px` giữ BnB | 13/12/28 px | `oss` / design | R-107/R-108/BnB `server/game.js:31–32,546–567` SHA §10; chưa có KR/VN confirmed cùng đại lượng; R-028 không xác nhận khoảng cách |
-| R-117 | Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
+| R-117 | **Lịch sử; superseded by R-182 cho profile hiện hành.** Giữ toàn bộ 12 khóa `characters.c00_*`, `characters.c01_*` theo BomberAttr target; ngoại lệ candidate có chủ ý | C00 speed 5–7, bomb 1–10, range 1–7; C01 speed 4–8, bomb 2–7, range 1–9 | `kr_static` / candidate (nghĩa trường) | R-040/R-041 confirmed dãy số, R-042 mapping candidate; ADR 0013 chọn giữ target thay template BnB R-105. Không nâng lên confirmed khi chưa có consumer |
 | R-118 | `presentation.frame_duration_ms` giữ design riêng | 100 ms | `design` / design | R-085; R-079 unknown; BnB không cung cấp nhịp clip KR. RE consumer frame/timing có thể thay sau |
 
 ### Bảng lựa chọn theo khóa (máy-đọc)
@@ -373,18 +373,18 @@ chưa tách được theo từng khóa thì validator **fail closed** (báo lỗ
 | `player.collision_half_px` | R-116 | collision_box_half | px | `oss` | design | BnB 5c108e8 |
 | `player.corner_assist_px` | R-116 | corner_assist | px | `oss` | design | BnB 5c108e8 |
 | `player.trap_touch_distance_px` | R-116 | trap_touch_distance | px | `oss` | design | BnB 5c108e8 |
-| `characters.c00_speed` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c00_speed_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c00_bombs` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c00_bombs_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c00_range` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c00_range_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c01_speed` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c01_speed_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c01_bombs` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c01_bombs_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c01_range` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
-| `characters.c01_range_max` | R-117 | character_stat_level | level | `kr_static` | candidate | KR 00967 |
+| `characters.c00_speed` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c00_speed_max` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c00_bombs` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c00_bombs_max` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c00_range` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c00_range_max` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c01_speed` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c01_speed_max` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c01_bombs` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c01_bombs_max` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c01_range` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
+| `characters.c01_range_max` | R-182 | character_stat_level | level | `vn_runtime` | confirmed | VN VBNB_116 logical statpoint |
 | `presentation.frame_duration_ms` | R-118 | presentation_frame_duration | ms | `design` | design | V1 design |
 
 Bảng trên là nguồn chuẩn lựa chọn; validator [`tools/rules_precedence.py`](../../../tools/rules_precedence.py)
@@ -393,8 +393,8 @@ ngược với RULES_V1** trước khi kiểm profile [`data/rules/`](../../../d
 hơn tầng ghi ở đây; validator chạy trong `cargo xtask ci`, test ở `tools/test_rules_precedence.py`.
 Tầng được so **theo từng khóa** từ "Bảng lựa chọn theo khóa" ở đây: bảng kỳ vọng trong tool và ô
 "Nguồn / trạng thái" của bảng claim phải khớp từng khóa với bảng đó, lệch thì CI báo lỗi.
-Ngoại lệ phải tường minh: 12 khóa `characters.*` (candidate theo R-117, ADR 0013) và `drop.weight_*`
-(số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052). Validator **không** so giá trị số với
+Lựa chọn12khóa `characters.*` hiện theo R182/VNconsumer, thay ngoại lệ candidate R117 lịch sử.
+Ngoại lệ còn tường minh: `drop.weight_*` (số bảng `confirmed` nhưng vai trò bảng còn `unknown` R-052). Validator **không** so giá trị số với
 claim và không tự kết luận claim đúng; reviewer kiểm nguồn.
 
 ## 12. Nền và ảnh UI của client V1
@@ -1032,3 +1032,30 @@ max-role còn candidate trong R175; capture cũ giữ scope riêng. Không tự 
 profile: quan hệ statpoint, đại lượng engine và quy đổi thời gian cần review tường minh theo ADR0013.
 G2 không đòi avatar cho logicalrow đã xác nhận; nativeKRconsumer/ItemAttrdrop và toàn bộ146/149 còn
 fidelity riêng. Profile/releaseflag/gate không đổi trong hai claim này.
+
+
+## 45. Lựa chọn logical statpoint C00/C01 cho profile V1 — R-182
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-182 | Chọn12khóa `characters.c00_*`, `characters.c01_*` theo namedrow/consumer VN cho logical base/max statpoint: movement, capacity, Fire. `unit=level` là nhãn họ scalar CharacterSpec/Stat; không phải tốc độ vật lý | C00:5/7,1/10,1/7; C01:4/8,2/7,1/9; logical statpoint | `vn_runtime` / confirmed (logical row và scalar role; có source static hỗ trợ) | R173/175/178/180/181; [namedrow/reader/max](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#tên-hàng-attr-tới-sáu-reader-native--r-180). R171 nối movementamount; R168 capacitycount; R166 Firegetter/r18 và R025 tăng tầm. Không nativeKRconsumer/FPS/pxs hoặc effectivecap mọi mode. DESIGN mapping vật lý/engine bên dưới không thành nativeconfirmed |
+
+R-117 **superseded by R-182** cho12profilekeys; R040/R041 sốKR vẫn confirmed và R042 mappingKR
+candidate lịch sử giữ nguyên. Nguồn chọn hiện `vn_runtime/confirmed` theo ADR0002/0013, không gọi
+R042 là nativeKRconfirmed. Chỉ thay metadata nguồn/claim, không đổi12số hoặc corealgorithm.
+
+Đại lượng engine được khai báo tường minh:
+- Movementpoint là scalar base/current/max, đã có native amount5/6 và loadedcounterpart clamp.
+  Engine dùng `speed.value` nhân **R11424px/s/point DESIGN**, chia server30Hz DESIGN. Đây là mapping
+  vật lý giữ có chủ ý; ví dụ point4 cho96px/s engine, khác số đo sameactor R178~134–137px/s.
+  Không suy nativeFPS/linearcurve hoặc gán30Hzserver thành nhịp client.
+- Capacitypoint được engine dùng làm số bom còn tồn tại tối đa; native R168 có actualactivecount
+  so với capacitygetter. Giá trị khởi tạo/max đến R175/180/181; không gọi pool25 là statmax.
+- Firepoint là scalar của getter tầm và base/max. Engine chọn một point tương ứng một ô ray theo
+  contract R057/R111; R025/R166 hỗ trợ tăng tầm, nhưng pixel/vùng damage/all-mode vẫn không từ đó
+  thành confirmed. Kích thước tile40px là khóa riêng R110, không đơn vị của field scalar.
+
+Việc dùng logicalstatpoint cùng nhãn `level` là contract schema hiện hành, không chứng minh native
+có enum tên level. Source scalar và DESIGN ánh xạ được tách, không nâng hệ số24/shape13/assist12.
+`release=false` giữ nguyên; loader vẫn chặn candidate nếu bật release. Profile đủ nguồn logical
+không tự là nghiệm thu G2/G6/V1-036; cần reviewer độc lập tiêu chí G2, gói/version/hash và phần G6.

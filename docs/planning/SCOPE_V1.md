@@ -52,7 +52,7 @@ Không mặc định trọng số là phần trăm hoặc lấy log giả lập 
 
 Luật gameplay theo [ADR 0013](../decisions/0013-rule-source-precedence.md):
 KR 00967 confirmed → VN VBNB_116 confirmed → BnB design → design riêng, chỉ so cùng đại lượng.
-Khôi phục round 120 s, trọng số VN và Bomb/Fire +1; giữ chỉ số KR candidate theo ngoại lệ có lý do.
+Khôi phục round120s, trọng số VN và Bomb/Fire+1; chỉ số logic C00/C01 dùng consumerVN R182, số giữ nguyên targetKR.
 Bảng từng khóa và giới hạn ở RULES_V1 §11; BnB lấp chỗ trống, warmup 3 s giữ design.
 Không mở scope map/item/nhân vật ngoài V1; policy vận hành §3 giữ nguyên.
 
@@ -215,7 +215,7 @@ Tổng hợp theo nhóm nguồn: [§10.3](#103-nguồn-giá-trị-hiện-hành--
 | D-05 | Ảnh UI có chữ | Ảnh nút/hộp thoại có chữ nằm trong ảnh (KR: chữ Hàn ở nút/dialog, chữ Latin ở art kết quả; bản VN: nút/dialog đọc được chữ Việt, art kết quả **chưa đọc rõ**) | Sáu sprite được duyệt nạp từ VN/PNG theo manifest; phần tử chưa duyệt hoặc `excluded` dùng text catalog | R-092 (`kr_static`+`vn_static` / confirmed), R-093 (`design` / design) ([RULES_V1 §12](../specification/gameplay/RULES_V1.md#12-nền-và-ảnh-ui-của-client-v1)); [BUNDLES §3.3](../specification/assets/BUNDLES.md#33-phần-tử-ui); [UI_STRINGS §3](../specification/localization/UI_STRINGS_V1.md#3-ảnh-có-chữ-trong-luồng-v1) |
 | D-06 | Mô hình phòng và cách xếp kết quả | 16 slot trạng thái, đội, kết quả theo hạng mỗi slot và cột bắt/cứu/EXP/tiền | FFA 2–4 người, một kết quả mỗi lượt, hòa khi hết giờ | R-062, R-065 ([RULES_V1 §7](../specification/gameplay/RULES_V1.md#7-vòng-đời-trận-và-phòng-legacy-vn)); [VN_ENGINE_DIFF](../research/findings/VN_ENGINE_DIFF.md) |
 | D-07 | Số map chơi được | 1.151 map trong pack KR, nhiều mode | Một map cố định `Village00` | R-002, R-070, R-071 ([RULES_V1 §1](../specification/gameplay/RULES_V1.md#1-lưới-và-map)); SCOPE_V1 §1 |
-| D-08 | Chỉ số nhân vật (speed/bomb/range) | KR `BomberAttr` C00 f2–f7 = `5,7,1,10,1,7`, C01 = `4,8,2,7,1,9` (`kr_static` / confirmed — **số** đã đọc); **nghĩa trường** (speed/bomb/range) còn `candidate` | Giữ nguyên 12 khóa `characters.c00_*`/`c01_*` theo số KR — ngoại lệ `candidate` có chủ ý; **không** dùng template cân bằng BnB (R-105 đã bị thay) | R-040, R-041, R-042, R-117 (lịch sử: R-105) ([RULES_V1 §4](../specification/gameplay/RULES_V1.md#4-nhân-vật-và-tốc-độ); [RULES_V1 §11](../specification/gameplay/RULES_V1.md#11-ưu-tiên-nguồn-hiện-hành--adr-0013)); [ADR 0013](../decisions/0013-rule-source-precedence.md) |
+| D-08 | Chỉ số nhân vật logic (movement/capacity/Fire) | KR R040/R041 confirmed số; VN R180/181 nối namedrow/reader/field/base-max. NativeKRconsumer vẫn chưa xác nhận | R182 chọn12logicalstatpoint `vn_runtime/confirmed`, số C00=5,7,1,10,1,7/C01=4,8,2,7,1,9; `level` là nhãn scalar, conversion24px/s/point vẫn DESIGN; releasefalse | R180/R181/R182; R042/R117 candidate là lịch sử; [ADR0013](../decisions/0013-rule-source-precedence.md); [RULES§45](../specification/gameplay/RULES_V1.md#45-lựa-chọn-logical-statpoint-c00c01-cho-profile-v1--r-182) |
 
 ### 10.2 Khoảng trống fidelity — chờ đo
 
@@ -246,8 +246,8 @@ sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
 - **Đã về gốc KR/VN** (khôi phục nguồn `confirmed` cùng đại lượng): thời hạn vòng **120 s** và
   cỡ ô **40 px** (R-110), **Bomb/Fire +1** (R-111), trọng số rơi **3650:2800:2000** (R-112 —
   *số* bảng VN `confirmed`, vai trò bảng vẫn `unknown` R-052, nên áp làm trọng số ba item V1 là
-  quyết định áp dụng chứ không phải xác suất drop gốc), chỉ số C00/C01 theo `BomberAttr` KR
-  (R-117 — ngoại lệ `candidate` có chủ ý, xem D-08). Theo ADR 0012/trước ADR 0013 các giá trị này
+  quyết định áp dụng chứ không phải xác suất drop gốc), chỉ số C00/C01 theo logicalrow/consumer VN
+  (R182 confirmed logicalstatpoint, số khớpKR; thay ngoại lệcandidate R117 lịch sử, xemD-08). Theo ADR 0012/trước ADR 0013 các giá trị này
   đã bị BnB đè (ví dụ vòng 120→180 s); nay về lại giá trị gốc, **bằng chứng gốc không bị hạ nhãn**.
 - **Vẫn theo BnB** (`oss` / `design`) vì chưa có nguồn `confirmed` cùng đại lượng: nhịp tick
   **30 Hz** (R-113 — R-013 chỉ đo bước *client*, không xác nhận tick server), warmup **3 s**
@@ -263,7 +263,7 @@ sổ này **không** dùng claim đã superseded làm lựa chọn hiện hành:
 [`v1-dev`](../../data/rules/v1-dev.toml) đã mang giá trị R-110…R-118, nhưng các **cơ chế** BnB
 đi kèm còn chờ task triển khai: **#130** (movement/hitbox/assist, bomb pass — đã merge), **#131**
 (drop khi vỡ gạch, lửa và item, nhặt tại cap), **#132** (chạm/nhốt, chuỗi lửa, warmup, thứ tự
-kết quả). **#133** không còn là chỉ dẫn chọn template BnB — chỉ số giữ theo KR (R-117). Sổ này
+kết quả). **#133** không còn là chỉ dẫn chọn template BnB — chỉ số logical theo VNconsumer R182, số targetKR giữ nguyên (R117 lịch sử). Sổ này
 ghi **giá trị đã chọn**, không khẳng định engine đã chạy theo; xem [ADR 0012](../decisions/0012-v1-rules-from-bnb.md)
 và [ADR 0013](../decisions/0013-rule-source-precedence.md).
 
@@ -290,7 +290,7 @@ mọi đuôi hiệu ứng native. Gate/feature progress vẫn theo execution.jso
 Thực hiện theo [REWRITE_PLAN](REWRITE_PLAN.md), mục điều phối sáu issue RE; nguồn câu hỏi còn mở là
 [QUESTIONS](../research/QUESTIONS.md). Native confirmed dùng cho đúng đại lượng/ngữ cảnh theo ADR 0013.
 Phần chưa biết có thể được giải bằng phép đo hoặc lựa chọn DESIGN có nguồn, ca nghiệm thu và reviewer;
-không đổi candidate/unknown thành confirmed. Ngoại lệ chỉ số C00/C01 hiện hành phải được review rõ ở G2.
+không đổi candidate/unknown thành confirmed. Nguồn logical C00/C01 R182 và mapping DESIGN phải được review rõ ở G2.
 
 G2/G3/G5 có thể nghiệm thu phần V1 khi source/profile/acceptance đã được chấp nhận và thực thi đã kiểm;
 phần fidelity còn thiếu giữ link Q/issue, owner và điều kiện làm tiếp. Một issue RE còn mở không tự là
@@ -308,3 +308,17 @@ chết ởT+190 khi tính tick tạo. Mốc là native serialize11→13; chưa t
 suy hằngtimer server, writer/clock hoặc200tickRust. Sampler early resets giữ trong evidence, không
 làm epoch đơn điệu giả. Các giới hạn này có owner/root147 và điều kiện mở lại khi thấy endpoint/mode
 khác; không giao lại phép đo owner-grace/lửa đã có. G3 cần sign-off riêng, scope37feature không đổi.
+
+
+### 10.7 Logical statpoint và DESIGN vận tốc — 2026-10-25
+
+R180/R181 đã nối C00/C01 logical Attrrow/actualreader/base-max consumer VN. Profile dùng R182
+cho12logicalstatpoint `vn_runtime/confirmed`, cùng12số target cũ; R042KRcandidate giữ lịch sử,
+không còn chặn sourceidentity vì avatar hoặc nativeFPS chưa đo. `level` là familylabel scalar,
+không px/s. Capacitypoint đếm bom, Firepoint ánh xạ ô ray theo contract V1; không suy pixel damage.
+
+Giữ R11424px/s/point,13px halfbox/12px assist,30Hz và time model theo DESIGN đã có. Point4engine96px/s
+khác nativecaptureR178~134–137px/s; đây là gap được ghi rõ, không runtimefidelity passed. R176/R177/R179
+là trace player/response/codepath, không xác nhận halfbox13 hoặc maxcorner12 của native.
+Bằng chứng trace+DESIGN này có thể nghiệm thu G2 theo§6/10.5 mà không chờ sáu REroot; chỉ reviewer độc lập
+mới signoff. Phần release vẫn `false`/V1-036/G6 và platform/minimumHW theo nghiệm thu riêng.

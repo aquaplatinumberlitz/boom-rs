@@ -18,7 +18,7 @@ ADR này bổ sung ưu tiên build target khi hai nguồn cùng xác nhận như
 `candidate` KR/VN, web, emu_choice không đè tầng confirmed. Không lấy trung bình.
 Không đổi nhãn bằng chứng để hợp thức hóa giá trị profile.
 
-**Ngoại lệ rõ ràng cho nhân vật:** giữ 12 khóa C00/C01 từ R-040/R-041 vì đúng build target,
+**Ngoại lệ lịch sử R117, được R182 thay ở bổ sung25/10 bên dưới:** giữ 12 khóa C00/C01 từ R-040/R-041 vì đúng build target,
 không thay bằng template cân bằng BnB. Dãy số confirmed nhưng nghĩa f2–f7 R-042 vẫn candidate;
 profile `kr_static` / `candidate`, `release = false`, R-117 ghi lựa chọn. Đây là ngoại lệ được quyết định
 riêng, không phải quy tắc candidate KR luôn thắng OSS hoặc confirmed. RE consumer là điều kiện nâng nhãn.
@@ -106,3 +106,24 @@ phải tách **số**, **vai trò field/base/max**, **đại lượng/đơn vị
 quy đổi R11424px/s/level thành nativeconfirmed. VNconfirmed được dùng trực tiếp theo ADR0002;
 không đặt yêu cầu đo lại KR chỉ vì region. G2 có thể chấp nhận trace và DESIGN đã nghiệm thu theo
 SCOPE; không chờ toàn bộ ItemAttr/6root, không gán candidate→confirmed để vượt gate.
+
+
+## Bổ sung2026-10-25 — thay ngoại lệ R117 bằng logical source R182
+
+Sau R180/R181, chọn R182 cho12khóa `characters.*`: `vn_runtime/confirmed`, cùng12số cũ,
+logical statpoint base/max có namedrow/reader/typedfield/incrementclamp. Ngoại lệ R117 và đoạn
+“giữ candidate” trong lượt evidence trước ở trên là **lịch sử đã thay**, không sửa ngược R042 thành
+KRconfirmed. Logical C00/C01 không phụ thuộc avatar/tên hiển thị. Không cần thêm client KR cho
+nguồn VN đã chứng minh theo ADR0002.
+
+`unit=level` của schema là nhãn họ scalar Stat, không SI: movementpoint/capacitycount/Firepoint.
+R182 ghi rõ capacity đếm bom, Firepoint→ô ray là contract V1, và movementpoint→24px/s/point vẫn
+DESIGN R114. Điều kiện nativeFPS không áp cho logicalstatpoint; hệ số vật lý không được nâng từ
+DESIGN lênconfirmed. Số đo R178~134–137px/s ở point4 khác engine96px/s được giữ như gap có chủ ý;
+không đổi nguồn/giá trị để tuyên bố đã hiệu chuẩn vận tốc.
+
+Bác hai phương án: giữcandidate chỉ vì converter vật lý là DESIGN sẽ gộp sai hai đại lượng;
+đổi toàn bộ conversion/hurtbox/FPS thànhconfirmed vì sáu số khớp cũng vượt bằng chứng. Lựa chọn
+logicalsource có review riêng, profilehash đổi dù12số không đổi; replaytestprofile giữ nguyên.
+`release=false` và release-validation không đổi; G2 chỉ qua sau nghiệm thu độc lập trace+DESIGN,
+G6/gói cuối/phần cứng và37feature vẫn là điều kiện riêng. PR phải exactheadapprove/CI3OS/safe-merge.

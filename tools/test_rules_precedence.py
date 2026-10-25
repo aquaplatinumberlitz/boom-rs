@@ -188,13 +188,26 @@ class PrecedenceTests(unittest.TestCase):
         self.assertTrue(any("R-110" in error and "superseded" in error
                             for error in errors), errors)
 
+    def test_named_row_source_rejects_historical_candidate_selection(self):
+        errors = self.errors({"characters.c01_speed": {
+            "source": "kr_static", "status": "candidate",
+            "claims": ["R-041", "R-042", "R-117"],
+        }})
+        self.assertTrue(any("characters.c01_speed" in e for e in errors), errors)
+
+    def test_logical_stat_evidence_cannot_confirm_physical_speed_conversion(self):
+        errors = self.errors({"player.speed_px_per_s_per_level": {
+            "source": "vn_runtime", "status": "confirmed", "claims": ["R-182"],
+        }})
+        self.assertTrue(any("player.speed_px_per_s_per_level" in e for e in errors), errors)
+
     def test_candidate_tier_requires_explicit_exception(self):
-        quantity = next(q for q in self.quantities if q.tier == "candidate")
-        without = [q if q.key != quantity.key else type(quantity)(
-            key=q.key, quantity=q.quantity, unit=q.unit, context=q.context, tier=q.tier,
-            sources=q.sources, status=q.status, selection=q.selection, support=q.support,
-            limits=q.limits, forbidden=q.forbidden, deviation=None)
-            for q in self.quantities]
+        quantity = next(q for q in self.quantities if q.key.startswith("characters."))
+        # Historical candidate selection synthesized explicitly; current chars use VN consumers.
+        candidate = replace(quantity, tier="candidate", sources=("kr_static",),
+                            status="candidate", selection="R-117", support=("R-040", "R-042"),
+                            limits=(), forbidden=(), deviation=None)
+        without = [candidate]
         errors = check_expectations(self.index, without)
         self.assertTrue(any("ngoại lệ tường minh" in error for error in errors), errors)
 
@@ -212,7 +225,7 @@ class PrecedenceTests(unittest.TestCase):
         self.assertTrue(any("ngoại lệ thiếu lý do" in error for error in errors), errors)
 
     def test_unknown_claim_in_table_is_rejected(self):
-        quantity = next(q for q in self.quantities if q.tier == "candidate")
+        quantity = next(q for q in self.quantities if q.key.startswith("characters."))
         broken = type(quantity)(
             key=quantity.key, quantity=quantity.quantity, unit=quantity.unit,
             context=quantity.context, tier=quantity.tier, sources=quantity.sources,

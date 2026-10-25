@@ -150,31 +150,24 @@ def tier_of(source: str, status: str) -> str:
 
 
 def _characters() -> list[Quantity]:
-    """12 khóa chỉ số C00/C01: ngoại lệ candidate tường minh của ADR 0013."""
+    """12 logical statpoint keys: VN named-row/consumer evidence, R-182."""
     out: list[Quantity] = []
-    for character, attr_claim in (("c00", "R-040"), ("c01", "R-041")):
+    for character in ("c00", "c01"):
         for stat in ("speed", "bombs", "range"):
             for suffix in ("", "_max"):
                 out.append(Quantity(
                     key=f"characters.{character}_{stat}{suffix}",
                     quantity="character_stat_level",
                     unit="level",
-                    context="KR 00967 BomberAttr của build target; nghĩa trường f2–f7 còn candidate",
-                    tier="candidate",
-                    sources=("kr_static",),
-                    status="candidate",
-                    selection="R-117",
-                    support=(attr_claim, "R-042"),
-                    limits=(("R-042", "nghĩa trường f2–f7 (speed/bombs/range) còn candidate"),),
-                    forbidden=(("R-105", "template nhân vật cân bằng BnB đã bị ADR 0013 thay"),),
-                    deviation=Deviation(
-                        kind="candidate",
-                        reason=("ADR 0013: giữ 12 khóa C00/C01 theo BomberAttr của build target; "
-                                "nghĩa trường f2–f7 còn candidate nên giá trị cũng là candidate; "
-                                "không thay bằng template cân bằng BnB"),
-                        claims=(attr_claim, "R-042", "R-117"),
-                        adr="ADR 0013 §Ngoại lệ rõ ràng cho nhân vật",
-                    ),
+                    context="VN VBNB_116 logical statpoint; physical conversion remains DESIGN",
+                    tier="vn_confirmed",
+                    sources=("vn_runtime",),
+                    status="confirmed",
+                    selection="R-182",
+                    support=("R-180", "R-175"),
+                    limits=(("R-182", "logical statpoint, not native FPS/px/s or all-mode effective cap"),),
+                    forbidden=(("R-105", "BnB template superseded"),
+                               ("R-117", "historical KR candidate selection superseded by VN consumers")),
                 ))
     return out
 
