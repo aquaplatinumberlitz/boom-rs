@@ -1095,3 +1095,18 @@ Hai bảng nằm cùng typed manager nhưng **không** đủ để gọi bảng1
 R153 (192/244 native KR) và caller89D113 `manager+idx*0xF4+0xBC` giữ là cạnh riêng; `+0xBC` role
 unknown, không phải +1 arithmetic. Legacy `items.md`/export chỉ là parser/locator, không xác nhận
 weight/drop/pack identity. Không đổi profile, G2, G6, release hoặc 146/149 khác.
+
+## 49. Nhịp frame nhân vật/lửa: counter cập nhật, chưa có ms (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-215 | Consumer animation dùng **counter cập nhật** so với duration per-record, không thấy đổi frame bằng `dt`/ms: `BA3530` so `B33170()` với `[record+4]`; `B33170`/`B331E0` chỉ delegate `sub_636620(this+64/+52)`. Flame dùng nhánh riêng `B711C0`, tăng counter mỗi update và xoá theo `GetAnimCount` (`BA3FF0`). ODT duration là ngưỡng counter; flame raw duration đều1. Loop/hold nằm trong các nhánh trả của `BA3530` (giữ/tiến/quay đầu) | Counter/threshold raw; **không** chứng minh ms, tick hay tần số update; flame raw duration1 | `kr_static` / confirmed (consumer/threshold shape) — **unknown** unit/cadence/runtime state | `BA3530`/RVA`7A3530`, `BA40F0`/`7A40F0`, `BA4160`/`7A4160`, `B711C0`/`7711C0`, `B33170`/`733170`, `B331E0`/`7331E0`, `sub_636620`/`236620`, `BA3FF0`/`7A3FF0`; evidence `ev_ec5aea3b…`, `ev_719cc83b…`, `ev_7ff15ec0…`. R-141/R-151/R-164/R-165. Không đọc body `sub_636620`; không chứng minh nhịp update, state walk/idle/blink, loop/hold runtime hoặc mọi nhân vật/mode |
+
+R-215 chỉ chốt **cơ chế consumer dùng counter/ODT threshold**, không chốt giá trị frame duration
+tính bằng ms. `presentation.frame_duration_ms` hiện100ms (R-118) và `anim::character_loop_frame`
+không đổi bởi claim này; chưa có bằng chứng để thay33/100 hay bất kỳ số nào. Đề xuất kế tiếp nếu cần
+nhịp thật: một runtime counter observation trên `B33170`/`B331E0`/`B711C0` trong cùng actor, ghi
+số lần update trên cửa sổ thời gian; không suy từ screenshot/30Hz server.
+
+R-164/R-165 vẫn chỉ xác nhận flame state/raw duration; R-141 vẫn xác nhận flame display = frame
+counter. Không đổi profile, G2/G6, release, feature count hoặc #149.
