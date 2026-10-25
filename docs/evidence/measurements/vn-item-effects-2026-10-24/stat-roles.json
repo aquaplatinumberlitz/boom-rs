@@ -1,0 +1,1108 @@
+{
+  "claim": "R-175",
+  "default_private_root": "/home/admin/boom-rs-dsh/re-kr",
+  "question": "six getter outputs to movement/capacity/Fire initializer destinations and native numeric key in first initialization window",
+  "fixture": {
+    "build": "VN VBNB_116 offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "image_base": "0x400000",
+    "patch_scope": "IAT/devirt/offline reconstruction; vanilla semantic equivalence unproven; trusted VN source per owner and ADR0002/0013"
+  },
+  "runs": {
+    "0": {
+      "actor": 449551848,
+      "character_input": 0,
+      "character_input_source": "emu_choice",
+      "wire_selection": [
+        {
+          "opcode": 103,
+          "seq": 64,
+          "slot": 0,
+          "state_bytes": "020000",
+          "character": 0,
+          "frame_sha256": "b5e2945dda34a5f6c8cd7455c1c053b0eaac3433c4604dcc8122ad88fc2a6949",
+          "frame_checksum": "verified"
+        },
+        {
+          "opcode": 106,
+          "seq": 67,
+          "slot": 0,
+          "state_bytes": "020000",
+          "character": 0,
+          "frame_sha256": "5be15495cbc67ee0dd1ebec37041bd27659eead86107d3c4fe71d037fd011f9d",
+          "frame_checksum": "verified"
+        }
+      ],
+      "key": 0,
+      "manager": "0x109c6f70",
+      "manager_first_vptr": "0xc83aec",
+      "events": [
+        {
+          "kind": "entry",
+          "actor": 449551848,
+          "source_ebp": 1233080,
+          "parent_ebp": 1233112,
+          "caller_return": "0x5a51e2",
+          "outptr": "0x12d07c",
+          "key": 0,
+          "manager": "0x109c6f70",
+          "manager_first_vptr": "0xc83aec",
+          "vslot_a0_target": "0x595fd8",
+          "object": 449551848,
+          "vtable": "0xc664c4",
+          "controller": 449553372,
+          "controller_vtable": "0xc6630c",
+          "facet": 449553380,
+          "facet_vtable": "0xc66284",
+          "x": {
+            "state": "ok",
+            "value": -1,
+            "payload": 449551144,
+            "header12": "f99ecb1af064cb1a289bcb1a",
+            "payload10": "36d6d6d6c9f9f000ef5b"
+          },
+          "y": {
+            "state": "ok",
+            "value": -1,
+            "payload": 449551176,
+            "header12": "26a2cb1ac2cfcb1a489bcb1a",
+            "payload10": "83d6d6d67c26c200ef5b"
+          },
+          "slot0_604": {
+            "state": "ok",
+            "value": 0,
+            "payload": 449565288,
+            "header12": "98adcb1a4b6bcb1a68d2cb1a",
+            "payload10": "e5f4124ee5984b00ddf6"
+          },
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 1
+        },
+        {
+          "kind": "after_a0",
+          "out6": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "manager_fields": {
+            "state": "ok",
+            "key": 0,
+            "primary": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278394680,
+              "header12": "b1a79c10eba39c1038f79710",
+              "payload10": "dee6f616deb1eb00ddff"
+            },
+            "alt": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278408104,
+              "header12": "81d19c10b6c79c10a82b9810",
+              "payload10": "e9fc226ee981b6009c5b"
+            },
+            "base_fallback": {
+              "state": "ok",
+              "value": 5,
+              "payload": 278438424,
+              "header12": "97469c10ba7e9c1018a29810",
+              "payload10": "4ac3b08a4f97ba00f5ff"
+            },
+            "max_fallback": {
+              "state": "ok",
+              "value": 7,
+              "payload": 278438456,
+              "header12": "ee659c1083709c1038a29810",
+              "payload10": "b3914cc2b4ee8300b57e"
+            }
+          },
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 2
+        },
+        {
+          "kind": "join",
+          "out6_after": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "a4_marker_reached": false,
+          "manager_fields": {
+            "state": "ok",
+            "key": 0,
+            "primary": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278394680,
+              "header12": "b1a79c10eba39c1038f79710",
+              "payload10": "dee6f616deb1eb00ddff"
+            },
+            "alt": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278408104,
+              "header12": "81d19c10b6c79c10a82b9810",
+              "payload10": "e9fc226ee981b6009c5b"
+            },
+            "base_fallback": {
+              "state": "ok",
+              "value": 5,
+              "payload": 278438424,
+              "header12": "97469c10ba7e9c1018a29810",
+              "payload10": "4ac3b08a4f97ba00f5ff"
+            },
+            "max_fallback": {
+              "state": "ok",
+              "value": 7,
+              "payload": 278438456,
+              "header12": "ee659c1083709c1038a29810",
+              "payload10": "b3914cc2b4ee8300b57e"
+            }
+          },
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 3
+        },
+        {
+          "kind": "final",
+          "actor": 449551848,
+          "source_ebp": 1233080,
+          "parent_ebp": 1233112,
+          "base": {
+            "state": "ok",
+            "value": 5,
+            "payload": 449565504,
+            "header12": "2cbdcb1a9875cb1a40d3cb1a",
+            "payload10": "43b3904a462c9800f57f"
+          },
+          "max": {
+            "state": "ok",
+            "value": 7,
+            "payload": 449565536,
+            "header12": "1dbacb1ae6d9cb1a60d3cb1a",
+            "payload10": "29812c822e1de600b55e"
+          },
+          "current": {
+            "state": "ok",
+            "value": 5,
+            "payload": 449565568,
+            "header12": "cc67cb1ac5a5cb1a80d3cb1a",
+            "payload10": "104fc8ba15ccc500f4f7"
+          },
+          "facet510_fields": {
+            "0x68": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449565032,
+              "header12": "7e83cb1acdd8cb1a68d1cb1a",
+              "payload10": "883ba06a897ecd00f47f"
+            },
+            "0x74": {
+              "state": "ok",
+              "value": 10,
+              "payload": 449565064,
+              "header12": "aa7fcb1a34dbcb1a88d1cb1a",
+              "payload10": "f21452cef8aa3400dc76"
+            },
+            "0x4": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449564840,
+              "header12": "deb6cb1a14d2cb1aa8d0cb1a",
+              "payload10": "2a7f287a2bde1400f55f"
+            },
+            "0x80": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449565096,
+              "header12": "71c1cb1aafaacb1aa8d1cb1a",
+              "payload10": "1e67f81a1f71af00f4ff"
+            },
+            "0x8c": {
+              "state": "ok",
+              "value": 7,
+              "payload": 449565128,
+              "header12": "f072cb1aae7ecb1ac8d1cb1a",
+              "payload10": "6d012c826af0ae00b45e"
+            },
+            "0x1c": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449564904,
+              "header12": "c7c5cb1a9cc1cb1ae8d0cb1a",
+              "payload10": "2f87389a2ec79c00f55f"
+            },
+            "0x10": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449564872,
+              "header12": "1bd3cb1afe8ecb1ac8d0cb1a",
+              "payload10": "eaff287aeb1bfe00f45f",
+              "role": "opaque_boxed"
+            }
+          },
+          "key": 0,
+          "a4_entered": false,
+          "out6_before": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "out6_after": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 4
+        }
+      ],
+      "position_sample_count": 418,
+      "exit_code": 0,
+      "timing_excluded": true
+    },
+    "1": {
+      "actor": 449274328,
+      "character_input": 1,
+      "character_input_source": "emu_choice",
+      "wire_selection": [
+        {
+          "opcode": 103,
+          "seq": 64,
+          "slot": 0,
+          "state_bytes": "020100",
+          "character": 1,
+          "frame_sha256": "3a6bcb6c840274fd9f83bdc307026522f57da79bb98b925e0b2907503a3d3ac8",
+          "frame_checksum": "verified"
+        },
+        {
+          "opcode": 106,
+          "seq": 67,
+          "slot": 0,
+          "state_bytes": "020100",
+          "character": 1,
+          "frame_sha256": "cf4462690c0631e664755f10f2d6091b237f83172006758649c19a0a4a4a8ad5",
+          "frame_checksum": "verified"
+        }
+      ],
+      "key": 0,
+      "manager": "0x109c6f70",
+      "manager_first_vptr": "0xc83aec",
+      "events": [
+        {
+          "kind": "entry",
+          "actor": 449274328,
+          "source_ebp": 1233080,
+          "parent_ebp": 1233112,
+          "caller_return": "0x5a51e2",
+          "outptr": "0x12d07c",
+          "key": 0,
+          "manager": "0x109c6f70",
+          "manager_first_vptr": "0xc83aec",
+          "vslot_a0_target": "0x595fd8",
+          "object": 449274328,
+          "vtable": "0xc664c4",
+          "controller": 449275852,
+          "controller_vtable": "0xc6630c",
+          "facet": 449275860,
+          "facet_vtable": "0xc66284",
+          "x": {
+            "state": "ok",
+            "value": -1,
+            "payload": 449286968,
+            "header12": "da38c71ab05ec71a3893c71a",
+            "payload10": "88d6d6d677dab000ef5b"
+          },
+          "y": {
+            "state": "ok",
+            "value": -1,
+            "payload": 449287000,
+            "header12": "0138c71a8028c71a5893c71a",
+            "payload10": "a1d6d6d65e018000ef5b"
+          },
+          "slot0_604": {
+            "state": "ok",
+            "value": 0,
+            "payload": 449288560,
+            "header12": "6c4ec71a5c52c71a7099c71a",
+            "payload10": "fb206afefb6c5c003c5c"
+          },
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 1
+        },
+        {
+          "kind": "after_a0",
+          "out6": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "manager_fields": {
+            "state": "ok",
+            "key": 0,
+            "primary": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278394680,
+              "header12": "46909c10eebe9c1038f79710",
+              "payload10": "9554d2ce9546ee00dcf6"
+            },
+            "alt": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278408104,
+              "header12": "e8829c101c9c9c10a82b9810",
+              "payload10": "27781a5e27e81c00fcfb"
+            },
+            "base_fallback": {
+              "state": "ok",
+              "value": 5,
+              "payload": 278438424,
+              "header12": "cc739c106a339c1018a29810",
+              "payload10": "f31350caf6cc6a00f47f"
+            },
+            "max_fallback": {
+              "state": "ok",
+              "value": 7,
+              "payload": 278438456,
+              "header12": "035e9c102d909c1038a29810",
+              "payload10": "d3d1ccc2d4032d00b5fe"
+            }
+          },
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 2
+        },
+        {
+          "kind": "join",
+          "out6_after": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "a4_marker_reached": false,
+          "manager_fields": {
+            "state": "ok",
+            "key": 0,
+            "primary": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278394680,
+              "header12": "46909c10eebe9c1038f79710",
+              "payload10": "9554d2ce9546ee00dcf6"
+            },
+            "alt": {
+              "state": "ok",
+              "value": 0,
+              "payload": 278408104,
+              "header12": "e8829c101c9c9c10a82b9810",
+              "payload10": "27781a5e27e81c00fcfb"
+            },
+            "base_fallback": {
+              "state": "ok",
+              "value": 5,
+              "payload": 278438424,
+              "header12": "cc739c106a339c1018a29810",
+              "payload10": "f31350caf6cc6a00f47f"
+            },
+            "max_fallback": {
+              "state": "ok",
+              "value": 7,
+              "payload": 278438456,
+              "header12": "035e9c102d909c1038a29810",
+              "payload10": "d3d1ccc2d4032d00b5fe"
+            }
+          },
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 3
+        },
+        {
+          "kind": "final",
+          "actor": 449274328,
+          "source_ebp": 1233080,
+          "parent_ebp": 1233112,
+          "base": {
+            "state": "ok",
+            "value": 5,
+            "payload": 449288720,
+            "header12": "e629c71a1b4dc71a109ac71a",
+            "payload10": "ccbfa87ac9e61b00f5ff"
+          },
+          "max": {
+            "state": "ok",
+            "value": 7,
+            "payload": 449288752,
+            "header12": "dc74c71a4751c71a309ac71a",
+            "payload10": "74114cc273dc4700b47e"
+          },
+          "current": {
+            "state": "ok",
+            "value": 5,
+            "payload": 449288784,
+            "header12": "e146c71a1249c71a509ac71a",
+            "payload10": "318f48ba34e11200f577"
+          },
+          "facet510_fields": {
+            "0x68": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449288272,
+              "header12": "f445c71a5b75c71a5098c71a",
+              "payload10": "1e67f81a1ff45b00f4ff"
+            },
+            "0x74": {
+              "state": "ok",
+              "value": 10,
+              "payload": 449288304,
+              "header12": "f530c71ab736c71a7098c71a",
+              "payload10": "fa1452cef0f5b700dc76"
+            },
+            "0x4": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449288080,
+              "header12": "6f68c71a6577c71a9097c71a",
+              "payload10": "d4d3d0cad56f6500f5ff"
+            },
+            "0x80": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449288336,
+              "header12": "9760c71a8843c71a9098c71a",
+              "payload10": "b49350cab5978800f57f"
+            },
+            "0x8c": {
+              "state": "ok",
+              "value": 7,
+              "payload": 449288368,
+              "header12": "bc81c71a2b56c71ab098c71a",
+              "payload10": "4dc1ac824abc2b00b5fe"
+            },
+            "0x1c": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449288144,
+              "header12": "8b8cc71a8250c71ad097c71a",
+              "payload10": "a573104aa48b8200f4ff"
+            },
+            "0x10": {
+              "state": "ok",
+              "value": 1,
+              "payload": 449288112,
+              "header12": "4447c71a92a6c71ab097c71a",
+              "payload10": "f00b40aaf1449200f45f",
+              "role": "opaque_boxed"
+            }
+          },
+          "key": 0,
+          "a4_entered": false,
+          "out6_before": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "out6_after": [
+            5,
+            7,
+            1,
+            10,
+            1,
+            7
+          ],
+          "thread": [
+            42000,
+            312,
+            0
+          ],
+          "trap_count": 4
+        }
+      ],
+      "position_sample_count": 384,
+      "exit_code": 0,
+      "timing_excluded": true
+    }
+  },
+  "static_blocks": [
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x971a59",
+      "requested_window": 19,
+      "read_candidate_bytes": 19,
+      "retained_decoded_bytes": 19,
+      "end_exclusive": "0x971a6c",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "e6462a7049d6d2de7a1c21656de063043a80d3afc445f3cca1e5ba5d1c2f85c8"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x971676",
+      "requested_window": 381,
+      "read_candidate_bytes": 381,
+      "retained_decoded_bytes": 58,
+      "end_exclusive": "0x9716b0",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "9f7249c9f3c45ae95da04473089d6531dcbff667183ee7b3cf6b4cd993f99d55"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x97163c",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 58,
+      "end_exclusive": "0x971676",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "1d931f9ceeeed4a7fcaa96209f4fc2e396faeb925dc57540a873dacaab7e7916"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x5787ae",
+      "requested_window": 256,
+      "read_candidate_bytes": 256,
+      "retained_decoded_bytes": 148,
+      "end_exclusive": "0x578842",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "6987ae43ba1308fcb20736d90dedd7497cfa71a524b149b9cf835c5778d80332"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x578979",
+      "requested_window": 192,
+      "read_candidate_bytes": 192,
+      "retained_decoded_bytes": 52,
+      "end_exclusive": "0x5789ad",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "1e7136028990061ff205b3b03d06de807e7413a5cb3ed9046b91f5cf27c3b40d"
+    }
+  ],
+  "static_total_requested_bytes": 976,
+  "static_total_retained_bytes": 335,
+  "cached_consumers": [
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr2",
+      "private_path": ".re-work/item149-receiver-prep/count-5A0274.asm",
+      "bytes": 1787,
+      "sha256": "2ae4d4bec79183fddd27831015da89112097cce412acab0f21cdbb974ff6c68f",
+      "reuse": "R166/R168 consumer cache, no new byte query"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr2",
+      "private_path": ".re-work/item149-receiver-prep/count-base-5788B8.asm",
+      "bytes": 405,
+      "sha256": "61a0108f77c89ab159e135cccc3f4acccef602ff4e0d7606f0f5be092d777c9a",
+      "reuse": "R166/R168 consumer cache, no new byte query"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr2",
+      "private_path": ".re-work/item149-receiver-prep/getter-5AE518-fullcfg.asm",
+      "bytes": 281,
+      "sha256": "56fcad314d43b2e6e0d84fe1dc523121e9a70202226fc7dd50ae90e4bc0000db",
+      "reuse": "R166/R168 consumer cache, no new byte query"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr2",
+      "private_path": ".re-work/item149-receiver-prep/getter-5A021B-full.asm",
+      "bytes": 1514,
+      "sha256": "bd3f69f0496d2af3a768fba22b4640294f8450667c7ea33ed692b3356410ffb2",
+      "reuse": "R166/R168 consumer cache, no new byte query"
+    },
+    {
+      "private_root": "/home/admin/boom-rs-dsh/re-kr2",
+      "private_path": ".re-work/item149-receiver-prep/getter-578963-full.asm",
+      "bytes": 405,
+      "sha256": "9108c42e65af0ad9b6f343184dfa10d638d6518234ec810739158ecc08e7ea95",
+      "reuse": "R166/R168 consumer cache, no new byte query"
+    }
+  ],
+  "raw_and_static_files": [
+    {
+      "private_path": ".re-work/roller149-native-speed/key-fallback-next/tail971a59.json",
+      "bytes": 584,
+      "sha256": "61966ac8abb415de7c678fc11ca040d67cc9e7dbca902f615ec24221e8968b62"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/key-fallback-next/tail971a59.bin",
+      "bytes": 19,
+      "sha256": "e6462a7049d6d2de7a1c21656de063043a80d3afc445f3cca1e5ba5d1c2f85c8"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/key-fallback-next/tail971a59.asm",
+      "bytes": 234,
+      "sha256": "51a6cdec778f4300e533d8fbcbd7662673c6ee86e05fa1224a66ad42baf3af0b"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/key-fallback-next/max971676.json",
+      "bytes": 586,
+      "sha256": "b313cba67c21f2203372dba54e572369594ce4fefbd24ee2774ae7f86241ccc1"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/key-fallback-next/max971676.bin",
+      "bytes": 58,
+      "sha256": "9f7249c9f3c45ae95da04473089d6531dcbff667183ee7b3cf6b4cd993f99d55"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/key-fallback-next/max971676.asm",
+      "bytes": 646,
+      "sha256": "171e4c5872b0e9b6c3a7954bd8c1c6c662d8426353c91d4509f21b8cec8ec84c"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/basefallback97163c.json",
+      "bytes": 586,
+      "sha256": "516621b9ca3f518250ff1fbd3417c87d6a67a3e73ea0b549753e02c906102d52"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/basefallback97163c.bin",
+      "bytes": 58,
+      "sha256": "1d931f9ceeeed4a7fcaa96209f4fc2e396faeb925dc57540a873dacaab7e7916"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/basefallback97163c.asm",
+      "bytes": 646,
+      "sha256": "04435b8a6398e4c9275bb5a70bc135f04d1f2074bc007b1d28ddec2a20ea83b6"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/fourargs5787ae.json",
+      "bytes": 587,
+      "sha256": "7c863e914c4c120babafdc7f75171349d9b901cda7b3acae16cb480c4dc6d12e"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/fourargs5787ae.bin",
+      "bytes": 148,
+      "sha256": "6987ae43ba1308fcb20736d90dedd7497cfa71a524b149b9cf835c5778d80332"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/fourargs5787ae.asm",
+      "bytes": 1652,
+      "sha256": "c9aa6141d84c5e69ebcb942ed9447b1cb1544ab0b50808c8ad7e14776a5baf65"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/reset578979.json",
+      "bytes": 586,
+      "sha256": "2fb55adc8025544b683a3ea64ff7ed55adcb46bf02c10c66ba25167aea976d71"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/reset578979.bin",
+      "bytes": 52,
+      "sha256": "1e7136028990061ff205b3b03d06de807e7413a5cb3ed9046b91f5cf27c3b40d"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/six-stat-role-next/reset578979.asm",
+      "bytes": 528,
+      "sha256": "8ab404d3caf8a5c5a14776d2ef6514dd1eab7b91da1461c6154750cf88b5b01b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/04-room.png",
+      "bytes": 386015,
+      "sha256": "4b7ac4c0d9c8075c2e0c392d98ef55fefb213367a1d72c46cb85c442c935c02b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/05-match.png",
+      "bytes": 406361,
+      "sha256": "70f3d62c70006c2229da6e25010a0c0cd2429265c59e5f202e775a09724166e7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/after-a0.json",
+      "bytes": 701,
+      "sha256": "a3871fcf4e3076606a80ba7ace0dd17e07bbaf6c07060942275be034977180f9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/char-entry.json",
+      "bytes": 836,
+      "sha256": "e9ba9b48f0b6824c2dc2d7a9e28081e5e3a0bf7860b17d7bbfe0ab912f4edc97"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/char-key-events.jsonl",
+      "bytes": 3908,
+      "sha256": "1aece38d3ed8e83276a492f0e07bde228f05f717b62fa741888e634037ee9ccf"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/command.json",
+      "bytes": 23,
+      "sha256": "c1ebd65d6bc2bd89d830c2ab9c4bbaf93dc97ab97eec75484b89cb72c584e45a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/harness-used.py",
+      "bytes": 16833,
+      "sha256": "b6c8605199af3c2a4325e7bac5f52fb66c1028b97a45e901fa64784f8216cde4"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/hero-target.json",
+      "bytes": 578,
+      "sha256": "eccfed4ad394df932441304f1c616cf8cf8b627a7923c1fc2acfdfe7a124b0d4"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "a93d99567d08c21443f6d8c68a5c7d0a36c227ddf26f6641a00f52cd9389b3a9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/join.json",
+      "bytes": 731,
+      "sha256": "0946349fff0bfb692585d4b18896fb8b20dd375dc1725100f2bea523916c52bb"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/key-final.json",
+      "bytes": 1636,
+      "sha256": "9a07beaf161eddecb6de314f88d4869b8a625c7a85587b188afbd705fff1f028"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/packets.jsonl",
+      "bytes": 16444,
+      "sha256": "d0d722c2ff390cc839a2886f3feb4c858b3758fdfd8616073775f3513f313980"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/packets.log",
+      "bytes": 12860,
+      "sha256": "4d93b792ed4958b7754c8ed54904389155921f712c5f92089306ee0bc5d396f1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/position-samples.jsonl",
+      "bytes": 86942,
+      "sha256": "bd969c1ee14b4de15dfd6e84d9629c9d06bc67362795fc3bedabc1a2bebba202"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/probe-ready.json",
+      "bytes": 130,
+      "sha256": "8bc51e0fb8ecf1501af7190515c892494acd92402c28569b6e6b788c47e4f722"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/probe-template-used.gdb",
+      "bytes": 12615,
+      "sha256": "461136224c9828a09c06f46dfa146c5fdca5593a53842a0130f9c2d32461d86d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/probe.gdb",
+      "bytes": 12615,
+      "sha256": "461136224c9828a09c06f46dfa146c5fdca5593a53842a0130f9c2d32461d86d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/ready.json",
+      "bytes": 116,
+      "sha256": "af29674f134f1a0ac7e889c702faa270e50329603954a707fe8a657f890af019"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/registered-hooks.json",
+      "bytes": 374,
+      "sha256": "8e2db68185961d8737adcbf977d7a94b061fb7754e79ebed881b21b0ba61198d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/server-used.py",
+      "bytes": 45711,
+      "sha256": "f37ddc5d4ede02d62fd90896b43d834be14cd7364d5e6ff616c98c0c5bc8a1eb"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/server.log",
+      "bytes": 12860,
+      "sha256": "4d93b792ed4958b7754c8ed54904389155921f712c5f92089306ee0bc5d396f1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/sources.json",
+      "bytes": 614,
+      "sha256": "bfb959285f7d40a3fd9586c3ceb5dae0b82d3f21e857c3c295e0dd70b0c81c98"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/start.json",
+      "bytes": 1486,
+      "sha256": "a5fa536206dd3a6da6c2faf76980832a5ec402e78f23b68a6c83ec5ba9e92830"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/supervisor.log",
+      "bytes": 259,
+      "sha256": "01a18a57c7a11b63046a9973a847aed5435b951818b3fad8a741bc5d4db99ecc"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/winedbg.log",
+      "bytes": 15387,
+      "sha256": "671475e615cae503f8c45e077dad45310d1ba2ab2d52eba539e7c214ece9885c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c0-r1/xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/03-create-dialog.png",
+      "bytes": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/04-room.png",
+      "bytes": 388273,
+      "sha256": "8ac161456b970178ac0c99843eb618cc46469590438edc002c0c7e7f74bbc5f8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/05-match.png",
+      "bytes": 406361,
+      "sha256": "70f3d62c70006c2229da6e25010a0c0cd2429265c59e5f202e775a09724166e7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/after-a0.json",
+      "bytes": 701,
+      "sha256": "086e0481652bacbf75887b18a6c9b5acb493d9b7193f6e2c721d8242bb65959e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/char-entry.json",
+      "bytes": 836,
+      "sha256": "70218fe689f9245d7271f9cbc0841ab79c4028b640a6b266bf54fe60bba5237f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/char-key-events.jsonl",
+      "bytes": 3908,
+      "sha256": "af80cbc3646c078422d272e9738a3735b1b4be0bef850ea19a91db0643c101e7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/command.json",
+      "bytes": 23,
+      "sha256": "c1ebd65d6bc2bd89d830c2ab9c4bbaf93dc97ab97eec75484b89cb72c584e45a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/harness-used.py",
+      "bytes": 16833,
+      "sha256": "b6c8605199af3c2a4325e7bac5f52fb66c1028b97a45e901fa64784f8216cde4"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/hero-target.json",
+      "bytes": 578,
+      "sha256": "91d367ca4ec07039547ebb3f6a85e8166face505b3664b0f43cfb8dc0d000264"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "2306672d712f8f59ca10c6e71aadd5c02ca16a94f11a313c1eaa900dc32c7db8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/join.json",
+      "bytes": 731,
+      "sha256": "6e448da9249279632fc436b5dd912195769028dbde9609cd41b3562ded7ac319"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/key-final.json",
+      "bytes": 1636,
+      "sha256": "9e08c51e6ef7892e819922619b2359fd6976c331a3bf7a129cf03e11c1b92831"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/packets.jsonl",
+      "bytes": 16757,
+      "sha256": "f1a519c9240a2ad054fffaab8e8c370608814f9b725a28e4c53b57b80c95ab1a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/packets.log",
+      "bytes": 13107,
+      "sha256": "cadcd082b744a4bc3a8bdcf0405cf547b8a5c737adc88c8437717caa640e174a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/position-samples.jsonl",
+      "bytes": 79870,
+      "sha256": "a5e8330f4c2d750ba8f76fe163fdaee0ff2edf95bf3dec8f04bead7cc75e2fdf"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/probe-ready.json",
+      "bytes": 130,
+      "sha256": "8bc51e0fb8ecf1501af7190515c892494acd92402c28569b6e6b788c47e4f722"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/probe-template-used.gdb",
+      "bytes": 12615,
+      "sha256": "461136224c9828a09c06f46dfa146c5fdca5593a53842a0130f9c2d32461d86d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/probe.gdb",
+      "bytes": 12615,
+      "sha256": "461136224c9828a09c06f46dfa146c5fdca5593a53842a0130f9c2d32461d86d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/ready.json",
+      "bytes": 116,
+      "sha256": "c16ca95925cb580612e7c4365d1d9a90910ba164e939b1520c4ffb8c5082a204"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/registered-hooks.json",
+      "bytes": 374,
+      "sha256": "8e2db68185961d8737adcbf977d7a94b061fb7754e79ebed881b21b0ba61198d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/server-used.py",
+      "bytes": 45711,
+      "sha256": "f37ddc5d4ede02d62fd90896b43d834be14cd7364d5e6ff616c98c0c5bc8a1eb"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/server.log",
+      "bytes": 13107,
+      "sha256": "cadcd082b744a4bc3a8bdcf0405cf547b8a5c737adc88c8437717caa640e174a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/sources.json",
+      "bytes": 614,
+      "sha256": "96ec881e922782f4fc628c8f7e4b1cc34fa8fe1bd0e0b89717956ef78596640c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/start.json",
+      "bytes": 1486,
+      "sha256": "c73710b185f417887547609a300e71e87c3f5597498504f9d4a0df7db8ef8732"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/supervisor.log",
+      "bytes": 259,
+      "sha256": "9c166c6d419c2923ec74df702edc61affd7f3797a588311d99d91b5c1d622581"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/winedbg.log",
+      "bytes": 15311,
+      "sha256": "7fa6e0e6c7e176282aa9133c70ea70069037cac6cd051ff2f6959213a5d87b19"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-char-key-149-c1-r1/xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    }
+  ],
+  "output_roles": [
+    {
+      "index": 0,
+      "destination": "actor+0x640",
+      "role": "movement base copied to current+0x658"
+    },
+    {
+      "index": 1,
+      "destination": "actor+0x64c",
+      "role": "movement clamp counterpart"
+    },
+    {
+      "index": 2,
+      "destination": "facet510+0x68",
+      "role": "capacity initialization base copied to current+0x4"
+    },
+    {
+      "index": 3,
+      "destination": "facet510+0x74",
+      "role": "capacity initialization clamp counterpart; post-pickup cap role candidate"
+    },
+    {
+      "index": 4,
+      "destination": "facet510+0x80",
+      "role": "Fire initialization base copied to current+0x1c"
+    },
+    {
+      "index": 5,
+      "destination": "facet510+0x8c",
+      "role": "Fire initialization clamp counterpart; post-pickup cap role candidate"
+    }
+  ],
+  "limits": [
+    "both character input bytes verified in actual S103/S106 frames; both first observed keys zero; nondiscriminating for identity",
+    "first initialization window only; later initializer calls and selected-character application not observed",
+    "six outputs from separate keyed getters, not proven six contiguous columns in KR or VN Attr",
+    "A4 marker not reached; no direct modifier entry/return or mutation claim",
+    "numeric key is not proven KR C00/C01 or speed level; manager class remains unknown",
+    "different cases have different actor pointers; no actor/clock joining",
+    "all scalar values in native units; no speed/FPS/normalization derivation",
+    "profile, twelve KR candidate values, G2/G6 and acceptance status unchanged"
+  ]
+}

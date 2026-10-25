@@ -967,3 +967,14 @@ kẹp ba cặp local rồi ghi base/max; current reset riêng từ base. Getter 
 chưa chứng minh sáu cột của một row, literal5/7 hoặc f2–f7 KR. Binding virtual theo PE không thay
 breakpoint trực tiếp lên mọi target. Không đổi profile hay 12 khóa candidate; key/identity và
 nguồn fallback còn ở Q-020.
+
+## 39. Sáu output khởi tạo và key quan sát trên actor VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-175 | Virtual+A0→595FD8 cung cấp ba cặp đầu vào: movementbase/max actor+640/+64C, capacitybase/counterpart facet510+68/+74 và Firebase/counterpart+80/+8C. Setter5787AE kẹp hai cặp cuối; reset578979 sao chép+68→+4 và+80→+1C tới consumer capacity/Fire đã nối. Hai ca byte lựa chọn0/1 đều có key0 và output `[5,7,1,10,1,7]` trong lần khởi tạo đầu quan sát | Native scalar, vai trò field khởi tạo; không level/FPS hoặc identity KR | vn_static + vn_runtime / confirmed (dataflow và hai cửa sổ đã đo) | [8mốc/77hash/5block và wire checksum](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#sáu-output-tới-field-khởi-tạo-và-key-đầu-vào--r-175); fixturebc875…/Factory01/room19. Counterpart làm trần sau pickup còn candidate; không nâng f2–f7/C00/C01 |
+
+Byte lựa chọn khác nhau đã kiểm trong cả S103/S106, nhưng hai key đầu vẫn0; đây là kết quả
+không phân biệt được identity, không chứng minh lựa chọn bị bỏ qua hoặc các lần khởi tạo sau.
+Marker+A4 không chạm; không kết luận hiệu ứng modifier. Getter base/max có override/fallback
+theo key; không phải literal5/7 hoặc sáu cột row liền nhau. Giữ profile/12candidate/G2/G6.

@@ -266,3 +266,16 @@ Sáu output qua595FD8 chưa là sáu cột Attr: getter đầu có override có 
 tiếp971676, modifier virtual+A4 và nguồn key/fallback chưa xác nhận. Mười hai cipher transient giữ
 unknown/raw; không suy literal5/7, level hoặc C00/C01. Hai run đã đóng sạch; chỉ mở lượt tiếp ở
 nguồn key/fallback/modifier mới, không lặp reset.
+
+### Sáu output khởi tạo và hai đầu vào lựa chọn (R-175)
+
+[Wire checksum, source và hai ca](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#sáu-output-tới-field-khởi-tạo-và-key-đầu-vào--r-175)
+nối output2/4 qua5787AE→578979 tới capacitycurrent facet+4 và Firecurrent+1C. Output3/5 là
+counterpart kẹp khi khởi tạo; vai trò trần sau pickup chưa được xác nhận. Movementbase/max/current
+giữ field640/64C/658, không phải speed level được định danh.
+
+Hai lựa chọn byte0/1 được xác minh trong frame S103/S106. Actor riêng449551848/449274328 đều có
+key0, output `[5,7,1,10,1,7]` trước/sau vùng modifier và endpoint movement5/7/5,
+capacity1/10/1, Fire1/7/1. Chỉ lần khởi tạo đầu được chụp; marker+A4 không chạm. Không suy hai
+nhân vật có cùng chỉ số hoặc mode19 bỏ qua lựa chọn. Key/identity còn thiếu; bước tiếp là
+caller cung cấp arg3 của5AED95→5A517F, không lặp hai ca. Hai run sạch, không item/bom, timingexcluded.
