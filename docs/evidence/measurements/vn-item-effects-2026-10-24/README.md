@@ -482,3 +482,58 @@ Manifest có60 file runtime cùng các capture/cache tĩnh; số file không ph�
 block giữ2.114 byte từ3.264 byte window yêu cầu, có prefix/nhánh chưa đọc và bản sao raw; không gọi
 chúng là chín full function. Chỉ public metadata, không game/media/raw decompile. Bước tiếp là
 key/fallback `971A59/971A5B`, helper `971676` hoặc modifier có đối chứng, không đo lại reset/plateau.
+
+## Sáu output tới field khởi tạo và key đầu vào — R-175
+
+[8 mốc native](stat-roles.csv), [payload, wire checksum, 77 hash và source](stat-roles.json).
+Hai ca chỉ đổi byte lựa chọn nhân vật trong server offline từ0 sang1; fixture `bc875…`,
+Factory01/room19 và các nguồn probe/server/harness còn lại giống nhau. Frame S103 và S106 được
+giải mã lại, kiểm checksum: cả hai frame mang0 trong ca0 và1 trong ca1. Đây là đầu vào
+`emu_choice`, chưa xác nhận identity nhân vật KR.
+
+| Ca | Actor riêng | Key tại call virtual+A0 | Sáu output trước/sau vùng modifier | Field sau reset |
+|---|---|---|---|---|
+| byte0 | 449551848 | 0 | `[5,7,1,10,1,7]` / cùng giá trị | movement5/7/5; capacity1/10/1; Fire1/7/1 |
+| byte1 | 449274328 | 0 | `[5,7,1,10,1,7]` / cùng giá trị | movement5/7/5; capacity1/10/1; Fire1/7/1 |
+
+Mỗi ca có bốn stop trên cùng actor/frame/thread: trước+A0 tại597471, sau return597477,
+join5974DB và sau reset5A521A. Vtable thực C664C4, controller C6630C, facet C66284; slot604=0.
+Marker trước+A4 tại5974C3 không được chạm; không có phép đo entry/return hay hiệu ứng của+A4.
+Đây chỉ là **lần khởi tạo đầu được quan sát**. Kết quả không phân biệt được identity; không suy
+mode19 bỏ qua lựa chọn, hai nhân vật giống nhau hoặc những lần khởi tạo sau cũng nhận key0.
+
+### Nối output với consumer
+
+`597432` chuyển bốn output cuối tới5787AE theo thứ tự đối số. Setter ghi các box của facet
+actor+510 và kẹp hai cặp capacity/Fire theo counterpart. Reset578979 sao chép hai base tới
+field current đã nối consumer trong R-168/R-166:
+
+| Output của595FD8 | Đích khởi tạo | Đích current / consumer đã có |
+|---|---|---|
+| 0 / 1 | actor+640 / +64C | +640→+658 qua59BD36; R-170/R-173/R-174 |
+| 2 / 3 | facet+68 / +74 | +68→+4; getter capacity R-168 |
+| 4 / 5 | facet+80 / +8C | +80→+1C; getter Fire R-166 |
+
+Vai trò **base khởi tạo** của output2/4 được nối qua sao chép và consumer, không dựa vào thứ tự
+số. Output3/5 là counterpart dùng kẹp khi khởi tạo; vai trò trần sau pickup vẫn `candidate`.
+Reset còn ghi box facet+10=1; ý nghĩa giữ opaque. Offset vtable+84/+88 ở phép so R-168 là slot
+hàm, không phải offset của các field dữ liệu trong bảng này.
+
+### Fallback có điều kiện, chưa là row identity
+
+Năm block mới giữ335 byte từ976 byte window, được đối chiếu byte với PE cùng SHA; metadata
+không gọi chúng là năm full function. Tail971A59/971A5B nối getter đầu tới97163C, helper58B
+này dùng override `manager+4BD0+key*24` nếu dương, nếu không đọc base tại
+`manager+1D4+key*19C` rồi cộng **giá trị** đối số thứ hai. Maxhelper971676 có cùng dạng nhưng
+fallback tại+1E0; wrapper971B26 truyền giá trị cộng0. Không cộng đối số này vào địa chỉ box.
+Các offset/stride trên viết hệ16; stride19C không tự chứng minh tên bảng hoặc C00/C01.
+
+Trong cả hai ca, manager pointer giữ nguyên giữa các mốc của chính ca đó; first dword làC83AEC,
+chưa xác định lớp. Các box primary/alt/base/max tại key0 lần lượt0/0/5/7, hợp lệ cookie/checksum.
+Chúng không thay breakpoint trực tiếp vào mọi nhánh getter, và sáu output vẫn đến từ sáu getter
+riêng. Không nâng thành sáu cột liền nhau của BomberAttr KR.
+
+Hai namespace riêng đã đóng exit0; mỗi ca có S191 và nativeXY hợp lệ, không111/117/120/151/158,
+không item/bom. Toàn bộ timing debugger bị loại khỏi kết luận. Chỉ công bố metadata/payload nhỏ,
+không game/media/asm dài. Bước tiếp là caller đưa đối số key vào5AED95→5A517F→597432;
+không lặp hai lựa chọn hoặc phép đo plateau để tìm lại cùng kết quả. Profile và G2/G6 chưa đổi.

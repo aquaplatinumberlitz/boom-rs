@@ -216,3 +216,17 @@ f2..f7củaC00/C01KR. Khôngthay12khóa candidateKR bằng sốVNnàychỉvìcù
 R-163 khóa trần hữu hiệu10 trên một actor VN qua ba lượt Factory01, gồm pickup dư và đặt lại sau151.
 [Metadata](../../evidence/measurements/vn-item-effects-2026-10-24/README.md) có210rawhash;
 chưa tách stat/pool và receiver KR nên chưa nâng nghĩa f2..f7 hoặc12khóa R-117.
+
+## Consumer VN khởi tạo ba cặp — R-175 (25/10)
+
+[Hai ca native và dataflow](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#sáu-output-tới-field-khởi-tạo-và-key-đầu-vào--r-175)
+đã nối sáu output getter tới movementbase/max, capacitybase/counterpart và Firebase/counterpart;
+hai base cuối reset vào field current có consumer R-168/R-166. Đây là consumer VN được dùng theo
+ADR0002/0013, không yêu cầu RE lại KR cho cùng cơ chế. Nhãn sáu cột BomberAttr KR và identity
+C00/C01 vẫn thiếu bridge, không thay12 giá trị candidate.
+
+S103/S106 đổi byte0→1 thật trong hai ca, nhưng key đầu quan sát vẫn0 và sáu output đều
+`[5,7,1,10,1,7]`. Lần khởi tạo sau chưa quan sát; kết quả không phân biệt identity, không suy
+hai character giống nhau. Fallback97163C/971676 đọc box theo numeric key, chưa là bằng chứng
+tên lớp manager/nguồn row. Bước tiếp: caller cấp arg3 cho5AED95→5A517F→597432; giữ các nhánh
+KR helper/VM đã dừng, không quét lại7caller hoặc lấy thứ tự số làm mapping.
