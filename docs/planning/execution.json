@@ -202,11 +202,12 @@
         "docs/evidence/measurements/rust-client-ux-2026-10-24/README.md",
         "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json",
         "git:0407546acaeb2df43bb3ee0b9eaf7a82b4f6909f",
-        "git:1af523ef5a75a83c70e19fb7a666ac3b11d22f6d"
+        "git:1af523ef5a75a83c70e19fb7a666ac3b11d22f6d",
+        "git:af5184d84de37ee5898f825ca8c834fcc3612a82"
       ],
-      "verification": "Registry hiện36/37; G1/G3/G4/G5passed4/6 theo nghiệm thu độc lập PR279/281, không ký G2/G6 hoặc phaP8. Package QA current vẫn đúng code/rules đã review.",
+      "verification": "Registry36/37; G1/G2/G3/G4/G5passed5/6 theo nghiệm thu độc lập G2issue294 và G3/G5issue280/278. Không kýG6/phaP8. QA40107097457 giữ bằng chứng trên source95985fe; finalgói phải theo rulesidentity mới R182.",
       "blocker": "",
-      "next_action": "36/37V1done, G1/G3/G4/G5passed4/6. G3 cơ chế/boundary PR281 và G5 functional UX PR279 đã nghiệm thu riêng. Còn G2/12candidate/char identity và quyết định profile; G6/V1-036 minimum hardware, GUI platform và toàn bộ nghiệm thu cuối. CurrentQA3OS/hash đã có; không dựng lại nếu code/rules không đổi, không đòi đóng sáu issueRE."
+      "next_action": "36/37V1done,5/6gatepassed; G2logicalstats/trace+DESIGN đãnghiệmthu294, khônglặp12candidate/Attrloop. Tiếp G6/V1-036 minimumhardware/platformvalidation/GUIđaOS và finalprofile/packageversion/fingerprints; R182 đổi metadatarulesidentity nên không coiQA95985fe là góihiện hành cho rulesmới. Đợi luậtnumericổnđịnh trướcbuildgóicuối; khôngrerun networkmatrix/khôngđòi sáuRErootđóng."
     },
     {
       "id": "P9",
@@ -245,9 +246,9 @@
     {
       "id": "G2",
       "title": "Movement/stats",
-      "status": "in_review",
+      "status": "passed",
       "owner": "RE/core",
-      "reviewer": "Codex (chưa sign-off gate)",
+      "reviewer": "DSH1 — nghiệm thu độc lập G2 issue294/comment6396657957; exact source PR293 APPROVE6396600217",
       "evidence": [
         "docs/decisions/0013-rule-source-precedence.md",
         "docs/specification/gameplay/RULES_V1.md",
@@ -262,11 +263,15 @@
         "git:fd5b46c41914bd95b2a2efec7b5856b553436dcb",
         "docs/evidence/measurements/vn-item-effects-2026-10-24/roller-cap.json",
         "docs/evidence/measurements/vn-item-effects-2026-10-24/roller-writer.json",
-        "git:e40eb7aff2eed5a16c251ee72967acbc9715f0f2"
+        "git:e40eb7aff2eed5a16c251ee72967acbc9715f0f2",
+        "docs/evidence/measurements/vn-item-effects-2026-10-24/attr-identity.json",
+        "docs/evidence/measurements/vn-player-movement-2026-10-25/README.md",
+        "git:12fdf7f377a0907a8bfd4230f5d0ae885fef9a99",
+        "git:af5184d84de37ee5898f825ca8c834fcc3612a82"
       ],
-      "verification": "ADR0013 giữ12khóa KRcandidate có chủ ý; movement/hitbox/time/speed24DESIGN hiện hành có review/scenario. PR249 ownergraceR155 và PR260 trapped17px/sR161/R162 đã review+CI3OS; không phải full native speed/hitbox. DSH1 đang câu hỏiRoller/level/velocity; chưa sign-offG2 hoặc profile phát hành. PR272/R170 actualgetter5→6 vàPR275/R171 actualv244amount5/6→Ydelta−5/−6 đãreviewđộc lập/12CI3OS; chỉ hai ca native, khônglevel/FPS/normalization/profilechange. R172 bổ sung C64 plateau7 qua12Roller/nativegettercuối7/nativeXYcontrol trong mộtactorVN; không nâng C00/C01candidate/level/globalKRcap, không sign-offG2. PR282/R173 đã review độc lập+12CI3OS: actualselector3/receiverhero+5FC nối C64old+1/kẹp theo maxfieldcontroller+58; fullpayload re-decode. ChỉfieldconsumerVN, numericmaxactor/level/f2f3/KRidentity vẫnunknown, khônggỡ12candidate hoặc kýG2.",
-      "integration_commit": "",
-      "blocker": "Cần review độc lập quyết định profile phát hành/12khóaC00/C01candidate; loader từ chối candidate khi release=true. Không đổi nhãn bằng chứng để vượt gate. Nativefidelity khác có thể backlog theo SCOPE10.5, không cần đóng hết146/149."
+      "verification": "Nghiệm thu G2 theo SCOPE6/10.7 và review độc lập issue294/comment6396657957: R180/181 actualnamedrowC00/C01→samemanager→sixreader/out6 và base/max consumers; R182 chọn12logicalstatpoints VNconfirmed. SourcePR293 exact3a5bd299 đượcDSH1APPROVE6396600217, all12CI/smoke3OSsuccess, ancestorintegration af5184d đãkiểm. All32numbers unchanged;35precedence tests và actualprofile candidatepoison/releaseguard PASS. Chấp nhận riêng DESIGN24px/s/point, collision13/assist12,30Hz/time; R176/177/179 là scopedplayerresponse/source, không fullnativehurtbox/max34/FPS. G2 V1trace+DESIGN passed, không G6/minimumHW/platform/V1-036/release; nativecurve/override/nonowner/crossmode/ItemAttr giữ146/149fidelity.",
+      "integration_commit": "af5184d84de37ee5898f825ca8c834fcc3612a82",
+      "blocker": ""
     },
     {
       "id": "G3",
@@ -290,7 +295,7 @@
         "fixtures/scenarios/blocks/flame_burns_old_item_new_drop_lives.toml",
         "fixtures/scenarios/explosion/chain_rolls_once.toml"
       ],
-      "verification": "Nghiệm thu cơ chế G3 theo SCOPE6: fuse2500/chain/ray/created-tick flame540(tròn17tick), trap6350(191tick)/slow17, warmup3000/clock, dropchance350/weight3650-2800-2000/flame-item/pickup-at-cap có lựa chọn claim/version và boundary scenarios/tests đã tích hợp. PR249/258/260 review độc lập+12CI3OS; currentpackage cùng6350/17/540. R112 là áp dụng trọng số V1 có chủ ý, không xác nhận vai trò native R052; R158/R160 là calibrationDESIGN, không literal native. Cơ chế cap consume/clamp được nghiệm thu; 12giá trị C00/C01 còncandidate doG2/profile quyết định, không nâng nhãn hoặc dùng actorVN thành capmọiKR. Reviewer G3 độc lập issue280/PR exacthead; không ký G2/G6/V1-036/release.",
+      "verification": "Nghiệm thu cơ chế G3 theo SCOPE6: fuse2500/chain/ray/created-tick flame540(tròn17tick), trap6350(191tick)/slow17, warmup3000/clock, dropchance350/weight3650-2800-2000/flame-item/pickup-at-cap có lựa chọn claim/version và boundary scenarios/tests đã tích hợp. PR249/258/260 review độc lập+12CI3OS; currentpackage cùng6350/17/540. R112 là áp dụng trọng số V1 có chủ ý, không xác nhận vai trò native R052; R158/R160 là calibrationDESIGN, không literal native. Cơ chế cap consume/clamp được nghiệm thu; 12giá trị C00/C01 là candidate tại nghiệm thu G3; nay R182/sourcePR293 và G2issue294 giải logical source, không nâng nhãn hoặc dùng actorVN thành capmọiKR. Reviewer G3 độc lập issue280/PR exacthead; không ký G2/G6/V1-036/release.",
       "integration_commit": "d8f1ba9b7f9aed73a6676b74c3ab104b6ca55244",
       "blocker": ""
     },
@@ -333,7 +338,7 @@
         "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816",
         "docs/planning/SCOPE_V1.md"
       ],
-      "verification": "Nghiệm thu G5 theo SCOPE6/7.9 và V1-032/033/034/035: 126text/6sprite đã duyệt, font/glyph/wrap/NFC/placeholder/golden; scale1x/2x RGBA; actualLinux focus/movement/rebind; BGM/SFX/volume/mute đường phát số và regression reconcile không phát trùng. PR271/274 sửa và kiểm KWin normal/max2cycles/rebind từ actualarchive bc3a1aef. Các bằng chứng đã merge/review, 3OS CI/golden/package không thay GUI. Quyết định G5 có reviewer độc lập issue278/PR exacthead; phạm vi functional V1, không nghiệm thu GUIWinMac, minimumHW, physicalDAC hoặc fidelityKR. Giữ failure pulse ngắn và giới hạn raw. G6/V1-036 và G2/G3 còn mở.",
+      "verification": "Nghiệm thu G5 theo SCOPE6/7.9 và V1-032/033/034/035: 126text/6sprite đã duyệt, font/glyph/wrap/NFC/placeholder/golden; scale1x/2x RGBA; actualLinux focus/movement/rebind; BGM/SFX/volume/mute đường phát số và regression reconcile không phát trùng. PR271/274 sửa và kiểm KWin normal/max2cycles/rebind từ actualarchive bc3a1aef. Các bằng chứng đã merge/review, 3OS CI/golden/package không thay GUI. Quyết định G5 có reviewer độc lập issue278/PR exacthead; phạm vi functional V1, không nghiệm thu GUIWinMac, minimumHW, physicalDAC hoặc fidelityKR. Giữ failure pulse ngắn và giới hạn raw. G6/V1-036 vẫn chưa nghiệm thu; G2/G3 được ký riêng, không nâng fidelity.",
       "integration_commit": "0886f81ca8702e5dcbe9aabab1c6e212c0fa4816",
       "blocker": ""
     },
@@ -351,9 +356,9 @@
         "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
         "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
       ],
-      "verification": "36/37V1done; task273 QA40107097457 exactreviewedcode95985fe941be5199568b012482c8eac88b33629f success4/4jobs:3archive tải/mở/check,27filehash/10smokeOS/135crate+notice miniquad đủ, rules6350/17/540/L10N cùngbyte. PR274finalmetadatae066d4a independentDSH2APPROVE+12CI3OS. ActualLinuxarchiveKWinnormal/max2cycles+rebind4case; failedshortpulse preserved/causeunknown. OldQA400916 vàprefixed401059 giữhistory. G2in_review; G3/G5 nghiệm thu chức năng V1 ở issue280/278; G6blocked, chưasign-off036/minHW/GUIWinMac/physicalaudio/release.",
+      "verification": "36/37V1done; task273 QA40107097457 exactreviewedcode95985fe941be5199568b012482c8eac88b33629f success4/4jobs:3archive tải/mở/check,27filehash/10smokeOS/135crate+notice miniquad đủ, rules6350/17/540/L10N cùngbyte. PR274finalmetadatae066d4a independentDSH2APPROVE+12CI3OS. ActualLinuxarchiveKWinnormal/max2cycles+rebind4case; failedshortpulse preserved/causeunknown. OldQA400916 vàprefixed401059 giữhistory. Tại QA snapshot95985fe, G2 còn in_review; G3/G5 nghiệm thu chức năng V1 ở issue280/278; G6blocked, chưasign-off036/minHW/GUIWinMac/physicalaudio/release. SauPR293/G2issue294: G1/G2/G3/G4/G5passed5/6; sourceprofilemetadata đãđổi theoR182 dù32sốkhôngđổi, package40107097457 vẫn là QAhead95985fe lịch sử. Trướcfinalrelease cần gói/version/fingerprint đúng profilehead mới; không gán QAoldhash cho R182.",
       "integration_commit": "",
-      "blocker": "V1-036/minimumhardwareCPU/RAM/GPU chưa đo; G2 chưa sign-off/profile dev releasefalse,12KRcandidate; GUI đa OS/platform validation còn thiếu. Currentpackage/fingerprint đãđạt, khôngcòndùngoldpackageblocking."
+      "blocker": "V1-036/minimumhardwareCPU/RAM/GPU và platformvalidation/GUIđaOS chưa nghiệm thu; releaseprofile vẫn false, chưa nghiệm thuG6. SourcepolicyR182 đổi rulesidentity: finalpackage phải đúngprofile/version/hash mới, không dùng package40107097457oldhead như currentR182proof. Khôngcònbịtắc bởi12candidate/Attridentity/G2; khôngđòi đóng6rootRE."
     }
   ],
   "baseline_scope_sha256": "e9b705c9aeae15f705bcdd452be00040a893cdb11494867e41bebe635b87b693"
