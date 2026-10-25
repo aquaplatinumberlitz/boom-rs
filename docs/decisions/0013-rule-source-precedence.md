@@ -127,3 +127,25 @@ Bác hai phương án: giữcandidate chỉ vì converter vật lý là DESIGN s
 logicalsource có review riêng, profilehash đổi dù12số không đổi; replaytestprofile giữ nguyên.
 `release=false` và release-validation không đổi; G2 chỉ qua sau nghiệm thu độc lập trace+DESIGN,
 G6/gói cuối/phần cứng và37feature vẫn là điều kiện riêng. PR phải exactheadapprove/CI3OS/safe-merge.
+
+## Bổ sung2026-10-25 — ưu tiên RE khả thi và hiệu chuẩn curve native VN
+
+Chỉ đạo trực tiếp mới của chủ dự án: phần RE khó/không có manh mối được đo trực tiếp client VN;
+giá trị đo được chấp nhận gần bằng bằng chứng RE, nhưng khi RE khả thi ưu tiên nguồn từ RE.
+Không chặn đo bằng yêu cầu KR-only/vanilla equivalence; vẫn giữ build/hash, field/consumer, đơn vị,
+đối chứng, sai số và patchscope. Phân tích tĩnh tìm điểm quan sát/giải thích cơ chế; một timer packet,
+keydown hoặc emu schedule không được thay cho thời điểm hành vi native. Quy tắc samequantity và
+thứ tự nguồn ở trên giữ nguyên; không tự nâng candidate/literal từ một phép calibration.
+
+R183 kết hợp R173/R180/R182 sourcefield với sameactor nativeXY ởlogicalpoint4..8. Mean normalized
+33,358116px/s/point trong ca, profile24 chậm khoảng28%. Chọn R184 **DESIGN33** thay R11424,
+nguyên gần trung tâm để chạy core30Hz (1100mpx/tick/point), không lấy30Hz làm nhịp client.
+Coefficient33 này có nguồn đo mới; R07533 lịch sử vẫn superseded/R043candidate không được phục hồi.
+Error-model bảo thủ không phân biệt chắc33/34, không nativehardconstant; points1..3/otheractors/modes
+là ngoại suy V1. [Trace/window/hash/sai số](../evidence/measurements/vn-player-movement-2026-10-25/README.md#curve-tốc-độ-cùng-actor--r-183r-184r-185).
+
+R185 chọn Roller+1logicalpoint `vn_runtime/confirmed`, cùng số1, theo actualselector3/incrementclamp
+R173 và bốn ACK4→8; thay riêng nguồnOSS của Roller trong R111. Bomb/Fire giữ R111.
+12characterstatvalues giữ R182; physicalcoefficient33 vẫn `design/design`, không nguồnVNconfirmed.
+Bác giữ24 chỉ vì có OSS khi quan sát VN cho cùng hành vi đã có đối chứng; cũng bác gọi33 literalnative.
+G2 trace+DESIGN cần acceptance độc lập cập nhật cho profile mới; G6/releaseflag/gói cuối không tự qua.

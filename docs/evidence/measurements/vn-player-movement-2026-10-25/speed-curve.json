@@ -1,0 +1,877 @@
+{
+  "status": "confirmed",
+  "run": "host-c01-speed-curve-146-r2-tail-control",
+  "actor": 449284224,
+  "fixture_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+  "raw_files": [
+    {
+      "name": "00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "name": "01-channels.png",
+      "bytes": 609688,
+      "sha256": "ffe28a5f01f29660bb441f59079e6f7ec0ce3663065d1a3b6a63a57c8c5bedca"
+    },
+    {
+      "name": "02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "name": "03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "name": "04-room.png",
+      "bytes": 388340,
+      "sha256": "d1e2748420b7096175ebf6df5ffce6d9fdd60fe3992ee0cd702b6aae34fa5e2f"
+    },
+    {
+      "name": "05-match.png",
+      "bytes": 417965,
+      "sha256": "58594fa9950883bb74cc7bf6c70cf042f8d76943f36c8e67eb0914f7173ae714"
+    },
+    {
+      "name": "06-baseline-point4.png",
+      "bytes": 417807,
+      "sha256": "c30acfa69196ec03a3ad884657b07a3f2bbfd2903188a1b2e89432436bbb6755"
+    },
+    {
+      "name": "ack-complete.json",
+      "bytes": 92,
+      "sha256": "08e0bc11f240cb0e8b86517d8bc2381a9af8c7991b1b3d43947ec79874d32360"
+    },
+    {
+      "name": "ack.json",
+      "bytes": 42,
+      "sha256": "62c029cde5e3bf365c8f2faad5e29ceaa71ab3ee74bbbff7ec86f992de0cd762"
+    },
+    {
+      "name": "command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "name": "harness-used.py",
+      "bytes": 18718,
+      "sha256": "ebc5cf0743cba3c19eddbf4508fb99c49d8ce9a144d7db858b8349d2ef96cf7d"
+    },
+    {
+      "name": "hero-target.json",
+      "bytes": 169,
+      "sha256": "1c61acbbc36a070e1919d15bd433fa1d8a7767ad772518f0828bdefb0f7cb19e"
+    },
+    {
+      "name": "init.json",
+      "bytes": 803,
+      "sha256": "35c74cd346e678a818be034eb512b92b35a817c1a448d06bf9570ba972214d5b"
+    },
+    {
+      "name": "isolation.json",
+      "bytes": 680,
+      "sha256": "c04180579065719a35a69b57f07619c852d8f2b8d9dba221784cb3fef081345c"
+    },
+    {
+      "name": "native-ack-entry.json",
+      "bytes": 861,
+      "sha256": "97cbf2dce3a8f49eefb92996703674a27e8a47d986928e75c3057ea559b7b052"
+    },
+    {
+      "name": "native-ack-events.jsonl",
+      "bytes": 7796,
+      "sha256": "537e53bafeeff0ec4b0291ccc2a76cab6149b6710c2936535ce5c0d3b3ed1044"
+    },
+    {
+      "name": "native-ack-return.json",
+      "bytes": 885,
+      "sha256": "19a2570ff05e8f364a32ec83899556c5a58ca10e8b1909a9a89f4d949fa29ee9"
+    },
+    {
+      "name": "observer-stops.jsonl",
+      "bytes": 1245,
+      "sha256": "a00c62c5d5183401aa79f177c3f160e968b75d0b01c0b7b39c5d6e0257c67530"
+    },
+    {
+      "name": "operator-command1.json",
+      "bytes": 2196,
+      "sha256": "18563a7d0ada272c1d1d05c9b9f7144a6adddf2b952ffd5a5ed3a5b661d679c3"
+    },
+    {
+      "name": "operator-used.py",
+      "bytes": 2622,
+      "sha256": "bc63d0fe58db1e23c44424338459e5bfcc413f410b4400cdb469bd2e0c083abe"
+    },
+    {
+      "name": "packets.jsonl",
+      "bytes": 20260,
+      "sha256": "741c5553507d6c5feb3db941b28b18d8613a2b0e34ff7122f3357d4259bb4927"
+    },
+    {
+      "name": "packets.log",
+      "bytes": 15859,
+      "sha256": "5e04617c5c236576e9edeb66d10b0e9a1bbf6e552f2538f925215c4851df41b8"
+    },
+    {
+      "name": "phase-1-point5.png",
+      "bytes": 413381,
+      "sha256": "57b797e0bf83d5cbb559f13afdc38f6216e59b10f87bd4fb3a66148f7a476db5"
+    },
+    {
+      "name": "phase-2-point6.png",
+      "bytes": 410166,
+      "sha256": "a33bdd0e62b07643c85aa4b44bed8c80a238223575a917504d804f623fa11c53"
+    },
+    {
+      "name": "phase-3-point7.png",
+      "bytes": 407105,
+      "sha256": "d04fa5a2e76a3aa3914f60715007c236a8d9641f8786ac40f5b60e0c53cc9ed5"
+    },
+    {
+      "name": "phase-4-point8.png",
+      "bytes": 405151,
+      "sha256": "7b0224d1917b979dd1690de5acbb3498e998740e025ef667138ddcec3958a2f6"
+    },
+    {
+      "name": "pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "name": "position-samples.jsonl",
+      "bytes": 767678,
+      "sha256": "f205d96e43c98193c14a8a345bf68a53c22920c948ea32660ed23789158613bb"
+    },
+    {
+      "name": "probe-ready.json",
+      "bytes": 146,
+      "sha256": "ae01a00debb74fb28eaf9f0690d9e7067b0ae1cf49034d61841d7aa1ea5196e7"
+    },
+    {
+      "name": "probe-template-used.gdb",
+      "bytes": 10917,
+      "sha256": "4ec0f1f3792e8882fd3c8c1c87f816273f40a809611be6ec7834ef0156780b68"
+    },
+    {
+      "name": "probe.gdb",
+      "bytes": 10917,
+      "sha256": "4ec0f1f3792e8882fd3c8c1c87f816273f40a809611be6ec7834ef0156780b68"
+    },
+    {
+      "name": "ready.json",
+      "bytes": 121,
+      "sha256": "db576302bd115e74fdc7d077463157ea08702fa5eeecdeb57023b84bcf7dea99"
+    },
+    {
+      "name": "registered-hooks.json",
+      "bytes": 243,
+      "sha256": "2433df02dc7b916f444ca84e5737e69e763dffea51718e2d8bcf941db1da6738"
+    },
+    {
+      "name": "server-used.py",
+      "bytes": 46148,
+      "sha256": "ef688ad5588bed2390231728d3ab7e722c3af619e90501bf030eb84cb3a1158b"
+    },
+    {
+      "name": "server.log",
+      "bytes": 15859,
+      "sha256": "5e04617c5c236576e9edeb66d10b0e9a1bbf6e552f2538f925215c4851df41b8"
+    },
+    {
+      "name": "sources.json",
+      "bytes": 438,
+      "sha256": "bdd526bab1a70e1ff6c45de8ae0629df4caa7dc6ebd3019e546a771fdeb1641d"
+    },
+    {
+      "name": "start.json",
+      "bytes": 1392,
+      "sha256": "99bf642b9d6118456572544f61c68094e625fd3082208e09baa706d825e95f3b"
+    },
+    {
+      "name": "supervisor.log",
+      "bytes": 18183,
+      "sha256": "e777410df495a1a24b4a6f6a2aef2101b5fa4ae433a5bde794578b92046b33fb"
+    },
+    {
+      "name": "winedbg.log",
+      "bytes": 15605,
+      "sha256": "f9e9df6ca56c7f479fa967252412b8eb5d71fab31609fc6fd435e84416b7bf0b"
+    },
+    {
+      "name": "xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    }
+  ],
+  "raw_rows": 900,
+  "invalid_rows": 0,
+  "native_event_count": 9,
+  "actual_stop_count": 9,
+  "hook_objects": 3,
+  "packet_counts": {
+    "111": 0,
+    "117": 4,
+    "120": 0,
+    "151": 0,
+    "158": 4
+  },
+  "cleanup": {
+    "exit_code": 0,
+    "owned_namespace_ended": true,
+    "runtime_owner": false
+  },
+  "window_method": "Actual native Y first/last CHANGE within each control scope, trim150ms from each motion boundary, same algorithm chosen after R1 then applied to R2; all accepted read brackets fully inside, no GDB overlap; >=1s; discrete endpoint allowance not confidence/FPS",
+  "windows": [
+    {
+      "move_index": 0,
+      "point": 4,
+      "direction": "Up",
+      "start_read_ns": 888280347159764,
+      "end_read_ns": 888281633356379,
+      "span_seconds": 1.2856675745000001,
+      "samples": 40,
+      "first_y": 487,
+      "last_y": 315,
+      "first_last_px_s": 133.78263822737483,
+      "ols_px_s": 134.12575122766506,
+      "theil_px_s": 133.28814238191163,
+      "read_bracket_ols_px_s": [
+        134.10809926288772,
+        134.14338463979303
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        121.2878328092941,
+        146.28773087586833
+      ],
+      "read_span_max_ms": 1.372501,
+      "change_gap_max_ms": 59.452934,
+      "change_histogram": {
+        "4": 35,
+        "8": 4
+      },
+      "read_bracket_full_difference_px_s": 0.035285376905306975,
+      "global_discrete_model_allowance_px_s": 32.70313889754335
+    },
+    {
+      "move_index": 1,
+      "point": 4,
+      "direction": "Down",
+      "start_read_ns": 888282603022828,
+      "end_read_ns": 888283895214288,
+      "span_seconds": 1.291921745,
+      "samples": 41,
+      "first_y": 315,
+      "last_y": 487,
+      "first_last_px_s": 133.13499882301306,
+      "ols_px_s": 133.94000127562484,
+      "theil_px_s": 133.75126629732995,
+      "read_bracket_ols_px_s": [
+        133.93330094576075,
+        133.94666305042338
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        120.7251439349398,
+        145.55003641344487
+      ],
+      "read_span_max_ms": 1.387181,
+      "change_gap_max_ms": 39.638695,
+      "change_histogram": {
+        "4": 37,
+        "8": 3
+      },
+      "read_bracket_full_difference_px_s": 0.0133621046626331,
+      "global_discrete_model_allowance_px_s": 32.52307111958443
+    },
+    {
+      "move_index": 2,
+      "point": 4,
+      "direction": "Up",
+      "start_read_ns": 888284837166882,
+      "end_read_ns": 888286137502290,
+      "span_seconds": 1.300202648,
+      "samples": 42,
+      "first_y": 483,
+      "last_y": 311,
+      "first_last_px_s": 132.28707099202893,
+      "ols_px_s": 133.77390191836403,
+      "theil_px_s": 133.29567952546182,
+      "read_bracket_ols_px_s": [
+        133.77011345258134,
+        133.7776793826921
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        119.96904724753907,
+        144.6076105102436
+      ],
+      "read_span_max_ms": 1.151221,
+      "change_gap_max_ms": 38.036834,
+      "change_histogram": {
+        "4": 39,
+        "8": 2
+      },
+      "read_bracket_full_difference_px_s": 0.00756593011075779,
+      "global_discrete_model_allowance_px_s": 32.31022280025736
+    },
+    {
+      "move_index": 3,
+      "point": 4,
+      "direction": "Down",
+      "start_read_ns": 888287092637235,
+      "end_read_ns": 888288398762459,
+      "span_seconds": 1.306015164,
+      "samples": 43,
+      "first_y": 319,
+      "last_y": 491,
+      "first_last_px_s": 131.69831770804768,
+      "ols_px_s": 132.9558994132829,
+      "theil_px_s": 132.2951075433636,
+      "read_bracket_ols_px_s": [
+        132.94698431999143,
+        132.96480396572787
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        119.4372462406407,
+        143.96145587007368
+      ],
+      "read_span_max_ms": 1.208901,
+      "change_gap_max_ms": 36.719004,
+      "change_histogram": {
+        "4": 41,
+        "8": 1
+      },
+      "read_bracket_full_difference_px_s": 0.017819645736437906,
+      "global_discrete_model_allowance_px_s": 32.17671117909692
+    },
+    {
+      "move_index": 5,
+      "point": 5,
+      "direction": "Down",
+      "start_read_ns": 888292517394140,
+      "end_read_ns": 888293714406395,
+      "span_seconds": 1.1969006595,
+      "samples": 40,
+      "first_y": 289,
+      "last_y": 489,
+      "first_last_px_s": 167.09824529927914,
+      "ols_px_s": 163.81371043136622,
+      "theil_px_s": 163.3547542848558,
+      "read_bracket_ols_px_s": [
+        163.77458112795205,
+        163.85271691676584
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        150.37440030219238,
+        183.82520915147666
+      ],
+      "read_span_max_ms": 3.035283,
+      "change_gap_max_ms": 39.361545,
+      "change_histogram": {
+        "5": 38,
+        "10": 1
+      },
+      "read_bracket_full_difference_px_s": 0.07813578881379613,
+      "global_discrete_model_allowance_px_s": 35.16876730166242
+    },
+    {
+      "move_index": 6,
+      "point": 5,
+      "direction": "Up",
+      "start_read_ns": 888294678993518,
+      "end_read_ns": 888295814945298,
+      "span_seconds": 1.135805944,
+      "samples": 37,
+      "first_y": 479,
+      "last_y": 289,
+      "first_last_px_s": 167.2820969142595,
+      "ols_px_s": 168.34200454338426,
+      "theil_px_s": 167.61387203325165,
+      "read_bracket_ols_px_s": [
+        168.3413283056053,
+        168.34267814163428
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        149.65423972485874,
+        184.91448147265555
+      ],
+      "read_span_max_ms": 0.43887,
+      "change_gap_max_ms": 57.710362,
+      "change_histogram": {
+        "5": 34,
+        "10": 2
+      },
+      "read_bracket_full_difference_px_s": 0.0013498360289929678,
+      "global_discrete_model_allowance_px_s": 36.97949757497057
+    },
+    {
+      "move_index": 8,
+      "point": 6,
+      "direction": "Down",
+      "start_read_ns": 888298276218427,
+      "end_read_ns": 888299480596329,
+      "span_seconds": 1.2042575115,
+      "samples": 40,
+      "first_y": 246,
+      "last_y": 486,
+      "first_last_px_s": 199.29292340561,
+      "ols_px_s": 200.33939729914206,
+      "theil_px_s": 200.05556653388211,
+      "read_bracket_ols_px_s": [
+        200.3324051084803,
+        200.34633668958818
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        179.3457017447004,
+        219.2441337418083
+      ],
+      "read_span_max_ms": 1.462632,
+      "change_gap_max_ms": 34.429352,
+      "change_histogram": {
+        "6": 38,
+        "12": 1
+      },
+      "read_bracket_full_difference_px_s": 0.013931581107897273,
+      "global_discrete_model_allowance_px_s": 34.89019317708964
+    },
+    {
+      "move_index": 9,
+      "point": 6,
+      "direction": "Up",
+      "start_read_ns": 888300452316899,
+      "end_read_ns": 888301543572778,
+      "span_seconds": 1.0911547389999998,
+      "samples": 37,
+      "first_y": 474,
+      "last_y": 252,
+      "first_last_px_s": 203.45418671182625,
+      "ols_px_s": 201.0583351646471,
+      "theil_px_s": 200.16391679667072,
+      "read_bracket_ols_px_s": [
+        201.04849441413495,
+        201.06811942724613
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        181.44232146675105,
+        225.47013292973884
+      ],
+      "read_span_max_ms": 0.973141,
+      "change_gap_max_ms": 33.762031,
+      "change_histogram": {
+        "6": 35,
+        "12": 1
+      },
+      "read_bracket_full_difference_px_s": 0.019625013111181033,
+      "global_discrete_model_allowance_px_s": 38.5109576342675
+    },
+    {
+      "move_index": 11,
+      "point": 7,
+      "direction": "Down",
+      "start_read_ns": 888303947172905,
+      "end_read_ns": 888305033602970,
+      "span_seconds": 1.086329765,
+      "samples": 35,
+      "first_y": 226,
+      "last_y": 478,
+      "first_last_px_s": 231.97375982789168,
+      "ols_px_s": 232.52312940141238,
+      "theil_px_s": 231.95658850709015,
+      "read_bracket_ols_px_s": [
+        232.50890944093692,
+        232.53732316815032
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        206.17986119520725,
+        257.77242196242577
+      ],
+      "read_span_max_ms": 1.098631,
+      "change_gap_max_ms": 40.816307,
+      "change_histogram": {
+        "7": 32,
+        "14": 2
+      },
+      "read_bracket_full_difference_px_s": 0.028413727213404627,
+      "global_discrete_model_allowance_px_s": 38.69070703186202
+    },
+    {
+      "move_index": 12,
+      "point": 7,
+      "direction": "Up",
+      "start_read_ns": 888305988358755,
+      "end_read_ns": 888307124376064,
+      "span_seconds": 1.135878659,
+      "samples": 37,
+      "first_y": 477,
+      "last_y": 211,
+      "first_last_px_s": 234.17994333495088,
+      "ols_px_s": 233.94124116036917,
+      "theil_px_s": 233.77180785657413,
+      "read_bracket_ols_px_s": [
+        233.9361588768604,
+        233.94631857391767
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        209.50385008614336,
+        258.86206144913575
+      ],
+      "read_span_max_ms": 0.503991,
+      "change_gap_max_ms": 60.939396,
+      "change_histogram": {
+        "7": 34,
+        "14": 2
+      },
+      "read_bracket_full_difference_px_s": 0.010159697057275707,
+      "global_discrete_model_allowance_px_s": 36.98594022362847
+    },
+    {
+      "move_index": 14,
+      "point": 8,
+      "direction": "Down",
+      "start_read_ns": 888309443085975,
+      "end_read_ns": 888310625405656,
+      "span_seconds": 1.1821646909999999,
+      "samples": 39,
+      "first_y": 167,
+      "last_y": 479,
+      "first_last_px_s": 263.92261786813935,
+      "ols_px_s": 266.93178577296874,
+      "theil_px_s": 265.31347540990726,
+      "read_bracket_ols_px_s": [
+        266.9273547032153,
+        266.9361788333009
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        236.8225823350732,
+        291.02976033865906
+      ],
+      "read_span_max_ms": 1.289372,
+      "change_gap_max_ms": 36.682124,
+      "change_histogram": {
+        "8": 37,
+        "16": 1
+      },
+      "read_bracket_full_difference_px_s": 0.00882413008559979,
+      "global_discrete_model_allowance_px_s": 35.53686884310436
+    },
+    {
+      "move_index": 15,
+      "point": 8,
+      "direction": "Up",
+      "start_read_ns": 888311542866947,
+      "end_read_ns": 888312886812405,
+      "span_seconds": 1.3438362125,
+      "samples": 45,
+      "first_y": 471,
+      "last_y": 111,
+      "first_last_px_s": 267.88978943369557,
+      "ols_px_s": 267.1736489706013,
+      "theil_px_s": 264.0385801723668,
+      "read_bracket_ols_px_s": [
+        267.1486052881466,
+        267.19864459121175
+      ],
+      "discrete_endpoint_sensitivity_px_s": [
+        244.05752335226092,
+        291.7259306592453
+      ],
+      "read_span_max_ms": 1.183571,
+      "change_gap_max_ms": 34.000201,
+      "change_histogram": {
+        "8": 43,
+        "16": 1
+      },
+      "read_bracket_full_difference_px_s": 0.05003930306514803,
+      "global_discrete_model_allowance_px_s": 31.303848070329632
+    }
+  ],
+  "points": [
+    {
+      "point": 4,
+      "windows": 4,
+      "mean_ols_px_s": 133.69888845873422,
+      "normalized_px_s_per_point": 33.424722114683554,
+      "engine24_px_s": 96,
+      "ratio_to_engine24": 1.3926967547784814,
+      "engine33_px_s": 132,
+      "engine33_relative_error_percent": -1.2706825601310645
+    },
+    {
+      "point": 5,
+      "windows": 2,
+      "mean_ols_px_s": 166.07785748737524,
+      "normalized_px_s_per_point": 33.21557149747505,
+      "engine24_px_s": 120,
+      "ratio_to_engine24": 1.383982145728127,
+      "engine33_px_s": 165,
+      "engine33_relative_error_percent": -0.6490073413050745
+    },
+    {
+      "point": 6,
+      "windows": 2,
+      "mean_ols_px_s": 200.69886623189458,
+      "normalized_px_s_per_point": 33.449811038649095,
+      "engine24_px_s": 144,
+      "ratio_to_engine24": 1.393742126610379,
+      "engine33_px_s": 198,
+      "engine33_relative_error_percent": -1.3447341694378223
+    },
+    {
+      "point": 7,
+      "windows": 2,
+      "mean_ols_px_s": 233.23218528089077,
+      "normalized_px_s_per_point": 33.318883611555826,
+      "engine24_px_s": 168,
+      "ratio_to_engine24": 1.3882868171481593,
+      "engine33_px_s": 231,
+      "engine33_relative_error_percent": -0.9570657146664718
+    },
+    {
+      "point": 8,
+      "windows": 2,
+      "mean_ols_px_s": 267.052717371785,
+      "normalized_px_s_per_point": 33.38158967147312,
+      "engine24_px_s": 192,
+      "ratio_to_engine24": 1.3908995696447135,
+      "engine33_px_s": 264,
+      "engine33_relative_error_percent": -1.1431141393461464
+    }
+  ],
+  "global_max_observed_dy": 21,
+  "scope": "Same-actor native coordinate displacement rates by logical movementpoint; not native internalclock/FPS/literal perpoint coefficient or crossmode/KR.",
+  "schema": 1,
+  "claims": [
+    "R-183",
+    "R-184",
+    "R-185"
+  ],
+  "source": "vn_runtime",
+  "status_scope": "observed rates and ACK increments only; coefficient33 is DESIGN",
+  "private_root": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240",
+  "r1": {
+    "run": "host-c01-speed-curve-146-r1",
+    "actor": 449268984,
+    "raw_files": [
+      {
+        "name": "00-initial.png",
+        "bytes": 233,
+        "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+      },
+      {
+        "name": "01-channels.png",
+        "bytes": 609807,
+        "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+      },
+      {
+        "name": "02-lobby.png",
+        "bytes": 185734,
+        "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+      },
+      {
+        "name": "03-create-dialog.png",
+        "bytes": 375232,
+        "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+      },
+      {
+        "name": "04-room.png",
+        "bytes": 388273,
+        "sha256": "8ac161456b970178ac0c99843eb618cc46469590438edc002c0c7e7f74bbc5f8"
+      },
+      {
+        "name": "05-match.png",
+        "bytes": 417965,
+        "sha256": "58594fa9950883bb74cc7bf6c70cf042f8d76943f36c8e67eb0914f7173ae714"
+      },
+      {
+        "name": "06-baseline-point4.png",
+        "bytes": 417939,
+        "sha256": "7596d109990e1a92f1f2bf3a4d3a93f433a67edfb5dbbfb8a7653fec3d4e60ac"
+      },
+      {
+        "name": "command.json",
+        "bytes": 23,
+        "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+      },
+      {
+        "name": "error.txt",
+        "bytes": 54,
+        "sha256": "f07105a2e176453d370d02735bb788dc7fe26732e4b67f779c1968238bf8977c"
+      },
+      {
+        "name": "harness-used.py",
+        "bytes": 18275,
+        "sha256": "f3f9c670d965186d350dc41fd47f1c5c08f8d8a603a7f5a27adc56810a60b495"
+      },
+      {
+        "name": "hero-target.json",
+        "bytes": 169,
+        "sha256": "b1b433dd1dd750717a69cb5c290020e2841ec0d821efa1700f6b6d6443880bd7"
+      },
+      {
+        "name": "init.json",
+        "bytes": 803,
+        "sha256": "7e162f87369b9f997996e9a0a83f2c5ae906237d91cd3eb00effee1dfa5685f7"
+      },
+      {
+        "name": "isolation.json",
+        "bytes": 680,
+        "sha256": "9d04619c16ec2dd64b9caf125ce5a48e95c2c5c8a8493eccb667a5e5488986e3"
+      },
+      {
+        "name": "native-ack-entry.json",
+        "bytes": 861,
+        "sha256": "4416746b18d432d53327b4bd1046b5a5542d820ff3997cb40923cfc7ce82c1cb"
+      },
+      {
+        "name": "native-ack-events.jsonl",
+        "bytes": 6048,
+        "sha256": "5c6b36d528704a84297581098c9ebc0ba6551bb6ab5c4a25ee4a49930361e600"
+      },
+      {
+        "name": "native-ack-return.json",
+        "bytes": 885,
+        "sha256": "3704a2caedbda19df39e2d477c2011ad445498cecfe6c6caa7b1956572bc8356"
+      },
+      {
+        "name": "observer-stops.jsonl",
+        "bytes": 968,
+        "sha256": "3da768939ef776c357a2b49320d719e7648093f13343fcebda2b6d2dfc0b8fc5"
+      },
+      {
+        "name": "packets.jsonl",
+        "bytes": 23372,
+        "sha256": "2c1fc623c714880de267da222e4fe426914397fa45aefc08873c632ff616a553"
+      },
+      {
+        "name": "packets.log",
+        "bytes": 18308,
+        "sha256": "c4cadfb9e49b846351b11a3de5a494e323afe4a2064a8232816b812ca6c74c31"
+      },
+      {
+        "name": "phase-1-point5.png",
+        "bytes": 412704,
+        "sha256": "4180202a710e07402ce62a2506eda3dfc322d10fb293d365f417b716ee2508a8"
+      },
+      {
+        "name": "pids.json",
+        "bytes": 99,
+        "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+      },
+      {
+        "name": "position-samples.jsonl",
+        "bytes": 1053455,
+        "sha256": "1e99bf4c1e35759bb3a16e731089f4678d67e33d2829cf162ca172b73ee8a8f4"
+      },
+      {
+        "name": "probe-ready.json",
+        "bytes": 146,
+        "sha256": "ae01a00debb74fb28eaf9f0690d9e7067b0ae1cf49034d61841d7aa1ea5196e7"
+      },
+      {
+        "name": "probe-template-used.gdb",
+        "bytes": 10917,
+        "sha256": "4ec0f1f3792e8882fd3c8c1c87f816273f40a809611be6ec7834ef0156780b68"
+      },
+      {
+        "name": "probe.gdb",
+        "bytes": 10917,
+        "sha256": "4ec0f1f3792e8882fd3c8c1c87f816273f40a809611be6ec7834ef0156780b68"
+      },
+      {
+        "name": "ready.json",
+        "bytes": 121,
+        "sha256": "6fb0d72dbeb180e0fd7ad1d2e07e1d870561cbc33fc8566ce7398e0ead87b22d"
+      },
+      {
+        "name": "registered-hooks.json",
+        "bytes": 243,
+        "sha256": "2433df02dc7b916f444ca84e5737e69e763dffea51718e2d8bcf941db1da6738"
+      },
+      {
+        "name": "server-used.py",
+        "bytes": 46148,
+        "sha256": "ef688ad5588bed2390231728d3ab7e722c3af619e90501bf030eb84cb3a1158b"
+      },
+      {
+        "name": "server.log",
+        "bytes": 18308,
+        "sha256": "c4cadfb9e49b846351b11a3de5a494e323afe4a2064a8232816b812ca6c74c31"
+      },
+      {
+        "name": "sources.json",
+        "bytes": 438,
+        "sha256": "4d79cca637c983c45772b9706a1e8ea9a06cdaa5cd878fba56dd1c299fcc0319"
+      },
+      {
+        "name": "start.json",
+        "bytes": 1392,
+        "sha256": "b73d8d25ac884c06f99395c0dc92a769d17c742b741105a00fa1169e6e60f2f9"
+      },
+      {
+        "name": "supervisor.log",
+        "bytes": 9814,
+        "sha256": "a983fc7e7079b90a4536f95e16d72746c5775ccc5d4bcf627346d01ee21f7245"
+      },
+      {
+        "name": "winedbg.log",
+        "bytes": 15357,
+        "sha256": "b2bf626e813034747c30848754aaf2eea4cff69074293d43497ee3cc7ee9cc20"
+      },
+      {
+        "name": "xvfb.log",
+        "bytes": 1485,
+        "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+      }
+    ],
+    "exit_code": 2,
+    "classification": "incomplete full curve, valid point4/5 windows retained separately; controller overshoot/last-ACK timeout, not physics failure",
+    "pooled_with_r2": false
+  },
+  "patch_scope": "VN VBNB_116 IAT/devirt/offline fixture; vanilla equivalence not proven; user accepts VN runtime source",
+  "method": {
+    "clock": "HOST CLOCK_MONOTONIC memory read begin/end midpoint; not native internal clock",
+    "window": "Actual native Y first/last CHANGE within each control scope, trim150ms from each motion boundary, same algorithm chosen after R1 then applied to R2; all accepted read brackets fully inside, no GDB overlap; >=1s; discrete endpoint allowance not confidence/FPS",
+    "read_bracket": "OLS at begin and end clock; tiny difference distinct from model sensitivity",
+    "discrete_model": "conservative allowance +/- (2*global_max_observed_dy/span + full read-bracket OLS difference), not confidence interval or native update size",
+    "selection": "algorithm chosen after R1, applied unchanged to R2; trims do not remove raw or overshoot",
+    "recompute": "decode all protected headers12/payload10/cookie/checksum; same actor/type/point; least squares slope sum((t-mean_t)*(y-mean_y))/sum((t-mean_t)^2); abs and average within each point",
+    "sampling": "900 raw rows retained, zero invalid; duplicate unchanged scalar snapshots omitted by sampler; sampled deltas can alias multiple updates"
+  },
+  "calibration": {
+    "value": 33,
+    "unit": "px/s/point",
+    "source": "design",
+    "status": "design",
+    "selection": "nearest integer to mean normalized OLS33.358116; not proof33 distinct from34",
+    "at_30hz_mpx_per_tick_per_point": 1100,
+    "extrapolation": "points1..3 and other actors/modes are V1 DESIGN; nativeFPS/hurtbox/corner remain unknown"
+  },
+  "related_claims": [
+    "R-170",
+    "R-171",
+    "R-173",
+    "R-182"
+  ],
+  "recompute_provenance": [
+    {
+      "private_path": "/home/admin/boom-team/tmp/verify-c01-r2-motion-root.py",
+      "bytes": 8193,
+      "sha256": "16e9e39e93035a6029c1ac5f67f48f1a12f7584be57807098329abece0df8e6c"
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/c01-r2-motion-root-verification.json",
+      "bytes": 16916,
+      "sha256": "5c6f1c550fb112089f958676631d0e2712f7239d912bc35fe474c5801965f219"
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/c01-r2-controller-offline-verification.json",
+      "bytes": 570,
+      "sha256": "d8c2710ac6da72e30d51bf2fdea8ed5f56c36da7439fc1040c268911245937b3"
+    },
+    {
+      "private_path": "/home/admin/boom-rs-dsh/re-kr/.re-work/roller149-native-speed/c01-speed-curve-r2-analysis/analysis.py",
+      "bytes": 9582,
+      "sha256": "87d519e8592636d2b7b8b2d1a948898ff58094ab4db14e7834c2553e6b6daf06"
+    }
+  ]
+}

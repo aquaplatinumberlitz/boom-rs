@@ -156,7 +156,7 @@ Theo R-134/R-135 (RULES_V1 §15, PR #185), chuỗi này thuộc `CGOPet`/AI và 
 `0x00E13D00 → controller nhúng +1412 → vf3(dir)` (nhận hướng); **chưa thấy** nơi tạo/đọc `len` hay
 mover của bomber. Vì vậy:
 
-- R-125 giữ `unknown`: **không** claim px/s cho KR; R-114 (24 px/s/level, `oss`/design) giữ nguyên;
+- R-125 giữ `unknown`: **không** claim px/s cho KR; R11424 là lựa chọn lịch sử, hiện R18433 DESIGN theo curveVN R183;
 - R-043 (5 px/tick ở cấp 5, VN, checksum chưa xác thực) vẫn là `candidate`, **không** dùng để suy ra
   KR dù nó khớp giả thuyết "px mỗi bước = cấp tốc độ".
 
@@ -176,7 +176,7 @@ luật người chơi:
 | `player.corner_assist_px` | `12` | `oss`/design R-116 | trượt tới **34 px** nhưng chỉ khi đã thẳng hàng ô và chỉ để căn vào làn trống — trong `CMovable` (consumer `CGOPet`/AI); bomber chưa chứng minh | **không** đổi cơ chế/số cho bomber khi chưa có consumer; chỉ `candidate`/thử nghiệm |
 | `player.trap_touch_distance_px` | `28` | `oss`/design R-116 | chưa đọc (ngoài phạm vi #146) | giữ, #147 |
 | `grid.tile_px` | `40` | `vn_static` R-110 | `40` dùng trực tiếp trong `CMovable` (consumer `CGOPet`/AI) | không đổi; thêm consumer KR |
-| `player.speed_px_per_s_per_level` | `24` | `oss`/design R-114 | chưa xác định | giữ, xem §5 |
+| `player.speed_px_per_s_per_level` | `33` | `design`/design R-184 (curveVN R183) | chưa xác định | giữ, xem §5 |
 
 BnB `server/game.js:31–32,150–153,173–275` mô hình hoá hộp 26×26 + assist 12 px. Trong phạm vi
 `CMovable`/consumer đã trace, KR cho thấy mô hình BnB **không** phải mô hình gốc (hộp đúng một ô,
@@ -355,3 +355,12 @@ guard/cast `CGOTileFixed→CGOTilePassable`, rồi59DD5E gọi5C1027/5C0E98. B�
 PET thành player; không chốt hurtbox hay maxassist34. Phần còn thiếu cụ thể là producer/property
 values, nhánh actor.vAC tại59DE86/59DEA1 và cách geometry/corner quyết định kết quả. Các helper
 rect adjustment/intersection không thay cho map/block predicate; không đọc lại chúng.
+
+## Curve native VN và quy đổi profile — R183/R184
+
+[12window cùngactor, method/hash/đối chứng](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#curve-tốc-độ-cùng-actor--r-183r-184r-185)
+đo logicalpoint4..8:133,70/166,08/200,70/233,23/267,05px/s. Tĩnh xác định point/receiver/consumer;
+rate lấy nativeXY với HOSTreadbracket ngoài breakpoint, không keyhold/packet/30msclientstep.
+R184 chọn33DESIGN thay24; không nativeFPS/hằng33. R125KRunknown/R043candidate không nâng nhãn;
+PET/AI source không làm bomberKRconfirmed. #146 vẫn mở hurtbox/corner/othermode/nonowner;
+không đo lại curve này nếu chưa có thay đổi endpoint/clock/quantity cụ thể.

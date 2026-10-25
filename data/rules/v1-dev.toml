@@ -39,12 +39,12 @@ claims = ["R-161", "R-162"]
 note = "17px/s là lựa chọn hiệu chuẩn từ hai ca VN cùngactor, không phải hằng native/áp mọi character. Hộp/bám góc giữ DESIGN hiện hành."
 
 [player.speed_px_per_s_per_level]
-value = 24
+value = 33
 unit = "px/s"
-source = "oss"
+source = "design"
 status = "design"
-claims = ["R-102", "R-114"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
+claims = ["R-183", "R-184"]
+note = "Hiệu chuẩn DESIGN từ native VN cùngactor point4..8; trung tâm khoảng33,36px/s/point. Không hằng native33/FPS; point1..3/character và mode khác là ngoại suy V1."
 
 [player.trap_to_death_ms]
 value = 6350
@@ -89,10 +89,10 @@ note = "ADR 0013; khôi phục nguồn confirmed cùng đại lượng; giới h
 [item.roller_speed_delta]
 value = 1
 unit = "level"
-source = "oss"
-status = "design"
-claims = ["R-104", "R-111"]
-note = "V1 chọn theo BnB 5c108e8ad3ea07684d4666f60e6eec6c2f3e569e; ADR 0013: BnB lấp chỗ trống cùng đại lượng, quyết định chủ dự án 2026-10-21"
+source = "vn_runtime"
+status = "confirmed"
+claims = ["R-173", "R-182", "R-185"]
+note = "Một Roller tăng1logical movementpoint, bị kẹp bởi max đãnạp; R173 actualselector3 và bốn nativeACK4→8. Không cộng1px/s hoặc cap mọi mode."
 
 [drop.brick_item_chance]
 value = 350
@@ -128,7 +128,7 @@ note = "ADR 0013/R-112: số bảng confirmed; vai trò bảng drop còn unknown
 
 # R-182: 12 statpoint logic từ logical Attr rows VN, source/consumer R-173/R-175/R-178/R-180/R-181.
 # `level` là nhãn họ scalar của CharacterSpec/Stat: movementpoint, capacitycount, Firepoint.
-# Không phải px/s, Hz hoặc kích thước hurtbox. Đổi speedpoint→24px/s vẫn DESIGN R-114 riêng;
+# Không phải px/s, Hz hoặc kích thước hurtbox. Đổi speedpoint→33px/s vẫn DESIGN R-184 riêng;
 # engine dùng capacitypoint làm số bom, Firepoint làm số ô ray theo contract V1/R-057/R-111.
 # R-040/R-041 giữ numeric KR; R-042/R-117 candidate là lịch sử trước khi nối consumer VN.
 # Chỉ thay source/status/claims có bằng chứng, không đổi 12 số hoặc release=false.

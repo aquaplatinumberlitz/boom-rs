@@ -248,7 +248,7 @@
       "title": "Movement/stats",
       "status": "passed",
       "owner": "RE/core",
-      "reviewer": "DSH1 — nghiệm thu độc lập G2 issue294/comment6396657957; exact source PR293 APPROVE6396600217",
+      "reviewer": "DSH1 — G2 calibration33 acceptance issue296/comment6397520529; final exact-head approval required before merge",
       "evidence": [
         "docs/decisions/0013-rule-source-precedence.md",
         "docs/specification/gameplay/RULES_V1.md",
@@ -267,10 +267,13 @@
         "docs/evidence/measurements/vn-item-effects-2026-10-24/attr-identity.json",
         "docs/evidence/measurements/vn-player-movement-2026-10-25/README.md",
         "git:12fdf7f377a0907a8bfd4230f5d0ae885fef9a99",
-        "git:af5184d84de37ee5898f825ca8c834fcc3612a82"
+        "git:af5184d84de37ee5898f825ca8c834fcc3612a82",
+        "docs/evidence/measurements/vn-player-movement-2026-10-25/speed-curve.json",
+        "docs/evidence/measurements/vn-player-movement-2026-10-25/speed-curve.csv",
+        "git:87fadfe419ac300f8a58a8abe488f6c5157a0cec"
       ],
-      "verification": "Nghiệm thu G2 theo SCOPE6/10.7 và review độc lập issue294/comment6396657957: R180/181 actualnamedrowC00/C01→samemanager→sixreader/out6 và base/max consumers; R182 chọn12logicalstatpoints VNconfirmed. SourcePR293 exact3a5bd299 đượcDSH1APPROVE6396600217, all12CI/smoke3OSsuccess, ancestorintegration af5184d đãkiểm. All32numbers unchanged;35precedence tests và actualprofile candidatepoison/releaseguard PASS. Chấp nhận riêng DESIGN24px/s/point, collision13/assist12,30Hz/time; R176/177/179 là scopedplayerresponse/source, không fullnativehurtbox/max34/FPS. G2 V1trace+DESIGN passed, không G6/minimumHW/platform/V1-036/release; nativecurve/override/nonowner/crossmode/ItemAttr giữ146/149fidelity.",
-      "integration_commit": "af5184d84de37ee5898f825ca8c834fcc3612a82",
+      "verification": "G2 trace+DESIGN nghiệm thu lại calibration33 theo SCOPE6/10.7: DSH1 issue296/comment6397520529 accepts source87fadfe (R183 observed native rate, R184 DESIGN33, R185 +1logicalpoint). R18212statvalues unchanged. R2 sameactor449284224/900rows0invalid/40hash/9stops/4ACK/12windows; R1differentactor incomplete34hash retained separately. Native mean4..8=133.698888/166.077857/200.698866/233.232185/267.052717pxs; mean normalized33.358116. Integer33 nearest calibration, not native literal/FPS/33vs34 statisticalclaim; otheractors/modes/points1..3 DESIGN extrapolation. Old24 actualdevmovement red96000vs132000; new33 green4..8 and trapped16980mpx/30ticks independently. Full localcargoxtaskci PASS,37precedence tests, docs/catalog/diff PASS; finalexacthead independent approval/all12CI3OS/safeMerge required before integration. Source commit is ancestor of finalPRhead; no algorithm/golden changes. G2 previous24 acceptance not inherited; newcalibration explicitly accepted. G6/minHW/GUIWinMac/currentfinalpackage/releasefalse/V1-036 separate; hurtbox13/assist12/30Hz and nativefidelity backlog remain.",
+      "integration_commit": "87fadfe419ac300f8a58a8abe488f6c5157a0cec",
       "blocker": ""
     },
     {
