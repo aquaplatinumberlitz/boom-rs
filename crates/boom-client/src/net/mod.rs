@@ -1292,13 +1292,17 @@ pub fn connect_tcp(
 
 /// Nối server bằng profile rules dev của client rồi handshake **và** đăng nhập.
 ///
-/// Client chưa có bundle content (P4) nên hash content khai trong `Hello` lấy từ biến môi
-/// trường `BOOM_CONTENT_SHA256` (hex 64 ký tự); không có thì khai toàn 0. Server so với bundle
-/// **của chính nó** (ADR 0009 §1), nên lệch sẽ bị từ chối rõ ràng chứ không đoán.
+/// `content_sha256` là hash content khai trong `Hello` (xem [`handshake_content_sha256`]).
+/// Server so với bundle **của chính nó** (ADR 0009 §1), nên lệch sẽ bị từ chối rõ ràng chứ
+/// không đoán.
 ///
 /// Sau `Welcome` client phải `Auth` (ADR 0009 Addendum A §A.1) vì server chặn mọi kind khác
 /// trước `AuthOk`.
-pub fn connect(addr: &str, credentials: &Credentials) -> Result<NetClient<TcpTransport>, NetError> {
+pub fn connect(
+    addr: &str,
+    credentials: &Credentials,
+    content_sha256: [u8; 32],
+) -> Result<NetClient<TcpTransport>, NetError> {
     let profile = RulesProfile::from_toml(include_str!("../../../../data/rules/v1-dev.toml"))
         .map_err(|error| NetError::Unexpected(format!("profile rules: {error}")))?;
     let rules = Rules::from_profile(&profile)
@@ -1306,31 +1310,70 @@ pub fn connect(addr: &str, credentials: &Credentials) -> Result<NetClient<TcpTra
     let Some(mode) = mode_by_id("battle_ffa") else {
         return Err(NetError::Unexpected("mode battle_ffa chưa đăng ký".into()));
     };
-    let hello = hello_for_profile(&profile, &rules, content_sha256_from_env(), "boom-client");
+    let hello = hello_for_profile(&profile, &rules, content_sha256, "boom-client");
     let mut client = connect_tcp(addr, rules, mode)?;
     client.handshake(&hello)?;
     client.authenticate(credentials)?;
     Ok(client)
 }
 
-/// Hash content client khai ở handshake: đọc `BOOM_CONTENT_SHA256` (hex), lỗi thì toàn 0.
-pub fn content_sha256_from_env() -> [u8; 32] {
-    let Ok(text) = std::env::var("BOOM_CONTENT_SHA256") else {
-        return [0; 32];
-    };
+/// Hash content client khai ở handshake (#305).
+///
+/// Thứ tự: biến môi trường `BOOM_CONTENT_SHA256` hợp lệ (ghi đè cho QA) → `content_hash` của
+/// bundle client đã nạp (`--bundle`) → toàn 0 (không bundle; server sẽ từ chối rõ). Trước #305
+/// client chỉ đọc biến môi trường, nên chạy từ gói theo README bị `ContentMismatch`.
+#[must_use]
+pub fn handshake_content_sha256(bundle_content_hash: Option<&str>) -> [u8; 32] {
+    let env = std::env::var("BOOM_CONTENT_SHA256").ok();
+    choose_content_sha256(env.as_deref(), bundle_content_hash)
+}
+
+/// Phần thuần của [`handshake_content_sha256`]: không đọc môi trường để test được.
+fn choose_content_sha256(env: Option<&str>, bundle_content_hash: Option<&str>) -> [u8; 32] {
+    env.and_then(parse_sha256_hex)
+        .or_else(|| bundle_content_hash.and_then(parse_sha256_hex))
+        .unwrap_or([0; 32])
+}
+
+/// Đọc SHA-256 dạng hex 64 ký tự; sai độ dài hoặc ký tự thì `None`.
+fn parse_sha256_hex(text: &str) -> Option<[u8; 32]> {
     let text = text.trim();
     if text.len() != 64 {
-        return [0; 32];
+        return None;
     }
     let bytes = text.as_bytes();
     let mut out = [0u8; 32];
     for (index, byte) in out.iter_mut().enumerate() {
-        let hi = (bytes[index * 2] as char).to_digit(16);
-        let lo = (bytes[index * 2 + 1] as char).to_digit(16);
-        let (Some(hi), Some(lo)) = (hi, lo) else {
-            return [0; 32];
-        };
+        let hi = (bytes[index * 2] as char).to_digit(16)?;
+        let lo = (bytes[index * 2 + 1] as char).to_digit(16)?;
         *byte = u8::try_from(hi * 16 + lo).expect("digit hex nằm trong 0..=15");
     }
-    out
+    Some(out)
+}
+
+#[cfg(test)]
+mod content_sha_tests {
+    use super::choose_content_sha256;
+
+    const A: &str = "74903a5987e64725b87095c7dde7c4b6a1c6e1987dbff3a96fe3aea4a9285003";
+    const B: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+
+    #[test]
+    fn bundle_hash_is_used_without_env() {
+        let got = choose_content_sha256(None, Some(A));
+        assert_eq!((got[0], got[31]), (0x74, 0x03));
+    }
+
+    #[test]
+    fn valid_env_overrides_bundle_and_invalid_env_falls_back() {
+        let got = choose_content_sha256(Some(B), Some(A));
+        assert_eq!((got[0], got[1]), (0x00, 0x11));
+        assert_eq!(choose_content_sha256(Some("khong-hex"), Some(A))[0], 0x74);
+    }
+
+    #[test]
+    fn nothing_valid_gives_zero_hash() {
+        assert_eq!(choose_content_sha256(None, None), [0; 32]);
+        assert_eq!(choose_content_sha256(None, Some("ngan")), [0; 32]);
+    }
 }

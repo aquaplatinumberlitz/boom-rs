@@ -264,15 +264,12 @@ pub fn main() {
             game.input.rebind(action, key);
         }
         let content = local_content(&game);
+        let content_sha256 = bundle_content_sha256(&game);
         let rules = game.world.rules().clone();
         let profile_for_login = profile.clone();
         let backend = net::ui_backend::NetBackend::lazy(move |credentials| {
-            let hello = net::hello_for_profile(
-                &profile_for_login,
-                &rules,
-                net::content_sha256_from_env(),
-                "boom-client",
-            );
+            let hello =
+                net::hello_for_profile(&profile_for_login, &rules, content_sha256, "boom-client");
             let mut client = net::connect_tcp(
                 &addr,
                 rules.clone(),
@@ -329,7 +326,7 @@ pub fn main() {
                 std::process::exit(2);
             }
         };
-        match net::connect(&addr, &credentials) {
+        match net::connect(&addr, &credentials, bundle_content_sha256(&game)) {
             Ok(mut client) => {
                 // Nội dung cục bộ (map + địa hình) để dựng `World` cho round: có bundle thì
                 // dùng map của bundle, không có thì `World` dựng từ snapshot của server.
@@ -2052,6 +2049,15 @@ fn room_status(net: &net::NetClient<boom_net::TcpTransport>) -> String {
 ///
 /// `None` khi client không có bundle: khi đó `World` của round dựng từ snapshot của server
 /// (server là authority về lưới ô) và client **không** coi là đã kiểm content cục bộ.
+/// Hash content khai ở handshake: lấy `content_hash` của bundle đã nạp (#305).
+fn bundle_content_sha256(game: &Game) -> [u8; 32] {
+    net::handshake_content_sha256(
+        game.bundle
+            .as_ref()
+            .map(|bundle| bundle.content_hash.as_str()),
+    )
+}
+
 fn local_content(game: &Game) -> Option<net::LocalContent> {
     let bundle = game.bundle.as_ref()?;
     Some(net::LocalContent {

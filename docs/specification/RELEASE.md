@@ -389,7 +389,8 @@ Phần dưới nằm giữa hai marker `QUICKSTART`; workflow `release.yml` **tr
 <!-- QUICKSTART:START -->
 # boom-rs — V1 (phần 1)
 
-Gói phát hành gồm binary (`bin/`), file luật (`data/rules/`), file chuỗi (`data/l10n/`), font
+Gói phát hành gồm binary (`bin/`), file luật (`data/rules/`), bảng phân loại ô map (`data/maps/`),
+file chuỗi (`data/l10n/`), font
 chữ Việt (`assets/fonts/`, kèm `OFL.txt`) và giấy phép crate phụ thuộc (`LICENSES`: toàn văn
 license SPDX + bản quyền từng crate). **Không** kèm pack/bundle/asset game: bạn tự dựng
 bundle từ pack của mình.
@@ -406,16 +407,17 @@ và **cách sửa**.
 ## 2. Dựng bundle (cần pack KR của bạn)
 
 ```bash
-bin/boom-assets bundle --map Village00 --out ./bundle --pack-dir /path/to/pack
+bin/boom-assets bundle --map Village00 --out data/bundle/village00 --pack-dir /path/to/pack
 ```
 
 `--pack-dir` có thể bỏ nếu đặt biến `BOOM_KR_PACK_DIR` trỏ tới thư mục pack. Lệnh in
-`content_hash` — đó là định danh nội dung client kiểm khi nạp.
+`content_hash` — đó là định danh nội dung client và server so khi bắt tay. Đặt bundle ở
+`data/bundle/village00` để server dùng đúng thư mục mặc định.
 
 ## 3. Chạy client
 
 ```bash
-bin/boom-client --rules data/rules/v1-dev.toml --l10n data/l10n/vi-v1.toml --bundle ./bundle
+bin/boom-client --rules data/rules/v1-dev.toml --l10n data/l10n/vi-v1.toml --bundle data/bundle/village00
 ```
 
 Bỏ `--bundle` để chạy chế độ offline với địa hình placeholder (không cần pack).
@@ -431,6 +433,18 @@ bin/boom-server serve     # chạy server (admin listener + heartbeat)
 bin/boom-server health    # kiểm tra runtime
 bin/boom-server --help    # danh sách lệnh
 ```
+
+Chạy từ thư mục gốc của gói: server nạp mặc định `data/rules/v1-dev.toml`,
+`data/maps/village00-kr.toml` và bundle `data/bundle/village00` (đổi bằng `BOOM_RULES_PATH`,
+`BOOM_MAP_PROFILE_PATH`, `BOOM_BUNDLE_DIR`), nghe `0.0.0.0:17889`. Client vào trận:
+
+```bash
+BOOM_USER=ten BOOM_PASSWORD=matkhau bin/boom-client --connect 127.0.0.1:17889 --register \
+  --rules data/rules/v1-dev.toml --l10n data/l10n/vi-v1.toml --bundle data/bundle/village00
+```
+
+Client tự khai `content_hash` của bundle đã nạp khi bắt tay; bundle của client và server phải
+dựng từ cùng pack (khác ⇒ server từ chối `ContentMismatch`).
 
 ## 5. Yêu cầu hệ thống
 
