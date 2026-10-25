@@ -691,7 +691,7 @@ R175 đã nối f4/f5 tới facet+68/+74 và f6/f7 tới+80/+8C; reset copy base
 Do đó counterpart+74/+8C là **trần loaded của stat trong hai method**, không còn chỉ là counterpart
 kẹp lúc khởi tạo. R173 chứng minh độc lập kiểu tăng/kẹp movementcurrent/max; không gộp actor/capture.
 
-Manifest ghi7instructionblock với2.560byte requested/761retained (parser và bốn block effect),
+Manifest ghi7instructionblock với2.560byte requested/761retained (3block loader/parser,2thunk,2block effect),
 child44551625byte **reuse**,24byte slotdata và30byte directcall kiểm riêng; không gọi7block là7hàm đầy đủ.
 Raw/code dài/binary/media giữ private. Không đo lại plateau, không suy globalcap10, các override getter,
 nguồn ItemAttr/dropgroup/KR consumer, cấp tốc độ→px/s, hay chọn12profilekeys từ một nhãn mơ hồ.
