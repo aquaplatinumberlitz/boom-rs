@@ -60,6 +60,8 @@ Claim VN `confirmed` dùng trực tiếp cho luật chung; khác biệt cụ th�
 ghi theo profile. `web`, `oss` và `emu_choice` (giá trị server giả lập tự đặt) chỉ là `candidate`
 cho tới khi được đối chiếu hoặc chọn thành `design`.
 
+Trình diễn (clip, frame, thời gian, lớp, hiệu ứng, chuyển động, UI) không tự đặt luật phát: RE consumer →
+quay/đo VN → `design` ghi nợ; PR hình ảnh kèm so sánh cảnh đối chiếu local ([ADR 0014](docs/decisions/0014-presentation-fidelity.md)).
 Không suy diễn quá bằng chứng: asset tồn tại ≠ tính năng chạy; log server giả lập ≠ luật server gốc;
 test sinh từ implementation chỉ là regression; speed level ≠ px/s; weight ≠ phần trăm.
 Nguồn web ghi URL, tiêu đề, ngày truy cập/xuất bản, region/build và giới hạn; hai bài chép cùng nguồn
