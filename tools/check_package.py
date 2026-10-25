@@ -80,10 +80,12 @@ PART_TITLES = (
 )
 
 #: Thư mục bắt buộc có trong gói phát hành.
-REQUIRED_DIRS = ("bin", "data/rules", "data/l10n", "assets/fonts")
+REQUIRED_DIRS = ("bin", "data/rules", "data/maps", "data/l10n", "assets/fonts")
 
 #: File bắt buộc có trong gói phát hành.
-REQUIRED_FILES = ("README.md", "LICENSES", "assets/fonts/OFL.txt")
+#: `data/maps/village00-kr.toml` là bảng phân loại ô server nạp mặc định
+#: (`DEFAULT_MAP_PROFILE_PATH`); thiếu thì `boom-server serve` từ gói không khởi động (#305).
+REQUIRED_FILES = ("README.md", "LICENSES", "assets/fonts/OFL.txt", "data/maps/village00-kr.toml")
 
 #: Binary bắt buộc trong `bin/` (Windows thêm `.exe`).
 REQUIRED_BINARIES = ("boom-client", "boom-server", "boom-assets")
@@ -98,6 +100,7 @@ QUICKSTART_END = "<!-- QUICKSTART:END -->"
 #: game). Không chép pack/bundle/asset game — người dùng tự dựng bundle.
 PACK_SOURCES: tuple[tuple[str, str], ...] = (
     ("data/rules", "*.toml"),
+    ("data/maps", "*.toml"),
     ("data/l10n", "*.toml"),
     ("assets/fonts", "*"),
 )
@@ -1184,7 +1187,7 @@ def check_package(package_dir: Path) -> list[str]:
         if not stem.is_file() and not stem.with_suffix(".exe").is_file():
             problems.append(f"thiếu binary trong bin/: {binary}")
 
-    for name in ("data/rules", "data/l10n"):
+    for name in ("data/rules", "data/maps", "data/l10n"):
         directory = package_dir / name
         if directory.is_dir() and not any(directory.glob("*.toml")):
             problems.append(f"không có file .toml nào trong {name}/")
@@ -1581,7 +1584,7 @@ class SmokeRun:
 def package_fingerprint(package_dir: Path) -> list[tuple[str, str]]:
     """SHA-256 của binary và file dữ liệu trong gói (ngón tay nội dung gói)."""
     entries: list[tuple[str, str]] = []
-    for relative in ("bin", "data/rules", "data/l10n", "assets/fonts"):
+    for relative in ("bin", "data/rules", "data/maps", "data/l10n", "assets/fonts"):
         directory = package_dir / relative
         if not directory.is_dir():
             continue
@@ -1851,8 +1854,10 @@ class PackageToolTests(unittest.TestCase):
         package = root / "boom-rs-dev-linux-x86_64"
         (package / "bin").mkdir(parents=True)
         (package / "data" / "rules").mkdir(parents=True)
+        (package / "data" / "maps").mkdir(parents=True)
         (package / "data" / "l10n").mkdir(parents=True)
         (package / "assets" / "fonts").mkdir(parents=True)
+        (package / "data" / "maps" / "village00-kr.toml").write_text("[map]\n", encoding="utf-8")
         (package / "bin" / "boom-client").write_text("bin", encoding="utf-8")
         (package / "bin" / "boom-server").write_text("bin", encoding="utf-8")
         (package / "bin" / "boom-assets").write_text("bin", encoding="utf-8")

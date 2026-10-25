@@ -287,10 +287,11 @@ impl<W: Transport> NetBackend<W> {
 impl NetBackend<TcpTransport> {
     /// Backend nối server thật bằng TCP; phiên mở khi người chơi đăng nhập ở màn login.
     ///
-    /// Địa chỉ là `host:port` của server (cờ `--connect`).
-    pub fn tcp(addr: impl Into<String>) -> Self {
+    /// Địa chỉ là `host:port` của server (cờ `--connect`); `content_sha256` là hash content
+    /// khai ở handshake (xem [`super::handshake_content_sha256`]).
+    pub fn tcp(addr: impl Into<String>, content_sha256: [u8; 32]) -> Self {
         let addr = addr.into();
-        Self::lazy(move |credentials| super::connect(&addr, &credentials))
+        Self::lazy(move |credentials| super::connect(&addr, &credentials, content_sha256))
     }
 }
 
