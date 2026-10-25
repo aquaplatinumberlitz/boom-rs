@@ -1,0 +1,1896 @@
+{
+  "claim": "R-178",
+  "question": "S501 per-slot field to native context setter/getter key and three stat initializer pairs",
+  "default_private_root": "/home/admin/boom-rs-dsh/re-kr",
+  "fixture": {
+    "build": "VN VBNB_116 offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "image_base": "0x400000",
+    "map": "Factory01",
+    "room_type": 19,
+    "patch_scope": "IAT/devirt/offline reconstruction; vanilla equivalence unproven; trusted VN per owner/ADR0002/0013"
+  },
+  "baseline_key0": {
+    "run": "host-key-producer-type-149-r1",
+    "actor": 449280160,
+    "setter_pair_observed": false,
+    "actual_key": 0,
+    "native_output6": [
+      5,
+      7,
+      1,
+      10,
+      1,
+      7
+    ],
+    "initializer_events": [
+      {
+        "kind": "upstream_5AED95",
+        "actor": 449280160,
+        "actor_vtable": "0xc664c4",
+        "esp": "0x12d120",
+        "return": "0x6eb8a3",
+        "args": [
+          "0x377ef40",
+          "0x0",
+          "0x0",
+          "0x0",
+          "0xc",
+          "0xe",
+          "0x1",
+          "0x12d184"
+        ],
+        "args_raw": [
+          58191680,
+          0,
+          0,
+          0,
+          12,
+          14,
+          1,
+          1233284
+        ],
+        "raw_esp36": "a3b86e0040ef77030000000000000000000000000c0000000e0000000100000084d11200",
+        "general_regs": {
+          "eax": 1233284,
+          "ebx": 0,
+          "ecx": 449280160,
+          "edx": 13001924,
+          "esi": 58191680,
+          "edi": 449280160,
+          "esp": 1233184,
+          "ebp": 1233328,
+          "eip": 5959061
+        },
+        "receiver_args0": "0x377ef40",
+        "object_prefix16": "3409c200f0ef37104c616e6749440000",
+        "object_vptr": "0xc20934",
+        "slot34_target": "0x4b82c2",
+        "rtti20": {
+          "col": "0xcabe54",
+          "raw20": "000000000000000000000000a066e20068beca00",
+          "td_name": null,
+          "note": "20B only; no TD class claim"
+        },
+        "backtrace8": "#0  0x005aed95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x006ec22a in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00715d01 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x00718bcf in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x0071aa82 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x0071b520 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x016b6077 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+        "thread": [
+          42000,
+          328,
+          0
+        ],
+        "trap_count": 1,
+        "note": "entry-before-prologue; receiver arg1 opaque; module-bounded vptr/slot; no class inference"
+      },
+      {
+        "kind": "entry",
+        "actor": 449280160,
+        "source_ebp": 1233080,
+        "parent_ebp": 1233112,
+        "caller_return": "0x5a51e2",
+        "outptr": "0x12d07c",
+        "key": 0,
+        "upstream_key": 0,
+        "key_matches_upstream": true,
+        "upstream_return": "0x6eb8a3",
+        "manager": "0x109c6f70",
+        "manager_first_vptr": "0xc83aec",
+        "vslot_a0_target": "0x595fd8",
+        "object": 449280160,
+        "vtable": "0xc664c4",
+        "controller": 449281684,
+        "controller_vtable": "0xc6630c",
+        "facet": 449281692,
+        "facet_vtable": "0xc66284",
+        "x": {
+          "state": "ok",
+          "value": -1,
+          "payload": 449279840,
+          "header12": "a16bc71a86a9c71a6077c71a",
+          "payload10": "dfd6d6d620a18600ef5b"
+        },
+        "y": {
+          "state": "ok",
+          "value": -1,
+          "payload": 449279872,
+          "header12": "54b8c71a836dc71a8077c71a",
+          "payload10": "77d6d6d688548300ef5b"
+        },
+        "slot0_604": {
+          "state": "ok",
+          "value": 0,
+          "payload": 449294040,
+          "header12": "3db5c71a5d85c71ad8aec71a",
+          "payload10": "012c822e013d5d009c73"
+        },
+        "thread": [
+          42000,
+          328,
+          0
+        ],
+        "trap_count": 2
+      },
+      {
+        "kind": "after_a0",
+        "out6": [
+          5,
+          7,
+          1,
+          10,
+          1,
+          7
+        ],
+        "manager_fields": {
+          "state": "ok",
+          "key": 0,
+          "primary": {
+            "state": "ok",
+            "value": 0,
+            "payload": 278394680,
+            "header12": "1ba79c10b2a39c1038f79710",
+            "payload10": "206afe26201bb2007cdd"
+          },
+          "alt": {
+            "state": "ok",
+            "value": 0,
+            "payload": 278408104,
+            "header12": "17b09c10f6b39c10a82b9810",
+            "payload10": "2b802a7e2b17f6003d5c"
+          },
+          "base_fallback": {
+            "state": "ok",
+            "value": 5,
+            "payload": 278438424,
+            "header12": "4f879c1072a09c1018a29810",
+            "payload10": "0333904a064f7200f47f"
+          },
+          "max_fallback": {
+            "state": "ok",
+            "value": 7,
+            "payload": 278438456,
+            "header12": "1b709c1037819c1038a29810",
+            "payload10": "dbe1ec02dc1b3700b5fe"
+          }
+        },
+        "thread": [
+          42000,
+          328,
+          0
+        ],
+        "trap_count": 3
+      },
+      {
+        "kind": "join",
+        "out6_after": [
+          5,
+          7,
+          1,
+          10,
+          1,
+          7
+        ],
+        "a4_marker_reached": false,
+        "manager_fields": {
+          "state": "ok",
+          "key": 0,
+          "primary": {
+            "state": "ok",
+            "value": 0,
+            "payload": 278394680,
+            "header12": "1ba79c10b2a39c1038f79710",
+            "payload10": "206afe26201bb2007cdd"
+          },
+          "alt": {
+            "state": "ok",
+            "value": 0,
+            "payload": 278408104,
+            "header12": "17b09c10f6b39c10a82b9810",
+            "payload10": "2b802a7e2b17f6003d5c"
+          },
+          "base_fallback": {
+            "state": "ok",
+            "value": 5,
+            "payload": 278438424,
+            "header12": "4f879c1072a09c1018a29810",
+            "payload10": "0333904a064f7200f47f"
+          },
+          "max_fallback": {
+            "state": "ok",
+            "value": 7,
+            "payload": 278438456,
+            "header12": "1b709c1037819c1038a29810",
+            "payload10": "dbe1ec02dc1b3700b5fe"
+          }
+        },
+        "thread": [
+          42000,
+          328,
+          0
+        ],
+        "trap_count": 4
+      },
+      {
+        "kind": "final",
+        "actor": 449280160,
+        "source_ebp": 1233080,
+        "parent_ebp": 1233112,
+        "base": {
+          "state": "ok",
+          "value": 5,
+          "payload": 449294200,
+          "header12": "5556c71ab590c71a78afc71a",
+          "payload10": "256f083a2055b500f4f7"
+        },
+        "max": {
+          "state": "ok",
+          "value": 7,
+          "payload": 449294232,
+          "header12": "57bec71ac942c71a98afc71a",
+          "payload10": "cac1ac82cd57c900b5fe"
+        },
+        "current": {
+          "state": "ok",
+          "value": 5,
+          "payload": 449294264,
+          "header12": "b795c71ab472c71ab8afc71a",
+          "payload10": "e2f3104ae7b7b400f5ff"
+        },
+        "facet510_fields": {
+          "0x68": {
+            "state": "ok",
+            "value": 1,
+            "payload": 449293728,
+            "header12": "62a5c71afe40c71aa0adc71a",
+            "payload10": "c6b7985ac762fe00f577"
+          },
+          "0x74": {
+            "state": "ok",
+            "value": 10,
+            "payload": 449293760,
+            "header12": "3199c71a303ec71ac0adc71a",
+            "payload10": "8936965683313000dc77"
+          },
+          "0x4": {
+            "state": "ok",
+            "value": 1,
+            "payload": 449293536,
+            "header12": "f3bcc71a5f80c71ae0acc71a",
+            "payload10": "cfc7b89acef35f00f5ff"
+          },
+          "0x80": {
+            "state": "ok",
+            "value": 1,
+            "payload": 449293816,
+            "header12": "6584c71a7e6cc71af8adc71a",
+            "payload10": "287b206a29657e00f4ff"
+          },
+          "0x8c": {
+            "state": "ok",
+            "value": 7,
+            "payload": 449293848,
+            "header12": "1e7bc71a5ca4c71a18aec71a",
+            "payload10": "2e812c82291e5c00b55e"
+          },
+          "0x1c": {
+            "state": "ok",
+            "value": 1,
+            "payload": 449293600,
+            "header12": "9846c71afe6dc71a20adc71a",
+            "payload10": "dee7f81adf98fe00f5ff"
+          },
+          "0x10": {
+            "state": "ok",
+            "value": 1,
+            "payload": 449293568,
+            "header12": "3694c71a9c8cc71a00adc71a",
+            "payload10": "a777185aa6369c00f4f7",
+            "role": "opaque_boxed"
+          }
+        },
+        "key": 0,
+        "a4_entered": false,
+        "out6_before": [
+          5,
+          7,
+          1,
+          10,
+          1,
+          7
+        ],
+        "out6_after": [
+          5,
+          7,
+          1,
+          10,
+          1,
+          7
+        ],
+        "thread": [
+          42000,
+          328,
+          0
+        ],
+        "trap_count": 5
+      }
+    ],
+    "source_scope": "previous used server S501 per-slot second byte0; S103/S106 character1; independent actual key0 observed; no captured native setter pair for zero"
+  },
+  "field1_control": {
+    "run": "host-match-slot-key-149-r3-count100",
+    "actor": 395728984,
+    "setter_events": [
+      {
+        "kind": "setter_entry",
+        "esp": "0x12d120",
+        "raw12_esp": "474e6c000000000001000000",
+        "return": "0x6c4e47",
+        "slot": 0,
+        "value": 1,
+        "ctx": 272107560,
+        "ctx_raw8": "b0a8c7005804b202",
+        "count_ctx_1e0": 100,
+        "table_ctx_1e4": 277730572,
+        "field_va": "0x108dd56c",
+        "field_before_value": 4294967295,
+        "field_before_raw4": "ffffffff",
+        "thread": [
+          42000,
+          312,
+          0
+        ],
+        "trap_count": 1
+      },
+      {
+        "kind": "setter_return",
+        "ctx": 272107560,
+        "slot": 0,
+        "written_value": 1,
+        "ctx_count_now": 100,
+        "ctx_table_now": 277730572,
+        "field_va": "0x108dd56c",
+        "field_raw4": "01000000",
+        "field_value": 1,
+        "value_matches": true,
+        "thread": [
+          42000,
+          312,
+          0
+        ],
+        "trap_count": 2
+      }
+    ],
+    "initializer_events": [
+      {
+        "kind": "upstream_5AED95",
+        "actor": 395728984,
+        "actor_vtable": "0xc664c4",
+        "esp": "0x12d120",
+        "return": "0x6eb8a3",
+        "args": [
+          "0x377ee20",
+          "0x0",
+          "0x1",
+          "0x0",
+          "0xc",
+          "0xe",
+          "0x1",
+          "0x12d184"
+        ],
+        "args_raw": [
+          58191392,
+          0,
+          1,
+          0,
+          12,
+          14,
+          1,
+          1233284
+        ],
+        "raw_esp36": "a3b86e0020ee77030000000001000000000000000c0000000e0000000100000084d11200",
+        "general_regs": {
+          "eax": 1233284,
+          "ebx": 0,
+          "ecx": 395728984,
+          "edx": 13001924,
+          "esi": 58191392,
+          "edi": 395728984,
+          "esp": 1233184,
+          "ebp": 1233328,
+          "eip": 5959061
+        },
+        "receiver_args0": "0x377ee20",
+        "object_prefix16": "3409c200280838104c616e6749440000",
+        "object_vptr": "0xc20934",
+        "slot34_target": "0x4b82c2",
+        "rtti20": {
+          "col": "0xcabe54",
+          "raw20": "000000000000000000000000a066e20068beca00",
+          "td_name": null,
+          "note": "20B only; no TD class claim"
+        },
+        "backtrace8": "#0  0x005aed95 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#1  0x006ec22a in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#2  0x00715d01 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#3  0x00718bcf in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#4  0x0071aa82 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#5  0x0071b520 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#6  0x016b6077 in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n#7  0x008e30df in ?? () from /home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe\n",
+        "thread": [
+          42000,
+          312,
+          0
+        ],
+        "trap_count": 3,
+        "note": "entry-before-prologue; receiver arg1 opaque; module-bounded vptr/slot; no class inference"
+      },
+      {
+        "kind": "entry",
+        "actor": 395728984,
+        "source_ebp": 1233080,
+        "parent_ebp": 1233112,
+        "caller_return": "0x5a51e2",
+        "outptr": "0x12d07c",
+        "key": 1,
+        "upstream_key": 1,
+        "key_matches_upstream": true,
+        "upstream_return": "0x6eb8a3",
+        "manager": "0x10596c50",
+        "manager_first_vptr": "0xc83aec",
+        "vslot_a0_target": "0x595fd8",
+        "object": 395728984,
+        "vtable": "0xc664c4",
+        "controller": 395730508,
+        "controller_vtable": "0xc6630c",
+        "facet": 395730516,
+        "facet_vtable": "0xc66284",
+        "x": {
+          "state": "ok",
+          "value": -1,
+          "payload": 395741656,
+          "header12": "393c9617098b9617d8899617",
+          "payload10": "d6d6d6d629390900ef5b"
+        },
+        "y": {
+          "state": "ok",
+          "value": -1,
+          "payload": 395741688,
+          "header12": "3751961700329617f8899617",
+          "payload10": "05d6d6d6fa370000ef5b"
+        },
+        "slot0_604": {
+          "state": "ok",
+          "value": 0,
+          "payload": 395743248,
+          "header12": "6a399617bc3e961710909617",
+          "payload10": "f20e46b6f26abc00dc77"
+        },
+        "thread": [
+          42000,
+          312,
+          0
+        ],
+        "trap_count": 4
+      },
+      {
+        "kind": "after_a0",
+        "out6": [
+          4,
+          8,
+          2,
+          7,
+          1,
+          9
+        ],
+        "manager_fields": {
+          "state": "ok",
+          "key": 1,
+          "primary": {
+            "state": "ok",
+            "value": 0,
+            "payload": 274003096,
+            "header12": "858d59100aa4591098f45410",
+            "payload10": "f10c42aef1850a009c77"
+          },
+          "alt": {
+            "state": "ok",
+            "value": 0,
+            "payload": 274016488,
+            "header12": "55d4591055be5910e8285510",
+            "payload10": "2a7e267600555500dd5f"
+          },
+          "base_fallback": {
+            "state": "ok",
+            "value": 4,
+            "payload": 274046904,
+            "header12": "f0315910c7a55910b89f5510",
+            "payload10": "1652cec612f0c700fcff"
+          },
+          "max_fallback": {
+            "state": "ok",
+            "value": 8,
+            "payload": 274046936,
+            "header12": "8bad5910be3b5910d89f5510",
+            "payload10": "bc9a5ee6b48bbe00fd7f"
+          }
+        },
+        "thread": [
+          42000,
+          312,
+          0
+        ],
+        "trap_count": 5
+      },
+      {
+        "kind": "join",
+        "out6_after": [
+          4,
+          8,
+          2,
+          7,
+          1,
+          9
+        ],
+        "a4_marker_reached": false,
+        "manager_fields": {
+          "state": "ok",
+          "key": 1,
+          "primary": {
+            "state": "ok",
+            "value": 0,
+            "payload": 274003096,
+            "header12": "858d59100aa4591098f45410",
+            "payload10": "f10c42aef1850a009c77"
+          },
+          "alt": {
+            "state": "ok",
+            "value": 0,
+            "payload": 274016488,
+            "header12": "55d4591055be5910e8285510",
+            "payload10": "2a7e267600555500dd5f"
+          },
+          "base_fallback": {
+            "state": "ok",
+            "value": 4,
+            "payload": 274046904,
+            "header12": "f0315910c7a55910b89f5510",
+            "payload10": "1652cec612f0c700fcff"
+          },
+          "max_fallback": {
+            "state": "ok",
+            "value": 8,
+            "payload": 274046936,
+            "header12": "8bad5910be3b5910d89f5510",
+            "payload10": "bc9a5ee6b48bbe00fd7f"
+          }
+        },
+        "thread": [
+          42000,
+          312,
+          0
+        ],
+        "trap_count": 6
+      },
+      {
+        "kind": "final",
+        "actor": 395728984,
+        "source_ebp": 1233080,
+        "parent_ebp": 1233112,
+        "base": {
+          "state": "ok",
+          "value": 4,
+          "payload": 395743408,
+          "header12": "5983961710579617b0909617",
+          "payload10": "57d4d2ce53591000ddf6"
+        },
+        "max": {
+          "state": "ok",
+          "value": 8,
+          "payload": 395743440,
+          "header12": "9839961712459617d0909617",
+          "payload10": "165ee6f61e981200dcff"
+        },
+        "current": {
+          "state": "ok",
+          "value": 4,
+          "payload": 395743472,
+          "header12": "f923961780499617f0909617",
+          "payload10": "54cec6b650f98000ddf7"
+        },
+        "facet510_fields": {
+          "0x68": {
+            "state": "ok",
+            "value": 2,
+            "payload": 395742960,
+            "header12": "e48a9617e3719617f08e9617",
+            "payload10": "40ac822e42e4e3009d73"
+          },
+          "0x74": {
+            "state": "ok",
+            "value": 7,
+            "payload": 395742992,
+            "header12": "b345961723399617108f9617",
+            "payload10": "00318c4207b32300b47e"
+          },
+          "0x4": {
+            "state": "ok",
+            "value": 2,
+            "payload": 395742768,
+            "header12": "523296172b7d9617308e9617",
+            "payload10": "4cc4b28e4e522b00ddfe"
+          },
+          "0x80": {
+            "state": "ok",
+            "value": 1,
+            "payload": 395743024,
+            "header12": "099a9617c97c9617308f9617",
+            "payload10": "8b3fa87a8a09c900f4ff"
+          },
+          "0x8c": {
+            "state": "ok",
+            "value": 9,
+            "payload": 395743056,
+            "header12": "7f559617ae5a9617508f9617",
+            "payload10": "257b206a2c7fae00f4ff"
+          },
+          "0x1c": {
+            "state": "ok",
+            "value": 1,
+            "payload": 395742832,
+            "header12": "855296171c8d9617708e9617",
+            "payload10": "ed03308aec851c00f45f"
+          },
+          "0x10": {
+            "state": "ok",
+            "value": 1,
+            "payload": 395742800,
+            "header12": "57609617478c9617508e9617",
+            "payload10": "8c43b08a8d574700f4ff",
+            "role": "opaque_boxed"
+          }
+        },
+        "key": 1,
+        "a4_entered": false,
+        "out6_before": [
+          4,
+          8,
+          2,
+          7,
+          1,
+          9
+        ],
+        "out6_after": [
+          4,
+          8,
+          2,
+          7,
+          1,
+          9
+        ],
+        "thread": [
+          42000,
+          312,
+          0
+        ],
+        "trap_count": 7
+      }
+    ],
+    "native_output6": [
+      4,
+      8,
+      2,
+      7,
+      1,
+      9
+    ],
+    "base_max_current": [
+      4,
+      8,
+      4
+    ],
+    "exit_code": 0
+  },
+  "movement_windows": [
+    {
+      "direction": "Up",
+      "motion_change_rows": 42,
+      "central_first": {
+        "begin_ns": 868222176987667,
+        "end_ns": 868222177100627,
+        "x": 560,
+        "y": 483,
+        "bubble_vtable": "0x0",
+        "bubble_age": -1,
+        "actor": 395728984,
+        "vtable": "0xc664c4",
+        "source": "XY/actor only; no field550 scalar"
+      },
+      "central_last": {
+        "begin_ns": 868222907991669,
+        "end_ns": 868222908090979,
+        "x": 560,
+        "y": 383,
+        "bubble_vtable": "0x0",
+        "bubble_age": -1,
+        "actor": 395728984,
+        "vtable": "0xc664c4",
+        "source": "XY/actor only; no field550 scalar"
+      },
+      "central_abs_dy": 100,
+      "central_elapsed_s": 0.730997177,
+      "native_xy_px_per_s_estimate": 136.79943390533776,
+      "observed_max_change_gap_s": 0.052427657,
+      "max_reader_span_s": 0.000230011,
+      "conservative_sensitivity_range": [
+        117.39862336970558,
+        159.21230971672625
+      ],
+      "sensitivity_assumptions": "±8px (two native4 steps) and ±(maximum observed change gap+reader span); sensitivity only, not certified statistical confidence or absolute scheduling bound",
+      "not_claimed": [
+        "KR level",
+        "client FPS",
+        "server tick",
+        "native input receipt time"
+      ]
+    },
+    {
+      "direction": "Down",
+      "motion_change_rows": 41,
+      "central_first": {
+        "begin_ns": 868223812849889,
+        "end_ns": 868223812918989,
+        "x": 560,
+        "y": 387,
+        "bubble_vtable": "0x0",
+        "bubble_age": -1,
+        "actor": 395728984,
+        "vtable": "0xc664c4",
+        "source": "XY/actor only; no field550 scalar"
+      },
+      "central_last": {
+        "begin_ns": 868224527477456,
+        "end_ns": 868224527547726,
+        "x": 560,
+        "y": 483,
+        "bubble_vtable": "0x0",
+        "bubble_age": -1,
+        "actor": 395728984,
+        "vtable": "0xc664c4",
+        "source": "XY/actor only; no field550 scalar"
+      },
+      "central_abs_dy": 96,
+      "central_elapsed_s": 0.714628152,
+      "native_xy_px_per_s_estimate": 134.33559779492148,
+      "observed_max_change_gap_s": 0.053352089,
+      "max_reader_span_s": 0.000761351,
+      "conservative_sensitivity_range": [
+        114.47279673141453,
+        157.45296525658614
+      ],
+      "sensitivity_assumptions": "±8px (two native4 steps) and ±(maximum observed change gap+reader span); sensitivity only, not certified statistical confidence or absolute scheduling bound",
+      "not_claimed": [
+        "KR level",
+        "client FPS",
+        "server tick",
+        "native input receipt time"
+      ]
+    }
+  ],
+  "native_xy_rows": 664,
+  "static_blocks": [
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x6eb788",
+      "requested_window": 283,
+      "read_candidate_bytes": 283,
+      "retained_decoded_bytes": 164,
+      "end_exclusive": "0x6eb82c",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "fefcc2a212472cbc668565aab861e42ca3bdc4036d86172c4d936a9832437bcc"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x6eb82c",
+      "requested_window": 256,
+      "read_candidate_bytes": 256,
+      "retained_decoded_bytes": 45,
+      "end_exclusive": "0x6eb859",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "53da04b9e427eed53f9fdea9da1da471d98f164eb6e7540c411143c9e0b27284"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x6eb862",
+      "requested_window": 65,
+      "read_candidate_bytes": 65,
+      "retained_decoded_bytes": 65,
+      "end_exclusive": "0x6eb8a3",
+      "terminal": null,
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "55af6772da88c1ed36b6190e1452c133165114ff1f3f1a215c7835e22f02c51d"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x7bc250",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 9,
+      "end_exclusive": "0x7bc259",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "d23bb5026de06dbe2db47336c0d0e5e47e5f819d89333b9098299d977fafb51f"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x4b82c2",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 12,
+      "end_exclusive": "0x4b82ce",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "4e04c6acd5fd5698c6064287e9a2c8c9c4d6d398a083cd7271b75d3a47ef060b"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x8e76cf",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 39,
+      "end_exclusive": "0x8e76f6",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "ef63c3025e1ed2c91d12f0f288b2721dfa4fe6fc4067ab81cc630a78f40693d4"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x8e76a3",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 44,
+      "end_exclusive": "0x8e76cf",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "6e885b49cdbd190a52935fcb507c9795c95aa82a8bf30fe68b277522cb2bd7fc"
+    },
+    {
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x6c4e00",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 127,
+      "end_exclusive": "0x6c4e7f",
+      "terminal": null,
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "a54ca44a72b0396f15f9745cd2f820d019002c740dbd474d7d22755ce9588e61"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x6eb89d",
+      "requested_window": 6,
+      "read_candidate_bytes": 6,
+      "retained_decoded_bytes": 6,
+      "end_exclusive": "0x6eb8a3",
+      "terminal": null,
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "c8e9f46830e035e53d1c92cb9f7b88aca353070ab24458aeae72af9f3b99a77a"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x6ec225",
+      "requested_window": 5,
+      "read_candidate_bytes": 5,
+      "retained_decoded_bytes": 5,
+      "end_exclusive": "0x6ec22a",
+      "terminal": null,
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "cdad577476aa6a2fb4d745807532920c26b78c6ea7756bc5dd4bd1f819f1f630"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x8e76f6",
+      "requested_window": 8,
+      "read_candidate_bytes": 8,
+      "retained_decoded_bytes": 7,
+      "end_exclusive": "0x8e76fd",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "5cbd6e6ead45fa64109042ec4cbd8c5b4adc2067caadcbecaa07e65445a405db"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0xa65670",
+      "requested_window": 64,
+      "read_candidate_bytes": 64,
+      "retained_decoded_bytes": 27,
+      "end_exclusive": "0xa6568b",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "feaeda261374f74092b7e04eb363e6c5829bfcc15e28f7162375672b1bf94ca3"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0xa6568b",
+      "requested_window": 64,
+      "read_candidate_bytes": 64,
+      "retained_decoded_bytes": 21,
+      "end_exclusive": "0xa656a0",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "732ad13e406b013612c883a807ee5c6aa360785e78eb1dfa1115da5252d6ddd5"
+    },
+    {
+      "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0xa656a0",
+      "requested_window": 48,
+      "read_candidate_bytes": 48,
+      "retained_decoded_bytes": 32,
+      "end_exclusive": "0xa656c0",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "fdb3b77282afd2a9c4e480997266579eff21b18c2f3e84916509bddaee3844ac"
+    }
+  ],
+  "static_requested_bytes": 1439,
+  "static_retained_bytes": 603,
+  "typed_PE_data": {
+    "colptr_4b": {
+      "va": "0xC20930",
+      "u32": "0xcabe54",
+      "file_offset": 8518960,
+      "sha256": "285643f27efd1dc231cee3e383b528fe4e62763cc735724069fd5b5872e500a4"
+    },
+    "vtable_slot34_4b": {
+      "va": "0xC20968",
+      "u32": "0x4b82c2",
+      "file_offset": 8519016,
+      "sha256": "f1f75bc202f1a274622b5f8906f1d84b4e02638c2a030e0d35f4dbe5ad04ea48"
+    },
+    "td_name_96": {
+      "va": "0xE266A8",
+      "name_bytes": "2e3f415643426f6d62657245787465726e616c436f6e7465787446434040",
+      "name": ".?AVCBomberExternalContextFC@@",
+      "file_offset": 10640040,
+      "sha256": "16733856ed27b11ecd402345014fed75b3c3d44a64270dee0828a5053bee8fc8"
+    }
+  },
+  "raw_and_static_files": [
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/04-room.png",
+      "bytes": 388273,
+      "sha256": "8ac161456b970178ac0c99843eb618cc46469590438edc002c0c7e7f74bbc5f8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/05-match.png",
+      "bytes": 405918,
+      "sha256": "46661be8d3f693c3b4bca2b515717225d6e60874bf8f60a4f7ab9ffd8d7eeca9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/06-key1-up.png",
+      "bytes": 404923,
+      "sha256": "a2ca37f146794c8a1825ae3596d777a4c4a1d969ca7327d4c5c377afaaccb562"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/07-key1-down.png",
+      "bytes": 406391,
+      "sha256": "f41437327d7c64bee8bcf4ea2e35e3610ec825db5d288bd574f93318dbaf11f2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/ack.json",
+      "bytes": 42,
+      "sha256": "5fb86289a876c8688a683e176dae61edb83f792f4790fed441e2c584b241d0e2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/after-a0.json",
+      "bytes": 700,
+      "sha256": "f430e3e1f37fc3d854e9714b40b9958bdf9eac67fb5b742461853e48a7c57793"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/char-entry.json",
+      "bytes": 916,
+      "sha256": "229042bd533b82238f524e87a796dd26a810f946bfb5bcae8c04109847d19836"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/char-key-events.jsonl",
+      "bytes": 5790,
+      "sha256": "813d442520118469bb09fe0d98995d6913fd3f49b177429585c18212e0d39f21"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/command.json",
+      "bytes": 23,
+      "sha256": "cc70149dc2fa3814de0dcbb734aee278b22830ad05fd665908af40e3ab6a5170"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/harness-used.py",
+      "bytes": 17378,
+      "sha256": "e339c2e8fb35a65ae33f043f8b3a37d6613e6d2a9edbf84a4f97909ca2fdefe0"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/hero-target.json",
+      "bytes": 578,
+      "sha256": "32e1f29fc00f266d99df09ad6e33901b730836e50ffd52ecc8ec33a69c62f931"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/isolation.json",
+      "bytes": 680,
+      "sha256": "6236253a4ff79de0c7bd98474ae5e994a068e03a51ea381fdc6e7cc647d52f12"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/join.json",
+      "bytes": 730,
+      "sha256": "675f8bd0ab6cc5dcfe0777e1811f062b49f7ea36eb3495b78c1ade34466c98f2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/key-final.json",
+      "bytes": 1633,
+      "sha256": "dad5cefaeff7dec1fb52f7d8e8ed7e22950bc1b7e0e17a059f7134dbba61b456"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/key-setter-return.json",
+      "bytes": 261,
+      "sha256": "6221e2f40686dd9011ab76aa0aed9d200b13581fcf84f8df88c3e64bdb30daa4"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/movement-window-protocol.json",
+      "bytes": 613,
+      "sha256": "501658a43dcbf7474726fab107346034f271ef9ed7c9ca0cf3a5f3e03a2cdeda"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/packets.jsonl",
+      "bytes": 17755,
+      "sha256": "41af9e6828fab7624a521cb95c5d227dcc2f3cc20e2f6e508a662175472ce71c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/packets.log",
+      "bytes": 13873,
+      "sha256": "326b4938fe7a051ee82b8da84846ad57914773b31b76490eb725c361721db522"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/position-samples.jsonl",
+      "bytes": 138109,
+      "sha256": "26d208cef0d70f5dedb983e747a7ff8b4a90f03e4fdf1ad99179fa5faf94593a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/probe-ready.json",
+      "bytes": 162,
+      "sha256": "2b6d79fe8893d9928260591bce4ddb7f42e4fe659f464e87f2e8fc4108132e9c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/probe-template-used.gdb",
+      "bytes": 20336,
+      "sha256": "26b89721d6ed1c61f650f7b72cb8d8105202d27388e2c8bf2c744cb21c6fc92d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/probe.gdb",
+      "bytes": 20336,
+      "sha256": "26b89721d6ed1c61f650f7b72cb8d8105202d27388e2c8bf2c744cb21c6fc92d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/ready.json",
+      "bytes": 172,
+      "sha256": "6cd7d4691276d98e55b1ceb5593dc9c34f6d748bc564e8e57209c843f9e04c34"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/registered-hooks.json",
+      "bytes": 608,
+      "sha256": "cf7014512560d2f64a9b3e9d007c85049db05e73f3ab7ebd96d52135bd9b9e66"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/server-used.py",
+      "bytes": 46148,
+      "sha256": "ef688ad5588bed2390231728d3ab7e722c3af619e90501bf030eb84cb3a1158b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/server.log",
+      "bytes": 13873,
+      "sha256": "326b4938fe7a051ee82b8da84846ad57914773b31b76490eb725c361721db522"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/setter-entry.json",
+      "bytes": 366,
+      "sha256": "937fc3efa45693ffc0d40990b5c027b084bc715fcd8821741a675fd04b27da8f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/setter-events.jsonl",
+      "bytes": 629,
+      "sha256": "bb1da803accdb6583b1de1395710e3e838af2623ad47f88e77ed98f7c6583868"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/sources.json",
+      "bytes": 696,
+      "sha256": "b660893ba532c507cb0817ba1c34e011c428ce27df4e6b786e1f45972f8ba19b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/start.json",
+      "bytes": 1572,
+      "sha256": "d98f727210029a7572f5f337d0ab6e9d09ddb8ea69bd20e935b36fa7dfa00113"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/supervisor.log",
+      "bytes": 683,
+      "sha256": "07f31673acd933da8e36b34fb2c5e38e264a767607237cddb7f61e924628e7d3"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/upstream-entry.json",
+      "bytes": 1806,
+      "sha256": "d604bae07e449858150c7d177db36f3fa22183fe739f90be2556e05d9cc7e084"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/winedbg.log",
+      "bytes": 15536,
+      "sha256": "7330b11d693f6e5a4f522a8dd1488b1fd8a928ef349531a4c717c9e5ae16c127"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r3-count100/xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/04-room.png",
+      "bytes": 388340,
+      "sha256": "d1e2748420b7096175ebf6df5ffce6d9fdd60fe3992ee0cd702b6aae34fa5e2f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/05-match.png",
+      "bytes": 405924,
+      "sha256": "a561812b64738d6f7939dbfa79ab268e6daf10989448040f09113fdf40bf9231"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/06-top-baseline.png",
+      "bytes": 405402,
+      "sha256": "549fa6b50c886fe426505385725f0cdfe34189a1c10b9ef0b19d8c22781e8da8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/07-offset-first-before.png",
+      "bytes": 405734,
+      "sha256": "92c0a5079ce8b3c2c1e2814bccdacbb58add0e4985caa861bd92f22cb2214434"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/08-offset-first-after.png",
+      "bytes": 405723,
+      "sha256": "f9a1ae867f6d1868e2b3ac8439267242e6c6bf46ed8756fcfe4e717da74e7899"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/09-offset-first-reset.png",
+      "bytes": 405588,
+      "sha256": "966ec3705f65653a4431dacf84d5cae7a4734dfcd42148c69fdbd759ba22c5a7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/10-offset-second-before.png",
+      "bytes": 406073,
+      "sha256": "b3ad9eb392680d50a57986f251f62f4640047145fcc5bba026b2f0ea476c5bf9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/11-offset-second-after.png",
+      "bytes": 406843,
+      "sha256": "f71a37d21defafbee262fb4080f4fb63b27f98dc072a4e23f68a924fc42d4c15"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/12-offset-second-reset.png",
+      "bytes": 405384,
+      "sha256": "f2264c2cb2690dc579779e5c22bc775efeff6aee8275425c3fbd9331401cc2da"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/13-aligned-positive.png",
+      "bytes": 405537,
+      "sha256": "f45886adf5417dd19734d2ac217d47747b4e884519b3cef5bf03135bd7a3b890"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/14-final-top.png",
+      "bytes": 405298,
+      "sha256": "32ec1f21b16aba85ffbe865a8d2e8580374a51e9c9817468ad465a7682838248"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/ack.json",
+      "bytes": 42,
+      "sha256": "e25722f1c4cbda4e84919a7334b61890268e36c7b28b6f132c11e2b333722c40"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/after-a0.json",
+      "bytes": 701,
+      "sha256": "b1d9711da61debb32ab8cc3ea3fc4f61f56f1e10554b45ba82b1c4a6ba86409a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/char-entry.json",
+      "bytes": 916,
+      "sha256": "ce52b8e806e416b03bda1e83a8bddf35e9ac0964f28046a5e362943b1bfad6e3"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/char-key-events.jsonl",
+      "bytes": 5795,
+      "sha256": "245a91572714712853bbd9adabe5e3917c2592f2f0e23407d35077c4a1eb5f0e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/command.json",
+      "bytes": 23,
+      "sha256": "c270fee2335d2fc38a1050612fab793b02f3b388df77eb50f303c3973b33dde1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/harness-used.py",
+      "bytes": 17011,
+      "sha256": "177efcf19b5dcbed28da4994ed9e20242a912db50cbbc16af31d9159182ffb67"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/hero-target.json",
+      "bytes": 578,
+      "sha256": "bae3ded69b21f6e867709641a863ae42e9eb0d0435708fc9acb57ac808f95342"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "2928a55249c7a7724d5a312b5d03adf1ff4521175a03d72b3e1a537bb1ffb534"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/join.json",
+      "bytes": 731,
+      "sha256": "7e581ebb9b705c9998b0247e82215e09ae555cc8f31b1efa6c10e06e67a659e7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/key-final.json",
+      "bytes": 1636,
+      "sha256": "29f6b923c67dbd78b6872402947a2bc9ca7509621cbe55e29fd539e92c6c9e45"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/packets.jsonl",
+      "bytes": 40869,
+      "sha256": "98f109d6c3be69ceaf947c2e766ed36a5debb69ca9d12524ba424d1b8f6fdbbe"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/packets.log",
+      "bytes": 32070,
+      "sha256": "a2230e08f36851ddce560a2ac3564e342c4b41a1a071b3deca49c20b55a30ec9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/position-samples.jsonl",
+      "bytes": 908868,
+      "sha256": "8f3a61150231b9f4553dd4fafb91f5a8f4dd2e73dec24892a0d84288f801672c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/probe-ready.json",
+      "bytes": 164,
+      "sha256": "6b973c728bb805b8dd61f5b7ac782df2f487e68ab44daa6a7cc06abab045069b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/probe-template-used.gdb",
+      "bytes": 15874,
+      "sha256": "16433574cb4dada1797fb3c88a76432c450b6f1a5736d53f93cffbb8f0b5d340"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/probe.gdb",
+      "bytes": 15874,
+      "sha256": "16433574cb4dada1797fb3c88a76432c450b6f1a5736d53f93cffbb8f0b5d340"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/ready.json",
+      "bytes": 130,
+      "sha256": "f2250ba9749cd1eac77db1b91933ef0842d193e55866684df08bd8aeb960492e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/registered-hooks.json",
+      "bytes": 455,
+      "sha256": "5a05748974ef6bef3bab7290f5ffe4d3f7ef70b706412bebfb464912c661a882"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/server-used.py",
+      "bytes": 45711,
+      "sha256": "f37ddc5d4ede02d62fd90896b43d834be14cd7364d5e6ff616c98c0c5bc8a1eb"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/server.log",
+      "bytes": 32070,
+      "sha256": "a2230e08f36851ddce560a2ac3564e342c4b41a1a071b3deca49c20b55a30ec9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/sources.json",
+      "bytes": 623,
+      "sha256": "c9be0a3d738ef1fe100d0631b60c2475cc8e1631f98128df6eb57c35b720e2a8"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/start.json",
+      "bytes": 1495,
+      "sha256": "ad65a766cd4fd8fd2e396aaeaf0cc1d06b793d7476243258c4017fd11e8c70f2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/supervisor.log",
+      "bytes": 3019,
+      "sha256": "a366fb1d6219e292d14925e2d3d8838b4febde998e8a1722e79213a35dcf3081"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/upstream-entry.json",
+      "bytes": 1806,
+      "sha256": "da69ca76825a53701f8a534db879f48f2530ad4abb06395aed797e5b1fb31806"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/winedbg.log",
+      "bytes": 15528,
+      "sha256": "65cc8d82a9e974b93a8c495299d11e04b628bf93fbaa40edcf91990a5d10ced1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-key-producer-type-149-r1/xvfb.log",
+      "bytes": 1017,
+      "sha256": "ee505b9f1e27f19d6c0918b0e947e5aa58e672c66fd5ce6a910e08160860cb01"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/producer6eb788.json",
+      "bytes": 587,
+      "sha256": "375cd101300a344f1d66dce9e65aa18e3c780ca288e3650b8c7cf96d41b769f6"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/producer6eb788.bin",
+      "bytes": 164,
+      "sha256": "fefcc2a212472cbc668565aab861e42ca3bdc4036d86172c4d936a9832437bcc"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/producer6eb788.asm",
+      "bytes": 2072,
+      "sha256": "0bd00d46dc8933d16e740c19fde0b58a45462dcc2b5939804905969522ce0ada"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/branch6eb82c.json",
+      "bytes": 586,
+      "sha256": "464ae10e5a8c23f1f97088ad74386b5e5dd7dbf01780e8d5c990306794dc7cf4"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/branch6eb82c.bin",
+      "bytes": 45,
+      "sha256": "53da04b9e427eed53f9fdea9da1da471d98f164eb6e7540c411143c9e0b27284"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/branch6eb82c.asm",
+      "bytes": 547,
+      "sha256": "ab3ba7ff127a7ca49e81c09c3ecd53b941a2b61cbf33e0f65c8625f205d3edf7"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/callpath6eb862.json",
+      "bytes": 583,
+      "sha256": "ea1b82cf6f4e6b6edf6c6a4c17d02f7346727ec883b2545e0c1d3a9ecc517293"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/callpath6eb862.bin",
+      "bytes": 65,
+      "sha256": "55af6772da88c1ed36b6190e1452c133165114ff1f3f1a215c7835e22f02c51d"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/callpath6eb862.asm",
+      "bytes": 837,
+      "sha256": "c9cf378f2280661fc025201c6634d34041329c4812f0ad678a117f03552b7b5b"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/slot7bc250.json",
+      "bytes": 585,
+      "sha256": "1d9f599f43ea45168f4c777a6746f5cae97823aeedec09ff09595597f0b15300"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/slot7bc250.bin",
+      "bytes": 9,
+      "sha256": "d23bb5026de06dbe2db47336c0d0e5e47e5f819d89333b9098299d977fafb51f"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/slot7bc250.asm",
+      "bytes": 105,
+      "sha256": "90d0a15396179680c59f2398bdc2ec990839deb2e5093d5e341bcf7299ea8c1f"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/typed-receiver-4b82c2/getter4b82c2.json",
+      "bytes": 586,
+      "sha256": "fd707e8c222322037605c8c367b3c90f0ec2371c41da383125b3dc9d89384319"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/typed-receiver-4b82c2/getter4b82c2.bin",
+      "bytes": 12,
+      "sha256": "4e04c6acd5fd5698c6064287e9a2c8c9c4d6d398a083cd7271b75d3a47ef060b"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/typed-receiver-4b82c2/getter4b82c2.asm",
+      "bytes": 151,
+      "sha256": "0c956d523f2f91cb9b68ef0bcb851746147043c3bebe50c2d79c6837308d87eb"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/typed-receiver-4b82c2/child8e76cf.json",
+      "bytes": 586,
+      "sha256": "faa64abfce5243ce7576bfce1ba0a3ec4e45ef2d2c332b8bd147bfaae3de39a9"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/typed-receiver-4b82c2/child8e76cf.bin",
+      "bytes": 39,
+      "sha256": "ef63c3025e1ed2c91d12f0f288b2721dfa4fe6fc4067ab81cc630a78f40693d4"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/upstream-producer-source/typed-receiver-4b82c2/child8e76cf.asm",
+      "bytes": 469,
+      "sha256": "e484f95bd43057dc56fed9f97467d32585100266dd874167e5d79d78f3486e62"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/setter501-bridge/setter8e76a3.json",
+      "bytes": 586,
+      "sha256": "c8e21dcb5d8fc6ca0fa711046466efd383b1cfb941a954f8fa9ddb8a6dfdcdd1"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/setter501-bridge/setter8e76a3.bin",
+      "bytes": 44,
+      "sha256": "6e885b49cdbd190a52935fcb507c9795c95aa82a8bf30fe68b277522cb2bd7fc"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/setter501-bridge/setter8e76a3.asm",
+      "bytes": 533,
+      "sha256": "3360eb6a801d8e8ada48e1ba654677f6395d16688dd2ef75a11f69af183d542f"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/setter501-bridge/s501callsite6c4e42.json",
+      "bytes": 586,
+      "sha256": "53a66c3bf0cdacc9fcfc754c1920c9dedac43876938a8ee2ba2a78f3e44a20ff"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/setter501-bridge/s501callsite6c4e42.bin",
+      "bytes": 127,
+      "sha256": "a54ca44a72b0396f15f9745cd2f820d019002c740dbd474d7d22755ce9588e61"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/setter501-bridge/s501callsite6c4e42.asm",
+      "bytes": 1228,
+      "sha256": "a20e79674685d68e9285e9d0657c416d1ae63c98ee22785b06c550a76e2d4e7d"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-upstream-actualcall6eb89d.json",
+      "bytes": 610,
+      "sha256": "d846f96157fab4235522d9c44140c64442af6f4202aed8c4754f8ae8fcae088b"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-upstream-actualcall6eb89d.bin",
+      "bytes": 6,
+      "sha256": "c8e9f46830e035e53d1c92cb9f7b88aca353070ab24458aeae72af9f3b99a77a"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-upstream-actualcall6eb89d.asm",
+      "bytes": 51,
+      "sha256": "f674ac13636d843036b6d1f769571d2af94ccfbf25c50b389fae668a29de2c62"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-unwind-return-call6ec225.json",
+      "bytes": 610,
+      "sha256": "99db1e478c3b3d3237c1b94184781e78338d9fe1df876f0fcc03d59e0afad783"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-unwind-return-call6ec225.bin",
+      "bytes": 5,
+      "sha256": "cdad577476aa6a2fb4d745807532920c26b78c6ea7756bc5dd4bd1f819f1f630"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-unwind-return-call6ec225.asm",
+      "bytes": 35,
+      "sha256": "74a9206879b053171cb72f2aff5436faabfa90f4b99655262b1510abeb985771"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-key-getter-fallback8e76f6.json",
+      "bytes": 611,
+      "sha256": "96a1d98d104bebdcec265675b81b9c443fbaa4c35c1ed4986b9f3dd95ef49376"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-key-getter-fallback8e76f6.bin",
+      "bytes": 7,
+      "sha256": "5cbd6e6ead45fa64109042ec4cbd8c5b4adc2067caadcbecaa07e65445a405db"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-key-getter-fallback8e76f6.asm",
+      "bytes": 80,
+      "sha256": "ef3529f407d0a9f3a4c934aa140096257708d3228fe25b0de84682d9a55a6030"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-a65670.json",
+      "bytes": 614,
+      "sha256": "a25ce4f25cde1def69cef51d2bde35adf5ec203e8a71ebeaf06daf3a94d3274e"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-a65670.bin",
+      "bytes": 27,
+      "sha256": "feaeda261374f74092b7e04eb363e6c5829bfcc15e28f7162375672b1bf94ca3"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-a65670.asm",
+      "bytes": 360,
+      "sha256": "9fa5e99e139fbf7c55751882ccd2dccba3fd6309087edacd2ad4e55b98f0f3bc"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-valid-a6568b.json",
+      "bytes": 614,
+      "sha256": "f43ad3f6e9c4b38c0583ed3580f7c2627fb9f7ad86b047c40f1d766ec558a5dd"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-valid-a6568b.bin",
+      "bytes": 21,
+      "sha256": "732ad13e406b013612c883a807ee5c6aa360785e78eb1dfa1115da5252d6ddd5"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-valid-a6568b.asm",
+      "bytes": 256,
+      "sha256": "a7f198219cc49456ad9736762d7611db8f8360b8a24081102a46510a7ce531bf"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-body-a656a0.json",
+      "bytes": 614,
+      "sha256": "ced8593dc7d55ed7bffff9eeecad14920172fe97c655f11508d1c642d3099767"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-body-a656a0.bin",
+      "bytes": 32,
+      "sha256": "fdb3b77282afd2a9c4e480997266579eff21b18c2f3e84916509bddaee3844ac"
+    },
+    {
+      "private_root": "/home/admin/boom-team/tmp",
+      "private_path": "vn149-parser-byte-body-a656a0.asm",
+      "bytes": 426,
+      "sha256": "75cb247d39b320b1f43441c535ce06e97784d81dd745c7617737e90591ae679d"
+    }
+  ],
+  "excluded_setup_runs": [
+    {
+      "run": "host-match-slot-key-149-r1",
+      "measurement_usable": false,
+      "reason": "channel setup failed before S501",
+      "raw_files": [
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/00-initial.png",
+          "bytes": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/01-channels.png",
+          "bytes": 609302,
+          "sha256": "e679c426b6cab578a87f76ee5e32e7ead8710e61c5de93aa771c625094e73b3e"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/error.txt",
+          "bytes": 26,
+          "sha256": "7cdb654f19e23959e3026f14a63742fcb1d83044e77039b2e11e107b82cb6868"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/failed-channel.png",
+          "bytes": 516433,
+          "sha256": "38fdf0b68813eeefe92c8735757da5b48271c9978e3c9681a16081777ade8a9a"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/harness-used.py",
+          "bytes": 17279,
+          "sha256": "4853cf938ad21762e7c6289e97939019a209cfd64107524f480649f2af57be1f"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/isolation.json",
+          "bytes": 680,
+          "sha256": "d3a595fe41f3db19e53a086100e66fb22534811cba5e3052d3b6bb05fb60fdbc"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/packets.jsonl",
+          "bytes": 6475,
+          "sha256": "33aa16c37db0a8eb12e75077a3d39e71402594e17651fd9ad14f8d0fc7d64bb6"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/packets.log",
+          "bytes": 4946,
+          "sha256": "0750fb631bf5c8247bf4e7c17f664323b7377fe804929af881f8009b1d1b36f2"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/pids.json",
+          "bytes": 99,
+          "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/probe-ready.json",
+          "bytes": 162,
+          "sha256": "2b6d79fe8893d9928260591bce4ddb7f42e4fe659f464e87f2e8fc4108132e9c"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/probe-template-used.gdb",
+          "bytes": 20335,
+          "sha256": "8e8cb1e112bc7762a6848d8b226c2da8d839177dc4492b6b545ac239e4a0b1ba"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/probe.gdb",
+          "bytes": 20335,
+          "sha256": "8e8cb1e112bc7762a6848d8b226c2da8d839177dc4492b6b545ac239e4a0b1ba"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/registered-hooks.json",
+          "bytes": 608,
+          "sha256": "cf7014512560d2f64a9b3e9d007c85049db05e73f3ab7ebd96d52135bd9b9e66"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/server-used.py",
+          "bytes": 45916,
+          "sha256": "7e6b9e69c3beebeb2789087bb9a4ade0dd7ffb9ef17198d39b3562562a8588dd"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/server.log",
+          "bytes": 4946,
+          "sha256": "0750fb631bf5c8247bf4e7c17f664323b7377fe804929af881f8009b1d1b36f2"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/sources.json",
+          "bytes": 647,
+          "sha256": "c8ce99941317fd30732846f0e23b5c315ceb1eb78769593c2892fc6176613e9c"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/start.json",
+          "bytes": 1521,
+          "sha256": "f33817931ad71894698ff8967323178e65990582cc602a3d9ac5b6b33594930b"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/supervisor.log",
+          "bytes": 125,
+          "sha256": "ebd6cdfa90f78dc5dbd169ee08cf6cebf0bd71fe22cc9fd29c10c4f66f04eea9"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/winedbg.log",
+          "bytes": 15351,
+          "sha256": "815b4832d3e4e96e10cdd1561f5f9706fea8076b67eec1248d9799d50fd6df94"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r1/xvfb.log",
+          "bytes": 1485,
+          "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+        }
+      ]
+    },
+    {
+      "run": "host-match-slot-key-149-r2-channel-pin",
+      "measurement_usable": false,
+      "reason": "observer incorrectly bounded native context count100 by32; no setter pair or key endpoints",
+      "raw_files": [
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/00-initial.png",
+          "bytes": 233,
+          "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/01-channels.png",
+          "bytes": 609807,
+          "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/02-lobby.png",
+          "bytes": 185734,
+          "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/03-create-dialog.png",
+          "bytes": 375207,
+          "sha256": "d45a3e5cf7f2ac389e352129c61c87dded83f0ae4804d7dc27966ea178764caa"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/04-room.png",
+          "bytes": 388340,
+          "sha256": "d1e2748420b7096175ebf6df5ffce6d9fdd60fe3992ee0cd702b6aae34fa5e2f"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/05-match.png",
+          "bytes": 406215,
+          "sha256": "b03f55133c762183739dd51feca2b7da5bde096d45c3cab2ba59d705d33e6617"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/char-key-error.json",
+          "bytes": 198,
+          "sha256": "aad9b9eabac36de5dc21d5b70155a5fa4fef48bee4d25263d601b0c1abc93e97"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/error.txt",
+          "bytes": 64,
+          "sha256": "1f5e7f45edf95db2d972af7468863ade2e3947adccb5c646339097492ef048ec"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/failed-native-bootstrap.png",
+          "bytes": 406403,
+          "sha256": "5d7aa5933f808c7a379f1df83379a204dca9dbfc7de4a38b006adf1e2574f3eb"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/harness-used.py",
+          "bytes": 17373,
+          "sha256": "1b1518b0ae0f23e4485a6937bd74de4fac41f766f439934c7c804421a85ee337"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/isolation.json",
+          "bytes": 680,
+          "sha256": "6e2727c6c90538976264338105c31784e71b56869374b667fa67fdcb643aecd6"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/packets.jsonl",
+          "bytes": 17134,
+          "sha256": "c192a9daa4704f283fb784ba6857df7506025f26ae67a0355d97273f8131130f"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/packets.log",
+          "bytes": 13385,
+          "sha256": "e1c915ef028b6f5bd7d1d5f60d25bc0cf21cf484510f66434e8d0ada056bc965"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/pids.json",
+          "bytes": 99,
+          "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/probe-ready.json",
+          "bytes": 162,
+          "sha256": "2b6d79fe8893d9928260591bce4ddb7f42e4fe659f464e87f2e8fc4108132e9c"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/probe-template-used.gdb",
+          "bytes": 20335,
+          "sha256": "8e8cb1e112bc7762a6848d8b226c2da8d839177dc4492b6b545ac239e4a0b1ba"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/probe.gdb",
+          "bytes": 20335,
+          "sha256": "8e8cb1e112bc7762a6848d8b226c2da8d839177dc4492b6b545ac239e4a0b1ba"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/registered-hooks.json",
+          "bytes": 608,
+          "sha256": "cf7014512560d2f64a9b3e9d007c85049db05e73f3ab7ebd96d52135bd9b9e66"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/server-used.py",
+          "bytes": 46148,
+          "sha256": "ef688ad5588bed2390231728d3ab7e722c3af619e90501bf030eb84cb3a1158b"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/server.log",
+          "bytes": 13385,
+          "sha256": "e1c915ef028b6f5bd7d1d5f60d25bc0cf21cf484510f66434e8d0ada056bc965"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/sources.json",
+          "bytes": 692,
+          "sha256": "47809d324d37b72743fb8d2ffe309b391c5eac395e6727ed6a43b951c4a36a58"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/start.json",
+          "bytes": 1568,
+          "sha256": "7234cb5033e95feee5e64c548f2178e15a4ae85cf3efe22d22dbb7af271ac0ce"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/supervisor.log",
+          "bytes": 235,
+          "sha256": "71553d216578a54c31b493803c523d080d6dc86aea90bf6ed145aca58d509b8b"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/winedbg.log",
+          "bytes": 15363,
+          "sha256": "00d7e2f810df37dd6676613bd21eb62859061f402fe31b62dee8a9997cd82130"
+        },
+        {
+          "private_path": ".re-work/vn-grace-240/host-match-slot-key-149-r2-channel-pin/xvfb.log",
+          "bytes": 1485,
+          "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+        }
+      ]
+    }
+  ],
+  "wire_semantics": {
+    "S501_second_per_slot_byte": "numeric lookup key propagated into context row+0x60; emu_choice input, native consumer observed",
+    "native_storage_width": "DWORD; wire u8 zero-extended by parser caller",
+    "S103_S106_character_input": 1,
+    "S501_wire_hex_logged": false,
+    "bootstrap_channel_port_in_control": 3838,
+    "bootstrap_channel_difference": "baseline live connections used3838; control pins advertised channel3838 after separate failed setup; gameplay mode/501 layout/spawns unchanged"
+  },
+  "limits": [
+    "S501 input is generator source/config plus native setter argument proof; actual auto-start frame hex was not logged so no wire CRC claim for that frame",
+    "key1/scalar output relation confirmed in this VN actor; not by itself KR C01 asset/name identity or six contiguous KR columns",
+    "capacity/Fire max-side initializer fields are not effective post-pickup caps measured in this run",
+    "all initial debugger stops end before movement windows; no timestamps infer keydown-to-native latency",
+    "old key0 and new key1 use different actor pointers; no clocks/object identity joined",
+    "old and new cases are different actor pointers, no state/clock joining",
+    "class name CBomberExternalContextFC identifies the typed receiver; numeric key is not by itself KR C00/C01 asset/name binding",
+    "S501 second-byte label pos in older emulator comments was unproven; no inferred identity from that label",
+    "14 instruction blocks/prefixes include return/fallback chunks; block count is not full function count",
+    "movement sensitivity intervals are explicit assumptions, not statistical confidence intervals or absolute scheduler bounds",
+    "profile/12 KR candidate statuses/G2/G6 unchanged"
+  ]
+}

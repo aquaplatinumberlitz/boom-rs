@@ -299,3 +299,15 @@ Requested535/530 khác actual530/525; giữ overshoot,9endpoint/42hash/4.387XYro
 Không movement breakpoint trong lượt này,6hook/5stop chỉ khởi tạo; không item/bom/timing-derived
 velocity hoặc native direction flag. Corner-assistance interpretation còn candidate; các response
 native đã có đối chứng, không lặp để tìm lại cùng kết quả.
+
+### S501 field→contextkey→stat pairs (R-178)
+
+[Một field đổi, native setter và output](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#field-bắt-đầu-trận-tới-key-và-sáu-output--r-178):
+actor395728984, S501 slot0/value1, plaincontextfield DWORDFFFFFFFF→1. Descriptor vC20934 pointer+4
+bằng context thật, virtual34 đọc+60; key1 ở initializer cho `[4,8,2,7,1,9]`, finalmovement4/8/4,
+capacity2/7/2, Fire1/9/1. Roomcharacterbyte giữ1 như control key0; khác biệt nằm ở field S501.
+
+R1 lỗi channel vàR2 guard đọc count32 thay vì native100 không có endpoint dùng được; giữ45hash
+excluded. R3 sửa observer, không native memory/gameplay, đủ7stop/39rawfiles; mọi process riêng
+đã đóng. Cùng actor current4 có Up/DownXY estimates136,799/134,336px/s sau hook tắt, không nativelevel
+hoặc FPS. Chưa suy C00/C01 KR identity chỉ từ số; bước tiếp là binding render/row có sourcepoint.
