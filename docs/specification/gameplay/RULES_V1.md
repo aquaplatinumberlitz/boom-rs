@@ -1091,10 +1091,17 @@ regression chạy30tick: profilecũ24 đỏ96000≠132000mpx ởpoint4; profile3
 | R-186 | Trong `CItemResourceMan` (RTTI `.?AVCItemResourceMan@@`, vtable C77D70) có hai bảng: bảng1 count `[this+0x3B94C]`, base inline `this+0x3B9AC`, stride192; bảng2 count `[this+0x10]`, base inline `this+0x1C+idx*0xF4`, stride244 | Hai table descriptor; stride192/244 byte; row/group semantics chưa gán | `vn_static` / confirmed (cấu trúc prefix) | Block 89F436/89F536/89F5A1, metadata/hash và terminal trong [evidence](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md). Prefix-only, `complete_function=false`; không whole parser/function boundary. Nghĩa row, quan hệ R153 group244, caller89D113 `+0xBC`, field/ItemAttr group/drop vẫn unknown |
 | R-187 | Startup loader object `CItemResourceMan` tại `0x109CEAE8`/C77D70 mở literal `Attr/ItemAttr`; tại Open89F436 `E60934` bằng đúng object/vtable và actual EAX1 | Object/C77D70; literal C77D7C; `E60934=0x109CEAE8`; EAX1 | `vn_runtime` / confirmed (startup scoped) | R1 `host-item-manager-alias-149-r1` probe9afec/harnessd178/serveref688; [metadata](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md). S191 thiếu, không lateBoot/Boot, EXIT2 không rerun. Chỉ startup loader/global alias; không persistence/whole parse/field/group/drop |
 
+| R-188 | Bảng2 stride244 của `CItemResourceMan` (count `[this+0x10]`, base inline `this+0x1C`) có cấu trúc tương ứng bảng group ItemAttr KR R-153 (stride244, count `+16`, base `+28`, field `+0x94` slot); VN row ghi `+0x94/+0xA0/+0xAC`, nhưng offset count/base lệch `0xC` | stride244; VN count+10/base+1C/row+94; KR count+16/base+28/group+148 | `vn_static` / candidate (tương ứng cấu trúc, chưa identity) | [Crosswalk/limit](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md#r-188r-189-bảng-244-và-caller-89d113). Không kết luận cùng class/table; không `item.*`, weight/drop/cap |
+| R-189 | Caller `89D093/89D113` đọc row `manager+idx*0xF4+0xBC`; giá trị nonzero được truyền vào `receiver.vtable+0x18`, zero đi `89CAC8` theo tọa độ. Không có phép cộng/ghi `item.*` hay cap trong prefix đã đọc | row+BC; dispatch vtable+18 / fallback 89CAC8 | `vn_static` / unknown (role field) | Block89F5A1/89D093/89CAC8; `+0xBC` role chưa gán ItemAttr group/effect/cap; không +1 arithmetic, không đổi profile V1. Không đọc body mới/helper |
+
 Hai bảng nằm cùng typed manager nhưng **không** đủ để gọi bảng192 là item hay bảng244 là group/ItemAttr.
 R153 (192/244 native KR) và caller89D113 `manager+idx*0xF4+0xBC` giữ là cạnh riêng; `+0xBC` role
 unknown, không phải +1 arithmetic. Legacy `items.md`/export chỉ là parser/locator, không xác nhận
 weight/drop/pack identity. Không đổi profile, G2, G6, release hoặc 146/149 khác.
+
+R188 chỉ là **crosswalk có giới hạn** giữa bảng244 VN và group244 KR R-153; chênh offset count/base `0xC` và thiếu consumer item
+nên **không khóa `item.*`** và không chứng minh cùng một bảng. R189 cho thấy `+0xBC` là giá trị dispatch/opaque, không phải
+delta/cap item. V1 giữ `item.*` hiện hành; nếu một consumer thực xuất hiện, cần PR profile riêng. Không đổi gate/G2/G3/release.
 
 ## 48. Caller player của predicate R179 — R-214
 
