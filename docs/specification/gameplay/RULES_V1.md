@@ -1083,3 +1083,15 @@ Coefficient24 cũ làm engine chậm khoảng28% so với ca;33 còn lệch mean
 trap6350, halfbox13/assist12, server30Hz,12charvalues và releasefalse giữ nguyên. Actual movement
 regression chạy30tick: profilecũ24 đỏ96000≠132000mpx ởpoint4; profile33 xanh4..8 và trapped16980mpx
 độc lập point. Scenario/replay dùng profile riêng không được bless chỉ để che đổi tốc độ.
+
+## 47. CItemResourceMan — hai bảng và startup global alias (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-186 | Trong `CItemResourceMan` (RTTI `.?AVCItemResourceMan@@`, vtable C77D70) có hai bảng: bảng1 count `[this+0x3B94C]`, base inline `this+0x3B9AC`, stride192; bảng2 count `[this+0x10]`, base inline `this+0x1C+idx*0xF4`, stride244 | Hai table descriptor; stride192/244 byte; row/group semantics chưa gán | `vn_static` / confirmed (cấu trúc prefix) | Block 89F436/89F536/89F5A1, metadata/hash và terminal trong [evidence](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md). Prefix-only, `complete_function=false`; không whole parser/function boundary. Nghĩa row, quan hệ R153 group244, caller89D113 `+0xBC`, field/ItemAttr group/drop vẫn unknown |
+| R-187 | Startup loader object `CItemResourceMan` tại `0x109CEAE8`/C77D70 mở literal `Attr/ItemAttr`; tại Open89F436 `E60934` bằng đúng object/vtable và actual EAX1 | Object/C77D70; literal C77D7C; `E60934=0x109CEAE8`; EAX1 | `vn_runtime` / confirmed (startup scoped) | R1 `host-item-manager-alias-149-r1` probe9afec/harnessd178/serveref688; [metadata](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md). S191 thiếu, không lateBoot/Boot, EXIT2 không rerun. Chỉ startup loader/global alias; không persistence/whole parse/field/group/drop |
+
+Hai bảng nằm cùng typed manager nhưng **không** đủ để gọi bảng192 là item hay bảng244 là group/ItemAttr.
+R153 (192/244 native KR) và caller89D113 `manager+idx*0xF4+0xBC` giữ là cạnh riêng; `+0xBC` role
+unknown, không phải +1 arithmetic. Legacy `items.md`/export chỉ là parser/locator, không xác nhận
+weight/drop/pack identity. Không đổi profile, G2, G6, release hoặc 146/149 khác.
