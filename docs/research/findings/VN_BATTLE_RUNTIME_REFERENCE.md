@@ -279,3 +279,13 @@ key0, output `[5,7,1,10,1,7]` trước/sau vùng modifier và endpoint movement5
 capacity1/10/1, Fire1/7/1. Chỉ lần khởi tạo đầu được chụp; marker+A4 không chạm. Không suy hai
 nhân vật có cùng chỉ số hoặc mode19 bỏ qua lựa chọn. Key/identity còn thiếu; bước tiếp là
 caller cung cấp arg3 của5AED95→5A517F, không lặp hai ca. Hai run sạch, không item/bom, timingexcluded.
+
+### Player mover và hai ca rẽ (R-176)
+
+[Argument, nativeXY, control và giới hạn](../../evidence/measurements/vn-player-movement-2026-10-25/README.md)
+trên actor449278600/C664C4 nối slotv244 tới59DA6F, nhánh59DABE→594B68/return59DAD9.
+Out16=`[560,480,40,40]` tại nativeXY560/519; ý nghĩa downstream/hurtbox chưa đủ.
+Hai mốc trướcDownX540/X535 tạiY39 ổn định, rồi chỉ điều khiểnDown cho sửa ngang tớiX560 và
+Y109/Y104. Đây là dữ liệu player thật, hỗ trợ candidate corner assistance, chưa là ngưỡngmax.
+Opposite-direction controls/nativeXY và mọi overshoot được giữ; không suy tốc độ từ host clock.
+Run sạch,6stop/2.952XYrows/60hash, không item/bom; không đổi profile hay identityC00/C01.

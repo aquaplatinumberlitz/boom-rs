@@ -978,3 +978,14 @@ Byte lựa chọn khác nhau đã kiểm trong cả S103/S106, nhưng hai key đ
 không phân biệt được identity, không chứng minh lựa chọn bị bỏ qua hoặc các lần khởi tạo sau.
 Marker+A4 không chạm; không kết luận hiệu ứng modifier. Getter base/max có override/fallback
 theo key; không phải literal5/7 hoặc sáu cột row liền nhau. Giữ profile/12candidate/G2/G6.
+
+## 40. Argument và phản ứng rẽ trên mover player VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-176 | Trên actorVN C664C4, actualmover59DA6F nhánh59DABE gọi594B68; rare stop59DAD9 cho out16=`[560,480,40,40]` khi nativeXY560/519. Hai ca trước Down có XY540/39 và535/39, sau điều khiển chỉDown đạtX560/Y109 hoặc104; có Up/Right stop và Left/Down positive controls | Bốn scalar argument và trajectory native trong ca; không level/thời gian/hurtbox | vn_runtime + vn_static / confirmed (argument và phản ứng quan sát); corner assistance là candidate | [Payload/13endpoint/60hash/source/giới hạn](../../evidence/measurements/vn-player-movement-2026-10-25/README.md); fixturebc875…/Factory01/room19, sameactor/thread. Output ứng với `[X,Y−39,40,40]` tại mốc; downstream collision/damage semantics, maxassist và mọi mode chưa xác nhận |
+
+Đây là đường actor người chơi được điều khiển trong ca VN, độc lập PET/AI MoveSimple KR.
+Không đổi radius13/assist12 hoặc gán số40 làm toàn bộ hitbox. CaB có mốc trướcX535 nhưng mẫu
+đầu sau markerDown đãX540; không gọi25px là toàn bộ dịch chuyển sau native nhận input. Giữ
+overshoot từ requested550/540 tới actual540/535, không loại mẫu để ép ngưỡng.

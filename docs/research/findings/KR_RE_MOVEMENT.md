@@ -320,6 +320,21 @@ hai batch record không có metadata DB riêng; cùng SHA `cf72da11…e63b`.
 - `B37DB0` là predicate **kiểu bom + sensor flag**; flag `+152` mặc định 1, setter runtime/consumer
   người chơi vẫn chưa đọc. Đây là negative **có giới hạn** trong 4 thân đã đọc, không loại trừ callee/
   virtual chưa đọc.
-- **Player grace = unknown**: chưa có bằng chứng owner-specific, overlap-specific hay timer; không
+- **Player grace trên đường KR của lượt này = unknown**: chưa có bằng chứng owner-specific, overlap-specific hay timer; không
   suy từ pet/AI, không đổi 40×40/corner/grace hay R-154. `+268` vẫn candidate owner; `+0x2B0` vẫn
   unknown. Cạnh tiếp: đọc `B99CF0`/`B994C0` hoặc caller virtual `+156` của player — cần budget mới.
+
+## 10. Player mover VN có capture riêng — R-176 (25/10)
+
+Mục9 là lịch sử bounded-negative của đường KR, không phải hàng đợi runtime hiện hành. VN owner
+grace đã có R-155; không dùng kết luận pet/AI để phủ định dữ liệu player mới.
+
+[R-176](../../evidence/measurements/vn-player-movement-2026-10-25/README.md) có rare capture trên
+actorC664C4 được điều khiển, moverv244→59DA6F, nhánh59DABE→594B68. Tại59DAD9, nativeXY560/519
+và argument16byte=`[560,480,40,40]`. Nguồn X/Y−39/40/40 đã có prefix tĩnh; đó chưa chứng minh
+hình hurtbox hoặc toàn narrow-phase collision. Không đồng nhất rectangle với R-119 chỉ vì cùng40.
+
+Hai ca chỉ điều khiểnDown sau khi nativeXY ổn định tại540/39 và535/39 cho sửa ngang về560 rồi
+Y tăng. Candidate corner assistance của player VN có trajectory và positive/opposite controls;
+chưa có ca âm để chốt ngưỡng. Không gán max34 từ pet, không thay assist12/radius13DESIGN.
+Tiếp theo là negative offset hoặc consumer đã định vị, không đọc lại các thân pet/owner đã dừng.
