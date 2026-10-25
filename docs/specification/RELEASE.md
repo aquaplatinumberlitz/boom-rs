@@ -362,7 +362,16 @@ Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (f
 | Binary trong gói chạy được trên OS của gói | `boom-server --help`/`content`/`health --offline` và `boom-client --help` chạy từ `bin/` của gói đã mở | smoke 3 OS trong `ci.yml` + `release.yml` (§3.2) |
 | Dung lượng gói | Đã đo archive QA ba OS ngày24/10; không phải ước tính minimum disk/RAM | [Metadata QA](../evidence/measurements/rust-client-ux-2026-10-24/package-qa.json) |
 
-### Chưa đo (phải đo trước khi phát hành)
+### Cấu hình Linux gọn — ưu tiên chủ dự án25/10
+
+Chủ dự án yêu cầu phần cấu hình làm nhanh gọn, không dành nguồn lực cho một campaign benchmark.
+Dùng Linuxx86_64 với các thư viện client ở bảng trên và graphics context phù hợp backend hiện hành.
+Máy tham chiếu đang kiểm: Ryzen5 3600,32GBRAM, RTX3060/driver615.78.08; contextGLX ngoài app báo
+NVIDIA/OpenGL4.6, gói Linux c488 đã mở cửa sổ. Đây là **máy đã có**, không phải yêu cầu tối thiểu hay
+đề nghị mua phần cứng. Không suy FPS/RAMminimum từ ba frame/snapshot. Chi tiết cấu hình có thể bổ sung
+sau; không chặn luồng Linux/#146/#149 bằng kế hoạch benchmarkCPU/RAM/GPU dài.
+
+### Chưa đo (giữ giới hạn; không mở campaign cấu hình lúc này)
 
 - Cấu hình máy tối thiểu (CPU/RAM/GPU) — câu hỏi mở của V1-036, chưa có phép đo.
 - Thời gian build/mở gói trên máy người dùng (build mới đo trên runner CI); dung lượng archive QA đã ghi trong metadata.
