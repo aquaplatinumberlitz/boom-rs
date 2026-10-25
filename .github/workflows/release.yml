@@ -15,6 +15,11 @@ on:
         required: false
         default: "dev"
         type: string
+      native_gui:
+        description: "Đo cửa sổ/framebuffer thật 1x/2x (không focus/minHW/G6); lỗi giữ nguyên, không retry"
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
       - "v*"
@@ -208,4 +213,37 @@ jobs:
         with:
           name: boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}-smoke
           path: dist/smoke-log.txt
+          if-no-files-found: error
+
+      # Diagnostic opt-in: archives/smoke logs above are preserved even if a runner
+      # cannot create a native context. Failure is an observation, never a G6 pass.
+      - name: Native GUI window probe (Linux software GL)
+        timeout-minutes: 3
+        if: ${{ inputs.native_gui && runner.os == 'Linux' }}
+        env:
+          BOOM_QA_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+          PKG="dist/smoke/boom-rs-${BOOM_QA_VERSION}-${{ matrix.os_name }}-${{ matrix.arch }}"
+          xvfb-run -a -s "-screen 0 1920x1440x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            python tools/gui_probe.py --package "$PKG" --out dist/gui-probe.json
+
+      - name: Native GUI window probe (Windows/macOS observed context)
+        timeout-minutes: 2
+        if: ${{ inputs.native_gui && runner.os != 'Linux' }}
+        env:
+          BOOM_QA_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          PKG="dist/smoke/boom-rs-${BOOM_QA_VERSION}-${{ matrix.os_name }}-${{ matrix.arch }}"
+          python tools/gui_probe.py --package "$PKG" --out dist/gui-probe.json
+
+      - name: Upload native GUI observations (JSON only)
+        if: ${{ !cancelled() && inputs.native_gui && hashFiles('dist/gui-probe.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: boom-rs-${{ steps.version.outputs.version }}-${{ matrix.os_name }}-${{ matrix.arch }}-gui
+          path: dist/gui-probe.json
           if-no-files-found: error
