@@ -388,3 +388,44 @@ Nguồn đã dùng được giữ trong rawrun: frozenharness/probe/server, sour
 registered-hooks, nativeACK/getter, packetlog, XYsamples và supervisor. Máy chỉ có một runtime
 owner; stop3 kết thúc namespace riêng, wrapper xácnhận ownerfalse. Profile và các gate không đổi.
 Bước tiếp là writer/maxfield/nhánh hoặc normalization có cạnh/ca mới; không đo lại plateau7 này.
+
+## Receiver và phép tăng/kẹp C64 — R-173
+
+[10 dòng event CSV](roller-writer.csv) và [payload/metadata/101hash](roller-writer.json) kết hợp
+hai capture độc lập với phân tích tĩnh theo địa chỉ vừa quan sát. Cùng fixtureVN VBNB_116bc875…,
+Factory01index193/room19, patchIAT/devirt/offline được ghi rõ. Không yêu cầu đo lại KR theo ADR0002/0013;
+không gọi fixture tương đương nguyên bản khi chưa có proof.
+
+| Capture | Native quan sát | Ý nghĩa / giới hạn |
+|---|---|---|
+| Hardware discovery, actor449290536 | Một715E90→71B717, C64 trước5/sau6; bốn watchstop type7 tạiPC413FDA; tổng7traps | CùngPC không phải bốn writer; PC sau instruction. Cả4payload transient checksumunknown giữ nguyên, không đổi thành0 |
+| Dispatch, actor449155584 | Actual89C202 ARG1index2/ARG2selector3/ARG3receiver449157116=hero+5FC, VT C66284; return89CDCB C645→6; tổng5traps | Cùngthread/frame trong mộtACKkind2; không ghép actor/clock với capture hardware |
+| Binding tĩnh | Selector3 trỏ89C2D8/callreceiver.v+14, PEslotC66298→599499; COLoffset5FC/typeCGOZzolmanBomber | Khớp offset receiver thật; không phải breakpoint trực tiếp lên virtualtarget599499 |
+
+### Lvalue và phép cập nhật
+
+Method599499 (63B, gồmRET) lấy receiver+5C = hero+658 = controller+64. Child445516 (25B,
+gồmRET) đọc box qua414543, tínhold+1, rồi gọi413F32 ghi lại cùngbox. Call445525 córeturn44552A
+trong hardwarestack; không suy toàn bộ callgraph từ backtrace đã tối ưu/mất frame.
+
+Sauchild,599499 đọc updatedC64 và maxfield receiver+50 = hero+64C = controller+58; nếuupdated
+lớn hơnmax thì ghi max vàoC64. Trong phạm vi số nguyên bình thường của ca đã đo, đây là
+**C64=min(old+1,maxfield)**. Không dùng điều kiệnold>max (sai thứ tự), không tuyên bố semantics
+overflow. Địa chỉ maxfield đã nối; **giá trị số max chưa đo trên actor này**. R172plateau7 của
+capture/actor khác không biến thành literalmax7 của method này.
+
+### Kiểm lại và giới hạn
+
+Cảhai run có đúng một117/158kind2/x14y11, không111/151/120, actor/type riêng được giữ. NativeACK
+vàdispatch đã trả về; rootstop2 đóng namespace/process riêng, không ảnh hưởng session khác.
+Header12/payload10 đầy đủ tại các mốc cho phép giải mã lại offline: endpoint5/6 hợp lệcookie/checksum,
+cả4transient vẫnunknown. Watchrows không lưu nativeclock thì CSV để trống; không tự gán timestamp.
+
+Reader414543 xuất hiện trong bảngitem không tự làC64 reader; actoralias được nối từ actualARG3,
+vtable và địa chỉlvalue. Hai tool window yêu cầu768B/in767B, gồm code liền kề vượt giới hạn hai unit; đã dừng, giữ raw.
+Có7/9RETsite trong hai window, không gọi chúng là số hàm đã xác minh;88B hai target là phần phân tích ngữ nghĩa. Các cut RET thiếu3B trước đây giữ lại cùng bản sửa, không xóa
+raw để giảm số body. Chỉ publicmetadata, không PE/pack/ảnh/rawlongasm.
+
+R173 xác nhận đường tăng1/kẹp trên C64 được chọn. Không suy level, f2/f3, identityC00/C01KR, công thức
+px/s hoặc trần mọi nhân vật. Init/current/maxfieldsource và mappingKR vẫn ở Q017/Q020; profile vàG2/G6
+không đổi. Bước tiếp phải là cạnh khởi tạo/consumer cụ thể, không lặp12Roller/watch/dispatch đã giải.

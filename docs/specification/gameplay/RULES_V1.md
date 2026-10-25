@@ -937,3 +937,21 @@ Lượt capr1 không đăngký bootstrap nên không có phépđo. Capr2 có ba 
 Ydelta−5/−6/−7, sauđó bỏsót cặp trước pickup4 và failclosed; không lấy12wireACK thành12nativecapture.
 Capr3 chuyển điểm quan sát sang native158entry/return và getter cuối; giữ toàn bộ raw các lượt.
 Không sửa profile, nhãn C00/C01 candidate hoặc gate; cadence/normalization/identity và writer vẫn theo Q-017/Q-020.
+
+## 37. Roller VN: receiver thật và phép tăng/kẹp C64 (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-173 | Nativekind2 đi qua89C202 vớiARG1index2/ARG2selector3/ARG3=hero+5FC, receiverVT C66284/COLoffset5FC/CGOZzolmanBomber. Selector3 chọn nhánh89C2D8 gọislot+14; PEslot trỏ599499. Method dùngC64 tạireceiver+5C=controller+64, gọi445516 đọcold→old+1→ghi413F32, sauđó so updatedC64 với maxfieldreceiver+50=controller+58 và kẹp nếu vượt. Native trước/sau selecteddispatch là5→6 | Phép tăng1 và kẹp theo maxfield trên lvalueC64; khônglevel/đơnvị thời gian | vn_runtime + vn_static / confirmed (typedreceiver, dataflow và ca đã đo) | [CSV/payload/hash và scope](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#receiver-và-phép-tăngkẹp-c64--r-173); fixturebc875…/Factory01/room19; actualdispatch89C202→89CDCB trên cùngthread/frame. Virtualtarget599499 là liên kếtPE+nhánh đã chọn, không breakpoint trực tiếp lên target. Maxfield có địa chỉ, chưa đo số max trong actor này; chưa ánh xạ KR/C00/C01/f2–f3 |
+
+Method599499 có63byte và child445516 có25byte đã kiểm gồmRET. Childcall445525→413F32,
+return44552A xuất hiện trong hardwarewatch stack của capture khác. Capturewatch actor449290536
+và capturedispatch actor449155584 được giữ riêng, không ghép đồnghồ hoặc identity. Bốn watchstop
+cùngPC413FDA là trạng thái ghi payload mãhóa dở/checksumunknown, không phải bốn writer khác nhau.
+Payload đầy đủ ở mốc trước/sau cho phép giải mã lại offline5/6 và kiểm cookie/checksum.
+
+Công thức kẹp mô tả đường khôngoverflow của ca này; không gọi mọi phép ghi mãhóa là tăng chỉ số.
+R-172 đã xác nhận plateau7 trong actor khác; không ghép nó thành literalmax7 của method này.
+Reader414543 ở đường bảng item không tự chứng minh nó đọcC64; alias được chốt từ receiver/lvalue
+thật. Còn thiếu nguồn khởi tạo current/maxfield, identity/Attr KR và normalization; không thay profile,
+12khóa candidate hoặc trạng thái G2/G6.

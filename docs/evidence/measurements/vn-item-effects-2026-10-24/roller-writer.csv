@@ -1,0 +1,11 @@
+run,actor,event,hardware_capture,c64_value,c64_state,header12,payload10,thread,arg1_index,selector_arg2,arg3_receiver,arg3_hero_offset,arg3_vtable,pc,backtrace_pcs,native_clock,clock_status,note
+writer-r1,449290536,native_entry,hardware_requested_type7; remote_insertion_unverified,5,ok,63c7c71a9c70c71a80d8c71a,0233904a07639c00f47f,42000:312:0,,,,,,,,844712601677472,gdb_monotonic,
+writer-r1,449290536,write_observation,nativeHWstopobserved,,unknown,63c7c71a9c70c71a80d8c71a,db33904add639c00659a,42000:312:0,,,,,,0x413fda,0x00413fda|0x0044552a|0x0089cdcb|0x0089d164|0x006e7d28|0x005a5f6c|0x007160c0|0x0071b717,,missing_probe_monotonic,transient cipher state; cannot claim value
+writer-r1,449290536,write_observation,nativeHWstopobserved,,unknown,63c7c71a9c70c71a80d8c71a,dbe2904add639c00eed3,42000:312:0,,,,,,0x413fda,0x00413fda|0x0044552a|0x0089cdcb|0x0089d164|0x006e7d28|0x005a5f6c|0x007160c0|0x0071b717,,missing_probe_monotonic,transient cipher state; cannot claim value
+writer-r1,449290536,write_observation,nativeHWstopobserved,,unknown,63c7c71a9c70c71a80d8c71a,dbe2ee4add639c00f49f,42000:312:0,,,,,,0x413fda,0x00413fda|0x0044552a|0x0089cdcb|0x0089d164|0x006e7d28|0x005a5f6c|0x007160c0|0x0071b717,,missing_probe_monotonic,transient cipher state; cannot claim value
+writer-r1,449290536,write_observation,nativeHWstopobserved,,unknown,63c7c71a9c70c71a80d8c71a,dbe2ee06dd639c00aaff,42000:312:0,,,,,,0x413fda,0x00413fda|0x0044552a|0x0089cdcb|0x0089d164|0x006e7d28|0x005a5f6c|0x007160c0|0x0071b717,,missing_probe_monotonic,transient cipher state; cannot claim value
+writer-r1,449290536,native_return,,6,ok,63c7c71a9c70c71a80d8c71a,dbe2ee06dd639c007dfd,,,,,,,,,844712646384562,gdb_monotonic,
+dispatch-r1,449155584,native_entry,,5,ok,b58cc51a419bc51a78c8c51a,2c7f287a29b54100f55f,42000:316:0,,,,,,715e90,,845834355269589,gdb_monotonic,
+dispatch-r1,449155584,dispatch_entry,,5,ok,b58cc51a419bc51a78c8c51a,2c7f287a29b54100f55f,42000:316:0,2,3,449157116,1532,0xc66284,89c202,,845834361857125,gdb_monotonic,branch_va=0x89c2d8
+dispatch-r1,449155584,dispatch_return,,6,ok,b58cc51a419bc51a78c8c51a,1d62ee061bb541007cfd,42000:316:0,,,,,,89cdcb,,845834365309368,gdb_monotonic,
+dispatch-r1,449155584,native_return,,6,ok,b58cc51a419bc51a78c8c51a,1d62ee061bb541007cfd,,,,,,,71b717,,845834369330502,gdb_monotonic,
