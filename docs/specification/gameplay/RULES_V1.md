@@ -1150,3 +1150,15 @@ R-217 không đủ để đổi `presentation.frame_duration_ms`: giá trị hi�
 83±33 ms; **đề xuất giữ100 ms** và không đổi `anim::character_loop_frame` chỉ từ video này. Nếu cần
 per-clip walk/blink, phải đo với anchor sprite tách vị trí hoặc locator native; không suy walk từ video
 dịch chuyển. Không đổi profile/G2/G6/release; #311 runtime vẫn partial.
+
+## 52. Walk C00: pose và bước dịch trên video VN — R-218 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-218 | Trên video VN đã quay (C00 giữ trái 3 s), bám **red-mask bbox** theo vị trí: 105/105 frame walk tracked; trong đoạn 5,15–6,30 s có 41 mẫu. Bước dịch median **6,24 px/frame video**, PTS median **33 ms** (≈30,3 fps); linear x ≈**214 px/s** trong đoạn (có đoạn né/kẹp nên chỉ là video-scope). Pose đổi theo cụm median **3 frame video** (~99 ms ở33 ms); transition median **83 ms** (17–433 ms) | Step≈6,24 px/video frame; walk pose≈3 frame/~83–100 ms; speed video-scope≈214 px/s | `vn_runtime` / **partial** (visual tracking, không locator native) | Raw local `/home/admin/boom-rs-dsh/re-kr/.re-work/anim311-video-r2/capture.mkv` (không commit), `walk_track.json`, `actions.jsonl`. Capture thực tế 30,3 fps, **không phải60 fps**; sai số±33 ms, không phải±16.7. Không có native counter/ODT, không chứng minh mọi đoạn/mode; fire không đặt |
+
+R-218 **không đổi** `presentation.frame_duration_ms`: pose walk median3 frame video ≈99 ms (transition
+median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và không đổi
+`anim::character_loop_frame`. Bước6,24 px/frame video cho thấy client gốc cập nhật vị trí theo bước
+rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
+không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 partial.
