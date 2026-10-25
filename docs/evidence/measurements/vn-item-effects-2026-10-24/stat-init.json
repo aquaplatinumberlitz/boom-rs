@@ -1,0 +1,1526 @@
+{
+  "claim": "R-174",
+  "question": "source and order of base/max/current initialization in one actor per capture",
+  "fixture": {
+    "build": "VN VBNB_116 offline fixture",
+    "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+    "image_base": "0x400000",
+    "patch_scope": "IAT/devirt/offline reconstruction; vanilla semantic equivalence unproven; source trusted by owner per ADR0002/0013"
+  },
+  "runs": {
+    "host-stat-init-149-r1": {
+      "actor": 449423536,
+      "watch_targets": [
+        "current+0x658",
+        "current-payload-pointer+8"
+      ],
+      "events": [
+        {
+          "run": "host-stat-init-149-r1",
+          "ordinal": 0,
+          "kind": "ctor_return",
+          "actor": 449423536,
+          "pc": "0x7bc41e",
+          "label": null,
+          "trap_count": 1,
+          "watch_type": null,
+          "boxes": {
+            "base": {
+              "state": "unobserved"
+            },
+            "max": {
+              "state": "ok",
+              "value": 0,
+              "raw": "0dcfc91ac9aac91a88dfc91a",
+              "payload": 449437576,
+              "header12": "0dcfc91ac9aac91a88dfc91a",
+              "payload10": "b99c62eeb90dc9009d5f"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "raw": "86a5c91a98e8c91aa8dfc91a",
+              "payload": 449437608,
+              "header12": "86a5c91a98e8c91aa8dfc91a",
+              "payload10": "093ca26e098698009cfb"
+            }
+          },
+          "thread": [
+            42000,
+            316,
+            0
+          ],
+          "descriptor_pointer_550": 359792672,
+          "opaque_pointer_554": 449462784
+        },
+        {
+          "run": "host-stat-init-149-r1",
+          "ordinal": 1,
+          "kind": "payload_write",
+          "actor": 449423536,
+          "pc": "0x413fda",
+          "label": "current",
+          "trap_count": 2,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unobserved"
+            },
+            "current": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "raw": "86a5c91a98e8c91aa8dfc91af4e3c91a",
+              "header12": "86a5c91a98e8c91aa8dfc91a",
+              "payload10": "f13ca26ef4869800659a"
+            },
+            "max": {
+              "state": "ok",
+              "value": 7,
+              "raw": "0dcfc91ac9aac91a88dfc91a",
+              "payload": 449437576,
+              "header12": "0dcfc91ac9aac91a88dfc91a",
+              "payload10": "9351ccc2940dc900b4fe"
+            }
+          },
+          "thread": [
+            42000,
+            316,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059bd50",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520",
+            "016b6077"
+          ]
+        },
+        {
+          "run": "host-stat-init-149-r1",
+          "ordinal": 2,
+          "kind": "payload_write",
+          "actor": 449423536,
+          "pc": "0x413fda",
+          "label": "current",
+          "trap_count": 3,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unobserved"
+            },
+            "current": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "raw": "86a5c91a98e8c91aa8dfc91af4e3c91a",
+              "header12": "86a5c91a98e8c91aa8dfc91a",
+              "payload10": "f10fa26ef48698003bd3"
+            },
+            "max": {
+              "state": "ok",
+              "value": 7,
+              "raw": "0dcfc91ac9aac91a88dfc91a",
+              "payload": 449437576,
+              "header12": "0dcfc91ac9aac91a88dfc91a",
+              "payload10": "9351ccc2940dc900b4fe"
+            }
+          },
+          "thread": [
+            42000,
+            316,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059bd50",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520",
+            "016b6077"
+          ]
+        },
+        {
+          "run": "host-stat-init-149-r1",
+          "ordinal": 3,
+          "kind": "payload_write",
+          "actor": 449423536,
+          "pc": "0x413fda",
+          "label": "current",
+          "trap_count": 4,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unobserved"
+            },
+            "current": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "raw": "86a5c91a98e8c91aa8dfc91af4e3c91a",
+              "header12": "86a5c91a98e8c91aa8dfc91a",
+              "payload10": "f10f486ef4869800de99"
+            },
+            "max": {
+              "state": "ok",
+              "value": 7,
+              "raw": "0dcfc91ac9aac91a88dfc91a",
+              "payload": 449437576,
+              "header12": "0dcfc91ac9aac91a88dfc91a",
+              "payload10": "9351ccc2940dc900b4fe"
+            }
+          },
+          "thread": [
+            42000,
+            316,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059bd50",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520",
+            "016b6077"
+          ]
+        },
+        {
+          "run": "host-stat-init-149-r1",
+          "ordinal": 4,
+          "kind": "payload_write",
+          "actor": 449423536,
+          "pc": "0x413fda",
+          "label": "current",
+          "trap_count": 5,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unobserved"
+            },
+            "current": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "raw": "86a5c91a98e8c91aa8dfc91af4e3c91a",
+              "header12": "86a5c91a98e8c91aa8dfc91a",
+              "payload10": "f10f48baf4869800fece"
+            },
+            "max": {
+              "state": "ok",
+              "value": 7,
+              "raw": "0dcfc91ac9aac91a88dfc91a",
+              "payload": 449437576,
+              "header12": "0dcfc91ac9aac91a88dfc91a",
+              "payload10": "9351ccc2940dc900b4fe"
+            }
+          },
+          "thread": [
+            42000,
+            316,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059bd50",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520",
+            "016b6077"
+          ]
+        },
+        {
+          "run": "host-stat-init-149-r1",
+          "ordinal": 5,
+          "kind": "updater",
+          "actor": 449423536,
+          "pc": "0x5b1472",
+          "label": null,
+          "trap_count": 6,
+          "watch_type": null,
+          "boxes": {
+            "base": {
+              "state": "unobserved"
+            },
+            "current": {
+              "state": "ok",
+              "value": 5,
+              "raw": "86a5c91a98e8c91aa8dfc91a",
+              "payload": 449437608,
+              "header12": "86a5c91a98e8c91aa8dfc91a",
+              "payload10": "59dfe8fa5c869800f5ff"
+            },
+            "max": {
+              "state": "ok",
+              "value": 7,
+              "raw": "0dcfc91ac9aac91a88dfc91a",
+              "payload": 449437576,
+              "header12": "0dcfc91ac9aac91a88dfc91a",
+              "payload10": "9351ccc2940dc900b4fe"
+            }
+          },
+          "thread": [
+            42000,
+            316,
+            0
+          ],
+          "descriptor_pointer_550": 359792672,
+          "opaque_pointer_554": 450469280
+        }
+      ],
+      "row_count": 6,
+      "packet_events": 114,
+      "forbidden_opcodes_absent": [
+        111,
+        117,
+        120,
+        151,
+        158
+      ],
+      "timing_excluded": true,
+      "exit_code": 0
+    },
+    "host-stat-init-base-max-149-r1": {
+      "actor": 449224784,
+      "watch_targets": [
+        "base+0x640",
+        "max+0x64c"
+      ],
+      "events": [
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 0,
+          "kind": "ctor_return",
+          "actor": 449224784,
+          "pc": "0x7bc41e",
+          "label": null,
+          "trap_count": 1,
+          "watch_type": null,
+          "boxes": {
+            "base": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238568,
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "4abea6764abfe000ddff"
+            },
+            "max": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238600,
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "50cabea65011d9007dfd"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "descriptor_pointer_550": 356057120,
+          "opaque_pointer_554": 449263904
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 1,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "base",
+          "trap_count": 2,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5bea676d0bfe000659a",
+              "payload": 449238568,
+              "raw": "bf9dc61ae072c61a28d6c61a11bfc61a"
+            },
+            "max": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238600,
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "50cabea65011d9007dfd"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059750a",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 2,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "base",
+          "trap_count": 3,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfa676d0bfe000fbd3",
+              "payload": 449238568,
+              "raw": "bf9dc61ae072c61a28d6c61a11bfc61a"
+            },
+            "max": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238600,
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "50cabea65011d9007dfd"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059750a",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 3,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "base",
+          "trap_count": 4,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfc876d0bfe000de9f",
+              "payload": 449238568,
+              "raw": "bf9dc61ae072c61a28d6c61a11bfc61a"
+            },
+            "max": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238600,
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "50cabea65011d9007dfd"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059750a",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 4,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "base",
+          "trap_count": 5,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfc8bad0bfe000fefe",
+              "payload": 449238568,
+              "raw": "bf9dc61ae072c61a28d6c61a11bfc61a"
+            },
+            "max": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238600,
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "50cabea65011d9007dfd"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "0059750a",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 5,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "max",
+          "trap_count": 6,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "ok",
+              "value": 5,
+              "payload": 449238568,
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfc8bad0bfe000f5f7"
+            },
+            "max": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "05cabea60211d900659a",
+              "payload": 449238600,
+              "raw": "11bfc61ad9d5c61a48d6c61abfa5c61a"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "00597518",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 6,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "max",
+          "trap_count": 7,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "ok",
+              "value": 5,
+              "payload": 449238568,
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfc8bad0bfe000f5f7"
+            },
+            "max": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "0531bea60211d9003dd3",
+              "payload": 449238600,
+              "raw": "11bfc61ad9d5c61a48d6c61abfa5c61a"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "00597518",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 7,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "max",
+          "trap_count": 8,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "ok",
+              "value": 5,
+              "payload": 449238568,
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfc8bad0bfe000f5f7"
+            },
+            "max": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "05318ca60211d900fa99",
+              "payload": 449238600,
+              "raw": "11bfc61ad9d5c61a48d6c61abfa5c61a"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "00597518",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 8,
+          "kind": "payload_write",
+          "actor": 449224784,
+          "pc": "0x413fda",
+          "label": "max",
+          "trap_count": 9,
+          "watch_type": 7,
+          "boxes": {
+            "base": {
+              "state": "ok",
+              "value": 5,
+              "payload": 449238568,
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfc8bad0bfe000f5f7"
+            },
+            "max": {
+              "state": "unknown",
+              "error": "cookie/checksum",
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "05318c420211d900d6cf",
+              "payload": 449238600,
+              "raw": "11bfc61ad9d5c61a48d6c61abfa5c61a"
+            },
+            "current": {
+              "state": "ok",
+              "value": 0,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "6e0636966ebfa700dc5f"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "backtrace_pcs": [
+            "00413fda",
+            "00597518",
+            "005a51e2",
+            "005aedc0",
+            "006eb8a3",
+            "006ec22a",
+            "00715d01",
+            "00718bcf",
+            "0071aa82",
+            "0071b520"
+          ]
+        },
+        {
+          "run": "host-stat-init-base-max-149-r1",
+          "ordinal": 9,
+          "kind": "updater",
+          "actor": 449224784,
+          "pc": "0x5b1472",
+          "label": null,
+          "trap_count": 10,
+          "watch_type": null,
+          "boxes": {
+            "base": {
+              "state": "ok",
+              "value": 5,
+              "payload": 449238568,
+              "header12": "bf9dc61ae072c61a28d6c61a",
+              "payload10": "d5cfc8bad0bfe000f5f7"
+            },
+            "max": {
+              "state": "ok",
+              "value": 7,
+              "payload": 449238600,
+              "header12": "11bfc61ad9d5c61a48d6c61a",
+              "payload10": "05318c420211d900b47e"
+            },
+            "current": {
+              "state": "ok",
+              "value": 5,
+              "payload": 449238632,
+              "header12": "bfa5c61aa7dac61a68d6c61a",
+              "payload10": "a56f083aa0bfa700f4f7"
+            }
+          },
+          "thread": [
+            42000,
+            308,
+            0
+          ],
+          "descriptor_pointer_550": 356057120,
+          "opaque_pointer_554": 450270528
+        }
+      ],
+      "row_count": 10,
+      "packet_events": 105,
+      "forbidden_opcodes_absent": [
+        111,
+        117,
+        120,
+        151,
+        158
+      ],
+      "timing_excluded": true,
+      "exit_code": 0
+    }
+  },
+  "field_aliases": {
+    "base_actor": "0x640",
+    "max_actor": "0x64c",
+    "current_actor": "0x658",
+    "controller_actor": "0x5f4",
+    "descriptor_pointer_actor": "0x550",
+    "opaque_resolved_pointer_actor": "0x554"
+  },
+  "static_clip_coverage": [
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/clip597432.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x597432",
+      "requested_window": 512,
+      "read_candidate_bytes": 512,
+      "retained_decoded_bytes": 283,
+      "end_exclusive": "0x59754d",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "a2e52f164e60ff99274273edd3a2302c83bf1d712a7c3ea6d54c1e408d34b6df"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/clip595fd8.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x595fd8",
+      "requested_window": 384,
+      "read_candidate_bytes": 384,
+      "retained_decoded_bytes": 128,
+      "end_exclusive": "0x596058",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "176c5801a487af9e6a6f038a6326d7a3c6f1bd53b4e3b034f9ca599c32d330b2"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/fallthrough971a3b.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x971a3b",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 30,
+      "end_exclusive": "0x971a59",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "3b9121c7d7403949070bbe7c5641bb8a2386238b0c74b1bf59d599bd06b22efc"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/maxgetter971b26.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x971b26",
+      "requested_window": 64,
+      "read_candidate_bytes": 64,
+      "retained_decoded_bytes": 17,
+      "end_exclusive": "0x971b37",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "244c8dd7ee256baee7f9c037fa7163a60dd157386942322027d01e606edd0515"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/rowgetter971a0f.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x971a0f",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 44,
+      "end_exclusive": "0x971a3b",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "0578fce4447f60494fd08e1972cba657f0f5a22f6527d740592db951972aa870"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/outer5a517f-clip.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x5a517f",
+      "requested_window": 768,
+      "read_candidate_bytes": 768,
+      "retained_decoded_bytes": 676,
+      "end_exclusive": "0x5a5423",
+      "terminal": "ret",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "eca702d4fbbb80ab28b9a83b8cf397a315e067ae13fb341a07a7ab3b889ee715"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/outer5aed95-clip.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x5aed95",
+      "requested_window": 384,
+      "read_candidate_bytes": 384,
+      "retained_decoded_bytes": 133,
+      "end_exclusive": "0x5aee1a",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "50b37ab8eb701af2ffbc78d0ca84adb8392dde10db4c9916ea4465aa7455bfbe"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/setter59bd36-clip.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x59bd36",
+      "requested_window": 128,
+      "read_candidate_bytes": 128,
+      "retained_decoded_bytes": 38,
+      "end_exclusive": "0x59bd5c",
+      "terminal": "jmp",
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "d0d16b6ffa5e523b7f8bffbef7889865bdd2b070949668a1895145e388625a3c"
+    },
+    {
+      "metadata_private_path": ".re-work/roller149-native-speed/stat-init-source/vt90_5a09ab-clip.json",
+      "source": ".re-work/vn-grace-240/game/ca_fixed_patched.exe",
+      "source_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+      "start": "0x5a09ab",
+      "requested_window": 768,
+      "read_candidate_bytes": 768,
+      "retained_decoded_bytes": 765,
+      "end_exclusive": "0x5a0ca8",
+      "terminal": null,
+      "complete_function": false,
+      "scope": "instruction block/prefix only; terminal jmp/ret stops printing; caller must establish entry, control flow and function boundary separately",
+      "clip_sha256": "25956349078d2c05716050e3a43d086bc32f1ddb4795baf1fd2ed7c94646a584"
+    }
+  ],
+  "typed_vtable_data": [
+    {
+      "private_path": "/home/admin/boom-team/tmp/stat-init-root-vslots.json",
+      "bytes": 450,
+      "sha256": "3f42580406f7b2bc6a2ac96c35196d5e7d1633e8cb39c450428c2e78772d68dc",
+      "data": {
+        "source": "/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe",
+        "sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+        "vtable": "0xc664c4",
+        "slots": [
+          {
+            "offset": "0x90",
+            "va": "0xc66554",
+            "bytes4": "ab095a00",
+            "target": "0x5a09ab"
+          },
+          {
+            "offset": "0x1a0",
+            "va": "0xc66664",
+            "bytes4": "36bd5900",
+            "target": "0x59bd36"
+          }
+        ]
+      }
+    },
+    {
+      "private_path": "/home/admin/boom-team/tmp/stat-init-root-row-vslots.json",
+      "bytes": 474,
+      "sha256": "9d52c6e6355e938ec21541105af520b0c8f90cfde2de28d8359e8a001195b8bd",
+      "data": {
+        "fixture_sha256": "bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1",
+        "vtable": "0xc664c4",
+        "slots": [
+          {
+            "slot": "0xa0",
+            "va": "0xc66564",
+            "bytes4": "d85f5900",
+            "target": "0x595fd8"
+          },
+          {
+            "slot": "0xa4",
+            "va": "0xc66568",
+            "bytes4": "3f4a5900",
+            "target": "0x594a3f"
+          },
+          {
+            "slot": "0xa8",
+            "va": "0xc6656c",
+            "bytes4": "e04a5900",
+            "target": "0x594ae0"
+          }
+        ]
+      }
+    }
+  ],
+  "raw_and_static_files": [
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/01-channels.png",
+      "bytes": 609807,
+      "sha256": "fbc06430dd9de100e3cebf62c5b9b5e992612f4b9598dd3b5947acfc91b50581"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/03-create-dialog.png",
+      "bytes": 375232,
+      "sha256": "62255171cc46e34c19b489288a52c28911c67713c364ce72c75fd3b644195092"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/04-room.png",
+      "bytes": 385945,
+      "sha256": "c8f61268535f25a90d2e783008b790ed645d753c803093fed2cf7de84cada8c9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/05-match.png",
+      "bytes": 406202,
+      "sha256": "14da73d2503761106a2568da5b75bf4ed5112a748129d446678ede580437172d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/command.json",
+      "bytes": 23,
+      "sha256": "c1ebd65d6bc2bd89d830c2ab9c4bbaf93dc97ab97eec75484b89cb72c584e45a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/ctor-return.json",
+      "bytes": 747,
+      "sha256": "7f1af9ac92c0b0b5bcaff845878edab088ac7018032aa0ae62b89512d6df9ff0"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/harness-used.py",
+      "bytes": 16270,
+      "sha256": "adf5f54e6687d117e7b78215e55ad389ad15713ac2efe5e26c6947a1b533c470"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/hero-target.json",
+      "bytes": 1050,
+      "sha256": "b4b1fc58d586b909f142340da04c217de239fed9b518345a517575f0b13ccb83"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "bfead2bee8fabfd2d5cd8072eae91ff9a6361e8e5d5b5c959e916f5e97c8821f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/packets.jsonl",
+      "bytes": 17135,
+      "sha256": "e59f55e0b54a3ee523ed2f46f518a27d375a65ffad82710dca58360332f506cf"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/packets.log",
+      "bytes": 13418,
+      "sha256": "05eeae232b3f52dc111aad7f122792e3181e72fdd533f329b5bd68726d269f83"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/position-samples.jsonl",
+      "bytes": 93806,
+      "sha256": "d5e5bc4db973fc60db385308bf804d0e5b39cf1dc21e42805d45d59327d9272a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/probe-ready.json",
+      "bytes": 183,
+      "sha256": "2578099e1270da71551718840ef4e5200c6fdf7dd0f9886639999f1c69e268ae"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/probe-template-used.gdb",
+      "bytes": 12041,
+      "sha256": "3d8d847d23c831b80e1ea152beac5e264e24942e2de9a24abd08db89c8375024"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/probe.gdb",
+      "bytes": 12041,
+      "sha256": "3d8d847d23c831b80e1ea152beac5e264e24942e2de9a24abd08db89c8375024"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/ready.json",
+      "bytes": 75,
+      "sha256": "60975bd7d21d3d5819fcc780d5e911c77bc4ac032445c66d1ce5f7389565c845"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/registered-hooks.json",
+      "bytes": 209,
+      "sha256": "1356162e8a4e58b89356423ca969ee6ed7d236e016b430ed554fa87549a81ad3"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/server-used.py",
+      "bytes": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/server.log",
+      "bytes": 13418,
+      "sha256": "05eeae232b3f52dc111aad7f122792e3181e72fdd533f329b5bd68726d269f83"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/sources.json",
+      "bytes": 423,
+      "sha256": "544d902a1b7929e3af1be7114a390d05c1d47329a119d9646b7425165e644de9"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/start.json",
+      "bytes": 1289,
+      "sha256": "8731e50ee2d1735db2cdf67ad4d981b838b6e3e1581a51f2711ae23b79fa2723"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/supervisor.log",
+      "bytes": 259,
+      "sha256": "dd78f6b8c2aee63f7e812d5fc4a947e54ffca22752a3b83b09048ac66ac1def1"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/updater.json",
+      "bytes": 1002,
+      "sha256": "f942de399a6c18ecb5be7af74284168993b755be82f931736a2d44edeccb074f"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/watch-events.jsonl",
+      "bytes": 8759,
+      "sha256": "ebbdafab9e809c39b5af4bccca4e793bde19b554a16f2d625effc09af11ec728"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/watch-registration.json",
+      "bytes": 412,
+      "sha256": "2390a85c5d93f95bdf24d24df0f6332a8536aeb568096ad4b3063174f69c98ab"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/winedbg.log",
+      "bytes": 15683,
+      "sha256": "4791301a31c6e6f42c30f1f5db47f3cf4d49652b2016a78f8247300c193bcb2d"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-149-r1/xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/00-initial.png",
+      "bytes": 233,
+      "sha256": "00d7d2037518ebad04c98c1f0a96d222ef48e98eceec63f571387c9a860e54d2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/01-channels.png",
+      "bytes": 610452,
+      "sha256": "8eff69c15faf4c98e4af475ec9f9ee867a4809a1845b31a9fe0b2fdece899e70"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/02-lobby.png",
+      "bytes": 185734,
+      "sha256": "4109908ad25eeab7183fe2d0209761a5a64733e55bdb8f4bfa3ae9aaaff3bf7c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/03-create-dialog.png",
+      "bytes": 375251,
+      "sha256": "6566e34c3ab55894b9526979725831070e661e124802b957befb25064049ba42"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/04-room.png",
+      "bytes": 386015,
+      "sha256": "4b7ac4c0d9c8075c2e0c392d98ef55fefb213367a1d72c46cb85c442c935c02b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/05-match.png",
+      "bytes": 406361,
+      "sha256": "70f3d62c70006c2229da6e25010a0c0cd2429265c59e5f202e775a09724166e7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/command.json",
+      "bytes": 23,
+      "sha256": "c1ebd65d6bc2bd89d830c2ab9c4bbaf93dc97ab97eec75484b89cb72c584e45a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/ctor-return.json",
+      "bytes": 799,
+      "sha256": "6ec062d845b51d3d4417fe96d65bed438ffd62918b75a8d5eef7bc666a327c66"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/harness-used.py",
+      "bytes": 16282,
+      "sha256": "ad1959b5ffe9550cbab9e3aff8797d1de9db2eefb5f9149655f311442921375b"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/hero-target.json",
+      "bytes": 870,
+      "sha256": "b2e1779fc48c43f4e4f8ebd64c2c577c777d1be2cbda483e1a024638a4b6ad7e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/isolation.json",
+      "bytes": 680,
+      "sha256": "bfdb47b56871db38bc8777ddc5a692976cfa7b004a1c846397b12916741943a7"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/packets.jsonl",
+      "bytes": 15755,
+      "sha256": "153e514648f6fee034ab185f77f138f09209fe6e068f37ca9fe62540dbe81b97"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/packets.log",
+      "bytes": 12335,
+      "sha256": "3ae7b151f4d90001b067c25bccc6a8e51d1f371042534cd0065764c546966c7a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/pids.json",
+      "bytes": 99,
+      "sha256": "59f612fad1fe7f22293559b3f99a40b4f0dc6a73a8bc4f1a1fbbecd83972e15c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/position-samples.jsonl",
+      "bytes": 61982,
+      "sha256": "141ebb647bdbd122227f58a4c23c3cde1aeebb4bfa6a8f4b6398a9b74464f74c"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/probe-ready.json",
+      "bytes": 223,
+      "sha256": "eb389d509c881998615d038936ba686399ce9c01216498c67de0caf59c2f4dd4"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/probe-template-used.gdb",
+      "bytes": 11848,
+      "sha256": "000b8115a86227f22df195e8d34e8af37000c15fa3fec7623d227f64a5d2af92"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/probe.gdb",
+      "bytes": 11848,
+      "sha256": "000b8115a86227f22df195e8d34e8af37000c15fa3fec7623d227f64a5d2af92"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/ready.json",
+      "bytes": 75,
+      "sha256": "95437ecba08a4b40269e1e48956f35608c8c61a1156fef601d672963a6343532"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/registered-hooks.json",
+      "bytes": 254,
+      "sha256": "5bd3ef379a1c2187a1f3fa5d9ab60ab140de87090a931079169226981034848e"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/server-used.py",
+      "bytes": 45522,
+      "sha256": "61cecf2508b3e6190b5052b019c2ee5f61ff4f1739d52e74ce86fa4135d81dd2"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/server.log",
+      "bytes": 12335,
+      "sha256": "3ae7b151f4d90001b067c25bccc6a8e51d1f371042534cd0065764c546966c7a"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/sources.json",
+      "bytes": 427,
+      "sha256": "3cdb0f0151516f38ebbde16c368246efa163edc481a5452dc1265af7f6644f08"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/start.json",
+      "bytes": 1293,
+      "sha256": "a50b68d2a0eba7d8b104f70b03fd06ae35ffe38b0099be54bd45b03b7f11ec05"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/supervisor.log",
+      "bytes": 259,
+      "sha256": "d4dc9608ad8daf556681be71cdd7bdd100ab2737bdfb1cfd7886531e9da27290"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/updater.json",
+      "bytes": 1001,
+      "sha256": "d2a6e584035cdb96c8b7885d96765536576d9e1a17b27b6f6b32555d79a794ec"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/watch-events.jsonl",
+      "bytes": 17358,
+      "sha256": "918df63c93e6c3428e810a91ad772d2bff9e922ebbb56606f8761825e189aed3"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/watch-registration.json",
+      "bytes": 405,
+      "sha256": "2531d6129ef854e954bcc9ddea34ccf98a3f6a1017c530911e900237933eeb62"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/winedbg.log",
+      "bytes": 15364,
+      "sha256": "fae382740c67dfc5521185e647ad8b52926d6828101ead3af9726b37cddc2e03"
+    },
+    {
+      "private_path": ".re-work/vn-grace-240/host-stat-init-base-max-149-r1/xvfb.log",
+      "bytes": 1485,
+      "sha256": "58cf6ef0d7f47b88728067a22398ad2ac81ef41419f195bef80c809a5bd9ce61"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/asm/data_59bd20_59bd50.asm",
+      "bytes": 470,
+      "sha256": "5849f6166a9775805c793d7a2906f4619df296fbf0e8e07902456adefa469953"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/bytes/data_59bd20_59bd50.bin",
+      "bytes": 48,
+      "sha256": "450e2afaaf2cbfc0e107749898dbb448dabe32ff7033da3fe805e5105c0293c8"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/bytes/data_59bd20_59bd50.hex",
+      "bytes": 97,
+      "sha256": "6151beb25f4c56e3033fbb1b102e9c31449192e2fc73dad103f78899591609a1"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/asm/clip597432.asm",
+      "bytes": 3593,
+      "sha256": "d94168acdf968b3b4109c5ed95719ef936b490bd287453b5cbd2528add94e235"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/bytes/clip597432.bin",
+      "bytes": 283,
+      "sha256": "a2e52f164e60ff99274273edd3a2302c83bf1d712a7c3ea6d54c1e408d34b6df"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/clip597432.asm",
+      "bytes": 3593,
+      "sha256": "d94168acdf968b3b4109c5ed95719ef936b490bd287453b5cbd2528add94e235"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/clip597432.bin",
+      "bytes": 283,
+      "sha256": "a2e52f164e60ff99274273edd3a2302c83bf1d712a7c3ea6d54c1e408d34b6df"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/clip597432.json",
+      "bytes": 587,
+      "sha256": "bfe7bb89f904298663baa7c2c35a77294d847faab2c866ca3e8ed3d090991392"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/ledger.json",
+      "bytes": 1548,
+      "sha256": "6b2f74b28ee249e34cc1a80eab9ad575f242f2348ed5329c317b4e995fc10650"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/asm/clip595fd8.asm",
+      "bytes": 1598,
+      "sha256": "2aae253b19aa2c4742d4f1bfaabd23ad3edf396e9fc9a8487fd9c6a6f0dc891b"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/asm/fallthrough971a3b.asm",
+      "bytes": 284,
+      "sha256": "49e9527865e4e7b40f283bc2b8d6a114587e5969c83bea9f505c6102015b2896"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/asm/maxgetter971b26.asm",
+      "bytes": 193,
+      "sha256": "84059f0e6b66c2b3a29c7d8ec1e7dd4dd668d34473501f91f77cde45e53985fc"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/asm/rowgetter971a0f.asm",
+      "bytes": 492,
+      "sha256": "2edeea5a9606055b190a087e5d6d28420e3f0a59236e4430c5aea4e6d0b0c33a"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/bytes/clip595fd8.bin",
+      "bytes": 128,
+      "sha256": "176c5801a487af9e6a6f038a6326d7a3c6f1bd53b4e3b034f9ca599c32d330b2"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/bytes/fallthrough971a3b.bin",
+      "bytes": 30,
+      "sha256": "3b9121c7d7403949070bbe7c5641bb8a2386238b0c74b1bf59d599bd06b22efc"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/bytes/maxgetter971b26.bin",
+      "bytes": 17,
+      "sha256": "244c8dd7ee256baee7f9c037fa7163a60dd157386942322027d01e606edd0515"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/bytes/rowgetter971a0f.bin",
+      "bytes": 44,
+      "sha256": "0578fce4447f60494fd08e1972cba657f0f5a22f6527d740592db951972aa870"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/clip595fd8.asm",
+      "bytes": 1598,
+      "sha256": "2aae253b19aa2c4742d4f1bfaabd23ad3edf396e9fc9a8487fd9c6a6f0dc891b"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/clip595fd8.bin",
+      "bytes": 128,
+      "sha256": "176c5801a487af9e6a6f038a6326d7a3c6f1bd53b4e3b034f9ca599c32d330b2"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/clip595fd8.json",
+      "bytes": 587,
+      "sha256": "ba2087c179bd6be4a4ef1a4fd0bcda8de97171818451dbd4e3a91aba9de19202"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/fallthrough971a3b.asm",
+      "bytes": 284,
+      "sha256": "49e9527865e4e7b40f283bc2b8d6a114587e5969c83bea9f505c6102015b2896"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/fallthrough971a3b.bin",
+      "bytes": 30,
+      "sha256": "3b9121c7d7403949070bbe7c5641bb8a2386238b0c74b1bf59d599bd06b22efc"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/fallthrough971a3b.json",
+      "bytes": 586,
+      "sha256": "be519a215816c80c4d5158d7ff696c584c3c69304ed031e66db271cf5c4ab683"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/ledger.json",
+      "bytes": 3386,
+      "sha256": "3dbe8e1002442094246cbec3d1053019babbf64565908b36e3f31ec146c9152c"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/ledger.wrong-mapping.bak.json",
+      "bytes": 1741,
+      "sha256": "0b39fbab202066d66496cd5af67cebe6cee3ed1e53459ba799e52a1d27f7bf16"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/maxgetter971b26.asm",
+      "bytes": 193,
+      "sha256": "84059f0e6b66c2b3a29c7d8ec1e7dd4dd668d34473501f91f77cde45e53985fc"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/maxgetter971b26.bin",
+      "bytes": 17,
+      "sha256": "244c8dd7ee256baee7f9c037fa7163a60dd157386942322027d01e606edd0515"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/maxgetter971b26.json",
+      "bytes": 584,
+      "sha256": "1c792baf062f1f0eee591ecf37a73d0bcdfeb4a6fdcd25e8dbc02c993184e4d4"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/rowgetter971a0f.asm",
+      "bytes": 492,
+      "sha256": "2edeea5a9606055b190a087e5d6d28420e3f0a59236e4430c5aea4e6d0b0c33a"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/rowgetter971a0f.bin",
+      "bytes": 44,
+      "sha256": "0578fce4447f60494fd08e1972cba657f0f5a22f6527d740592db951972aa870"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/initial-writer597432/row-source595FD8/rowgetter971a0f.json",
+      "bytes": 586,
+      "sha256": "ca3dbe0f3845cae2720b2005b267cce83d70c2a7da15ace0f3f6d4594fbeea16"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/ledger.json",
+      "bytes": 4029,
+      "sha256": "45ad059ddb714efbe50f743807f4c30bdc0335e22632839634f8ba6cdbde8e53"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/outer5a517f-clip.asm",
+      "bytes": 7617,
+      "sha256": "b317c0860da9c63bc2bc7922828196f6598c048a4537ca94658e2d99c682ac0d"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/outer5a517f-clip.bin",
+      "bytes": 676,
+      "sha256": "eca702d4fbbb80ab28b9a83b8cf397a315e067ae13fb341a07a7ab3b889ee715"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/outer5a517f-clip.json",
+      "bytes": 587,
+      "sha256": "05545bdbcd6a10d47d6391106b4a30e08994efad40e9d52449db01efe9d5de61"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/outer5aed95-clip.asm",
+      "bytes": 1526,
+      "sha256": "e418a2d5b766727075d9f481a4ca9ac3b8ae0ca358f61b54db004f85bb2ea853"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/outer5aed95-clip.bin",
+      "bytes": 133,
+      "sha256": "50b37ab8eb701af2ffbc78d0ca84adb8392dde10db4c9916ea4465aa7455bfbe"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/outer5aed95-clip.json",
+      "bytes": 587,
+      "sha256": "701c0e2c4d7a4c324d17f965a6b93a6d528c849a4774012503a314e71616f70b"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/setter59bd36-clip.asm",
+      "bytes": 335,
+      "sha256": "d018c908f0331c8a2d80c134acb86187c537d14a56cf731c9fbab94b088ade9d"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/setter59bd36-clip.bin",
+      "bytes": 38,
+      "sha256": "d0d16b6ffa5e523b7f8bffbef7889865bdd2b070949668a1895145e388625a3c"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/setter59bd36-clip.json",
+      "bytes": 586,
+      "sha256": "ac1fa007887071596e86cc0d777c9d492df39f2aa81689e175d56ebf5b81e69f"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/vt90_5a09ab-clip.asm",
+      "bytes": 6688,
+      "sha256": "db3ab2d1f107d38934b9594c3ee72b64791f39481212cb3727c73bb9fd62b5e5"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/vt90_5a09ab-clip.bin",
+      "bytes": 765,
+      "sha256": "25956349078d2c05716050e3a43d086bc32f1ddb4795baf1fd2ed7c94646a584"
+    },
+    {
+      "private_path": ".re-work/roller149-native-speed/stat-init-source/vt90_5a09ab-clip.json",
+      "bytes": 586,
+      "sha256": "1e4999ae718067fe98800192335b80c4f1a507544563dedd39a4d652f2311239"
+    }
+  ],
+  "limits": [
+    "different captures have different actors; no object/clock joining",
+    "one selected VN actor per case; no KR C00/C01/f2-f7 identity mapping",
+    "scalar fields are not level, px/s, FPS or Rust ticks",
+    "all twelve incomplete ciphertext writes remain unknown; no transient numeric value asserted",
+    "first four changed-byte hardware hits per target do not cover all writes or same-value writes",
+    "typed static virtual target binding is not a direct native target breakpoint",
+    "profile and G2/G6 acceptance unchanged"
+  ]
+}

@@ -1,0 +1,17 @@
+run,ordinal,kind,actor,pc,label,trap_count,watch_type,base_status,base_value,max_status,max_value,current_status,current_value
+host-stat-init-149-r1,0,ctor_return,449423536,0x7bc41e,,1,,unobserved,,ok,0,ok,0
+host-stat-init-149-r1,1,payload_write,449423536,0x413fda,current,2,7,unobserved,,ok,7,unknown,
+host-stat-init-149-r1,2,payload_write,449423536,0x413fda,current,3,7,unobserved,,ok,7,unknown,
+host-stat-init-149-r1,3,payload_write,449423536,0x413fda,current,4,7,unobserved,,ok,7,unknown,
+host-stat-init-149-r1,4,payload_write,449423536,0x413fda,current,5,7,unobserved,,ok,7,unknown,
+host-stat-init-149-r1,5,updater,449423536,0x5b1472,,6,,unobserved,,ok,7,ok,5
+host-stat-init-base-max-149-r1,0,ctor_return,449224784,0x7bc41e,,1,,ok,0,ok,0,ok,0
+host-stat-init-base-max-149-r1,1,payload_write,449224784,0x413fda,base,2,7,unknown,,ok,0,ok,0
+host-stat-init-base-max-149-r1,2,payload_write,449224784,0x413fda,base,3,7,unknown,,ok,0,ok,0
+host-stat-init-base-max-149-r1,3,payload_write,449224784,0x413fda,base,4,7,unknown,,ok,0,ok,0
+host-stat-init-base-max-149-r1,4,payload_write,449224784,0x413fda,base,5,7,unknown,,ok,0,ok,0
+host-stat-init-base-max-149-r1,5,payload_write,449224784,0x413fda,max,6,7,ok,5,unknown,,ok,0
+host-stat-init-base-max-149-r1,6,payload_write,449224784,0x413fda,max,7,7,ok,5,unknown,,ok,0
+host-stat-init-base-max-149-r1,7,payload_write,449224784,0x413fda,max,8,7,ok,5,unknown,,ok,0
+host-stat-init-base-max-149-r1,8,payload_write,449224784,0x413fda,max,9,7,ok,5,unknown,,ok,0
+host-stat-init-base-max-149-r1,9,updater,449224784,0x5b1472,,10,,ok,5,ok,7,ok,5

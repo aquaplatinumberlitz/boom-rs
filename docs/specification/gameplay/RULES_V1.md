@@ -955,3 +955,15 @@ R-172 đã xác nhận plateau7 trong actor khác; không ghép nó thành liter
 Reader414543 ở đường bảng item không tự chứng minh nó đọcC64; alias được chốt từ receiver/lvalue
 thật. Còn thiếu nguồn khởi tạo current/maxfield, identity/Attr KR và normalization; không thay profile,
 12khóa candidate hoặc trạng thái G2/G6.
+
+## 38. Khởi tạo base/max/current của actor VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-174 | Trên một actor VN C664C4, base/max/current tại RET7BC41E là0/0/0, tới updater5B1472 là5/7/5. Hardware watch nối ghi base/max tới597432; setter59BD36 sao chép baseactor+640 vào currentactor+658, max ởactor+64C. Capture riêng cho current/max0/0→5/7 trên cùng actor của capture đó | Scalar protected fields; lifecycle và pipeline reset/ghi, chưa là level/px/s | vn_runtime + vn_static / confirmed (hai capture và lvalue đã nối) | [CSV/payload/hash, getter và giới hạn](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#khởi-tạo-base-max-và-current-trên-actor-vn--r-174); fixturebc875…/Factory01/room19;6+10stop,12ciphertransient unknown giữ raw, không ghép actor/clock |
+
+`597432` nhận sáu output qua typed virtual `+0xA0→595FD8`, có nhánh modifier chưa xác nhận,
+kẹp ba cặp local rồi ghi base/max; current reset riêng từ base. Getter có nhánh override/fallback,
+chưa chứng minh sáu cột của một row, literal5/7 hoặc f2–f7 KR. Binding virtual theo PE không thay
+breakpoint trực tiếp lên mọi target. Không đổi profile hay 12 khóa candidate; key/identity và
+nguồn fallback còn ở Q-020.

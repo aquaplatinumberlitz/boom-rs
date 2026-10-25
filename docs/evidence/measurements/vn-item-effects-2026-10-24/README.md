@@ -429,3 +429,56 @@ raw để giảm số body. Chỉ publicmetadata, không PE/pack/ảnh/rawlongas
 R173 xác nhận đường tăng1/kẹp trên C64 được chọn. Không suy level, f2/f3, identityC00/C01KR, công thức
 px/s hoặc trần mọi nhân vật. Init/current/maxfieldsource và mappingKR vẫn ở Q017/Q020; profile vàG2/G6
 không đổi. Bước tiếp phải là cạnh khởi tạo/consumer cụ thể, không lặp12Roller/watch/dispatch đã giải.
+
+## Khởi tạo base, max và current trên actor VN — R-174
+
+[16 mốc quan sát](stat-init.csv), [payload, locator và manifest](stat-init.json).
+Hai capture dùng cùng fixture VN `bc875…`, Factory01/room19, mỗi capture chọn một actor
+`C664C4` với controller `C6630C` và facet `C66284`. Server offline không tạo item/bom hay chỉ thị
+nhốt/chết; lựa chọn nhân vật mặc định của harness không xác nhận identity C00/C01 KR.
+
+| Capture | Các giá trị hợp lệ trên cùng actor | Quan sát ghi |
+|---|---|---|
+| `host-stat-init-149-r1`, actor449423536 | Tại RET `7BC41E`: current/max `0/0`; tại updater `5B1472`: `5/7` | 4 hardware stop type7 trên current, cùng PC `413FDA`, return trong stack `59BD50`; tổng6 stop |
+| `host-stat-init-base-max-149-r1`, actor449224784 | Tại RET: base/max/current `0/0/0`; tại updater: `5/7/5` | 4 stop base khi max/current còn0; tiếp4 stop max khi base đã5/current còn0; tổng10 stop |
+
+Header12/payload10 ở mốc ổn định được giải mã lại và kiểm cookie/checksum. Cả12 trạng thái ghi dở
+vẫn `unknown`, giữ đầy đủ raw; không gán số cho ciphertext chưa hợp lệ. Capture đầu lưu raw transient
+ở trường top-level `header12`/`payload10`, bên cạnh nested `current` unknown. Payload pointer không
+đổi tại các mốc kiểm. Chỉ theo dõi bốn stop đầu mỗi payload, không bao phủ mọi lần ghi hoặc lần ghi
+cùng giá trị. Hai actor độc lập; không ghép clock/pointer và không đo thời gian, level hay px/s.
+
+### Nguồn ghi và ba cặp đầu vào
+
+Offset tính từ actor: **base+640** là nguồn để reset **current+658** (controller+64);
+**max+64C** là cùng lvalue dùng để kẹp ở R-173. Tên base mô tả vai trò sao chép, chưa là speed level.
+
+Return `59750A` và `597518` trong hai stack khớp các call `413F32` của `597432`: ghi local đầu vào
+thứ nhất vào base và thứ hai vào max sau khi kẹp từng cặp trong ba cặp local. Setter `59BD36`
+đọc base rồi ghi current; return `59BD50` khớp capture đầu. `5A517F` gọi virtual `+0x1A0` trên actor;
+slot PE của vtable đã quan sát trỏ `59BD36`. Đây là binding tĩnh với receiver phù hợp, không phải
+breakpoint trực tiếp tại return `5A521A`; backtrace có thể bỏ frame. Tên class trong cache IDA chỉ
+là locator, loại actor lấy từ vtable runtime.
+
+Sáu local đi qua virtual `+0xA0→595FD8`, gồm sáu getter riêng trên `global[E60844]`, cùng numeric
+key và tham số `-1`. Chúng chưa chứng minh sáu cột liền nhau của một row. Getter đầu `971A0F`
+dùng box `manager+0x4BD0+key*0x24` **nếu dương**; nhánh còn lại `971A3B` có điều kiện khác và một box
+ở `manager+45C4+key*24` (các offset/stride viết hệ16), phần join/fallback chưa đọc. Getter thứ hai
+`971B26` chuyển tiếp `971676(key,0)`, chưa xác nhận row hoặc literal. Nhánh modifier virtual `+0xA4`
+có thể sửa local trước khi ghi; nhánh được chọn chưa đo.
+
+R-174 xác nhận lifecycle và pipeline ghi/reset trong các ca này. Nguồn key, fallback, literal5/7,
+row BomberAttr, f2–f7 và identity C00/C01 vẫn chưa xác nhận. Max7 của actor mới không đo lại max của
+actor R-173. Profile, 12 khóa candidate và G2/G6 giữ nguyên.
+
+### Kiểm lại và điểm dừng
+
+Hai run đóng namespace riêng với exit0, không `consumer-error`/relocation. Toàn bộ114/105 packet
+message tương ứng không có opcode111/117/120/151/158. Hook dùng tối đa hai slot hardware, kiểm
+type/registration và cùng actor; updater là đối chứng dữ liệu native, marker hook/stage không thay
+kết quả. Harness giữ network loopback-only, user/PID/mount riêng và hash nguồn/patch fixture.
+
+Manifest có60 file runtime cùng các capture/cache tĩnh; số file không phải số hàm. Chín instruction
+block giữ2.114 byte từ3.264 byte window yêu cầu, có prefix/nhánh chưa đọc và bản sao raw; không gọi
+chúng là chín full function. Chỉ public metadata, không game/media/raw decompile. Bước tiếp là
+key/fallback `971A59/971A5B`, helper `971676` hoặc modifier có đối chứng, không đo lại reset/plateau.

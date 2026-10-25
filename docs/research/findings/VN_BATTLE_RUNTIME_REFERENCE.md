@@ -253,3 +253,16 @@ Watchdiscovery và dispatch là hai capture/actor khác nhau; bốn transientcip
 Các payloadcomplete có thể giải mã lại5/6. Maxfield chưa có số trong actor mới; R172plateau7 không
 thay việc đo nó. Không suy level/C00C01KR/F2F3 hoặc px/s; bước tiếp là init/current/maxfield consumer,
 không lặp getter/plateau hoặc đọc toàn bộ switch item.
+
+### Khởi tạo base/max/current (R-174)
+
+[Hai capture và nguồn getter](../../evidence/measurements/vn-item-effects-2026-10-24/README.md#khởi-tạo-base-max-và-current-trên-actor-vn--r-174):
+actor449423536 có current/max0/0 tại RET7BC41E và5/7 tại updater5B1472. Capture đổi target sang
+base/max trên actor449224784 cho base/max/current0/0/0→5/7/5, cùng kiểu C664C4/C6630C/C66284.
+Tám watch stop của capture sau nối base/max tới return59750A/597518 trong597432; current reset
+ở59BD36 từ base+640 sang current+658, max ở+64C. Hai actor độc lập, không ghép clock/pointer.
+
+Sáu output qua595FD8 chưa là sáu cột Attr: getter đầu có override có điều kiện, getter max chuyển
+tiếp971676, modifier virtual+A4 và nguồn key/fallback chưa xác nhận. Mười hai cipher transient giữ
+unknown/raw; không suy literal5/7, level hoặc C00/C01. Hai run đã đóng sạch; chỉ mở lượt tiếp ở
+nguồn key/fallback/modifier mới, không lặp reset.
