@@ -1565,7 +1565,8 @@
           "docs/evidence/measurements/rust-client-ux-2026-10-24/package-qa.json",
           "git:796284d422baf14f2c0ab0c27a78100bc335c2f1",
           "docs/evidence/measurements/rust-client-ux-2026-10-24/package-current-qa.json",
-          "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816"
+          "git:0886f81ca8702e5dcbe9aabab1c6e212c0fa4816",
+          "git:af5184d84de37ee5898f825ca8c834fcc3612a82"
         ],
         "verification": {
           "status": "passed",
@@ -1574,10 +1575,10 @@
         },
         "review": {
           "status": "pending",
-          "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; tại PR274, toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off. G5 được nghiệm thu riêng theo issue278; không nghiệm thu thay V1-036/G6. Cơ chế G3 được nghiệm thu riêng theo issue280, không ký profile/G2 hoặc toàn V1-036."
+          "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; tại PR274, toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off. G5 được nghiệm thu riêng theo issue278; không nghiệm thu thay V1-036/G6. Cơ chế G3 được nghiệm thu riêng theo issue280, không ký profile/G2 hoặc toàn V1-036. G2 được nghiệm thu riêng tạiissue294/comment6396657957 sauR182/PR293; G6/036 vẫnpending, không tự bật release."
         },
-        "blocker": "Cần nghiệm thu V1-036 và cấu hình máy tối thiểu; QA dùng profile dev release=false, G2 chưa passed; G3/G5 đã nghiệm thu chức năng V1 theo issue280/278.",
-        "next_action": "Sign-off G2/profile và đo/chốt minimumhardware; GUIđaOS/WMframe/audiohardwarelimits theoRELEASE. Current3OSQA/fingerprints đãcó40107097457; chỉ dựng lại khi code/rules thay đổi có lý do, không chạy lại networkmatrix hay duyệt V1-035."
+        "blocker": "Cần nghiệm thu V1-036/minimumhardware/platformvalidation/GUIđaOS và gói cuốiđúngrulesidentity R182; profiledevreleasefalse. G1/G2/G3/G4/G5 đãnghiệmthu5/6, khôngcònblocker12candidate/identity.",
+        "next_action": "Đo/chốtminimumhardware và platformvalidation theoRELEASE; finalprofile/packagephải version/fingerprintđúngR182/newstablehead, QA40107097457 chỉcho95985fe lịch sử. KhônglặpG2/oldsource/cap/corner/networkmatrix/V1-035."
       }
     },
     {
