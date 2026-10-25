@@ -1151,7 +1151,7 @@ R-217 không đủ để đổi `presentation.frame_duration_ms`: giá trị hi�
 per-clip walk/blink, phải đo với anchor sprite tách vị trí hoặc locator native; không suy walk từ video
 dịch chuyển. Không đổi profile/G2/G6/release; #311 runtime vẫn partial.
 
-## 50. Walk C00: pose và bước dịch trên video VN — R-218 (2026-10-26)
+## 52. Walk C00: pose và bước dịch trên video VN — R-218 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
