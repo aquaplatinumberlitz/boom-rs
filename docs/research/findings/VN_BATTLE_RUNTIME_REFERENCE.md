@@ -345,3 +345,17 @@ vì controller/lastACKtimeout, validpoint4/5 và34hash giữ riêng. R2stop2/exi
 R184 chọn33DESIGN từ normalized~33,36 thay24; R185+1logicalpointVNconfirmed, không+1px/s/
 capmọimode. Sai sốmodel bảo thủ±31–39px/s khác tinyreadband; không distinguish33/34/nativeconstant.
 Profile12statvalues/trapped17/hurtbox/assist/time model/releasefalse giữ nguyên, G2 cần acceptance mới.
+
+## CItemResourceMan hai bảng và startup global alias — R-186/R-187
+
+[Metadata block/hash/startup R1](../../evidence/measurements/vn-itemattr-manager-2026-10-25/README.md)
+ghi typed manager VN vtable C77D70, RTTI `.?AVCItemResourceMan@@` (C77D70 COL/CD1C24 sig0/off0
+→TDE4854C). Ba prefix block 89F436/89F536/89F5A1 (256/160/256 requested; terminal null) cho thấy
+bảng1 count `[this+0x3B94C]`, base inline `this+0x3B9AC`, stride192; bảng2 count `[this+0x10]`,
+base inline `this+0x1C+idx*0xF4`, stride244. Đây là cấu trúc prefix, không whole loader/function.
+
+R1 startup scoped: object0x109CEAE8/C77D70, Open89F436 EAX1, literal Attr/ItemAttr C77D7C;
+`E60934=0x109CEAE8` cùng vtable tại Open. Probe9afec/harnessd178/serveref688; S191 thiếu nên
+không lateBoot/Boot, EXIT2 không rerun. Không persistence/whole parse/row meaning/field/group/drop;
+R153 244/192 và caller89D113 `+0xBC` vẫn là cạnh riêng. Legacy items.md chỉ là parser/locator.
+No profile/G2/G6/release change; no new runtime.
