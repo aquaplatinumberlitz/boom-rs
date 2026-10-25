@@ -289,3 +289,13 @@ Hai mốc trướcDownX540/X535 tạiY39 ổn định, rồi chỉ điều khi�
 Y109/Y104. Đây là dữ liệu player thật, hỗ trợ candidate corner assistance, chưa là ngưỡngmax.
 Opposite-direction controls/nativeXY và mọi overshoot được giữ; không suy tốc độ từ host clock.
 Run sạch,6stop/2.952XYrows/60hash, không item/bom; không đổi profile hay identityC00/C01.
+
+### Offset30/35 và aligned control (R-177)
+
+[Run riêng, cùng actor trong mỗi control](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#đối-chứng-lệch30-và35-trên-cùng-actor--r-177):
+actor449280160/current5, actualX530/Y39→DownX560/Y139, actualX525/Y39→Down giữ525/39;
+alignedX560Down→Y164/Up→39. Hai offset30/35 có phản ứng khác nhau, không chốt literalmax34.
+Requested535/530 khác actual530/525; giữ overshoot,9endpoint/42hash/4.387XYrows.
+Không movement breakpoint trong lượt này,6hook/5stop chỉ khởi tạo; không item/bom/timing-derived
+velocity hoặc native direction flag. Corner-assistance interpretation còn candidate; các response
+native đã có đối chứng, không lặp để tìm lại cùng kết quả.

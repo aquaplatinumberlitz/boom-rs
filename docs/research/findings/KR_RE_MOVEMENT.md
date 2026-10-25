@@ -338,3 +338,8 @@ Hai ca chỉ điều khiểnDown sau khi nativeXY ổn định tại540/39 và53
 Y tăng. Candidate corner assistance của player VN có trajectory và positive/opposite controls;
 chưa có ca âm để chốt ngưỡng. Không gán max34 từ pet, không thay assist12/radius13DESIGN.
 Tiếp theo là negative offset hoặc consumer đã định vị, không đọc lại các thân pet/owner đã dừng.
+
+R-177 đã bổ sung [negative offset control](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#đối-chứng-lệch30-và35-trên-cùng-actor--r-177)
+trên actor khác449280160: lệch30 có sửa ngang/Down, lệch35 đứng lại, alignedDown vẫn hoạt động.
+Native coordinate response trong ca là confirmed; chưa chốt max34 hoặc consumer corner/hurtbox.
+Giữ profile13/12DESIGN, unknown của KR và các ngữ cảnh chưa đo; không cần đo lại hai offset này.

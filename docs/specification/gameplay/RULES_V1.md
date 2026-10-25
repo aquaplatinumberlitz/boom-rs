@@ -989,3 +989,12 @@ theo key; không phải literal5/7 hoặc sáu cột row liền nhau. Giữ prof
 Không đổi radius13/assist12 hoặc gán số40 làm toàn bộ hitbox. CaB có mốc trướcX535 nhưng mẫu
 đầu sau markerDown đãX540; không gọi25px là toàn bộ dịch chuyển sau native nhận input. Giữ
 overshoot từ requested550/540 tới actual540/535, không loại mẫu để ép ngưỡng.
+
+## 41. Hai offset ngang có phản ứng Down khác nhau trong một actor VN (2026-10-25)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-177 | Cùng actorVN C664C4/base5/max7/current5: trước Down ởX530/Y39, sau điều khiển chỉDown sửa ngang vềX560 rồiY139; trước DownX525/Y39 thì giữ525/39. AlignedX560 có Down→Y164/Up→39, các reset/opposite controls hợp lệ | Offset30 có phản ứng sửa ngang;35 không di chuyển trong ca. Native pixel, không ngưỡng chính xác | vn_runtime / confirmed (coordinate response); cơ chế corner assistance candidate | [Trajectory/9endpoint/42hash/giới hạn](../../evidence/measurements/vn-player-movement-2026-10-25/README.md#đối-chứng-lệch30-và35-trên-cùng-actor--r-177); fixturebc875…/Factory01/room19/actor449280160. Không max34, mọi level/mode/hướng hoặc hurtbox; không dùng timing để suy velocity |
+
+R-176 vàR-177 là hai actor khác nhau, không nối đồnghồ/identity. Giữ mọi overshoot giữa requested
+và actual; current5 là scalar theo field đã nối, chưa chứng minh speed level KR. Profile không đổi.
