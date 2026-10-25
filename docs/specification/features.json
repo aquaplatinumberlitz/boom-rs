@@ -1577,8 +1577,8 @@
           "status": "pending",
           "result": "Task273/packageQA đã nghiệm thu hẹp qua PR274, DSH2 finalheadAPPROVE; tại PR274, toànfeatureV1-036 vàG2/G3/G5/G6 chưa sign-off. G5 được nghiệm thu riêng theo issue278; không nghiệm thu thay V1-036/G6. Cơ chế G3 được nghiệm thu riêng theo issue280, không ký profile/G2 hoặc toàn V1-036. G2 được nghiệm thu riêng tạiissue294/comment6396657957 sauR182/PR293; G6/036 vẫnpending, không tự bật release. Chỉđạo25/10 Linuxfirst: task298 tíchhợpactualpackage33/GUIobservations; LinuxmilestonekhôngđợibackendWinMac, nhưng không tự nghiệmthuV1-036full/G6."
         },
-        "blocker": "Linuxmilestone: cần đo/nghiệmthu CPU/RAM/GPU/performance/runtime và góiLinuxhiệnhành; Windows/macOS được deferredtheochủdựán25/10, không chặn iterationLinux. V1-036full/G6/releaseflag chưa nghiệmthu.",
-        "next_action": "Ưu tiên kiểm góiLinux33/phiênthật và minimumhardware/performance với dữliệuđo; reuse QA40193995532 Linuxcapture1x2x/CLIpackageproof, không repeatQA3OS/WindowsMacbackend lúc này. Giữ nền tảng khác backlog và acceptancefull riêng; không đòi đóng6REroot."
+        "blocker": "Cần acceptance Linuxruntime/góihiệnhành đúngphạmvi; cấu hình làmgọn theoowner25/10, minimum/FPS chưađo khôngchặniterationLinux. Windows/macOSdeferred, V1-036full/G6/releaseflag vẫn chưa ký.",
+        "next_action": "Giữ cấu hìnhgọn: Linuxlibs/API/máythamchiếu và giớihạn, không campaignbenchmarkCPU/RAM/GPU; tiếp tục146/149/Linuxstability. ReuseQA40193995532Linuxpackage/CLI/framebufferproof; khôngrerunWinMac/6networkmatrix hoặc gán minHW/FPSđãđo."
       }
     },
     {

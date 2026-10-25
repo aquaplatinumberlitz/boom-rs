@@ -336,3 +336,9 @@ Baseline/catalog37V1 chưa đổi revision, G6/V1-036 chưa được ký toànph
 phát hành đầyđủ theo target3OS hoặc thay phạmvi phát hành cần ghi quyết định/acceptance riêng; không
 đóng sáuREroot để làm đẹp số. CI/approval/safeMerge vẫn theo AGENTS. Linuxmilestone có thể được
 review/bàn giao riêng khi ghi rõ giới hạn platform và minimumhardware **hiện chưa đo**; không tự bật releaseflag.
+
+
+Chỉ đạo bổ sung cùng ngày: cấu hình làm nhanh gọn; ghi điều kiện phần mềm/máy tham chiếu và giới hạn,
+không dồn DSH hoặc mở campaign benchmark phần cứng. Minimumhardware/FPS chưa đo không được
+gắn nhãn đã xác nhận; việc này không chặn iterationLinux. Nguồn lực hiện dành cho #146/#149 và
+Linuxruntime/stability; acceptance full/G6 vẫn được review riêng, không tự ký từ chỉ đạo cấu hình.
