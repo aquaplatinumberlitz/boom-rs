@@ -29,8 +29,15 @@ Nguyên nhân và sửa: [#305](https://github.com/aquaplatinumberlitz/boom-rs/i
 | 2 client `--connect --register --auto-ready`, **không biến môi trường** | đạt: `auth.register`×2, `round.loading`×2, `round.start`, `round.playing`; không lỗi bắt tay/panic |
 | Ảnh client trong gói (`--demo --snapshot`, local) | nhân vật C00/C01 đủ thân, đứng đúng ô, che đúng theo y chân (đối chiếu VN `battle_village01`) |
 
+## Sau lần 2
+- PR #317 (merge sau lần 2): vẽ vật phẩm trên sàn, bóng nhốt (grow rồi lặp), neo lửa/nổ theo offset.
+  Lần 2 ở trên **chưa** gồm #317; e2e trên main `7be0104` (sau #317) vẫn đạt các bước như lần 2.
+- Chơi thử 26/10 trên main `df0cccb`: di chuyển mượt hơn, nhưng hướng sprite và chuỗi nhốt còn khác
+  client gốc → [#320](https://github.com/aquaplatinumberlitz/boom-rs/issues/320) (phần hướng: PR #321).
+
 ## Giới hạn
 - `--snapshot` đôi khi trả ảnh trắng ở lần chạy đầu (1/2 lần, cùng binary) — lỗi chụp của công cụ QA,
   không phải hình chơi; theo dõi riêng.
-- Nhịp đổi frame animation vẫn DESIGN 100 ms (R-118); nhịp gốc đang đo ở #311.
+- Nhịp đổi frame animation giữ DESIGN 100 ms (R-118); #311 đã đóng: video VN (R-217/R-218) không
+  chứng minh nhịp native khác.
 - Không đo minimum hardware/FPS; Windows/macOS hoãn (#300) ⇒ V1-036 toàn phần và G6 **chưa** ký.
