@@ -1162,3 +1162,10 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 `anim::character_loop_frame`. Bước6,24 px/frame video cho thấy client gốc cập nhật vị trí theo bước
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
+
+## 53. VN C00 — idle giữ hướng và overlap bomb/bubble (R-198/R-199, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-198 | Sau khi đi Left/Right/Up/Down rồi dừng 1,5 s, C00 giữ hướng cuối bằng frame cuối `Walk<Dir>` (Left khớp frame cuối; Right/Up/Down giữ mặt phải/lưng-up/mặt down), **không** trả về `idle.blink` trong cửa sổ này. `idle.blink` chỉ thấy ở idle ban đầu/spawn | Giữ hướng/frame cuối ≥1,5 s; Blink ban đầu; ngưỡng Blink sau dừng chưa đo | `vn_runtime` / partial (video local, một actor/map) | Video `claude-r1/capture.mkv` + crop `idle-directions-tight.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Code hiện `character_clip` luôn `idle.blink` ⇒ cần giữ hướng/frame cuối; chưa đổi profile. Không chứng minh BlinkSmall/ngưỡng dài |
+| R-199 | Trong capture, bomb nằm **dưới** nhân vật (char vẽ đè bomb) và bubble nhốt **phủ trên** nhân vật | Bomb<character; bubble>character | `vn_runtime` / partial (một frame/map) | `bomb-11-zoom.png`/`trap-13.5-zoom.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Khớp `ORDER_BOMB<ORDER_CHARACTER<ORDER_BUBBLE`; chưa quan sát item/high object/fire/explosion riêng |
