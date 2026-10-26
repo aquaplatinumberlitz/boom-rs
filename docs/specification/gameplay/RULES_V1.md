@@ -1207,3 +1207,11 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 |---|---|---|---|---|
 | R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame** trước/dưới overlay để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start. Do đó không có bằng chứng VN dùng `C00-Start` trong cảnh này | Nhân vật vẽ trước overlay; Start 10-frame **không quan sát**; loop/duration unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Khuyến nghị không coi `PresentationKind::Start` playback là confirmed; chỉ giữ/disable theo consumer khi tìm được. RE consumer chưa tìm thấy clip name trong executable; không profile/G2/G6 |
 
+## 58. F-04 — bom chờ nổ theo ODT — R-221 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-221 | ODT `Bomb/BasicBomb` dùng sprite `Bomb/Bomb00` với **4 frame, frame0..3, mỗi frame duration 6 đơn vị ODT**. Với đơn vị 1/30 s (R-222/§65), mỗi frame **200 ms**, một vòng **800 ms**; clip **lặp** trong lúc bom chờ, không phải một chiều theo thời gian còn lại. Video F-04 chỉ xác nhận lặp/phồng-co, không dùng làm nguồn thời lượng. `Bomb00` sprite v2 có4 frame/2 ảnh | 4 frame; 6 đơn vị/frame =200ms; vòng800ms | `vn_static` / **candidate** (ODT data; consumer unit là §65, chưa nối vào client) | ODT dump local `/home/admin/boom-team/shots/fidelity/odt/odt_anims.json`, entry `Bomb/BasicBomb = [["0","Bomb/Bomb00",[[0,6],[1,6],[2,6],[3,6]]]]`; `Bomb/Bomb00` sprite v2 4 frame/2 ảnh; ảnh local `F-04/`. Video `claude-r1/capture.mkv` 10,55–12,55 chỉ là quan sát phụ (bom bị actor che, PTS thực~29,65 fps, không dùng±ms). Không chứng minh frame index đổi theo remaining-time; ODT cho loop4 frame |
+
+Đề xuất code (không sửa trong PR này): `anim::bomb_frame`/clip `bomb.fuse` dùng **4 frame, 6 đơn vị/frame =200 ms**, loop; bỏ nhịp100 ms hiện tại. Không đổi profile/G2/G6/release; unit ODT lấy R-222 §65.
+
