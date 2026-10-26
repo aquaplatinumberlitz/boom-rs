@@ -1285,3 +1285,19 @@ R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-250 | Khi bị nhốt, chữ HELP! (`Bomb/HELP!`, R-220) **căn giữa ngang trên bóng tròn** (frame giữ 6 của `Bubble00`), **đáy chữ cách đỉnh bóng khoảng 2 px**, và vẽ **trên mọi thứ** (đè cả vật cản bên cạnh). Chữ hiện suốt lúc bị nhốt, mất khi bóng vỡ | Căn giữa theo bóng; khe 2 px; lớp trên cùng | `vn_runtime` / candidate | Video VN 26/10 `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local) t≈15,0 s; quy về pixel game ÷1,28 (game 800×600 phóng lên 1024×768); so sánh `/home/admin/boom-team/shots/fidelity/F-02/ours/wide_cmp2.png`. Một ca, một map; nhịp phát lấy từ ODT `Bomb/Help` (R-251), không từ video |
+
+## 72. F-11b — sảnh VN so với boom-rs — R-228 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-228 | Lobby VN (game 800×600, phóng1,28 lên 1024×768) là màn full-art: panel hồ sơ trái, lưới phòng **2 cột×3 thẻ** vùng raw `(291,99,717,356)` = logic `(227,3;77,3;560,2;278,1)`, hàng nút tạo/đi tắt/lọc phía trên, panel chat lớn dưới và nav đáy. boom-rs hiện hành dùng tiêu đề + bảng phòng `(24,104,580,324)` + ô tên phòng + hàng nút; không có panel hồ sơ/lưới thẻ/nav. Nhãn room trong capture bị mock server để thanh xám; không dùng làm chuỗi thiết kế | VN lưới phòng logic `227,3;77,3;560,2;278,1`; Rust bảng `24,104,580,324` | `vn_runtime` / **candidate** (một capture/một prefix; visual region ±1,6 logic px) | `lobby-vn-1024x768.png` SHA `4109908a…`; `rust-lobby-current-800x600.png` SHA `65e55d15…`; [metadata](../../evidence/measurements/vn-ui-lobby-room-2026-10-26/README.md). Không phải hitbox; font chưa đo; D-04/D-05 background/text đã chấp thuận, khác biệt bố cục này không phải D-04/D-05 |
+
+## 73. F-11b — phòng chờ VN so với boom-rs — R-229 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-229 | Room VN có **4 slot thẻ** người chơi vùng raw `(30,120,575,350)` = logic `(23,4;93,8;449,2;273,4)`, panel chat trái, grid nhân vật/bản đồ phải và nút `BẮT ĐẦU` lớn `(652,651,260,80)` = logic `(509,4;508,6;203,1;62,5)`; host badge `TRƯỞNG PHÒNG`, slot trống `SẴN SÀNG`, `TỰ ĐỘNG`, `CHỌN BÀN ĐỒ`. boom-rs hiện hành dùng bảng người chơi `(24,104,580,324)`, ô chat dưới, hàng nút `Sẵn sàng/Bắt đầu/Gửi/Rời phòng/Thoát game`; không có 4 slot/grid map-character/nút lớn. Room capture chỉ host; **chưa bấm ready/start**, nên chưa chốt hành vi ready | VN slots logic `23,4;93,8;449,2;273,4`; start logic `509,4;508,6;203,1;62,5`; Rust buttons y496 | `vn_runtime` / **candidate** (một capture/một prefix; visual region ±1,6 logic px) | `room-vn-1024x768.png` SHA `3ce029ab…`; `rust-room-current-800x600.png` SHA `0bfc24e8…`; [metadata](../../evidence/measurements/vn-ui-lobby-room-2026-10-26/README.md). `DefaultRoomTitle4` là placeholder server, không phải tên thiết kế; không suy auth/ready policy; chưa có KR |
+
+Đề xuất code (không sửa trong PR này): `ui/layout.rs::lobby_layout/room_layout` cần layout theo vùng
+quan sát; `ui/draw.rs` vẽ panel/thẻ/chat/nav. Không thêm policy/auth/ready mới từ ảnh; D-04/D-05 giữ
+nguyên; không đổi profile/G2/G6/release.
