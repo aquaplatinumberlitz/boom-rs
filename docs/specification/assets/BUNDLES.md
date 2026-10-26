@@ -403,17 +403,17 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Đại lượng | Giá trị |
 |---|---|
 | Map | `Village00` (15×13, 4 spawn) |
-| Sprite trong bundle | 70 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, vụ nổ, **9 ảnh UI**) |
-| Ảnh | 299 (trong đó 6 ảnh giữ chỗ 0×0) |
+| Sprite trong bundle | 71 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, chữ HELP!, vụ nổ, **9 ảnh UI**) |
+| Ảnh | 303 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1430 |
 | Audio V1 | 15 entry (1 BGM + 14 SFX), 468.234 byte (457,3 KiB) payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
 | Entry không phải ảnh | 4: BGM `FxSound/MP3/Village`, file map, 2 bảng chỉ số |
-| Clip | 47 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`), 378 frame |
-| Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
+| Clip | 48 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`, `trapped.help` R-220 `candidate`), 382 frame |
+| Thời lượng frame | 48/48 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
 | `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
-| `content_hash` | `dea731aa0ca62cbac6b01f0627700f886905717258d0ceeeeaf90f715f1f5eae` (schema 4, **có** audio) |
+| `content_hash` | `b8baf05eca8d98c3d0d4fae595f7280953b3205b64bee44ff93162e69b65ea63` (schema 4, **có** audio; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620` (R-082 trapped confirmed) và #237 mà quên cập nhật, → `b8baf05e…` sau #346 (HELP!) |
 
 Cách kiểm lại:
 

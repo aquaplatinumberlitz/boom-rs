@@ -1358,7 +1358,7 @@ mod tests {
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
         assert_eq!(
             built.bundle.content_hash,
-            "dea731aa0ca62cbac6b01f0627700f886905717258d0ceeeeaf90f715f1f5eae",
+            "b8baf05eca8d98c3d0d4fae595f7280953b3205b64bee44ff93162e69b65ea63",
             "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
         );
     }

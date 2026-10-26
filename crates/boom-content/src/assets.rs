@@ -1278,12 +1278,12 @@ claims = ["R-077"]
     #[test]
     fn embedded_tables_load_with_the_recorded_shape() {
         let tables = AssetTables::v1().expect("nạp bảng trong data/assets/");
-        assert_eq!(tables.animation.clips.len(), 47, "bảng clip V1");
+        assert_eq!(tables.animation.clips.len(), 48, "bảng clip V1");
         assert_eq!(tables.ui.elements.len(), 23, "bảng UI V1");
         assert_eq!(tables.audio.cues.len(), 15, "bảng audio V1");
         assert_eq!(
             tables.closure.entries.len(),
-            10,
+            11,
             "entry cố định của closure"
         );
         assert_eq!(
