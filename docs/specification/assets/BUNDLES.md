@@ -283,6 +283,20 @@ Mỗi entry là một payload thô trong `audio/`, không decode:
 Reader kiểm `id`/`file` duy nhất, `file` nằm trong `audio/`, `bytes`/SHA-256 khớp file thật.
 Schema 3 không được có bảng này.
 
+### Chuỗi phát ODT của clip (`[[clips.sequences]]`, ADR 0014)
+
+Clip có `odt` trong `data/assets/animation-v1.toml` mang thêm:
+
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `odt` | chuỗi | Khối bảng animation trong `fx/ObjectTable/ObjectTable`, ví dụ `Character/C00_A`, `Bomb/Bubble` |
+| `sequences[].state` | chuỗi | Tên state ODT (nhãn bỏ số thứ tự đầu), ví dụ `Walk Left`, `Lock`, `Help` |
+| `sequences[].steps[]` | `{frame, units}` | Chỉ số frame trong `frames` của clip và thời lượng thô theo đơn vị ODT (R-251) |
+
+Reader kiểm mỗi chuỗi có ít nhất một bước và mọi `frame` nằm trong clip. Chuỗi vào `content_hash`
+sau thẻ `\0odt` chỉ khi clip có chuỗi, nên bundle cũ không có chuỗi giữ nguyên hash.
+Bộ dựng báo lỗi nếu mapping khai khối/state mà ODT của pack không có.
+
 ## 4. `content_hash`
 
 `content_hash` = SHA-256 của **encoding chuẩn** của metadata, không phải của file TOML:
@@ -413,7 +427,7 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Thời lượng frame | 47/47 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
 | `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
-| `content_hash` | `dea731aa0ca62cbac6b01f0627700f886905717258d0ceeeeaf90f715f1f5eae` (schema 4, **có** audio) |
+| `content_hash` | `b410bbbdc6dbf980ad7d8a2c108ef782c65e8476e1b37c863f51850a9c01133f` (schema 4, **có** audio, có chuỗi ODT R-251; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620`/#237 (quên cập nhật) → hash này sau chuỗi ODT |
 
 Cách kiểm lại:
 
