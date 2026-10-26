@@ -1163,6 +1163,7 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
 
+
 ## 53. VN C00 — idle giữ hướng và overlap bomb/bubble (R-198/R-199, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1184,4 +1185,10 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-195 | `Bomb/Fire00` 100 frame được tiêu thụ qua bảng ODT 76 state: tâm `FireC01..C10` dùng frame0..2/3; nhánh L/U/R/D bắt đầu frame4/5/6/7 và kết thúc96/97/98/99, mỗi state nhánh19 record; `Blur_Fire01_<Dir>` là entry riêng10 frame, không nằm trong Fire00. `FLAME_FRAMES=28..=59` không phải một state/frame range có nguồn | Tâm0..3; base L/U/R/D4/5/6/7; cuối96/97/98/99; branch19 record; motion blur entry riêng10 frame | `vn_static` + `kr_static` / candidate (ODT data; chưa native consumer frame-index) | [ODT CSV/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), [evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); blockSHA70ff67a0…; duration raw1 **chưa có đơn vị**. Code `FLAME_FRAMES` phải bỏ/thay theo hướng-state; motion blur dùng riêng khi có nguồn. Không đổi profile/lifetime; không chứng minh mọi mode/index native |
+
+## 55. VN F-01 — Walk loop/Blink threshold (R-197, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-197 | Walk-left C00 trong capture có **5 pose** và giữ hướng; chưa thấy chuyển tiếp pose cuối→pose đầu đủ một chu kỳ nên **wrap 0..4 hay ping-pong chưa chốt**. Sau đổi hướng nhanh + đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose quan sát; wrap/ping-pong unknown; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. **Không** kết luận `character_loop_frame` đã khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
 
