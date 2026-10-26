@@ -70,8 +70,8 @@ UI/UX và chuyển cảnh.
 
 ## Bằng chứng và giới hạn
 
-- Video VN 26/10: `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local), đọc ở R-198,
-  R-199 và #324. Thời lượng các pha của bóng có sai số khoảng ±33 ms.
+- Video VN 26/10: `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local), đọc ở R-198/R-199
+  (#323) và #324 — hai PR claim đang chờ tích hợp. R-198 khớp frame cuối Walk chỉ đối chiếu ở Left. Thời lượng các pha của bóng có sai số khoảng ±33 ms.
 - Công cụ: script quay `/home/admin/boom-team/shots/320/claude-r1/run.py` (Xvfb `-displayfd`,
   server giả lập `vn149-factory-server.py`, prefix bản sao). Không chạy server thật, không bypass
   anti-cheat.
