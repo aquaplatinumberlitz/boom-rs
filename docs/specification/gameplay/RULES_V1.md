@@ -1194,6 +1194,64 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 
 Đề xuất code (không sửa trong PR này): thêm clip/entry `Bomb/HELP!` 4 frame làm layer trên bubble; `cXX.trapped.*` vẫn cần **base body + Faint overlay** (không chỉ Faint); `anim::bubble_look` giữ bubble/thân, không loop thân. Chưa đổi profile/G2/G6/release; cần locator consumer/timing HELP để chốt.
 
+## 57. VN F-03 — Start/countdown chưa gán clip (R-196, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame** trước/dưới overlay để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start. Do đó không có bằng chứng VN dùng `C00-Start` trong cảnh này | Nhân vật vẽ trước overlay; Start 10-frame **không quan sát**; loop/duration unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Khuyến nghị không coi `PresentationKind::Start` playback là confirmed; chỉ giữ/disable theo consumer khi tìm được. RE consumer chưa tìm thấy clip name trong executable; không profile/G2/G6 |
+
+## 58. F-04 — bom chờ nổ theo ODT — R-221 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-221 | ODT `Bomb/BasicBomb` dùng sprite `Bomb/Bomb00` với **4 frame, frame0..3, mỗi frame duration 6 đơn vị ODT**. Với đơn vị 1/30 s (R-222/§65), mỗi frame **200 ms**, một vòng **800 ms**; clip **lặp** trong lúc bom chờ, không phải một chiều theo thời gian còn lại. Video F-04 chỉ xác nhận lặp/phồng-co, không dùng làm nguồn thời lượng. `Bomb00` sprite v2 có4 frame/2 ảnh | 4 frame; 6 đơn vị/frame =200ms; vòng800ms | `vn_static` / **candidate** (ODT data; consumer unit là §65, chưa nối vào client) | ODT dump local `/home/admin/boom-team/shots/fidelity/odt/odt_anims.json`, entry `Bomb/BasicBomb = [["0","Bomb/Bomb00",[[0,6],[1,6],[2,6],[3,6]]]]`; `Bomb/Bomb00` sprite v2 4 frame/2 ảnh; ảnh local `F-04/`. Video `claude-r1/capture.mkv` 10,55–12,55 chỉ là quan sát phụ (bom bị actor che, PTS thực~29,65 fps, không dùng±ms). Không chứng minh frame index đổi theo remaining-time; ODT cho loop4 frame |
+
+Đề xuất code (không sửa trong PR này): `anim::bomb_frame`/clip `bomb.fuse` dùng **4 frame, 6 đơn vị/frame =200 ms**, loop; bỏ nhịp100 ms hiện tại. Không đổi profile/G2/G6/release; unit ODT lấy R-222 §65.
+
+## 60. VN F-06 — explosion.main 10 frame (R-194, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-194 | `explosion.main` là một clip 10 frame/8 ảnh duy nhất; video thấy hiệu ứng nước/lửa ở ô bên trái và ô phía trên ô bom; **chưa phân biệt** instance `explosion.main` riêng trên từng nhánh hay chỉ hiệu ứng tổng. Không kết luận “không có nhánh”; thời lượng 10 frame vẫn design | Một clip10 frame; vị trí branch/effect unknown; duration design | `vn_static` + `vn_runtime` / candidate | Video `claude-r1/capture.mkv`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md); R-084/R-088. Không đổi `explosion.main`/ORDER; cần call site `CGOBombExplosionEffect` trước khi kết luận branch |
+
+## 61. VN F-07 — Die 14 frame và giữ xác (R-193, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-193 | Death C00 bắt đầu khoảng19,2 s; xác còn thấy tới khoảng21,0 s, **không còn** ở21,5/22,0 s; không thấy mờ dần, biến mất sau khoảng1,8–2,3 s. Chưa đo pattern lặp/duration từng frame Die | Giữ xác ~1,8–2,3 s rồi mất; không fade; pattern unknown | `vn_runtime` / candidate | Video `claude-r1/capture.mkv`, crop `F-07/analysis/death-contact.png`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md). V1 `last_visible_frame` giữ vô hạn không khớp; cần thời hạn/clear sau death. Không đổi G2/G6/release |
+
+## 63. FireC/L/U/R/D01..10 — power tier hay khoảng cách (R-192, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-192 | Hậu tố `01..10` trong `FireC01..C10`/branch L/U/R/D01..10 là **power/range tier của bom**, không phải khoảng cách ô hay đầu/giữa nhánh: R-164 power1 chọn đúng nhóm `*01` (motion0/15/30/45/60), và ODT có 15 state mỗi nhóm với C01..C10 + C10 lặp cho các tier cao hơn. State được chọn theo power của bom, không theo index khoảng cách | suffix = power tier; 15 state/nhóm; C10 lặp ở tier>10 | `vn_static` + `kr_static` / candidate (ODT+power1; chưa runtime power2–3) | [ODT CSV](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), R-164/R-165. Chưa chạy bomb tầm2–3 trong lượt này; chưa chốt tier>10/Timebomb. Code `FLAME_FRAMES`/flame state phải chọn theo power tier, không dùng dải 28..59. Không đổi profile/lifetime |
+
+## 65. ODT duration unit và sentinel — R-222/R-223 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-222 | Đơn vị duration trong `fx/ObjectTable/ObjectTable` là **1/30 s** cho build KR/VN: consumer animation `BA3530` so counter `B33170()` với `[frame_record+4]`; `B33170` gọi `sub_636620(this+0x40)`, và `sub_636620` **tăng counter thêm1** (`52A350` get → add1 → `52A860` set). Counter tăng mỗi lần consumer chạy; nhịp update native đo30Hz (R-013), Walk ODT3 đơn vị khớp ~100ms video R-218; Stop100 + Blink25 =125 đơn vị ≈4,17s khớp F-01. **Không** phải ms tuyệt đối hay60Hz | 3 đơn vị=100ms; 1 đơn vị=33,333ms; Stop100=3,333s; Die92≈3,067s | `kr_static` + `vn_static` / **confirmed** (consumer increment/threshold + đơn vị 30Hz cho build; chưa có call-site trace độc lập) | `sub_636620` bytes `0x636620` (get/add1/set), `B33170`/`B331E0` offset+0x40/+0x34, `BA3530` compare `[record+4]`; ODT dump local `/home/admin/boom-team/shots/fidelity/odt/odt_anims.json`; R-013 (30ms step), R-218 (Walk3≈100ms), F-01; chưa chứng minh call-site BA3530 trên mọi actor/mode |
+| R-223 | Sentinel duration: **`0xFFFFFFFF`** là nhánh đặc biệt `== -1` trong `BA3530`, giữ frame vô hạn (Bubble Lock dùng frame6). **`32767` không phải sentinel vô hạn**: `BA3530` chỉ special-case `-1`; 32767 là duration hữu hạn (32767/30≈1092,2 s/frame; hai frame≈2184,5 s≈36,4 phút) nên **không chứng minh vô hạn native**; cần đặc tả giữ/loop nếu muốn vô hạn | 0xFFFFFFFF=hold; 32767=32767 đơn vị/frame (~1092 s/frame; hai frame~2184 s≈36,4 phút) | `kr_static` / **confirmed** cho `-1` branch; **candidate/unknown** cho ý nghĩa thiết kế 32767 | `BA3530` branch `*(v10+4)==-1`; `Bubble Lock [[0,4],[1,4],[2,4],[6,4294967295]]`; Locked In `[[0,32767],[1,32767]]`; không có compare32767 đặc biệt |
+
+Hệ quả code (không sửa trong PR này): bỏ `presentation.frame_duration_ms=100` làm nhịp chung; dùng **đơn vị ODT 1/30** + duration từng frame, hoặc profile `presentation.odt_unit_hz=30`. `0xFFFFFFFF` vẫn hold; `32767` không được coi sentinel vô hạn nếu chưa có consumer. Các chuỗi F-02/F-04 cụ thể nằm ở PR #342/#345 (§56/#58); không đổi G2/G6/release/feature.
+
+
+## 68. F-10 — bước vị trí/nội suy và trợ góc — R-225 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-225 | Client VN cập nhật **vị trí actor theo bước rời**, không nội suy vị trí để vẽ: mover người chơi `59DA6F` nhận amount5/6 và đổi X/Y đúng bước5/6 trong cùng call (R-171/R-176); các getter/draw dùng X/Y hiện tại, không có pha lerp. Video R-218 thấy bước **6,24 px/frame video** ở ~30 fps, không có vị trí trung gian. Trợ góc người chơi VN là **snap/căn làn trong một bước** trên mover `59DA6F` (R-176/R-177): lệch30 px được sửa ngang, lệch35 px không đi; chưa chốt max34 hay mọi hướng/mode. V1 `net.interpolated_position` + assist12 hiện tại không phải hành vi gốc đã chứng minh | Step5/6 px theo call; video6,24 px/frame; corner snap candidate | `vn_static` + `vn_runtime` / **candidate** (mover/getter và video; chưa trace draw toàn tuyến/corner max) | `59DA6F` player mover, `59D902` caller, actual amount/XY R-171, corner R-176/R-177; R-218 video local; `docs/research/findings/KR_RE_MOVEMENT.md` §4/§9 (corner chủ yếu `CMovable` pet/AI; player VN candidate). Không dùng CMovable/pet làm bomber confirmed; video 29,65 fps thực, không±16,7 |
+
+Đề xuất code (không sửa trong PR này): bỏ `NetState::interpolated_position`/alpha cho actor (vẽ X/Y hiện tại), giữ `sim.ticks_per_second=30`; thay assist12 bằng lane-snap trên mover, dùng offset quan sát30 px (không max34) và giữ `corner_assist_px` là design/candidate cho tới khi có thêm ca. Không đổi profile/G2/G6/release.
+
+## 69. F-08 — item Bomb/Fire/Roller trên nền — R-226 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-226 | Ba item V1 (`Item/Bomb`, `Item/Fire`, `Item/Roller`) là **một frame tĩnh** trong `fx`/bundle (`item.bomb/fire/roller`, R-077); **không có khối state ODT `Item/Bomb|Fire|Roller`** trong `fx/ObjectTable/ObjectTable` và không có chuỗi nhấp nháy/nhún. Chỉ item effect/khác như `Item/RescueCoinEffect`, `Item/Exp*`, `Item/BlueSpark` mới có animation; không áp cho 3 item nền này | 1 frame; không animation | `vn_static` / **confirmed** (bundle/V1 entry1 frame + ODT không có block) | `data/assets/animation-v1.toml` item.bomb/fire/roller (một frame); ODT dump local `/home/admin/boom-team/shots/fidelity/odt/odt_anims.json` không có key `Item/Bomb|Fire|Roller`; `F-08` chỉ dùng ODT data. Không suy effect/âm thanh/nhặt; không đổi profile |
+
+Đề xuất code (không sửa trong PR này): giữ item nền **static một frame**; không thêm animation/nhấp nháy nếu không có nguồn. Không đổi profile/G2/G6/release.
+
 ## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1208,3 +1266,4 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 
 R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-193/R-197/R-198/R-219 trở thành
 đối chiếu cho chuỗi ODT, không còn là nguồn chính. Hậu tố state lửa: R-192 (§63).
+
