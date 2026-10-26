@@ -1314,3 +1314,19 @@ mới vào V1 cần quyết định scope riêng. D-04/D-05 giữ nguyên; khôn
 quan sát; `ui/draw.rs` vẽ panel/thẻ/chat/nav. Không thêm policy/auth/ready mới từ ảnh; D-04/D-05 giữ
 nguyên; không đổi profile/G2/G6/release.
 
+
+## 74. F-11c — HUD trong trận VN so với boom-rs — R-230 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-230 | VN stage13 (game800×600, phóng1,28 lên1024×768) có HUD: thanh điểm trên-trái `01` raw `(18,8,86,28)` = logic `(14,1;6,3;67,2;21,9)`, panel phải `(820,44,188,684)` = logic `(640,6;34,4;146,9;534,4)` gồm timer `GIỚI HẠN 02:00`, avatar/player `tester`, 6 item slot, nút `THOÁT RA`, và thanh `CÁ NHÂN` +5 ô đáy. boom-rs `--demo --snapshot` chỉ xuất map 600×560 (`SceneHud player:None`), không có HUD; `--ui-shot match` chỉ có header loading + `Thoát game`. Vì vậy chưa có HUD boom-rs để so cùng cảnh | VN HUD region như trên; Rust demo 600×560 map-only | `vn_runtime` / **candidate** (một capture/một prefix; visual region ±1,6 logic px) | `hud-vn-1024x768.png` SHA `90b5c967…`; `rust-hud-current-1024x768.png` SHA `8219edb7…`; `rust-match-ui-current-800x600.png` SHA `edb3da56…`; [metadata](../../evidence/measurements/vn-ui-hud-result-2026-10-26/README.md). Font/icon chưa đo; không suy score policy; không phải D-04/D-05 |
+
+## 75. F-11c — màn kết quả VN/boom-rs — R-231 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-231 | Chưa quan sát được màn kết quả VN: cấu hình `DEATH_END=1`+bomb không sinh C->S120 subtype13/146; ảnh sau đó là round mới/`START!!`, không dùng làm result. boom-rs `--ui-shot result` 800×600 hiện có title `Kết quả`, bảng `Thứ hạng/Người chơi/Kết quả` (`demo` Thắng, `demo-2` Thua), nút `Về phòng`/`Thoát game`; chưa có ảnh VN để so bố cục | VN result **unknown**; Rust result 800×600 table | `vn_runtime` / **unknown** cho VN result; `design` cho Rust screenshot (chưa đối chiếu) | `rust-result-current-800x600.png` SHA `9fea159c…`; VN `result-try-*`/`result2-try-*` chỉ là match/START, không phải result; [metadata](../../evidence/measurements/vn-ui-hud-result-2026-10-26/README.md). Không claim VN result layout/score; cần death packet hoặc `MATCH_END` phù hợp |
+
+Đề xuất code (không sửa trong PR này): `ui/layout.rs` HUD/result hiện chỉ có generic table/header;
+`ui/draw.rs` cần HUD panel/timer/items/exit và result layout theo cảnh có nguồn. Không đổi profile/G2/G6/release;
+D-04/D-05 giữ nguyên.
