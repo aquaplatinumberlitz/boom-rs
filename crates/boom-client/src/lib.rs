@@ -734,6 +734,14 @@ impl Game {
         })
     }
 
+    /// Có người chơi **đã bị nhốt** đủ `ticks` tick trình diễn (cảnh đối chiếu S-03, ADR 0014).
+    fn trap_ready(&self, ticks: u32) -> bool {
+        self.state.players.iter().any(|player| match player.life {
+            Life::Trapped { since } => self.clock.tick >= since.saturating_add(ticks),
+            _ => false,
+        })
+    }
+
     /// Chuỗi chết đã **hết**: nhân vật chết giữ khung cuối **có ảnh** của clip chết.
     fn death_hold_ready(&self) -> bool {
         let frames = self.frame_counts();
@@ -1400,29 +1408,26 @@ async fn run(mut game: Game, opts: Options) {
         game.now = get_time();
         if opts.demo_death {
             // Chế độ demo chết: chạy tới khi chuỗi chết đang phát ở frame cần chụp
-            // (hoặc đã hết, nếu `--death-hold`), hoặc hết lượt.
+            // (hoặc đã hết, nếu `--death-hold`; hoặc đã bị nhốt đủ tick, nếu `--trap-at`),
+            // hoặc hết lượt.
             //
             // Vòng lặp chạy theo **đồng hồ trình diễn**: lượt hai người **kết thúc** ngay
             // lúc chết nên mô phỏng dừng, nhưng đồng hồ trình diễn vẫn tiến để chuỗi
             // chết phát trọn clip (R-089).
             // Warmup đóng băng đầu lượt nên hạn lượt tính từ tick cuối warmup.
             let limit = game.world.rules().warmup_ticks + game.world.rules().round_ticks;
-            while !(if opts.death_hold {
-                game.death_hold_ready()
-            } else {
-                game.death_ready(opts.death_frame)
-            }) && game.clock.tick < limit
-            {
+            let ready_now = |game: &Game| match opts.trap_at {
+                Some(ticks) => game.trap_ready(ticks),
+                None if opts.death_hold => game.death_hold_ready(),
+                None => game.death_ready(opts.death_frame),
+            };
+            while !ready_now(&game) && game.clock.tick < limit {
                 if let Err(error) = game.tick() {
                     eprintln!("demo chết: không chạy được tick: {error}");
                     std::process::exit(2);
                 }
             }
-            let ready = if opts.death_hold {
-                game.death_hold_ready()
-            } else {
-                game.death_ready(opts.death_frame)
-            };
+            let ready = ready_now(&game);
             if !ready {
                 eprintln!(
                     "demo chết: hết lượt mà chuỗi chết chưa tới trạng thái cần chụp (frame {})",
@@ -1800,6 +1805,8 @@ struct Options {
     death_frame: usize,
     /// Chụp trạng thái **sau** chuỗi chết (nhân vật giữ khung cuối có ảnh).
     death_hold: bool,
+    /// Chụp khi có người chơi đã bị nhốt đủ N tick (cảnh đối chiếu S-03, ADR 0014).
+    trap_at: Option<u32>,
     /// Địa chỉ server để nối (chế độ mạng). Không có thì client chạy offline.
     connect: Option<String>,
     /// Tên đăng nhập cho chế độ mạng (fallback: biến môi trường `BOOM_USER`).
@@ -1845,6 +1852,7 @@ impl Default for Options {
             demo_death: false,
             death_frame: 0,
             death_hold: false,
+            trap_at: None,
             connect: None,
             user: None,
             password: None,
@@ -1951,6 +1959,14 @@ impl Options {
                         .map_err(|_| "--death-frame cần số")?;
                 }
                 "--death-hold" => opts.death_hold = true,
+                "--trap-at" => {
+                    opts.trap_at = Some(
+                        args.next()
+                            .ok_or("--trap-at cần số tick")?
+                            .parse()
+                            .map_err(|_| "--trap-at cần số tick")?,
+                    );
+                }
                 "--connect" => {
                     opts.connect = Some(args.next().ok_or("--connect cần địa chỉ server")?);
                 }
@@ -1982,7 +1998,7 @@ impl Options {
                     println!(
                         "dùng: boom-client [--scale 1|2] [--fullscreen|--windowed] [--snapshot PNG] [--ticks N] [--seed N] [--rebind ACTION=KEY]\n\
                          \t  [--options PATH] [--save-options] [--volume N] [--bgm-volume N] [--sfx-volume N] [--mute|--no-mute]\n\
-                         \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--demo-death] [--death-frame N] [--death-hold] [--ui-demo] [--ui-shot SCREEN]\n\
+                         \t  [--bundle DIR] [--rules FILE] [--l10n FILE] [--demo] [--demo-death] [--death-frame N] [--death-hold] [--trap-at TICK] [--ui-demo] [--ui-shot SCREEN]\n\
                          \t  [--connect ĐỊA_CHỈ_SERVER] [--user TÊN] [--password MẬT_KHẨU] [--register]\n\
                          \t  [--auto-ready] [--auto-players N] [--debug-hud]\n\
                          \n\
@@ -1992,6 +2008,7 @@ impl Options {
                          \t  --demo-death   kịch bản offline chết (đặt bom rồi đứng yên) để chụp ảnh\n\
                          \t  --death-frame N  frame của chuỗi chết cần chụp (dùng cùng --demo-death)\n\
                          \t  --death-hold   chụp sau khi chuỗi chết hết (nhân vật giữ khung cuối có ảnh)\n\
+                         \t  --trap-at TICK chụp khi có người đã bị nhốt đủ TICK tick (dùng cùng --demo-death)\n\
                          \t  --debug-hud    vẽ HUD chẩn đoán (số đo tick/âm thanh/phím) cho QA; mặc định tắt\n\
                          chế độ mạng cần tên/mật khẩu: --user/--password, hoặc biến môi trường BOOM_USER/BOOM_PASSWORD\n\
                          (nên đặt mật khẩu qua biến môi trường: cờ dòng lệnh lộ trong danh sách tiến trình).\n\
@@ -2313,6 +2330,32 @@ mod tests {
         // Khung vẽ tiếp theo cùng tick: giữ vị trí trước, vẫn đang đi.
         let again = previous_positions_on_update(&new, &new, previous.clone());
         assert_eq!(again, previous);
+    }
+
+    #[test]
+    fn trap_at_flag_stops_the_demo_while_the_player_is_trapped() {
+        let opts = Options::parse_from(["--trap-at".to_owned(), "60".to_owned()].into_iter())
+            .expect("--trap-at hợp lệ");
+        assert_eq!(opts.trap_at, Some(60));
+        assert!(Options::parse_from(["--trap-at".to_owned()].into_iter()).is_err());
+
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        game.enable_demo(true);
+        let mut guard = 0;
+        while !game.trap_ready(60) {
+            game.tick().expect("tick mô phỏng");
+            guard += 1;
+            assert!(guard < 10_000, "kịch bản chết phải có lúc bị nhốt");
+        }
+        // Dừng lúc còn bị nhốt: cảnh S-03 chụp được bóng giữa chừng (ADR 0014).
+        assert!(
+            game.state
+                .players
+                .iter()
+                .any(|player| matches!(player.life, Life::Trapped { .. }))
+        );
     }
 
     #[test]
