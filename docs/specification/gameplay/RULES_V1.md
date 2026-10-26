@@ -1162,3 +1162,11 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 `anim::character_loop_frame`. Bước6,24 px/frame video cho thấy client gốc cập nhật vị trí theo bước
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
+
+## 55. F-02 — tư thế Faint trong bong bóng và HELP! — R-220 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-220 | Trong bong bóng, video VN cho thấy **thân nhân vật đứng phía dưới overlay Faint**: `C00-FaintLayerStatic/Adjust` chỉ chứa mũ + mắt/sparkle (một ảnh 47×127, 3 frame), không có thân; thân trong bóng là layer base (Blink/Stop/WalkDown family — chưa xác định chính xác). HELP! là text/UI **không có sprite entry trong bundle**, nằm trên bong bóng, hiện liên tục 12,6–18,9 s và không thấy tắt/nhấp nháy rõ; bong bóng phủ trên base+Faint. V1 dùng chỉ FaintLayer và không có HELP → thiếu thân/HELP | Faint overlay0–2? (hat/eye); base body riêng; HELP text over bubble; bubble over base | `vn_runtime` visual + `vn_static` sprite / **candidate** (một video, không consumer/locator) | Video local `/home/admin/boom-team/shots/fidelity/F-02/capture.mkv` + crop; Faint sprite page0 x528 y1013 w47 h127 (3 frame), Bubble00 9 frame, Faint/Die entries trong local bundle. Không tìm thấy `HELP!` trong bundle/ASCII-UTF16 exe; chưa xác định text/font entry. Không chứng minh base entry chính xác; không runtime/locator. |
+
+Đề xuất code (không sửa trong PR này): `cXX.trapped.*` phải vẽ **base body + Faint overlay** (không thay toàn thân bằng Faint), thêm layer text `HELP!` trên bubble trong suốt hold; `anim::bubble_look` giữ bubble/không loop thân. Chưa đổi profile/G2/G6/release; cần RE consumer/entry HELP để chốt.
