@@ -505,7 +505,7 @@ pub fn presentation_plan(
             .map(|clip| match clip_sequence_of(clip, ODT_BOMB) {
                 // Chuỗi `Bomb/BasicBomb` của ODT: 4 frame, mỗi frame 6 đơn vị, lặp (R-251).
                 Some(steps) => {
-                    // Pha tính từ lúc đặt bom (`explodes_at − fuse`), không theo đồng hồ toàn trận.
+                    // Pha tính từ lúc đặt bom (`explodes_at − fuse`; R-252 `design`).
                     let placed = bomb.explodes_at.saturating_sub(world.rules().fuse_ticks);
                     anim::sequence_frame(&steps, anim::odt_units_since(clock, placed), true)
                         .unwrap_or(0)

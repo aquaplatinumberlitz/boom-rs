@@ -524,8 +524,8 @@ impl PresentationJournal {
 
     /// Ghi nhân vật `player` đang đi hay đứng yên, hướng `facing`, tại `tick`.
     ///
-    /// Đổi trạng thái (đi ↔ đứng) hoặc đổi hướng là đổi state animation, nên chuỗi ODT mới
-    /// phát lại từ đầu: tick bắt đầu được đặt lại (review #353).
+    /// Đổi trạng thái (đi ↔ đứng) hoặc đổi hướng thì chuỗi ODT phát lại từ đầu: tick bắt đầu
+    /// được đặt lại. Luật này là `design` (R-252, nợ F-01): chưa có trace consumer đổi hướng.
     pub fn note_motion(&mut self, player: u8, moving: bool, facing: Dir, tick: u32) {
         match self.motion.get(&player) {
             Some(&(was_moving, was_facing, _)) if was_moving == moving && was_facing == facing => {}

@@ -1208,3 +1208,9 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 
 R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-193/R-197/R-198/R-219 trở thành
 đối chiếu cho chuỗi ODT, không còn là nguồn chính. Hậu tố state lửa: R-192 (§63).
+
+## 70. Gốc pha chuỗi ODT của nhân vật và bom — R-252 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-252 | Client boom-rs tính pha chuỗi ODT (R-251) từ lúc **bắt đầu state**: Walk tính từ lúc bắt đầu đi; **đổi hướng hoặc đổi đi ↔ đứng thì phát lại từ đầu**; Stop/Blink tính từ lúc bắt đầu đứng yên; bom tính từ lúc đặt (`explodes_at − fuse_ticks`) | Walk/Stop: tick đổi state; bom: tick đặt | `design` | Chưa có trace consumer cho đổi hướng; R-197 chưa phân biệt reset hay giữ chỉ số. Nợ ghi ở FIDELITY §3 (F-01) — cần trace consumer đổi state hoặc quay cảnh S-01 đổi hướng liên tục |
