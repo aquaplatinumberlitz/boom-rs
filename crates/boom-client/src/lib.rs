@@ -682,11 +682,7 @@ impl Game {
             Scene::map_size,
         );
         let logic_size = [map_size[0], map_size[1] + HUD_HEIGHT as u32];
-        let previous_positions = state
-            .players
-            .iter()
-            .map(|player| (player.id, (player.x.0, player.y.0)))
-            .collect();
+        let previous_positions = player_positions(&state);
         Ok(Self {
             world,
             state,
@@ -772,11 +768,11 @@ impl Game {
             }
             if let Some(state) = net.state() {
                 // Vị trí ở tick trước để animation biết nhân vật đang đi hay đứng yên.
-                self.previous_positions = state
-                    .players
-                    .iter()
-                    .map(|player| (player.id, (player.x.0, player.y.0)))
-                    .collect();
+                self.previous_positions = previous_positions_on_update(
+                    &self.state,
+                    state,
+                    std::mem::take(&mut self.previous_positions),
+                );
                 self.state = state.clone();
                 status.predicted_tick = state.tick;
                 // Đồng hồ trình diễn bám tick của state server (đã xác nhận/dự đoán) khi
@@ -862,12 +858,7 @@ impl Game {
         }
         // Lưu vị trí trước bước: state core không có cờ "đang đi" nên client tự so
         // vị trí giữa hai tick (module `anim`).
-        self.previous_positions = self
-            .state
-            .players
-            .iter()
-            .map(|player| (player.id, (player.x.0, player.y.0)))
-            .collect();
+        self.previous_positions = player_positions(&self.state);
         let input = match &mut self.demo {
             Some(demo) => {
                 let ids: Vec<u8> = self.state.players.iter().map(|player| player.id).collect();
@@ -1025,6 +1016,32 @@ impl Game {
             Some((x, y)) => (x as f32 / 1000.0, y as f32 / 1000.0),
             None => (player.x.0 as f32 / 1000.0, player.y.0 as f32 / 1000.0),
         }
+    }
+}
+
+/// Vị trí (mpx) của từng người chơi trong `state`.
+fn player_positions(state: &SimulationState) -> BTreeMap<u8, (i32, i32)> {
+    state
+        .players
+        .iter()
+        .map(|player| (player.id, (player.x.0, player.y.0)))
+        .collect()
+}
+
+/// Vị trí "tick trước" sau khi client nhận state mạng `new` thay cho `old`.
+///
+/// Client vẽ nhiều khung giữa hai tick, nên chỉ khi tick **đổi** thì vị trí trước mới là
+/// vị trí của `old`; cùng tick thì giữ `kept`. Trước đây client lấy vị trí của chính `new`
+/// làm vị trí trước nên nhân vật mạng luôn bị coi là đứng yên và không đổi hướng (#320).
+fn previous_positions_on_update(
+    old: &SimulationState,
+    new: &SimulationState,
+    kept: BTreeMap<u8, (i32, i32)>,
+) -> BTreeMap<u8, (i32, i32)> {
+    if new.tick == old.tick {
+        kept
+    } else {
+        player_positions(old)
     }
 }
 
@@ -2275,6 +2292,27 @@ mod tests {
                 Some(CellKind::Floor)
             );
         }
+    }
+
+    #[test]
+    fn net_update_keeps_the_previous_tick_positions_so_players_walk() {
+        let profile = embedded_profile();
+        let game = Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        let old = game.state.clone();
+        let mut new = old.clone();
+        new.tick += 1;
+        new.players[0].x.0 += 1000;
+        let previous = previous_positions_on_update(&old, &new, BTreeMap::new());
+        let id = new.players[0].id;
+        // Tick mới: vị trí trước là của state cũ nên nhân vật được coi là đang đi (#320).
+        assert_eq!(previous, player_positions(&old));
+        assert!(anim::is_moving(
+            (new.players[0].x.0, new.players[0].y.0),
+            previous.get(&id).copied()
+        ));
+        // Khung vẽ tiếp theo cùng tick: giữ vị trí trước, vẫn đang đi.
+        let again = previous_positions_on_update(&new, &new, previous.clone());
+        assert_eq!(again, previous);
     }
 
     #[test]
