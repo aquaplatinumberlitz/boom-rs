@@ -44,6 +44,7 @@ Raw absolute locator: `/home/admin/boom-team/shots/fidelity/F-05/r192-bomb-arg/r
   Counter15 arg2 không đủ gán power (counter khác motion; R-164 đã tách).
 
 ## Cleanup
-Ba harness tự kết thúc; kiểm không còn `winedbg`, `vn240-flame-server`, `Xvfb :142`,
-`ca_fixed_patched`/wineserver/wine64 hay launcher con của task. Không dùng `wineserver -k`/`pkill`;
-prefix đã nhả. Không chạy Fire+ack; không chạy map/F-09.
+Ba harness task330 tự kết thúc; không còn `winedbg`, `vn240-flame-server`, `Xvfb :142` hay launcher con
+của task330. Sau đó prefix được dsh2/#354 dùng lại: tiến trình `ca_fixed_patched`/`wineserver` hiện có
+không phải child task330 và **không bị kill**. Không dùng `wineserver -k`/`pkill`; task330 nhả lease.
+Không chạy Fire+ack; không chạy map/F-09.
