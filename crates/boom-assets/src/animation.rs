@@ -354,6 +354,8 @@ mod tests {
             let expected = match source.claims.first().map(String::as_str) {
                 Some("R-077") | Some("R-084") => Status::Confirmed,
                 Some("R-078") => Status::Candidate,
+                // Chữ HELP! (R-220/R-250): mapping candidate có nguồn riêng.
+                Some("R-220") => Status::Candidate,
                 other => panic!("claim không lạ trong bảng clip: {other:?}"),
             };
             assert_eq!(

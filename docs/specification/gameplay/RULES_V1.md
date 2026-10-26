@@ -1258,6 +1258,7 @@ Hệ quả code (không sửa trong PR này): bỏ `presentation.frame_duration_
 
 Đề xuất code (không sửa trong PR này): giữ item nền **static một frame**; không thêm animation/nhấp nháy nếu không có nguồn. Không đổi profile/G2/G6/release.
 
+
 ## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1272,6 +1273,18 @@ Hệ quả code (không sửa trong PR này): bỏ `presentation.frame_duration_
 
 R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-193/R-197/R-198/R-219 trở thành
 đối chiếu cho chuỗi ODT, không còn là nguồn chính. Hậu tố state lửa: R-192 (§63).
+
+## 70. Gốc pha chuỗi ODT của nhân vật và bom — R-252 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-252 | Client boom-rs tính pha chuỗi ODT (R-251) từ lúc **bắt đầu state**: Walk tính từ lúc bắt đầu đi; **đổi hướng hoặc đổi đi ↔ đứng thì phát lại từ đầu**; Stop/Blink tính từ lúc bắt đầu đứng yên; bom tính từ lúc đặt (`explodes_at − fuse_ticks`) | Walk/Stop: tick đổi state; bom: tick đặt | `design` | Chưa có trace consumer cho đổi hướng; R-197 chưa phân biệt reset hay giữ chỉ số. Nợ ghi ở FIDELITY §3 (F-01) — cần trace consumer đổi state hoặc quay cảnh S-01 đổi hướng liên tục |
+
+## 66. Chữ HELP! trên bóng nhốt — vị trí và lớp (R-250, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-250 | Khi bị nhốt, chữ HELP! (`Bomb/HELP!`, R-220) **căn giữa ngang trên bóng tròn** (frame giữ 6 của `Bubble00`), **đáy chữ cách đỉnh bóng khoảng 2 px**, và vẽ **trên mọi thứ** (đè cả vật cản bên cạnh). Chữ hiện suốt lúc bị nhốt, mất khi bóng vỡ | Căn giữa theo bóng; khe 2 px; lớp trên cùng | `vn_runtime` / candidate | Video VN 26/10 `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local) t≈15,0 s; quy về pixel game ÷1,28 (game 800×600 phóng lên 1024×768); so sánh `/home/admin/boom-team/shots/fidelity/F-02/ours/wide_cmp2.png`. Một ca, một map; nhịp phát lấy từ ODT `Bomb/Help` (R-251), không từ video |
 
 
 ## 71. F-11a — màn đăng nhập VN so với boom-rs — R-227 (2026-10-26)

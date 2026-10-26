@@ -51,7 +51,7 @@ PR nào đổi hành vi; khi PR đó chưa merge thì hành vi trên main vẫn 
 | ID | Hành vi | Hiện tại | Trạng thái | Issue |
 |---|---|---|---|---|
 | F-01 | Walk lặp/ping-pong, đổi hướng, ngưỡng Blink | Lặp 0..4. Khi dừng: main cũ dùng `idle.blink`; #325 đổi sang giữ frame cuối Walk theo hướng | dừng: `vn_runtime` candidate theo R-198 (#323, chờ tích hợp) — giữ hướng thấy ở 4 hướng ≥1,5 s, khớp frame cuối **chỉ đối chiếu ở Left**; còn lại `design` | #326 |
-| F-02 | Tư thế trong bóng, chữ HELP! | FaintLayer lặp; không có HELP! | `design` | #327 |
+| F-02 | Tư thế trong bóng, chữ HELP! | FaintLayer lặp, chưa có thân. HELP! (`Bomb/HELP!`, 4 frame) lặp 100 ms, căn giữa trên bóng tròn, nằm trên cùng (#346) | thân: chưa định vị. HELP: entry/vị trí `vn_runtime` candidate; nhịp `design` | #327 |
 | F-03 | Clip Start | Phát một lần theo sổ trình diễn | `design` | #328 |
 | F-04 | Nhịp fuse 4 frame | Lặp đều 100 ms | `design` | #329 |
 | F-05 | Chia Fire00, dải 28..59, motion blur | `FLAME_FRAMES = 28..=59` | `design` | #330 |
@@ -62,4 +62,5 @@ PR nào đổi hành vi; khi PR đó chưa merge thì hành vi trên main vẫn 
 | F-10 | Cảm giác di chuyển | 30 Hz + nội suy | `design` | #335 |
 | F-11 | UI/UX các màn hình | Theo ảnh VN từng phần | một phần `design` | #336 |
 | — | Bóng nhốt | Main cũ: lớn dần 0–2 rồi lặp 3–8 (sai). #325: lớn dần 0–2, giữ 6 trong mờ, đục 600 ms, vỡ 3–5 | `vn_runtime` candidate (video ~30 fps, ±33 ms; claim ở #324 chờ tích hợp) | #320 |
+| — | Gốc pha Walk khi đổi hướng (phát lại từ đầu) và gốc pha bom (lúc đặt) | #353: reset khi đổi state/hướng | `design` (R-252) | #326 |
 | — | Nhịp frame chung 100 ms | R-118 | `design` | #311 (đóng) |

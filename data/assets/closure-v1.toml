@@ -102,6 +102,14 @@ claims = ["R-078"]
 note = "hình lửa: **một** blob 100 frame gộp nhiều phần; cách chia tâm/thân/đuôi và thứ tự hướng chưa xác nhận được (Q-003)"
 
 [[entries]]
+entry = "FxDesktop/Bomb/HELP!"
+role = "trapped_art"
+source = "kr_static"
+status = "candidate"
+claims = ["R-220", "R-250"]
+note = "chữ HELP! trên bong bóng người bị nhốt; 4 frame (F-02 #327)"
+
+[[entries]]
 entry = "FxDesktop/Bomb/Bubble00"
 role = "trapped_art"
 source = "kr_static"
