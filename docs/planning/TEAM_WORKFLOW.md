@@ -91,7 +91,9 @@ Vòng đời một task:
    `sim.rs`, `Cargo.toml` gốc, `features.json`, `execution.json`) → hỏi integrator trong issue.
 4. Chuyển scenario của feature từ `pending` sang `active`, thêm ca biên; scenario là acceptance, reviewer
    đối chiếu nó với RULES_V1/SCOPE_V1.
-5. Mở PR theo mẫu (`.github/pull_request_template.md`), CI ba OS xanh, reviewer khác người làm approve.
+5. Mở PR theo mẫu (`.github/pull_request_template.md`), mọi job CI của head hiện tại xanh, reviewer khác
+   người làm approve. Theo chỉ đạo chủ dự án 2026-10-26, CI/test/smoke và đóng gói chỉ chạy Linux;
+   Windows/macOS tạm hoãn (AGENTS §5), không thay nghiệm thu đa nền tảng V1-036/G6.
 6. Integrator merge PR (`gh pr merge`) theo thứ tự dependency, rồi cập nhật `features.json` bằng một PR
    sổ tiến độ (tự merge được theo AGENTS §5). Integrator cũng mở PR cho thay đổi của chính mình.
 

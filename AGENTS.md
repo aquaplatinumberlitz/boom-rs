@@ -60,6 +60,8 @@ Claim VN `confirmed` dùng trực tiếp cho luật chung; khác biệt cụ th�
 ghi theo profile. `web`, `oss` và `emu_choice` (giá trị server giả lập tự đặt) chỉ là `candidate`
 cho tới khi được đối chiếu hoặc chọn thành `design`.
 
+Trình diễn (clip, frame, thời gian, lớp, hiệu ứng, chuyển động, UI) không tự đặt luật phát: RE consumer →
+quay/đo VN → `design` ghi nợ; PR hình ảnh kèm so sánh cảnh đối chiếu local ([ADR 0014](docs/decisions/0014-presentation-fidelity.md)).
 Không suy diễn quá bằng chứng: asset tồn tại ≠ tính năng chạy; log server giả lập ≠ luật server gốc;
 test sinh từ implementation chỉ là regression; speed level ≠ px/s; weight ≠ phần trăm.
 Nguồn web ghi URL, tiêu đề, ngày truy cập/xuất bản, region/build và giới hạn; hai bài chép cùng nguồn
@@ -74,12 +76,15 @@ là một bằng chứng; không tìm thấy phải ghi phạm vi đã tìm, kh�
   `docs/README.md`, `features.json`, `execution.json` (chỉ integrator chính ghi), index ADR, `Cargo.toml` gốc,
   `rust-toolchain.toml`, các `clippy.toml`.
 - Mọi thay đổi vào `main` qua pull request, **kể cả của integrator**; không push thẳng `main`
-  (hook pre-push chặn; bật bằng `cargo xtask setup`). Merge khi CI ba OS xanh và:
+  (hook pre-push chặn; bật bằng `cargo xtask setup`). Theo chỉ đạo chủ dự án 2026-10-26,
+  CI/test/smoke và đóng gói hiện chỉ chạy **Linux**; Windows/macOS tạm hoãn. Merge khi mọi job CI
+  của head hiện tại đã xong và xanh, gồm test và smoke Linux, và:
   - code, contract, rules/claim, ADR, AGENTS hoặc quy trình: reviewer khác người làm đã approve
     (comment `APPROVE` kèm head SHA, vì mọi agent dùng chung tài khoản GitHub — TEAM_WORKFLOW §1);
   - chỉ sổ tiến độ (`features.json` tracking, `execution.json`, file generated) hoặc sửa link/chính tả
     không đổi nghĩa: integrator tự merge được, ghi lý do trong PR.
   Không khóa nhánh trên GitHub (quyết định chủ dự án 2026-10-19); quy tắc này + hook thay thế.
+  Hoãn CI Windows/macOS không đổi baseline V1, không tự ký V1-036/G6 hoặc coi hai OS đó đã nghiệm thu.
 - Worker code chạy trong worktree/nhánh riêng; integrator merge theo dependency.
 - Không reset/clean/checkout đè thay đổi người khác; không sửa binary, pack hoặc IDA database.
 - Legacy server, tool RE và pack nằm ở `boom-re`, `boom-re-l10n`, `boomkr-re`; tham chiếu bằng đường dẫn,

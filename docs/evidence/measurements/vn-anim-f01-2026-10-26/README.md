@@ -8,8 +8,8 @@ Capture local, Xvfb/Mesa llvmpipe, fake server VN, prefix/game bản sao `vn-gra
 ## Quan sát
 - S-01: idle2s; Left/Right/Up/Down mỗi hướng0,6s nghỉ1,5s; đổi hướng liên tục2s (0,25s/key);
   đứng yên8s.
-- Walk-left crop 2,05–2,60s có 5 pose lặp; contact local `analysis/idle-contact2.png` cho thấy chuỗi
-  5 pose đi theo một chiều rồi lặp, không thấy đảo ngược.
+- Walk-left crop **2,10–2,64 s** có **5 pose**; contact local `analysis/idle-contact2.png` cho thấy các pose
+  nhưng chưa thấy chuyển tiếp pose cuối→pose đầu đủ một chu kỳ, nên wrap hay ping-pong chưa chốt.
 - Sau chuỗi đổi hướng nhanh, actor đứng yên giữ hướng cuối; frame mắt nhắm đầu tiên ở khoảng4,1s
   sau idle (16,9s video), mở lại khoảng5,1s; không thấy BlinkSmall trong8s.
 - Đổi hướng giữa lúc đi: frame quanh các mốc 10,2–12,4s không đủ ổn định/đồng nhất để phân biệt

@@ -1163,8 +1163,16 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
 
+
+## 53. VN C00 — idle giữ hướng và overlap bomb/bubble (R-198/R-199, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-198 | Sau khi đi Left/Right/Up/Down rồi dừng 1,5 s, C00 **giữ hướng cuối ở cả bốn hướng** (mặt trái/phải/lưng-up/mặt down) và **không** trả về `idle.blink` trong cửa sổ này; riêng **Left** đã đối chiếu khớp **frame cuối Walk-left**, các hướng còn lại mới chỉ xác nhận hướng, chưa đối chiếu frame cuối | Giữ hướng cả4 ≥1,5 s; frame cuối chỉ Left; Blink ban đầu; ngưỡng Blink sau dừng chưa đo | `vn_runtime` / candidate (video local, một actor/map; giữ hướng cả4, frame cuối mới Left) | Video `claude-r1/capture.mkv` + crop `idle-directions-tight.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Code hiện `character_clip` luôn `idle.blink` ⇒ cần giữ hướng/frame cuối; chưa đổi profile. Không chứng minh BlinkSmall/ngưỡng dài |
+| R-199 | Trong capture, bomb nằm **dưới** nhân vật (char vẽ đè bomb) và bubble nhốt **phủ trên** nhân vật | Bomb<character; bubble>character | `vn_runtime` / candidate (một frame/map) | `bomb-11-zoom.png`/`trap-13.5-zoom.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Khớp `ORDER_BOMB<ORDER_CHARACTER<ORDER_BUBBLE`; chưa quan sát item/high object/fire/explosion riêng |
+
 ## 55. VN F-01 — Walk loop/Blink threshold (R-197, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
-| R-197 | Walk-left C00 trong capture lặp **5 pose 0..4** (không thấy ping-pong trong0,6s); sau khi đổi hướng nhanh và đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose lặp; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. `character_loop_frame` hiện0..4 khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
+| R-197 | Walk-left C00 trong capture có **5 pose** và giữ hướng; chưa thấy chuyển tiếp pose cuối→pose đầu đủ một chu kỳ nên **wrap 0..4 hay ping-pong chưa chốt**. Sau đổi hướng nhanh + đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose quan sát; wrap/ping-pong unknown; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. **Không** kết luận `character_loop_frame` đã khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
