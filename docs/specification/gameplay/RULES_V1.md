@@ -1178,3 +1178,10 @@ không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Khô
 
 R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (character trapped clip lặp; bubble grow3 rồi lặp phần còn lại):
 đề xuất code (không sửa trong PR này) giữ **một frame Faint** trong suốt hold, bubble lớn **một lần rồi giữ**, flash ngắn trước pop, rồi death; **HELP!** dùng entry `Bomb/HELP!` (4 frame), chưa map bundle; mapping/thứ tự/nhịp còn candidate. Không đổi profile/G2/G6/release; chưa chứng minh toàn bộ mode/rescue (không có item rescue trong ca này).
+
+## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-195 | `Bomb/Fire00` 100 frame được tiêu thụ qua bảng ODT 76 state: tâm `FireC01..C10` dùng frame0..2/3; nhánh L/U/R/D bắt đầu frame4/5/6/7 và kết thúc96/97/98/99, mỗi state nhánh19 record; `Blur_Fire01_<Dir>` là entry riêng10 frame, không nằm trong Fire00. `FLAME_FRAMES=28..=59` không phải một state/frame range có nguồn | Tâm0..3; base L/U/R/D4/5/6/7; cuối96/97/98/99; branch19 record; motion blur entry riêng10 frame | `vn_static` + `kr_static` / candidate (ODT data; chưa native consumer frame-index) | [ODT CSV/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), [evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); blockSHA70ff67a0…; duration raw1 **chưa có đơn vị**. Code `FLAME_FRAMES` phải bỏ/thay theo hướng-state; motion blur dùng riêng khi có nguồn. Không đổi profile/lifetime; không chứng minh mọi mode/index native |
+
