@@ -1207,3 +1207,14 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 |---|---|---|---|---|
 | R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame** trước/dưới overlay để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start. Do đó không có bằng chứng VN dùng `C00-Start` trong cảnh này | Nhân vật vẽ trước overlay; Start 10-frame **không quan sát**; loop/duration unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Khuyến nghị không coi `PresentationKind::Start` playback là confirmed; chỉ giữ/disable theo consumer khi tìm được. RE consumer chưa tìm thấy clip name trong executable; không profile/G2/G6 |
 
+
+## 60. F-11a — màn đăng nhập VN so với boom-rs — R-227 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-227 | Trên một capture VN login 800×600 (scale1,28 lên 1024×768), panel đăng nhập nằm giữa màn với `NGƯỜI CHƠI 1`, account field khoảng `(396,462,107,18)`, password `(396,484,107,17)`, hai orb `1P/2P`, bốn nút đáy `TÌM MK / ĐĂNG KÝ / ĐĂNG NHẬP / THOÁT RA` ở y≈552; `ĐĂNG NHẬP` xám khi thiếu mật khẩu, xanh sau khi nhập. boom-rs hiện dùng title `(24,12)`, field `(24,130,400,44)`/`(24,206,400,44)`, ba nút y=496, không có panel/1P/2P/TÌM MK; submit luôn enabled. Focus/hover VN không có viền/màu khác rõ; chỉ thấy caret/chữ và disabled→enabled. **D-04/D-05** (nền JPEG/ảnh có chữ) vẫn là khác biệt đã chấp thuận, không phải bug | VN layout xấp xỉ như trên; boom-rs rect như trên; scale1,28 | `vn_runtime` / **candidate** (một capture, một prefix; toạ độ đọc ảnh) | Ảnh local `/home/admin/boom-team/shots/fidelity/F-11/login/01-login-initial.png` SHA `e5c2e9ac…` … `06-submit-hover.png` SHA `2fed9e90…`; `boom-rs-login-current-800x600.png` SHA `df11a055…`; command/provenance/hash trong [metadata](../../evidence/measurements/vn-ui-login-2026-10-26/README.md). Toạ độ ±2 screenshot px; font family/size chưa đo; account bị prefix điền sẵn `tester`; không mở sảnh/phòng/trận. Không có KR, không có full 800 screenshot native |
+
+Đề xuất code (không sửa trong PR này): `ui/layout.rs::login_layout` cần panel/1P-2P/4 nút và
+field centred; `FieldId::LoginAccount/LoginPassword`, `ActionId::LoginSubmit`/`LoginRegister`/`Quit`
+và thêm action `TÌM MK`; `ui/draw.rs` field/button disabled/focus/hover. Chưa đổi code/profile;
+D-04/D-05 giữ nguyên. Không đổi G2/G6/release/feature.
