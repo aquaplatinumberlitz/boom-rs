@@ -1,4 +1,5 @@
-# Build phát hành 3 OS (V1-036 phần 1, issue #102; phần 2: license + font, issue #119).
+# Build gói Linux; Windows/macOS tạm hoãn theo chỉ đạo chủ dự án 2026-10-26.
+# V1-036 đa nền tảng và G6 vẫn cần nghiệm thu riêng.
 #
 # Chạy tay (workflow_dispatch) hoặc khi đẩy tag `v*`. Mỗi OS ra một artifact: gói gồm
 # bin/, data/rules/, data/l10n/, assets/fonts/ (font OFL), README chạy nhanh và LICENSES
@@ -66,14 +67,6 @@ jobs:
           - os: ubuntu-latest
             os_name: linux
             arch: x86_64
-            archive: tar.gz
-          - os: windows-latest
-            os_name: windows
-            arch: x86_64
-            archive: zip
-          - os: macos-latest
-            os_name: macos
-            arch: aarch64
             archive: tar.gz
     runs-on: ${{ matrix.os }}
     steps:

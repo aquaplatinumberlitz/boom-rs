@@ -1,4 +1,5 @@
-# Cổng CI ba OS (SCOPE_V1 nghiệm thu #8: replay cùng hash trên Windows/Linux/macOS).
+# CI hiện chỉ chạy Linux theo chỉ đạo chủ dự án 2026-10-26.
+# Windows/macOS tạm hoãn; nghiệm thu đa nền tảng trong SCOPE_V1 vẫn để sau.
 # Toolchain lấy từ rust-toolchain.toml. Cần remote GitHub để chạy (ADR 0003).
 #
 # Job `smoke` (V1-036): dựng gói trên từng OS, chạy binary trong gói và kiểm lỗi
@@ -18,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +37,7 @@ jobs:
       # Tự kiểm công cụ đóng gói (V1-036): bộ test của `tools/check_package.py` phải
       # xanh trên **mọi** PR — nếu không, regression của smoke chỉ lộ lúc phát hành
       # (job `check` của `release.yml` chỉ chạy khi workflow_dispatch hoặc đẩy tag).
-      # Chạy trên cả ba OS để bắt lỗi encoding console (Windows mặc định cp1252).
+      # Giữ đầy đủ bộ kiểm đóng gói trên Linux trong thời gian hoãn Windows/macOS.
       - name: Tự kiểm công cụ đóng gói
         run: python tools/check_package.py test
 
@@ -47,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
