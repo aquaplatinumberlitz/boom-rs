@@ -391,6 +391,24 @@ pub fn character_animations(
     parse_animation_block(data, offset)
 }
 
+/// Đọc khối bảng animation `block` bất kỳ trong ODT, ví dụ `Bomb/Bubble`, `Character/C00_A`.
+///
+/// Cùng định dạng với [`character_animations`] (R-094). Trả vec rỗng nếu ODT không có khối.
+///
+/// # Errors
+///
+/// Trả [`ClosureError::AnimationTable`] khi khối bị cắt cụt hoặc mang số rác.
+pub fn animation_block(
+    data: &[u8],
+    table: &ObjectTable,
+    block: &str,
+) -> Result<Vec<CharacterAnimation>, ClosureError> {
+    let Some(offset) = table.value_of(block) else {
+        return Ok(Vec::new());
+    };
+    parse_animation_block(data, offset)
+}
+
 /// Đọc một khối bảng animation của ODT tại `offset`.
 fn parse_animation_block(
     data: &[u8],

@@ -70,3 +70,18 @@ R185+1Rollerlogicalpoint confirmed. [Window/hash/đối chứng/sai số](../evi
 KhôngnativeFPS/literal33/hurtbox; phần cap/collision/othermode/ItemAttr giữ146/149. Nhánhcurve
 đãtrảlời trongca, chỉmởlại khicó clock/endpoint/crossmode khác cùngđại lượng; không lặp4..8.
 Calibrationmới cần acceptanceG2 độc lập exacthead; G6/góicuối/V1-036 riêng.
+
+### R-192 blocker — BOMB_ARG 1/2/3 (2026-10-26, #330)
+
+Q-003/Q-019: probe VN offline với S->C 151 `BOMB_ARG=1/2/3` chỉ thấy motion 15/0/45/60 (arg1),
+15/45/60 counter15 (arg2), 15/0/45/60 (arg3); không có 1/16/31/46/61 hay 2/17/32/47/62. Không đủ
+kết luận `Fire*01..10` là power tier; đường nhặt Fire/ack chưa chạy. Giữ R-192 candidate (#349),
+không đổi implementation; metadata raw local [tại đây](../evidence/measurements/vn-fire-power-2026-10-26/README.md).
+Mở lại bằng một đường power đã xác nhận (item Fire + ack) hoặc consumer state selector.
+
+### F-09a Forest01 — blocker map/overlap (2026-10-26, #357)
+
+Q-003: `ALL_MAPS=1` + `BOOM_DIR` + `MAP_INDEX=1` gửi packet113; ảnh vẫn Factory-style, không có
+cây/nhà cao để đo trước/sau. Map identity client chưa xác nhận; R-190 giữ **unknown**, không suy
+`ORDER_OBJECT`/`ORDER_CHARACTER`/sort foot-y. Metadata raw local
+[vn-layer-forest-2026-10-26](../evidence/measurements/vn-layer-forest-2026-10-26/README.md).

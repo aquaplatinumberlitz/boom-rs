@@ -1406,6 +1406,8 @@ mod tests {
                 reason: "chưa có nguồn".to_owned(),
             },
             frames: (0..frame_count).map(|_| ground_frame()).collect(),
+            odt: None,
+            sequences: Vec::new(),
         }
     }
 

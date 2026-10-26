@@ -2626,6 +2626,8 @@ mod tests {
                     reason: "chưa có nguồn".to_owned(),
                 },
                 frames,
+                odt: None,
+                sequences: Vec::new(),
             }],
             ui: Vec::new(),
             audio: Vec::new(),
@@ -2961,6 +2963,8 @@ mod tests {
                 reason: "bundle test".to_owned(),
             },
             frames: (0..frames).map(|_| frame()).collect(),
+            odt: None,
+            sequences: Vec::new(),
         };
         let mut clips = vec![clip("explosion.main", PresentationState::Explosion, 10)];
         for (suffix, state) in [
