@@ -75,5 +75,6 @@ Calibrationmới cần acceptanceG2 độc lập exacthead; G6/góicuối/V1-036
 
 Q-003/Q-019: probe VN offline với S->C 151 `BOMB_ARG=1/2/3` chỉ thấy motion 15/0/45/60 (arg1),
 15/45/60 counter15 (arg2), 15/0/45/60 (arg3); không có 1/16/31/46/61 hay 2/17/32/47/62. Không đủ
-kết luận `Fire*01..10` là power tier; đường nhặt Fire/ack chưa chạy. Giữ R-192 candidate, không đổi
-implementation; mở lại bằng một đường power đã xác nhận (item Fire + ack) hoặc consumer state selector.
+kết luận `Fire*01..10` là power tier; đường nhặt Fire/ack chưa chạy. Giữ R-192 candidate (#349),
+không đổi implementation; metadata raw local [tại đây](../evidence/measurements/vn-fire-power-2026-10-26/README.md).
+Mở lại bằng một đường power đã xác nhận (item Fire + ack) hoặc consumer state selector.
