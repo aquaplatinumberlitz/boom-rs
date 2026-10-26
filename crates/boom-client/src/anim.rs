@@ -18,7 +18,7 @@
 //! trình diễn bám tick mô phỏng khi lượt còn chạy và **tiến nốt** sau khi lượt kết thúc
 //! (R-089).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::RangeInclusive;
 
 use boom_core::{Cell, Dir, EventId, EventKind, Life, SimulationEvent};
@@ -342,6 +342,52 @@ pub struct ActivePresentation {
     pub frame: usize,
 }
 
+/// Số đơn vị thời lượng ODT mỗi giây: bộ đếm của consumer tăng 1 mỗi lần chạy ở nhịp 30 Hz
+/// (R-222, R-251).
+pub const ODT_UNITS_PER_SECOND: u64 = 30;
+
+/// Thời lượng "giữ vô hạn" trong bảng ODT (`0xFFFFFFFF`, R-223).
+pub const ODT_HOLD_FOREVER: u32 = u32::MAX;
+
+/// Một bước chuỗi phát: (chỉ số frame trong clip, thời lượng theo đơn vị ODT).
+pub type Step = (u32, u32);
+
+/// Số đơn vị ODT đã trôi từ tick `start` tới tick trình diễn hiện tại.
+#[must_use]
+pub fn odt_units_since(clock: &PresentationClock, start: u32) -> u64 {
+    // Tính thẳng từ số tick (không qua ms) để không hụt do làm tròn.
+    u64::from(clock.tick.saturating_sub(start)) * ODT_UNITS_PER_SECOND
+        / u64::from(clock.frame.ticks_per_second.max(1))
+}
+
+/// Frame của chuỗi `steps` sau `units` đơn vị ODT.
+///
+/// Chuỗi **lặp** quay về đầu khi hết; chuỗi **một lần** trả `None` khi hết. Bước có thời lượng
+/// [`ODT_HOLD_FOREVER`] giữ frame đó mãi (R-223).
+#[must_use]
+pub fn sequence_frame(steps: &[Step], units: u64, looping: bool) -> Option<usize> {
+    let total: u64 = steps.iter().map(|&(_, len)| u64::from(len)).sum();
+    if total == 0 {
+        return None;
+    }
+    let mut at = if looping { units % total } else { units };
+    for &(frame, len) in steps {
+        if len == ODT_HOLD_FOREVER || at < u64::from(len) {
+            return usize::try_from(frame).ok();
+        }
+        at -= u64::from(len);
+    }
+    None
+}
+
+/// Tổng thời lượng (đơn vị ODT) của chuỗi; `None` nếu có bước giữ vô hạn.
+#[must_use]
+pub fn sequence_units(steps: &[Step]) -> Option<u64> {
+    steps.iter().try_fold(0u64, |sum, &(_, len)| {
+        (len != ODT_HOLD_FOREVER).then(|| sum + u64::from(len))
+    })
+}
+
 /// Số frame của các clip trình diễn (đọc từ bundle).
 ///
 /// Sổ trình diễn không biết bundle: caller đưa vào bảng số frame theo clip ID, nên đổi
@@ -349,6 +395,8 @@ pub struct ActivePresentation {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FrameCounts {
     counts: Vec<(String, usize)>,
+    /// Chuỗi phát **chính** (chuỗi ODT đầu tiên) của clip, nếu bundle có (R-251).
+    sequences: Vec<(String, Vec<Step>)>,
 }
 
 impl FrameCounts {
@@ -358,6 +406,23 @@ impl FrameCounts {
             Some(slot) => slot.1 = frames,
             None => self.counts.push((clip.to_owned(), frames)),
         }
+    }
+
+    /// Ghi chuỗi phát chính của một clip (ghi đè nếu đã có).
+    pub fn set_sequence(&mut self, clip: &str, steps: Vec<Step>) {
+        match self.sequences.iter_mut().find(|(id, _)| id == clip) {
+            Some(slot) => slot.1 = steps,
+            None => self.sequences.push((clip.to_owned(), steps)),
+        }
+    }
+
+    /// Chuỗi phát chính của clip; `None` nếu clip không có chuỗi ODT.
+    #[must_use]
+    pub fn sequence(&self, clip: &str) -> Option<&[Step]> {
+        self.sequences
+            .iter()
+            .find(|(id, _)| id == clip)
+            .map(|(_, steps)| steps.as_slice())
     }
 
     /// Số frame của clip; `None` nếu bundle không có clip đó.
@@ -441,6 +506,8 @@ pub struct PresentationJournal {
     seen: BTreeSet<PresentationKey>,
     /// Lượt hiện tại của sổ.
     round_id: u32,
+    /// Tick bắt đầu đứng yên của từng nhân vật (vắng = đang đi).
+    idle_since: BTreeMap<u8, u32>,
 }
 
 impl PresentationJournal {
@@ -451,7 +518,23 @@ impl PresentationJournal {
             items: Vec::new(),
             seen: BTreeSet::new(),
             round_id,
+            idle_since: BTreeMap::new(),
         }
+    }
+
+    /// Ghi nhân vật `player` đang đi hay đứng yên tại `tick`: đứng yên thì nhớ tick bắt đầu.
+    pub fn note_motion(&mut self, player: u8, moving: bool, tick: u32) {
+        if moving {
+            self.idle_since.remove(&player);
+        } else {
+            self.idle_since.entry(player).or_insert(tick);
+        }
+    }
+
+    /// Tick bắt đầu đứng yên của nhân vật; `None` nếu đang đi hoặc chưa ghi.
+    #[must_use]
+    pub fn idle_since(&self, player: u8) -> Option<u32> {
+        self.idle_since.get(&player).copied()
     }
 
     /// Chuyển sang lượt khác: dọn mục đang phát và quên event của lượt cũ.
@@ -464,6 +547,7 @@ impl PresentationJournal {
         self.round_id = round_id;
         self.items.clear();
         self.seen.clear();
+        self.idle_since.clear();
     }
 
     /// Lượt hiện tại của sổ: khoá dedup event là `(round_id, EventId)`.
@@ -607,6 +691,10 @@ impl PresentationJournal {
 /// Chỉ số frame của một mục tại tick trình diễn; `None` nếu hết khoảng clip hoặc thiếu clip.
 fn frame_of(item: &Presentation, clock: &PresentationClock, frames: &FrameCounts) -> Option<usize> {
     let clip = presentation_clip(item.kind, item.subject)?;
+    // Có chuỗi ODT thì phát đúng chuỗi một lần (R-251); không có thì mỗi frame một nhịp chung.
+    if let Some(steps) = frames.sequence(&clip) {
+        return sequence_frame(steps, odt_units_since(clock, item.start_tick), false);
+    }
     let count = frames.get(&clip)?;
     clock.once_frame(item.start_tick, count)
 }
@@ -675,6 +763,17 @@ pub fn flame_frame(clock: &PresentationClock, frame_count: usize) -> usize {
     start + clock.looping_frame(count)
 }
 
+/// Tên hướng trong nhãn state ODT (`Walk Left`, `Stop Down`…). `Dir::None` dùng `Down`.
+#[must_use]
+pub fn direction_name(dir: Dir) -> &'static str {
+    match dir {
+        Dir::None | Dir::Down => "Down",
+        Dir::Up => "Up",
+        Dir::Left => "Left",
+        Dir::Right => "Right",
+    }
+}
+
 /// Khoá hướng dạng `snake_case` — trùng tên state trong bundle.
 ///
 /// `Dir::None` không có clip riêng (hướng chỉ giữ khi đi); V1 dùng `down` cho trường
@@ -732,6 +831,74 @@ mod tests {
         // 0,6 s cuối: đục hẳn.
         assert_eq!(look(trap - 10).alpha, u8::MAX);
         assert_eq!(look(trap).frame, BUBBLE_HOLD_FRAME);
+    }
+
+    #[test]
+    fn odt_sequences_play_once_loop_and_hold() {
+        let walk: Vec<Step> = vec![(0, 3), (1, 3), (2, 3)];
+        assert_eq!(sequence_frame(&walk, 0, false), Some(0));
+        assert_eq!(sequence_frame(&walk, 3, false), Some(1));
+        assert_eq!(sequence_frame(&walk, 8, false), Some(2));
+        // Một lần: hết chuỗi thì không còn frame; lặp: quay về đầu.
+        assert_eq!(sequence_frame(&walk, 9, false), None);
+        assert_eq!(sequence_frame(&walk, 9, true), Some(0));
+        assert_eq!(sequence_units(&walk), Some(9));
+        // `0xFFFFFFFF` giữ frame mãi (Bubble Lock, R-223).
+        let lock: Vec<Step> = vec![(0, 4), (1, 4), (2, 4), (6, ODT_HOLD_FOREVER)];
+        assert_eq!(sequence_frame(&lock, 12, false), Some(6));
+        assert_eq!(sequence_frame(&lock, 1_000_000, false), Some(6));
+        assert_eq!(sequence_units(&lock), None);
+        assert_eq!(sequence_frame(&[], 0, true), None);
+        // Đơn vị ODT = 1/30 s (R-222): 1 giây trình diễn = 30 đơn vị.
+        let clock = PresentationClock::new(
+            FrameClock {
+                frame_ms: 100,
+                ticks_per_second: 30,
+            },
+            30,
+        );
+        assert_eq!(odt_units_since(&clock, 0), 30);
+    }
+
+    #[test]
+    fn journal_plays_the_odt_sequence_once_for_death() {
+        let mut frames = FrameCounts::default();
+        frames.set("c00.dead.static", 14);
+        frames.set_sequence("c00.dead.static", vec![(0, 2), (1, 2), (13, 2)]);
+        let mut journal = PresentationJournal::new(1);
+        journal.record_local(PresentationKind::Death, Subject::Player(0), 0);
+        let clock = |tick| {
+            PresentationClock::new(
+                FrameClock {
+                    frame_ms: 100,
+                    ticks_per_second: 30,
+                },
+                tick,
+            )
+        };
+        let frame_at = |tick| {
+            journal
+                .active_for(Subject::Player(0), &clock(tick), &frames)
+                .map(|active| active.frame)
+        };
+        // 30 tick/s ⇒ 1 tick = 1 đơn vị ODT.
+        assert_eq!(frame_at(0), Some(0));
+        assert_eq!(frame_at(2), Some(1));
+        assert_eq!(frame_at(5), Some(13));
+        assert_eq!(frame_at(6), None);
+    }
+
+    #[test]
+    fn journal_remembers_when_each_player_stopped() {
+        let mut journal = PresentationJournal::new(1);
+        journal.note_motion(0, false, 10);
+        journal.note_motion(0, false, 20);
+        assert_eq!(journal.idle_since(0), Some(10));
+        journal.note_motion(0, true, 21);
+        assert_eq!(journal.idle_since(0), None);
+        journal.note_motion(0, false, 30);
+        journal.set_round(2);
+        assert_eq!(journal.idle_since(0), None);
     }
 
     #[test]

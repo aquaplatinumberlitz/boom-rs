@@ -357,8 +357,10 @@ const ORDER_FLAME: u8 = 2;
 const ORDER_BOMB: u8 = 3;
 /// Thứ tự vẽ: nhân vật.
 const ORDER_CHARACTER: u8 = 4;
+/// Thứ tự vẽ: lớp phủ trên thân nhân vật (Faint của người bị nhốt).
+const ORDER_OVERLAY: u8 = 5;
 /// Thứ tự vẽ: bong bóng phủ lên người bị nhốt.
-const ORDER_BUBBLE: u8 = 5;
+const ORDER_BUBBLE: u8 = 6;
 
 /// Một lệnh vẽ của kế hoạch trình diễn.
 #[derive(Clone, Debug, PartialEq)]
@@ -500,7 +502,13 @@ pub fn presentation_plan(
             .clips
             .iter()
             .find(|clip| clip.id == anim::BOMB_CLIP)
-            .map(|clip| anim::bomb_frame(clock, clip.frames.len()));
+            .map(|clip| match clip_sequence_of(clip, ODT_BOMB) {
+                // Chuỗi `Bomb/BasicBomb` của ODT: 4 frame, mỗi frame 6 đơn vị, lặp (R-251).
+                Some(steps) => {
+                    anim::sequence_frame(&steps, anim::odt_units_since(clock, 0), true).unwrap_or(0)
+                }
+                None => anim::bomb_frame(clock, clip.frames.len()),
+            });
         if let Some(item) = clip_plan_item(
             bundle,
             anim::BOMB_CLIP,
@@ -535,28 +543,56 @@ pub fn presentation_plan(
             None => {
                 let clip =
                     anim::character_clip(anim::character_of(player.id), player.life, player.facing);
-                let frame = match player.life {
-                    // Nhân vật **chết**: giữ khung cuối **có ảnh** của clip chết. Khung
-                    // cuối của clip chết trỏ ảnh rỗng 0×0 (dữ liệu thật của client gốc)
-                    // nên nhân vật chết **không được vẽ** thành ô màu (R-089, BUNDLES §7.1).
-                    Life::Dead => last_visible_frame(bundle, &clip),
-                    // Đứng yên: giữ frame cuối của clip đi theo hướng cuối (R-198, #320).
-                    Life::Alive if !moving => {
-                        let count = clip_frame_count(bundle, &clip);
-                        count.checked_sub(1)
-                    }
-                    // Đang đi hoặc bị nhốt: frame lặp theo tick mô phỏng.
-                    _ => {
-                        let count = clip_frame_count(bundle, &clip);
-                        (count > 0).then(|| anim::character_loop_frame(clock, count))
-                    }
-                };
-                (clip, frame)
+                if let Some(chosen) =
+                    odt_character_frame(bundle, player, &clip, moving, clock, journal)
+                {
+                    chosen
+                } else {
+                    let frame = match player.life {
+                        // Nhân vật **chết**: giữ khung cuối **có ảnh** của clip chết. Khung
+                        // cuối của clip chết trỏ ảnh rỗng 0×0 (dữ liệu thật của client gốc)
+                        // nên nhân vật chết **không được vẽ** thành ô màu (R-089, BUNDLES §7.1).
+                        Life::Dead => last_visible_frame(bundle, &clip),
+                        // Đứng yên: giữ frame cuối của clip đi theo hướng cuối (R-198, #320).
+                        Life::Alive if !moving => {
+                            let count = clip_frame_count(bundle, &clip);
+                            count.checked_sub(1)
+                        }
+                        // Đang đi hoặc bị nhốt: frame lặp theo tick mô phỏng.
+                        _ => {
+                            let count = clip_frame_count(bundle, &clip);
+                            (count > 0).then(|| anim::character_loop_frame(clock, count))
+                        }
+                    };
+                    (clip, frame)
+                }
             }
         };
         // Nhân vật vẽ theo toạ độ thật (không làm tròn về ô) và đủ hai lớp `static` +
         // `adjust`, mỗi lớp neo bằng offset của frame (#305).
         let (anchor_x, anchor_y) = actor_anchor(player.x.0, player.y.0, tile_px);
+        // Người bị nhốt: thân là chuỗi `Locked In` của clip chết, lớp Faint phủ lên trên
+        // (ODT R-251; R-220).
+        let mut clip_order = ORDER_CHARACTER;
+        if let Life::Trapped { since } = player.life {
+            let dead =
+                anim::character_clip(anim::character_of(player.id), Life::Dead, player.facing);
+            if let Some(steps) = clip_sequence(bundle, &dead, ODT_LOCKED_IN) {
+                let body = anim::sequence_frame(&steps, anim::odt_units_since(clock, since), false);
+                for item in actor_plan_items(
+                    bundle,
+                    &dead,
+                    body,
+                    (column, row),
+                    (anchor_x, anchor_y),
+                    tile_px,
+                    &mut missing,
+                ) {
+                    items.push((anchor_y, column, ORDER_CHARACTER, item));
+                }
+                clip_order = ORDER_OVERLAY;
+            }
+        }
         for item in actor_plan_items(
             bundle,
             &clip_id,
@@ -566,7 +602,7 @@ pub fn presentation_plan(
             tile_px,
             &mut missing,
         ) {
-            items.push((anchor_y, column, ORDER_CHARACTER, item));
+            items.push((anchor_y, column, clip_order, item));
         }
         // Bong bóng phủ lên người bị nhốt: lớn dần một lần, giữ bóng tròn trong mờ, đục hẳn
         // trước khi vỡ; khi chết thì phủ chuỗi vỡ lên ba frame đầu của chuỗi chết (#320).
@@ -576,14 +612,38 @@ pub fn presentation_plan(
             .find(|clip| clip.id == anim::TRAPPED_BUBBLE_CLIP);
         let look = match (player.life, bubble) {
             (Life::Trapped { since }, Some(bubble)) => {
-                anim::bubble_look(clock, since, world.rules().trap_ticks, bubble.frames.len())
+                let mut look =
+                    anim::bubble_look(clock, since, world.rules().trap_ticks, bubble.frames.len());
+                // Chuỗi `Lock` của ODT: lớn dần 0,1,2 rồi giữ frame 6 mãi (R-251, R-223).
+                if let (Some(look), Some(steps)) =
+                    (look.as_mut(), clip_sequence_of(bubble, ODT_BUBBLE_LOCK))
+                    && let Some(frame) =
+                        anim::sequence_frame(&steps, anim::odt_units_since(clock, since), false)
+                {
+                    look.frame = frame;
+                }
+                look
             }
-            (Life::Dead, Some(bubble)) => death_frame
-                .and_then(|frame| anim::bubble_pop_frame(frame, bubble.frames.len()))
-                .map(|frame| anim::BubbleLook {
-                    frame,
-                    alpha: u8::MAX,
-                }),
+            (Life::Dead, Some(bubble)) => match clip_sequence_of(bubble, ODT_BUBBLE_KILL) {
+                // Chuỗi `ExpKill` phát một lần từ lúc chết (R-251).
+                Some(steps) => journal
+                    .item_for(subject)
+                    .filter(|item| item.kind == anim::PresentationKind::Death)
+                    .and_then(|item| {
+                        anim::sequence_frame(
+                            &steps,
+                            anim::odt_units_since(clock, item.start_tick),
+                            false,
+                        )
+                    }),
+                None => {
+                    death_frame.and_then(|frame| anim::bubble_pop_frame(frame, bubble.frames.len()))
+                }
+            }
+            .map(|frame| anim::BubbleLook {
+                frame,
+                alpha: u8::MAX,
+            }),
             _ => None,
         };
         if let (Some(look), Some(bubble)) = (look, bubble)
@@ -818,6 +878,93 @@ pub fn clip_frame_item(
     })
 }
 
+/// State ODT: thân người bị nhốt trong clip chết (R-251).
+const ODT_LOCKED_IN: &str = "Locked In";
+/// State ODT: bóng nhốt lớn dần rồi giữ (R-251).
+const ODT_BUBBLE_LOCK: &str = "Lock";
+/// State ODT: bóng vỡ khi người bị nhốt chết (R-251).
+const ODT_BUBBLE_KILL: &str = "ExpKill";
+/// State ODT: chớp mắt khi đứng lâu (R-251).
+const ODT_BLINK: &str = "Blink";
+/// State ODT: bom chờ nổ (`Bomb/BasicBomb`, nhãn `0`; R-251).
+const ODT_BOMB: &str = "0";
+
+/// Chuỗi ODT `state` của `clip` dưới dạng bước `(frame, đơn vị)`.
+fn clip_sequence_of(clip: &Clip, state: &str) -> Option<Vec<anim::Step>> {
+    clip.sequence(state).map(|sequence| {
+        sequence
+            .steps
+            .iter()
+            .map(|step| (step.frame, step.units))
+            .collect()
+    })
+}
+
+/// Chuỗi ODT `state` của clip `clip_id` trong bundle.
+fn clip_sequence(bundle: &Bundle, clip_id: &str, state: &str) -> Option<Vec<anim::Step>> {
+    bundle
+        .clips
+        .iter()
+        .find(|clip| clip.id == clip_id)
+        .and_then(|clip| clip_sequence_of(clip, state))
+}
+
+/// Clip và frame nhân vật theo chuỗi ODT (R-251); `None` khi bundle chưa có chuỗi để caller
+/// dùng cách phát cũ.
+///
+/// - đi: `Walk <Hướng>` lặp;
+/// - đứng: `Stop <Hướng>` (100 đơn vị) rồi `Blink` lặp trên clip chớp mắt — khớp lần nhắm mắt
+///   đầu ~4,1 s ở video VN (R-197);
+/// - bị nhốt: `Faint` lặp từ lúc nhốt (thân vẽ riêng);
+/// - chết (hết sổ trình diễn): chuỗi `Die` đã phát xong và kết thúc ở frame rỗng ⇒ không vẽ.
+fn odt_character_frame(
+    bundle: &Bundle,
+    player: &boom_core::Player,
+    clip: &str,
+    moving: bool,
+    clock: &PresentationClock,
+    journal: &anim::PresentationJournal,
+) -> Option<(String, Option<usize>)> {
+    let direction = anim::direction_name(player.facing);
+    match player.life {
+        Life::Alive if moving => {
+            let steps = clip_sequence(bundle, clip, &format!("Walk {direction}"))?;
+            Some((
+                clip.to_owned(),
+                anim::sequence_frame(&steps, anim::odt_units_since(clock, 0), true),
+            ))
+        }
+        Life::Alive => {
+            let stop = clip_sequence(bundle, clip, &format!("Stop {direction}"))?;
+            let since = journal.idle_since(player.id).unwrap_or(clock.tick);
+            let units = anim::odt_units_since(clock, since);
+            let stop_units = anim::sequence_units(&stop).unwrap_or(u64::MAX);
+            let blink = format!("{}.idle.blink.static", anim::character_of(player.id).key());
+            match clip_sequence(bundle, &blink, ODT_BLINK) {
+                Some(steps) if units >= stop_units => Some((
+                    blink,
+                    anim::sequence_frame(&steps, units - stop_units, true),
+                )),
+                _ => Some((
+                    clip.to_owned(),
+                    anim::sequence_frame(&stop, units.min(stop_units.saturating_sub(1)), false),
+                )),
+            }
+        }
+        Life::Trapped { since } => {
+            let steps = clip_sequence(bundle, clip, "Faint")?;
+            Some((
+                clip.to_owned(),
+                anim::sequence_frame(&steps, anim::odt_units_since(clock, since), true),
+            ))
+        }
+        Life::Dead => {
+            clip_sequence(bundle, clip, "Die")?;
+            Some((clip.to_owned(), None))
+        }
+    }
+}
+
 /// Ô màu thay thế khi bundle thiếu clip: ô vuông đúng kích thước ô.
 #[must_use]
 pub fn fallback_rect(cell_x: u16, cell_y: u16, tile_px: u32) -> PixelRect {
@@ -847,6 +994,17 @@ pub fn frame_counts(bundle: &Bundle) -> anim::FrameCounts {
     let mut counts = anim::FrameCounts::default();
     for clip in &bundle.clips {
         counts.set(&clip.id, clip.frames.len());
+        // Chuỗi đầu tiên của clip là chuỗi chính mà sổ trình diễn phát (R-251).
+        if let Some(first) = clip.sequences.first() {
+            counts.set_sequence(
+                &clip.id,
+                first
+                    .steps
+                    .iter()
+                    .map(|step| (step.frame, step.units))
+                    .collect(),
+            );
+        }
     }
     counts
 }
@@ -1563,6 +1721,113 @@ mod tests {
             "người bị nhốt phải có bong bóng: {clips:?}"
         );
         assert!(character < bubble);
+    }
+
+    /// Gắn chuỗi ODT `(state, bước)` vào clip `id` của bundle test.
+    fn with_sequences(bundle: &mut Bundle, id: &str, sequences: &[(&str, &[(u32, u32)])]) {
+        let clip = bundle
+            .clips
+            .iter_mut()
+            .find(|clip| clip.id == id)
+            .expect("clip test");
+        clip.odt = Some("Character/C00_A".to_owned());
+        clip.sequences = sequences
+            .iter()
+            .map(|(state, steps)| boom_content::bundle::ClipSequence {
+                state: (*state).to_owned(),
+                steps: steps
+                    .iter()
+                    .map(|&(frame, units)| boom_content::bundle::SequenceStep { frame, units })
+                    .collect(),
+            })
+            .collect();
+    }
+
+    #[test]
+    fn odt_sequences_drive_idle_blink_trapped_body_and_death() {
+        let mut bundle = clip_bundle();
+        bundle.clips.push(clip(
+            "c00.trapped.static",
+            PresentationState::Trapped,
+            "c00",
+            3,
+        ));
+        with_sequences(
+            &mut bundle,
+            "c00.walk.down.static",
+            &[("Walk Down", &[(0, 3), (1, 3)]), ("Stop Down", &[(0, 100)])],
+        );
+        with_sequences(
+            &mut bundle,
+            "c00.idle.blink.static",
+            &[("Blink", &[(0, 25), (1, 5), (2, 5)])],
+        );
+        with_sequences(
+            &mut bundle,
+            "c00.dead.static",
+            &[
+                ("Die", &[(0, 2), (13, 2)]),
+                ("Locked In", &[(0, 32767), (1, 32767)]),
+            ],
+        );
+        with_sequences(
+            &mut bundle,
+            "c00.trapped.static",
+            &[("Faint", &[(1, 5), (2, 5)])],
+        );
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        // Tick đầu tiên đã trôi `units` đơn vị ODT từ tick 0.
+        let tick_for = |units: u64| {
+            (0..100_000)
+                .find(|&tick| anim::odt_units_since(&clock_at(tick), 0) >= units)
+                .expect("đồng hồ tiến")
+        };
+        let character = |state: &SimulationState, journal: &anim::PresentationJournal, tick| {
+            presentation_plan(
+                &bundle,
+                &scene,
+                state,
+                &world,
+                &clock_at(tick),
+                &BTreeMap::new(),
+                journal,
+            )
+            .items
+            .into_iter()
+            .filter_map(|item| match item {
+                PlanItem::Sprite { clip, frame, .. } if clip.starts_with("c00.") => {
+                    Some((clip, frame))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+        };
+        let mut journal = empty_journal();
+        journal.note_motion(0, false, 0);
+        // Đứng yên: `Stop Down` (frame 0) trong 100 đơn vị, rồi `Blink` lặp (R-251).
+        assert_eq!(
+            character(&state, &journal, tick_for(50)),
+            [("c00.walk.down.static".to_owned(), 0)]
+        );
+        assert_eq!(
+            character(&state, &journal, tick_for(126)),
+            [("c00.idle.blink.static".to_owned(), 1)]
+        );
+        // Bị nhốt: thân `Locked In` (clip chết, frame 0) dưới lớp `Faint`.
+        state.players[0].life = Life::Trapped { since: 0 };
+        let trapped = character(&state, &journal, tick_for(6));
+        assert_eq!(
+            trapped,
+            [
+                ("c00.dead.static".to_owned(), 0),
+                ("c00.trapped.static".to_owned(), 2)
+            ]
+        );
+        // Chết và chuỗi `Die` đã hết (sổ trống): không còn vẽ xác.
+        state.players[0].life = Life::Dead;
+        assert!(character(&state, &journal, tick_for(10)).is_empty());
     }
 
     #[test]
