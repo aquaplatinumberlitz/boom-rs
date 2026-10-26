@@ -1286,6 +1286,18 @@ R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-
 |---|---|---|---|---|
 | R-250 | Khi bị nhốt, chữ HELP! (`Bomb/HELP!`, R-220) **căn giữa ngang trên bóng tròn** (frame giữ 6 của `Bubble00`), **đáy chữ cách đỉnh bóng khoảng 2 px**, và vẽ **trên mọi thứ** (đè cả vật cản bên cạnh). Chữ hiện suốt lúc bị nhốt, mất khi bóng vỡ | Căn giữa theo bóng; khe 2 px; lớp trên cùng | `vn_runtime` / candidate | Video VN 26/10 `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local) t≈15,0 s; quy về pixel game ÷1,28 (game 800×600 phóng lên 1024×768); so sánh `/home/admin/boom-team/shots/fidelity/F-02/ours/wide_cmp2.png`. Một ca, một map; nhịp phát lấy từ ODT `Bomb/Help` (R-251), không từ video |
 
+
+## 71. F-11a — màn đăng nhập VN so với boom-rs — R-227 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-227 | Trong một capture VN login (game 800×600, phóng 1,28 lên 1024×768), panel ở giữa với `NGƯỜI CHƠI 1`; account **visual outer** raw `(515,590)-(633,615)` = logic `(402,34;460,94;92,19;19,53)`, password `(515,622)-(633,647)` = logic `(402,34;485,94;92,19;19,53)`; nút đáy `TÌM MK/ĐĂNG KÝ/ĐĂNG NHẬP/THOÁT RA` raw y711–756, cao45; `ĐĂNG NHẬP` xám khi thiếu mật khẩu, xanh sau nhập. boom-rs hiện hành: title `(24,12)`, field `(24,130,400,44)/(24,206,400,44)`, ba nút y496, submit luôn enabled. Focus/hover VN không có viền/màu khác rõ; chỉ caret/chữ và disabled→enabled. **D-04/D-05** là khác biệt đã chấp thuận, không phải bug | Logic field outer `(402,34;460,94;92,19;19,53)`; inner `(403,13;460,94;90,63;18,75)`; raw error ±1 px = ±0,78 logic px; VN nút raw y711–756 | `vn_runtime` / **candidate** (một capture, một prefix; đo visual box) | Raw `01-login-initial.png` SHA `e5c2e9ac…` … `06-submit-hover.png` SHA `2fed9e90…`; Rust current `rust-login-current-800x600.png` SHA `19236431…`; command/hash/provenance/ROI trong [metadata](../../evidence/measurements/vn-ui-login-2026-10-26/README.md). Visual outer ≠ hitbox; font family/size chưa đo; account prefix điền `tester`; không có KR/full 800 native; không mở sảnh/phòng/trận |
+
+Đề xuất (không sửa code/profile): chỉ ghi các khác biệt quan sát cho `ui/layout.rs::login_layout`,
+`FieldId::LoginAccount/LoginPassword`, `ActionId::LoginSubmit` và `ui/draw.rs` field/button.
+`1P`, `2P`, `TÌM MK` chỉ là phần tử quan sát, **chưa phải acceptance/auth policy**; đưa điều khiển
+mới vào V1 cần quyết định scope riêng. D-04/D-05 giữ nguyên; không đổi G2/G6/release.
+
 ## 72. F-11b — sảnh VN so với boom-rs — R-228 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1301,3 +1313,4 @@ R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-
 Đề xuất code (không sửa trong PR này): `ui/layout.rs::lobby_layout/room_layout` cần layout theo vùng
 quan sát; `ui/draw.rs` vẽ panel/thẻ/chat/nav. Không thêm policy/auth/ready mới từ ảnh; D-04/D-05 giữ
 nguyên; không đổi profile/G2/G6/release.
+
