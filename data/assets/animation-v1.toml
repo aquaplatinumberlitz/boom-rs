@@ -20,6 +20,9 @@
 # claims = […] } }` riêng cho clip đó — `unknown` không được mang giá trị.
 #
 # Nguồn: RULES_V1 §8 (R-077…R-079, R-084), MAPS §3, pack KR 00967.
+# - `odt` + `odt_states`: khối bảng animation trong `fx/ObjectTable/ObjectTable` của client gốc
+#   và các state cần lấy chuỗi phát (frame, thời lượng đơn vị ODT). Bộ dựng bundle đọc chuỗi
+#   từ pack và ghi vào `[[clips.sequences]]` (ADR 0014 tầng 1, R-251). Khối/state thiếu là lỗi.
 
 schema = 1
 default_timing = { unknown = { reason = "pack client gốc không mang trường thời lượng frame (blob CDataI16Alpha v2 chỉ có 12 số mỗi frame, MAPS §3) và consumer phía client chưa định vị được; V1 chưa chốt thời lượng nên không tự đặt (R-079, Q-003)" } }
@@ -34,6 +37,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Up", "Stop Up"]
 
 [[clips]]
 id = "c00.walk.up.adjust"
@@ -45,6 +50,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Up", "Stop Up"]
 
 [[clips]]
 id = "c00.walk.down.static"
@@ -56,6 +63,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Down", "Stop Down"]
 
 [[clips]]
 id = "c00.walk.down.adjust"
@@ -67,6 +76,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Down", "Stop Down"]
 
 [[clips]]
 id = "c00.walk.left.static"
@@ -78,6 +89,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Left", "Stop Left"]
 
 [[clips]]
 id = "c00.walk.left.adjust"
@@ -89,6 +102,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Left", "Stop Left"]
 
 [[clips]]
 id = "c00.walk.right.static"
@@ -100,6 +115,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Right", "Stop Right"]
 
 [[clips]]
 id = "c00.walk.right.adjust"
@@ -111,6 +128,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C00_A"
+odt_states = ["Walk Right", "Stop Right"]
 
 [[clips]]
 id = "c00.idle.blink.static"
@@ -122,6 +141,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+odt = "Character/C00_A"
+odt_states = ["Blink"]
 
 [[clips]]
 id = "c00.idle.blink_small.static"
@@ -144,6 +165,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+odt = "Character/C00_A"
+odt_states = ["Start"]
 
 [[clips]]
 id = "c00.trapped.static"
@@ -155,6 +178,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+odt = "Character/C00_A"
+odt_states = ["Faint"]
 
 [[clips]]
 id = "c00.dead.static"
@@ -166,6 +191,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+odt = "Character/C00_A"
+odt_states = ["Die", "Locked In"]
 
 [[clips]]
 id = "c00.idle.blink.adjust"
@@ -177,6 +204,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+odt = "Character/C00_A"
+odt_states = ["Blink"]
 
 [[clips]]
 id = "c00.idle.blink_small.adjust"
@@ -199,6 +228,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+odt = "Character/C00_A"
+odt_states = ["Start"]
 
 [[clips]]
 id = "c00.trapped.adjust"
@@ -210,6 +241,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+odt = "Character/C00_A"
+odt_states = ["Faint"]
 
 [[clips]]
 id = "c00.dead.adjust"
@@ -221,6 +254,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+odt = "Character/C00_A"
+odt_states = ["Die", "Locked In"]
 
 [[clips]]
 id = "c01.walk.up.static"
@@ -232,6 +267,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Up", "Stop Up"]
 
 [[clips]]
 id = "c01.walk.up.adjust"
@@ -243,6 +280,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Up", "Stop Up"]
 
 [[clips]]
 id = "c01.walk.down.static"
@@ -254,6 +293,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Down", "Stop Down"]
 
 [[clips]]
 id = "c01.walk.down.adjust"
@@ -265,6 +306,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Down", "Stop Down"]
 
 [[clips]]
 id = "c01.walk.left.static"
@@ -276,6 +319,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Left", "Stop Left"]
 
 [[clips]]
 id = "c01.walk.left.adjust"
@@ -287,6 +332,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Left", "Stop Left"]
 
 [[clips]]
 id = "c01.walk.right.static"
@@ -298,6 +345,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Right", "Stop Right"]
 
 [[clips]]
 id = "c01.walk.right.adjust"
@@ -309,6 +358,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `Walk<Dir>_ALayer<Lớp>` của nhân vật V1; 5 frame, xác nhận theo tên entry và dãi frame đọc được trong pack KR 00967"
+odt = "Character/C01_A"
+odt_states = ["Walk Right", "Stop Right"]
 
 [[clips]]
 id = "c01.idle.blink.static"
@@ -320,6 +371,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+odt = "Character/C01_A"
+odt_states = ["Blink"]
 
 [[clips]]
 id = "c01.idle.blink_small.static"
@@ -342,6 +395,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+odt = "Character/C01_A"
+odt_states = ["Start"]
 
 [[clips]]
 id = "c01.trapped.static"
@@ -353,6 +408,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+odt = "Character/C01_A"
+odt_states = ["Faint"]
 
 [[clips]]
 id = "c01.dead.static"
@@ -364,6 +421,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+odt = "Character/C01_A"
+odt_states = ["Die", "Locked In"]
 
 [[clips]]
 id = "c01.idle.blink.adjust"
@@ -375,6 +434,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip đứng yên (nháy mắt): chưa có consumer nào xác nhận state idle dùng clip này (Q-003)"
+odt = "Character/C01_A"
+odt_states = ["Blink"]
 
 [[clips]]
 id = "c01.idle.blink_small.adjust"
@@ -397,6 +458,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bắt đầu: chưa có consumer nào xác nhận state start của V1 dùng clip này (Q-003)"
+odt = "Character/C01_A"
+odt_states = ["Start"]
 
 [[clips]]
 id = "c01.trapped.adjust"
@@ -408,6 +471,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "ứng viên clip bị nhốt: chưa có consumer nào xác nhận state trapped dùng clip này (Q-003)"
+odt = "Character/C01_A"
+odt_states = ["Faint"]
 
 [[clips]]
 id = "c01.dead.adjust"
@@ -419,6 +484,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "entry `DieLayer<Lớp>` của nhân vật V1; 14 frame (khung cuối trỏ ảnh 0×0 — dữ liệu thật của client gốc)"
+odt = "Character/C01_A"
+odt_states = ["Die", "Locked In"]
 
 [[clips]]
 id = "bomb.fuse"
@@ -429,6 +496,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "hình bom đặt trên ô; 4 frame là 4 mức đếm fuse, còn tần suất đổi mức thì chưa có nguồn"
+odt = "Bomb/BasicBomb"
+odt_states = ["0"]
 
 [[clips]]
 id = "trapped.bubble"
@@ -439,6 +508,8 @@ source = "kr_static"
 status = "candidate"
 claims = ["R-078"]
 note = "bong bóng bị nhốt; 9 frame là chuỗi bong bóng to lên rồi vỡ, chưa có consumer nào xác nhận (Q-003)"
+odt = "Bomb/Bubble"
+odt_states = ["Lock", "ExpLive", "ExpKill"]
 
 [[clips]]
 id = "flame.main"
@@ -499,6 +570,8 @@ source = "kr_static"
 status = "confirmed"
 claims = ["R-077"]
 note = "hiệu ứng nổ: **một** clip 10 frame liên tục, pack không tách tâm/nhánh/đuôi nên không có clip riêng theo phần (R-084)"
+odt = "BombExplosion/BombExplosion001"
+odt_states = ["Default"]
 
 [[clips]]
 id = "item.bomb"

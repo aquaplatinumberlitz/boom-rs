@@ -1180,18 +1180,11 @@ không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Khô
 R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (character trapped clip lặp; bubble grow3 rồi lặp phần còn lại):
 đề xuất code (không sửa trong PR này) giữ **một frame Faint** trong suốt hold, bubble lớn **một lần rồi giữ**, flash ngắn trước pop, rồi death; **HELP!** dùng entry `Bomb/HELP!` (4 frame), chưa map bundle; mapping/thứ tự/nhịp còn candidate. Không đổi profile/G2/G6/release; chưa chứng minh toàn bộ mode/rescue (không có item rescue trong ca này).
 
-## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
-
-| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
-|---|---|---|---|---|
-| R-195 | `Bomb/Fire00` 100 frame được tiêu thụ qua bảng ODT 76 state: tâm `FireC01..C10` dùng frame0..2/3; nhánh L/U/R/D bắt đầu frame4/5/6/7 và kết thúc96/97/98/99, mỗi state nhánh19 record; `Blur_Fire01_<Dir>` là entry riêng10 frame, không nằm trong Fire00. `FLAME_FRAMES=28..=59` không phải một state/frame range có nguồn | Tâm0..3; base L/U/R/D4/5/6/7; cuối96/97/98/99; branch19 record; motion blur entry riêng10 frame | `vn_static` + `kr_static` / candidate (ODT data; chưa native consumer frame-index) | [ODT CSV/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), [evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); blockSHA70ff67a0…; duration raw1 **chưa có đơn vị**. Code `FLAME_FRAMES` phải bỏ/thay theo hướng-state; motion blur dùng riêng khi có nguồn. Không đổi profile/lifetime; không chứng minh mọi mode/index native |
-
 ## 55. VN F-01 — Walk loop/Blink threshold (R-197, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-197 | Walk-left C00 trong capture có **5 pose** và giữ hướng; chưa thấy chuyển tiếp pose cuối→pose đầu đủ một chu kỳ nên **wrap 0..4 hay ping-pong chưa chốt**. Sau đổi hướng nhanh + đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose quan sát; wrap/ping-pong unknown; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. **Không** kết luận `character_loop_frame` đã khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
-
 
 ## 56. F-02 — tư thế Faint trong bong bóng và HELP! — R-220 (2026-10-26)
 
@@ -1248,3 +1241,35 @@ Hệ quả code (không sửa trong PR này): bỏ `presentation.frame_duration_
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-190 | Chưa xác lập được thứ tự nhân vật trước/sau vật cản cao trên Forest01: server nhận `MAP_INDEX=1`/Forest01 nhưng capture chỉ thấy khu Factory-style, không có overlap actor–cây/nhà. Không suy `ORDER_OBJECT`/`ORDER_CHARACTER`/sort foot-y từ cảnh này | — (unknown/blocker) | `vn_runtime` / **unknown** (một actor, một map; không có overlap) | [metadata](../../evidence/measurements/vn-layer-forest-2026-10-26/README.md); video local `F-09/forest01/capture.mkv`, SHA `e2df6afb…0f2c`. Map identity client chưa xác nhận; không đổi code/profile. Cần entry/map loader đúng Forest01 hoặc cảnh có vật cản cao trước khi mở claim |
+
+## 68. F-10 — bước vị trí/nội suy và trợ góc — R-225 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-225 | Client VN cập nhật **vị trí actor theo bước rời**, không nội suy vị trí để vẽ: mover người chơi `59DA6F` nhận amount5/6 và đổi X/Y đúng bước5/6 trong cùng call (R-171/R-176); các getter/draw dùng X/Y hiện tại, không có pha lerp. Video R-218 thấy bước **6,24 px/frame video** ở ~30 fps, không có vị trí trung gian. Trợ góc người chơi VN là **snap/căn làn trong một bước** trên mover `59DA6F` (R-176/R-177): lệch30 px được sửa ngang, lệch35 px không đi; chưa chốt max34 hay mọi hướng/mode. V1 `net.interpolated_position` + assist12 hiện tại không phải hành vi gốc đã chứng minh | Step5/6 px theo call; video6,24 px/frame; corner snap candidate | `vn_static` + `vn_runtime` / **candidate** (mover/getter và video; chưa trace draw toàn tuyến/corner max) | `59DA6F` player mover, `59D902` caller, actual amount/XY R-171, corner R-176/R-177; R-218 video local; `docs/research/findings/KR_RE_MOVEMENT.md` §4/§9 (corner chủ yếu `CMovable` pet/AI; player VN candidate). Không dùng CMovable/pet làm bomber confirmed; video 29,65 fps thực, không±16,7 |
+
+Đề xuất code (không sửa trong PR này): bỏ `NetState::interpolated_position`/alpha cho actor (vẽ X/Y hiện tại), giữ `sim.ticks_per_second=30`; thay assist12 bằng lane-snap trên mover, dùng offset quan sát30 px (không max34) và giữ `corner_assist_px` là design/candidate cho tới khi có thêm ca. Không đổi profile/G2/G6/release.
+
+## 69. F-08 — item Bomb/Fire/Roller trên nền — R-226 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-226 | Ba item V1 (`Item/Bomb`, `Item/Fire`, `Item/Roller`) là **một frame tĩnh** trong `fx`/bundle (`item.bomb/fire/roller`, R-077); **không có khối state ODT `Item/Bomb|Fire|Roller`** trong `fx/ObjectTable/ObjectTable` và không có chuỗi nhấp nháy/nhún. Chỉ item effect/khác như `Item/RescueCoinEffect`, `Item/Exp*`, `Item/BlueSpark` mới có animation; không áp cho 3 item nền này | 1 frame; không animation | `vn_static` / **confirmed** (bundle/V1 entry1 frame + ODT không có block) | `data/assets/animation-v1.toml` item.bomb/fire/roller (một frame); ODT dump local `/home/admin/boom-team/shots/fidelity/odt/odt_anims.json` không có key `Item/Bomb|Fire|Roller`; `F-08` chỉ dùng ODT data. Không suy effect/âm thanh/nhặt; không đổi profile |
+
+Đề xuất code (không sửa trong PR này): giữ item nền **static một frame**; không thêm animation/nhấp nháy nếu không có nguồn. Không đổi profile/G2/G6/release.
+
+## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-195 | `Bomb/Fire00` 100 frame được tiêu thụ qua bảng ODT 76 state: tâm `FireC01..C10` dùng frame0..2/3; nhánh L/U/R/D bắt đầu frame4/5/6/7 và kết thúc96/97/98/99, mỗi state nhánh19 record; `Blur_Fire01_<Dir>` là entry riêng10 frame, không nằm trong Fire00. `FLAME_FRAMES=28..=59` không phải một state/frame range có nguồn | Tâm0..3; base L/U/R/D4/5/6/7; cuối96/97/98/99; branch19 record; motion blur entry riêng10 frame | `vn_static` + `kr_static` / candidate (ODT data; chưa native consumer frame-index) | [ODT CSV/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), [evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); blockSHA70ff67a0…; duration raw1 **chưa có đơn vị**. Code `FLAME_FRAMES` phải bỏ/thay theo hướng-state; motion blur dùng riêng khi có nguồn. Không đổi profile/lifetime; không chứng minh mọi mode/index native |
+
+## 67. Bảng animation ODT là nguồn chuỗi phát (R-251, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-251 | Khối animation trong `fx/ObjectTable/ObjectTable` (định dạng R-094) mang **chuỗi phát (frame, thời lượng)** theo state cho nhân vật (`Character/C0x_A`: Walk/Stop/Blink/Faint/Die/Locked In/Start…), bom (`Bomb/BasicBomb`), bong bóng (`Bomb/Bubble`: Lock/ExpLive/ExpKill), chữ HELP (`Bomb/Help`), nổ (`BombExplosion/*`) và lửa (`Flame/Flame`). Bundle lấy nguyên chuỗi này (BUNDLES §3) | Ví dụ: Walk `0,1,2,0,3,4` × 3; Stop frame 0 × 100; Blink `0:25 1:5 2:5 1:5 2:5 1:15 0:75`; Bubble Lock `0,1,2` × 4 rồi `6` × `0xFFFFFFFF`; ExpKill `3,4,5` × 4; Help `0:6 1:3 2:9 3:3`; BasicBomb `0..3` × 6; Die 44 bước/92 đơn vị | `kr_static` / **confirmed** cho nội dung bảng; `candidate` cho đơn vị thời lượng | Payload KR SHA-256 `a68fd5ff…` (cùng payload ghi ở evidence `vn-flame-render-2026-10-24`); dump local `/home/admin/boom-team/shots/fidelity/odt/` (không commit). **Đơn vị = 1/30 s là candidate**, suy từ nhiều đo video độc lập cùng khớp: Walk 3 đơn vị = 100 ms (R-218); Stop 100 + Blink 25 = 4,17 s tới lần nhắm mắt đầu (R-197 ~4,1 s); Die 92 ≈ 3,07 s (R-193). Chốt bằng consumer native ở §65. Chưa chứng minh mọi mode/nhân vật ngoài V1 |
+
+R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-193/R-197/R-198/R-219 trở thành
+đối chiếu cho chuỗi ODT, không còn là nguồn chính. Hậu tố state lửa: R-192 (§63).
+
