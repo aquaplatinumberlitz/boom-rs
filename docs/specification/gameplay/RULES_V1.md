@@ -1163,17 +1163,16 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
 
-<<<<<<< HEAD
-## 56. VN F-03 — Start/countdown chưa gán clip (R-196, 2026-10-26)
 
-| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
-|---|---|---|---|---|
-| R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame** trước/dưới overlay để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start. Do đó không có bằng chứng VN dùng `C00-Start` trong cảnh này | Nhân vật vẽ trước overlay; Start 10-frame **không quan sát**; loop/duration unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Khuyến nghị không coi `PresentationKind::Start` playback là confirmed; chỉ giữ/disable theo consumer khi tìm được. RE consumer chưa tìm thấy clip name trong executable; không profile/G2/G6 |
-=======
 ## 53. VN C00 — idle giữ hướng và overlap bomb/bubble (R-198/R-199, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-198 | Sau khi đi Left/Right/Up/Down rồi dừng 1,5 s, C00 **giữ hướng cuối ở cả bốn hướng** (mặt trái/phải/lưng-up/mặt down) và **không** trả về `idle.blink` trong cửa sổ này; riêng **Left** đã đối chiếu khớp **frame cuối Walk-left**, các hướng còn lại mới chỉ xác nhận hướng, chưa đối chiếu frame cuối | Giữ hướng cả4 ≥1,5 s; frame cuối chỉ Left; Blink ban đầu; ngưỡng Blink sau dừng chưa đo | `vn_runtime` / candidate (video local, một actor/map; giữ hướng cả4, frame cuối mới Left) | Video `claude-r1/capture.mkv` + crop `idle-directions-tight.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Code hiện `character_clip` luôn `idle.blink` ⇒ cần giữ hướng/frame cuối; chưa đổi profile. Không chứng minh BlinkSmall/ngưỡng dài |
 | R-199 | Trong capture, bomb nằm **dưới** nhân vật (char vẽ đè bomb) và bubble nhốt **phủ trên** nhân vật | Bomb<character; bubble>character | `vn_runtime` / candidate (một frame/map) | `bomb-11-zoom.png`/`trap-13.5-zoom.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Khớp `ORDER_BOMB<ORDER_CHARACTER<ORDER_BUBBLE`; chưa quan sát item/high object/fire/explosion riêng |
->>>>>>> origin/main
+
+## 57. VN F-03 — Start/countdown chưa gán clip (R-196, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame** trước/dưới overlay để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start. Do đó không có bằng chứng VN dùng `C00-Start` trong cảnh này | Nhân vật vẽ trước overlay; Start 10-frame **không quan sát**; loop/duration unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Khuyến nghị không coi `PresentationKind::Start` playback là confirmed; chỉ giữ/disable theo consumer khi tìm được. RE consumer chưa tìm thấy clip name trong executable; không profile/G2/G6 |
