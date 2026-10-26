@@ -1354,3 +1354,10 @@ hoặc mở rộng search payload có kiểm soát. Không đổi code/profile/a
 
 Đề xuất code (không sửa trong PR này): `ui/layout.rs::login_layout` dùng x,y này (sau khi xác định parent)
 thay số ảnh; chưa đổi lobby/room/HUD/result. D-04/D-05 giữ; không đổi profile/G2/G6/release.
+
+## 79. F-10 — trợ góc player VN, xấp xỉ 5/6 px (R-157, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-157 | Player mover VN `59DA6F` có nhánh trượt vuông góc khi bị chặn: tính ô/rect từ XY, kiểm ô passable qua `7293B4`/`5C1027`/`5C0E98` (R-179), rồi dịch theo bước **5/6 px** đã đo; nhánh có cho cả bốn hướng (static 4 nhánh rect). **Không có hằng ngưỡng 34 hay 12 trong thân đã đọc**; các so sánh dùng 20/24/54 px theo cell/rect. Runtime cùng actor chỉ đo Down: lệch **30 px sửa được**, **35 px không đi**, nên max nằm trong **(30,35]**, chưa chốt đúng 34. V1 `corner_assist 12 px` **lệch** với biên runtime này | Step 5/6 px; 4 hướng static; max ∈(30,35]; 12 px V1 lệch | `vn_static` + R-177 runtime / candidate (một actor/map; chỉ Down runtime) | `59DA6F` collision path `59DABE`, coord/rect `59DB22–59DB8E`, correction `59DF31/59DF52`, tile predicate `59DD49→7293B4`, `59DD5E→5C1027→5C0E98`; cached clip/asm `.re-work/movement146-collision-source/clip59DABE.asm`; R-176/R-177. Không đổi `player.corner_assist_px`/movement code trong PR này; không suy all4 runtime/KR/hitbox |
+
