@@ -1339,3 +1339,9 @@ D-04/D-05 giữ nguyên.
 
 Đề xuất: giữ R-227…R-230 làm số đo ảnh; nếu cần tier1, đọc consumer UI native VN (chưa làm)
 hoặc mở rộng search payload có kiểm soát. Không đổi code/profile/asset; D-04/D-05 giữ nguyên.
+
+## 78. F-12 — mapping âm thanh theo consumer KR (R-191, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-191 | Client KR phát SFX bằng id số qua dispatcher `0xD1CD10` và bảng tĩnh `0x19E40D8` (id→`Wave/...`). Mapping có consumer: đặt bom 9/344; nổ 7/8 (343 tuyết, 7↔8 trong200ms); nhốt 77 solo/37 couple (+444 help có điều kiện); chết 42; item ăn68; item lộ69; dùng trap174; round Win175/Lose78/Draw43 (remap có điều kiện `sub_76FBF0`); BGM id48 từ record map, loop R-213. V1 lệch ở `bomb_exploded`: đang dùng `BombExplosion001`471 nhưng **không thấy consumer native trực tiếp** cho471 trong phạm vi 597 site; KR dùng7/8. `start_count_1..3` V1 không có consumer native trực tiếp; KR start dùng GameStart/GameReady18/21. Item pick chung68, không có entry riêng theo loại | Event→id: bomb9/344, explode7/8, trap77/37, die42, item68, pop69, round175/78/43, BGM48; start_count unknown; bomb_exploded V1 lệch471 | `kr_static` / candidate (mapping có consumer; chưa chạy runtime/âm thanh) | [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md) §1–§3/§12; dispatcher `0xD1CD10`, table `0x19E40D8`; consumer `0xEB3720`,`0xAF1140`,`0xB42D60`,`0xB53C80`,`0xB4B410`,`0xB8B680`,`0xE71D70`; loop callback `0x14BEC60`. Không đổi `data/assets/audio-v1.toml`/code trong PR này. 471/brick-break direct consumer là bounded negative, chưa loại trừ wrapper/id động. Runtime volume/voice/loop chưa đo |
