@@ -1,66 +1,85 @@
-# VN UI login 2026-10-26 — F-11a
+# Đo màn đăng nhập VN — F-11a (2026-10-26)
 
-Local evidence only (repo PUBLIC; no game art committed).
+Bằng chứng local; repo PUBLIC không chứa ảnh game.
 
-## Provenance / command
+## Nguồn, lệnh và tỉ lệ
 
-- Date: 2026-10-26; owner dsh2; issue #354; baseline main `d979af2f3e7bf5fc3e4347c6285d549ee7a6fc0f`.
-- VN client copy: `/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe`
-  (`bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1`).
-- Private Xvfb 1024×768x24, `-displayfd`; Wine prefix `vn-grace-240/prefix`; local mock server
-  `/home/admin/boom-team/tmp/vn149-factory-server.py` (no lobby/room/match actions).
-- `wine Z:\home\admin\boom-rs-dsh\re-kr\.re-work\vn-grace-240\game\ca_fixed_patched.exe`;
-  screenshots `import -window root`, no `wineserver -k`/pkill. Own process groups cleaned.
-- First launch captured only the splash; one allowed retry waited 30 s. Raw files are local:
-  `/home/admin/boom-team/shots/fidelity/F-11/login/`.
-- Native canvas is **800×600** content scaled **1.28×** to the 1024×768 Xvfb screenshot
-  (1024/800 = 768/600 = 1.28). Coordinates below are screenshot px / 1.28, rounded.
+- Issue #354; owner dsh2; baseline main `d979af2f3e7bf5fc3e4347c6285d549ee7a6fc0f`.
+- Client VN: `/home/admin/boom-rs-dsh/re-kr/.re-work/vn-grace-240/game/ca_fixed_patched.exe`,
+  SHA-256 `bc875ba5765cc112e924f46e75d0ace112904c7801126e46bc0abb1c9cb576b1`.
+- Xvfb riêng 1024×768x24 (`-displayfd`), Wine prefix `vn-grace-240/prefix`; server local
+  `/home/admin/boom-team/tmp/vn149-factory-server.py`. Lệnh:
+  `wine Z:\home\admin\boom-rs-dsh\re-kr\.re-work\vn-grace-240\game\ca_fixed_patched.exe`.
+- Ảnh chụp bằng `import -window root`; không dùng `wineserver -k`/pkill. Nhóm tiến trình riêng
+  đã được SIGTERM/SIGKILL và kiểm lại; không mở sảnh/phòng/trận.
+- Lần đầu chỉ thấy splash; đúng một lần thử lại chờ 30 s. Không cần chạy VN lại cho lần sửa này.
+- Nội dung game **800×600** phóng đúng **1,28×** lên ảnh 1024×768
+  (1024/800 = 768/600 = 1,28). Toạ độ logic = pixel raw / 1,28.
 
-## Screenshots
+## Ảnh local
 
-| file | SHA-256 | observation |
+| file | SHA-256 | ghi chú |
 |---|---|---|
-| `01-login-initial.png` | `e5c2e9ac27088ffecb4a0cfde4e338bc397e9a748d7f03e1152a49740b08922a` | login screen; account already persisted `tester`; password empty; submit disabled/gray |
-| `02-account-focus.png` | `1b174a1bd9d8e60c88832abb82ee3e9da6aa0296023be3df1da32de7aa7d7952` | account click/caret; no distinct focus ring visible |
-| `03-account-typed.png` | `f7567cccd15efeeb533cf5a9a316f081c9710927d38e6721f2f5f08ca0d8fea2` | account text `tester` |
-| `04-password-focus.png` | `555e3c588d199cfe657ffb79e6e3b5359ebae175f134751bddcb587128c3c867` | password caret/focus |
-| `05-password-typed.png` | `2f0e76ac9d423c1c56f39c1cac65d00bcd79d57dcb793473ff60932035d63541` | masked password; submit enabled blue |
-| `06-submit-hover.png` | `2fed9e9012d3666a059c0daefa5bd00c259c24a28069d7311cb1bc937cb70f70` | cursor on submit; no clear hover color change |
+| `01-login-initial.png` | `e5c2e9ac27088ffecb4a0cfde4e338bc397e9a748d7f03e1152a49740b08922a` | account đã có `tester` từ prefix; password rỗng; submit xám |
+| `02-account-focus.png` | `1b174a1bd9d8e60c88832abb82ee3e9da6aa0296023be3df1da32de7aa7d7952` | click account; không thấy viền focus khác |
+| `03-account-typed.png` | `f7567cccd15efeeb533cf5a9a316f081c9710927d38e6721f2f5f08ca0d8fea2` | account `tester` |
+| `04-password-focus.png` | `555e3c588d199cfe657ffb79e6e3b5359ebae175f134751bddcb587128c3c867` | caret password |
+| `05-password-typed.png` | `2f0e76ac9d423c1c56f39c1cac65d00bcd79d57dcb793473ff60932035d63541` | password mask; submit xanh |
+| `06-submit-hover.png` | `2fed9e9012d3666a059c0daefa5bd00c259c24a28069d7311cb1bc937cb70f70` | trỏ vào submit; không thấy đổi màu hover |
+| `rust-login-current-800x600.png` | `1923643118316a8244faf8e6bc4fd325ad2bb82c83f0ea4b38b7aab2f9044447` | boom-rs hiện hành, 800×600 |
 
-No submit was clicked; no lobby/room/match/result was opened.
+Ảnh `boom-rs-login-current-800x600.png` cũ (SHA `df11a055…`) được giữ local dưới tên
+`boom-rs-login-historical-placeholder.png`; **không** dùng làm bằng chứng current vì có placeholder
+`⟨login.*⟩` và vị trí field cũ.
 
-## Coordinates (logical 800×600; screenshot/1.28)
+## Đo field VN — ROI và loại hộp
 
-| element | logical rect (x,y,w,h) approx. | evidence |
-|---|---:|---|
-| login panel | 284,414,243,130 | 01; orange panel `NGƯỜI CHƠI 1` |
-| account field | 396,462,107,18 | 01/02; label `NHÂN VẬT` |
-| password field | 396,484,107,17 | 04; label `MẬT KHẨU` |
-| 1P | 195,429,78,80 | 01; left blue orb |
-| 2P | 527,429,78,80 | 01; right green orb |
-| TÌM MK | 184,552,86,35 | 01; bottom row |
-| ĐĂNG KÝ | 301,552,85,35 | 01; bottom row |
-| ĐĂNG NHẬP | 402,552,90,35 | 01; gray disabled initially, blue after password |
-| THOÁT RA | 516,552,86,35 | 01; bottom row |
+ROI account: vùng trắng/gray trong panel, hàng `y=590..615`, cột `x=505..645`.
+ROI password: `y=622..647`, cùng cột. Đo **visual box**, không phải hitbox:
 
-Coordinates are visual bounds, ±2 screenshot px (±1.6 logical px) due border/antialias. Font family/size and exact glyph metrics were not measured; VN uses a bitmap UI font, labels uppercase.
+| hộp | raw (x0,y0)–(x1,y1), exclusive | raw w×h | logic (x,y,w,h) | ghi chú |
+|---|---:|---:|---:|---|
+| account **outer** (gồm viền xám 1 px) | (515,590)–(633,615) | 118×25 | (402,34; 460,94; 92,19; 19,53) | dùng cho so layout |
+| account **inner** (trắng) | (516,590)–(632,614) | 116×24 | (403,13; 460,94; 90,63; 18,75) | không phải hitbox |
+| password **outer** | (515,622)–(633,647) | 118×25 | (402,34; 485,94; 92,19; 19,53) | |
+| password **inner** | (516,622)–(632,646) | 116×24 | (403,13; 485,94; 90,63; 18,75) | |
 
-## boom-rs current (for contrast, not committed VN art)
+Sai số thật: **±1 raw px** cho mép do viền/antialias ⇒ **±0,78 logic px**; bảng trên làm tròn
+2 chữ số. Ảnh chỉ chứng minh visual rect; không suy hitbox từ ảnh.
 
-- Source `crates/boom-client/src/ui/layout.rs::login_layout` logical 800×600:
-  - title `24,12,752,36`; account `24,130,400,44`; password `24,206,400,44`;
-  - buttons `y=496`, `140×40`, gap8: `login.submit`, `login.register`, `quit`.
-  - background element at side `636,104,156` (D-04 uses color/frame, not JPEG).
-- `boom-rs-login-current-800x600.png` SHA `df11a055280613faa1f0ff1dc5b73de21e02da4ef86b0857a6ab75ac0e83657a`
-  (local, 800×600).
-- Differences: VN has centered panel/1P/2P, field x≈396/y≈462, four bottom buttons including
-  `TÌM MK`; boom-rs fields at x24/y130 and three buttons at y496, no 1P/2P/TÌM MK. Submit VN is
-  disabled until password; boom-rs submit is enabled unconditionally. These are layout/behaviour
-  gaps, not the accepted D-04/D-05 background/text-asset differences.
+## Các phần tử khác (visual, xấp xỉ)
 
-## Limits / unknown
+| phần tử | raw (x,y,w,h) | logic (x,y,w,h) | ghi chú |
+|---|---:|---:|---|
+| panel `NGƯỜI CHƠI 1` | 364,530,311,166 | 284,38;414,06;242,97;129,69 | viền cam |
+| 1P orb | 251,549,99,101 | 196,09;428,91;77,34;78,91 | xanh |
+| 2P orb | 675,549,95,101 | 527,34;428,91;74,22;78,91 | xanh lá |
+| TÌM MK | 235,711,136,45 | 183,59;555,47;106,25;35,16 | nút xanh |
+| ĐĂNG KÝ | 374,711,136,45 | 292,19;555,47;106,25;35,16 | |
+| ĐĂNG NHẬP | 514,711,136,45 | 401,56;555,47;106,25;35,16 | xám→xanh |
+| THOÁT RA | 653,711,136,45 | 510,16;555,47;106,25;35,16 | |
 
-- One VN capture on one map/prefix; account field was pre-populated `tester` by the client/profile.
-- Focus/hover are visually weak: no distinct focus ring or submit hover color observed; only
-  caret/typed and disabled→enabled transitions. Cannot distinguish "no style" from lost pixel detail.
-- No KR comparison, no lobby/room/match, no image files committed; D-04/D-05 remain accepted.
+Nhãn quan sát: `NGƯỜI CHƠI 1`, `NHÂN VẬT`, `MẬT KHẨU`, `TÌM MK`, `ĐĂNG KÝ`, `ĐĂNG NHẬP`,
+`THOÁT RA`, `1P`, `2P`. Không đo font family/size/glyph; chỉ ghi chữ hiển thị.
+
+## boom-rs hiện hành
+
+- Ảnh `rust-login-current-800x600.png` chụp từ build hiện hành:
+  `xvfb-run -a -s '-screen 0 1024x768x24' <bin>/boom-client --scale 1 --ui-shot login --snapshot <png>`
+  (binary nêu dưới).
+  Binary SHA `c4d76534dd5b15f2c8218777b3b51d90a423d39a6489cc07f537f81e0000f0fa`;
+  text/l10n và rules profile nhúng mặc định; không truyền `--bundle`/`--rules` riêng.
+- Source `ui/layout.rs::login_layout` (800×600): title `(24,12,752,36)`, account
+  `(24,130,400,44)`, password `(24,206,400,44)`, buttons y=496 `140×40` gap8
+  (`LoginSubmit`, `LoginRegister`, `Quit`), background bên phải `(636,104,156)`.
+- Khác biệt so với VN: panel/orb/4 nút và field giữa màn ở VN; boom-rs field góc trái và 3 nút.
+  VN submit xám trước khi nhập password, xanh sau; boom-rs luôn enabled.
+  `1P`, `2P`, `TÌM MK` **chỉ là phần tử quan sát**, chưa phải acceptance/auth policy; việc đưa
+  điều khiển mới vào V1 là quyết định scope riêng.
+
+## Giới hạn
+
+- Một capture VN/một prefix; account bị prefix điền `tester`; không có KR, không vào sảnh.
+- Focus/hover yếu: không thấy viền focus hay đổi màu hover rõ; chỉ caret/chữ và disabled→enabled.
+  Không kết luận style vắng mặt ngoài pixel đã chụp.
+- D-04/D-05 (nền JPEG/ảnh có chữ) vẫn là khác biệt đã chấp thuận.
