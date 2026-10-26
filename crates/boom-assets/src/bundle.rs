@@ -1324,7 +1324,7 @@ mod tests {
             first.bundle.audio.len(),
             "bundle phải nạp lại bảng audio"
         );
-        assert_eq!(loaded.audio.len(), 15, "AUDIO_V1 có 15 entry V1");
+        assert_eq!(loaded.audio.len(), 14, "AUDIO_V1 có 14 entry V1");
         assert!(
             loaded.audio.iter().any(|audio| audio.id == "bgm_loop"),
             "phải có BGM Village"
@@ -1506,7 +1506,7 @@ mod tests {
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
         assert_eq!(
             built.bundle.content_hash,
-            "cd9578328a0730fec8056e1eb6c479c81d7242c7cdb2b39887344a3775da0ad7",
+            "84603280e035b7bb44aeb0b70a25f69b306162c8766dac5da68504c8676ffff3",
             "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
         );
     }
@@ -1674,7 +1674,7 @@ mod tests {
             assert_eq!(clip.claims, source.claims, "clip {}", clip.id);
             let expected_status = match source.claims.first().map(String::as_str) {
                 Some("R-077") | Some("R-084") => "confirmed",
-                Some("R-078") => "candidate",
+                Some("R-078" | "R-220") => "candidate",
                 other => panic!("claim không lạ trong bảng clip: {other:?}"),
             };
             assert_eq!(
