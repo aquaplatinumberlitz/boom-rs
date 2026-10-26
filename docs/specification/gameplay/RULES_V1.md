@@ -1201,3 +1201,10 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 
 Đề xuất code (không sửa trong PR này): thêm clip/entry `Bomb/HELP!` 4 frame làm layer trên bubble; `cXX.trapped.*` vẫn cần **base body + Faint overlay** (không chỉ Faint); `anim::bubble_look` giữ bubble/thân, không loop thân. Chưa đổi profile/G2/G6/release; cần locator consumer/timing HELP để chốt.
 
+
+## 63. VN R-192 — BOMB_ARG không chọn power state lửa (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-192 | S->C 151 với `BOMB_ARG=1/2/3` trên cùng C00/Factory01 chỉ cho motion ordinal 15/0/45/60 (arg1), 15/45/60 counter15 (arg2), 15/0/45/60 (arg3); **không** xuất hiện 1/16/31/46/61 hay 2/17/32/47/62. `BOMB_ARG` một mình không chứng minh là power/state selector; hậu tố `Fire*01..10` vẫn unknown, không nâng power-tier | BOMB_ARG1/2/3; ordinal thực như trên; suffix unknown | `vn_runtime` / candidate (3 run, một actor/map; probe selector) | [metadata](../../evidence/measurements/vn-fire-power-2026-10-26/README.md); packet151 arg1/2/3; observations hash. Chưa thử Fire pickup ack; không đổi `animation-v1.toml`/`anim::flame_frame`/`FLAME_FRAMES`/profile. Q-003/Q-019 blocker |
+
