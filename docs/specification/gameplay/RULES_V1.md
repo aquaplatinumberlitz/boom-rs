@@ -1174,7 +1174,7 @@ không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Khô
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
-| R-194 | `explosion.main` là một clip 10 frame/8 ảnh duy nhất; video chỉ thấy vụ nổ tại ô bom, không có blast nhánh riêng. Chưa chứng minh effect được tạo cho từng ô lửa hay chỉ ô bom; thời lượng 10 frame vẫn design | Một clip10 frame; vị trí branch/effect unknown; duration design | `vn_static` + `vn_runtime` / candidate | Video `claude-r1/capture.mkv`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md); R-084/R-088. Không đổi `explosion.main`/ORDER; cần call site `CGOBombExplosionEffect` trước khi kết luận branch |
+| R-194 | `explosion.main` là một clip 10 frame/8 ảnh duy nhất; video thấy hiệu ứng nước/lửa ở ô bên trái và ô phía trên ô bom; **chưa phân biệt** instance `explosion.main` riêng trên từng nhánh hay chỉ hiệu ứng tổng. Không kết luận “không có nhánh”; thời lượng 10 frame vẫn design | Một clip10 frame; vị trí branch/effect unknown; duration design | `vn_static` + `vn_runtime` / candidate | Video `claude-r1/capture.mkv`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md); R-084/R-088. Không đổi `explosion.main`/ORDER; cần call site `CGOBombExplosionEffect` trước khi kết luận branch |
 
 ## 61. VN F-07 — Die 14 frame và giữ xác (R-193, 2026-10-26)
 

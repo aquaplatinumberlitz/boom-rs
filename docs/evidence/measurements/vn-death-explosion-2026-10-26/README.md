@@ -6,7 +6,7 @@ SHA `e3610325129d9ee3bb0425a98cf2af8a7d454fde6c1da01c3e9f2002b5a329a5`. PTS th�
 
 ## F-06
 - R-084/ODT: chỉ một clip `explosion.main` 10 frame/8 ảnh, không tách tâm/nhánh; `Bomb/Explosion` không có
-  clip hướng riêng. Video chỉ có vụ nổ tại ô bom/actor; không có blast nhánh trong cảnh.
+  clip hướng riêng. Video có hiệu ứng nước/lửa ở ô bên trái và ô phía trên ô bom; không phân biệt được instance `explosion.main` riêng trên từng nhánh hay chỉ hiệu ứng tổng, nên không kết luận “không có nhánh”.
 - Chưa chứng minh effect được tạo cho từng ô lửa hay chỉ ô bom; `CGOBombExplosionEffect` ctor có tên
   `BombExplosion%03d` nhưng chưa nối call site/vị trí. Thời lượng 10 frame vẫn là **design 100 ms/frame**,
   video không đủ mẫu để chốt.
