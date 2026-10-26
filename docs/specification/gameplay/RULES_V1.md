@@ -1227,3 +1227,9 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 |---|---|---|---|---|
 | R-193 | Death C00 bắt đầu khoảng19,2 s; xác còn thấy tới khoảng21,0 s, **không còn** ở21,5/22,0 s; không thấy mờ dần, biến mất sau khoảng1,8–2,3 s. Chưa đo pattern lặp/duration từng frame Die | Giữ xác ~1,8–2,3 s rồi mất; không fade; pattern unknown | `vn_runtime` / candidate | Video `claude-r1/capture.mkv`, crop `F-07/analysis/death-contact.png`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md). V1 `last_visible_frame` giữ vô hạn không khớp; cần thời hạn/clear sau death. Không đổi G2/G6/release |
 
+## 63. FireC/L/U/R/D01..10 — power tier hay khoảng cách (R-192, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-192 | Hậu tố `01..10` trong `FireC01..C10`/branch L/U/R/D01..10 là **power/range tier của bom**, không phải khoảng cách ô hay đầu/giữa nhánh: R-164 power1 chọn đúng nhóm `*01` (motion0/15/30/45/60), và ODT có 15 state mỗi nhóm với C01..C10 + C10 lặp cho các tier cao hơn. State được chọn theo power của bom, không theo index khoảng cách | suffix = power tier; 15 state/nhóm; C10 lặp ở tier>10 | `vn_static` + `kr_static` / candidate (ODT+power1; chưa runtime power2–3) | [ODT CSV](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), R-164/R-165. Chưa chạy bomb tầm2–3 trong lượt này; chưa chốt tier>10/Timebomb. Code `FLAME_FRAMES`/flame state phải chọn theo power tier, không dùng dải 28..59. Không đổi profile/lifetime |
+
