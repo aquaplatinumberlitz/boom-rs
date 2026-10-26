@@ -698,7 +698,7 @@ impl Game {
             last_tick: 0,
             previous_positions,
             demo: None,
-            audio_state: audio::AudioState::new(Some(0)),
+            audio_state: audio::AudioState::new(Some(0), clock.frame.ticks_per_second),
             audio_plan: audio::AudioPlan::default(),
             net: None,
             net_status: None,
@@ -968,6 +968,12 @@ impl Game {
         if let Some(bundle) = &self.bundle {
             // Pump mạng có thể dồn nhiều tick vào một batch. Planner gộp cue theo
             // tick (AUDIO_V1 §4), nên nhóm cả event không liền nhau của cùng tick.
+            let start = self.audio_state.plan_round_start(
+                bundle,
+                self.state.tick,
+                self.world.rules().warmup_ticks,
+            );
+            self.audio_plan.cues.extend(start.cues);
             let mut ordered = events.to_vec();
             ordered.sort_by_key(|event| event.id);
             // Kế hoạch rỗng vẫn khởi động BGM khi lượt chưa có event nào.
@@ -3003,6 +3009,7 @@ mod tests {
             ("bgm_loop", "bgm"),
             ("bomb_placed", "sfx"),
             ("bomb_exploded", "sfx"),
+            ("bomb_exploded_multi", "sfx"),
             ("player_trapped", "sfx"),
             ("player_died", "sfx"),
         ] {
@@ -3096,11 +3103,18 @@ mod tests {
                 chained: false,
             },
         };
-        // Hai event tick 10 bị tách bởi tick 11 trong batch: vẫn chỉ một cue cho tick 10.
+        // Hai event tick10 xen kẽ8/7; tick11 phát8, batch phải được sort theo EventId.
         let events = vec![explosion(10, 0), explosion(11, 0), explosion(10, 1)];
         game.consume_events(0, &events);
         let plan = game.take_audio_plan();
-        assert_eq!(plan.cues, vec!["bomb_exploded", "bomb_exploded"]);
+        assert_eq!(
+            plan.cues,
+            vec![
+                "bomb_exploded_multi",
+                "bomb_exploded",
+                "bomb_exploded_multi"
+            ]
+        );
         assert!(plan.start_bgm);
 
         game.consume_events(0, &events);
@@ -3108,10 +3122,10 @@ mod tests {
         assert!(plan.cues.is_empty(), "gửi lại batch không phát cue mới");
         assert!(!plan.start_bgm, "BGM không restart");
 
-        // Event mới cùng cue ở cùng một tick vẫn chỉ phát một cue.
+        // Event mới cùng tick chọn hai biến thể, mỗi entry chỉ phát một lần.
         game.consume_events(0, &[explosion(12, 0), explosion(12, 1)]);
         let plan = game.take_audio_plan();
-        assert_eq!(plan.cues, vec!["bomb_exploded"]);
+        assert_eq!(plan.cues, vec!["bomb_exploded", "bomb_exploded_multi"]);
         assert!(!plan.start_bgm);
     }
 
@@ -3605,7 +3619,7 @@ status = "design"
         // Âm thanh: mỗi event phát **một lần**; BGM khởi động một lần và không restart.
         for cue in [
             "bomb_placed",
-            "bomb_exploded",
+            "bomb_exploded_multi",
             "player_trapped",
             "player_died",
         ] {

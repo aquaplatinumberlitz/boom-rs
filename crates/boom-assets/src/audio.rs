@@ -4,9 +4,8 @@
 //! `data/assets/audio-v1.toml`, mỗi dòng mang nhãn bằng chứng và claim RULES_V1. Module
 //! này chỉ đọc pack theo bảng đó, không khai báo tên entry.
 //!
-//! Không có bảng ánh xạ event→entry nào được xác nhận bởi consumer client gốc; các mapping
-//! trong bảng data là **design** của V1-034 (xem `AUDIO_V1.md`/R-082), còn sự tồn tại
-//! entry là `kr_static`. Entry/mapping BGM Village đã xác nhận bởi R-070/R-081; policy
+//! Mapping theo consumer KR là candidate R-191; trapped giữ confirmed R-204.
+//! Policy voice/priority vẫn design R-083; sự tồn tại entry là kr_static. Entry/mapping BGM Village đã xác nhận bởi R-070/R-081; policy
 //! loop/một voice là design R-083.
 
 use std::collections::BTreeSet;
@@ -246,7 +245,21 @@ mod tests {
                 usage.entry
             );
         }
-        assert_eq!(entries.len(), 15);
+        for (event, entry) in [
+            ("bomb_exploded", "Wave/Cha_BombExplode"),
+            ("bomb_exploded_multi", "Wave/Cha_BombExplodeMulti"),
+            ("round_ready", "Wave/Ntc_GameReady"),
+            ("round_start", "Wave/Ntc_GameStart"),
+        ] {
+            let mapping = uses.iter().find(|cue| cue.event == event).unwrap();
+            assert_eq!(mapping.entry, entry);
+            assert_eq!(mapping.status, boom_content::rules::Status::Candidate);
+            assert!(mapping.claims.iter().any(|claim| claim == "R-191"));
+        }
+        assert!(!uses.iter().any(
+            |cue| cue.event.starts_with("start_count_") || cue.entry == "Wave/BombExplosion001"
+        ));
+        assert_eq!(entries.len(), 14);
         assert!(uses.iter().any(|u| u.entry == "MP3/Village"));
         assert_eq!(
             uses.iter()

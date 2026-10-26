@@ -420,14 +420,14 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Sprite trong bundle | 69 (5 tile, 7 object, theme, preview, 36 sprite nhân vật: 16 walk + 8 idle + 4 trapped + 4 chết + 4 start, 3 icon item, bom, lửa, 4 lửa nhạt, bong bóng, chữ HELP!, vụ nổ, **7 ảnh UI**) |
 | Ảnh | 301 (trong đó 6 ảnh giữ chỗ 0×0) |
 | Trang atlas | 1 trang 2048×1417 |
-| Audio V1 | 15 entry (1 BGM + 14 SFX), 468.234 byte (457,3 KiB) payload thô trong `audio/` (không commit) |
+| Audio V1 | 14 entry (1 BGM + 13 SFX), 457.183 byte (446,5 KiB) payload thô trong `audio/` (không commit) |
 | Ô | 195, mọi ô có sprite nền |
 | Entry không phải ảnh | 4: BGM `FxSound/MP3/Village`, file map, 2 bảng chỉ số |
 | Clip | 48 (25 clip `confirmed` — R-077/R-084, 22 clip R-078 `candidate`, `trapped.help` R-220 `candidate`), 382 frame |
 | Thời lượng frame | 48/48 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 7 `selected`/`needs_review_text` có ảnh trong atlas, 16 `excluded` (không có ảnh) |
 | `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
-| `content_hash` | `7636bcc59d2b04ebd35408b7afca0ae3cc82b674cc5707c7c0ebebe930eb0d50` (schema 4, **có** audio, có chuỗi ODT R-251, 75 state lửa #330 và chữ HELP! R-220/R-250; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620`/#237 (quên cập nhật) → `b410bbbd…` (#351) → `cd957832…` (#346) → hash này (lửa ODT #330) |
+| `content_hash` | `1d0912c946639d3d468056836721480f19936459eaea5721cac6ea288631a794` (schema 4, **có** audio theo R-191 #363, có chuỗi ODT R-251, 75 state lửa #330 và chữ HELP! R-220/R-250; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620`/#237 (quên cập nhật) → `b410bbbd…` (#351) → `cd957832…` (#346) → hash này (lửa ODT #330) |
 
 Cách kiểm lại:
 

@@ -16,6 +16,9 @@ use crate::options::ClientOptions;
 /// Số voice SFX đồng thời tối đa (AUDIO_V1 §4).
 pub const MAX_SFX_VOICES: usize = 8;
 
+/// Cửa sổ xen kẽ id7/8 trong dispatcher KR (R-191 candidate).
+const EXPLOSION_WINDOW_MS: u64 = 200;
+
 /// Một quyết định phát trong một tick.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AudioPlan {
@@ -35,16 +38,24 @@ pub struct AudioState {
     local_slot: Option<u8>,
     seen: HashSet<(u32, EventId)>,
     bgm_started: bool,
+    ticks_per_second: u32,
+    last_explosion: Option<(u32, u32, bool)>,
+    ready_played: bool,
+    start_played: bool,
 }
 
 impl AudioState {
     /// Trạng thái âm thanh mới: slot trận của client (`None` = chưa biết, xem
     /// [`AudioState::local_slot`]).
-    pub fn new(local_slot: Option<u8>) -> Self {
+    pub fn new(local_slot: Option<u8>, ticks_per_second: u32) -> Self {
         Self {
             local_slot,
             seen: HashSet::new(),
             bgm_started: false,
+            ticks_per_second: ticks_per_second.max(1),
+            last_explosion: None,
+            ready_played: false,
+            start_played: false,
         }
     }
 
@@ -58,6 +69,9 @@ impl AudioState {
             self.local_slot = local_slot;
         }
         self.seen.clear();
+        self.last_explosion = None;
+        self.ready_played = false;
+        self.start_played = false;
     }
 
     /// Lên kế hoạch phát cho event của một round/tick.
@@ -71,11 +85,24 @@ impl AudioState {
         events: &[SimulationEvent],
     ) -> AudioPlan {
         let mut candidates: Vec<(u8, EventId, String)> = Vec::new();
-        for event in events {
+        let mut ordered: Vec<_> = events.iter().collect();
+        ordered.sort_by_key(|event| event.id);
+        for event in ordered {
             if !self.seen.insert((round_id, event.id)) {
                 continue;
             }
-            let Some(cue) = self.cue_for(event) else {
+            let cue = if matches!(event.kind, EventKind::BombExploded { .. }) {
+                // Bundle cũ chỉ có cue bomb_exploded→471: yêu cầu dựng lại đủ cặp7/8.
+                if bundle.audio_by_id("bomb_exploded").is_none()
+                    || bundle.audio_by_id("bomb_exploded_multi").is_none()
+                {
+                    continue;
+                }
+                Some(self.explosion_cue(round_id, event.id.tick))
+            } else {
+                self.cue_for(event)
+            };
+            let Some(cue) = cue else {
                 continue;
             };
             if bundle.audio_by_id(cue).is_none() {
@@ -121,10 +148,44 @@ impl AudioState {
         }
     }
 
+    /// Ready một lần đầu warmup, Start một lần khi hết warmup (mapping R-191 candidate).
+    /// Lịch warmup lấy từ core V1; không suy ba tiếng Count1..3 từ tên asset.
+    pub fn plan_round_start(&mut self, bundle: &Bundle, tick: u32, warmup_ticks: u32) -> AudioPlan {
+        let cue = if tick < warmup_ticks && !self.ready_played {
+            self.ready_played = true;
+            Some("round_ready")
+        } else if tick >= warmup_ticks && !self.start_played {
+            self.start_played = true;
+            Some("round_start")
+        } else {
+            None
+        };
+        cue.map_or_else(AudioPlan::default, |cue| self.plan_ui(bundle, cue))
+    }
+
+    fn explosion_cue(&mut self, round_id: u32, tick: u32) -> &'static str {
+        // Native bắt đầu ở8; nếu8 vừa phát thì7, nếu7 vừa phát thì8.
+        // So bằng tick và tần số profile, không làm tròn ms và không dùng wall clock.
+        let multi = !self
+            .last_explosion
+            .is_some_and(|(round, previous, was_multi)| {
+                round == round_id
+                    && tick >= previous
+                    && was_multi
+                    && u64::from(tick - previous) * 1000
+                        < u64::from(self.ticks_per_second) * EXPLOSION_WINDOW_MS
+            });
+        self.last_explosion = Some((round_id, tick, multi));
+        if multi {
+            "bomb_exploded_multi"
+        } else {
+            "bomb_exploded"
+        }
+    }
+
     fn cue_for(&self, event: &SimulationEvent) -> Option<&'static str> {
         match &event.kind {
             EventKind::BombPlaced { .. } => Some("bomb_placed"),
-            EventKind::BombExploded { .. } => Some("bomb_exploded"),
             EventKind::BlockDestroyed { .. } => None,
             EventKind::ItemRevealed { .. } => Some("item_revealed"),
             EventKind::ItemDestroyed { .. } => None,
@@ -148,9 +209,9 @@ impl AudioState {
 }
 
 fn priority(cue: &str) -> u8 {
-    if cue.starts_with("round_ended") {
+    if cue.starts_with("round_ended") || matches!(cue, "round_ready" | "round_start") {
         1
-    } else if cue == "bomb_exploded" {
+    } else if cue.starts_with("bomb_exploded") {
         2
     } else if matches!(cue, "player_trapped" | "player_died") {
         3
@@ -295,10 +356,11 @@ mod tests {
             "bgm_loop",
             "bomb_placed",
             "bomb_exploded",
+            "bomb_exploded_multi",
             "player_trapped",
             "player_died",
         ]);
-        let mut state = AudioState::new(Some(0));
+        let mut state = AudioState::new(Some(0), 30);
         let events = vec![
             event(
                 1,
@@ -333,7 +395,7 @@ mod tests {
         let first = state.plan(&bundle, 7, &events);
         assert!(first.start_bgm);
         assert!(first.cues.contains(&"bomb_placed".to_owned()));
-        assert!(first.cues.contains(&"bomb_exploded".to_owned()));
+        assert!(first.cues.contains(&"bomb_exploded_multi".to_owned()));
         let again = state.plan(&bundle, 7, &events);
         assert!(again.cues.is_empty(), "event lặp không được phát lại");
         assert!(!again.start_bgm, "BGM không restart khi reconcile");
@@ -351,7 +413,7 @@ mod tests {
             "round_ended_win",
             "round_ended_lose",
         ]);
-        let mut state = AudioState::new(Some(0));
+        let mut state = AudioState::new(Some(0), 30);
         let events = vec![event(
             1,
             0,
@@ -407,7 +469,7 @@ mod tests {
         // Chưa nhận `RoundStart` thì chưa biết mình thắng hay thua: không đoán, không
         // phát cue thắng/thua.
         let bundle = bundle_with(&["round_ended_win", "round_ended_lose"]);
-        let mut state = AudioState::new(None);
+        let mut state = AudioState::new(None, 30);
         let plan = state.plan(
             &bundle,
             1,
@@ -422,11 +484,111 @@ mod tests {
         assert!(plan.cues.is_empty());
     }
 
+    fn explosion(tick: u32, seq: u16) -> SimulationEvent {
+        event(
+            tick,
+            seq,
+            EventKind::BombExploded {
+                bomb: boom_core::EntityId(u32::from(seq) + 1),
+                owner: 0,
+                cell: boom_core::Cell::new(1, 1),
+                chained: false,
+            },
+        )
+    }
+
+    #[test]
+    fn explosion_alternates_8_7_in_200ms_and_resets_after_the_window() {
+        let bundle = bundle_with(&["bomb_exploded", "bomb_exploded_multi"]);
+        let mut state = AudioState::new(Some(0), 30);
+        for (tick, expected) in [
+            (0, "bomb_exploded_multi"),
+            (1, "bomb_exploded"),
+            (2, "bomb_exploded_multi"),
+            (7, "bomb_exploded"),
+            (13, "bomb_exploded_multi"),
+            (19, "bomb_exploded_multi"),
+        ] {
+            let event = explosion(tick, 0);
+            assert_eq!(
+                state.plan(&bundle, 1, std::slice::from_ref(&event)).cues,
+                vec![expected]
+            );
+            assert!(state.plan(&bundle, 1, &[event]).cues.is_empty());
+        }
+        state.set_round(Some(0));
+        assert_eq!(
+            state.plan(&bundle, 2, &[explosion(0, 0)]).cues,
+            vec!["bomb_exploded_multi"]
+        );
+        // 200ms chính xác tại50Hz là10tick; không dùng hằng6tick của profile30Hz.
+        let mut state = AudioState::new(Some(0), 50);
+        assert_eq!(
+            state.plan(&bundle, 1, &[explosion(0, 0)]).cues,
+            vec!["bomb_exploded_multi"]
+        );
+        assert_eq!(
+            state.plan(&bundle, 1, &[explosion(9, 0)]).cues,
+            vec!["bomb_exploded"]
+        );
+        assert_eq!(
+            state.plan(&bundle, 1, &[explosion(19, 0)]).cues,
+            vec!["bomb_exploded_multi"]
+        );
+    }
+
+    #[test]
+    fn explosion_batch_sorts_events_and_does_not_fall_back_to_471() {
+        let bundle = bundle_with(&["bomb_exploded", "bomb_exploded_multi"]);
+        let mut state = AudioState::new(Some(0), 30);
+        let plan = state.plan(&bundle, 1, &[explosion(2, 0), explosion(1, 0)]);
+        assert_eq!(plan.cues, vec!["bomb_exploded_multi", "bomb_exploded"]);
+        assert_eq!(
+            state.plan(&bundle, 1, &[explosion(3, 0)]).cues,
+            vec!["bomb_exploded_multi"]
+        );
+        let old_bundle = bundle_with(&["bomb_exploded"]);
+        let mut state = AudioState::new(Some(0), 30);
+        assert!(
+            state
+                .plan(&old_bundle, 1, &[explosion(0, 0)])
+                .cues
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn ready_start_use_18_21_once_without_count_1_2_3() {
+        let bundle = bundle_with(&["round_ready", "round_start"]);
+        let mut state = AudioState::new(Some(0), 30);
+        assert_eq!(
+            state.plan_round_start(&bundle, 0, 90).cues,
+            vec!["round_ready"]
+        );
+        assert!(state.plan_round_start(&bundle, 1, 90).cues.is_empty());
+        assert!(state.plan_round_start(&bundle, 89, 90).cues.is_empty());
+        assert_eq!(
+            state.plan_round_start(&bundle, 90, 90).cues,
+            vec!["round_start"]
+        );
+        assert!(state.plan_round_start(&bundle, 100, 90).cues.is_empty());
+        state.set_round(Some(0));
+        assert_eq!(
+            state.plan_round_start(&bundle, 0, 90).cues,
+            vec!["round_ready"]
+        );
+        let mut state = AudioState::new(Some(0), 30);
+        assert_eq!(
+            state.plan_round_start(&bundle, 100, 90).cues,
+            vec!["round_start"]
+        );
+    }
+
     #[test]
     fn groups_same_cue_and_caps_voices() {
-        let cues = ["bomb_exploded"];
+        let cues = ["bomb_exploded", "bomb_exploded_multi"];
         let bundle = bundle_with(&cues);
-        let mut state = AudioState::new(Some(0));
+        let mut state = AudioState::new(Some(0), 30);
         let events: Vec<_> = (0..10)
             .map(|i| {
                 event(
@@ -442,13 +604,13 @@ mod tests {
             })
             .collect();
         let plan = state.plan(&bundle, 1, &events);
-        assert_eq!(plan.cues, vec!["bomb_exploded".to_owned()]);
+        assert_eq!(plan.cues, vec!["bomb_exploded_multi", "bomb_exploded"]);
     }
 
     #[test]
     fn round_result_uses_local_player_perspective() {
         let bundle = bundle_with(&["round_ended_win", "round_ended_lose", "round_ended_draw"]);
-        let mut state = AudioState::new(Some(2));
+        let mut state = AudioState::new(Some(2), 30);
         let win = state.plan(
             &bundle,
             1,
@@ -490,7 +652,7 @@ mod tests {
     #[test]
     fn ui_cue_only_uses_sfx_entry() {
         let bundle = bundle_with(&["bomb_placed", "bgm_loop"]);
-        let state = AudioState::new(Some(0));
+        let state = AudioState::new(Some(0), 30);
         assert_eq!(
             state.plan_ui(&bundle, "bomb_placed").cues,
             vec!["bomb_placed".to_owned()]

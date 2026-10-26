@@ -1324,7 +1324,7 @@ mod tests {
             first.bundle.audio.len(),
             "bundle phải nạp lại bảng audio"
         );
-        assert_eq!(loaded.audio.len(), 15, "AUDIO_V1 có 15 entry V1");
+        assert_eq!(loaded.audio.len(), 14, "AUDIO_V1 có 14 entry V1");
         assert!(
             loaded.audio.iter().any(|audio| audio.id == "bgm_loop"),
             "phải có BGM Village"
@@ -1527,7 +1527,7 @@ mod tests {
         }
         assert_eq!(
             built.bundle.content_hash,
-            "7636bcc59d2b04ebd35408b7afca0ae3cc82b674cc5707c7c0ebebe930eb0d50",
+            "1d0912c946639d3d468056836721480f19936459eaea5721cac6ea288631a794",
             "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
         );
     }

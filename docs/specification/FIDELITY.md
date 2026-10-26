@@ -61,6 +61,7 @@ PR nào đổi hành vi; khi PR đó chưa merge thì hành vi trên main vẫn 
 | F-09 | Chồng lớp đầy đủ | Sort y chân + ORDER (R-199 cho bom/bóng) | một phần `design` | #334 |
 | F-10 | Cảm giác di chuyển | 30 Hz + nội suy | `design` | #335 |
 | F-11 | UI/UX các màn hình | Nhánh `feat/ui-vn-layout`: login R-227, lobby R-228, room R-229 theo visual rect VN 800×600; chưa tích hợp. Chi tiết nợ bên dưới | bố cục `vn_runtime` / `candidate`; phần chưa có asset/font/interaction là `design` | #336 |
+| F-12 | Event→SFX và lịch Ready/Start | Nhánh `feat/audio-r191`: nổ id7/8 xen kẽ <200 ms; Ready18/Start21 thay Count1..3; mapping đã khớp giữ entry. Ready đầu warmup/Start hết warmup theo core V1 | Mapping `kr_static` candidate R-191; trapped giữ confirmed R-204. Lịch warmup R-113 và voice/coalesce/priority R-083 là design; native Stop7/8, guard remap và audible runtime còn Q-015 | #363 |
 | — | Bóng nhốt | Main cũ: lớn dần 0–2 rồi lặp 3–8 (sai). #325: lớn dần 0–2, giữ 6 trong mờ, đục 600 ms, vỡ 3–5 | `vn_runtime` candidate (video ~30 fps, ±33 ms; claim ở #324 chờ tích hợp) | #320 |
 | — | Gốc pha Walk khi đổi hướng (phát lại từ đầu) và gốc pha bom (lúc đặt) | #353: reset khi đổi state/hướng | `design` (R-252) | #326 |
 | — | Nhịp frame chung 100 ms | R-118 | `design` | #311 (đóng) |

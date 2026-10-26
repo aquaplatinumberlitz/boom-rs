@@ -1302,7 +1302,7 @@ claims = ["R-077"]
         let tables = AssetTables::v1().expect("nạp bảng trong data/assets/");
         assert_eq!(tables.animation.clips.len(), 48, "bảng clip V1");
         assert_eq!(tables.ui.elements.len(), 23, "bảng UI V1");
-        assert_eq!(tables.audio.cues.len(), 15, "bảng audio V1");
+        assert_eq!(tables.audio.cues.len(), 14, "bảng audio V1");
         assert_eq!(
             tables.closure.entries.len(),
             11,
