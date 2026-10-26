@@ -1192,3 +1192,12 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 |---|---|---|---|---|
 | R-197 | Walk-left C00 trong capture có **5 pose** và giữ hướng; chưa thấy chuyển tiếp pose cuối→pose đầu đủ một chu kỳ nên **wrap 0..4 hay ping-pong chưa chốt**. Sau đổi hướng nhanh + đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose quan sát; wrap/ping-pong unknown; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. **Không** kết luận `character_loop_frame` đã khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
 
+
+## 56. F-02 — tư thế Faint trong bong bóng và HELP! — R-220 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-220 | **HELP! có entry thật trong pack Fx: `Bomb/HELP!`** — 4 frame/4 ảnh (88×39, 110×48, 114×49, 96×42; canvas140×100, pivot50×85); VN `fx` offset3352723 size23350, KR `FxDesktop` offset2943194, SHA-256 `7afd2cef…cb5f`; render local khớp chữ HELP! trong video. Mapping/thứ tự frame/nhịp phát vẫn **candidate**. Video đặt nó **trên bong bóng**, hiện liên tục 12,6–18,9 s, không thấy tắt; chưa đo được nhịp 4-frame từ capture. Nhân vật trong bóng vẫn là **base body + overlay Faint**: Faint sprite chỉ mũ+mắt/sparkle (47×127, 3 frame), base family chưa định vị. Bubble phủ trên base+Faint; HELP trên bubble | HELP entry4 frame; visible hold~6,3s; Faint layer3 frame; base body separate | `vn_static` + `vn_runtime` / **candidate** (entry xác nhận; consumer/timing chưa locator) | Full pack list local `/home/admin/boom-team/shots/fidelity/F-02/packlist/fx.txt`; `Bomb/HELP!` offset3352723 size23350; `sprite-info`/`sprite-png` local; video `F-02/capture.mkv` 12,6–18,9. `Help/Help` là sprite version khác không hỗ trợ; `GlobalUI/Bt_IconHelp` là icon UI khác. Bundle chỉ chứa entry đã map nên trước đây không thấy HELP! |
+
+Đề xuất code (không sửa trong PR này): thêm clip/entry `Bomb/HELP!` 4 frame làm layer trên bubble; `cXX.trapped.*` vẫn cần **base body + Faint overlay** (không chỉ Faint); `anim::bubble_look` giữ bubble/thân, không loop thân. Chưa đổi profile/G2/G6/release; cần locator consumer/timing HELP để chốt.
+
