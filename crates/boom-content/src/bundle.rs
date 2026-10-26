@@ -245,6 +245,43 @@ pub struct Clip {
     pub timing: FrameTiming,
     /// Dãi frame của clip; chỉ số ảnh trỏ vào ảnh của [`Clip::sprite`].
     pub frames: Vec<Frame>,
+    /// Khối bảng animation trong ODT của client gốc mà [`Clip::sequences`] lấy ra,
+    /// ví dụ `Character/C00_A`; vắng khi clip chưa nối ODT (ADR 0014).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub odt: Option<String>,
+    /// Chuỗi phát theo bảng ODT: mỗi state một chuỗi (frame, thời lượng theo đơn vị ODT).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sequences: Vec<ClipSequence>,
+}
+
+/// Một chuỗi phát của clip, lấy nguyên từ bảng animation ODT của client gốc.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClipSequence {
+    /// Tên state trong ODT (phần sau số thứ tự của nhãn), ví dụ `Walk Left`, `Lock`.
+    pub state: String,
+    /// Các bước theo thứ tự phát.
+    pub steps: Vec<SequenceStep>,
+}
+
+/// Một bước của chuỗi phát.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SequenceStep {
+    /// Chỉ số frame trong [`Clip::frames`].
+    pub frame: u32,
+    /// Thời lượng theo đơn vị ODT (giá trị thô; `0xFFFFFFFF`/`32767` gặp ở state giữ).
+    pub units: u32,
+}
+
+impl Clip {
+    /// Chuỗi phát của state `state` (so khớp đúng tên).
+    #[must_use]
+    pub fn sequence(&self, state: &str) -> Option<&ClipSequence> {
+        self.sequences
+            .iter()
+            .find(|sequence| sequence.state == state)
+    }
 }
 
 /// Màn hình của luồng V1 (đăng nhập → sảnh → phòng → trận → kết quả).
@@ -678,6 +715,21 @@ impl Bundle {
                 out.i32(frame.pivot_x);
                 out.i32(frame.pivot_y);
             }
+            // Chuỗi ODT chỉ ghi khi có, sau một thẻ chứa `\0` (ID clip không thể chứa) nên
+            // bundle cũ không có chuỗi giữ nguyên `content_hash`.
+            if clip.odt.is_some() || !clip.sequences.is_empty() {
+                out.str("\0odt");
+                out.opt_str(clip.odt.as_deref());
+                out.u32(clip.sequences.len() as u32);
+                for sequence in &clip.sequences {
+                    out.str(&sequence.state);
+                    out.u32(sequence.steps.len() as u32);
+                    for step in &sequence.steps {
+                        out.u32(step.frame);
+                        out.u32(step.units);
+                    }
+                }
+            }
         }
         out.u32(self.ui.len() as u32);
         for element in &self.ui {
@@ -1037,6 +1089,27 @@ impl Bundle {
                     "clip {} không có frame nào",
                     clip.id
                 )));
+            }
+            for sequence in &clip.sequences {
+                if sequence.steps.is_empty() {
+                    return Err(BundleError::Reference(format!(
+                        "clip {}: chuỗi ODT {} không có bước nào",
+                        clip.id, sequence.state
+                    )));
+                }
+                if let Some(step) = sequence
+                    .steps
+                    .iter()
+                    .find(|step| step.frame as usize >= clip.frames.len())
+                {
+                    return Err(BundleError::Reference(format!(
+                        "clip {}: chuỗi ODT {} trỏ frame {} nhưng clip có {} frame",
+                        clip.id,
+                        sequence.state,
+                        step.frame,
+                        clip.frames.len()
+                    )));
+                }
             }
             for (position, frame) in clip.frames.iter().enumerate() {
                 let Some(image) = sprite.images.get(frame.image as usize) else {
@@ -1840,6 +1913,8 @@ mod tests {
                 pivot_x: 0,
                 pivot_y: 39,
             }],
+            odt: None,
+            sequences: Vec::new(),
         }
     }
 
@@ -1878,6 +1953,38 @@ mod tests {
         // Hash đổi khi nội dung đổi.
         bundle.cells[0].tile = Some(1943);
         assert_ne!(bundle.compute_content_hash(), first);
+    }
+
+    #[test]
+    fn odt_sequences_round_trip_change_the_hash_and_are_validated() {
+        let mut bundle = bundle_with_clip();
+        bundle.validate().expect("clip hợp lệ");
+        let without = bundle.compute_content_hash();
+        bundle.clips[0].odt = Some("Character/C00_A".to_owned());
+        bundle.clips[0].sequences = vec![ClipSequence {
+            state: "Walk Left".to_owned(),
+            steps: vec![SequenceStep { frame: 0, units: 3 }],
+        }];
+        bundle.validate().expect("chuỗi trỏ frame có thật");
+        // Chuỗi ODT nằm trong `content_hash` (đổi chuỗi ⇒ đổi hash, ADR 0014 mục 3).
+        let with = bundle.compute_content_hash();
+        assert_ne!(with, without);
+        bundle.clips[0].sequences[0].steps[0].units = 4;
+        assert_ne!(bundle.compute_content_hash(), with);
+        // TOML giữ nguyên chuỗi.
+        bundle.content_hash = bundle.compute_content_hash();
+        let parsed = Bundle::from_toml(&bundle.to_toml().expect("xuất TOML")).expect("đọc lại");
+        assert_eq!(parsed, bundle);
+        assert_eq!(
+            parsed.clips[0].sequence("Walk Left").map(|s| s.steps.len()),
+            Some(1)
+        );
+        // Frame ngoài clip bị từ chối.
+        bundle.clips[0].sequences[0].steps[0].frame = 99;
+        assert!(bundle.validate().is_err());
+        // Chuỗi rỗng bị từ chối.
+        bundle.clips[0].sequences[0].steps.clear();
+        assert!(bundle.validate().is_err());
     }
 
     #[test]
