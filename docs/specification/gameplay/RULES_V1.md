@@ -1236,6 +1236,12 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 Hệ quả code (không sửa trong PR này): bỏ `presentation.frame_duration_ms=100` làm nhịp chung; dùng **đơn vị ODT 1/30** + duration từng frame, hoặc profile `presentation.odt_unit_hz=30`. `0xFFFFFFFF` vẫn hold; `32767` không được coi sentinel vô hạn nếu chưa có consumer. Các chuỗi F-02/F-04 cụ thể nằm ở PR #342/#345 (§56/#58); không đổi G2/G6/release/feature.
 
 
+## 64. Forest01 — actor/vật cản cao chưa đo được (R-190, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-190 | Chưa xác lập được thứ tự nhân vật trước/sau vật cản cao trên Forest01: server nhận `MAP_INDEX=1`/Forest01 nhưng capture chỉ thấy khu Factory-style, không có overlap actor–cây/nhà. Không suy `ORDER_OBJECT`/`ORDER_CHARACTER`/sort foot-y từ cảnh này | — (unknown/blocker) | `vn_runtime` / **unknown** (một actor, một map; không có overlap) | [metadata](../../evidence/measurements/vn-layer-forest-2026-10-26/README.md); video local `F-09/forest01/capture.mkv`, SHA `e2df6afb…0f2c`. Map identity client chưa xác nhận; không đổi code/profile. Cần entry/map loader đúng Forest01 hoặc cảnh có vật cản cao trước khi mở claim |
+
 ## 68. F-10 — bước vị trí/nội suy và trợ góc — R-225 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |

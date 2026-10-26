@@ -78,3 +78,10 @@ Q-003/Q-019: probe VN offline với S->C 151 `BOMB_ARG=1/2/3` chỉ thấy motio
 kết luận `Fire*01..10` là power tier; đường nhặt Fire/ack chưa chạy. Giữ R-192 candidate (#349),
 không đổi implementation; metadata raw local [tại đây](../evidence/measurements/vn-fire-power-2026-10-26/README.md).
 Mở lại bằng một đường power đã xác nhận (item Fire + ack) hoặc consumer state selector.
+
+### F-09a Forest01 — blocker map/overlap (2026-10-26, #357)
+
+Q-003: `ALL_MAPS=1` + `BOOM_DIR` + `MAP_INDEX=1` gửi packet113; ảnh vẫn Factory-style, không có
+cây/nhà cao để đo trước/sau. Map identity client chưa xác nhận; R-190 giữ **unknown**, không suy
+`ORDER_OBJECT`/`ORDER_CHARACTER`/sort foot-y. Metadata raw local
+[vn-layer-forest-2026-10-26](../evidence/measurements/vn-layer-forest-2026-10-26/README.md).
