@@ -66,24 +66,73 @@ pub const FLAME_CLIP: &str = "flame.main";
 /// Clip ID của bong bóng phủ lên người bị nhốt (#305: trước đây không được vẽ).
 pub const TRAPPED_BUBBLE_CLIP: &str = "trapped.bubble";
 
-/// Số frame "lớn dần" đầu clip bong bóng: phát một lần từ lúc bị nhốt, sau đó lặp phần còn lại.
+/// Số frame "lớn dần" đầu clip bong bóng: phát một lần từ lúc bị nhốt (frame 0–2).
 pub const BUBBLE_GROW_FRAMES: usize = 3;
 
-/// Frame của bong bóng người bị nhốt tại `clock`, bị nhốt từ tick `since`.
+/// Frame bóng tròn giữ suốt thời gian bị nhốt (`Bubble00` frame 6, #320).
+pub const BUBBLE_HOLD_FRAME: usize = 6;
+
+/// Frame đầu của chuỗi vỡ bóng (`Bubble00` frame 3–5), phát khi người bị nhốt chết.
+pub const BUBBLE_POP_FIRST: usize = 3;
+
+/// Số frame của chuỗi vỡ bóng.
+pub const BUBBLE_POP_FRAMES: usize = 3;
+
+/// Độ đục của bóng khi đang giữ: trong mờ, vẫn thấy nhân vật bên trong (video VN, #320).
+pub const BUBBLE_HOLD_ALPHA: u8 = 160;
+
+/// Bóng chuyển sang đục hẳn trong khoảng này (ms) trước khi vỡ (video VN ~0,6 s, #320).
+pub const BUBBLE_OPAQUE_MS: u64 = 600;
+
+/// Hình bong bóng tại một thời điểm: frame trong clip và độ đục (0–255).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BubbleLook {
+    /// Chỉ số frame trong clip `trapped.bubble`.
+    pub frame: usize,
+    /// Độ đục khi vẽ.
+    pub alpha: u8,
+}
+
+/// Bong bóng của người bị nhốt từ tick `since`, nhốt tối đa `trap_ticks` tick.
 ///
-/// Phát `min(count, 3)` frame đầu **một lần**, rồi lặp các frame còn lại; clip không dư frame
-/// để lặp thì giữ frame cuối — bong bóng không biến mất khi người chơi vẫn bị nhốt (#305).
+/// Theo client gốc VN (#320): lớn dần frame 0–2 **một lần**, giữ bóng tròn (frame 6) trong mờ,
+/// `BUBBLE_OPAQUE_MS` cuối thì đục hẳn; **không** lặp. Clip ngắn hơn thì giữ frame cuối để
+/// bóng không biến mất khi người chơi vẫn bị nhốt (#305).
 #[must_use]
-pub fn bubble_frame(clock: &PresentationClock, since: u32, count: usize) -> Option<usize> {
+pub fn bubble_look(
+    clock: &PresentationClock,
+    since: u32,
+    trap_ticks: u32,
+    count: usize,
+) -> Option<BubbleLook> {
     if count == 0 {
         return None;
     }
     let grow = count.min(BUBBLE_GROW_FRAMES);
-    clock.once_frame(since, grow).or(Some(if count > grow {
-        grow + clock.looping_frame(count - grow)
+    if let Some(frame) = clock.once_frame(since, grow) {
+        return Some(BubbleLook {
+            frame,
+            alpha: BUBBLE_HOLD_ALPHA,
+        });
+    }
+    let frame = BUBBLE_HOLD_FRAME.min(count - 1);
+    let elapsed = clock.frame.elapsed_ms_since(since, clock.tick);
+    let total = clock.frame.elapsed_ms_since(0, trap_ticks);
+    let alpha = if elapsed.saturating_add(BUBBLE_OPAQUE_MS) >= total {
+        u8::MAX
     } else {
-        count - 1
-    }))
+        BUBBLE_HOLD_ALPHA
+    };
+    Some(BubbleLook { frame, alpha })
+}
+
+/// Frame vỡ bóng khi người bị nhốt chết: `death_frame` là frame hiện tại của chuỗi chết.
+///
+/// Ba frame đầu của chuỗi chết phủ thêm frame vỡ 3–5 của bóng (video VN, #320).
+#[must_use]
+pub fn bubble_pop_frame(death_frame: usize, count: usize) -> Option<usize> {
+    (death_frame < BUBBLE_POP_FRAMES && count >= BUBBLE_POP_FIRST + BUBBLE_POP_FRAMES)
+        .then_some(BUBBLE_POP_FIRST + death_frame)
 }
 
 /// Clip ID của item trên nền theo chỉ số `Rules::items` (V1: 0 Bomb, 1 Fire, 2 Roller).
@@ -568,19 +617,20 @@ fn frame_of(item: &Presentation, clock: &PresentationClock, frames: &FrameCounts
 ///   trình diễn rồi giữ khung cuối có ảnh (R-089, xem [`crate::scene`]);
 /// - bị nhốt → clip `trapped` (R-078, **candidate** — chưa có consumer gốc xác nhận);
 /// - đang đi → clip `walk` theo hướng (R-077, `confirmed`);
-/// - đứng yên → clip `idle` (R-078, **candidate**).
+/// - đứng yên → clip `walk` của hướng cuối, giữ frame cuối (R-198, #320).
 ///
 /// `moving` là việc nhân vật **đã đổi ô** so với tick trước: state core không có cờ
 /// "đang đi" (hướng giữ qua lệnh `Dir::None` không xoá hướng), nên client tự so vị
 /// trí giữa hai tick.
 #[must_use]
-pub fn character_clip(character: Character, life: Life, facing: Dir, moving: bool) -> String {
+pub fn character_clip(character: Character, life: Life, facing: Dir) -> String {
     let key = character.key();
     match life {
         Life::Dead => format!("{key}.dead.static"),
         Life::Trapped { .. } => format!("{key}.trapped.static"),
-        Life::Alive if moving => format!("{key}.walk.{}.static", direction_key(facing)),
-        Life::Alive => format!("{key}.idle.blink.static"),
+        // Đứng yên cũng dùng clip đi theo hướng cuối, giữ frame cuối (R-198, #320):
+        // client gốc không về `Blink` khi vừa dừng.
+        Life::Alive => format!("{key}.walk.{}.static", direction_key(facing)),
     }
 }
 
@@ -655,38 +705,57 @@ mod tests {
     }
 
     #[test]
-    fn bubble_grows_once_then_loops_the_rest() {
+    fn bubble_grows_once_holds_translucent_then_turns_opaque_without_looping() {
         let frame_ticks = |n: u32| -> u32 {
             // Tick đầu tiên mà đồng hồ đã qua `n` frame kể từ tick 0.
             (0..10_000)
                 .find(|&tick| clock_at(tick).once_frame(0, n as usize).is_none())
                 .expect("đồng hồ tiến")
         };
+        let trap = 378;
+        let look = |tick| bubble_look(&clock_at(tick), 0, trap, 9).expect("có bóng");
         // 9 frame: 0,1,2 lớn dần một lần.
-        assert_eq!(bubble_frame(&clock_at(0), 0, 9), Some(0));
+        assert_eq!(look(0).frame, 0);
         let after_grow = frame_ticks(3);
-        let frame = bubble_frame(&clock_at(after_grow), 0, 9).expect("có frame");
-        assert!(
-            (3..9).contains(&frame),
-            "sau lớn dần phải lặp 3..8, được {frame}"
-        );
-        for tick in after_grow..after_grow + 500 {
-            let frame = bubble_frame(&clock_at(tick), 0, 9).expect("có frame");
-            assert!((3..9).contains(&frame), "tick {tick}: frame {frame}");
+        // Sau đó giữ bóng tròn (frame 6) trong mờ, không lặp qua frame vỡ 3–5 (#320).
+        // CLOCK test 33 tick/s: 0,6 s ≈ 20 tick.
+        for tick in after_grow..trap - 25 {
+            assert_eq!(
+                look(tick),
+                BubbleLook {
+                    frame: BUBBLE_HOLD_FRAME,
+                    alpha: BUBBLE_HOLD_ALPHA
+                },
+                "tick {tick}"
+            );
         }
+        // 0,6 s cuối: đục hẳn.
+        assert_eq!(look(trap - 10).alpha, u8::MAX);
+        assert_eq!(look(trap).frame, BUBBLE_HOLD_FRAME);
     }
 
     #[test]
     fn short_or_empty_bubble_never_disappears_while_trapped() {
-        assert_eq!(bubble_frame(&clock_at(0), 0, 0), None);
+        assert_eq!(bubble_look(&clock_at(0), 0, 378, 0), None);
         for count in 1..=3 {
-            for tick in [0_u32, 50, 500, 5_000] {
-                let frame = bubble_frame(&clock_at(tick), 0, count).expect("vẫn có bong bóng");
-                assert!(frame < count, "count {count} tick {tick}: frame {frame}");
+            for tick in [0_u32, 50, 300, 378] {
+                let look = bubble_look(&clock_at(tick), 0, 378, count).expect("vẫn có bong bóng");
+                assert!(look.frame < count, "count {count} tick {tick}: {look:?}");
             }
             // Sau khi lớn dần xong thì giữ frame cuối.
-            assert_eq!(bubble_frame(&clock_at(5_000), 0, count), Some(count - 1));
+            assert_eq!(
+                bubble_look(&clock_at(300), 0, 378, count).map(|look| look.frame),
+                Some(count - 1)
+            );
         }
+    }
+
+    #[test]
+    fn bubble_pops_over_the_first_death_frames() {
+        assert_eq!(bubble_pop_frame(0, 9), Some(3));
+        assert_eq!(bubble_pop_frame(2, 9), Some(5));
+        assert_eq!(bubble_pop_frame(3, 9), None);
+        assert_eq!(bubble_pop_frame(0, 5), None);
     }
 
     #[test]
@@ -702,38 +771,38 @@ mod tests {
         let c00 = Character::C00;
         // Đi theo bốn hướng.
         assert_eq!(
-            character_clip(c00, Life::Alive, Dir::Up, true),
+            character_clip(c00, Life::Alive, Dir::Up),
             "c00.walk.up.static"
         );
         assert_eq!(
-            character_clip(c00, Life::Alive, Dir::Down, true),
+            character_clip(c00, Life::Alive, Dir::Down),
             "c00.walk.down.static"
         );
         assert_eq!(
-            character_clip(c00, Life::Alive, Dir::Left, true),
+            character_clip(c00, Life::Alive, Dir::Left),
             "c00.walk.left.static"
         );
         assert_eq!(
-            character_clip(c00, Life::Alive, Dir::Right, true),
+            character_clip(c00, Life::Alive, Dir::Right),
             "c00.walk.right.static"
         );
         // Đứng yên.
         assert_eq!(
-            character_clip(c00, Life::Alive, Dir::Down, false),
-            "c00.idle.blink.static"
+            character_clip(c00, Life::Alive, Dir::Down),
+            "c00.walk.down.static"
         );
         // Bị nhốt và chết.
         assert_eq!(
-            character_clip(c00, Life::Trapped { since: 7 }, Dir::Down, false),
+            character_clip(c00, Life::Trapped { since: 7 }, Dir::Down),
             "c00.trapped.static"
         );
         assert_eq!(
-            character_clip(c00, Life::Dead, Dir::Down, false),
+            character_clip(c00, Life::Dead, Dir::Down),
             "c00.dead.static"
         );
         // Nhân vật C01 dùng tiền tố clip khác.
         assert_eq!(
-            character_clip(Character::C01, Life::Alive, Dir::Left, true),
+            character_clip(Character::C01, Life::Alive, Dir::Left),
             "c01.walk.left.static"
         );
     }

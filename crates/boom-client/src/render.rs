@@ -120,7 +120,7 @@ impl Atlas {
             texture,
             origin.0 + item.dest.x as f32,
             origin.1 + item.dest.y as f32,
-            WHITE,
+            Color::from_rgba(255, 255, 255, item.alpha),
             DrawTextureParams {
                 dest_size: Some(macroquad::prelude::vec2(
                     item.source.width as f32 * scale,

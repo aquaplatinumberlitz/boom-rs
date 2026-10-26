@@ -337,6 +337,10 @@ phát hành đầyđủ theo target3OS hoặc thay phạmvi phát hành cần gh
 đóng sáuREroot để làm đẹp số. CI/approval/safeMerge vẫn theo AGENTS. Linuxmilestone có thể được
 review/bàn giao riêng khi ghi rõ giới hạn platform và minimumhardware **hiện chưa đo**; không tự bật releaseflag.
 
+Chỉ đạo chủ dự án2026-10-26: CI/test/smoke và workflow đóng gói hiện chỉ chạy **Linux**;
+Windows/macOS tạm hoãn. Merge vẫn cần mọi job của head hiện tại xanh và review độc lập theo AGENTS.
+Yêu cầu nghiệm thu đa nền tảng ở§6/7 giữ lại cho sau; thay đổi CI không tự ký V1-036/G6.
+
 
 Chỉ đạo bổ sung cùng ngày: cấu hình làm nhanh gọn; ghi điều kiện phần mềm/máy tham chiếu và giới hạn,
 không dồn DSH hoặc mở campaign benchmark phần cứng. Minimumhardware/FPS chưa đo không được

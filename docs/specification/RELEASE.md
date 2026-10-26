@@ -12,6 +12,10 @@ chơi vẫn ở [RULES_V1](gameplay/RULES_V1.md), bố cục engine ở
 
 ## 1. Đã làm và chưa làm
 
+Theo chỉ đạo chủ dự án2026-10-26, **CI/test/smoke và đóng gói hiện chỉ chạy Linux**;
+Windows/macOS tạm hoãn. Các kết quả ba OS đã ghi bên dưới là lịch sử, không phải job đang bật.
+Nghiệm thu toàn phần V1-036/G6 giữ theo SCOPE_V1, không tự đạt từ việc thu hẹp CI.
+
 | Việc | Trạng thái |
 |---|---|
 | Build `--release` `boom-client`, `boom-server`, `boom-assets` trên Windows/Linux/macOS trong CI | **Đã làm** (workflow `release.yml`) |
@@ -78,9 +82,9 @@ Quy tắc:
 | Chạy tay | `workflow_dispatch` (ô `version`) |
 | Chạy tự động | đẩy tag `v*` (phiên bản lấy từ tên tag, bỏ tiền tố `v`) |
 | Job `check` | `cargo xtask ci` trên ubuntu (cổng bàn giao [AGENTS §7](../../AGENTS.md)) · `python tools/check_package.py test` (tự kiểm công cụ đóng gói) |
-| Job `package` | ma trận 3 OS: `ubuntu-latest` (x86_64), `windows-latest` (x86_64), `macos-latest` (aarch64) |
+| Job `package` | `ubuntu-latest` (Linux x86_64); Windows/macOS tạm hoãn |
 | Bước trong job | build release → gom gói (`pack`: `bin/`, `data/`, `assets/fonts/`, README trích từ §8) → `cargo fetch` (nguồn crate **mọi** nền tảng) → sinh `LICENSES` → **kiểm bộ đóng gói** → đóng gói → **mở gói đã đóng + smoke** (§3.2) |
-| Artifact | mỗi OS một artifact `boom-rs-<phiên bản>-<os>-<arch>` (zip cho Windows, tar.gz cho Linux/macOS) · một artifact log `…-smoke` (§3.2) |
+| Artifact | `boom-rs-<phiên bản>-linux-x86_64.tar.gz` · một artifact log `…-smoke` (§3.2) |
 
 `workflow_dispatch` trên nhánh để thử: job `package` cần job `check` xanh trước.
 
@@ -88,7 +92,7 @@ Ngoài `release.yml`, `.github/workflows/ci.yml` chạy **mọi PR**:
 
 | Job | Việc |
 |---|---|
-| `ci` | `cargo xtask ci` + `python tools/check_package.py test` (tự kiểm công cụ đóng gói) trên cả ba OS |
+| `ci` | `cargo xtask ci` + `python tools/check_package.py test` (tự kiểm công cụ đóng gói) trên Linux |
 | `smoke` | build debug → `pack` → `smoke` → upload artifact `smoke-log-<os>` (§3.2) |
 
 ### Gói QA đã kiểm ngày2026-10-24
@@ -276,7 +280,7 @@ encoding console Windows), nên thông điệp tiếng Việt kiểm được gi
 
 Chạy ở đâu:
 
-- `.github/workflows/ci.yml` — job `smoke`, ma trận 3 OS, chạy **mỗi PR**: build debug →
+- `.github/workflows/ci.yml` — job `smoke` trên Linux, chạy **mỗi PR**: build debug →
   `pack` → `smoke` → upload artifact `smoke-log-<os>` (log smoke).
 - `.github/workflows/release.yml` — job `package`, sau khi **đóng gói**: `unpack` archive
   thật → `check` (đủ thành phần, không pack/asset game) → `smoke` trên gói đã mở →
@@ -354,12 +358,12 @@ Mã thoát của `boom-server`: `0` thành công · `2` không dùng được (f
 
 | Mục | Yêu cầu | Nguồn |
 |---|---|---|
-| Nền tảng | Windows x86_64, Linux x86_64, macOS aarch64 | build 3 OS trong `release.yml` |
+| Nền tảng | Hiện ưu tiên Linux x86_64; Windows x86_64 và macOS aarch64 để sau | CI/đóng gói hiện chỉ chạy Linux; kết quả ba OS cũ xem metadata QA |
 | Toolchain build | Rust theo `rust-toolchain.toml` (edition 2024) | [ARCHITECTURE](../planning/ARCHITECTURE.md) §3 |
 | Client (Linux) | thư viện hệ thống cho macroquad: `libX11`, `libXi`, `libGL`, `libasound` | [ADR 0010](../decisions/0010-client-stack-choice.md), cùng danh sách CI dùng |
-| Client (Windows/macOS) | không cần thư viện hệ thống ngoài | build release.yml |
+| Client (Windows/macOS) | chưa nghiệm thu GUI hiện hành; tạm hoãn | metadata QA lịch sử, không có job Windows/macOS hiện tại |
 | Server | SQLite `bundled` ⇒ không cần cài libsqlite3 | [ADR 0011](../decisions/0011-identity-persistence-log-v1.md) §10 |
-| Binary trong gói chạy được trên OS của gói | `boom-server --help`/`content`/`health --offline` và `boom-client --help` chạy từ `bin/` của gói đã mở | smoke 3 OS trong `ci.yml` + `release.yml` (§3.2) |
+| Binary trong gói chạy được trên OS của gói | `boom-server --help`/`content`/`health --offline` và `boom-client --help` chạy từ `bin/` của gói đã mở | smoke Linux trong `ci.yml` + `release.yml` (§3.2); kết quả ba OS cũ giữ lịch sử |
 | Dung lượng gói | Đã đo archive QA ba OS ngày24/10; không phải ước tính minimum disk/RAM | [Metadata QA](../evidence/measurements/rust-client-ux-2026-10-24/package-qa.json) |
 
 ### Cấu hình Linux gọn — ưu tiên chủ dự án25/10

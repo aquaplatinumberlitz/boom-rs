@@ -5,6 +5,7 @@ Chỉ tạo ADR cho quyết định có tác động lâu dài; không biến m�
 
 | ID | Chủ đề | Trạng thái |
 |---|---|---|
+| [0014](0014-presentation-fidelity.md) | Fidelity trình diễn: không tự đặt luật phát, RE → quay VN → design có nợ, cảnh đối chiếu bắt buộc | Accepted — chủ dự án 2026-10-26 |
 | [0013](0013-rule-source-precedence.md) | Ưu tiên KR confirmed → VN confirmed → BnB → design riêng | Accepted — chủ dự án 2026-10-21 |
 | [0012](0012-v1-rules-from-bnb.md) | V1 chọn BnB cho chỗ trống và backlog cơ chế | Partly superseded by 0013 — chủ dự án 2026-10-21 |
 | [0011](0011-identity-persistence-log-v1.md) | Identity, persistence, log và health V1 (SQLite, Argon2id, session gắn kết nối) | Accepted (mặc định có thể đảo) — review #57 (Codex) |

@@ -393,6 +393,7 @@ fn art_item(bundle: Option<&Bundle>, sprite_id: &str, dest: &Rect) -> Option<Dra
         row: 0,
         column: 0,
         kind: CellKind::Floor,
+        alpha: u8::MAX,
     })
 }
 
