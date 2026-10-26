@@ -22,6 +22,11 @@ Bằng chứng tĩnh; không chạy VN/Wine, không commit binary/decompile.
 - Literal local x/y: confirmed. `0x10000000` at `-0xac/-0xa8` **không phải w/h**; w/h code unknown.
 - Offset +52 x, +0 y khớp ba nút nhưng **chưa định vị control cha `LO_LoginBox`**; screen mapping là derived, chưa đủ để gọi parent là confirmed.
 
+- Constructor là `thiscall`; string refs `LO_BtLogNewId`/`LO_BtLogOk`/`LO_BtLogExit`.
+- Ảnh R-227 cho visual width ~106, height ~35 logic (button); không nâng thành code w/h.
+- Code control id/name: `0x3e9` NewId, `0x3ea` Ok, `0x3eb` Exit.
+- Ảnh login local: `/home/admin/boom-team/shots/fidelity/F-11/01-login-initial.png`.
+
 ## Room / Prepare
 
 - Tên `Prepare/*`, `PRE_Bt_Ready`, `PRE_Bt_Start`, `PRE_Bt_Roominfo`, `PRE_*` có trong string table.
