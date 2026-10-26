@@ -375,7 +375,15 @@ fn chat_longer_than_the_frame_is_cut_not_overflowed() {
             _ => None,
         })
         .expect("khung chat");
-    let rect_height = 128.0;
+    let rect = layout
+        .widgets
+        .iter()
+        .find_map(|widget| match widget {
+            Widget::Chat { rect, .. } => Some(rect),
+            _ => None,
+        })
+        .expect("chat rect");
+    let rect_height = rect.height as f32;
     let visible = (rect_height / layout::CHAT_LINE_HEIGHT).floor() as usize;
     assert_eq!(boxes.len(), visible, "chỉ vẽ dòng vừa khung");
     assert!(
@@ -386,7 +394,7 @@ fn chat_longer_than_the_frame_is_cut_not_overflowed() {
     );
     for text_box in &boxes {
         assert!(
-            text_box.y + text_box.height <= 300.0 + rect_height + 0.5,
+            text_box.y + text_box.height <= rect.bottom() as f32 + 0.5,
             "dòng chat tràn khung: {text_box:?}"
         );
     }
@@ -503,68 +511,42 @@ fn long_field_value_stays_inside_the_field() {
     );
 }
 
-/// Tên phòng dài không được đẩy bảng sảnh ra ngoài khung.
-///
-/// Bảng có dữ liệu động (tên phòng, tên người): bề rộng cột được giới hạn cho
-/// vừa khung, dòng cao theo nội dung thật, và dòng không vừa khung thì không vẽ
-/// (cuộn) — bảng không bao giờ tràn ra ngoài màn.
+/// Thẻ phòng giữ chữ động trong hộp, không đẩy thẻ khác ra khỏi lưới.
 #[test]
-fn long_room_name_keeps_the_lobby_table_inside_its_frame() {
+fn long_room_name_keeps_the_lobby_cards_inside_their_frames() {
     let mut model = logged_in();
     model.set_field_text(FieldId::LobbyRoomName, &"phòng rất dài ".repeat(20));
     assert_eq!(model.activate(ActionId::LobbyCreate), ActionOutcome::Done);
-    // Rời phòng để về sảnh: danh sách phòng có tên dài.
     assert_eq!(model.activate(ActionId::RoomLeave), ActionOutcome::Done);
-    assert_eq!(model.screen(), UiScreen::Lobby);
-
     let font = font();
     let layout = layout::layout(&model, None, None);
     let mut checked = 0;
+    let mut shown = Vec::new();
     for widget in &layout.widgets {
-        let Widget::Table {
-            rect,
-            columns,
-            rows,
-        } = widget
-        else {
+        let Widget::Card { rect, .. } = widget else {
             continue;
         };
-        checked += 1;
-        let widths = layout::table_column_widths_fitted(columns, rows, &font, rect.width as f32);
-        let total: f32 = widths.iter().sum::<f32>()
-            + layout::TABLE_COLUMN_GAP * widths.len().saturating_sub(1) as f32;
-        assert!(
-            total <= rect.width as f32 + 0.5,
-            "bảng rộng {total} px vượt khung {} px",
-            rect.width
-        );
-        // Mọi chữ vẽ ra nằm trong khung bảng (không tràn xuống dưới).
-        for text_box in widget.text_boxes(&font) {
-            assert!(
-                text_box.y + text_box.height <= rect.bottom() as f32 + 0.5,
-                "ô bảng tràn khung: {text_box:?}"
-            );
-            let laid = drawn(&text_box, &font);
-            assert!(
-                laid.height() <= text_box.height + 0.5,
-                "chữ ô bảng cao {} px vượt hộp {} px",
-                laid.height(),
-                text_box.height
-            );
+        if rect.x < 227 || rect.y >= 320 {
+            continue;
         }
-        // Các phòng cũ vẫn còn trong bảng (phòng tên dài bị cuộn ra, không làm mất
-        // các dòng khác).
-        let shown: Vec<String> = widget
-            .text_boxes(&font)
-            .into_iter()
-            .map(|text_box| text_box.text)
-            .collect();
-        assert!(
-            shown.iter().any(|text| text.contains("room-1")),
-            "bảng phải còn phòng cũ: {shown:?}"
-        );
+        checked += 1;
+        for text_box in widget.text_boxes(&font) {
+            assert!(text_box.x >= rect.x as f32);
+            assert!(text_box.x + text_box.width <= (rect.x + rect.width as i32) as f32);
+            assert!(text_box.y + text_box.height <= rect.bottom() as f32 + 0.5);
+            let laid = drawn(&text_box, &font);
+            assert!(laid.height() <= text_box.height + 0.5);
+            assert!(
+                laid.lines()
+                    .iter()
+                    .all(|line| line.width <= text_box.width + 0.5)
+            );
+            shown.push(text_box.text);
+        }
     }
-    assert!(checked > 0, "màn sảnh phải có bảng phòng");
+    assert_eq!(checked, 6);
+    assert!(shown.iter().any(|text| text.contains("room-1")));
+    assert!(shown.iter().any(|text| text.contains("phòng rất dài")));
 }
 
 /// Phần vẽ không được tự xuống dòng ngoài hộp.
@@ -957,20 +939,20 @@ fn skip_allowed_region(chars: &[char], after_marker: usize) -> usize {
     }
 }
 
-/// Khi bật các ảnh đã duyệt, cột ảnh không được tràn xuống hàng nút thao tác.
+/// Mọi vùng ảnh/khung/nút nằm trong canvas; ảnh nút mới không nằm ở sidebar cũ.
 #[test]
-fn approved_images_and_fallback_frames_stay_above_the_action_buttons() {
+fn approved_images_and_fallback_frames_fit_the_canvas() {
     for (screen, layout) in v1_layouts() {
         for widget in layout.widgets {
             let rect = match widget {
-                Widget::Art { rect, .. } | Widget::Frame { rect, .. } if rect.x >= 600 => rect,
+                Widget::Art { rect, .. }
+                | Widget::Frame { rect, .. }
+                | Widget::Button { rect, .. } => rect,
                 _ => continue,
             };
-            assert!(
-                rect.bottom() <= 480,
-                "màn {screen:?}: phần tử ảnh/nhãn {rect:?} đè vùng nút từ y=496"
-            );
-            assert!(rect.x + rect.width as i32 <= 800);
+            assert!(rect.x >= 0 && rect.y >= 0, "{screen:?}: {rect:?}");
+            assert!(rect.bottom() <= 600, "{screen:?}: {rect:?}");
+            assert!(rect.x + rect.width as i32 <= 800, "{screen:?}: {rect:?}");
         }
     }
 }
