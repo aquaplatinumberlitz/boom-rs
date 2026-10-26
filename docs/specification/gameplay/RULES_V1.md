@@ -1163,9 +1163,61 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
 
+
 ## 53. VN C00 — idle giữ hướng và overlap bomb/bubble (R-198/R-199, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-198 | Sau khi đi Left/Right/Up/Down rồi dừng 1,5 s, C00 **giữ hướng cuối ở cả bốn hướng** (mặt trái/phải/lưng-up/mặt down) và **không** trả về `idle.blink` trong cửa sổ này; riêng **Left** đã đối chiếu khớp **frame cuối Walk-left**, các hướng còn lại mới chỉ xác nhận hướng, chưa đối chiếu frame cuối | Giữ hướng cả4 ≥1,5 s; frame cuối chỉ Left; Blink ban đầu; ngưỡng Blink sau dừng chưa đo | `vn_runtime` / candidate (video local, một actor/map; giữ hướng cả4, frame cuối mới Left) | Video `claude-r1/capture.mkv` + crop `idle-directions-tight.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Code hiện `character_clip` luôn `idle.blink` ⇒ cần giữ hướng/frame cuối; chưa đổi profile. Không chứng minh BlinkSmall/ngưỡng dài |
 | R-199 | Trong capture, bomb nằm **dưới** nhân vật (char vẽ đè bomb) và bubble nhốt **phủ trên** nhân vật | Bomb<character; bubble>character | `vn_runtime` / candidate (một frame/map) | `bomb-11-zoom.png`/`trap-13.5-zoom.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Khớp `ORDER_BOMB<ORDER_CHARACTER<ORDER_BUBBLE`; chưa quan sát item/high object/fire/explosion riêng |
+
+## 54. Chuỗi bị nhốt bong bóng C00 trên video VN — R-219 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-219 | Trên video VN nominal60/PTS~29,65 fps, C00 bị lửa chạm vào bong bóng theo chuỗi: (1) bong bóng nhỏ xuất hiện ~12,6 s, lớn đầy ~12,8 s **(~0,2 s)**; (2) giữ bong bóng lớn + chữ **HELP!** + tư thế Faint, không thấy loop/bob/nhấp nháy ~12,8–18,4 s **(~5,6 s)**; (3) **flash trắng/xanh ~18,4–18,9 s (~0,5 s)**, HELP vẫn hiện; (4) **pop/nổ + chết ~19,0 s**, HELP/bong bóng biến mất, còn xác đỏ. Tổng trap→death ~6,4 s, khớp R-160 6350 ms. Bong bóng **trên** nhân vật; Faint static+adjust dưới bong bóng; HELP ở trên bong bóng | Growth~0,2 s; hold~5,6 s; flash~0,5 s; pop/death~0,1 s; trap-to-death~6,4 s | `vn_runtime` / **candidate** (một ca video, không locator native) | Raw local `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (không commit), `actions.jsonl`, `analysis/trap_01s_grid.png`, `analysis/trap_fine.png`, `observation.json`; mốc bomb10,54 s, bubble12,6, death19,0. Entries: bubble `FxDesktop/Bomb/Bubble00` 9 frame; Faint `C00-FaintLayerStatic/Adjust` 3; Die `C00-DieLayerStatic/Adjust` 14. **HELP! = `Bomb/HELP!` sprite v2 4 frame** (VN `fx` offset3352723 size23350; KR `FxDesktop` offset2943194; SHA-256 `7afd2cef…cb5f`); **chưa được map vào bundle V1**, không phải không có sprite nguồn. Mapping/thứ tự/nhịp phát vẫn candidate. Không có native counter/ODT; death/pop giới hạn bởi hai mẫu kề (PTS 33/34 ms xen16/17 ms, ~29,65 fps), không dùng ±16,7 ms |
+
+R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (character trapped clip lặp; bubble grow3 rồi lặp phần còn lại):
+đề xuất code (không sửa trong PR này) giữ **một frame Faint** trong suốt hold, bubble lớn **một lần rồi giữ**, flash ngắn trước pop, rồi death; **HELP!** dùng entry `Bomb/HELP!` (4 frame), chưa map bundle; mapping/thứ tự/nhịp còn candidate. Không đổi profile/G2/G6/release; chưa chứng minh toàn bộ mode/rescue (không có item rescue trong ca này).
+
+## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-195 | `Bomb/Fire00` 100 frame được tiêu thụ qua bảng ODT 76 state: tâm `FireC01..C10` dùng frame0..2/3; nhánh L/U/R/D bắt đầu frame4/5/6/7 và kết thúc96/97/98/99, mỗi state nhánh19 record; `Blur_Fire01_<Dir>` là entry riêng10 frame, không nằm trong Fire00. `FLAME_FRAMES=28..=59` không phải một state/frame range có nguồn | Tâm0..3; base L/U/R/D4/5/6/7; cuối96/97/98/99; branch19 record; motion blur entry riêng10 frame | `vn_static` + `kr_static` / candidate (ODT data; chưa native consumer frame-index) | [ODT CSV/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), [evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); blockSHA70ff67a0…; duration raw1 **chưa có đơn vị**. Code `FLAME_FRAMES` phải bỏ/thay theo hướng-state; motion blur dùng riêng khi có nguồn. Không đổi profile/lifetime; không chứng minh mọi mode/index native |
+
+## 55. VN F-01 — Walk loop/Blink threshold (R-197, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-197 | Walk-left C00 trong capture có **5 pose** và giữ hướng; chưa thấy chuyển tiếp pose cuối→pose đầu đủ một chu kỳ nên **wrap 0..4 hay ping-pong chưa chốt**. Sau đổi hướng nhanh + đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose quan sát; wrap/ping-pong unknown; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. **Không** kết luận `character_loop_frame` đã khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
+
+
+## 56. F-02 — tư thế Faint trong bong bóng và HELP! — R-220 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-220 | **HELP! có entry thật trong pack Fx: `Bomb/HELP!`** — 4 frame/4 ảnh (88×39, 110×48, 114×49, 96×42; canvas140×100, pivot50×85); VN `fx` offset3352723 size23350, KR `FxDesktop` offset2943194, SHA-256 `7afd2cef…cb5f`; render local khớp chữ HELP! trong video. Mapping/thứ tự frame/nhịp phát vẫn **candidate**. Video đặt nó **trên bong bóng**, hiện liên tục 12,6–18,9 s, không thấy tắt; chưa đo được nhịp 4-frame từ capture. Nhân vật trong bóng vẫn là **base body + overlay Faint**: Faint sprite chỉ mũ+mắt/sparkle (47×127, 3 frame), base family chưa định vị. Bubble phủ trên base+Faint; HELP trên bubble | HELP entry4 frame; visible hold~6,3s; Faint layer3 frame; base body separate | `vn_static` + `vn_runtime` / **candidate** (entry xác nhận; consumer/timing chưa locator) | Full pack list local `/home/admin/boom-team/shots/fidelity/F-02/packlist/fx.txt`; `Bomb/HELP!` offset3352723 size23350; `sprite-info`/`sprite-png` local; video `F-02/capture.mkv` 12,6–18,9. `Help/Help` là sprite version khác không hỗ trợ; `GlobalUI/Bt_IconHelp` là icon UI khác. Bundle chỉ chứa entry đã map nên trước đây không thấy HELP! |
+
+Đề xuất code (không sửa trong PR này): thêm clip/entry `Bomb/HELP!` 4 frame làm layer trên bubble; `cXX.trapped.*` vẫn cần **base body + Faint overlay** (không chỉ Faint); `anim::bubble_look` giữ bubble/thân, không loop thân. Chưa đổi profile/G2/G6/release; cần locator consumer/timing HELP để chốt.
+
+## 57. VN F-03 — Start/countdown chưa gán clip (R-196, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame** trước/dưới overlay để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start. Do đó không có bằng chứng VN dùng `C00-Start` trong cảnh này | Nhân vật vẽ trước overlay; Start 10-frame **không quan sát**; loop/duration unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Khuyến nghị không coi `PresentationKind::Start` playback là confirmed; chỉ giữ/disable theo consumer khi tìm được. RE consumer chưa tìm thấy clip name trong executable; không profile/G2/G6 |
+
+## 67. Bảng animation ODT là nguồn chuỗi phát (R-251, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-251 | Khối animation trong `fx/ObjectTable/ObjectTable` (định dạng R-094) mang **chuỗi phát (frame, thời lượng)** theo state cho nhân vật (`Character/C0x_A`: Walk/Stop/Blink/Faint/Die/Locked In/Start…), bom (`Bomb/BasicBomb`), bong bóng (`Bomb/Bubble`: Lock/ExpLive/ExpKill), chữ HELP (`Bomb/Help`), nổ (`BombExplosion/*`) và lửa (`Flame/Flame`). Bundle lấy nguyên chuỗi này (BUNDLES §3) | Ví dụ: Walk `0,1,2,0,3,4` × 3; Stop frame 0 × 100; Blink `0:25 1:5 2:5 1:5 2:5 1:15 0:75`; Bubble Lock `0,1,2` × 4 rồi `6` × `0xFFFFFFFF`; ExpKill `3,4,5` × 4; Help `0:6 1:3 2:9 3:3`; BasicBomb `0..3` × 6; Die 44 bước/92 đơn vị | `kr_static` / **confirmed** cho nội dung bảng; `candidate` cho đơn vị thời lượng | Payload KR SHA-256 `a68fd5ff…` (cùng payload ghi ở evidence `vn-flame-render-2026-10-24`); dump local `/home/admin/boom-team/shots/fidelity/odt/` (không commit). **Đơn vị = 1/30 s là candidate**, suy từ nhiều đo video độc lập cùng khớp: Walk 3 đơn vị = 100 ms (R-218); Stop 100 + Blink 25 = 4,17 s tới lần nhắm mắt đầu (R-197 ~4,1 s); Die 92 ≈ 3,07 s (R-193). Chốt bằng consumer native ở §65. Chưa chứng minh mọi mode/nhân vật ngoài V1 |
+
+R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-193/R-197/R-198/R-219 trở thành
+đối chiếu cho chuỗi ODT, không còn là nguồn chính. Hậu tố state lửa: R-192 (§63).
+
+## 66. Chữ HELP! trên bóng nhốt — vị trí và lớp (R-250, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-250 | Khi bị nhốt, chữ HELP! (`Bomb/HELP!`, R-220) **căn giữa ngang trên bóng tròn** (frame giữ 6 của `Bubble00`), **đáy chữ cách đỉnh bóng khoảng 2 px**, và vẽ **trên mọi thứ** (đè cả vật cản bên cạnh). Chữ hiện suốt lúc bị nhốt, mất khi bóng vỡ | Căn giữa theo bóng; khe 2 px; lớp trên cùng | `vn_runtime` / candidate | Video VN 26/10 `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local) t≈15,0 s; quy về pixel game ÷1,28 (game 800×600 phóng lên 1024×768); so sánh `/home/admin/boom-team/shots/fidelity/F-02/ours/wide_cmp2.png`. Một ca, một map; nhịp phát lấy từ ODT `Bomb/Help` (R-251), không từ video |

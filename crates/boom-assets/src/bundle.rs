@@ -33,10 +33,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use boom_content::animation::{AnimationClip, PresentationState};
-use boom_content::assets::{AssetError, AssetTables, AudioMapping, UiMapping};
+use boom_content::assets::{AnimationMapping, AssetError, AssetTables, AudioMapping, UiMapping};
 use boom_content::bundle::{
-    AtlasPage, AudioAsset, Bundle, BundleError, Cell, Clip, EvidenceStatus, Frame, NonImageAsset,
-    Sprite as BundleSprite, SpriteImage, UiElement, UiState, Unknown, sha256_hex,
+    AtlasPage, AudioAsset, Bundle, BundleError, Cell, Clip, ClipSequence, EvidenceStatus, Frame,
+    NonImageAsset, SequenceStep, Sprite as BundleSprite, SpriteImage, UiElement, UiState, Unknown,
+    sha256_hex,
 };
 use boom_content::rules::Status;
 
@@ -330,6 +331,8 @@ pub fn build_bundle_with(
     // lại (một bản pixel trong atlas), nếu chỉ có trong bảng clip thì thêm vào bundle
     // kèm vai trò riêng.
     let clip_set = extract_clips(pack_dir, Build::Kr, &tables.animation.clips)?;
+    // Bảng animation ODT của client gốc: nguồn chuỗi phát của clip (ADR 0014, tầng 1).
+    let odt = OdtTables::read(pack_dir)?;
     for clip in &clip_set.clips {
         let sprite_id = format!("{}/{}", clip.pack, clip.entry);
         if !sprites.iter().any(|sprite| sprite.id == sprite_id) {
@@ -372,7 +375,11 @@ pub fn build_bundle_with(
                 }
             }
         }
-        clips.push(clip_to_bundle(clip, &sprite_id));
+        let mut bundled = clip_to_bundle(clip, &sprite_id);
+        if let Some(mapping) = tables.animation.clips.iter().find(|m| m.id == clip.id) {
+            attach_sequences(&mut bundled, mapping, &odt)?;
+        }
+        clips.push(bundled);
     }
 
     // Entry có ảnh trong closure nhưng chưa có clip nào dùng tới: ghi rõ lý do thay vì
@@ -819,6 +826,56 @@ fn clip_only_role(state: PresentationState) -> Option<&'static str> {
     }
 }
 
+/// Payload `fx/ObjectTable/ObjectTable` và bảng tên của nó, đọc một lần cho cả bundle.
+struct OdtTables {
+    data: Vec<u8>,
+    table: closure::ObjectTable,
+}
+
+impl OdtTables {
+    fn read(pack_dir: &Path) -> Result<Self, BundleBuildError> {
+        let pack = Pack::open(pack_dir, "fx", Build::Kr)?;
+        let data = pack.read_named("ObjectTable/ObjectTable")?;
+        let table = closure::parse_object_table(&data)?;
+        Ok(Self { data, table })
+    }
+}
+
+/// Gắn chuỗi phát ODT mà mapping khai (`odt` + `odt_states`) vào clip của bundle.
+///
+/// Thiếu khối hoặc state là lỗi: mapping đã khai thì nguồn phải có thật, không bỏ qua âm thầm.
+fn attach_sequences(
+    clip: &mut Clip,
+    mapping: &AnimationMapping,
+    odt: &OdtTables,
+) -> Result<(), BundleBuildError> {
+    let Some(block) = &mapping.odt else {
+        return Ok(());
+    };
+    let states = closure::animation_block(&odt.data, &odt.table, block)?;
+    for wanted in &mapping.odt_states {
+        let Some(state) = states.iter().find(|state| &state.state == wanted) else {
+            return Err(BundleBuildError::Odt(format!(
+                "clip {}: khối ODT {block} không có state {wanted}",
+                clip.id
+            )));
+        };
+        clip.sequences.push(ClipSequence {
+            state: wanted.clone(),
+            steps: state
+                .frames
+                .iter()
+                .map(|frame| SequenceStep {
+                    frame: frame.frame,
+                    units: frame.duration,
+                })
+                .collect(),
+        });
+    }
+    clip.odt = Some(block.clone());
+    Ok(())
+}
+
 /// Đổi clip của bộ trích sang clip trong bundle.
 ///
 /// Frame của clip dùng **cùng** kiểu với frame của sprite: chỉ số ảnh trỏ vào ảnh của
@@ -855,6 +912,8 @@ fn clip_to_bundle(clip: &AnimationClip, sprite_id: &str) -> Clip {
                 pivot_y: frame.pivot.y,
             })
             .collect(),
+        odt: None,
+        sequences: Vec::new(),
     }
 }
 
@@ -1002,6 +1061,8 @@ pub enum BundleBuildError {
     Png(String),
     /// Bảng mapping trong `data/assets/` sai quy tắc.
     Assets(AssetError),
+    /// Mapping khai chuỗi ODT nhưng khối/state không có trong ODT của pack.
+    Odt(String),
 }
 
 impl fmt::Display for BundleBuildError {
@@ -1024,6 +1085,7 @@ impl fmt::Display for BundleBuildError {
             Self::Io { path, message } => write!(f, "{}: {message}", path.display()),
             Self::Png(e) => write!(f, "lỗi mã hoá PNG: {e}"),
             Self::Assets(e) => write!(f, "bảng mapping content sai quy tắc: {e}"),
+            Self::Odt(message) => write!(f, "chuỗi ODT: {message}"),
         }
     }
 }
@@ -1087,6 +1149,92 @@ pub fn status_label(status: Status) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ODT tối thiểu: một khối animation `block` có các state `(nhãn, [(frame, thời lượng)])`.
+    fn tiny_odt(block: &str, states: &[(&str, &[(u32, u32)])]) -> OdtTables {
+        let mut body: Vec<u8> = Vec::new();
+        body.extend((states.len() as u32).to_le_bytes());
+        for (label, frames) in states {
+            for text in [*label, "Bomb/Test"] {
+                body.extend((text.len() as u32).to_le_bytes());
+                body.extend(text.as_bytes());
+            }
+            body.extend((frames.len() as u32).to_le_bytes());
+            for (frame, units) in *frames {
+                body.extend(frame.to_le_bytes());
+                body.extend(units.to_le_bytes());
+            }
+        }
+        let header_len = 4 + 4 + block.len() + 4;
+        let mut data: Vec<u8> = Vec::new();
+        data.extend(1u32.to_le_bytes());
+        data.extend((block.len() as u32).to_le_bytes());
+        data.extend(block.as_bytes());
+        data.extend((header_len as u32).to_le_bytes());
+        data.extend(body);
+        let table = closure::parse_object_table(&data).expect("bảng tên");
+        OdtTables { data, table }
+    }
+
+    #[test]
+    fn odt_sequences_are_attached_and_missing_states_fail() {
+        let odt = tiny_odt(
+            "Bomb/Test",
+            &[("00 Lock", &[(0, 4), (1, 4)]), ("Help", &[(1, 6)])],
+        );
+        let tables = AssetTables::v1().expect("bảng V1");
+        let mut mapping = tables.animation.clips[0].clone();
+        mapping.odt = Some("Bomb/Test".to_owned());
+        mapping.odt_states = vec!["Lock".to_owned(), "Help".to_owned()];
+        let frame = Frame {
+            image: 0,
+            offset_x: 0,
+            offset_y: 0,
+            flag: 0,
+            x0: 0,
+            y0: 0,
+            x1: 1,
+            y1: 1,
+            canvas_width: 1,
+            canvas_height: 1,
+            pivot_x: 0,
+            pivot_y: 0,
+        };
+        let mut clip = Clip {
+            id: "test.clip".to_owned(),
+            state: mapping.state,
+            pack: "FxDesktop".to_owned(),
+            entry: "Bomb/Test".to_owned(),
+            layer: None,
+            sprite_unk: 0,
+            sprite: "FxDesktop/Bomb/Test".to_owned(),
+            source: mapping.source,
+            status: EvidenceStatus::from(mapping.status),
+            claims: vec!["R-251".to_owned()],
+            note: None,
+            timing: mapping.timing.clone(),
+            frames: vec![frame.clone(), frame],
+            odt: None,
+            sequences: Vec::new(),
+        };
+        attach_sequences(&mut clip, &mapping, &odt).expect("state có trong ODT");
+        assert_eq!(clip.odt.as_deref(), Some("Bomb/Test"));
+        assert_eq!(
+            clip.sequence("Lock").map(|s| s.steps.clone()),
+            Some(vec![
+                SequenceStep { frame: 0, units: 4 },
+                SequenceStep { frame: 1, units: 4 }
+            ])
+        );
+        // Nhãn không có số thứ tự (`Help`) vẫn khớp nguyên tên.
+        assert!(clip.sequence("Help").is_some());
+        // Mapping khai state không có trong ODT ⇒ lỗi, không bỏ qua âm thầm.
+        mapping.odt_states = vec!["Missing".to_owned()];
+        assert!(matches!(
+            attach_sequences(&mut clip, &mapping, &odt),
+            Err(BundleBuildError::Odt(_))
+        ));
+    }
     use boom_content::bundle::UiScreen;
 
     /// Thư mục pack KR thật; test bỏ qua khi chưa đặt `BOOM_KR_PACK_DIR`.
@@ -1358,7 +1506,7 @@ mod tests {
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
         assert_eq!(
             built.bundle.content_hash,
-            "b8baf05eca8d98c3d0d4fae595f7280953b3205b64bee44ff93162e69b65ea63",
+            "cd9578328a0730fec8056e1eb6c479c81d7242c7cdb2b39887344a3775da0ad7",
             "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
         );
     }

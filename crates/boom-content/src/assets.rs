@@ -269,6 +269,10 @@ pub struct AnimationMapping {
     pub claims: Vec<String>,
     /// Ghi chú: lý do, giới hạn, ứng viên.
     pub note: Option<String>,
+    /// Khối bảng animation ODT của client gốc chứa chuỗi phát, ví dụ `Character/C00_A`.
+    pub odt: Option<String>,
+    /// State cần lấy chuỗi phát trong khối [`AnimationMapping::odt`], ví dụ `Walk Left`.
+    pub odt_states: Vec<String>,
 }
 
 /// Dòng bảng animation khi parse (thời lượng chưa resolve về [`FrameTiming`]).
@@ -291,6 +295,10 @@ struct RawAnimationMapping {
     claims: Vec<String>,
     #[serde(default)]
     note: Option<String>,
+    #[serde(default)]
+    odt: Option<String>,
+    #[serde(default)]
+    odt_states: Vec<String>,
 }
 
 /// Bảng clip animation của V1.
@@ -364,6 +372,18 @@ impl AnimationTable {
                         field: "timing",
                     })?,
             };
+            // Chuỗi ODT: khối và danh sách state phải đi cùng nhau (ADR 0014 mục 3).
+            if row.odt.is_some() != !row.odt_states.is_empty() {
+                return Err(AssetError::MissingField {
+                    kind: "clip",
+                    id: row.id.clone(),
+                    field: if row.odt.is_some() {
+                        "odt_states"
+                    } else {
+                        "odt"
+                    },
+                });
+            }
             clips.push(AnimationMapping {
                 id: row.id,
                 state,
@@ -375,6 +395,8 @@ impl AnimationTable {
                 status: row.status,
                 claims: row.claims,
                 note: row.note,
+                odt: row.odt,
+                odt_states: row.odt_states,
             });
         }
         Ok(Self {

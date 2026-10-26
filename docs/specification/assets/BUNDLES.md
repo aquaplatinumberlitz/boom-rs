@@ -283,6 +283,20 @@ Mỗi entry là một payload thô trong `audio/`, không decode:
 Reader kiểm `id`/`file` duy nhất, `file` nằm trong `audio/`, `bytes`/SHA-256 khớp file thật.
 Schema 3 không được có bảng này.
 
+### Chuỗi phát ODT của clip (`[[clips.sequences]]`, ADR 0014)
+
+Clip có `odt` trong `data/assets/animation-v1.toml` mang thêm:
+
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `odt` | chuỗi | Khối bảng animation trong `fx/ObjectTable/ObjectTable`, ví dụ `Character/C00_A`, `Bomb/Bubble` |
+| `sequences[].state` | chuỗi | Tên state ODT (nhãn bỏ số thứ tự đầu), ví dụ `Walk Left`, `Lock`, `Help` |
+| `sequences[].steps[]` | `{frame, units}` | Chỉ số frame trong `frames` của clip và thời lượng thô theo đơn vị ODT (R-251) |
+
+Reader kiểm mỗi chuỗi có ít nhất một bước và mọi `frame` nằm trong clip. Chuỗi vào `content_hash`
+sau thẻ `\0odt` chỉ khi clip có chuỗi, nên bundle cũ không có chuỗi giữ nguyên hash.
+Bộ dựng báo lỗi nếu mapping khai khối/state mà ODT của pack không có.
+
 ## 4. `content_hash`
 
 `content_hash` = SHA-256 của **encoding chuẩn** của metadata, không phải của file TOML:
@@ -413,7 +427,7 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Thời lượng frame | 48/48 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 9 `selected`/`needs_review_text` có ảnh trong atlas, 14 `excluded` (không có ảnh) |
 | `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
-| `content_hash` | `b8baf05eca8d98c3d0d4fae595f7280953b3205b64bee44ff93162e69b65ea63` (schema 4, **có** audio; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620` (R-082 trapped confirmed) và #237 mà quên cập nhật, → `b8baf05e…` sau #346 (HELP!) |
+| `content_hash` | `cd9578328a0730fec8056e1eb6c479c81d7242c7cdb2b39887344a3775da0ad7` (schema 4, **có** audio, có chuỗi ODT R-251 và chữ HELP! R-220/R-250; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620`/#237 (quên cập nhật) → `b410bbbd…` (#351) → hash này (#346) |
 
 Cách kiểm lại:
 
