@@ -1163,7 +1163,6 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
 
-
 ## 53. VN C00 — idle giữ hướng và overlap bomb/bubble (R-198/R-199, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1208,6 +1207,12 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 
 Đề xuất code (không sửa trong PR này): `anim::bomb_frame`/clip `bomb.fuse` dùng **4 frame, 6 đơn vị/frame =200 ms**, loop; bỏ nhịp100 ms hiện tại. Không đổi profile/G2/G6/release; unit ODT lấy R-222 §65.
 
+## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-195 | `Bomb/Fire00` 100 frame được tiêu thụ qua bảng ODT 76 state: tâm `FireC01..C10` dùng frame0..2/3; nhánh L/U/R/D bắt đầu frame4/5/6/7 và kết thúc96/97/98/99, mỗi state nhánh19 record; `Blur_Fire01_<Dir>` là entry riêng10 frame, không nằm trong Fire00. `FLAME_FRAMES=28..=59` không phải một state/frame range có nguồn | Tâm0..3; base L/U/R/D4/5/6/7; cuối96/97/98/99; branch19 record; motion blur entry riêng10 frame | `vn_static` + `kr_static` / candidate (ODT data; chưa native consumer frame-index) | [ODT CSV/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), [evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); blockSHA70ff67a0…; duration raw1 **chưa có đơn vị**. Code `FLAME_FRAMES` phải bỏ/thay theo hướng-state; motion blur dùng riêng khi có nguồn. Không đổi profile/lifetime; không chứng minh mọi mode/index native |
+
 ## 60. VN F-06 — explosion.main 10 frame (R-194, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1226,6 +1231,12 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 |---|---|---|---|---|
 | R-192 | Hậu tố `01..10` trong `FireC01..C10`/branch L/U/R/D01..10 là **power/range tier của bom**, không phải khoảng cách ô hay đầu/giữa nhánh: R-164 power1 chọn đúng nhóm `*01` (motion0/15/30/45/60), và ODT có 15 state mỗi nhóm với C01..C10 + C10 lặp cho các tier cao hơn. State được chọn theo power của bom, không theo index khoảng cách | suffix = power tier; 15 state/nhóm; C10 lặp ở tier>10 | `vn_static` + `kr_static` / candidate (ODT+power1; chưa runtime power2–3) | [ODT CSV](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), R-164/R-165. Chưa chạy bomb tầm2–3 trong lượt này; chưa chốt tier>10/Timebomb. Code `FLAME_FRAMES`/flame state phải chọn theo power tier, không dùng dải 28..59. Không đổi profile/lifetime |
 
+## 64. Forest01 — actor/vật cản cao chưa đo được (R-190, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-190 | Chưa xác lập được thứ tự nhân vật trước/sau vật cản cao trên Forest01: server nhận `MAP_INDEX=1`/Forest01 nhưng capture chỉ thấy khu Factory-style, không có overlap actor–cây/nhà. Không suy `ORDER_OBJECT`/`ORDER_CHARACTER`/sort foot-y từ cảnh này | — (unknown/blocker) | `vn_runtime` / **unknown** (một actor, một map; không có overlap) | [metadata](../../evidence/measurements/vn-layer-forest-2026-10-26/README.md); video local `F-09/forest01/capture.mkv`, SHA `e2df6afb…0f2c`. Map identity client chưa xác nhận; không đổi code/profile. Cần entry/map loader đúng Forest01 hoặc cảnh có vật cản cao trước khi mở claim |
+
 ## 65. ODT duration unit và sentinel — R-222/R-223 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1235,12 +1246,20 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 
 Hệ quả code (không sửa trong PR này): bỏ `presentation.frame_duration_ms=100` làm nhịp chung; dùng **đơn vị ODT 1/30** + duration từng frame, hoặc profile `presentation.odt_unit_hz=30`. `0xFFFFFFFF` vẫn hold; `32767` không được coi sentinel vô hạn nếu chưa có consumer. Các chuỗi F-02/F-04 cụ thể nằm ở PR #342/#345 (§56/#58); không đổi G2/G6/release/feature.
 
-
-## 64. Forest01 — actor/vật cản cao chưa đo được (R-190, 2026-10-26)
+## 66. Chữ HELP! trên bóng nhốt — vị trí và lớp (R-250, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
-| R-190 | Chưa xác lập được thứ tự nhân vật trước/sau vật cản cao trên Forest01: server nhận `MAP_INDEX=1`/Forest01 nhưng capture chỉ thấy khu Factory-style, không có overlap actor–cây/nhà. Không suy `ORDER_OBJECT`/`ORDER_CHARACTER`/sort foot-y từ cảnh này | — (unknown/blocker) | `vn_runtime` / **unknown** (một actor, một map; không có overlap) | [metadata](../../evidence/measurements/vn-layer-forest-2026-10-26/README.md); video local `F-09/forest01/capture.mkv`, SHA `e2df6afb…0f2c`. Map identity client chưa xác nhận; không đổi code/profile. Cần entry/map loader đúng Forest01 hoặc cảnh có vật cản cao trước khi mở claim |
+| R-250 | Khi bị nhốt, chữ HELP! (`Bomb/HELP!`, R-220) **căn giữa ngang trên bóng tròn** (frame giữ 6 của `Bubble00`), **đáy chữ cách đỉnh bóng khoảng 2 px**, và vẽ **trên mọi thứ** (đè cả vật cản bên cạnh). Chữ hiện suốt lúc bị nhốt, mất khi bóng vỡ | Căn giữa theo bóng; khe 2 px; lớp trên cùng | `vn_runtime` / candidate | Video VN 26/10 `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local) t≈15,0 s; quy về pixel game ÷1,28 (game 800×600 phóng lên 1024×768); so sánh `/home/admin/boom-team/shots/fidelity/F-02/ours/wide_cmp2.png`. Một ca, một map; nhịp phát lấy từ ODT `Bomb/Help` (R-251), không từ video |
+
+## 67. Bảng animation ODT là nguồn chuỗi phát (R-251, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-251 | Khối animation trong `fx/ObjectTable/ObjectTable` (định dạng R-094) mang **chuỗi phát (frame, thời lượng)** theo state cho nhân vật (`Character/C0x_A`: Walk/Stop/Blink/Faint/Die/Locked In/Start…), bom (`Bomb/BasicBomb`), bong bóng (`Bomb/Bubble`: Lock/ExpLive/ExpKill), chữ HELP (`Bomb/Help`), nổ (`BombExplosion/*`) và lửa (`Flame/Flame`). Bundle lấy nguyên chuỗi này (BUNDLES §3) | Ví dụ: Walk `0,1,2,0,3,4` × 3; Stop frame 0 × 100; Blink `0:25 1:5 2:5 1:5 2:5 1:15 0:75`; Bubble Lock `0,1,2` × 4 rồi `6` × `0xFFFFFFFF`; ExpKill `3,4,5` × 4; Help `0:6 1:3 2:9 3:3`; BasicBomb `0..3` × 6; Die 44 bước/92 đơn vị | `kr_static` / **confirmed** cho nội dung bảng; `candidate` cho đơn vị thời lượng | Payload KR SHA-256 `a68fd5ff…` (cùng payload ghi ở evidence `vn-flame-render-2026-10-24`); dump local `/home/admin/boom-team/shots/fidelity/odt/` (không commit). **Đơn vị = 1/30 s là candidate**, suy từ nhiều đo video độc lập cùng khớp: Walk 3 đơn vị = 100 ms (R-218); Stop 100 + Blink 25 = 4,17 s tới lần nhắm mắt đầu (R-197 ~4,1 s); Die 92 ≈ 3,07 s (R-193). Chốt bằng consumer native ở §65. Chưa chứng minh mọi mode/nhân vật ngoài V1 |
+
+R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-193/R-197/R-198/R-219 trở thành
+đối chiếu cho chuỗi ODT, không còn là nguồn chính. Hậu tố state lửa: R-192 (§63).
 
 ## 68. F-10 — bước vị trí/nội suy và trợ góc — R-225 (2026-10-26)
 
@@ -1258,34 +1277,11 @@ Hệ quả code (không sửa trong PR này): bỏ `presentation.frame_duration_
 
 Đề xuất code (không sửa trong PR này): giữ item nền **static một frame**; không thêm animation/nhấp nháy nếu không có nguồn. Không đổi profile/G2/G6/release.
 
-
-## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
-
-| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
-|---|---|---|---|---|
-| R-195 | `Bomb/Fire00` 100 frame được tiêu thụ qua bảng ODT 76 state: tâm `FireC01..C10` dùng frame0..2/3; nhánh L/U/R/D bắt đầu frame4/5/6/7 và kết thúc96/97/98/99, mỗi state nhánh19 record; `Blur_Fire01_<Dir>` là entry riêng10 frame, không nằm trong Fire00. `FLAME_FRAMES=28..=59` không phải một state/frame range có nguồn | Tâm0..3; base L/U/R/D4/5/6/7; cuối96/97/98/99; branch19 record; motion blur entry riêng10 frame | `vn_static` + `kr_static` / candidate (ODT data; chưa native consumer frame-index) | [ODT CSV/hash](../../evidence/measurements/vn-flame-render-2026-10-24/odt-states.csv), [evidence](../../evidence/measurements/vn-flame-render-2026-10-24/README.md); blockSHA70ff67a0…; duration raw1 **chưa có đơn vị**. Code `FLAME_FRAMES` phải bỏ/thay theo hướng-state; motion blur dùng riêng khi có nguồn. Không đổi profile/lifetime; không chứng minh mọi mode/index native |
-
-## 67. Bảng animation ODT là nguồn chuỗi phát (R-251, 2026-10-26)
-
-| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
-|---|---|---|---|---|
-| R-251 | Khối animation trong `fx/ObjectTable/ObjectTable` (định dạng R-094) mang **chuỗi phát (frame, thời lượng)** theo state cho nhân vật (`Character/C0x_A`: Walk/Stop/Blink/Faint/Die/Locked In/Start…), bom (`Bomb/BasicBomb`), bong bóng (`Bomb/Bubble`: Lock/ExpLive/ExpKill), chữ HELP (`Bomb/Help`), nổ (`BombExplosion/*`) và lửa (`Flame/Flame`). Bundle lấy nguyên chuỗi này (BUNDLES §3) | Ví dụ: Walk `0,1,2,0,3,4` × 3; Stop frame 0 × 100; Blink `0:25 1:5 2:5 1:5 2:5 1:15 0:75`; Bubble Lock `0,1,2` × 4 rồi `6` × `0xFFFFFFFF`; ExpKill `3,4,5` × 4; Help `0:6 1:3 2:9 3:3`; BasicBomb `0..3` × 6; Die 44 bước/92 đơn vị | `kr_static` / **confirmed** cho nội dung bảng; `candidate` cho đơn vị thời lượng | Payload KR SHA-256 `a68fd5ff…` (cùng payload ghi ở evidence `vn-flame-render-2026-10-24`); dump local `/home/admin/boom-team/shots/fidelity/odt/` (không commit). **Đơn vị = 1/30 s là candidate**, suy từ nhiều đo video độc lập cùng khớp: Walk 3 đơn vị = 100 ms (R-218); Stop 100 + Blink 25 = 4,17 s tới lần nhắm mắt đầu (R-197 ~4,1 s); Die 92 ≈ 3,07 s (R-193). Chốt bằng consumer native ở §65. Chưa chứng minh mọi mode/nhân vật ngoài V1 |
-
-R-251 thay luật phát tự đặt trong client (ADR 0014): các claim video R-193/R-197/R-198/R-219 trở thành
-đối chiếu cho chuỗi ODT, không còn là nguồn chính. Hậu tố state lửa: R-192 (§63).
-
 ## 70. Gốc pha chuỗi ODT của nhân vật và bom — R-252 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-252 | Client boom-rs tính pha chuỗi ODT (R-251) từ lúc **bắt đầu state**: Walk tính từ lúc bắt đầu đi; **đổi hướng hoặc đổi đi ↔ đứng thì phát lại từ đầu**; Stop/Blink tính từ lúc bắt đầu đứng yên; bom tính từ lúc đặt (`explodes_at − fuse_ticks`) | Walk/Stop: tick đổi state; bom: tick đặt | `design` | Chưa có trace consumer cho đổi hướng; R-197 chưa phân biệt reset hay giữ chỉ số. Nợ ghi ở FIDELITY §3 (F-01) — cần trace consumer đổi state hoặc quay cảnh S-01 đổi hướng liên tục |
-
-## 66. Chữ HELP! trên bóng nhốt — vị trí và lớp (R-250, 2026-10-26)
-
-| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
-|---|---|---|---|---|
-| R-250 | Khi bị nhốt, chữ HELP! (`Bomb/HELP!`, R-220) **căn giữa ngang trên bóng tròn** (frame giữ 6 của `Bubble00`), **đáy chữ cách đỉnh bóng khoảng 2 px**, và vẽ **trên mọi thứ** (đè cả vật cản bên cạnh). Chữ hiện suốt lúc bị nhốt, mất khi bóng vỡ | Căn giữa theo bóng; khe 2 px; lớp trên cùng | `vn_runtime` / candidate | Video VN 26/10 `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (local) t≈15,0 s; quy về pixel game ÷1,28 (game 800×600 phóng lên 1024×768); so sánh `/home/admin/boom-team/shots/fidelity/F-02/ours/wide_cmp2.png`. Một ca, một map; nhịp phát lấy từ ODT `Bomb/Help` (R-251), không từ video |
-
 
 ## 71. F-11a — màn đăng nhập VN so với boom-rs — R-227 (2026-10-26)
 
@@ -1314,7 +1310,6 @@ mới vào V1 cần quyết định scope riêng. D-04/D-05 giữ nguyên; khôn
 quan sát; `ui/draw.rs` vẽ panel/thẻ/chat/nav. Không thêm policy/auth/ready mới từ ảnh; D-04/D-05 giữ
 nguyên; không đổi profile/G2/G6/release.
 
-
 ## 74. F-11c — HUD trong trận VN so với boom-rs — R-230 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1340,12 +1335,6 @@ D-04/D-05 giữ nguyên.
 Đề xuất: giữ R-227…R-230 làm số đo ảnh; nếu cần tier1, đọc consumer UI native VN (chưa làm)
 hoặc mở rộng search payload có kiểm soát. Không đổi code/profile/asset; D-04/D-05 giữ nguyên.
 
-## 78. F-12 — mapping âm thanh theo consumer KR (R-191, 2026-10-26)
-
-| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
-|---|---|---|---|---|
-| R-191 | Client KR phát SFX bằng id số qua dispatcher `0xD1CD10` và bảng tĩnh `0x19E40D8` (id→`Wave/...`). Mapping có consumer: đặt bom 9/344; nổ 7/8 (343 tuyết, 7↔8 trong200ms); nhốt 77 solo/37 couple (+444 help có điều kiện); chết 42; item ăn68; item lộ69; dùng trap174; round Win175/Lose78/Draw43 (remap có điều kiện `sub_76FBF0`); BGM id48 từ record map, loop R-213. V1 lệch ở `bomb_exploded`: đang dùng `BombExplosion001`471 nhưng **không thấy consumer native trực tiếp** cho471 trong phạm vi 597 site; KR dùng7/8. `start_count_1..3` V1 không có consumer native trực tiếp; KR start dùng GameStart/GameReady18/21. Item pick chung68, không có entry riêng theo loại | Event→id: bomb9/344, explode7/8, trap77/37, die42, item68, pop69, round175/78/43, BGM48; start_count unknown; bomb_exploded V1 lệch471 | `kr_static` / candidate (mapping có consumer; chưa chạy runtime/âm thanh) | [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md) §1–§3/§12; dispatcher `0xD1CD10`, table `0x19E40D8`; consumer `0xEB3720`,`0xAF1140`,`0xB42D60`,`0xB53C80`,`0xB4B410`,`0xB8B680`,`0xE71D70`; loop callback `0x14BEC60`. Không đổi `data/assets/audio-v1.toml`/code trong PR này. 471/brick-break direct consumer là bounded negative, chưa loại trừ wrapper/id động. Runtime volume/voice/loop chưa đo |
-
 ## 77. F-11e — control Login VN từ executable — R-233 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
@@ -1355,12 +1344,17 @@ hoặc mở rộng search payload có kiểm soát. Không đổi code/profile/a
 Đề xuất code (không sửa trong PR này): `ui/layout.rs::login_layout` dùng x,y này (sau khi xác định parent)
 thay số ảnh; chưa đổi lobby/room/HUD/result. D-04/D-05 giữ; không đổi profile/G2/G6/release.
 
+## 78. F-12 — mapping âm thanh theo consumer KR (R-191, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-191 | Client KR phát SFX bằng id số qua dispatcher `0xD1CD10` và bảng tĩnh `0x19E40D8` (id→`Wave/...`). Mapping có consumer: đặt bom 9/344; nổ 7/8 (343 tuyết, 7↔8 trong200ms); nhốt 77 solo/37 couple (+444 help có điều kiện); chết 42; item ăn68; item lộ69; dùng trap174; round Win175/Lose78/Draw43 (remap có điều kiện `sub_76FBF0`); BGM id48 từ record map, loop R-213. V1 lệch ở `bomb_exploded`: đang dùng `BombExplosion001`471 nhưng **không thấy consumer native trực tiếp** cho471 trong phạm vi 597 site; KR dùng7/8. `start_count_1..3` V1 không có consumer native trực tiếp; KR start dùng GameStart/GameReady18/21. Item pick chung68, không có entry riêng theo loại | Event→id: bomb9/344, explode7/8, trap77/37, die42, item68, pop69, round175/78/43, BGM48; start_count unknown; bomb_exploded V1 lệch471 | `kr_static` / candidate (mapping có consumer; chưa chạy runtime/âm thanh) | [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md) §1–§3/§12; dispatcher `0xD1CD10`, table `0x19E40D8`; consumer `0xEB3720`,`0xAF1140`,`0xB42D60`,`0xB53C80`,`0xB4B410`,`0xB8B680`,`0xE71D70`; loop callback `0x14BEC60`. Không đổi `data/assets/audio-v1.toml`/code trong PR này. 471/brick-break direct consumer là bounded negative, chưa loại trừ wrapper/id động. Runtime volume/voice/loop chưa đo |
+
 ## 79. F-10 — trợ góc player VN, xấp xỉ 5/6 px (R-157, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-157 | Player mover VN `59DA6F` có nhánh trượt vuông góc khi bị chặn: tính ô/rect từ XY, kiểm ô passable qua `7293B4`/`5C1027`/`5C0E98` (R-179), rồi dịch theo bước **5/6 px** đã đo; nhánh có cho cả bốn hướng (static 4 nhánh rect). **Không có hằng ngưỡng 34 hay 12 trong thân đã đọc**; các so sánh dùng 20/24/54 px theo cell/rect. Runtime cùng actor chỉ đo Down: lệch **30 px sửa được**, **35 px không đi**, nên max nằm trong **(30,35]**, chưa chốt đúng 34. V1 `corner_assist 12 px` **lệch** với biên runtime này | Step 5/6 px; 4 hướng static; max ∈(30,35]; 12 px V1 lệch | `vn_static` + R-177 runtime / candidate (một actor/map; chỉ Down runtime) | `59DA6F` collision path `59DABE`, coord/rect `59DB22–59DB8E`, correction `59DF31/59DF52`, tile predicate `59DD49→7293B4`, `59DD5E→5C1027→5C0E98`; cached clip/asm `.re-work/movement146-collision-source/clip59DABE.asm`; R-176/R-177. Không đổi `player.corner_assist_px`/movement code trong PR này; không suy all4 runtime/KR/hitbox |
-
 
 ## 80. F-11e — control Login/Room/Lobby từ executable — R-234 (2026-10-26)
 
