@@ -1163,12 +1163,36 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
 
+
 ## 53. VN C00 — idle giữ hướng và overlap bomb/bubble (R-198/R-199, 2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-198 | Sau khi đi Left/Right/Up/Down rồi dừng 1,5 s, C00 **giữ hướng cuối ở cả bốn hướng** (mặt trái/phải/lưng-up/mặt down) và **không** trả về `idle.blink` trong cửa sổ này; riêng **Left** đã đối chiếu khớp **frame cuối Walk-left**, các hướng còn lại mới chỉ xác nhận hướng, chưa đối chiếu frame cuối | Giữ hướng cả4 ≥1,5 s; frame cuối chỉ Left; Blink ban đầu; ngưỡng Blink sau dừng chưa đo | `vn_runtime` / candidate (video local, một actor/map; giữ hướng cả4, frame cuối mới Left) | Video `claude-r1/capture.mkv` + crop `idle-directions-tight.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Code hiện `character_clip` luôn `idle.blink` ⇒ cần giữ hướng/frame cuối; chưa đổi profile. Không chứng minh BlinkSmall/ngưỡng dài |
 | R-199 | Trong capture, bomb nằm **dưới** nhân vật (char vẽ đè bomb) và bubble nhốt **phủ trên** nhân vật | Bomb<character; bubble>character | `vn_runtime` / candidate (một frame/map) | `bomb-11-zoom.png`/`trap-13.5-zoom.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Khớp `ORDER_BOMB<ORDER_CHARACTER<ORDER_BUBBLE`; chưa quan sát item/high object/fire/explosion riêng |
+
+## 54. Chuỗi bị nhốt bong bóng C00 trên video VN — R-219 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-219 | Trên video VN nominal60/PTS~29,65 fps, C00 bị lửa chạm vào bong bóng theo chuỗi: (1) bong bóng nhỏ xuất hiện ~12,6 s, lớn đầy ~12,8 s **(~0,2 s)**; (2) giữ bong bóng lớn + chữ **HELP!** + tư thế Faint, không thấy loop/bob/nhấp nháy ~12,8–18,4 s **(~5,6 s)**; (3) **flash trắng/xanh ~18,4–18,9 s (~0,5 s)**, HELP vẫn hiện; (4) **pop/nổ + chết ~19,0 s**, HELP/bong bóng biến mất, còn xác đỏ. Tổng trap→death ~6,4 s, khớp R-160 6350 ms. Bong bóng **trên** nhân vật; Faint static+adjust dưới bong bóng; HELP ở trên bong bóng | Growth~0,2 s; hold~5,6 s; flash~0,5 s; pop/death~0,1 s; trap-to-death~6,4 s | `vn_runtime` / **candidate** (một ca video, không locator native) | Raw local `/home/admin/boom-team/shots/320/claude-r1/capture.mkv` (không commit), `actions.jsonl`, `analysis/trap_01s_grid.png`, `analysis/trap_fine.png`, `observation.json`; mốc bomb10,54 s, bubble12,6, death19,0. Entries: bubble `FxDesktop/Bomb/Bubble00` 9 frame; Faint `C00-FaintLayerStatic/Adjust` 3; Die `C00-DieLayerStatic/Adjust` 14. **HELP! = `Bomb/HELP!` sprite v2 4 frame** (VN `fx` offset3352723 size23350; KR `FxDesktop` offset2943194; SHA-256 `7afd2cef…cb5f`); **chưa được map vào bundle V1**, không phải không có sprite nguồn. Mapping/thứ tự/nhịp phát vẫn candidate. Không có native counter/ODT; death/pop giới hạn bởi hai mẫu kề (PTS 33/34 ms xen16/17 ms, ~29,65 fps), không dùng ±16,7 ms |
+
+R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (character trapped clip lặp; bubble grow3 rồi lặp phần còn lại):
+đề xuất code (không sửa trong PR này) giữ **một frame Faint** trong suốt hold, bubble lớn **một lần rồi giữ**, flash ngắn trước pop, rồi death; **HELP!** dùng entry `Bomb/HELP!` (4 frame), chưa map bundle; mapping/thứ tự/nhịp còn candidate. Không đổi profile/G2/G6/release; chưa chứng minh toàn bộ mode/rescue (không có item rescue trong ca này).
+
+## 55. VN F-01 — Walk loop/Blink threshold (R-197, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-197 | Walk-left C00 trong capture có **5 pose** và giữ hướng; chưa thấy chuyển tiếp pose cuối→pose đầu đủ một chu kỳ nên **wrap 0..4 hay ping-pong chưa chốt**. Sau đổi hướng nhanh + đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose quan sát; wrap/ping-pong unknown; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. **Không** kết luận `character_loop_frame` đã khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
+
+## 56. F-02 — tư thế Faint trong bong bóng và HELP! — R-220 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-220 | **HELP! có entry thật trong pack Fx: `Bomb/HELP!`** — 4 frame/4 ảnh (88×39, 110×48, 114×49, 96×42; canvas140×100, pivot50×85); VN `fx` offset3352723 size23350, KR `FxDesktop` offset2943194, SHA-256 `7afd2cef…cb5f`; render local khớp chữ HELP! trong video. Mapping/thứ tự frame/nhịp phát vẫn **candidate**. Video đặt nó **trên bong bóng**, hiện liên tục 12,6–18,9 s, không thấy tắt; chưa đo được nhịp 4-frame từ capture. Nhân vật trong bóng vẫn là **base body + overlay Faint**: Faint sprite chỉ mũ+mắt/sparkle (47×127, 3 frame), base family chưa định vị. Bubble phủ trên base+Faint; HELP trên bubble | HELP entry4 frame; visible hold~6,3s; Faint layer3 frame; base body separate | `vn_static` + `vn_runtime` / **candidate** (entry xác nhận; consumer/timing chưa locator) | Full pack list local `/home/admin/boom-team/shots/fidelity/F-02/packlist/fx.txt`; `Bomb/HELP!` offset3352723 size23350; `sprite-info`/`sprite-png` local; video `F-02/capture.mkv` 12,6–18,9. `Help/Help` là sprite version khác không hỗ trợ; `GlobalUI/Bt_IconHelp` là icon UI khác. Bundle chỉ chứa entry đã map nên trước đây không thấy HELP! |
+
+Đề xuất code (không sửa trong PR này): thêm clip/entry `Bomb/HELP!` 4 frame làm layer trên bubble; `cXX.trapped.*` vẫn cần **base body + Faint overlay** (không chỉ Faint); `anim::bubble_look` giữ bubble/thân, không loop thân. Chưa đổi profile/G2/G6/release; cần locator consumer/timing HELP để chốt.
 
 ## 59. VN F-05 — Fire00 100 frame và motion blur (R-195, 2026-10-26)
 
