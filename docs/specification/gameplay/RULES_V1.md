@@ -1162,3 +1162,9 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 `anim::character_loop_frame`. Bước6,24 px/frame video cho thấy client gốc cập nhật vị trí theo bước
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
+
+## 55. VN F-01 — Walk loop/Blink threshold (R-197, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-197 | Walk-left C00 trong capture lặp **5 pose 0..4** (không thấy ping-pong trong0,6s); sau khi đổi hướng nhanh và đứng yên, mắt nhắm xuất hiện lần đầu khoảng**4,1s** sau idle rồi mở lại khoảng5,1s; không thấy BlinkSmall trong8s. Đổi hướng giữa lúc đi chưa chốt reset/giữ index | 5 pose lặp; Blink đầu ~4,1s; BlinkSmall chưa thấy; turn reset unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-01/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f01-2026-10-26/README.md). Ảnh local không commit; PTS thực tế ~24,6fps không phải nominal60. `character_loop_frame` hiện0..4 khớp loop; `character_clip` cần giữ hướng/frame cuối rồi mới Blink (~4s). Không chứng minh mọi mode/actor/BlinkSmall |
