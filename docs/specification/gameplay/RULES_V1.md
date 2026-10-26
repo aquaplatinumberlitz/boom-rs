@@ -1215,3 +1215,15 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 
 Đề xuất code (không sửa trong PR này): `anim::bomb_frame`/clip `bomb.fuse` dùng **4 frame, 6 đơn vị/frame =200 ms**, loop; bỏ nhịp100 ms hiện tại. Không đổi profile/G2/G6/release; unit ODT lấy R-222 §65.
 
+## 60. VN F-06 — explosion.main 10 frame (R-194, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-194 | `explosion.main` là một clip 10 frame/8 ảnh duy nhất; video thấy hiệu ứng nước/lửa ở ô bên trái và ô phía trên ô bom; **chưa phân biệt** instance `explosion.main` riêng trên từng nhánh hay chỉ hiệu ứng tổng. Không kết luận “không có nhánh”; thời lượng 10 frame vẫn design | Một clip10 frame; vị trí branch/effect unknown; duration design | `vn_static` + `vn_runtime` / candidate | Video `claude-r1/capture.mkv`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md); R-084/R-088. Không đổi `explosion.main`/ORDER; cần call site `CGOBombExplosionEffect` trước khi kết luận branch |
+
+## 61. VN F-07 — Die 14 frame và giữ xác (R-193, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-193 | Death C00 bắt đầu khoảng19,2 s; xác còn thấy tới khoảng21,0 s, **không còn** ở21,5/22,0 s; không thấy mờ dần, biến mất sau khoảng1,8–2,3 s. Chưa đo pattern lặp/duration từng frame Die | Giữ xác ~1,8–2,3 s rồi mất; không fade; pattern unknown | `vn_runtime` / candidate | Video `claude-r1/capture.mkv`, crop `F-07/analysis/death-contact.png`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md). V1 `last_visible_frame` giữ vô hạn không khớp; cần thời hạn/clear sau death. Không đổi G2/G6/release |
+
