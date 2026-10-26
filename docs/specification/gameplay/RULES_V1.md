@@ -1162,3 +1162,9 @@ median83 ms) nằm trong/quanh100 ms DESIGN; **đề xuất giữ100 ms** và kh
 `anim::character_loop_frame`. Bước6,24 px/frame video cho thấy client gốc cập nhật vị trí theo bước
 rời (không nội suy tại capture), khác mô tả Rust30 Hz+nội suy client; đây là quan sát để so cảm giác,
 không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Không đổi G2/G6/release; #311 đã đóng (giữ DESIGN 100 ms).
+
+## 56. VN F-03 — Start/countdown chưa gán clip (R-196, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame tách biệt** để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start | Nhân vật vẽ trước overlay; Start clip/loop chưa xác định | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Không đổi `PresentationKind::Start`/playback; RE consumer chưa tìm thấy clip name trong executable. Không ảnh hưởng profile/G2/G6 |
