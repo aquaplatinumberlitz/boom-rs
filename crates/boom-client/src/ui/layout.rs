@@ -68,13 +68,6 @@ const FRAME_HEIGHT: u32 = 64;
 const FRAME_MIN_HEIGHT: u32 = 28;
 /// Cao một ô ảnh UI đã duyệt.
 const ART_HEIGHT: u32 = 160;
-/// Vùng ô nhập.
-const FIELD_RECT: Rect = Rect {
-    x: MARGIN,
-    y: 440,
-    width: 400,
-    height: 40,
-};
 /// Vùng hàng nút.
 const BUTTON_Y: i32 = 496;
 /// Vùng hàng nút của màn trận: nút nằm ở góc trên-phải vì bản đồ chiếm gần hết màn.
@@ -228,6 +221,15 @@ pub enum Widget {
         /// Các dòng chat.
         lines: Vec<String>,
     },
+    /// Thẻ phòng/người chơi; dữ liệu backend, hộp chữ luôn nằm trong thẻ.
+    Card {
+        /// Vùng nội dung chữ của thẻ.
+        rect: Rect,
+        /// Các dòng dữ liệu.
+        lines: Vec<String>,
+        /// Thẻ đang được chọn bằng bàn phím.
+        selected: bool,
+    },
     /// Nút bấm.
     Button {
         /// Vùng vẽ.
@@ -240,6 +242,8 @@ pub enum Widget {
         enabled: bool,
         /// Nút chính của màn.
         primary: bool,
+        /// Sprite đã duyệt của nút, nếu có trong bundle đang dùng.
+        sprite: Option<String>,
     },
     /// Khung màu thay ảnh chưa duyệt hoặc ảnh bị loại.
     Frame {
@@ -279,6 +283,8 @@ pub enum TextRole {
     Label,
     /// Giá trị trong ô nhập.
     Value,
+    /// Chữ tối trên nền trắng của ô nhập nhỏ.
+    FieldValueCompact,
     /// Đầu bảng.
     Header,
     /// Dòng bảng.
@@ -393,26 +399,44 @@ impl Widget {
                 } else {
                     value.clone()
                 };
+                // R-227: field login cao ~20 px, nhãn nằm bên trái.
+                let compact = rect.height <= 24;
                 vec![
                     TextBox {
                         text: label.clone(),
                         size: text_size::LABEL,
                         role: TextRole::Label,
-                        x: rect.x as f32,
-                        y: rect.y as f32 - FIELD_LABEL_GAP,
-                        width: rect.width as f32,
-                        height: FIELD_LABEL_GAP,
+                        x: if compact {
+                            rect.x as f32 - 86.0
+                        } else {
+                            rect.x as f32
+                        },
+                        y: if compact {
+                            rect.y as f32
+                        } else {
+                            rect.y as f32 - FIELD_LABEL_GAP
+                        },
+                        width: if compact { 82.0 } else { rect.width as f32 },
+                        height: if compact {
+                            rect.height as f32
+                        } else {
+                            FIELD_LABEL_GAP
+                        },
                         align: Align::Left,
                         clip: Clip::Head,
                     },
                     TextBox {
                         text: shown,
-                        size: text_size::VALUE,
-                        role: TextRole::Value,
-                        x: rect.x as f32 + FIELD_INSET,
-                        y: rect.y as f32 + FIELD_BOTTOM_GAP,
-                        width: rect.width as f32 - 2.0 * FIELD_INSET,
-                        height: rect.height as f32 - FIELD_BOTTOM_GAP,
+                        size: if compact { 12.0 } else { text_size::VALUE },
+                        role: if compact {
+                            TextRole::FieldValueCompact
+                        } else {
+                            TextRole::Value
+                        },
+                        x: rect.x as f32 + if compact { 3.0 } else { FIELD_INSET },
+                        y: rect.y as f32 + if compact { 1.0 } else { FIELD_BOTTOM_GAP },
+                        width: rect.width as f32 - if compact { 6.0 } else { 2.0 * FIELD_INSET },
+                        height: rect.height as f32 - if compact { 2.0 } else { FIELD_BOTTOM_GAP },
                         align: Align::Left,
                         // Ô nhập: giữ **cuối** để thấy phần vừa gõ.
                         clip: Clip::Tail,
@@ -478,6 +502,24 @@ impl Widget {
                 boxes
             }
             Self::Chat { rect, lines } => chat_text_boxes(rect, lines, font),
+            Self::Card { rect, lines, .. } => {
+                let height = rect.height as f32 / lines.len().max(1) as f32;
+                lines
+                    .iter()
+                    .enumerate()
+                    .map(|(index, text)| TextBox {
+                        text: text.clone(),
+                        size: text_size::SMALL,
+                        role: TextRole::Row,
+                        x: rect.x as f32 + 4.0,
+                        y: rect.y as f32 + index as f32 * height,
+                        width: rect.width.saturating_sub(8) as f32,
+                        height,
+                        align: Align::Left,
+                        clip: Clip::Head,
+                    })
+                    .collect()
+            }
             Self::Button {
                 rect,
                 label,
@@ -485,7 +527,13 @@ impl Widget {
                 ..
             } => vec![TextBox {
                 text: label.clone(),
-                size: text_size::BUTTON,
+                size: if rect.height <= 30 {
+                    11.0
+                } else if rect.width < 110 {
+                    13.0
+                } else {
+                    text_size::BUTTON
+                },
                 role: if *enabled {
                     TextRole::Button
                 } else {
@@ -734,7 +782,34 @@ pub fn layout<B: UiBackend>(
         UiScreen::Match => match_layout(model, scene, &mut widgets),
         UiScreen::Result => result_layout(model, &mut widgets),
     }
-    ui_elements_layout(model, bundle, &mut widgets);
+    if matches!(
+        model.screen(),
+        UiScreen::Login | UiScreen::Lobby | UiScreen::Room
+    ) {
+        // UI_STRINGS_V1/IMAGE_REVIEW: ảnh selected đặt ngay trong nút; không sidebar.
+        for widget in &mut widgets {
+            if let Widget::Button { action, sprite, .. } = widget {
+                let id = action.key();
+                // ready_cancel có chữ khác; giữ text catalog, không dùng ảnh READY.
+                if model
+                    .actions()
+                    .iter()
+                    .any(|item| item.id == *action && item.key == id)
+                {
+                    *sprite = bundle
+                        .and_then(|bundle| {
+                            bundle
+                                .ui
+                                .iter()
+                                .find(|item| item.id == id && item.state == UiState::Selected)
+                        })
+                        .and_then(|item| item.sprite.clone());
+                }
+            }
+        }
+    } else {
+        ui_elements_layout(model, bundle, &mut widgets);
+    }
     Layout {
         screen: model.screen(),
         width: WIDTH,
@@ -743,134 +818,341 @@ pub fn layout<B: UiBackend>(
     }
 }
 
-/// Màn đăng nhập: hai ô nhập và các nút.
-fn login_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
-    let texts = model.texts();
-    title(texts, "login.title", widgets);
-    notice(model, widgets);
-    widgets.push(Widget::Field {
-        rect: Rect::new(MARGIN, 130, 400, 44),
-        label: texts.get("login.account"),
-        value: model.field_value(FieldId::LoginAccount).to_owned(),
-        focused: model.focus() == Focus::Field(FieldId::LoginAccount),
-        masked: false,
+/// Khung giữ chỗ: art chưa có trong bundle, design ghi nợ F-11 (ADR 0014).
+fn placeholder(widgets: &mut Vec<Widget>, rect: Rect, label: String) {
+    widgets.push(Widget::Frame {
+        rect,
+        label,
+        tone: Tone::Excluded,
     });
-    widgets.push(Widget::Field {
-        rect: Rect::new(MARGIN, 206, 400, 44),
-        label: texts.get("login.password"),
-        value: model.field_value(FieldId::LoginPassword).to_owned(),
-        focused: model.focus() == Focus::Field(FieldId::LoginPassword),
-        masked: true,
-    });
-    buttons(model, widgets, MARGIN, BUTTON_Y);
 }
 
-/// Màn sảnh: danh sách phòng và ô đặt tên phòng mới.
+/// Nút hiện có: chỉ đổi vị trí/hiển thị, không thêm hành động backend.
+fn action_at<B: UiBackend>(
+    model: &UiModel<B>,
+    widgets: &mut Vec<Widget>,
+    id: ActionId,
+    rect: Rect,
+) {
+    if let Some(action) = model.actions().into_iter().find(|action| action.id == id) {
+        widgets.push(Widget::Button {
+            rect,
+            label: model.texts().get(action.key),
+            action: id,
+            enabled: action.enabled
+                && (id != ActionId::LoginSubmit
+                    || !model.field_value(FieldId::LoginPassword).is_empty()),
+            primary: action.primary,
+            sprite: None,
+        });
+    }
+}
+
+/// R-227 / vn_runtime candidate: mép visual làm tròn về pixel logic 800×600.
+fn login_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
+    let texts = model.texts();
+    placeholder(widgets, Rect::new(284, 414, 243, 130), String::new());
+    widgets.push(Widget::Title {
+        rect: Rect::new(312, 418, 200, 36),
+        text: texts.get("login.title"),
+    });
+    // Orb và nút tìm mật khẩu chưa có asset/key V1: khung trống, không thêm auth policy.
+    placeholder(widgets, Rect::new(196, 429, 77, 79), String::new());
+    placeholder(widgets, Rect::new(527, 429, 74, 79), String::new());
+    notice(model, widgets);
+    for (field, y, masked, key) in [
+        (FieldId::LoginAccount, 461, false, "login.account"),
+        (FieldId::LoginPassword, 486, true, "login.password"),
+    ] {
+        widgets.push(Widget::Field {
+            rect: Rect::new(402, y, 92, 20),
+            label: texts.get(key),
+            value: model.field_value(field).to_owned(),
+            focused: model.focus() == Focus::Field(field),
+            masked,
+        });
+    }
+    placeholder(widgets, Rect::new(184, 555, 106, 35), String::new());
+    for (id, x) in [
+        (ActionId::LoginRegister, 292),
+        (ActionId::LoginSubmit, 402),
+        (ActionId::Quit, 510),
+    ] {
+        action_at(model, widgets, id, Rect::new(x, 555, 106, 35));
+    }
+}
+
+/// R-228 / vn_runtime candidate: hồ sơ trái, 2×3 phòng, chat và nav đáy.
 fn lobby_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
     let texts = model.texts();
-    title(texts, "lobby.title", widgets);
-    notice(model, widgets);
-    let columns = vec![
-        texts.get("lobby.room_name"),
-        texts.get("lobby.room_host"),
-        texts.get("lobby.room_count"),
-        texts.get("lobby.room_status"),
-    ];
-    let rows = model
-        .rooms()
-        .iter()
-        .map(|room| TableRow {
-            cells: vec![
-                room.name.clone(),
-                room.host.clone(),
-                format!("{}/{}", room.players, room.max_players),
-                match room.phase {
-                    RoomPhase::Waiting => texts.get("lobby.state_waiting"),
-                    RoomPhase::Playing => texts.get("lobby.state_playing"),
-                },
-            ],
-            selected: model.selected_room().is_some_and(|item| item.id == room.id),
-        })
-        .collect();
-    widgets.push(Widget::Table {
-        rect: CONTENT_RECT,
-        columns,
-        rows,
+    placeholder(widgets, Rect::new(9, 0, 166, 526), String::new());
+    widgets.push(Widget::Title {
+        rect: Rect::new(15, 4, 154, 36),
+        text: texts.get("lobby.title"),
     });
+    placeholder(widgets, Rect::new(15, 40, 150, 142), String::new());
+    widgets.push(Widget::Card {
+        rect: Rect::new(15, 190, 150, 54),
+        lines: vec![model.field_value(FieldId::LoginAccount).to_owned()],
+        selected: false,
+    });
+    action_at(
+        model,
+        widgets,
+        ActionId::LobbyCreate,
+        Rect::new(239, 11, 130, 53),
+    );
+    action_at(
+        model,
+        widgets,
+        ActionId::LobbyJoin,
+        Rect::new(381, 11, 109, 53),
+    );
+    placeholder(
+        widgets,
+        Rect::new(598, 11, 91, 53),
+        texts.get("lobby.show_all"),
+    );
+    placeholder(
+        widgets,
+        Rect::new(703, 11, 88, 53),
+        texts.get("lobby.wait_room"),
+    );
+    // Sáu thẻ/trang; chọn bằng Up/Down vẫn tới được mọi phòng từ backend.
+    let selected = model
+        .selected_room()
+        .and_then(|selected| model.rooms().iter().position(|room| room.id == selected.id))
+        .unwrap_or(0);
+    let page_start = selected / 6 * 6;
+    for slot in 0..6 {
+        let x = 227 + (slot % 2) * 285;
+        let y = 77 + (slot / 2) * 85;
+        placeholder(widgets, Rect::new(x, y, 270, 76), String::new());
+        placeholder(widgets, Rect::new(x + 7, y + 7, 64, 62), String::new());
+        let room = model.rooms().get(page_start + slot as usize);
+        let lines = room.map_or_else(
+            || vec![texts.get("room.slot_empty")],
+            |room| {
+                vec![
+                    room.name.clone(),
+                    room.host.clone(),
+                    format!(
+                        "{}/{} · {}",
+                        room.players,
+                        room.max_players,
+                        match room.phase {
+                            RoomPhase::Waiting => texts.get("lobby.state_waiting"),
+                            RoomPhase::Playing => texts.get("lobby.state_playing"),
+                        }
+                    ),
+                ]
+            },
+        );
+        widgets.push(Widget::Card {
+            rect: Rect::new(x + 78, y + 5, 186, 66),
+            lines,
+            selected: room.is_some() && page_start + slot as usize == selected,
+        });
+    }
     widgets.push(Widget::Field {
-        rect: FIELD_RECT,
+        rect: Rect::new(310, 374, 350, 24),
         label: texts.get("room.title_label"),
         value: model.field_value(FieldId::LobbyRoomName).to_owned(),
         focused: model.focus() == Focus::Field(FieldId::LobbyRoomName),
         masked: false,
     });
-    buttons(model, widgets, MARGIN, BUTTON_Y);
+    action_at(
+        model,
+        widgets,
+        ActionId::LobbyRefresh,
+        Rect::new(670, 369, 117, 30),
+    );
+    placeholder(widgets, Rect::new(227, 410, 561, 148), String::new());
+    widgets.push(Widget::Chat {
+        rect: Rect::new(233, 436, 549, 115),
+        lines: Vec::new(),
+    });
+    widgets.push(Widget::Card {
+        rect: Rect::new(233, 412, 549, 22),
+        lines: vec![texts.get("lobby.chat_tab_all")],
+        selected: false,
+    });
+    bottom_nav(model, widgets);
 }
 
-/// Màn phòng chờ: thành viên, chat và các nút.
+/// R-229 / vn_runtime candidate: bốn thẻ ngang, chat trái, chọn nhân vật/map phải.
 fn room_layout<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
     let texts = model.texts();
     let room = model.room();
-    let title_text = room
-        .as_ref()
-        .map_or_else(|| texts.get("room.title_label"), |room| room.name.clone());
     widgets.push(Widget::Title {
-        rect: TITLE_RECT,
-        text: title_text,
+        rect: Rect::new(24, 48, 445, 36),
+        text: room
+            .as_ref()
+            .map_or_else(|| texts.get("room.title_label"), |room| room.name.clone()),
     });
     room_notice(model, widgets);
-    if let Some(room) = &room {
-        let columns = vec![
-            texts.get("room.players"),
-            texts.get("room.host"),
-            texts.get("room.status"),
-            texts.get("room.character"),
-        ];
-        let rows = room
-            .members
-            .iter()
-            .enumerate()
-            .map(|(index, member)| TableRow {
-                cells: vec![
+    // Metadata gọi toàn vùng slots cao273; ảnh gốc cho thấy chat bắt đầu y273.
+    // Thẻ chỉ chiếm phần trên không chồng chat (design phân vùng nội bộ F-11).
+    for slot in 0..4 {
+        let x = 23 + slot * 114;
+        placeholder(widgets, Rect::new(x, 94, 105, 159), String::new());
+        placeholder(widgets, Rect::new(x + 5, 99, 95, 95), String::new());
+        let member = room
+            .as_ref()
+            .and_then(|room| room.members.get(slot as usize));
+        let lines = member.map_or_else(
+            || vec![texts.get("room.slot_empty")],
+            |member| {
+                vec![
                     member.name.clone(),
                     if member.host {
-                        member.name.clone()
-                    } else {
-                        String::new()
-                    },
-                    if member.ready {
+                        texts.get("room.host")
+                    } else if member.ready {
                         texts.get("room.ready")
                     } else {
                         texts.get("room.ready_indicator")
                     },
                     character_label(texts, member.character),
-                ],
-                selected: model.selected_member_index() == Some(index),
-            })
-            .collect();
-        widgets.push(Widget::Table {
-            rect: Rect::new(MARGIN, 104, 600, 190),
-            columns,
-            rows,
-        });
-        let lines = room
-            .chat
-            .iter()
-            .map(|line| format!("{}: {}", line.author, line.text))
-            .collect();
-        widgets.push(Widget::Chat {
-            rect: Rect::new(MARGIN, 300, 580, 128),
+                ]
+            },
+        );
+        widgets.push(Widget::Card {
+            rect: Rect::new(x + 2, 196, 101, 55),
             lines,
+            selected: model.selected_member_index() == Some(slot as usize),
         });
     }
+    placeholder(widgets, Rect::new(23, 273, 453, 234), String::new());
+    widgets.push(Widget::Chat {
+        rect: Rect::new(29, 299, 441, 202),
+        lines: room
+            .as_ref()
+            .map(|room| {
+                room.chat
+                    .iter()
+                    .map(|line| format!("{}: {}", line.author, line.text))
+                    .collect()
+            })
+            .unwrap_or_default(),
+    });
+    widgets.push(Widget::Card {
+        rect: Rect::new(29, 275, 441, 22),
+        lines: vec![texts.get("room.chat_to_all")],
+        selected: false,
+    });
     widgets.push(Widget::Field {
-        rect: FIELD_RECT,
+        rect: Rect::new(109, 519, 280, 24),
         label: texts.get("room.chat_to_all"),
         value: model.field_value(FieldId::RoomChat).to_owned(),
         focused: model.focus() == Focus::Field(FieldId::RoomChat),
         masked: false,
     });
-    buttons(model, widgets, MARGIN, BUTTON_Y);
+    action_at(
+        model,
+        widgets,
+        ActionId::RoomChatSend,
+        Rect::new(397, 515, 79, 32),
+    );
+    placeholder(widgets, Rect::new(495, 11, 288, 461), String::new());
+    placeholder(
+        widgets,
+        Rect::new(501, 20, 276, 64),
+        texts.get("room.info_title"),
+    );
+    placeholder(
+        widgets,
+        Rect::new(492, 94, 288, 234),
+        texts.get("room.character"),
+    );
+    // Lưới portrait giữ khung; C00/C01 vẫn đổi bằng Left/Right như trước.
+    for row in 0..3 {
+        for column in 0..4 {
+            let rect = Rect::new(504 + column * 66, 128 + row * 61, 58, 53);
+            placeholder(widgets, rect, String::new());
+            let character = match (row, column) {
+                (0, 0) => Some(Character::C00),
+                (0, 1) => Some(Character::C01),
+                _ => None,
+            };
+            if let Some(character) = character {
+                widgets.push(Widget::Card {
+                    rect,
+                    lines: vec![character_label(texts, character)],
+                    selected: room
+                        .as_ref()
+                        .is_some_and(|room| room.self_character == character),
+                });
+            }
+        }
+    }
+    placeholder(
+        widgets,
+        Rect::new(501, 346, 276, 126),
+        texts.get("room.map"),
+    );
+    widgets.push(Widget::Card {
+        rect: Rect::new(510, 382, 258, 55),
+        lines: vec![texts.get("room.map_name")],
+        selected: false,
+    });
+    action_at(
+        model,
+        widgets,
+        ActionId::RoomStart,
+        Rect::new(509, 509, 203, 63),
+    );
+    action_at(
+        model,
+        widgets,
+        ActionId::RoomReady,
+        Rect::new(718, 509, 76, 47),
+    );
+    bottom_nav(model, widgets);
+}
+
+/// Nav R-228/R-229; ô ngoài chức năng V1 giữ khung trống (design).
+fn bottom_nav<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
+    let y = if model.screen() == UiScreen::Room {
+        574
+    } else {
+        563
+    };
+    placeholder(
+        widgets,
+        Rect::new(0, y, 800, (600 - y) as u32),
+        String::new(),
+    );
+    let button_y = y + 2;
+    let button_height = (598 - button_y) as u32;
+    placeholder(
+        widgets,
+        Rect::new(15, button_y, 78, button_height),
+        model.texts().get("lobby.options"),
+    );
+    for (x, width) in [(146, 65), (476, 76), (556, 60), (627, 65)] {
+        placeholder(
+            widgets,
+            Rect::new(x, button_y, width, button_height),
+            String::new(),
+        );
+    }
+    let back = if model.screen() == UiScreen::Room {
+        ActionId::RoomLeave
+    } else {
+        ActionId::LobbyBack
+    };
+    action_at(
+        model,
+        widgets,
+        back,
+        Rect::new(98, button_y, 42, button_height),
+    );
+    action_at(
+        model,
+        widgets,
+        ActionId::Quit,
+        Rect::new(726, button_y, 67, button_height),
+    );
 }
 
 /// Chữ của màn trận cho người chơi: (tên map, trạng thái lượt).
@@ -980,6 +1262,7 @@ fn buttons<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>, x: i32, 
             action: action.id,
             enabled: action.enabled,
             primary: action.primary,
+            sprite: None,
         });
     }
 }
@@ -1009,7 +1292,7 @@ fn room_notice<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
     let texts = model.texts();
     if let Some(key) = model.notice() {
         widgets.push(Widget::Notice {
-            rect: NOTICE_RECT,
+            rect: Rect::new(24, 8, 445, 38),
             text: texts.get(key),
             error: true,
         });
@@ -1019,7 +1302,7 @@ fn room_notice<B: UiBackend>(model: &UiModel<B>, widgets: &mut Vec<Widget>) {
         return;
     };
     widgets.push(Widget::Notice {
-        rect: NOTICE_RECT,
+        rect: Rect::new(24, 8, 445, 38),
         text: format!(
             "{}: {}",
             texts.get("room.character"),
