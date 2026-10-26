@@ -1345,3 +1345,28 @@ hoặc mở rộng search payload có kiểm soát. Không đổi code/profile/a
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
 | R-191 | Client KR phát SFX bằng id số qua dispatcher `0xD1CD10` và bảng tĩnh `0x19E40D8` (id→`Wave/...`). Mapping có consumer: đặt bom 9/344; nổ 7/8 (343 tuyết, 7↔8 trong200ms); nhốt 77 solo/37 couple (+444 help có điều kiện); chết 42; item ăn68; item lộ69; dùng trap174; round Win175/Lose78/Draw43 (remap có điều kiện `sub_76FBF0`); BGM id48 từ record map, loop R-213. V1 lệch ở `bomb_exploded`: đang dùng `BombExplosion001`471 nhưng **không thấy consumer native trực tiếp** cho471 trong phạm vi 597 site; KR dùng7/8. `start_count_1..3` V1 không có consumer native trực tiếp; KR start dùng GameStart/GameReady18/21. Item pick chung68, không có entry riêng theo loại | Event→id: bomb9/344, explode7/8, trap77/37, die42, item68, pop69, round175/78/43, BGM48; start_count unknown; bomb_exploded V1 lệch471 | `kr_static` / candidate (mapping có consumer; chưa chạy runtime/âm thanh) | [KR_RE_AUDIO](../../research/findings/KR_RE_AUDIO.md) §1–§3/§12; dispatcher `0xD1CD10`, table `0x19E40D8`; consumer `0xEB3720`,`0xAF1140`,`0xB42D60`,`0xB53C80`,`0xB4B410`,`0xB8B680`,`0xE71D70`; loop callback `0x14BEC60`. Không đổi `data/assets/audio-v1.toml`/code trong PR này. 471/brick-break direct consumer là bounded negative, chưa loại trừ wrapper/id động. Runtime volume/voice/loop chưa đo |
+
+## 77. F-11e — control Login VN từ executable — R-233 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-233 | Constructor Login VN `0x84cd94` đặt control (`id`, local x,y): `LO_BtLogNewId` `0x3e9,(240,556)`, `LO_BtLogOk` `0x3ea,(350,556)`, `LO_BtLogExit` `0x3eb,(460,556)`, `LO_BtEkey` `0x6009,(695,491)`, `LO_BtPT` `0x6010,(695,517)`. Ba nút cuối khớp ảnh R-227 với parent offset chung **x+52,y+0** (`292/402/512,556`); literal local x,y là code, screen mapping là derived. Các giá trị `0x10000000` không phải w/h; width/height chỉ từ ảnh (~106×35 logic), chưa nâng code. Room/lobby/HUD/result chưa tìm thấy constructor/bảng tương ứng trong pass này | Local x,y như trên; screen x+52/y; image w~106,h~35 | `vn_static` / **confirmed** cho literal local; **derived** cho screen offset; **unknown** cho w/h code | VN exe SHA `bc875ba5…`; constructor `0x84cd94`, controls `0x84d114..0x84de0d`; local `/tmp/vn-ui.dis`, `/home/admin/boom-team/shots/fidelity/F-11/vn-ui-controls.txt`; image `01-login-initial.png`; [metadata](../../evidence/measurements/vn-ui-controls-exec-2026-10-26/README.md). Parent `LO_LoginBox` chưa định vị; không claim lobby/room/HUD/result |
+
+Đề xuất code (không sửa trong PR này): `ui/layout.rs::login_layout` dùng x,y này (sau khi xác định parent)
+thay số ảnh; chưa đổi lobby/room/HUD/result. D-04/D-05 giữ; không đổi profile/G2/G6/release.
+
+## 79. F-10 — trợ góc player VN, xấp xỉ 5/6 px (R-157, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-157 | Player mover VN `59DA6F` có nhánh trượt vuông góc khi bị chặn: tính ô/rect từ XY, kiểm ô passable qua `7293B4`/`5C1027`/`5C0E98` (R-179), rồi dịch theo bước **5/6 px** đã đo; nhánh có cho cả bốn hướng (static 4 nhánh rect). **Không có hằng ngưỡng 34 hay 12 trong thân đã đọc**; các so sánh dùng 20/24/54 px theo cell/rect. Runtime cùng actor chỉ đo Down: lệch **30 px sửa được**, **35 px không đi**, nên max nằm trong **(30,35]**, chưa chốt đúng 34. V1 `corner_assist 12 px` **lệch** với biên runtime này | Step 5/6 px; 4 hướng static; max ∈(30,35]; 12 px V1 lệch | `vn_static` + R-177 runtime / candidate (một actor/map; chỉ Down runtime) | `59DA6F` collision path `59DABE`, coord/rect `59DB22–59DB8E`, correction `59DF31/59DF52`, tile predicate `59DD49→7293B4`, `59DD5E→5C1027→5C0E98`; cached clip/asm `.re-work/movement146-collision-source/clip59DABE.asm`; R-176/R-177. Không đổi `player.corner_assist_px`/movement code trong PR này; không suy all4 runtime/KR/hitbox |
+
+
+## 80. F-11e — control Login/Room/Lobby từ executable — R-234 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-234 | VN Login constructor `0x84cd94` có control `LO_BtLogNewId` id`0x3e9,(240,556)`, `LO_BtLogOk` `0x3ea,(350,556)`, `LO_BtLogExit` `0x3eb,(460,556)`, `LO_BtEkey` `0x6009,(695,491)`, `LO_BtPT` `0x6010,(695,517)`. Ba nút hiện khớp ảnh R-227 nếu cộng parent **x+52,y+0** (screen 292/402/512,556), nhưng **control cha `LO_LoginBox` chưa định vị**, nên screen mapping là derived; literal local confirmed, w/h code unknown. VN Room/Prepare và Lobby/Square có string `Prepare/*`, `PRE_Bt_*`, `LobbySquare/RoomUI_*`, `Lobby/LB_*`, `Square/SQ_*` nhưng **không tìm thấy constructor/bảng x,y,w,h** trong pass này; R-152 KR `512,494`/room cells không nâng cho VN; R-228/R-229 giữ ảnh | Login local như trên; Room/Lobby layout unknown | `vn_static` / **confirmed** cho Login literal; **derived** cho +52; **unknown** cho parent/Room/Lobby | VN exe SHA `bc875ba5…`; constructor `0x84cd94`, controls `0x84d114..0x84de0d`; local `/tmp/vn-ui.dis` (xóa), `/home/admin/boom-team/shots/fidelity/F-11/vn-ui-controls.txt`; ảnh R-227/R-228/R-229; [metadata](../../evidence/measurements/vn-ui-controls-exec-2026-10-26/README.md). Không claim Room/Lobby; parent chưa định vị; không commit binary/decompile |
+
+Đề xuất code (không sửa trong PR này): Login dùng literal x/y sau khi xác định parent; Room/Lobby chưa đổi.
+D-04/D-05 giữ; không đổi profile/G2/G6/release.

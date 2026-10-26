@@ -188,7 +188,7 @@ fn texts_come_from_the_l10n_keys() {
     // Khóa đã được chốt tại catalog: kiểm đúng nội dung người chơi thấy.
     assert_eq!(title_of(&model), "Đăng nhập");
     let labels = button_labels(&model);
-    assert_eq!(labels, vec!["Đăng nhập", "Đăng ký", "Thoát game"]);
+    assert_eq!(labels, vec!["Đăng ký", "Đăng nhập", "Thoát game"]);
 
     // Khóa có text chốt → lấy nguyên văn từ file chuỗi.
     let layout = layout::layout(&model, None, None);
@@ -200,25 +200,28 @@ fn texts_come_from_the_l10n_keys() {
 }
 
 #[test]
-fn lobby_table_uses_l10n_headers() {
+fn lobby_cards_show_backend_rooms_and_empty_slots() {
     let model = logged_in();
     let layout = layout::layout(&model, None, None);
-    let columns = layout
+    let cards: Vec<_> = layout
         .widgets
         .iter()
-        .find_map(|widget| match widget {
-            Widget::Table { columns, .. } => Some(columns.clone()),
+        .filter_map(|widget| match widget {
+            Widget::Card { rect, lines, .. } if rect.x >= 227 && rect.y >= 77 && rect.y < 320 => {
+                Some(lines)
+            }
             _ => None,
         })
-        .expect("sảnh phải có bảng phòng");
-    assert_eq!(columns[0], "Tên phòng");
-    assert_eq!(columns[3], "Trạng thái");
-    // Danh sách phòng lấy từ backend.
-    let rows = layout.widgets.iter().find_map(|widget| match widget {
-        Widget::Table { rows, .. } => Some(rows.len()),
-        _ => None,
-    });
-    assert_eq!(rows, Some(model.rooms().len()));
+        .collect();
+    // R-228: sáu thẻ, dữ liệu backend giữ đủ tên/host/số người.
+    assert_eq!(cards.len(), 6);
+    for room in model.rooms() {
+        assert!(
+            cards
+                .iter()
+                .any(|lines| lines.contains(&room.name) && lines.contains(&room.host))
+        );
+    }
 }
 
 /// Bundle giả với bảng `[[ui]]` của màn kết quả: một phần tử `selected` (được vẽ
@@ -326,11 +329,18 @@ fn room_lists_members_and_chat() {
     assert_eq!(room.chat[0].text, "xin chào");
 
     let layout = layout::layout(&model, None, None);
-    let rows = layout.widgets.iter().find_map(|widget| match widget {
-        Widget::Table { rows, .. } => Some(rows.len()),
-        _ => None,
-    });
-    assert_eq!(rows, Some(room.members.len()));
+    let cards: Vec<_> = layout
+        .widgets
+        .iter()
+        .filter_map(|widget| match widget {
+            Widget::Card { lines, rect, .. } if rect.y == 196 => Some(lines),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(cards.len(), 4);
+    for member in &room.members {
+        assert!(cards.iter().any(|lines| lines.contains(&member.name)));
+    }
 }
 
 #[test]
@@ -410,4 +420,61 @@ fn account_exists_has_its_own_resolved_message() {
         texts.get(UiError::AccountExists.message_key()),
         texts.get(UiError::InvalidCredentials.message_key())
     );
+}
+
+// Regression theo visual rect R-227; không thay bằng chứng fidelity local.
+#[test]
+fn login_visual_rects_and_password_enabled_state() {
+    let mut model = model();
+    let layout = layout::layout(&model, None, None);
+    let fields: Vec<_> = layout
+        .widgets
+        .iter()
+        .filter_map(|widget| match widget {
+            Widget::Field { rect, .. } => Some(*rect),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        fields,
+        vec![
+            layout::Rect::new(402, 461, 92, 20),
+            layout::Rect::new(402, 486, 92, 20)
+        ]
+    );
+    assert!(layout.widgets.iter().any(|widget| matches!(
+        widget,
+        Widget::Button {
+            action: ActionId::LoginSubmit,
+            enabled: false,
+            ..
+        }
+    )));
+    model.set_field_text(FieldId::LoginPassword, "x");
+    let layout = layout::layout(&model, None, None);
+    assert!(layout.widgets.iter().any(|widget| matches!(
+        widget,
+        Widget::Button {
+            action: ActionId::LoginSubmit,
+            enabled: true,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn lobby_selection_keeps_rooms_beyond_first_six_visible() {
+    let mut model = logged_in();
+    for index in 0..7 {
+        model.set_field_text(FieldId::LobbyRoomName, &format!("page-room-{index}"));
+        assert_eq!(model.activate(ActionId::LobbyCreate), ActionOutcome::Done);
+        assert_eq!(model.activate(ActionId::RoomLeave), ActionOutcome::Done);
+    }
+    for _ in 1..model.rooms().len() {
+        model.move_selection(1);
+    }
+    let selected = model.selected_room().expect("room selection");
+    let layout = layout::layout(&model, None, None);
+    assert!(layout.widgets.iter().any(|widget| matches!(widget,
+        Widget::Card { lines, selected: true, .. } if lines.contains(&selected.name))));
 }

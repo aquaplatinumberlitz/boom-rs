@@ -98,6 +98,7 @@ fn role_color(role: TextRole) -> Color {
         TextRole::Error => ERROR_TEXT,
         TextRole::Label => HEADER_TEXT,
         TextRole::Value => ROW_TEXT,
+        TextRole::FieldValueCompact => BLACK,
         TextRole::Header => HEADER_TEXT,
         TextRole::Row => ROW_TEXT,
         TextRole::Button => BUTTON_TEXT,
@@ -120,10 +121,41 @@ pub fn draw(
     clear_background(BACKGROUND);
     for widget in &layout.widgets {
         match widget {
-            Widget::Frame { rect, tone, .. } => draw_frame(rect, *tone),
+            Widget::Frame { rect, tone, .. } => {
+                draw_frame(rect, *tone);
+                if matches!(
+                    layout.screen,
+                    boom_content::bundle::UiScreen::Login
+                        | boom_content::bundle::UiScreen::Lobby
+                        | boom_content::bundle::UiScreen::Room
+                ) && *tone != Tone::Panel
+                {
+                    draw_rectangle_lines(
+                        rect.x as f32,
+                        rect.y as f32,
+                        rect.width as f32,
+                        rect.height as f32,
+                        1.0,
+                        FIELD_BORDER,
+                    );
+                }
+            }
             Widget::Art { rect, sprite, .. } => draw_art(rect, sprite, atlas, bundle),
             Widget::MapArea { rect } => draw_map(rect, atlas, scene),
             Widget::Field { rect, focused, .. } => draw_field(rect, *focused),
+            Widget::Chat { rect, .. } => draw_frame(rect, Tone::Panel),
+            Widget::Card { rect, selected, .. } => {
+                if *selected {
+                    draw_rectangle_lines(
+                        rect.x as f32,
+                        rect.y as f32,
+                        rect.width as f32,
+                        rect.height as f32,
+                        1.0,
+                        FIELD_FOCUS,
+                    );
+                }
+            }
             Widget::Button {
                 rect,
                 enabled,
@@ -152,6 +184,16 @@ pub fn draw(
                 draw_table_background(rect, rows, &heights);
             }
             _ => {}
+        }
+        if let Widget::Button {
+            rect,
+            sprite: Some(sprite),
+            enabled: true,
+            ..
+        } = widget
+            && draw_button_art(rect, sprite, atlas, bundle)
+        {
+            continue;
         }
         for text_box in widget.text_boxes(&font.font) {
             draw_text_box(font, &text_box);
@@ -252,7 +294,21 @@ fn draw_frame(rect: &Rect, tone: Tone) {
 
 /// Vẽ ô nhập: khung và con trỏ focus (nhãn và giá trị do phần chữ vẽ).
 fn draw_field(rect: &Rect, focused: bool) {
-    let border = if focused { FIELD_FOCUS } else { FIELD_BORDER };
+    let compact = rect.height <= 24;
+    let border = if compact || !focused {
+        FIELD_BORDER
+    } else {
+        FIELD_FOCUS
+    };
+    if compact {
+        draw_rectangle(
+            rect.x as f32,
+            rect.y as f32,
+            rect.width as f32,
+            rect.height as f32,
+            Color::from_rgba(245, 245, 245, 255),
+        );
+    }
     draw_rectangle_lines(
         rect.x as f32,
         rect.y as f32,
@@ -263,10 +319,14 @@ fn draw_field(rect: &Rect, focused: bool) {
     );
     if focused {
         draw_rectangle(
-            (rect.x as f32) + FIELD_INSET,
-            (rect.y as f32) + FIELD_BOTTOM_GAP,
-            2.0,
-            20.0,
+            (rect.x as f32) + if compact { 3.0 } else { FIELD_INSET },
+            (rect.y as f32) + if compact { 2.0 } else { FIELD_BOTTOM_GAP },
+            1.0,
+            if compact {
+                rect.height.saturating_sub(4) as f32
+            } else {
+                20.0
+            },
             FIELD_FOCUS,
         );
     }
@@ -319,6 +379,36 @@ fn draw_button(rect: &Rect, enabled: bool, primary: bool) {
         1.0,
         if enabled { FIELD_FOCUS } else { FIELD_BORDER },
     );
+}
+
+/// Nút selected đã duyệt: giữ tỉ lệ, không dùng nhãn phụ/sidebar hay frame hover tự đặt.
+fn draw_button_art(
+    rect: &Rect,
+    sprite: &str,
+    atlas: Option<&Atlas>,
+    bundle: Option<&Bundle>,
+) -> bool {
+    let (Some(atlas), Some(item)) = (atlas, art_item(bundle, sprite, rect)) else {
+        return false;
+    };
+    let scale = art_scale(
+        item.source.width,
+        item.source.height,
+        rect.width,
+        rect.height,
+    );
+    if scale <= 0.0 {
+        return false;
+    }
+    atlas.draw_scaled(
+        &item,
+        (
+            (rect.width as f32 - item.source.width as f32 * scale) / 2.0,
+            (rect.height as f32 - item.source.height as f32 * scale) / 2.0,
+        ),
+        scale,
+    );
+    true
 }
 
 /// Vẽ ảnh UI đã duyệt (`selected`).

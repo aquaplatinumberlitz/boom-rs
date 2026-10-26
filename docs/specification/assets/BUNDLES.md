@@ -427,7 +427,7 @@ Nguồn `kr_static` / `confirmed` cho phần dữ liệu; `design` cho định d
 | Thời lượng frame | 48/48 clip là `unknown` (R-079): không mang số |
 | Phần tử UI | 23: 7 `selected`/`needs_review_text` có ảnh trong atlas, 16 `excluded` (không có ảnh) |
 | `unknown` | **0 mục** — bốn state nhân vật `idle`/`trapped` đã giải bằng quyết định của V1 (R-086 `design`) đối chiếu bảng state của client trong ODT (§6.1) |
-| `content_hash` | `84603280e035b7bb44aeb0b70a25f69b306162c8766dac5da68504c8676ffff3` (schema 4, **có** audio, có chuỗi ODT R-251 và chữ HELP! R-220/R-250; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620`/#237 (quên cập nhật) → `b410bbbd…` (#351) → `cd957832…` (#346) → hash này (audio R-191 #363) |
+| `content_hash` | `1d0912c946639d3d468056836721480f19936459eaea5721cac6ea288631a794` (schema 4, **có** audio theo R-191 #363, có chuỗi ODT R-251, 75 state lửa #330 và chữ HELP! R-220/R-250; dựng không kèm `--ui-localization`). Lịch sử: `dea731aa…` → `74903a59…` sau `64b5620`/#237 (quên cập nhật) → `b410bbbd…` (#351) → `cd957832…` (#346) → hash này (lửa ODT #330) |
 
 Cách kiểm lại:
 
@@ -602,7 +602,7 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    | Nhân vật **bị nhốt** | `c0x.trapped.static` | R-078 `candidate` |
    | Nhân vật **chết** | `c0x.dead.static` (chuỗi chết phát trọn clip rồi giữ khung cuối **có ảnh** — §7.2) | R-077 `confirmed` |
    | Bom đang chờ nổ | `bomb.fuse` | R-077 `confirmed` |
-   | Lửa trên ô | `flame.main`, **dải frame lõi 28..=59** | R-078 `candidate` (R-087) |
+   | Lửa trên ô | `flame.main`, state C/L/U/R/D theo power bom | R-192/R-195 `candidate`, chuỗi R-251 và đơn vị R-222 `confirmed` |
    | Vụ nổ (core báo event `bomb_exploded`) | `explosion.main` tại ô bom | R-084 `confirmed` (R-088) |
 
    Nhân vật V1 ghép với `C00`/`C01` theo `id` người chơi vì state core chưa mang trường
@@ -613,6 +613,14 @@ ghi ở đây để client, reviewer và công cụ đo dùng chung một công 
    (`presentation.frame_duration_ms`) — không hard-code trong client. Frame tiến theo
    **tick mô phỏng**, không theo đồng hồ wall clock (ADR 0004):
    `frame = (tick · 1000 / ticks_per_second) / frame_ms mod số frame`.
+
+   **Lửa (#330):** `flame.main` chứa 75 state từ `Flame/Flame`; bảng giữ 15 dòng mỗi nhóm
+   C/L/U/R/D, các tên tier10 trùng nhau lấy chuỗi đầu cùng tên. Client chọn `Fire<role><power>`
+   theo ô so với tâm bom và range chụp của bom, kẹp1..10 (R-192 candidate, không theo khoảng cách ô).
+   `BombPlaced`/snapshot lưu power; `BombExploded` lưu tâm và tick nổ, tra bằng `Flame::source`.
+   Phát chuỗi ODT một lần ở1/30s/đơn vị (R-222), hết thì giữ frame cuối tới khi core bỏ ô lửa.
+   Thiếu metadata/chuỗi thì cảnh báo và vẽ fallback, không đoán dải28..59. Không đổi TTL/law core,
+   không bật motion blur. R-087 là lựa chọn lịch sử được thay ở đây.
 
 3. **Hiệu ứng nổ** (R-088): core báo event `bomb_exploded` (ô của bom) ⇒ client phát
    clip `explosion.main` tại ô đó. Hiệu ứng **phát một lần**, dài bằng số frame của

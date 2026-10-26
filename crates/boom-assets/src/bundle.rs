@@ -1504,9 +1504,30 @@ mod tests {
             return;
         };
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let flame = built
+            .bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == "flame.main")
+            .unwrap();
+        assert_eq!(flame.odt.as_deref(), Some("Flame/Flame"));
+        assert_eq!(flame.sequences.len(), 75);
+        assert_eq!(flame.sequence("FireC01").unwrap().steps.len(), 9);
+        for (name, first, last) in [
+            ("FireL01", 4, 96),
+            ("FireU01", 5, 97),
+            ("FireR01", 6, 98),
+            ("FireD01", 7, 99),
+        ] {
+            let steps = &flame.sequence(name).unwrap().steps;
+            assert_eq!(steps.len(), 19);
+            assert_eq!(steps.first().unwrap().frame, first);
+            assert_eq!(steps.last().unwrap().frame, last);
+            assert!(steps.iter().all(|step| step.units == 1));
+        }
         assert_eq!(
             built.bundle.content_hash,
-            "84603280e035b7bb44aeb0b70a25f69b306162c8766dac5da68504c8676ffff3",
+            "1d0912c946639d3d468056836721480f19936459eaea5721cac6ea288631a794",
             "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
         );
     }

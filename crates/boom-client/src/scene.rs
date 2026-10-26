@@ -480,20 +480,40 @@ pub fn presentation_plan(
 
     for flame in &state.flames {
         let (column, row) = cell_u16(flame.cell.x, flame.cell.y);
-        let frame = bundle
-            .clips
-            .iter()
-            .find(|clip| clip.id == anim::FLAME_CLIP)
-            .map(|clip| anim::flame_frame(clock, clip.frames.len()));
-        if let Some(item) = clip_plan_item(
-            bundle,
-            anim::FLAME_CLIP,
-            frame,
-            column,
-            row,
-            tile_px,
-            &mut missing,
-        ) {
+        let frame = journal.flame_origin(flame.source).and_then(|origin| {
+            let state = origin.state(flame.cell)?;
+            let clip = bundle
+                .clips
+                .iter()
+                .find(|clip| clip.id == anim::FLAME_CLIP)?;
+            // Resolver ODT đã bỏ ordinal; tên trùng tier>10 lấy chuỗi đầu cùng tên.
+            let sequence = clip.sequence(&state)?;
+            let steps: Vec<_> = sequence
+                .steps
+                .iter()
+                .map(|step| (step.frame, step.units))
+                .collect();
+            anim::flame_frame(clock, origin, &steps)
+        });
+        let item = if frame.is_none() {
+            // Thiếu ODT hoặc bom nguồn: báo rõ thay vì đoán power/frame hay mất lửa âm thầm.
+            note_missing(anim::FLAME_CLIP, &mut missing);
+            Some(PlanItem::Fallback {
+                clip: anim::FLAME_CLIP.to_owned(),
+                rect: fallback_rect(column, row, tile_px),
+            })
+        } else {
+            clip_plan_item(
+                bundle,
+                anim::FLAME_CLIP,
+                frame,
+                column,
+                row,
+                tile_px,
+                &mut missing,
+            )
+        };
+        if let Some(item) = item {
             items.push((row_foot(row, tile_px), column, ORDER_FLAME, item));
         }
     }
@@ -2195,16 +2215,105 @@ mod tests {
             .collect();
         assert!(clips.contains(&"bomb.fuse"), "thiếu clip bom: {clips:?}");
         assert!(clips.contains(&"flame.main"), "thiếu clip lửa: {clips:?}");
-        // Frame lửa nằm trong dải lõi của clip.
-        let flame_frame = plan
-            .items
-            .iter()
-            .find_map(|item| match item {
-                PlanItem::Sprite { clip, frame, .. } if clip == "flame.main" => Some(*frame),
-                _ => None,
-            })
-            .expect("lửa phải có frame");
-        assert!((28..=59).contains(&flame_frame));
+        // Fixture thiếu metadata bom nguồn/ODT thì báo fallback, không đoán dải frame.
+        assert!(plan.items.iter().any(|item| matches!(item,
+            PlanItem::Fallback { clip, .. } if clip == "flame.main")));
+    }
+
+    #[test]
+    fn flame_plan_selects_named_odt_state_and_stops_with_core() {
+        let mut bundle = clip_bundle();
+        with_sequences(
+            &mut bundle,
+            "flame.main",
+            &[
+                ("FireC01", &[(0, 1), (2, 1)]),
+                ("FireL01", &[(4, 1), (8, 1), (96, 1)]),
+                ("FireD01", &[(7, 1), (11, 1), (99, 1)]),
+            ],
+        );
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).unwrap();
+        let world = test_world();
+        let mut state = test_state(&world);
+        let mut journal = empty_journal();
+        // Power đến từ snapshot; event nổ không chứa range.
+        journal.note_bombs(&[Bomb {
+            id: EntityId(1),
+            owner: 0,
+            cell: boom_core::Cell::new(1, 0),
+            range: 1,
+            explodes_at: 10,
+            grace: vec![],
+        }]);
+        journal.record_event(&SimulationEvent {
+            id: boom_core::EventId { tick: 10, seq: 0 },
+            kind: EventKind::BombExploded {
+                bomb: EntityId(1),
+                owner: 0,
+                cell: boom_core::Cell::new(1, 0),
+                chained: false,
+            },
+        });
+        for cell in [
+            boom_core::Cell::new(1, 0),
+            boom_core::Cell::new(0, 0),
+            boom_core::Cell::new(1, 1),
+        ] {
+            state.flames.push(Flame {
+                cell,
+                until: 100,
+                source: EntityId(1),
+                owner: 0,
+            });
+        }
+        for (tick, expected) in [
+            (10, vec![0, 4, 7]),
+            (11, vec![2, 8, 11]),
+            (50, vec![2, 96, 99]),
+        ] {
+            let clock = anim::PresentationClock::new(
+                anim::FrameClock {
+                    frame_ms: 100,
+                    ticks_per_second: 30,
+                },
+                tick,
+            );
+            let plan = presentation_plan(
+                &bundle,
+                &scene,
+                &state,
+                &world,
+                &clock,
+                &BTreeMap::new(),
+                &journal,
+            );
+            let played: Vec<_> = plan
+                .items
+                .iter()
+                .filter_map(|item| match item {
+                    PlanItem::Sprite { clip, frame, .. } if clip == "flame.main" => Some(*frame),
+                    _ => None,
+                })
+                .collect();
+            // Plan sort theo ô; kiểm tập frame để không ràng buộc thứ tự layer khác.
+            let mut played = played;
+            played.sort_unstable();
+            let mut expected = expected;
+            expected.sort_unstable();
+            assert_eq!(played, expected);
+        }
+        state.flames.clear();
+        let plan = presentation_plan(
+            &bundle,
+            &scene,
+            &state,
+            &world,
+            &clock_at(51),
+            &BTreeMap::new(),
+            &journal,
+        );
+        assert!(!plan.items.iter().any(|item| matches!(item,
+            PlanItem::Sprite { clip, .. } | PlanItem::Fallback { clip, .. } if clip == "flame.main")));
     }
 
     /// Nghiệm thu V1-031 (không GPU): clip nổ phát đúng ô bom theo event core, phát
