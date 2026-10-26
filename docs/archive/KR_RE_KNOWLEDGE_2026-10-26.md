@@ -51,7 +51,7 @@ Quy ước:
 - **Vẽ (VN):** draw `5AD00C` → selector `5ACC58` → vtable+5C `58D3E9` / bộ đếm `58D517` → baseDraw `58DA94`; `0x7293B4` = tra ô/occlusion; neo tile `x = cột·40`, `y = hàng·40 + 39` (R-210). **Comparator sort object chưa tìm ra** (R-190 unknown).
 - **Lửa:** client tự tính vùng nổ (KR `0x00E9C520`), dây chuyền (`0x00E9CDC0`), mỗi ô một message id 27, thời gian lửa = số frame (`GetAnimCount`, R-139…R-141). VN: flame ctor `0x73290A` → `0x731BAF` ghi ordinal state vào `+0x90` (setter `0x5AB812`).
 - **Bị nhốt:** KR bộ đếm bomber `+0x2748` giảm 1 mỗi update; ≤0 → slot 202 `0xB7A760` gửi C→S 167; status 184 (R-200…R-202). VN receiver/bubble counter 200; trap → chết ≈ 6,35 s (R-160).
-- **UI:** rect nằm trong exe, không trong pack (R-232).
+- **UI:** pack **không** chứa bảng layout (R-232; phạm vi đã tìm). Rect đã **xác nhận trong exe** mới có ở **login VN** (R-233) và hitbox room-list/Ready KR (R-152). Room/lobby VN chưa thấy constructor (R-234); HUD (R-230) là số đo ảnh `candidate`, màn kết quả (R-231) là `unknown`.
   - VN login ctor `0x0084cd94`: `LO_BtLogNewId (240,556)`, `LO_BtLogOk (350,556)`, `LO_BtLogExit (460,556)`; offset cha +52 suy ra (R-233).
   - KR room-list hitbox `549180` / bảng `19D8A58`; PrepareStage `6F47C0`, Ready `512,494` (R-152).
   - Room/lobby VN chưa thấy constructor (R-234). Game 800×600 (capture ×1,28 lên 1024×768).
@@ -97,7 +97,7 @@ Quy ước:
 - Comparator sort đối tượng khi vẽ (R-190).
 - Hậu tố state lửa: power hay khoảng cách (R-192).
 - Trợ góc ba hướng còn lại (#369).
-- Rect room/lobby/HUD/result trong exe (R-234, R-230, R-231).
+- Rect room/lobby VN trong exe: chưa tìm thấy constructor (R-234). HUD mới có số đo ảnh (R-230 candidate). Màn kết quả VN chưa quan sát được (R-231 unknown).
 - Bomber mover/hitbox thật so với `CMovable`/pet (R-134/R-135).
 - BomberAttr consumer (R-150).
 - Danh sách đầy đủ: `boom-rs/docs/research/QUESTIONS.md`, issue GitHub, `FIDELITY.md` §3.
@@ -210,7 +210,7 @@ Cục bộ, không public: `/home/admin/boom-team` (giao việc dsh, agent, safe
 2. **Mapping asset ≠ luật phát.** Lỗi bóng nhốt lặp frame 3–8 (#320) vì đã tự đặt luật "lớn dần rồi lặp". Theo ADR 0014: không tự đặt; luật phải là dữ liệu có claim.
 3. **Một câu hỏi RE = một issue nhỏ, tối đa 2 lượt.** Hết lượt thì ghi blocker có phạm vi rồi chuyển sang hướng khác (RE tĩnh, trạng thái design có nợ). 6 issue RE lớn từng kẹt nhiều ngày vì không có điểm dừng.
 4. **Chỉ làm câu hỏi đổi được hành vi game.** Câu "không đổi profile" xuống backlog P9 (#312).
-5. **UI rect nằm trong exe, không trong pack** (R-232). Tìm theo tên control (`LO_*`, `PRE_Bt_*`) và constructor đẩy x,y.
+5. **Pack không chứa layout UI** (R-232). Đã xác nhận rect trong exe cho login VN (R-233) và một phần KR (R-152); room/lobby VN chưa thấy (R-234). Cách tìm: theo tên control (`LO_*`, `PRE_Bt_*`) và constructor đẩy x,y.
 6. **Runtime VN qua server giả lập có giới hạn:** chưa đổi được map ngoài Factory, chưa ra được màn kết quả, chưa tăng được power bom. Những câu đó cần RE tĩnh.
 
 ### Team và agent
