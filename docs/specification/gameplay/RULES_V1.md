@@ -1169,3 +1169,15 @@ không phải bằng chứng FPS/native tick hay yêu cầu đổi profile. Khô
 |---|---|---|---|---|
 | R-198 | Sau khi đi Left/Right/Up/Down rồi dừng 1,5 s, C00 **giữ hướng cuối ở cả bốn hướng** (mặt trái/phải/lưng-up/mặt down) và **không** trả về `idle.blink` trong cửa sổ này; riêng **Left** đã đối chiếu khớp **frame cuối Walk-left**, các hướng còn lại mới chỉ xác nhận hướng, chưa đối chiếu frame cuối | Giữ hướng cả4 ≥1,5 s; frame cuối chỉ Left; Blink ban đầu; ngưỡng Blink sau dừng chưa đo | `vn_runtime` / candidate (video local, một actor/map; giữ hướng cả4, frame cuối mới Left) | Video `claude-r1/capture.mkv` + crop `idle-directions-tight.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Code hiện `character_clip` luôn `idle.blink` ⇒ cần giữ hướng/frame cuối; chưa đổi profile. Không chứng minh BlinkSmall/ngưỡng dài |
 | R-199 | Trong capture, bomb nằm **dưới** nhân vật (char vẽ đè bomb) và bubble nhốt **phủ trên** nhân vật | Bomb<character; bubble>character | `vn_runtime` / candidate (một frame/map) | `bomb-11-zoom.png`/`trap-13.5-zoom.png`; [metadata](../../evidence/measurements/vn-anim320-idle-2026-10-26/README.md). Khớp `ORDER_BOMB<ORDER_CHARACTER<ORDER_BUBBLE`; chưa quan sát item/high object/fire/explosion riêng |
+
+## 60. VN F-06 — explosion.main 10 frame (R-194, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-194 | `explosion.main` là một clip 10 frame/8 ảnh duy nhất; video chỉ thấy vụ nổ tại ô bom, không có blast nhánh riêng. Chưa chứng minh effect được tạo cho từng ô lửa hay chỉ ô bom; thời lượng 10 frame vẫn design | Một clip10 frame; vị trí branch/effect unknown; duration design | `vn_static` + `vn_runtime` / candidate | Video `claude-r1/capture.mkv`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md); R-084/R-088. Không đổi `explosion.main`/ORDER; cần call site `CGOBombExplosionEffect` trước khi kết luận branch |
+
+## 61. VN F-07 — Die 14 frame và giữ xác (R-193, 2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-193 | Death C00 bắt đầu khoảng19,2 s; xác còn thấy tới khoảng21,0 s, **không còn** ở21,5/22,0 s; không thấy mờ dần, biến mất sau khoảng1,8–2,3 s. Chưa đo pattern lặp/duration từng frame Die | Giữ xác ~1,8–2,3 s rồi mất; không fade; pattern unknown | `vn_runtime` / candidate | Video `claude-r1/capture.mkv`, crop `F-07/analysis/death-contact.png`; [metadata](../../evidence/measurements/vn-death-explosion-2026-10-26/README.md). V1 `last_visible_frame` giữ vô hạn không khớp; cần thời hạn/clear sau death. Không đổi G2/G6/release |
