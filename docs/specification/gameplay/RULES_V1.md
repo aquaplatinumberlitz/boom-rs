@@ -1330,3 +1330,12 @@ nguyên; không đổi profile/G2/G6/release.
 Đề xuất code (không sửa trong PR này): `ui/layout.rs` HUD/result hiện chỉ có generic table/header;
 `ui/draw.rs` cần HUD panel/timer/items/exit và result layout theo cảnh có nguồn. Không đổi profile/G2/G6/release;
 D-04/D-05 giữ nguyên.
+
+## 76. F-11d — tìm bố cục UI trong pack — R-232 (2026-10-26)
+
+| ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
+|---|---|---|---|---|
+| R-232 | Trong phạm vi tên/entry/ODT đã kiểm, **không thấy dữ liệu layout/control UI** cho login/lobby/room/HUD/result trong pack VN/KR: 8.325 entry KR (5 pack UI) và 13.449 entry VN `fx` chỉ là sprite/JPEG/effect; 7.867 khối ODT chỉ là animation state; `fx/ObjectTable/ObjectTable` là bảng tên/animation. KR R-152 đã chỉ ra layout room-list/PrepareStage nằm trong **executable** (`dword_19D8A58`, `sub_6F47C0` literal), không trong pack. Do đó R-227…R-230 vẫn là số đo ảnh, chưa có nguồn tầng 1 từ pack | 0 entry layout/control trong 21.774 tên đã lọc; ODT0 khối layout | `kr_static` + `vn_static` / **unknown** cho “không tồn tại”; **confirmed** cho việc không thấy trong phạm vi đã nêu | [metadata](../../evidence/measurements/ui-layout-pack-search-2026-10-26/README.md); `boom-assets pack-list` KR/VN, ODT local, `closure.rs`; R-152 [KR_RE_UI](../../research/findings/KR_RE_UI.md). Không kết luận tuyệt đối ngoài phạm vi; payload opaque/khác pack chưa mở |
+
+Đề xuất: giữ R-227…R-230 làm số đo ảnh; nếu cần tier1, đọc consumer UI native VN (chưa làm)
+hoặc mở rộng search payload có kiểm soát. Không đổi code/profile/asset; D-04/D-05 giữ nguyên.
