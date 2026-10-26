@@ -769,7 +769,8 @@ impl Game {
                 (player.x.0, player.y.0),
                 self.previous_positions.get(&player.id).copied(),
             );
-            self.journal.note_motion(player.id, moving, self.clock.tick);
+            self.journal
+                .note_motion(player.id, moving, player.facing, self.clock.tick);
         }
     }
 

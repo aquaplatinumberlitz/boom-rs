@@ -62,4 +62,5 @@ PR nào đổi hành vi; khi PR đó chưa merge thì hành vi trên main vẫn 
 | F-10 | Cảm giác di chuyển | 30 Hz + nội suy | `design` | #335 |
 | F-11 | UI/UX các màn hình | Theo ảnh VN từng phần | một phần `design` | #336 |
 | — | Bóng nhốt | Main cũ: lớn dần 0–2 rồi lặp 3–8 (sai). #325: lớn dần 0–2, giữ 6 trong mờ, đục 600 ms, vỡ 3–5 | `vn_runtime` candidate (video ~30 fps, ±33 ms; claim ở #324 chờ tích hợp) | #320 |
+| — | Gốc pha Walk khi đổi hướng (phát lại từ đầu) và gốc pha bom (lúc đặt) | #353: reset khi đổi state/hướng | `design` (R-252) | #326 |
 | — | Nhịp frame chung 100 ms | R-118 | `design` | #311 (đóng) |
