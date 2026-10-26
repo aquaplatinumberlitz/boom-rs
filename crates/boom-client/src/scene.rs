@@ -359,6 +359,8 @@ const ORDER_BOMB: u8 = 3;
 const ORDER_CHARACTER: u8 = 4;
 /// Thứ tự vẽ: bong bóng phủ lên người bị nhốt.
 const ORDER_BUBBLE: u8 = 5;
+/// Thứ tự vẽ: chữ HELP! trên bong bóng (video VN, F-02 #327).
+const ORDER_HELP: u8 = 6;
 
 /// Một lệnh vẽ của kế hoạch trình diễn.
 #[derive(Clone, Debug, PartialEq)]
@@ -603,6 +605,32 @@ pub fn presentation_plan(
                 },
             ));
         }
+        // Chữ HELP! trên bóng suốt lúc bị nhốt, lặp 4 frame (F-02 #327). Bundle cũ không có
+        // clip này thì bỏ qua: không phải clip bắt buộc.
+        if matches!(player.life, Life::Trapped { .. })
+            && let Some(help) = bundle
+                .clips
+                .iter()
+                .find(|clip| clip.id == anim::TRAPPED_HELP_CLIP)
+            && !help.frames.is_empty()
+        {
+            let index = anim::help_frame(clock, help.frames.len());
+            if let Some(mut item) = clip_frame_item(bundle, help, index, column, row, tile_px) {
+                item.dest = help_placement(bubble, &item.dest, anchor_x, anchor_y)
+                    .unwrap_or_else(|| actor_placement(&help.frames[index], anchor_x, anchor_y));
+                // Chữ HELP! nằm trên mọi thứ (video VN: đè cả vật cản cạnh bên).
+                items.push((
+                    i32::MAX,
+                    column,
+                    ORDER_HELP,
+                    PlanItem::Sprite {
+                        clip: help.id.clone(),
+                        frame: index,
+                        item,
+                    },
+                ));
+            }
+        }
     }
 
     // Hiệu ứng nổ: phát tại ô bom khi core báo nổ (`bomb_exploded`), trong khoảng
@@ -815,6 +843,33 @@ pub fn clip_frame_item(
         column: cell_x,
         kind: CellKind::Floor,
         alpha: u8::MAX,
+    })
+}
+
+/// Chỗ đặt chữ HELP!: căn giữa ngang trên bóng tròn (frame giữ), đáy chữ cách đỉnh bóng
+/// `HELP_GAP_PX` (video VN 26/10, quy về pixel game; F-02 #327, `vn_runtime` candidate).
+///
+/// `None` khi bundle không có bóng hoặc frame giữ để làm mốc.
+fn help_placement(
+    bubble: Option<&Clip>,
+    help: &PixelRect,
+    anchor_x: i32,
+    anchor_y: i32,
+) -> Option<PixelRect> {
+    const HELP_GAP_PX: i32 = 2;
+    let bubble = bubble?;
+    let hold = bubble
+        .frames
+        .get(anim::BUBBLE_HOLD_FRAME.min(bubble.frames.len().checked_sub(1)?))?;
+    let sphere = actor_placement(hold, anchor_x, anchor_y);
+    let width = i32::try_from(help.width).ok()?;
+    let height = i32::try_from(help.height).ok()?;
+    let sphere_width = i32::try_from(sphere.width).ok()?;
+    Some(PixelRect {
+        x: sphere.x + (sphere_width - width) / 2,
+        y: sphere.y - height + HELP_GAP_PX,
+        width: help.width,
+        height: help.height,
     })
 }
 
@@ -1561,6 +1616,67 @@ mod tests {
             "người bị nhốt phải có bong bóng: {clips:?}"
         );
         assert!(character < bubble);
+    }
+
+    #[test]
+    fn help_sits_on_top_of_the_trapped_bubble_and_over_everything() {
+        let mut bundle = clip_bundle();
+        let base = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == "c00.idle.blink.static")
+            .expect("clip đứng")
+            .clone();
+        for id in [anim::TRAPPED_BUBBLE_CLIP, anim::TRAPPED_HELP_CLIP] {
+            let mut clip = base.clone();
+            clip.id = id.to_owned();
+            bundle.clips.push(clip);
+        }
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        let sprites = |state: &SimulationState| {
+            presentation_plan(
+                &bundle,
+                &scene,
+                state,
+                &world,
+                &clock_at(state.tick),
+                &BTreeMap::new(),
+                &empty_journal(),
+            )
+            .items
+            .into_iter()
+            .filter_map(|item| match item {
+                PlanItem::Sprite { clip, item, .. } => Some((clip, item.dest)),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+        };
+        // Còn sống: không có HELP!.
+        assert!(
+            sprites(&state)
+                .iter()
+                .all(|(clip, _)| clip != anim::TRAPPED_HELP_CLIP)
+        );
+        // Bị nhốt: HELP! vẽ **sau cùng**, căn giữa trên bóng tròn, đáy cách đỉnh bóng 2 px.
+        state.players[0].life = Life::Trapped { since: state.tick };
+        let drawn = sprites(&state);
+        let (last, help) = drawn.last().expect("có lệnh vẽ");
+        assert_eq!(last, anim::TRAPPED_HELP_CLIP);
+        let bubble = bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == anim::TRAPPED_BUBBLE_CLIP)
+            .expect("bóng");
+        let hold = &bubble.frames[anim::BUBBLE_HOLD_FRAME.min(bubble.frames.len() - 1)];
+        let (anchor_x, anchor_y) = actor_anchor(state.players[0].x.0, state.players[0].y.0, TILE);
+        let sphere = actor_placement(hold, anchor_x, anchor_y);
+        assert_eq!(help.y + help.height as i32, sphere.y + 2);
+        assert_eq!(
+            help.x + help.width as i32 / 2,
+            sphere.x + sphere.width as i32 / 2
+        );
     }
 
     #[test]

@@ -66,6 +66,18 @@ pub const FLAME_CLIP: &str = "flame.main";
 /// Clip ID của bong bóng phủ lên người bị nhốt (#305: trước đây không được vẽ).
 pub const TRAPPED_BUBBLE_CLIP: &str = "trapped.bubble";
 
+/// Clip ID của chữ HELP! trên bong bóng người bị nhốt (`Bomb/HELP!`, F-02 #327).
+pub const TRAPPED_HELP_CLIP: &str = "trapped.help";
+
+/// Frame của chữ HELP!: lặp đều theo nhịp frame chung.
+///
+/// Video VN cho thấy chữ đổi hình liên tục suốt lúc bị nhốt; nhịp per-frame chưa đo nên dùng
+/// `presentation.frame_duration_ms` (`design`, R-118; ADR 0014 bảng nợ F-02).
+#[must_use]
+pub fn help_frame(clock: &PresentationClock, count: usize) -> usize {
+    clock.looping_frame(count)
+}
+
 /// Số frame "lớn dần" đầu clip bong bóng: phát một lần từ lúc bị nhốt (frame 0–2).
 pub const BUBBLE_GROW_FRAMES: usize = 3;
 

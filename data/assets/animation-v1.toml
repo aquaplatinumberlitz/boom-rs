@@ -441,6 +441,16 @@ claims = ["R-078"]
 note = "bong bóng bị nhốt; 9 frame là chuỗi bong bóng to lên rồi vỡ, chưa có consumer nào xác nhận (Q-003)"
 
 [[clips]]
+id = "trapped.help"
+state = "trapped"
+pack = "FxDesktop"
+entry = "Bomb/HELP!"
+source = "kr_static"
+status = "candidate"
+claims = ["R-078"]
+note = "chữ HELP! trên bong bóng người bị nhốt; 4 frame, VN fx/KR FxDesktop cùng SHA-256 7afd2cef…cb5f (review Codex #342); thứ tự/nhịp chưa có consumer (ADR 0014, F-02 #327)"
+
+[[clips]]
 id = "flame.main"
 state = "flame_main"
 pack = "FxDesktop"
