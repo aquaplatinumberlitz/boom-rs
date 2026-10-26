@@ -1428,6 +1428,14 @@ async fn run(mut game: Game, opts: Options) {
                 }
             }
             let ready = ready_now(&game);
+            if !ready && let Some(ticks) = opts.trap_at {
+                // Không xuất ảnh sai cảnh: script thu bằng chứng S-03 phải nhận lỗi (ADR 0014).
+                eprintln!(
+                    "--trap-at {ticks}: không có người chơi nào bị nhốt đủ {ticks} tick (còn bị nhốt tối đa {} tick rồi chết); không chụp ảnh",
+                    game.world.rules().trap_ticks.saturating_sub(1)
+                );
+                std::process::exit(3);
+            }
             if !ready {
                 eprintln!(
                     "demo chết: hết lượt mà chuỗi chết chưa tới trạng thái cần chụp (frame {})",
@@ -2356,6 +2364,33 @@ mod tests {
                 .iter()
                 .any(|player| matches!(player.life, Life::Trapped { .. }))
         );
+    }
+
+    #[test]
+    fn trap_at_past_the_trap_timer_is_never_ready() {
+        let profile = embedded_profile();
+        let mut game =
+            Game::new(7, ClientOptions::default(), None, &profile).expect("scene offline");
+        let trap = game.world.rules().trap_ticks;
+        game.enable_demo(true);
+        let mut last_ready = false;
+        let mut longest = 0;
+        let mut guard = 0;
+        while game.state.phase == Phase::Playing {
+            game.tick().expect("tick mô phỏng");
+            last_ready |= game.trap_ready(trap);
+            for player in &game.state.players {
+                if let Life::Trapped { since } = player.life {
+                    longest = longest.max(game.clock.tick.saturating_sub(since));
+                }
+            }
+            guard += 1;
+            assert!(guard < 10_000, "lượt phải kết thúc");
+        }
+        // Còn bị nhốt tối đa `trap_ticks − 1` tick: `--trap-at trap_ticks` không bao giờ đạt nên
+        // vòng chụp phải báo lỗi thay vì xuất ảnh xác chết (#340).
+        assert_eq!(longest, trap - 1);
+        assert!(!last_ready);
     }
 
     #[test]
