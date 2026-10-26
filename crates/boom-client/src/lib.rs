@@ -756,6 +756,26 @@ impl Game {
 
     /// Một tick của client: lỗi core (chế độ offline) hoặc lỗi mạng (chế độ mạng).
     fn tick(&mut self) -> Result<(), TickError> {
+        let result = self.step();
+        self.track_motion();
+        result
+    }
+
+    /// Ghi nhân vật đang đi hay đứng yên vào sổ trình diễn: chuỗi `Stop` → `Blink` của ODT
+    /// tính từ lúc bắt đầu đứng yên (R-251).
+    fn track_motion(&mut self) {
+        for player in &self.state.players {
+            let moving = anim::is_moving(
+                (player.x.0, player.y.0),
+                self.previous_positions.get(&player.id).copied(),
+            );
+            self.journal
+                .note_motion(player.id, moving, player.facing, self.clock.tick);
+        }
+    }
+
+    /// Phần việc của [`Game::tick`] trước khi ghi chuyển động.
+    fn step(&mut self) -> Result<(), TickError> {
         if let Some(net) = self.net.as_mut() {
             // Chế độ mạng: đọc message đang chờ (không chặn vòng render), dự đoán một bước
             // của chính mình rồi gửi cửa sổ lệnh chưa ack. State hiển thị là state dự đoán.
