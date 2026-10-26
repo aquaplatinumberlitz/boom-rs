@@ -1,5 +1,7 @@
 # Tài liệu dự án Boom KR Rust
 
+> **Dự án tạm ngưng từ 2026-10-26.** Muốn nối tiếp RE client KR thì đọc trước [KR_RE_KNOWLEDGE_2026-10-26](archive/KR_RE_KNOWLEDGE_2026-10-26.md).
+
 **Bắt đầu ở đây.** Quy tắc bắt buộc: [AGENTS.md](../AGENTS.md). Repo `boom-rs` chứa cả docs và Cargo workspace
 ([ADR 0003](decisions/0003-engine-repo-and-docs-home.md)). Pha hiện tại: research + kiến trúc có hạn,
 kèm walking skeleton; xem [REWRITE_PLAN](planning/REWRITE_PLAN.md) và tiến độ ở [PROGRESS](planning/PROGRESS.md).

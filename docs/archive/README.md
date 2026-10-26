@@ -6,6 +6,7 @@ Nguồn hiện hành: [docs/README](../README.md), [REWRITE_PLAN](../planning/RE
 
 | Nhóm | Tài liệu |
 |---|---|
+| **Lưu trữ khi tạm ngưng 2026-10-26** | [KR_RE_KNOWLEDGE_2026-10-26](KR_RE_KNOWLEDGE_2026-10-26.md): kiến thức RE VN/KR hệ thống hoá, nguồn client gốc, công cụ, bài học |
 | Kế hoạch cũ | [MASTER_PLAN 2026-10-18](plans/MASTER_PLAN_2026-10-18.md), [REWRITE_PLAN 2026-10-19](plans/REWRITE_PLAN_2026-10-19.md), [KR RE plan](plans/KR_RE_PLAN_2026-10-18.md) |
 | Audit | [REWRITE_PLAN audit](reports/REWRITE_PLAN_AUDIT_2026-10-19.md), là đánh giá snapshot lúc audit, không phải danh sách gate hiện tại |
 | Nhật ký VN | [Progress](re/VN_PROGRESS_LOG.md), [Lobby](re/VN_LOBBY_LOG.md), [README lịch sử](re/README_VN_HISTORY.md) |
