@@ -1208,7 +1208,7 @@ R-219 cho thấy hành vi quan sát **khác** mô tả V1 hiện tại (characte
 | R-196 | Trong S-07 VN, C00 được vẽ ngay khi vào trận; overlay tay đỏ/`START!!` xuất hiện sau, nhưng **không thấy clip `c00.start.*` 10 frame** trước/dưới overlay để gán phát/lặp. Nhân vật có silhouette xám khoảng5s nhưng chưa đủ gán Start. Do đó không có bằng chứng VN dùng `C00-Start` trong cảnh này | Nhân vật vẽ trước overlay; Start 10-frame **không quan sát**; loop/duration unknown | `vn_runtime` / candidate (một actor/map/video) | Video local `F-03/capture.mkv`; [metadata](../../evidence/measurements/vn-anim-f03-2026-10-26/README.md). Khuyến nghị không coi `PresentationKind::Start` playback là confirmed; chỉ giữ/disable theo consumer khi tìm được. RE consumer chưa tìm thấy clip name trong executable; không profile/G2/G6 |
 
 
-## 69. F-11a — màn đăng nhập VN so với boom-rs — R-227 (2026-10-26)
+## 71. F-11a — màn đăng nhập VN so với boom-rs — R-227 (2026-10-26)
 
 | ID | Claim | Giá trị / đơn vị | Nguồn / trạng thái | Locator / giới hạn |
 |---|---|---|---|---|
