@@ -10,4 +10,4 @@ không commit); SHA `0e350c8a500e8a6aa90f6724135827f811bfa854d04ad236b523c209917
   khoảng4,0 s và giữ tới hết capture. Nhân vật phía dưới vẫn đứng; không thấy clip `c00.start.*`
   mười frame tách biệt để gán.
 - Khoảng5,0 s nhân vật có silhouette xám dưới mũi tên; chưa đủ để gọi là Start hay shadow.
-- Không xác định được Start phát lúc nào/bao lâu/lặp; không đủ bằng chứng để đổi playback hiện tại.
+- Không thấy clip `c00.start.*` 10 frame trước/dưới overlay; không xác định được Start phát lúc nào/bao lâu/lặp. Không coi `PresentationKind::Start` playback là confirmed; chỉ đổi khi có consumer.
