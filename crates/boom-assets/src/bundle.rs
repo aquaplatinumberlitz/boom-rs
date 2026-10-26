@@ -1504,9 +1504,30 @@ mod tests {
             return;
         };
         let built = build_bundle(&root, V1_MAP).expect("dựng bundle");
+        let flame = built
+            .bundle
+            .clips
+            .iter()
+            .find(|clip| clip.id == "flame.main")
+            .unwrap();
+        assert_eq!(flame.odt.as_deref(), Some("Flame/Flame"));
+        assert_eq!(flame.sequences.len(), 75);
+        assert_eq!(flame.sequence("FireC01").unwrap().steps.len(), 9);
+        for (name, first, last) in [
+            ("FireL01", 4, 96),
+            ("FireU01", 5, 97),
+            ("FireR01", 6, 98),
+            ("FireD01", 7, 99),
+        ] {
+            let steps = &flame.sequence(name).unwrap().steps;
+            assert_eq!(steps.len(), 19);
+            assert_eq!(steps.first().unwrap().frame, first);
+            assert_eq!(steps.last().unwrap().frame, last);
+            assert!(steps.iter().all(|step| step.units == 1));
+        }
         assert_eq!(
             built.bundle.content_hash,
-            "cd9578328a0730fec8056e1eb6c479c81d7242c7cdb2b39887344a3775da0ad7",
+            "7636bcc59d2b04ebd35408b7afca0ae3cc82b674cc5707c7c0ebebe930eb0d50",
             "hash ghi ở BUNDLES §6 phải khớp bundle dựng từ data/assets/"
         );
     }
@@ -1674,7 +1695,7 @@ mod tests {
             assert_eq!(clip.claims, source.claims, "clip {}", clip.id);
             let expected_status = match source.claims.first().map(String::as_str) {
                 Some("R-077") | Some("R-084") => "confirmed",
-                Some("R-078") => "candidate",
+                Some("R-078" | "R-220") => "candidate",
                 other => panic!("claim không lạ trong bảng clip: {other:?}"),
             };
             assert_eq!(

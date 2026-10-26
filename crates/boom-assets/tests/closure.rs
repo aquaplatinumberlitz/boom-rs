@@ -272,7 +272,8 @@ fn closure_sha256_matches_the_v1_content_inventory() {
             assert!(
                 entry.entry.starts_with("FxTile/")
                     || entry.entry.ends_with("Fire00")
-                    || entry.entry.ends_with("Bubble00"),
+                    || entry.entry.ends_with("Bubble00")
+                    || entry.entry == "FxDesktop/Bomb/HELP!",
                 "entry lạ không có trong inventory: {}",
                 entry.entry
             );

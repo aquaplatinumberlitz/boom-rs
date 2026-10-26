@@ -756,7 +756,9 @@ impl Game {
 
     /// Một tick của client: lỗi core (chế độ offline) hoặc lỗi mạng (chế độ mạng).
     fn tick(&mut self) -> Result<(), TickError> {
+        self.journal.note_bombs(&self.state.bombs);
         let result = self.step();
+        self.journal.note_bombs(&self.state.bombs);
         self.track_motion();
         result
     }
