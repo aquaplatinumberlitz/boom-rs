@@ -505,7 +505,10 @@ pub fn presentation_plan(
             .map(|clip| match clip_sequence_of(clip, ODT_BOMB) {
                 // Chuỗi `Bomb/BasicBomb` của ODT: 4 frame, mỗi frame 6 đơn vị, lặp (R-251).
                 Some(steps) => {
-                    anim::sequence_frame(&steps, anim::odt_units_since(clock, 0), true).unwrap_or(0)
+                    // Pha tính từ lúc đặt bom (`explodes_at − fuse`), không theo đồng hồ toàn trận.
+                    let placed = bomb.explodes_at.saturating_sub(world.rules().fuse_ticks);
+                    anim::sequence_frame(&steps, anim::odt_units_since(clock, placed), true)
+                        .unwrap_or(0)
                 }
                 None => anim::bomb_frame(clock, clip.frames.len()),
             });
@@ -931,7 +934,14 @@ fn odt_character_frame(
             let steps = clip_sequence(bundle, clip, &format!("Walk {direction}"))?;
             Some((
                 clip.to_owned(),
-                anim::sequence_frame(&steps, anim::odt_units_since(clock, 0), true),
+                anim::sequence_frame(
+                    &steps,
+                    anim::odt_units_since(
+                        clock,
+                        journal.walk_since(player.id).unwrap_or(clock.tick),
+                    ),
+                    true,
+                ),
             ))
         }
         Life::Alive => {
@@ -1805,7 +1815,7 @@ mod tests {
             .collect::<Vec<_>>()
         };
         let mut journal = empty_journal();
-        journal.note_motion(0, false, 0);
+        journal.note_motion(0, false, boom_core::Dir::Down, 0);
         // Đứng yên: `Stop Down` (frame 0) trong 100 đơn vị, rồi `Blink` lặp (R-251).
         assert_eq!(
             character(&state, &journal, tick_for(50)),
@@ -1828,6 +1838,70 @@ mod tests {
         // Chết và chuỗi `Die` đã hết (sổ trống): không còn vẽ xác.
         state.players[0].life = Life::Dead;
         assert!(character(&state, &journal, tick_for(10)).is_empty());
+    }
+
+    #[test]
+    fn odt_phase_starts_when_walking_starts_and_when_the_bomb_is_placed() {
+        let mut bundle = clip_bundle();
+        with_sequences(
+            &mut bundle,
+            "c00.walk.down.static",
+            &[
+                ("Walk Down", &[(0, 3), (1, 3), (2, 3)]),
+                ("Stop Down", &[(0, 100)]),
+            ],
+        );
+        with_sequences(
+            &mut bundle,
+            "bomb.fuse",
+            &[("0", &[(0, 6), (1, 6), (2, 6), (3, 6)])],
+        );
+        let scene = Scene::from_bundle(&bundle, &classifier(), TILE).expect("dựng scene");
+        let world = test_world();
+        let mut state = test_state(&world);
+        // Bắt đầu đi ở tick 200 (khác 0): frame đầu của Walk phải là frame 0.
+        let start = 200;
+        let mut journal = empty_journal();
+        journal.note_motion(0, true, boom_core::Dir::Down, start);
+        let mut previous = BTreeMap::new();
+        previous.insert(0, (state.players[0].x.0, state.players[0].y.0 - 1_000));
+        // Bom đặt ở tick 200: frame đầu của fuse cũng là frame 0.
+        state.bombs.push(Bomb {
+            id: EntityId(1),
+            owner: 0,
+            cell: boom_core::Cell::new(1, 0),
+            range: 1,
+            explodes_at: start + world.rules().fuse_ticks,
+            grace: Vec::new(),
+        });
+        let frames = |tick| {
+            presentation_plan(
+                &bundle,
+                &scene,
+                &state,
+                &world,
+                &clock_at(tick),
+                &previous,
+                &journal,
+            )
+            .items
+            .into_iter()
+            .filter_map(|item| match item {
+                PlanItem::Sprite { clip, frame, .. } => Some((clip, frame)),
+                _ => None,
+            })
+            .filter(|(clip, _)| clip == "c00.walk.down.static" || clip == "bomb.fuse")
+            .collect::<Vec<_>>()
+        };
+        let at_start = frames(start);
+        assert!(
+            at_start.contains(&("c00.walk.down.static".to_owned(), 0)),
+            "{at_start:?}"
+        );
+        assert!(
+            at_start.contains(&("bomb.fuse".to_owned(), 0)),
+            "{at_start:?}"
+        );
     }
 
     #[test]

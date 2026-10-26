@@ -506,8 +506,8 @@ pub struct PresentationJournal {
     seen: BTreeSet<PresentationKey>,
     /// Lượt hiện tại của sổ.
     round_id: u32,
-    /// Tick bắt đầu đứng yên của từng nhân vật (vắng = đang đi).
-    idle_since: BTreeMap<u8, u32>,
+    /// Trạng thái chuyển động của từng nhân vật: (đang đi, hướng, tick bắt đầu trạng thái).
+    motion: BTreeMap<u8, (bool, Dir, u32)>,
 }
 
 impl PresentationJournal {
@@ -518,23 +518,37 @@ impl PresentationJournal {
             items: Vec::new(),
             seen: BTreeSet::new(),
             round_id,
-            idle_since: BTreeMap::new(),
+            motion: BTreeMap::new(),
         }
     }
 
-    /// Ghi nhân vật `player` đang đi hay đứng yên tại `tick`: đứng yên thì nhớ tick bắt đầu.
-    pub fn note_motion(&mut self, player: u8, moving: bool, tick: u32) {
-        if moving {
-            self.idle_since.remove(&player);
-        } else {
-            self.idle_since.entry(player).or_insert(tick);
+    /// Ghi nhân vật `player` đang đi hay đứng yên, hướng `facing`, tại `tick`.
+    ///
+    /// Đổi trạng thái (đi ↔ đứng) hoặc đổi hướng là đổi state animation, nên chuỗi ODT mới
+    /// phát lại từ đầu: tick bắt đầu được đặt lại (review #353).
+    pub fn note_motion(&mut self, player: u8, moving: bool, facing: Dir, tick: u32) {
+        match self.motion.get(&player) {
+            Some(&(was_moving, was_facing, _)) if was_moving == moving && was_facing == facing => {}
+            _ => {
+                self.motion.insert(player, (moving, facing, tick));
+            }
         }
     }
 
     /// Tick bắt đầu đứng yên của nhân vật; `None` nếu đang đi hoặc chưa ghi.
     #[must_use]
     pub fn idle_since(&self, player: u8) -> Option<u32> {
-        self.idle_since.get(&player).copied()
+        self.motion
+            .get(&player)
+            .and_then(|&(moving, _, since)| (!moving).then_some(since))
+    }
+
+    /// Tick bắt đầu đi (theo hướng hiện tại) của nhân vật; `None` nếu đang đứng hoặc chưa ghi.
+    #[must_use]
+    pub fn walk_since(&self, player: u8) -> Option<u32> {
+        self.motion
+            .get(&player)
+            .and_then(|&(moving, _, since)| moving.then_some(since))
     }
 
     /// Chuyển sang lượt khác: dọn mục đang phát và quên event của lượt cũ.
@@ -547,7 +561,7 @@ impl PresentationJournal {
         self.round_id = round_id;
         self.items.clear();
         self.seen.clear();
-        self.idle_since.clear();
+        self.motion.clear();
     }
 
     /// Lượt hiện tại của sổ: khoá dedup event là `(round_id, EventId)`.
@@ -891,12 +905,17 @@ mod tests {
     #[test]
     fn journal_remembers_when_each_player_stopped() {
         let mut journal = PresentationJournal::new(1);
-        journal.note_motion(0, false, 10);
-        journal.note_motion(0, false, 20);
+        journal.note_motion(0, false, Dir::Down, 10);
+        journal.note_motion(0, false, Dir::Down, 20);
         assert_eq!(journal.idle_since(0), Some(10));
-        journal.note_motion(0, true, 21);
+        journal.note_motion(0, true, Dir::Left, 21);
+        journal.note_motion(0, true, Dir::Left, 25);
         assert_eq!(journal.idle_since(0), None);
-        journal.note_motion(0, false, 30);
+        assert_eq!(journal.walk_since(0), Some(21));
+        // Đổi hướng giữa lúc đi: chuỗi Walk mới phát lại từ đầu.
+        journal.note_motion(0, true, Dir::Up, 27);
+        assert_eq!(journal.walk_since(0), Some(27));
+        journal.note_motion(0, false, Dir::Up, 30);
         journal.set_round(2);
         assert_eq!(journal.idle_since(0), None);
     }
