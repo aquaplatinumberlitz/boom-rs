@@ -19,9 +19,8 @@
 //! (R-089).
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::ops::RangeInclusive;
 
-use boom_core::{Cell, Dir, EventId, EventKind, Life, SimulationEvent};
+use boom_core::{Bomb, Cell, Dir, EntityId, EventId, EventKind, Life, SimulationEvent};
 
 /// Nhân vật V1 (SCOPE_V1 §1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -164,16 +163,30 @@ pub fn item_clip(kind: u16) -> Option<&'static str> {
 /// không tách tâm/nhánh/đuôi, nên V1 dùng clip này cho cả vụ nổ.
 pub const EXPLOSION_CLIP: &str = "explosion.main";
 
-/// Dải frame của clip lửa dùng cho **một ô** lửa.
-///
-/// Clip `flame.main` là **một** blob 100 frame gộp thân/đuôi/nhánh theo hướng; cách
-/// chia chưa có consumer nào xác nhận (R-078, Q-003). Trên pack KR 00967, frame
-/// 28..=59 là dải ảnh đơn 40×40 (hình lửa đứng giữa ô); V1 dùng dải này cho ô lửa
-/// (R-087, [BUNDLES §7](../../../../docs/specification/assets/BUNDLES.md)).
-///
-/// Giới hạn đã biết: vì không biết hướng lửa trong state core (`Flame` không mang
-/// hướng), mọi ô lửa vẽ cùng một frame của dải này.
-pub const FLAME_FRAMES: RangeInclusive<usize> = 28..=59;
+/// Bom nguồn của ô lửa: metadata trình diễn, không thay đổi luật core.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FlameOrigin {
+    pub cell: Cell,
+    pub power: u8,
+    pub start_tick: u32,
+}
+
+impl FlameOrigin {
+    /// Tên state theo vai trò ô và power bom (R-192 candidate, R-195).
+    /// Khoảng cách tới tâm không chọn tier; power >10 dùng tier10.
+    #[must_use]
+    pub fn state(self, cell: Cell) -> Option<String> {
+        let role = match (cell.x - self.cell.x, cell.y - self.cell.y) {
+            (0, 0) => 'C',
+            (x, 0) if x < 0 => 'L',
+            (x, 0) if x > 0 => 'R',
+            (0, y) if y < 0 => 'U',
+            (0, y) if y > 0 => 'D',
+            _ => return None,
+        };
+        Some(format!("Fire{role}{:02}", self.power.clamp(1, 10)))
+    }
+}
 
 /// Nhịp phát frame: thời lượng một frame và tần số tick mô phỏng.
 ///
@@ -520,6 +533,10 @@ pub struct PresentationJournal {
     round_id: u32,
     /// Trạng thái chuyển động của từng nhân vật: (đang đi, hướng, tick bắt đầu trạng thái).
     motion: BTreeMap<u8, (bool, Dir, u32)>,
+    /// Power chụp lúc đặt; `BombExploded` không mang range.
+    bomb_power: BTreeMap<EntityId, u8>,
+    /// Giữ nguồn nổ độc lập với clip explosion (clip có thể hết trước lửa).
+    flame_origins: BTreeMap<EntityId, FlameOrigin>,
 }
 
 impl PresentationJournal {
@@ -531,6 +548,8 @@ impl PresentationJournal {
             seen: BTreeSet::new(),
             round_id,
             motion: BTreeMap::new(),
+            bomb_power: BTreeMap::new(),
+            flame_origins: BTreeMap::new(),
         }
     }
 
@@ -563,6 +582,19 @@ impl PresentationJournal {
             .and_then(|&(moving, _, since)| moving.then_some(since))
     }
 
+    /// Nhớ power từ snapshot/bom đang chờ, kể cả khi thiếu event đặt bom.
+    pub fn note_bombs(&mut self, bombs: &[Bomb]) {
+        for bomb in bombs {
+            self.bomb_power.insert(bomb.id, bomb.range);
+        }
+    }
+
+    /// Metadata của bom gây ra ô lửa (`Flame::source`).
+    #[must_use]
+    pub fn flame_origin(&self, source: EntityId) -> Option<FlameOrigin> {
+        self.flame_origins.get(&source).copied()
+    }
+
     /// Chuyển sang lượt khác: dọn mục đang phát và quên event của lượt cũ.
     ///
     /// Event của lượt cũ không thể lặp lại trong lượt mới, nên khoá cũng bỏ.
@@ -574,6 +606,8 @@ impl PresentationJournal {
         self.items.clear();
         self.seen.clear();
         self.motion.clear();
+        self.bomb_power.clear();
+        self.flame_origins.clear();
     }
 
     /// Lượt hiện tại của sổ: khoá dedup event là `(round_id, EventId)`.
@@ -604,6 +638,12 @@ impl PresentationJournal {
     /// Trả `false` nếu event không có hiệu ứng trình diễn, hoặc event **lặp** (đã thấy
     /// `(round_id, EventId)`) — reconcile/snapshot gửi lại event cũ không được phát lại.
     pub fn record_event(&mut self, event: &SimulationEvent) -> bool {
+        if let EventKind::BombPlaced { bomb, range, .. } = event.kind {
+            // Không để event đặt tới muộn ghi lại bom đã nổ.
+            if !self.flame_origins.contains_key(&bomb) {
+                self.bomb_power.insert(bomb, range);
+            }
+        }
         let Some((kind, subject)) = presentation_of(event) else {
             return false;
         };
@@ -613,6 +653,18 @@ impl PresentationJournal {
         };
         if !self.seen.insert(key) {
             return false;
+        }
+        if let EventKind::BombExploded { bomb, cell, .. } = event.kind
+            && let Some(power) = self.bomb_power.remove(&bomb)
+        {
+            self.flame_origins.insert(
+                bomb,
+                FlameOrigin {
+                    cell,
+                    power,
+                    start_tick: event.id.tick,
+                },
+            );
         }
         self.push(Presentation {
             key: Some(key),
@@ -778,15 +830,18 @@ pub fn bomb_frame(clock: &PresentationClock, frame_count: usize) -> usize {
     clock.looping_frame(frame_count)
 }
 
-/// Chỉ số frame của lửa trên ô: lặp trong dải frame lõi của clip lửa (R-087).
+/// Lửa phát chuỗi ODT một lần từ lúc nổ rồi giữ frame cuối (R-195/R-251/R-222).
 #[must_use]
-pub fn flame_frame(clock: &PresentationClock, frame_count: usize) -> usize {
-    let start = *FLAME_FRAMES.start();
-    let count = (FLAME_FRAMES.end() - FLAME_FRAMES.start() + 1).min(frame_count);
-    if count == 0 {
-        return 0;
-    }
-    start + clock.looping_frame(count)
+pub fn flame_frame(
+    clock: &PresentationClock,
+    origin: FlameOrigin,
+    steps: &[Step],
+) -> Option<usize> {
+    sequence_frame(steps, odt_units_since(clock, origin.start_tick), false).or_else(|| {
+        steps
+            .last()
+            .and_then(|&(frame, _)| usize::try_from(frame).ok())
+    })
 }
 
 /// Tên hướng trong nhãn state ODT (`Walk Left`, `Stop Down`…). `Dir::None` dùng `Down`.
@@ -1034,21 +1089,89 @@ mod tests {
     }
 
     #[test]
-    fn flame_frame_stays_inside_the_core_range() {
-        for tick in [0_u32, 1, 7, 33, 100, 999] {
-            let frame = flame_frame(&clock_at(tick), 100);
-            assert!(
-                (28..=59).contains(&frame),
-                "frame lửa {frame} nằm ngoài dải lõi"
-            );
+    fn flame_state_uses_role_and_bomb_power_not_distance() {
+        for (power, tier) in [(1, "01"), (3, "03"), (12, "10")] {
+            let origin = FlameOrigin {
+                cell: Cell::new(5, 5),
+                power,
+                start_tick: 100,
+            };
+            for (cell, role) in [
+                (Cell::new(5, 5), "C"),
+                (Cell::new(4, 5), "L"),
+                (Cell::new(5, 4), "U"),
+                (Cell::new(6, 5), "R"),
+                (Cell::new(5, 6), "D"),
+                (Cell::new(8, 5), "R"),
+            ] {
+                assert_eq!(
+                    origin.state(cell).as_deref(),
+                    Some(format!("Fire{role}{tier}").as_str())
+                );
+            }
+            assert_eq!(origin.state(Cell::new(6, 6)), None);
         }
-        // Lặp trong dải: sau 32 frame lặp lại từ đầu dải.
-        assert_eq!(flame_frame(&clock_at(0), 100), 28);
-        let period_ticks = 32 * 100 * 33 / 1000 + 1;
-        assert_eq!(
-            flame_frame(&clock_at(period_ticks), 100),
-            flame_frame(&clock_at(0), 100)
-        );
+    }
+
+    #[test]
+    fn flame_plays_odt_once_from_explosion_then_holds_the_last_frame() {
+        let origin = FlameOrigin {
+            cell: Cell::new(2, 2),
+            power: 3,
+            start_tick: 100,
+        };
+        // Đầu FireL01 theo ODT R-195: frame không tăng đều, đơn vị 1/30 s.
+        let steps = [(4, 1), (8, 1), (12, 1), (8, 1), (96, 2)];
+        for (elapsed, expected) in [
+            (0, 4),
+            (1, 8),
+            (2, 12),
+            (3, 8),
+            (4, 96),
+            (5, 96),
+            (6, 96),
+            (90, 96),
+        ] {
+            let clock = PresentationClock::new(
+                FrameClock {
+                    frame_ms: 100,
+                    ticks_per_second: 30,
+                },
+                100 + elapsed,
+            );
+            assert_eq!(flame_frame(&clock, origin, &steps), Some(expected));
+        }
+        assert_eq!(flame_frame(&clock_at(100), origin, &[]), None);
+    }
+
+    #[test]
+    fn flame_origin_survives_explosion_clip_pruning_and_resets_each_round() {
+        let mut journal = PresentationJournal::new(3);
+        let cell = Cell::new(2, 2);
+        journal.record_event(&event(
+            1,
+            0,
+            EventKind::BombPlaced {
+                bomb: EntityId(1),
+                player: 0,
+                cell,
+                range: 3,
+            },
+        ));
+        let explosion = explosion_event(10, 0, cell);
+        assert!(journal.record_event(&explosion));
+        let origin = FlameOrigin {
+            cell,
+            power: 3,
+            start_tick: 10,
+        };
+        assert_eq!(journal.flame_origin(EntityId(1)), Some(origin));
+        journal.prune(&clock_at(1000), &counts());
+        assert_eq!(journal.flame_origin(EntityId(1)), Some(origin));
+        assert!(!journal.record_event(&explosion));
+        assert_eq!(journal.flame_origin(EntityId(1)), Some(origin));
+        journal.set_round(4);
+        assert_eq!(journal.flame_origin(EntityId(1)), None);
     }
 
     #[test]
@@ -1071,7 +1194,7 @@ mod tests {
     fn empty_clip_has_no_frame() {
         assert_eq!(CLOCK.looping_frame(10, 0), 0);
         assert_eq!(character_loop_frame(&clock_at(10), 0), 0);
-        assert_eq!(flame_frame(&clock_at(10), 0), 0);
+
         assert_eq!(CLOCK.once_frame(0, 10, 0), None);
     }
 

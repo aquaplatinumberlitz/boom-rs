@@ -54,7 +54,7 @@ PR nào đổi hành vi; khi PR đó chưa merge thì hành vi trên main vẫn 
 | F-02 | Tư thế trong bóng, chữ HELP! | FaintLayer lặp, chưa có thân. HELP! (`Bomb/HELP!`, 4 frame) lặp 100 ms, căn giữa trên bóng tròn, nằm trên cùng (#346) | thân: chưa định vị. HELP: entry/vị trí `vn_runtime` candidate; nhịp `design` | #327 |
 | F-03 | Clip Start | Phát một lần theo sổ trình diễn | `design` | #328 |
 | F-04 | Nhịp fuse 4 frame | Lặp đều 100 ms | `design` | #329 |
-| F-05 | Chia Fire00, dải 28..59, motion blur | `FLAME_FRAMES = 28..=59` | `design` | #330 |
+| F-05 | Fire00 theo vai trò ô và power; motion blur | Nhánh `feat/flame-odt`: 75 state ODT, tâm/C và L/U/R/D theo bom nguồn, tier1..10 (power>10 dùng10); chuỗi một lần từ tick nổ, giữ cuối tới core tắt lửa. Main chưa merge vẫn dải28..59. Đối chiếu local `/tmp/boom-flame-evidence/` (S-02) | Chuỗi `kr_static` confirmed R-251; đơn vị1/30s confirmed R-222; chọn tier candidate R-192/R-195. Motion blur và power2–3 runtime còn thiếu (Q-003/Q-019) | #330 |
 | F-06 | explosion.main | 10 frame một lần tại ô bom | `design` | #331 |
 | F-07 | Die và xác | 14 frame, giữ khung cuối có ảnh (R-089) | một phần `design` | #332 |
 | F-08 | Item trên nền, hiệu ứng nhặt | 1 frame tĩnh | `design` | #333 |
